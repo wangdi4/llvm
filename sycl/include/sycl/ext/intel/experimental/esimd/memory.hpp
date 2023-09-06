@@ -367,6 +367,439 @@ __ESIMD_API void raw_send(__ESIMD_NS::simd<T1, n1> msgSrc0, uint32_t exDesc,
                                             msgSrc0.data());
 }
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef __ESIMD_FORCE_STATELESS_MEM
+/// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
+/// message gateway.
+///
+/// @tparam T2 is the destination element type.
+/// @tparam N2 is the destination vector length.
+/// @tparam exec_size is the execution size.
+/// @tparam sfid is the shared function ID.
+/// @tparam desc is the immediate descriptor.
+/// @tparam eot is the flag that indicates whether this is an EOT message
+/// (optional - default to off).
+/// @tparam sendc is the flag that indicates whether sendc should be used
+/// (optional - default to off).
+/// @param msg_src0 is the first source operand of the send message.
+/// @param msg_src1 is the second source operand of the send message.
+/// @param ind0 is the indirect descriptor 0.
+/// @param ind1 is the indirect descriptor 1.
+/// @param mask is the predicate to specify enabled channels, (optional -
+/// default to on).
+/// @param msg_dst is the old value of the destination operand, (optional -
+/// default to 0).
+template <typename T2, int N2, uint8_t exec_size, uint32_t sfid, uint64_t desc,
+          raw_send_eot eot = raw_send_eot::not_eot,
+          raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0,
+          typename T1, int N1>
+__ESIMD_API __ESIMD_NS::simd<T2, N2>
+raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, __ESIMD_NS::simd<T1, N1> msg_src1,
+          uint64_t ind0, uint64_t ind1,
+          __ESIMD_NS::simd_mask<exec_size> mask = 1,
+          __ESIMD_NS::simd<T2, N2> msg_dst = 0) {
+
+  using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+  using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+  using ElemT2 = __ESIMD_DNS::__raw_t<T2>;
+
+  constexpr uint32_t dst_size = N2 * sizeof(T2);
+  constexpr uint32_t src0_size = N0 * sizeof(T0);
+  constexpr uint32_t src1_size = N1 * sizeof(T1);
+
+  return __esimd_raw_sendg2<eot, sendc, exec_size, sfid, dst_size, src0_size,
+                            src1_size, desc, ElemT2, N2, ElemT0, N0, ElemT1,
+                            N1>(mask.data(), msg_src0.data(), msg_src1.data(),
+                                ind0, ind1, msg_dst.data());
+}
+
+/// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
+/// message gateway.
+///
+/// @tparam T2 is the destination element type.
+/// @tparam N2 is the destination vector length.
+/// @tparam exec_size is the execution size.
+/// @tparam sfid is the shared function ID.
+/// @tparam desc is the immediate descriptor.
+/// @tparam eot is the flag that indicates whether this is an EOT message
+/// (optional - default to off).
+/// @tparam sendc is the flag that indicates whether sendc should be used
+/// (optional - default to off).
+/// @param msg_src0 is the first source operand of the send message.
+/// @param msg_src1 is the second source operand of the send message.
+/// @param ind0 is the indirect descriptor 0.
+/// @param mask is the predicate to specify enabled channels, (optional -
+/// default to on).
+/// @param msg_dst is the old value of the destination operand, (optional -
+/// default to 0).
+template <typename T2, int N2, uint8_t exec_size, uint32_t sfid, uint64_t desc,
+          raw_send_eot eot = raw_send_eot::not_eot,
+          raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0,
+          typename T1, int N1>
+__ESIMD_API __ESIMD_NS::simd<T2, N2>
+raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, __ESIMD_NS::simd<T1, N1> msg_src1,
+          uint64_t ind0, __ESIMD_NS::simd_mask<exec_size> mask = 1,
+          __ESIMD_NS::simd<T2, N2> msg_dst = 0) {
+
+  using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+  using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+  using ElemT2 = __ESIMD_DNS::__raw_t<T2>;
+
+  constexpr uint32_t dst_size = N2 * sizeof(T2);
+  constexpr uint32_t src0_size = N0 * sizeof(T0);
+  constexpr uint32_t src1_size = N1 * sizeof(T1);
+
+  return __esimd_raw_sendg2<eot, sendc, exec_size, sfid, dst_size, src0_size,
+                            src1_size, desc, ElemT2, N2, ElemT0, N0, ElemT1,
+                            N1>(mask.data(), msg_src0.data(), msg_src1.data(),
+                                ind0, msg_dst.data());
+}
+
+/// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
+/// message gateway.
+///
+/// @tparam T2 is the destination element type.
+/// @tparam N2 is the destination vector length.
+/// @tparam exec_size is the execution size.
+/// @tparam sfid is the shared function ID.
+/// @tparam desc is the immediate descriptor.
+/// @tparam eot is the flag that indicates whether this is an EOT message
+/// (optional - default to off).
+/// @tparam sendc is the flag that indicates whether sendc should be used
+/// (optional - default to off).
+/// @param msg_src0 is the first source operand of the send message.
+/// @param msg_src1 is the second source operand of the send message.
+/// @param mask is the predicate to specify enabled channels, (optional -
+/// default to on).
+/// @param msg_dst is the old value of the destination operand, (optional -
+/// default to 0).
+template <typename T2, int N2, uint8_t exec_size, uint32_t sfid, uint64_t desc,
+          raw_send_eot eot = raw_send_eot::not_eot,
+          raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0,
+          typename T1, int N1>
+__ESIMD_API __ESIMD_NS::simd<T2, N2>
+raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, __ESIMD_NS::simd<T1, N1> msg_src1,
+
+          __ESIMD_NS::simd_mask<exec_size> mask = 1,
+          __ESIMD_NS::simd<T2, N2> msg_dst = 0) {
+
+  using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+  using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+  using ElemT2 = __ESIMD_DNS::__raw_t<T2>;
+
+  constexpr uint32_t dst_size = N2 * sizeof(T2);
+  constexpr uint32_t src0_size = N0 * sizeof(T0);
+  constexpr uint32_t src1_size = N1 * sizeof(T1);
+
+  return __esimd_raw_sendg2<eot, sendc, exec_size, sfid, dst_size, src0_size,
+                            src1_size, desc, ElemT2, N2, ElemT0, N0, ElemT1,
+                            N1>(mask.data(), msg_src0.data(), msg_src1.data(),
+                                msg_dst.data());
+}
+
+/// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
+/// message gateway.
+///
+/// @tparam exec_size is the execution size.
+/// @tparam sfid is the shared function ID.
+/// @tparam desc is the immediate descriptor.
+/// @tparam eot is the flag that indicates whether this is an EOT message
+/// (optional - default to off).
+/// @tparam sendc is the flag that indicates whether sendc should be used
+/// (optional - default to off).
+/// @param msg_src0 is the first source operand of the send message.
+/// @param msg_src1 is the second source operand of the send message.
+/// @param ind0 is the indirect descriptor 0.
+/// @param ind1 is the indirect descriptor 1.
+/// @param mask is the predicate to specify enabled channels, (optional -
+/// default to on).
+template <uint8_t exec_size, uint32_t sfid, uint64_t desc,
+          raw_send_eot eot = raw_send_eot::not_eot,
+          raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0,
+          typename T1, int N1>
+__ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0,
+                           __ESIMD_NS::simd<T1, N1> msg_src1, uint64_t ind0,
+                           uint64_t ind1,
+                           __ESIMD_NS::simd_mask<exec_size> mask = 1) {
+
+  using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+  using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+
+  constexpr uint32_t src0_size = N0 * sizeof(T0);
+  constexpr uint32_t src1_size = N1 * sizeof(T1);
+
+  __esimd_raw_sendg2_noresult<eot, sendc, exec_size, sfid, src0_size, src1_size,
+                              desc, ElemT0, N0, ElemT1, N1>(
+      mask.data(), msg_src0.data(), msg_src1.data(), ind0, ind1);
+}
+
+/// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
+/// message gateway.
+///
+/// @tparam exec_size is the execution size.
+/// @tparam sfid is the shared function ID.
+/// @tparam desc is the immediate descriptor.
+/// @tparam eot is the flag that indicates whether this is an EOT message
+/// (optional - default to off).
+/// @tparam sendc is the flag that indicates whether sendc should be used
+/// (optional - default to off).
+/// @param msg_src0 is the first source operand of the send message.
+/// @param msg_src1 is the second source operand of the send message.
+/// @param ind0 is the indirect descriptor 0.
+/// @param mask is the predicate to specify enabled channels, (optional -
+/// default to on).
+template <uint8_t exec_size, uint32_t sfid, uint64_t desc,
+          raw_send_eot eot = raw_send_eot::not_eot,
+          raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0,
+          typename T1, int N1>
+__ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0,
+                           __ESIMD_NS::simd<T1, N1> msg_src1, uint64_t ind0,
+
+                           __ESIMD_NS::simd_mask<exec_size> mask = 1) {
+
+  using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+  using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+
+  constexpr uint32_t src0_size = N0 * sizeof(T0);
+  constexpr uint32_t src1_size = N1 * sizeof(T1);
+
+  __esimd_raw_sendg2_noresult<eot, sendc, exec_size, sfid, src0_size, src1_size,
+                              desc, ElemT0, N0, ElemT1, N1>(
+      mask.data(), msg_src0.data(), msg_src1.data(), ind0);
+}
+
+/// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
+/// message gateway.
+///
+/// @tparam exec_size is the execution size.
+/// @tparam sfid is the shared function ID.
+/// @tparam desc is the immediate descriptor.
+/// @tparam eot is the flag that indicates whether this is an EOT message
+/// (optional - default to off).
+/// @tparam sendc is the flag that indicates whether sendc should be used
+/// (optional - default to off).
+/// @param msg_src0 is the first source operand of the send message.
+/// @param msg_src1 is the second source operand of the send message.
+/// @param mask is the predicate to specify enabled channels, (optional -
+/// default to on).
+template <uint8_t exec_size, uint32_t sfid, uint64_t desc,
+          raw_send_eot eot = raw_send_eot::not_eot,
+          raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0,
+          typename T1, int N1>
+__ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0,
+                           __ESIMD_NS::simd<T1, N1> msg_src1,
+                           __ESIMD_NS::simd_mask<exec_size> mask = 1) {
+
+  using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+  using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+
+  constexpr uint32_t src0_size = N0 * sizeof(T0);
+  constexpr uint32_t src1_size = N1 * sizeof(T1);
+
+  __esimd_raw_sendg2_noresult<eot, sendc, exec_size, sfid, src0_size, src1_size,
+                              desc, ElemT0, N0, ElemT1, N1>(
+      mask.data(), msg_src0.data(), msg_src1.data());
+}
+
+/// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
+/// message gateway.
+///
+/// @tparam T1 is the destination element type.
+/// @tparam N1 is the destination vector length.
+/// @tparam exec_size is the execution size.
+/// @tparam sfid is the shared function ID.
+/// @tparam desc is the immediate descriptor.
+/// @tparam eot is the flag that indicates whether this is an EOT message
+/// (optional - default to off).
+/// @tparam sendc is the flag that indicates whether sendc should be used
+/// (optional - default to off).
+/// @param msg_src0 is the first source operand of the send message.
+/// @param ind0 is the indirect descriptor 0.
+/// @param ind1 is the indirect descriptor 1.
+/// @param mask is the predicate to specify enabled channels, (optional -
+/// default to on).
+/// @param msg_dst is the old value of the destination operand, (optional -
+/// default to 0).
+template <typename T1, int N1, uint8_t exec_size, uint32_t sfid, uint64_t desc,
+          raw_send_eot eot = raw_send_eot::not_eot,
+          raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0>
+__ESIMD_API __ESIMD_NS::simd<T1, N1>
+raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, uint64_t ind0, uint64_t ind1,
+          __ESIMD_NS::simd_mask<exec_size> mask = 1,
+          __ESIMD_NS::simd<T1, N1> msg_dst = 0) {
+
+  using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+  using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+
+  constexpr uint32_t dst_size = N1 * sizeof(T1);
+  constexpr uint32_t src0_size = N0 * sizeof(T0);
+
+  return __esimd_raw_sendg<eot, sendc, exec_size, sfid, dst_size, src0_size,
+                           desc, ElemT1, N1, ElemT0, N0>(
+      mask.data(), msg_src0.data(), ind0, ind1, msg_dst.data());
+}
+/// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
+/// message gateway.
+///
+/// @tparam T1 is the destination element type.
+/// @tparam N1 is the destination vector length.
+/// @tparam exec_size is the execution size.
+/// @tparam sfid is the shared function ID.
+/// @tparam desc is the immediate descriptor.
+/// @tparam eot is the flag that indicates whether this is an EOT message
+/// (optional - default to off).
+/// @tparam sendc is the flag that indicates whether sendc should be used
+/// (optional - default to off).
+/// @param msg_src0 is the first source operand of the send message.
+/// @param ind0 is the indirect descriptor 0.
+/// @param mask is the predicate to specify enabled channels, (optional -
+/// default to on).
+/// @param msg_dst is the old value of the destination operand, (optional -
+/// default to 0).
+template <typename T1, int N1, uint8_t exec_size, uint32_t sfid, uint64_t desc,
+          raw_send_eot eot = raw_send_eot::not_eot,
+          raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0>
+__ESIMD_API __ESIMD_NS::simd<T1, N1>
+raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, uint64_t ind0,
+          __ESIMD_NS::simd_mask<exec_size> mask = 1,
+          __ESIMD_NS::simd<T1, N1> msg_dst = 0) {
+
+  using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+  using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+
+  constexpr uint32_t dst_size = N1 * sizeof(T1);
+  constexpr uint32_t src0_size = N0 * sizeof(T0);
+
+  return __esimd_raw_sendg<eot, sendc, exec_size, sfid, dst_size, src0_size,
+                           desc, ElemT1, N1, ElemT0, N0>(
+      mask.data(), msg_src0.data(), ind0, msg_dst.data());
+}
+
+/// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
+/// message gateway.
+///
+/// @tparam T1 is the destination element type.
+/// @tparam N1 is the destination vector length.
+/// @tparam exec_size is the execution size.
+/// @tparam sfid is the shared function ID.
+/// @tparam desc is the immediate descriptor.
+/// @tparam eot is the flag that indicates whether this is an EOT message
+/// (optional - default to off).
+/// @tparam sendc is the flag that indicates whether sendc should be used
+/// (optional - default to off).
+/// @param msg_src0 is the first source operand of the send message.
+/// @param mask is the predicate to specify enabled channels, (optional -
+/// default to on).
+/// @param msg_dst is the old value of the destination operand, (optional -
+/// default to 0).
+template <typename T1, int N1, uint8_t exec_size, uint32_t sfid, uint64_t desc,
+          raw_send_eot eot = raw_send_eot::not_eot,
+          raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0>
+__ESIMD_API __ESIMD_NS::simd<T1, N1>
+raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0,
+          __ESIMD_NS::simd_mask<exec_size> mask = 1,
+          __ESIMD_NS::simd<T1, N1> msg_dst = 0) {
+
+  using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+  using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+
+  constexpr uint32_t dst_size = N1 * sizeof(T1);
+  constexpr uint32_t src0_size = N0 * sizeof(T0);
+
+  return __esimd_raw_sendg<eot, sendc, exec_size, sfid, dst_size, src0_size,
+                           desc, ElemT1, N1, ElemT0, N0>(
+      mask.data(), msg_src0.data(), msg_dst.data());
+}
+
+/// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
+/// message gateway.
+///
+/// @tparam exec_size is the execution size.
+/// @tparam sfid is the shared function ID.
+/// @tparam desc is the immediate descriptor.
+/// @tparam eot is the flag that indicates whether this is an EOT message
+/// (optional - default to off).
+/// @tparam sendc is the flag that indicates whether sendc should be used
+/// (optional - default to off).
+/// @param msg_src0 is the first source operand of the send message.
+/// @param ind0 is the indirect descriptor 0.
+/// @param ind1 is the indirect descriptor 1.
+/// @param mask is the predicate to specify enabled channels, (optional -
+/// default to on).
+template <uint8_t exec_size, uint32_t sfid, uint64_t desc,
+          raw_send_eot eot = raw_send_eot::not_eot,
+          raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0>
+__ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, uint64_t ind0,
+                           uint64_t ind1,
+                           __ESIMD_NS::simd_mask<exec_size> mask = 1) {
+
+  using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+
+  constexpr uint32_t src0_size = N0 * sizeof(T0);
+
+  __esimd_raw_sendg_noresult<eot, sendc, exec_size, sfid, src0_size, desc,
+                             ElemT0, N0>(mask.data(), msg_src0.data(), ind0,
+                                         ind1);
+}
+/// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
+/// message gateway.
+///
+/// @tparam exec_size is the execution size.
+/// @tparam sfid is the shared function ID.
+/// @tparam desc is the immediate descriptor.
+/// @tparam eot is the flag that indicates whether this is an EOT message
+/// (optional - default to off).
+/// @tparam sendc is the flag that indicates whether sendc should be used
+/// (optional - default to off).
+/// @param msg_src0 is the first source operand of the send message.
+/// @param ind0 is the indirect descriptor 0.
+/// @param mask is the predicate to specify enabled channels, (optional -
+/// default to on).
+template <uint8_t exec_size, uint32_t sfid, uint64_t desc,
+          raw_send_eot eot = raw_send_eot::not_eot,
+          raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0>
+__ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, uint64_t ind0,
+                           __ESIMD_NS::simd_mask<exec_size> mask = 1) {
+
+  using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+
+  constexpr uint32_t src0_size = N0 * sizeof(T0);
+
+  __esimd_raw_sendg_noresult<eot, sendc, exec_size, sfid, src0_size, desc,
+                             ElemT0, N0>(mask.data(), msg_src0.data(), ind0);
+}
+
+/// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
+/// message gateway.
+///
+/// @tparam exec_size is the execution size.
+/// @tparam sfid is the shared function ID.
+/// @tparam desc is the immediate descriptor.
+/// @tparam eot is the flag that indicates whether this is an EOT message
+/// (optional - default to off).
+/// @tparam sendc is the flag that indicates whether sendc should be used
+/// (optional - default to off).
+/// @param msg_src0 is the first source operand of the send message.
+/// @param mask is the predicate to specify enabled channels, (optional -
+/// default to on).
+template <uint8_t exec_size, uint32_t sfid, uint64_t desc,
+          raw_send_eot eot = raw_send_eot::not_eot,
+          raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0>
+__ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0,
+                           __ESIMD_NS::simd_mask<exec_size> mask = 1) {
+
+  using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+
+  constexpr uint32_t src0_size = N0 * sizeof(T0);
+
+  __esimd_raw_sendg_noresult<eot, sendc, exec_size, sfid, src0_size, desc,
+                             ElemT0, N0>(mask.data(), msg_src0.data());
+}
+#endif
+/* end INTEL_CUSTOMIZATION */
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+
 /// @} sycl_esimd_raw_send
 
 /// @defgroup sycl_esimd_memory_nbarrier Named barrier APIs.
