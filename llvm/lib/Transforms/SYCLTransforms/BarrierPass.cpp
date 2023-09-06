@@ -82,6 +82,10 @@ private:
   /// Handle synchronize value of processed function.
   void replaceSyncInstructions();
 
+  /// In a basic block, only keep the first CurrSBIndex load instruction and
+  /// replace other CurrSBIndex instructions with it.
+  void deduplicateCurrSBIndexInsts(Function &F);
+
   /// Initialize general values used to handle special values
   /// and synchronize instructions in the processed function
   /// Func function to create key values for.
@@ -360,6 +364,9 @@ private:
   /// buffer in the BBs where %my_i is not used but %my_i.ascast is used.
   /// Without this, debug info of %my_i is incorrect in those BBs.
   MapAllocaToBasicBlockVector AllocaUpdateMap;
+
+  /// This holds a map from function to its vector of CurrSBIndex instructions.
+  DenseMap<Function *, SmallVector<Instruction *, 0>> FuncToCurrSBIndexInstsMap;
 };
 
 } // namespace
@@ -489,6 +496,9 @@ bool KernelBarrierImpl::runOnFunction(Function &F) {
 
   // Replace sync instructions with internal loop over WI ID.
   replaceSyncInstructions();
+
+  // Remove redundant CurrSBIndex load instructions in each basic block.
+  deduplicateCurrSBIndexInsts(F);
 
   // Remove all instructions in InstructionsToRemove.
   (void)eraseAllToRemoveInstructions();
@@ -1214,6 +1224,31 @@ void KernelBarrierImpl::replaceSyncInstructions() {
   }
 }
 
+void KernelBarrierImpl::deduplicateCurrSBIndexInsts(Function &F) {
+  auto It = FuncToCurrSBIndexInstsMap.find(&F);
+  if (It == FuncToCurrSBIndexInstsMap.end())
+    return;
+
+  DenseMap<BasicBlock *, SmallVector<Instruction *, 16>> BBToSBIndexInstsMap;
+  for (auto *I : It->second)
+    BBToSBIndexInstsMap[I->getParent()].push_back(I);
+  for (auto &[BB, SBIndexInsts] : BBToSBIndexInstsMap) {
+    if (SBIndexInsts.size() == 1)
+      continue;
+    // Find the first CurrSBIndex according to order in the basic block.
+    Instruction *First = SBIndexInsts[0];
+    for (unsigned Idx = 1; Idx < SBIndexInsts.size(); ++Idx)
+      if (SBIndexInsts[Idx]->comesBefore(First))
+        First = SBIndexInsts[Idx];
+    for (auto *I : SBIndexInsts) {
+      if (I == First)
+        continue;
+      I->replaceAllUsesWith(First);
+      InstructionsToRemove.push_back(I);
+    }
+  }
+}
+
 void KernelBarrierImpl::createBarrierKeyValues(Function *Func,
                                                bool /*HasNoInternalCalls*/) {
   BarrierKeyValues *KeyValues = &BarrierKeyValuesPerFunction[Func];
@@ -1287,9 +1322,10 @@ Value *KernelBarrierImpl::getAddressInSpecialBuffer(unsigned int Offset,
     B.SetCurrentDebugLocation(*DB);
   // Calculate the pointer of the given Offset for LocalId in the special
   // buffer.
-  Value *CurrSB = createGetCurrSBIndex(B);
-  CurrSB = B.CreateNUWAdd(CurrSB, OffsetVal, "SB_LocalId_Offset");
-  Value *Idxs[1] = {CurrSB};
+  Instruction *CurrSB = createGetCurrSBIndex(B);
+  FuncToCurrSBIndexInstsMap[CurrSB->getFunction()].push_back(CurrSB);
+  Value *SBIndex = B.CreateNUWAdd(CurrSB, OffsetVal, "SB_LocalId_Offset");
+  Value *Idxs[1] = {SBIndex};
   Value *AddrInSBinBytes =
       B.CreateInBoundsGEP(Utils.getSpecialBufferValueTy(),
                           CurrentBarrierKeyValues->SpecialBufferValue,

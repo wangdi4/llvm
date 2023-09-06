@@ -22,10 +22,10 @@ entry:
 ; CHECK: %data.addr = alloca ptr
 
 ; CHECK-LABEL: SyncBB1:
-; CHECK: [[Offset_data:%SB_LocalId_Offset[0-9]+]] = add nuw i64 %SBIndex{{[0-9]+}}, 32
+; CHECK: [[Offset_data:%SB_LocalId_Offset[0-9]+]] = add nuw i64 %SBIndex, 32
 ; CHECK-NEXT: [[Ptr_data:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset_data]]
 ; CHECK-NEXT: store ptr [[Ptr_data]], ptr %data.addr
-; CHECK: [[Offset_i:%SB_LocalId_Offset[0-9]+]] = add nuw i64 %SBIndex{{[0-9]+}}, 64
+; CHECK: [[Offset_i:%SB_LocalId_Offset[0-9]+]] = add nuw i64 %SBIndex, 64
 ; CHECK-NEXT: [[Ptr_i:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset_i]]
 ; CHECK-NEXT: store ptr [[Ptr_i]], ptr %i.addr
 

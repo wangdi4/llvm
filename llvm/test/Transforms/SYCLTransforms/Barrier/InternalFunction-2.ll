@@ -40,8 +40,7 @@ L3:
 ; CHECK:   %SBIndex = load i32, ptr %pCurrSBIndex
 ; CHECK:   %SB_LocalId_Offset = add nuw i32 %SBIndex, 4
 ; CHECK:   [[GEP0:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i32 %SB_LocalId_Offset
-; CHECK:   [[SBIndex1:%SBIndex[a-zA-Z0-9]+]] = load i32, ptr %pCurrSBIndex
-; CHECK:   [[SB_LocalId_Offset1:%SB_LocalId_Offset[a-zA-Z0-9]+]] = add nuw i32 [[SBIndex1]], 0
+; CHECK:   [[SB_LocalId_Offset1:%SB_LocalId_Offset[a-zA-Z0-9]+]] = add nuw i32 %SBIndex, 0
 ; CHECK:   [[GEP1:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i32 [[SB_LocalId_Offset1]]
 ; CHECK:   %loadedValue = load i32, ptr [[GEP1]]
 ; CHECK:   store i32 %loadedValue, ptr [[GEP0]]
