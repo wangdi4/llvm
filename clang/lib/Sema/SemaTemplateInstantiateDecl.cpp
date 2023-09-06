@@ -3368,7 +3368,6 @@ Decl *TemplateDeclInstantiator::VisitCXXMethodDecl(
     FunctionTemplate->setAccess(Method->getAccess());
 
   SemaRef.CheckOverrideControl(Method);
-  SemaRef.CheckVirtualSYCLAddIRAttributesFunctionAttr(Method);
 
   // If a function is defined as defaulted or deleted, mark it as such now.
   if (D->isExplicitlyDefaulted()) {
