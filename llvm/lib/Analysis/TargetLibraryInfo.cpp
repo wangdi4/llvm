@@ -51,8 +51,6 @@ static cl::opt<TargetLibraryInfoImpl::AltMathLibrary> ClAltMathLibrary(
                clEnumValN(TargetLibraryInfoImpl::SVMLAltMathLibrary, "svml",
                           "Intel SVML library"),
 #endif // INTEL_CUSTOMIZATION
-               clEnumValN(TargetLibraryInfoImpl::SVMLAltMathLibrary, "svml",
-                          "Intel SVML library"),
                clEnumValN(TargetLibraryInfoImpl::TestAltMathLibrary, "test",
                           "Fake library used for testing")));
 
