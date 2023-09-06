@@ -2984,7 +2984,11 @@ static bool hoistArithmetics(Instruction &I, Loop &L,
     return true;
   }
 
-  if (hoistFPAssociation(I, L, SafetyInfo, MSSAU, AC, DT)) {
+#if INTEL_CUSTOMIZATION
+  // Same reasons as above. May also have effects on SLP if code is hoisted
+  // in some places but not others.
+  if (!DisableGEPHoist && hoistFPAssociation(I, L, SafetyInfo, MSSAU, AC, DT)) {
+#endif // INTEL_CUSTOMIZATION
     ++NumHoisted;
     ++NumFPAssociationsHoisted;
     return true;
