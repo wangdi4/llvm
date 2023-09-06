@@ -387,7 +387,7 @@ constexpr FeatureBitset FeaturesRoyal =
 constexpr ProcInfo Processors[] = {
  // Empty processor. Include X87 and CMPXCHG8 for backwards compatibility.
   { {""}, CK_None, ~0U, FeatureX87 | FeatureCMPXCHG8B, '\0', false },
-  { {"generic"}, CK_None, ~0U, FeatureX87 & ~FeatureX87, 'A', true }, // INTEL
+  { {"generic"}, CK_None, ~0U, FeatureX87 | FeatureCMPXCHG8B | Feature64BIT, 'A', true },
   // i386-generation processors.
   { {"i386"}, CK_i386, ~0U, FeatureX87, '\0', false },
   // i486-generation processors.

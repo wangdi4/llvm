@@ -5242,7 +5242,7 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
   while (Options.size() > 1 &&
          ((UseLibIrc && CodeGenFunction::GetCpuFeatureBitmap(
                             (Options.end() - 2)->Conditions.Features) ==
-                            std::array<uint64_t, 2>{0, 0}) ||
+                            std::array<uint64_t, 2>{2, 0}) ||
           (!UseLibIrc &&
            llvm::all_of(llvm::X86::getCpuSupportsMask(
                             (Options.end() - 2)->Conditions.Features),
