@@ -1075,9 +1075,7 @@ Value *llvm::getShuffleReduction(IRBuilderBase &Builder, Value *Src,
   return Builder.CreateExtractElement(TmpVec, Builder.getInt32(0));
 }
 
-Value *llvm::createAnyOfTargetReduction(IRBuilderBase &Builder,
-                                        const TargetTransformInfo *TTI,
-                                        Value *Src,
+Value *llvm::createAnyOfTargetReduction(IRBuilderBase &Builder, Value *Src,
                                         const RecurrenceDescriptor &Desc,
                                         PHINode *OrigPhi) {
   assert(
@@ -1115,9 +1113,8 @@ Value *llvm::createAnyOfTargetReduction(IRBuilderBase &Builder,
   return Builder.CreateSelect(Cmp, NewVal, InitVal, "rdx.select");
 }
 
-Value *llvm::createSimpleTargetReduction(IRBuilderBase &Builder,
-                                         const TargetTransformInfo *TTI,
-                                         Value *Src, RecurKind RdxKind) {
+Value *llvm::createSimpleTargetReduction(IRBuilderBase &Builder, Value *Src,
+                                         RecurKind RdxKind) {
   auto *SrcVecEltTy = cast<VectorType>(Src->getType())->getElementType();
   switch (RdxKind) {
   case RecurKind::Add:
@@ -1158,7 +1155,6 @@ Value *llvm::createSimpleTargetReduction(IRBuilderBase &Builder,
 }
 
 Value *llvm::createTargetReduction(IRBuilderBase &B,
-                                   const TargetTransformInfo *TTI,
                                    const RecurrenceDescriptor &Desc, Value *Src,
                                    PHINode *OrigPhi) {
   // TODO: Support in-order reductions based on the recurrence descriptor.
@@ -1169,9 +1165,9 @@ Value *llvm::createTargetReduction(IRBuilderBase &B,
 
   RecurKind RK = Desc.getRecurrenceKind();
   if (RecurrenceDescriptor::isAnyOfRecurrenceKind(RK))
-    return createAnyOfTargetReduction(B, TTI, Src, Desc, OrigPhi);
+    return createAnyOfTargetReduction(B, Src, Desc, OrigPhi);
 
-  return createSimpleTargetReduction(B, TTI, Src, RK);
+  return createSimpleTargetReduction(B, Src, RK);
 }
 
 Value *llvm::createOrderedReduction(IRBuilderBase &B,

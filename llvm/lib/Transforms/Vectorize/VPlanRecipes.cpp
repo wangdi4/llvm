@@ -267,8 +267,8 @@ VPInstruction::VPInstruction(unsigned Opcode, CmpInst::Predicate Pred,
                              VPValue *A, VPValue *B, DebugLoc DL,
                              const Twine &Name)
     : VPRecipeWithIRFlags(VPDef::VPInstructionSC, ArrayRef<VPValue *>({A, B}),
-                          Pred),
-      VPValue(this), Opcode(Opcode), DL(DL), Name(Name.str()) {
+                          Pred, DL),
+      VPValue(this), Opcode(Opcode), Name(Name.str()) {
   assert(Opcode == Instruction::ICmp &&
          "only ICmp predicates supported at the moment");
 }
@@ -276,8 +276,8 @@ VPInstruction::VPInstruction(unsigned Opcode, CmpInst::Predicate Pred,
 VPInstruction::VPInstruction(unsigned Opcode,
                              std::initializer_list<VPValue *> Operands,
                              FastMathFlags FMFs, DebugLoc DL, const Twine &Name)
-    : VPRecipeWithIRFlags(VPDef::VPInstructionSC, Operands, FMFs),
-      VPValue(this), Opcode(Opcode), DL(DL), Name(Name.str()) {
+    : VPRecipeWithIRFlags(VPDef::VPInstructionSC, Operands, FMFs, DL),
+      VPValue(this), Opcode(Opcode), Name(Name.str()) {
   // Make sure the VPInstruction is a floating-point operation.
   assert(isFPMathOp() && "this op can't take fast-math flags");
 }
@@ -285,7 +285,7 @@ VPInstruction::VPInstruction(unsigned Opcode,
 Value *VPInstruction::generateInstruction(VPTransformState &State,
                                           unsigned Part) {
   IRBuilderBase &Builder = State.Builder;
-  Builder.SetCurrentDebugLocation(DL);
+  Builder.SetCurrentDebugLocation(getDebugLoc());
 
   if (Instruction::isBinaryOp(getOpcode())) {
     Value *A = State.get(getOperand(0), Part);
@@ -505,7 +505,7 @@ void VPInstruction::print(raw_ostream &O, const Twine &Indent,
   printFlags(O);
   printOperands(O, SlotTracker);
 
-  if (DL) {
+  if (auto DL = getDebugLoc()) {
     O << ", !dbg ";
     DL.print(O);
   }
@@ -517,7 +517,7 @@ void VPWidenCallRecipe::execute(VPTransformState &State) {
   auto &CI = *cast<CallInst>(getUnderlyingInstr());
   assert(!isa<DbgInfoIntrinsic>(CI) &&
          "DbgInfoIntrinsic should have been dropped during VPlan construction");
-  State.setDebugLocFromInst(&CI);
+  State.setDebugLocFrom(CI.getDebugLoc());
 
   for (unsigned Part = 0; Part < State.UF; ++Part) {
     SmallVector<Type *, 2> TysForDecl;
@@ -621,8 +621,7 @@ void VPWidenSelectRecipe::print(raw_ostream &O, const Twine &Indent,
 #endif
 
 void VPWidenSelectRecipe::execute(VPTransformState &State) {
-  auto &I = *cast<SelectInst>(getUnderlyingInstr());
-  State.setDebugLocFromInst(&I);
+  State.setDebugLocFrom(getDebugLoc());
 
   // The condition can be loop invariant but still defined inside the
   // loop. This means that we can't just use the original 'cond' value.
@@ -637,7 +636,7 @@ void VPWidenSelectRecipe::execute(VPTransformState &State) {
     Value *Op1 = State.get(getOperand(2), Part);
     Value *Sel = State.Builder.CreateSelect(Cond, Op0, Op1);
     State.set(this, Sel, Part);
-    State.addMetadata(Sel, &I);
+    State.addMetadata(Sel, dyn_cast_or_null<Instruction>(getUnderlyingValue()));
   }
 }
 
@@ -684,6 +683,7 @@ void VPRecipeWithIRFlags::printFlags(raw_ostream &O) const {
 #endif
 
 void VPWidenRecipe::execute(VPTransformState &State) {
+  State.setDebugLocFrom(getDebugLoc());
   auto &I = *cast<Instruction>(getUnderlyingValue());
   auto &Builder = State.Builder;
   switch (I.getOpcode()) {
@@ -713,8 +713,6 @@ void VPWidenRecipe::execute(VPTransformState &State) {
   case Instruction::Or:
   case Instruction::Xor: {
     // Just widen unops and binops.
-    State.setDebugLocFromInst(&I);
-
     for (unsigned Part = 0; Part < State.UF; ++Part) {
       SmallVector<Value *, 2> Ops;
       for (VPValue *VPOp : operands())
@@ -733,8 +731,6 @@ void VPWidenRecipe::execute(VPTransformState &State) {
     break;
   }
   case Instruction::Freeze: {
-    State.setDebugLocFromInst(&I);
-
     for (unsigned Part = 0; Part < State.UF; ++Part) {
       Value *Op = State.get(getOperand(0), Part);
 
@@ -748,7 +744,6 @@ void VPWidenRecipe::execute(VPTransformState &State) {
     // Widen compares. Generate vector compares.
     bool FCmp = (I.getOpcode() == Instruction::FCmp);
     auto *Cmp = cast<CmpInst>(&I);
-    State.setDebugLocFromInst(Cmp);
     for (unsigned Part = 0; Part < State.UF; ++Part) {
       Value *A = State.get(getOperand(0), Part);
       Value *B = State.get(getOperand(1), Part);
@@ -786,9 +781,7 @@ void VPWidenRecipe::print(raw_ostream &O, const Twine &Indent,
 #endif
 
 void VPWidenCastRecipe::execute(VPTransformState &State) {
-  auto *I = cast_or_null<Instruction>(getUnderlyingValue());
-  if (I)
-    State.setDebugLocFromInst(I);
+  State.setDebugLocFrom(getDebugLoc());
   auto &Builder = State.Builder;
   /// Vectorize casts.
   assert(State.VF.isVector() && "Not vectorizing?");
@@ -798,7 +791,7 @@ void VPWidenCastRecipe::execute(VPTransformState &State) {
     Value *A = State.get(getOperand(0), Part);
     Value *Cast = Builder.CreateCast(Instruction::CastOps(Opcode), A, DestTy);
     State.set(this, Cast, Part);
-    State.addMetadata(Cast, I);
+    State.addMetadata(Cast, cast_or_null<Instruction>(getUnderlyingValue()));
   }
 }
 
@@ -1223,7 +1216,7 @@ void VPWidenGEPRecipe::print(raw_ostream &O, const Twine &Indent,
 #endif
 
 void VPBlendRecipe::execute(VPTransformState &State) {
-  State.setDebugLocFromInst(Phi);
+  State.setDebugLocFrom(getDebugLoc());
   // We know that all PHIs in non-header blocks are converted into
   // selects, so we don't have to worry about the insertion order and we
   // can just use the builder.
@@ -1265,7 +1258,7 @@ void VPBlendRecipe::execute(VPTransformState &State) {
 void VPBlendRecipe::print(raw_ostream &O, const Twine &Indent,
                           VPSlotTracker &SlotTracker) const {
   O << Indent << "BLEND ";
-  Phi->printAsOperand(O, false);
+  printAsOperand(O, SlotTracker);
   O << " =";
   if (getNumIncomingValues() == 1) {
     // Not a User of any mask: not really blending, this is a
@@ -1447,7 +1440,7 @@ void VPCanonicalIVPHIRecipe::execute(VPTransformState &State) {
 
   BasicBlock *VectorPH = State.CFG.getPreheaderBBFor(this);
   EntryPart->addIncoming(Start, VectorPH);
-  EntryPart->setDebugLoc(DL);
+  EntryPart->setDebugLoc(getDebugLoc());
   for (unsigned Part = 0, UF = State.UF; Part < UF; ++Part)
     State.set(this, EntryPart, Part);
 }
@@ -1717,7 +1710,7 @@ void VPActiveLaneMaskPHIRecipe::execute(VPTransformState &State) {
     PHINode *EntryPart =
         State.Builder.CreatePHI(StartMask->getType(), 2, "active.lane.mask");
     EntryPart->addIncoming(StartMask, VectorPH);
-    EntryPart->setDebugLoc(DL);
+    EntryPart->setDebugLoc(getDebugLoc());
     State.set(this, EntryPart, Part);
   }
 }

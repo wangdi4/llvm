@@ -1394,7 +1394,7 @@ bool CombinerHelper::matchPtrAddImmedChain(MachineInstr &MI,
   if (AccessTy) {
     AMNew.HasBaseReg = true;
     TargetLoweringBase::AddrMode AMOld;
-    AMOld.BaseOffs = MaybeImm2Val->Value.getSExtValue();
+    AMOld.BaseOffs = MaybeImmVal->Value.getSExtValue();
     AMOld.HasBaseReg = true;
     unsigned AS = MRI.getType(Add2).getAddressSpace();
     const auto &TLI = *MF.getSubtarget().getTargetLowering();
@@ -4286,7 +4286,7 @@ bool CombinerHelper::reassociationCanBreakAddressingModePattern(
   const APInt &C2APIntVal = *C2;
   const int64_t CombinedValue = (C1APIntVal + C2APIntVal).getSExtValue();
 
-  for (auto &UseMI : MRI.use_nodbg_instructions(Src1Reg)) {
+  for (auto &UseMI : MRI.use_nodbg_instructions(PtrAdd.getReg(0))) {
     // This combine may end up running before ptrtoint/inttoptr combines
     // manage to eliminate redundant conversions, so try to look through them.
     MachineInstr *ConvUseMI = &UseMI;
@@ -6024,6 +6024,24 @@ bool CombinerHelper::matchCommuteConstantToRHS(MachineInstr &MI) {
   return MRI.getVRegDef(RHS)->getOpcode() !=
              TargetOpcode::G_CONSTANT_FOLD_BARRIER &&
          !getIConstantVRegVal(RHS, MRI);
+}
+
+bool CombinerHelper::matchCommuteFPConstantToRHS(MachineInstr &MI) {
+  Register LHS = MI.getOperand(1).getReg();
+  Register RHS = MI.getOperand(2).getReg();
+  std::optional<FPValueAndVReg> ValAndVReg;
+  if (!mi_match(LHS, MRI, m_GFCstOrSplat(ValAndVReg)))
+    return false;
+  return !mi_match(RHS, MRI, m_GFCstOrSplat(ValAndVReg));
+}
+
+void CombinerHelper::applyCommuteBinOpOperands(MachineInstr &MI) {
+  Observer.changingInstr(MI);
+  Register LHSReg = MI.getOperand(1).getReg();
+  Register RHSReg = MI.getOperand(2).getReg();
+  MI.getOperand(1).setReg(RHSReg);
+  MI.getOperand(2).setReg(LHSReg);
+  Observer.changedInstr(MI);
 }
 
 bool CombinerHelper::tryCombine(MachineInstr &MI) {

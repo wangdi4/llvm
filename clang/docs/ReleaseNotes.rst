@@ -165,6 +165,7 @@ Improvements to Clang's diagnostics
   (`#64871: <https://github.com/llvm/llvm-project/issues/64871>`_).
   Also clang no longer emits false positive warnings about the output length of
   ``%g`` format specifier.
+- Clang now emits ``-Wcast-qual`` for functional-style cast expressions.
 
 Bug Fixes in This Version
 -------------------------
@@ -211,6 +212,8 @@ Bug Fixes in This Version
 - Clang now reports ``-Wformat`` for bool value and char specifier confusion
   in scanf. Fixes
   (`#64987 <https://github.com/llvm/llvm-project/issues/64987>`_)
+- Support MSVC predefined macro expressions in constant expressions and in
+  local structs.
 
 Bug Fixes to Compiler Builtins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
