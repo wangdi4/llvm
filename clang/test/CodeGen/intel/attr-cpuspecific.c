@@ -338,7 +338,7 @@ int GenericAndPentium(int i, double d);
 // LINUX: define weak_odr ptr @GenericAndPentium.resolver()
 // LINUX: ret ptr @GenericAndPentium.O
 // LINUX: ret ptr @GenericAndPentium.B
-// LINUX: ret {{.*}}@GenericAndPentium.A
+// LINUX-NOT: ret {{.*}}@GenericAndPentium.A
 // LINUX-NOT: call void @llvm.trap
 
 // WINDOWS: define weak_odr dso_local i32 @GenericAndPentium(i32 %0, double %1) comdat
@@ -346,7 +346,7 @@ int GenericAndPentium(int i, double d);
 // WINDOWS-NEXT: ret i32 %[[RET]]
 // WINDOWS: %[[RET:.+]] = musttail call i32 @GenericAndPentium.B(i32 %0, double %1)
 // WINDOWS-NEXT: ret i32 %[[RET]]
-// WINDOWS: call i32 @GenericAndPentium.A
+// WINDOWS-NOT: call i32 @GenericAndPentium.A
 // WINDOWS-NOT: call void @llvm.trap
 
 ATTR(cpu_dispatch(atom, pentium))

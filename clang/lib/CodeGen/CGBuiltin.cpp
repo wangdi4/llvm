@@ -2527,6 +2527,8 @@ llvm::Value *CodeGenFunction::EmitX86CpuDispatchLibIrcFeaturesTest(
     ArrayRef<StringRef> FeatureStrs) {
   std::array<uint64_t, 2> Bitmaps =
       GetCpuFeatureBitmap(FeatureStrs);
+  if (Bitmaps == std::array<uint64_t, 2>{2, 0})
+    return nullptr;
   return MayIUseCpuFeatureHelper(*this,
                                  {APSInt{APInt(64, Bitmaps[0]), true},
                                   APSInt{APInt(64, Bitmaps[1]), true}},
