@@ -342,6 +342,9 @@ if config.intel_llvm_has_libompdevice:
 if config.intel_deploy_unified_layout == 'ON':
     config.available_features.add("intel_unified_layout")
 
+if config.llvm_use_sanitizer:
+    config.available_features.add('intel_use_sanitizers')
+
 llvm_config.add_intel_features()
 
 import lit.llvm.util
