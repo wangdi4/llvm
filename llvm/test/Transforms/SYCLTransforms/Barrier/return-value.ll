@@ -67,8 +67,7 @@ entry:
 ; CHECK-NEXT: %SB_LocalId_Offset = add nuw i64 %SBIndex, 24
 ; CHECK-NEXT: [[GEP1:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 %SB_LocalId_Offset
 ; CHECK-NEXT: %loadedValue = load i64, ptr [[GEP1]], align 8
-; CHECK-NEXT: %SBIndex1 = load i64, ptr %pCurrSBIndex, align 8
-; CHECK-NEXT: %SB_LocalId_Offset2 = add nuw i64 %SBIndex1, 16
+; CHECK-NEXT: %SB_LocalId_Offset2 = add nuw i64 %SBIndex, 16
 ; CHECK-NEXT: [[GEP2:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 %SB_LocalId_Offset2
 ; CHECK-NEXT: store i64 %loadedValue, ptr [[GEP2]], align 8
 ; CHECK-NOT: call void @_Z18work_group_barrierj
@@ -92,23 +91,20 @@ entry:
 ; Function Attrs: convergent noinline norecurse nounwind
 define void @test(ptr addrspace(1) noalias %dst) local_unnamed_addr #3 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !kernel_has_sub_groups !10 !kernel_execution_length !13 !no_barrier_path !10 !kernel_has_global_sync !10 {
 entry:
-; CHECK: test
+; CHECK-LABEL: define void @test
 ; CHECK-NOT: call void @dummy_barrier.
 ; CHECK: %SBIndex = load i64, ptr %pCurrSBIndex, align 8
 ; CHECK-NEXT: %SB_LocalId_Offset = add nuw i64 %SBIndex, 16
 ; CHECK-NEXT: [[GEP0:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 %SB_LocalId_Offset
 ; CHECK-NEXT: %loadedValue = load i64, ptr [[GEP0]], align 8
-; CHECK-NEXT: %SBIndex1 = load i64, ptr %pCurrSBIndex, align 8
-; CHECK-NEXT: %SB_LocalId_Offset2 = add nuw i64 %SBIndex1, 8
+; CHECK-NEXT: %SB_LocalId_Offset2 = add nuw i64 %SBIndex, 8
 ; CHECK-NEXT: [[GEP1:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 %SB_LocalId_Offset2
 ; CHECK-NEXT: store i64 %loadedValue, ptr [[GEP1]], align 8
-; CHECK-NEXT: %SBIndex7 = load i64, ptr %pCurrSBIndex, align 8
-; CHECK-NEXT: %SB_LocalId_Offset8 = add nuw i64 %SBIndex7, 0
+; CHECK-NEXT: %SB_LocalId_Offset8 = add nuw i64 %SBIndex, 0
 ; CHECK-NEXT: [[GEP2:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 %SB_LocalId_Offset8
 ; CHECK-NEXT: %loadedValue10 = load i64, ptr [[GEP2]], align 8
 ; CHECK-NEXT: %ptridx = getelementptr inbounds i64, ptr addrspace(1) %dst, i64 %loadedValue10
-; CHECK-NEXT: %SBIndex11 = load i64, ptr %pCurrSBIndex, align 8
-; CHECK-NEXT: %SB_LocalId_Offset12 = add nuw i64 %SBIndex11, 8
+; CHECK-NEXT: %SB_LocalId_Offset12 = add nuw i64 %SBIndex, 8
 ; CHECK-NEXT: [[GEP3:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 %SB_LocalId_Offset12
 ; CHECK-NEXT: %loadedValue14 = load i64, ptr [[GEP3]], align 8
 ; CHECK-NEXT: store i64 %loadedValue14, ptr addrspace(1) %ptridx, align 8

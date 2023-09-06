@@ -52,8 +52,7 @@ L3A:
 ; CHECK: [[SBINDEX1:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex
 ; CHECK: [[SB_LOCALID_OFFSET1:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX1]], 8
 ; CHECK: [[GEP1:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LOCALID_OFFSET1]]
-; CHECK: [[SBINDEX2:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex
-; CHECK: [[SB_LOCALID_OFFSET2:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX2]], 0
+; CHECK: [[SB_LOCALID_OFFSET2:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX1]], 0
 ; CHECK: [[GEP2:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LOCALID_OFFSET2]]
 ; CHECK: [[LOADED_VALUE:%loadedValue[0-9]*]] = load i64, ptr [[GEP2]]
 ; CHECK: store i64 [[LOADED_VALUE]], ptr [[GEP1]]

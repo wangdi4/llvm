@@ -58,28 +58,25 @@ Split.Barrier.BB10:                               ; preds = %entry
 
 Split.Barrier.BB11:                               ; preds = %Split.Barrier.BB10
 ; Check new alloca addr is updated.
-; CHECK: SyncBB3:
-; CEHCK: [[SBIndex1:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex, align 8
-; CEHCK: [[SB_LocalId_Offset1:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBIndex1]],
-; CEHCK: [[PSB_LocalId1:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LocalId_Offset1]]
-; CEHCK: store ptr [[PSB_LocalId1]], ptr %my_i.addr, align 8
-; CEHCK: [[SBIndex2:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex, align 8
-; CEHCK: [[SB_LocalId_Offset2:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBIndex2]]
-; CEHCK: [[PSB_LocalId2:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LocalId_Offset2]]
-; CEHCK: store ptr [[PSB_LocalId2]], ptr %glid.addr, align 8
+; CHECK-LABEL: SyncBB3:
+; CEHCK-NEXT: [[SBIndex:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex, align 8
+; CEHCK-NEXT: [[SB_LocalId_Offset1:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBIndex]],
+; CEHCK-NEXT: [[PSB_LocalId1:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LocalId_Offset1]]
+; CEHCK-NEXT: store ptr [[PSB_LocalId1]], ptr %my_i.addr, align 8
+; CEHCK-NEXT: [[SB_LocalId_Offset2:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBIndex]]
+; CEHCK-NEXT: [[PSB_LocalId2:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LocalId_Offset2]]
+; CEHCK-NEXT: store ptr [[PSB_LocalId2]], ptr %glid.addr, align 8
   call void @dummy_barrier.()
   call void @llvm.dbg.declare(metadata ptr %my_i, metadata !24, metadata !DIExpression(DW_OP_constu, 4, DW_OP_swap, DW_OP_xderef)), !dbg !26
-; CHECK: call void @llvm.dbg.declare(metadata ptr %my_i.addr, metadata !{{[0-9]*}}, metadata !DIExpression(DW_OP_deref, DW_OP_constu, 4, DW_OP_swap, DW_OP_xderef)), !dbg
-; CHECK: [[SBIndex3:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex, align 8
-; CHECK: [[SB_LocalId_Offset3:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBIndex3]],
-; CHECK: [[pSB_LocalId3:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LocalId_Offset3]]
-; CHECK: [[loadedValue0:%loadedValue[0-9]*]] = load ptr addrspace(4), ptr [[pSB_LocalId3]], align 8
-; CHECK: [[glid:%[0-9]*]] = load i32, ptr addrspace(4) [[loadedValue0]], align 4
-; CHECK: [[SBIndex4:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex, align 8
-; CHECK: [[SB_LocalId_Offset4:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBIndex4]],
-; CHECK: [[pSB_LocalId4:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LocalId_Offset4]]
-; CHECK: [[my_i:%loadedValue[0-9]*]] = load ptr addrspace(4), ptr [[pSB_LocalId4]], align 8
-; CHECK: store i32 [[glid]], ptr addrspace(4) [[my_i]], align 4
+; CEHCK-NEXT: call void @llvm.dbg.declare(metadata ptr %my_i.addr, metadata !{{[0-9]*}}, metadata !DIExpression(DW_OP_deref, DW_OP_constu, 4, DW_OP_swap, DW_OP_xderef)), !dbg
+; CEHCK-NEXT: [[SB_LocalId_Offset3:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBIndex]],
+; CEHCK-NEXT: [[pSB_LocalId3:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LocalId_Offset3]]
+; CEHCK-NEXT: [[loadedValue0:%loadedValue[0-9]*]] = load ptr addrspace(4), ptr [[pSB_LocalId3]], align 8
+; CEHCK-NEXT: [[glid:%[0-9]*]] = load i32, ptr addrspace(4) [[loadedValue0]], align 4
+; CEHCK-NEXT: [[SB_LocalId_Offset4:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBIndex]],
+; CEHCK-NEXT: [[pSB_LocalId4:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LocalId_Offset4]]
+; CEHCK-NEXT: [[my_i:%loadedValue[0-9]*]] = load ptr addrspace(4), ptr [[pSB_LocalId4]], align 8
+; CEHCK-NEXT: store i32 [[glid]], ptr addrspace(4) [[my_i]], align 4
   %1 = load i32, ptr addrspace(4) %glid.ascast, align 4
   store i32 %1, ptr addrspace(4) %my_i.ascast, align 4, !dbg !26
   br label %Split.Barrier.BB
