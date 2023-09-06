@@ -52,6 +52,17 @@ int main() {
   return 0;
 }
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-51080.
+// Disable this test for non-iomp test variant because the community OMP
+// codegen (-fopenmp) emits calls to __kmpc_omp_taskwait_deps_51, which
+// libiomp5 doesn't support yet, resulting in an 'undefined symbol'
+// link-time error. We should remove this whole custimization block when
+// libiomp5 adds that _51 function, projected to happen in the 2024.1
+// timeframe.
+// REQUIRES: iomp
+// end INTEL_CUSTOMIZATION
+
 // CHECK-NOT: ThreadSanitizer: data race
 // CHECK-NOT: ThreadSanitizer: reported
 // CHECK: y=1
