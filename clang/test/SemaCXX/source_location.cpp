@@ -1,9 +1,17 @@
-// INTEL RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
-// INTEL RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -DUSE_CONSTEVAL -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
-// INTEL RUN: %clang_cc1 -std=c++2b -fcxx-exceptions -DUSE_CONSTEVAL -DPAREN_INIT -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
-// INTEL RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fms-extensions -DMS -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
-// INTEL RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -fms-extensions -DMS -DUSE_CONSTEVAL -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -fexceptions -verify %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
+// RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -DUSE_CONSTEVAL -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
+// RUN: %clang_cc1 -std=c++2b -fcxx-exceptions -DUSE_CONSTEVAL -DPAREN_INIT -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
+// RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fms-extensions -DMS -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
+// RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -fms-extensions -DMS -DUSE_CONSTEVAL -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -fexceptions -verify %s
+//
+/// FIXME: The -DPAREN_INIT one is missing for the new interpreter.
+// RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -fexperimental-new-constant-interpreter -DNEW_INTERP -verify %s
+// RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -DUSE_CONSTEVAL -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -fexceptions -fexperimental-new-constant-interpreter -DNEW_INTERP -verify %s
+// RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fms-extensions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -DMS -fexceptions -fexperimental-new-constant-interpreter -DNEW_INTERP -verify %s
+// RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -fms-extensions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -DMS -DUSE_CONSTEVAL -fexceptions -fexperimental-new-constant-interpreter -DNEW_INTERP -verify %s
 // expected-no-diagnostics
+// end INTEL_CUSTOMIZATION
 
 #define assert(...) ((__VA_ARGS__) ? ((void)0) : throw 42)
 #define CURRENT_FROM_MACRO() SL::current()
@@ -755,7 +763,7 @@ constexpr int test_init_capture(int a =
                 [b = SL::current().line()] { return b; }()) {
   return a;
 }
-#ifdef USE_CONSTEVAL
+#if defined(USE_CONSTEVAL) && !defined(NEW_INTERP)
 static_assert(test_init_capture() == __LINE__ - 4);
 #else
 static_assert(test_init_capture() == __LINE__ );
