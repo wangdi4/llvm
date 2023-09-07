@@ -4,6 +4,12 @@
 
 ; CHECK: [Kernel properties]
 ; CHECK:      reqdWGSize: {0, 0, 0}
+; CHECK-NEXT: hintWGSize: {8, 1, 1}
+; CHECK: [Kernel properties]
+; CHECK:      reqdWGSize: {0, 0, 0}
+; CHECK-NEXT: hintWGSize: {8, 16, 1}
+; CHECK: [Kernel properties]
+; CHECK:      reqdWGSize: {0, 0, 0}
 ; CHECK-NEXT: hintWGSize: {8, 16, 32}
 ; CHECK: [Kernel properties]
 ; CHECK:      reqdWGSize: {8, 8, 8}
