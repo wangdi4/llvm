@@ -11250,9 +11250,8 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
                 ",+SPV_INTEL_memory_access_aliasing" // INTEL_COLLAB
                 ",+SPV_KHR_uniform_group_instructions"
                 ",+SPV_INTEL_masked_gather_scatter"
-                ",+SPV_INTEL_tensor_float32_conversion";
-    if (ShouldPreserveMetadata)
-      ExtArg += ",+SPV_KHR_non_semantic_info";
+                ",+SPV_INTEL_tensor_float32_conversion"
+                ",+SPV_KHR_non_semantic_info"; // INTEL_COLLAB
 
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
 
