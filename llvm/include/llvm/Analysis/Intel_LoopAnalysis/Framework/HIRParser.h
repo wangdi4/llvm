@@ -465,9 +465,11 @@ class HIRParser {
                                   const GEPOrSubsOperator **InitGEPOp) const;
 
   /// Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
+  /// \p LoadOrStoreTy is set to the load type or store type if the GEP ref
+  /// represents load or store.
   RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                   const GEPOrSubsOperator *GEPOp,
-                                  unsigned Level);
+                                  unsigned Level, Type *LoadOrStoreTy);
 
   /// Creates a GEP RegDDRef representing a single element. For example- %t[0].
   /// \p LoadOrStoreTy is set to the load type or store type if the GEP ref
