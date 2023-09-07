@@ -1375,11 +1375,7 @@ static llvm::Value *CreateCoercedLoad(Address Src, llvm::Type *Ty,
     //
     // FIXME: Assert that we aren't truncating non-padding bits when have access
     // to that information.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Src = Src.withElementType(Ty);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    Src = CGF.Builder.CreateElementBitCast(Src, Ty);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     return CGF.Builder.CreateLoad(Src);
   }
 
@@ -1489,11 +1485,7 @@ static void CreateCoercedStore(llvm::Value *Src,
   if (isa<llvm::ScalableVectorType>(SrcTy) ||
       isa<llvm::ScalableVectorType>(DstTy) ||
       SrcSize.getFixedValue() <= DstSize.getFixedValue()) {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Dst = Dst.withElementType(SrcTy);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    Dst = CGF.Builder.CreateElementBitCast(Dst, SrcTy);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     CGF.EmitAggregateStore(Src, Dst, DstIsVolatile);
   } else {
     // Otherwise do coercion through memory. This is stupid, but
@@ -1517,17 +1509,10 @@ static void CreateCoercedStore(llvm::Value *Src,
 static Address emitAddressAtOffset(CodeGenFunction &CGF, Address addr,
                                    const ABIArgInfo &info) {
   if (unsigned offset = info.getDirectOffset()) {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     addr = addr.withElementType(CGF.Int8Ty);
     addr = CGF.Builder.CreateConstInBoundsByteGEP(addr,
                                              CharUnits::fromQuantity(offset));
     addr = addr.withElementType(info.getCoerceToType());
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    addr = CGF.Builder.CreateElementBitCast(addr, CGF.Int8Ty);
-    addr = CGF.Builder.CreateConstInBoundsByteGEP(addr,
-                                             CharUnits::fromQuantity(offset));
-    addr = CGF.Builder.CreateElementBitCast(addr, info.getCoerceToType());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
   return addr;
 }
@@ -2221,11 +2206,7 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
       // sret things on win32 aren't void, they return the sret pointer.
       QualType ret = FI.getReturnType();
       unsigned addressSpace = CGM.getTypes().getTargetAddressSpace(ret);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       resultType = llvm::PointerType::get(getLLVMContext(), addressSpace);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      resultType = llvm::PointerType::get(ConvertType(ret), addressSpace);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     } else {
       resultType = llvm::Type::getVoidTy(getLLVMContext());
     }
@@ -2254,11 +2235,7 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     QualType Ret = FI.getReturnType();
     unsigned AddressSpace = CGM.getTypes().getTargetAddressSpace(Ret);
     ArgTypes[IRFunctionArgs.getSRetArgNo()] =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         llvm::PointerType::get(getLLVMContext(), AddressSpace);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-        llvm::PointerType::get(ConvertType(Ret), AddressSpace);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     addSRetToDTransFuncInfo(*this, DFI, Ret,
@@ -2276,11 +2253,7 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
     ArgTypes[IRFunctionArgs.getInallocaArgNo()] =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         llvm::PointerType::getUnqual(getLLVMContext());
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-        FI.getArgStruct()->getPointerTo();
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -2314,12 +2287,8 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     case ABIArgInfo::Indirect:
       assert(NumIRArgs == 1);
       // indirect arguments are always on the stack, which is alloca addr space.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       ArgTypes[FirstIRArg] = llvm::PointerType::get(
           getLLVMContext(),
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      ArgTypes[FirstIRArg] = ConvertTypeForMem(it->type)->getPointerTo(
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_COLLAB
           CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB
@@ -2335,12 +2304,8 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
       break;
     case ABIArgInfo::IndirectAliased:
       assert(NumIRArgs == 1);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       ArgTypes[FirstIRArg] = llvm::PointerType::get(
           getLLVMContext(), ArgInfo.getIndirectAddrSpace());
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      ArgTypes[FirstIRArg] = ConvertTypeForMem(it->type)->getPointerTo(ArgInfo.getIndirectAddrSpace());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -3984,11 +3949,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
 
           Address AddrToStoreInto = Address::invalid();
           if (SrcSize <= DstSize) {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
             AddrToStoreInto = Ptr.withElementType(STy);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-            AddrToStoreInto = Builder.CreateElementBitCast(Ptr, STy);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
           } else {
             AddrToStoreInto =
                 CreateTempAlloca(STy, Alloca.getAlignment(), "coerce");
@@ -4033,11 +3994,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
       ArgVals.push_back(ParamValue::forIndirect(alloca));
 
       auto coercionType = ArgI.getCoerceAndExpandType();
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       alloca = alloca.withElementType(coercionType);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      alloca = Builder.CreateElementBitCast(alloca, coercionType);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       unsigned argIndex = FirstIRArg;
       for (unsigned i = 0, e = coercionType->getNumElements(); i != e; ++i) {
         llvm::Type *eltType = coercionType->getElementType(i);
@@ -4656,12 +4613,8 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
     auto coercionType = RetAI.getCoerceAndExpandType();
 
     // Load all of the coerced elements out into results.
-    llvm::SmallVector<llvm::Value*, 4> results;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::SmallVector<llvm::Value *, 4> results;
     Address addr = ReturnValue.withElementType(coercionType);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    Address addr = Builder.CreateElementBitCast(ReturnValue, coercionType);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     for (unsigned i = 0, e = coercionType->getNumElements(); i != e; ++i) {
       auto coercedEltType = coercionType->getElementType(i);
       if (ABIArgInfo::isPaddingForCoerceAndExpand(coercedEltType))
@@ -4787,13 +4740,8 @@ static AggValueSlot createPlaceholderSlot(CodeGenFunction &CGF,
   // FIXME: Generate IR in one pass, rather than going back and fixing up these
   // placeholders.
   llvm::Type *IRTy = CGF.ConvertTypeForMem(Ty);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Type *IRPtrTy = llvm::PointerType::getUnqual(CGF.getLLVMContext());
   llvm::Value *Placeholder = llvm::PoisonValue::get(IRPtrTy);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  llvm::Type *IRPtrTy = IRTy->getPointerTo();
-  llvm::Value *Placeholder = llvm::PoisonValue::get(IRPtrTy->getPointerTo());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // FIXME: When we generate this IR in one pass, we shouldn't need
   // this win32-specific alignment hack.
@@ -5897,14 +5845,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         // Store the RValue into the argument struct.
         Address Addr =
             Builder.CreateStructGEP(ArgMemory, ArgInfo.getInAllocaFieldIndex());
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         Addr = Addr.withElementType(ConvertTypeForMem(I->Ty));
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-        // There are some cases where a trivial bitcast is not avoidable.  The
-        // definition of a type later in a translation unit may change it's type
-        // from {}* to (%struct.foo*)*.
-        Addr = Builder.CreateElementBitCast(Addr, ConvertTypeForMem(I->Ty));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
         I->copyInto(*this, Addr);
       }
       break;
@@ -6012,7 +5953,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           I->copyInto(*this, AI);
         } else {
           // Skip the extra memcpy call.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
           auto *T = llvm::PointerType::get(
               CGM.getLLVMContext(),
 #if INTEL_COLLAB
@@ -6020,15 +5960,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 #else // INTEL_COLLAB
               CGM.getDataLayout().getAllocaAddrSpace());
 #endif // INTEL_COLLAB
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-          auto *T = llvm::PointerType::getWithSamePointeeType(
-              cast<llvm::PointerType>(V->getType()),
-#if INTEL_COLLAB
-              CGM.getEffectiveAllocaAddrSpace());
-#else // INTEL_COLLAB
-              CGM.getDataLayout().getAllocaAddrSpace());
-#endif // INTEL_COLLAB
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
           llvm::Value *Val = getTargetHooks().performAddrSpaceCast(
               *this, V, LangAS::Default, CGM.getASTAllocaAddressSpace(), T,
               true);
@@ -6139,11 +6070,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
             IRCallArgs[FirstIRArg + i] = Extract;
           }
         } else {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
           Src = Src.withElementType(STy);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-          Src = Builder.CreateElementBitCast(Src, STy);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
           uint64_t SrcSize = SrcTypeSize.getFixedValue();
           uint64_t DstSize = DstTypeSize.getFixedValue();
 
@@ -6222,11 +6149,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         Builder.CreateStore(RV.getScalarVal(), addr);
       }
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       addr = addr.withElementType(coercionType);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      addr = Builder.CreateElementBitCast(addr, coercionType);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
       unsigned IRArgPos = FirstIRArg;
       for (unsigned i = 0, e = coercionType->getNumElements(); i != e; ++i) {
@@ -6708,12 +6631,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     case ABIArgInfo::CoerceAndExpand: {
       auto coercionType = RetAI.getCoerceAndExpandType();
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Address addr = SRetPtr.withElementType(coercionType);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      Address addr = SRetPtr;
-      addr = Builder.CreateElementBitCast(addr, coercionType);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
       assert(CI->getType() == RetAI.getUnpaddedCoerceAndExpandType());
       bool requiresExtract = isa<llvm::StructType>(CI->getType());
