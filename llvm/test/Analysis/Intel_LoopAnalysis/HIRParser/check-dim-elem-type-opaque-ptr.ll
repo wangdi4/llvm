@@ -4,7 +4,7 @@
 
 ; CHECK: + DO i1 = 0, -2, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, (-1236 * i1 + -1236 * %sub.ptr.div.i.i + -1 * ptrtoint.ptr.i64(%base) + ptrtoint.ptr.i64(%this) + -1028)/u8, 1   <DO_LOOP>  <MAX_TC_EST = 24>
-; CHECK: |   |   (i32*)(%cur)[0].9.0[i2] = 0;
+; CHECK: |   |   (%cur)[0].9.0[i2].0 = 0;
 ; CHECK: |   + END LOOP
 ; CHECK: |
 ; CHECK: |   %cur = &((%base)[i1 + %sub.ptr.div.i.i + 1]);

@@ -3167,7 +3167,24 @@ const Value *HIRParser::getZeroIndexGEPOrOrigPtr(const Value *Ptr,
   } else if (auto *Alloca = dyn_cast<AllocaInst>(Ptr)) {
     PtrElemTy = Alloca->getAllocatedType();
 
+  } else if (auto *Phi = dyn_cast<PHINode>(Ptr)) {
+    if (!RI.isHeaderPhi(Phi))
+      return Ptr;
+
+    PtrElemTy = RI.findPhiElementType(Phi);
+
+    if (!PtrElemTy)
+      return Ptr;
+
+  } else if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
+    PtrElemTy = GEP->getResultElementType();
+
   } else {
+    return Ptr;
+  }
+
+  // GEP is not necessary as there is no type mismatch.
+  if (PtrElemTy == ResultElemTy) {
     return Ptr;
   }
 
@@ -3489,13 +3506,6 @@ class HIRParser::GEPChain {
   // Removes dims with zero index and same stride as the next dim.
   void removeDummyDims();
 
-  // In opaque-ptr mode we do not have GEPs with zero indices representing
-  // indexing into inner types. This function tries to recreate them for
-  // Global/Alloca pointer operand of GEPOp for better parsing. It returns the
-  // original pointer operand of \p GEPOp if zero index GEP was not created.
-  const Value *getZeroIndexGEPOrOrigPtrOperand(const GEPOrSubsOperator *GEPOp,
-                                               const HIRParser &Parser);
-
 public:
   using iterator = decltype(Arrays)::iterator;
   using const_iterator = decltype(Arrays)::const_iterator;
@@ -3521,15 +3531,6 @@ public:
   const ArrayInfo &back() const { return Arrays.back(); }
 };
 
-const Value *HIRParser::GEPChain::getZeroIndexGEPOrOrigPtrOperand(
-    const GEPOrSubsOperator *GEPOp, const HIRParser &Parser) {
-  auto *PtrOp = GEPOp->getPointerOperand();
-  auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
-
-  return Subs ? Parser.getZeroIndexGEPOrOrigPtr(PtrOp, Subs->getElementType())
-              : PtrOp;
-}
-
 HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
                               const GEPOrSubsOperator *GEPOp) {
   OffsetTy =
@@ -3538,9 +3539,9 @@ HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
   extend(Parser, GEPOp);
   setBase(GEPOp);
 
-  while (const GEPOrSubsOperator *NextGEPOp =
-             dyn_cast<GEPOrSubsOperator>(Parser.traceSingleOperandPhis(
-                 getZeroIndexGEPOrOrigPtrOperand(GEPOp, Parser)))) {
+  while (const GEPOrSubsOperator *NextGEPOp = dyn_cast<GEPOrSubsOperator>(
+             Parser.traceSingleOperandPhis(Parser.getZeroIndexGEPOrOrigPtr(
+                 GEPOp->getPointerOperand(), getBasePtrElementType(GEPOp))))) {
 
     if (!Parser.isValidGEPOp(NextGEPOp)) {
       break;
@@ -4167,7 +4168,8 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal, Type *ResultElemTy,
 
 RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                            const GEPOrSubsOperator *GEPOp,
-                                           unsigned Level) {
+                                           unsigned Level,
+                                           Type *LoadOrStoreTy) {
   const PHINode *CurBasePhi = BasePhi;
   const Value *BaseVal = nullptr;
   bool IsInBounds = false;
@@ -4223,6 +4225,14 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
         if (RecSCEV->isAffine()) {
           IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level, &ElemTy);
           BaseVal = getValidPhiBaseVal(PhiInitVal, ElemTy, &InitGEPOp);
+
+          // Recover zero index GEP between a load/store and AddRec phi.
+          // We check whether CurBasePhi is the same as the incoming BasePhi
+          // (true for first iteration of this do-while loop) as LoadOrStoreTy
+          // is only applicable to the incoming phi.
+          if (!GEPOp && LoadOrStoreTy && (CurBasePhi == BasePhi))
+            GEPOp = dyn_cast<GEPOrSubsOperator>(
+                getZeroIndexGEPOrOrigPtr(CurBasePhi, LoadOrStoreTy));
         }
       }
     }
@@ -4445,7 +4455,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   }
 
   if (BasePhi && RI.isHeaderPhi(BasePhi)) {
-    Ref = createPhiBaseGEPDDRef(BasePhi, GEPOp, Level);
+    Ref = createPhiBaseGEPDDRef(BasePhi, GEPOp, Level, LoadOrStoreTy);
   } else if (GEPOp) {
     Ref = createRegularGEPDDRef(GEPOp, Level);
   } else {
