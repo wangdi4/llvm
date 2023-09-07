@@ -1409,7 +1409,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (LangOpts.SYCLESIMDForceStatelessMem)
+  // Stateless memory may be enforced only for SYCL device or host.
+  if ((LangOpts.SYCLIsDevice || LangOpts.SYCLIsHost) &&
+      LangOpts.SYCLESIMDForceStatelessMem)
     Builder.defineMacro("__ESIMD_FORCE_STATELESS_MEM");
 
   // OpenCL definitions.
