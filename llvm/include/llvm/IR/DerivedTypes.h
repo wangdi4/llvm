@@ -727,9 +727,9 @@ public:
   /// given address space. This is only useful during the opaque pointer
   /// transition.
   /// TODO: remove after opaque pointer transition is complete.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+#if !INTEL_CUSTOMIZATION
   [[deprecated("Use PointerType::get() with LLVMContext argument instead")]]
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+#endif // !INTEL_CUSTOMIZATION
   static PointerType *getWithSamePointeeType(PointerType *PT,
                                              unsigned AddressSpace) {
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
@@ -738,7 +738,7 @@ public:
     if (PT->isOpaque())
       return get(PT->getContext(), AddressSpace);
     return get(PT->PointeeTy, AddressSpace);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+#endif // !INTEL_CUSTOMIZATION
   }
 
   [[deprecated("Pointer element types are deprecated. You can *temporarily* "
@@ -749,7 +749,9 @@ public:
   }
 
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+#if !INTEL_CUSTOMIZATION
   [[deprecated("Always returns true")]]
+#endif // !INTEL_CUSTOMIZATION
   bool isOpaque() const { return true; }
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
   bool isOpaque() const { return !PointeeTy; }
@@ -769,7 +771,9 @@ public:
   /// operands are valid types. Will be useless after non-opaque pointers are
   /// removed.
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+#if !INTEL_CUSTOMIZATION
   [[deprecated("Always returns true")]]
+#endif // !INTEL_CUSTOMIZATION
   bool isOpaqueOrPointeeTypeMatches(Type *) {
     return true;
   }
