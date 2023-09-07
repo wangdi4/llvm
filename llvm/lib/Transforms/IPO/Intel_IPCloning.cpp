@@ -935,6 +935,11 @@ collectArgsSetsForSpecialization(Function &F, ModifiableAbstractCallSite &ACS,
 static bool analyzeCallForSpecialization(Function &F,
                                          ModifiableAbstractCallSite &ACS,
                                          LoopInfo **LI) {
+  // Current implementations of collectPHIsForSpecialization
+  // and applyHeuristicsForSpecialization do not support callbacks
+  if (ACS.isCallbackCall())
+    return false;
+
   SmallPtrSet<Value *, 8> PhiValues;
   auto *CI = cast<CallInst>(ACS.getInstruction());
   // Collect PHINodes that are passed as arguments for cloning
@@ -968,7 +973,8 @@ static void analyzeCallSitesForSpecializationCloning(Function &F) {
   }
   for (auto &U : F.uses()) {
     ModifiableAbstractCallSite ACS(&U);
-    if (!ACS || !ACS.isCallee(&U) || !isa<CallInst>(ACS.getInstruction()))
+    if (!ACS || !ACS.isCallee(&U) || !isa<CallInst>(ACS.getInstruction()) ||
+        ACS.getNumArgOperands() < F.arg_size())
       continue;
     analyzeCallForSpecialization(F, ACS, &LI);
   }
@@ -993,8 +999,14 @@ static bool analyzeAllCallsOfFunction(Function &F, IPCloneKind CloneType) {
   for (Use &U : F.uses()) {
     ModifiableAbstractCallSite ACS(&U);
 
-    // Ignore if use of function is not a call
-    if (!ACS || !ACS.isCallee(&U) || !isa<CallInst>(ACS.getInstruction())) {
+    // Ignore if use of function is not a call or when the count of formal
+    // arguments is less than the count of actual arguments. It's acceptable
+    // when the actual arguments are greater than or equal to the formal
+    // arguments, but the reverse is considered incorrect. This erroneous
+    // situation should be avoided in the code. To prevent compiler errors in
+    // such cases, we must filter out these incorrect scenarios.
+    if (!ACS || !ACS.isCallee(&U) || !isa<CallInst>(ACS.getInstruction()) ||
+        ACS.getNumArgOperands() < F.arg_size()) {
       FunctionAddressTaken = true;
       continue;
     }
