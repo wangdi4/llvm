@@ -543,9 +543,16 @@ static bool sortRefsInGroups(RefGroupVecTy &Groups,
 //   (%0)[2 * i1 + 1][4 * i2 + 1]
 //   (%0)[2 * i1 + 1][4 * i2 + 2]
 //   (%0)[2 * i1 + 1][4 * i2 + 3]
-static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
-                                             const HLLoop *InnermostLoop,
-                                             TargetTransformInfo &TTI) {
+static bool isGroupAccessingContiguousMemory(
+    const RefGroupTy &Group, bool IsDelinearized,
+    const SmallPtrSetImpl<const RegDDRef *> &DelinearizedRefToIsLoad,
+    const HLLoop *InnermostLoop, TargetTransformInfo &TTI) {
+
+  auto IsRval = [IsDelinearized,
+                 &DelinearizedRefToIsLoad](const RegDDRef *Ref) {
+    return !IsDelinearized ? Ref->isRval()
+                           : DelinearizedRefToIsLoad.contains(Ref);
+  };
 
   if (Group.empty())
     return false;
@@ -602,11 +609,14 @@ static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
       return false;
   }
 
-  RegDDRef *PrevRef = FirstRef;
+  // OriginalGroup before delinearization should be used to check isRval().
+  // Delinearized refs are not attached to HLDDNode.
+  bool IsLoad = IsRval(Group.front());
+  const RegDDRef *PrevRef = FirstRef;
   int64_t NumContiguousAccessMatches = 1;
 
   for (unsigned I = 1, E = Group.size(); I < E; I++) {
-    RegDDRef *Ref = Group[I];
+    const RegDDRef *Ref = Group[I];
 
     // All members of the group must have the same number of dimensions and the
     // same base CE.
@@ -614,6 +624,13 @@ static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
            "Number of dimensions are different");
     assert(CanonExprUtils::areEqual(FirstRef->getBaseCE(), Ref->getBaseCE()) &&
            "Base canon expr are different");
+
+    // We are going to trace only the Refs that are loads or stores if they
+    // match the first entry.
+    // NOTE: Perhaps we can expand this in the future to check both cases in
+    // one group.
+    if (IsRval(Ref) != IsLoad)
+      continue;
 
     int64_t DistanceInBytes = 0;
     if (!DDRU.getConstByteDistance(Ref, PrevRef, &DistanceInBytes, true))
@@ -1037,12 +1054,14 @@ static bool computeDelinearizationValidityConditions(
   return true;
 }
 
-static RuntimeDDResult
-tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
-                   ArrayRef<unsigned> UnsortedGroupIndices,
-                   RefGroupVecTy &Groups, RefGroupVecTy &DelinearizedGroups,
-                   SmallVectorImpl<PredicateTuple> &PreConditions) {
+static RuntimeDDResult tryDelinearization(
+    const HLLoop *Loop, const HLLoop *InnermostLoop,
+    ArrayRef<unsigned> UnsortedGroupIndices, RefGroupVecTy &Groups,
+    RefGroupVecTy &DelinearizedGroups,
+    std::vector<SmallPtrSet<const RegDDRef *, 16>> &DelinearizedRefToIsLoad,
+    SmallVectorImpl<PredicateTuple> &PreConditions) {
   DelinearizedGroups.resize(Groups.size());
+  DelinearizedRefToIsLoad.resize(Groups.size());
   SmallVector<PredicateTuple, ExpectedNumberOfTests> ValidityConditions;
 
   auto IsAlreadySorted = [&](unsigned Index) {
@@ -1053,6 +1072,7 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
   for (unsigned I = 0, E = Groups.size(); I < E; ++I) {
     auto &Group = Groups[I];
     auto &DelinearizedGroup = DelinearizedGroups[I];
+    auto &IsLoadSet = DelinearizedRefToIsLoad[I];
 
     // The group may be empty because it was cleared before as it's not involved
     // in DD.
@@ -1085,6 +1105,20 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
       }
 
       return DELINEARIZATION_FAILED;
+    }
+
+    // Store a delinearized ref's type(being an rval) using the original ref
+    // because delinearized refs are not attached to HLDDNode.
+    // This information is later used to access from delinearized ref to the
+    // orig ref after delinearized refs are sorted again.
+    for (unsigned J = 0, NumRefs = Group.size(); J < NumRefs; J++) {
+
+      if (!Group[J]->isRval())
+        continue;
+
+      auto Inserted = IsLoadSet.insert(DelinearizedGroup[J]);
+      (void)Inserted;
+      assert(Inserted.second && "Not a one-to-one mapping");
     }
 
     // Try sorting second time after delinearization.
@@ -1751,6 +1785,8 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   bool DelinearizationRequired = false;
   SmallVector<unsigned, 8> UnsortedGroupIndices;
+  std::vector<SmallPtrSet<const RegDDRef *, 16>> DelinearizedRefToIsLoad(
+      Groups.size());
   // Sort could be successful even with star edges when a Group has only one
   // ref. For example, A[n*i + j] --> A[n*i + j] (= *), when A[n*i + j] is only
   // one ref in a Group.
@@ -1761,7 +1797,8 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
     // Try to delinearize.
     Ret = tryDelinearization(Loop, InnermostLoop, UnsortedGroupIndices, Groups,
-                             DelinearizedGroups, Context.PreConditions);
+                             DelinearizedGroups, DelinearizedRefToIsLoad,
+                             Context.PreConditions);
     if (Ret != OK) {
       // Return NON_PERFECT_LOOPNEST for near-perfect loopnest so we try
       // innermost loop multiversioning.
@@ -1870,7 +1907,8 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
                     [](const RegDDRef *Ref) { return Ref->isLval(); });
 
     bool IsContiguousGroup = isGroupAccessingContiguousMemory(
-        GetGroupForChecks(I), InnermostLoop, TTI);
+        GetGroupForChecks(I), DelinearizationRequired,
+        DelinearizedRefToIsLoad[I], InnermostLoop, TTI);
 
     IVSegments.emplace_back(GetGroupForChecks(I), IsWriteGroup,
                             IsContiguousGroup);

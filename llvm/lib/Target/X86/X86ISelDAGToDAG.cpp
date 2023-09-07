@@ -62,6 +62,12 @@ static cl::opt<bool> EnablePromoteAnyextLoad(
     "x86-promote-anyext-load", cl::init(true),
     cl::desc("Enable promoting aligned anyext load to wider load"), cl::Hidden);
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> DisableIndexAddressing(
+    "x86-disable-index-addressing", cl::init(false),
+    cl::desc("Disable the use of index register in address mode"), cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
+
 extern cl::opt<bool> IndirectBranchTracking;
 
 //===----------------------------------------------------------------------===//
@@ -224,16 +230,17 @@ namespace {
     bool matchLoadInAddress(LoadSDNode *N, X86ISelAddressMode &AM,
                             bool AllowSegmentRegForX32 = false);
     bool matchWrapper(SDValue N, X86ISelAddressMode &AM);
-    bool matchAddress(SDValue N, X86ISelAddressMode &AM);
+    bool matchAddress(SDValue N, X86ISelAddressMode &AM, bool AllowIdx); // INTEL
     bool matchVectorAddress(SDValue N, X86ISelAddressMode &AM);
-    bool matchAdd(SDValue &N, X86ISelAddressMode &AM, unsigned Depth);
+    bool matchAdd(SDValue &N, X86ISelAddressMode &AM, unsigned Depth, // INTEL
+                  bool AllowIdx);                                     // INTEL
     SDValue matchIndexRecursively(SDValue N, X86ISelAddressMode &AM,
                                   unsigned Depth);
     bool matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
-                                 unsigned Depth);
+                                 unsigned Depth, bool AllowIdx); // INTEL
     bool matchVectorAddressRecursively(SDValue N, X86ISelAddressMode &AM,
                                        unsigned Depth);
-    bool matchAddressBase(SDValue N, X86ISelAddressMode &AM);
+    bool matchAddressBase(SDValue N, X86ISelAddressMode &AM, bool AllowIdx); // INTEL
     bool selectAddr(SDNode *Parent, SDValue N, SDValue &Base,
                     SDValue &Scale, SDValue &Index, SDValue &Disp,
                     SDValue &Segment);
@@ -1905,8 +1912,9 @@ bool X86DAGToDAGISel::matchWrapper(SDValue N, X86ISelAddressMode &AM) {
 
 /// Add the specified node to the specified addressing mode, returning true if
 /// it cannot be done. This just pattern matches for the addressing mode.
-bool X86DAGToDAGISel::matchAddress(SDValue N, X86ISelAddressMode &AM) {
-  if (matchAddressRecursively(N, AM, 0))
+bool X86DAGToDAGISel::matchAddress(SDValue N, X86ISelAddressMode &AM, // INTEL
+                                   bool AllowIdx) {                   // INTEL
+  if (matchAddressRecursively(N, AM, 0, AllowIdx))                    // INTEL
     return true;
 
   // Post-processing: Make a second attempt to fold a load, if we now know
@@ -1955,23 +1963,28 @@ bool X86DAGToDAGISel::matchAddress(SDValue N, X86ISelAddressMode &AM) {
 }
 
 bool X86DAGToDAGISel::matchAdd(SDValue &N, X86ISelAddressMode &AM,
-                               unsigned Depth) {
+                               unsigned Depth, bool AllowIdx) { // INTEL
   // Add an artificial use to this node so that we can keep track of
   // it if it gets CSE'd with a different node.
   HandleSDNode Handle(N);
 
   X86ISelAddressMode Backup = AM;
-  if (!matchAddressRecursively(N.getOperand(0), AM, Depth+1) &&
-      !matchAddressRecursively(Handle.getValue().getOperand(1), AM, Depth+1))
+  if (!matchAddressRecursively(N.getOperand(0), AM, Depth+1, AllowIdx) &&    // INTEL
+      !matchAddressRecursively(Handle.getValue().getOperand(1), AM, Depth+1, // INTEL
+                               AllowIdx))                                    // INTEL
     return false;
   AM = Backup;
 
   // Try again after commutating the operands.
   if (!matchAddressRecursively(Handle.getValue().getOperand(1), AM,
-                               Depth + 1) &&
-      !matchAddressRecursively(Handle.getValue().getOperand(0), AM, Depth + 1))
+                               Depth + 1, AllowIdx) &&                         // INTEL
+      !matchAddressRecursively(Handle.getValue().getOperand(0), AM, Depth + 1, // INTEL
+                               AllowIdx))                                      // INTEL
     return false;
   AM = Backup;
+
+  if (!AllowIdx) // INTEL
+    return true; // INTEL
 
   // If we couldn't fold both operands into the address at the same time,
   // see if we can just put each operand into a register and fold at least
@@ -2375,7 +2388,7 @@ SDValue X86DAGToDAGISel::matchIndexRecursively(SDValue N,
 }
 
 bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
-                                              unsigned Depth) {
+                                              unsigned Depth, bool AllowIdx) { // INTEL
   SDLoc dl(N);
   LLVM_DEBUG({
     dbgs() << "MatchAddress: ";
@@ -2383,7 +2396,7 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
   });
   // Limit recursion.
   if (Depth >= SelectionDAG::MaxRecursionDepth)
-    return matchAddressBase(N, AM);
+    return matchAddressBase(N, AM, AllowIdx); // INTEL
 
   // If this is already a %rip relative address, we can only merge immediates
   // into it.  Instead of handling this in every case, we handle it here.
@@ -2441,7 +2454,7 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
     break;
 
   case ISD::SHL:
-    if (AM.IndexReg.getNode() != nullptr || AM.Scale != 1)
+    if (!AllowIdx || AM.IndexReg.getNode() != nullptr || AM.Scale != 1) // INTEL
       break;
 
     if (auto *CN = dyn_cast<ConstantSDNode>(N.getOperand(1))) {
@@ -2461,7 +2474,7 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
 
   case ISD::SRL: {
     // Scale must not be used already.
-    if (AM.IndexReg.getNode() != nullptr || AM.Scale != 1) break;
+    if (!AllowIdx || AM.IndexReg.getNode() != nullptr || AM.Scale != 1) break; // INTEL
 
     // We only handle up to 64-bit values here as those are what matter for
     // addressing mode optimizations.
@@ -2495,7 +2508,7 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
   case ISD::MUL:
   case X86ISD::MUL_IMM:
     // X*[3,5,9] -> X+X*[2,4,8]
-    if (AM.BaseType == X86ISelAddressMode::RegBase &&
+    if (AllowIdx && AM.BaseType == X86ISelAddressMode::RegBase && // INTEL
         AM.Base_Reg.getNode() == nullptr &&
         AM.IndexReg.getNode() == nullptr) {
       if (auto *CN = dyn_cast<ConstantSDNode>(N.getOperand(1)))
@@ -2540,14 +2553,14 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
 
     // Test if the LHS of the sub can be folded.
     X86ISelAddressMode Backup = AM;
-    if (matchAddressRecursively(N.getOperand(0), AM, Depth+1)) {
+    if (matchAddressRecursively(N.getOperand(0), AM, Depth+1, AllowIdx)) { // INTEL
       N = Handle.getValue();
       AM = Backup;
       break;
     }
     N = Handle.getValue();
     // Test if the index field is free for use.
-    if (AM.IndexReg.getNode() || AM.isRIPRelative()) {
+    if (!AllowIdx || AM.IndexReg.getNode() || AM.isRIPRelative()) { // INTEL
       AM = Backup;
       break;
     }
@@ -2592,7 +2605,7 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
   }
 
   case ISD::ADD:
-    if (!matchAdd(N, AM, Depth))
+    if (!matchAdd(N, AM, Depth, AllowIdx)) // INTEL
       return false;
     break;
 
@@ -2604,7 +2617,7 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
     // and $1, %esi
     // lea (%rsi, %rdi, 8), %rax
     if (CurDAG->haveNoCommonBitsSet(N.getOperand(0), N.getOperand(1)) &&
-        !matchAdd(N, AM, Depth))
+        !matchAdd(N, AM, Depth, AllowIdx)) // INTEL
       return false;
     break;
 
@@ -2612,7 +2625,7 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
     // We want to look through a transform in InstCombine that
     // turns 'add' with min_signed_val into 'xor', so we can treat this 'xor'
     // exactly like an 'add'.
-    if (isMinSignedConstant(N.getOperand(1)) && !matchAdd(N, AM, Depth))
+    if (isMinSignedConstant(N.getOperand(1)) && !matchAdd(N, AM, Depth, AllowIdx)) // INTEL
       return false;
     break;
 
@@ -2621,7 +2634,7 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
     // with a constant to enable use of the scaled offset field.
 
     // Scale must not be used already.
-    if (AM.IndexReg.getNode() != nullptr || AM.Scale != 1) break;
+    if (!AllowIdx || AM.IndexReg.getNode() != nullptr || AM.Scale != 1) break; // INTEL
 
     // We only handle up to 64-bit values here as those are what matter for
     // addressing mode optimizations.
@@ -2660,7 +2673,7 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
   case ISD::ZERO_EXTEND: {
     // Try to widen a zexted shift left to the same size as its use, so we can
     // match the shift as a scale factor.
-    if (AM.IndexReg.getNode() != nullptr || AM.Scale != 1)
+    if (!AllowIdx || AM.IndexReg.getNode() != nullptr || AM.Scale != 1) // INTEL
       break;
 
     // Peek through mask: zext(and(shl(x,c1),c2))
@@ -2740,16 +2753,17 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
   }
   }
 
-  return matchAddressBase(N, AM);
+  return matchAddressBase(N, AM, AllowIdx); // INTEL
 }
 
 /// Helper for MatchAddress. Add the specified node to the
 /// specified addressing mode without any further recursion.
-bool X86DAGToDAGISel::matchAddressBase(SDValue N, X86ISelAddressMode &AM) {
+bool X86DAGToDAGISel::matchAddressBase(SDValue N, X86ISelAddressMode &AM, // INTEL
+                                       bool AllowIdx) {                   // INTEL
   // Is the base register already occupied?
   if (AM.BaseType != X86ISelAddressMode::RegBase || AM.Base_Reg.getNode()) {
     // If so, check to see if the scale index register is set.
-    if (!AM.IndexReg.getNode()) {
+    if (AllowIdx && !AM.IndexReg.getNode()) { // INTEL
       AM.IndexReg = N;
       AM.Scale = 1;
       return false;
@@ -2775,7 +2789,7 @@ bool X86DAGToDAGISel::matchVectorAddressRecursively(SDValue N,
   });
   // Limit recursion.
   if (Depth > 5)
-    return matchAddressBase(N, AM);
+    return matchAddressBase(N, AM, true); // INTEL
 
   // TODO: Support other operations.
   switch (N.getOpcode()) {
@@ -2830,7 +2844,7 @@ bool X86DAGToDAGISel::matchVectorAddressRecursively(SDValue N,
   }
   }
 
-  return matchAddressBase(N, AM);
+  return matchAddressBase(N, AM, true); // INTEL
 }
 
 /// Helper for selectVectorAddr. Handles things that can be folded into a
@@ -2910,7 +2924,7 @@ bool X86DAGToDAGISel::selectAddr(SDNode *Parent, SDValue N, SDValue &Base,
   SDLoc DL(N);
   MVT VT = N.getSimpleValueType();
 
-  if (matchAddress(N, AM))
+  if (matchAddress(N, AM, !DisableIndexAddressing)) // INTEL
     return false;
 
   getAddressOperands(AM, DL, VT, Base, Scale, Index, Disp, Segment);
@@ -2994,7 +3008,7 @@ bool X86DAGToDAGISel::selectLEAAddr(SDValue N,
   SDValue Copy = AM.Segment;
   SDValue T = CurDAG->getRegister(0, MVT::i32);
   AM.Segment = T;
-  if (matchAddress(N, AM))
+  if (matchAddress(N, AM, true)) // INTEL
     return false;
   assert (T == AM.Segment);
   AM.Segment = Copy;

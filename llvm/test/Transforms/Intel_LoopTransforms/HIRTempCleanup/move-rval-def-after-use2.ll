@@ -102,11 +102,11 @@ for.end51:                                        ; preds = %cond.end45
   br i1 %cmp55.not, label %if.end66, label %if.then57
 
 if.then57:                                        ; preds = %for.end51
-  %call58 = tail call i32 @puts(ptr nonnull dereferenceable(1) getelementptr inbounds ([19 x i8], ptr @.str, i64 0, i64 0))
-  %call59 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) getelementptr inbounds ([18 x i8], ptr @.str.1, i64 0, i64 0), ptr %call)
-  %call61 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) getelementptr inbounds ([16 x i8], ptr @.str.2, i64 0, i64 0), ptr nonnull getelementptr ([512 x i8], ptr @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 112)))
-  %call63 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) getelementptr inbounds ([16 x i8], ptr @.str.3, i64 0, i64 0), ptr nonnull getelementptr ([512 x i8], ptr @s2, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s2 to i6)) to i64), i64 112)))
-  %call65 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) getelementptr inbounds ([30 x i8], ptr @.str.4, i64 0, i64 0), ptr nonnull getelementptr inbounds ([512 x i8], ptr @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 176)))
+  %call58 = tail call i32 @puts(ptr nonnull dereferenceable(1) @.str)
+  %call59 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str.1, ptr %call)
+  %call61 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str.2, ptr nonnull getelementptr ([512 x i8], ptr @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 112)))
+  %call63 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str.3, ptr nonnull getelementptr ([512 x i8], ptr @s2, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s2 to i6)) to i64), i64 112)))
+  %call65 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str.4, ptr nonnull getelementptr inbounds ([512 x i8], ptr @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 176)))
   br label %if.end66
 
 if.end66:                                         ; preds = %if.then57, %for.end51
