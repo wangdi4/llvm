@@ -1,10 +1,19 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa"  -disable-output < %s 2>&1 | FileCheck %s
 
-; Verify that the loop can be runtime dd multi-versioned with contiguous accesses.
-; Previously, cost model was bailing out non-constant distance among
-; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 3] and
-; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2)]
-; Use delinearized refs for checking contiguous accessing in a group, instead.
+; Currently, the delinearized group is not recognized as contiguous accesses.
+; First time it sees a non-load size byte-distance between [4*i2+2] and [4*i2+4], contiguous access logic
+; returns false.
+; Then, runtimeDD for the innermost loop is disabled by the cost model.
+
+; Delinearized refs:
+; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2] -> (%arg)[2 * i1][4 * i2]
+; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 1] -> (%arg)[2 * i1][4 * i2 + 1]
+; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 2] -> (%arg)[2 * i1][4 * i2 + 2]
+; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 4] -> (%arg)[2 * i1][4 * i2 + 4]
+; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2)] -> (%arg)[2 * i1 + 1][4 * i2]
+; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 1] -> (%arg)[2 * i1 + 1][4 * i2 + 1]
+; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 2] -> (%arg)[2 * i1 + 1][4 * i2 + 2]
+; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 3] -> (%arg)[2 * i1 + 1][4 * i2 + 3]
 ;
 ; From
 ;    BEGIN REGION { }
@@ -17,7 +26,7 @@
 ;          |   |   %load10 = (%base)[i2];
 ;          |   |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 1] = %load10;
 ;          |   |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 2] = %load10;
-;          |   |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 3] = %load10;
+;          |   |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 4] = %load10;
 ;          |   |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2)] = %load10;
 ;          |   |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 1] = %load10;
 ;          |   |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 2] = %load10;
@@ -31,72 +40,32 @@
 ; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2] -> (%arg)[2 * i1][4 * i2]
 ; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 1] -> (%arg)[2 * i1][4 * i2 + 1]
 ; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 2] -> (%arg)[2 * i1][4 * i2 + 2]
-; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 3] -> (%arg)[2 * i1][4 * i2 + 3]
+; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 4] -> (%arg)[2 * i1][4 * i2 + 4]
 ; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2)] -> (%arg)[2 * i1 + 1][4 * i2]
 ; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 1] -> (%arg)[2 * i1 + 1][4 * i2 + 1]
 ; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 2] -> (%arg)[2 * i1 + 1][4 * i2 + 2]
 ; (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 3] -> (%arg)[2 * i1 + 1][4 * i2 + 3]
-
-; To
-; CHECK: Function: spam
 ;
-;         BEGIN REGION { }
-;               + DO i1 = 0, 99, 1   <DO_LOOP>
-;               |   %base = (%arg1)[0];
-;               |   %mv.test = &((%base)[(sext.i32.i64(%arg3) + -4)/u4]) >=u &((%arg)[2 * i1][0]);
-;               |   %mv.test3 = &((%arg)[2 * i1 + 1][4 * ((-4 + sext.i32.i64(%arg3)) /u 4) + 3]) >=u &((%base)[0]);
-;               |   %mv.and = %mv.test  &  %mv.test3;
-;               |   if (sext.i32.i64(%arg2) > 1 & 4 * ((-4 + sext.i32.i64(%arg3)) /u 4) + 3 < sext.i32.i64(%arg2) & %mv.and == 0)  <MVTag: 51>
-;               |   {
-;               |      + DO i2 = 0, (sext.i32.i64(%arg3) + -4)/u4, 1   <DO_LOOP>  <MVTag: 51, Delinearized: %arg>
-;               |      |   %load = (%base)[i2];
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2] = %load;
-;               |      |   %load10 = (%base)[i2];
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 1] = %load10;
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 2] = %load10;
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 3] = %load10;
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2)] = %load10;
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 1] = %load10;
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 2] = %load10;
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 3] = %load10;
-;               |      + END LOOP
-;               |   }
-;               |   else
-;               |   {
-;               |      + DO i2 = 0, (sext.i32.i64(%arg3) + -4)/u4, 1   <DO_LOOP>  <MVTag: 51> <nounroll> <novectorize>
-;               |      |   %load = (%base)[i2];
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2] = %load;
-;               |      |   %load10 = (%base)[i2];
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 1] = %load10;
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 2] = %load10;
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + 3] = %load10;
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2)] = %load10;
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 1] = %load10;
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 2] = %load10;
-;               |      |   (%arg)[2 * sext.i32.i64(%arg2) * i1 + 4 * i2 + sext.i32.i64(%arg2) + 3] = %load10;
-;               |      + END LOOP
-;               |   }
-;               + END LOOP
-;         END REGION
+; [RTDD] Delinearization done. Required pre-conditions: 2
+; Group 0 contains (1) refs:
+; (%arg1)[0]
+; Group 1 contains (2) refs:
+; (%base)[i2]
+; (%base)[i2]
+; Group 2 contains (8) refs:
+; (%arg)[2 * i1][4 * i2]
+; (%arg)[2 * i1][4 * i2 + 1]
+; (%arg)[2 * i1][4 * i2 + 2]
+; (%arg)[2 * i1][4 * i2 + 4]
+; (%arg)[2 * i1 + 1][4 * i2]
+; (%arg)[2 * i1 + 1][4 * i2 + 1]
+; (%arg)[2 * i1 + 1][4 * i2 + 2]
+; (%arg)[2 * i1 + 1][4 * i2 + 3]
 
-;CHECK:     %base = (%arg1)[0];
-;CHECK:     %mv.test = &((%base)[(sext.i32.i64(%arg3) + -4)/u4]) >=u &((%arg)[2 * i1][0]);
-;CHECK:     %mv.test3 = &((%arg)[2 * i1 + 1][4 * ((-4 + sext.i32.i64(%arg3)) /u 4) + 3]) >=u &((%base)[0]);
-;CHECK:     %mv.and = %mv.test  &  %mv.test3;
-;CHECK:     if (sext.i32.i64(%arg2) > 1 & 4 * ((-4 + sext.i32.i64(%arg3)) /u 4) + 3 < sext.i32.i64(%arg2) & %mv.and == 0)  <MVTag: [[TAG:[0-9]+]]>
-;CHECK:         DO i2 = 0, (sext.i32.i64(%arg3) + -4)/u4, 1   <DO_LOOP>  <MVTag: [[TAG]], Delinearized: %arg>
-
-; With -hir-runtime-dd-contiguous-access-threshold=0 the logic checking contiguous acceses is disabled.
-; Then non-1 IVCoeff of 4*i2's 4 will prevent runtime dd.
-
-; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -hir-runtime-dd-contiguous-access-threshold=0 -aa-pipeline="basic-aa"  -disable-output < %s 2>&1 | FileCheck %s --check-prefix=COSTMODEL
-
-;COSTMODEL:        Function: spam
-;COSTMODEL:        DO i1
-;COSTMODEL-NOT:     %mv.and =
-;COSTMODEL-NOT:     if
-;COSTMODEL:        DO i2
-
+; CHECK: DO i1
+; CHECK-NOT: if
+; CHECK-NOT: Delinearized
+; CHECK: DO i2
 
 ; ModuleID = 'delinearize-contiguous-access.ll'
 source_filename = "delinearize-contiguous-access.ll"
@@ -137,7 +106,7 @@ bb7:                                              ; preds = %bb7, %bb6
   %getelementptr13 = getelementptr inbounds i32, ptr %arg, i64 %add12
   store i32 %load10, ptr %getelementptr13, align 4
 
-  %add14 = add nsw i64 %add, 3
+  %add14 = add nsw i64 %add, 4
   %getelementptr14 = getelementptr inbounds i32, ptr %arg, i64 %add14
   store i32 %load10, ptr %getelementptr14, align 4
 
