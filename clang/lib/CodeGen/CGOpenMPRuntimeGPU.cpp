@@ -1592,16 +1592,9 @@ static void emitReductionListCopy(
     case RemoteLaneToThread: {
       // Step 1.1: Get the address for the src element in the Reduce list.
       Address SrcElementPtrAddr = Bld.CreateConstArrayGEP(SrcBase, Idx);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       SrcElementAddr = CGF.EmitLoadOfPointer(
           SrcElementPtrAddr.withElementType(PrivateLlvmPtrType),
           PrivatePtrType->castAs<PointerType>());
-#else
-      SrcElementAddr =
-          CGF.EmitLoadOfPointer(CGF.Builder.CreateElementBitCast(
-                                    SrcElementPtrAddr, PrivateLlvmPtrType),
-                                PrivatePtrType->castAs<PointerType>());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
       // Step 1.2: Create a temporary to store the element in the destination
       // Reduce list.
@@ -1615,45 +1608,24 @@ static void emitReductionListCopy(
     case ThreadCopy: {
       // Step 1.1: Get the address for the src element in the Reduce list.
       Address SrcElementPtrAddr = Bld.CreateConstArrayGEP(SrcBase, Idx);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       SrcElementAddr = CGF.EmitLoadOfPointer(
           SrcElementPtrAddr.withElementType(PrivateLlvmPtrType),
           PrivatePtrType->castAs<PointerType>());
-#else
-      SrcElementAddr =
-          CGF.EmitLoadOfPointer(CGF.Builder.CreateElementBitCast(
-                                    SrcElementPtrAddr, PrivateLlvmPtrType),
-                                PrivatePtrType->castAs<PointerType>());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
       // Step 1.2: Get the address for dest element.  The destination
       // element has already been created on the thread's stack.
       DestElementPtrAddr = Bld.CreateConstArrayGEP(DestBase, Idx);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       DestElementAddr = CGF.EmitLoadOfPointer(
           DestElementPtrAddr.withElementType(PrivateLlvmPtrType),
           PrivatePtrType->castAs<PointerType>());
-#else
-      DestElementAddr =
-          CGF.EmitLoadOfPointer(CGF.Builder.CreateElementBitCast(
-                                    DestElementPtrAddr, PrivateLlvmPtrType),
-                                PrivatePtrType->castAs<PointerType>());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       break;
     }
     case ThreadToScratchpad: {
       // Step 1.1: Get the address for the src element in the Reduce list.
       Address SrcElementPtrAddr = Bld.CreateConstArrayGEP(SrcBase, Idx);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       SrcElementAddr = CGF.EmitLoadOfPointer(
           SrcElementPtrAddr.withElementType(PrivateLlvmPtrType),
           PrivatePtrType->castAs<PointerType>());
-#else
-      SrcElementAddr =
-          CGF.EmitLoadOfPointer(CGF.Builder.CreateElementBitCast(
-                                    SrcElementPtrAddr, PrivateLlvmPtrType),
-                                PrivatePtrType->castAs<PointerType>());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
       // Step 1.2: Get the address for dest element:
       // address = base + index * ElementSizeInChars.
@@ -1695,17 +1667,10 @@ static void emitReductionListCopy(
 
     // Regardless of src and dest of copy, we emit the load of src
     // element as this is required in all directions
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     SrcElementAddr = SrcElementAddr.withElementType(
         CGF.ConvertTypeForMem(Private->getType()));
     DestElementAddr =
         DestElementAddr.withElementType(SrcElementAddr.getElementType());
-#else
-    SrcElementAddr = Bld.CreateElementBitCast(
-        SrcElementAddr, CGF.ConvertTypeForMem(Private->getType()));
-    DestElementAddr = Bld.CreateElementBitCast(DestElementAddr,
-                                               SrcElementAddr.getElementType());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     // Now that all active lanes have read the element in the
     // Reduce list, shuffle over the value from the remote lane.
@@ -1934,12 +1899,7 @@ static llvm::Value *emitInterWarpCopyFunction(CodeGenModule &CGM,
       llvm::Value *ElemPtrPtr = CGF.EmitLoadOfScalar(
           ElemPtrPtrAddr, /*Volatile=*/false, C.VoidPtrTy, SourceLocation());
       // elemptr = ((CopyType*)(elemptrptr)) + I
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Address ElemPtr(ElemPtrPtr, CopyType, Align);
-#else
-      Address ElemPtr(ElemPtrPtr, CGF.Int8Ty, Align);
-      ElemPtr = Bld.CreateElementBitCast(ElemPtr, CopyType);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       if (NumIters > 1)
         ElemPtr = Bld.CreateGEP(ElemPtr, Cnt);
 
@@ -2013,12 +1973,7 @@ static llvm::Value *emitInterWarpCopyFunction(CodeGenModule &CGM,
       Address TargetElemPtrPtr = Bld.CreateConstArrayGEP(LocalReduceList, Idx);
       llvm::Value *TargetElemPtrVal = CGF.EmitLoadOfScalar(
           TargetElemPtrPtr, /*Volatile=*/false, C.VoidPtrTy, Loc);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Address TargetElemPtr(TargetElemPtrVal, CopyType, Align);
-#else
-      Address TargetElemPtr(TargetElemPtrVal, CGF.Int8Ty, Align);
-      TargetElemPtr = Bld.CreateElementBitCast(TargetElemPtr, CopyType);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       if (NumIters > 1)
         TargetElemPtr = Bld.CreateGEP(TargetElemPtr, Cnt);
 
@@ -2447,14 +2402,9 @@ static llvm::Value *emitListToGlobalReduceFunction(
     LValue GlobLVal = CGF.EmitLValueForField(
         CGF.MakeNaturalAlignAddrLValue(BufferArrPtr, StaticTy), FD);
     Address GlobAddr = GlobLVal.getAddress(CGF);
-    llvm::Value *BufferPtr = Bld.CreateInBoundsGEP(
-        GlobAddr.getElementType(), GlobAddr.getPointer(), Idxs);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::Value *BufferPtr = Bld.CreateInBoundsGEP(GlobAddr.getElementType(),
+                                                   GlobAddr.getPointer(), Idxs);
     CGF.EmitStoreOfScalar(BufferPtr, Elem, /*Volatile=*/false, C.VoidPtrTy);
-#else
-    llvm::Value *Ptr = CGF.EmitCastToVoidPtr(BufferPtr);
-    CGF.EmitStoreOfScalar(Ptr, Elem, /*Volatile=*/false, C.VoidPtrTy);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     if ((*IPriv)->getType()->isVariablyModifiedType()) {
       // Store array size.
       ++Idx;
@@ -2470,12 +2420,7 @@ static llvm::Value *emitListToGlobalReduceFunction(
   }
 
   // Call reduce_function(GlobalReduceList, ReduceList)
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Value *GlobalReduceList = ReductionList.getPointer();
-#else
-  llvm::Value *GlobalReduceList =
-      CGF.EmitCastToVoidPtr(ReductionList.getPointer());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Address AddrReduceListArg = CGF.GetAddrOfLocalVar(&ReduceListArg);
   llvm::Value *ReducedPtr = CGF.EmitLoadOfScalar(
       AddrReduceListArg, /*Volatile=*/false, C.VoidPtrTy, Loc);
@@ -2665,14 +2610,9 @@ static llvm::Value *emitGlobalToListReduceFunction(
     LValue GlobLVal = CGF.EmitLValueForField(
         CGF.MakeNaturalAlignAddrLValue(BufferArrPtr, StaticTy), FD);
     Address GlobAddr = GlobLVal.getAddress(CGF);
-    llvm::Value *BufferPtr = Bld.CreateInBoundsGEP(
-        GlobAddr.getElementType(), GlobAddr.getPointer(), Idxs);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::Value *BufferPtr = Bld.CreateInBoundsGEP(GlobAddr.getElementType(),
+                                                   GlobAddr.getPointer(), Idxs);
     CGF.EmitStoreOfScalar(BufferPtr, Elem, /*Volatile=*/false, C.VoidPtrTy);
-#else
-    llvm::Value *Ptr = CGF.EmitCastToVoidPtr(BufferPtr);
-    CGF.EmitStoreOfScalar(Ptr, Elem, /*Volatile=*/false, C.VoidPtrTy);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     if ((*IPriv)->getType()->isVariablyModifiedType()) {
       // Store array size.
       ++Idx;
@@ -2688,12 +2628,7 @@ static llvm::Value *emitGlobalToListReduceFunction(
   }
 
   // Call reduce_function(ReduceList, GlobalReduceList)
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Value *GlobalReduceList = ReductionList.getPointer();
-#else
-  llvm::Value *GlobalReduceList =
-      CGF.EmitCastToVoidPtr(ReductionList.getPointer());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Address AddrReduceListArg = CGF.GetAddrOfLocalVar(&ReduceListArg);
   llvm::Value *ReducedPtr = CGF.EmitLoadOfScalar(
       AddrReduceListArg, /*Volatile=*/false, C.VoidPtrTy, Loc);
@@ -3184,20 +3119,26 @@ CGOpenMPRuntimeGPU::getParameterAddress(CodeGenFunction &CGF,
       TargetAddr,
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::PointerType::get(CGF.getLLVMContext(), /*AddrSpace=*/0));
+<<<<<<< HEAD
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::PointerType::getWithSamePointeeType(
           cast<llvm::PointerType>(TargetAddr->getType()), /*AddrSpace=*/0));
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+>>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
   // Cast from generic to native address space.
   TargetAddr = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
       TargetAddr,
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::PointerType::get(CGF.getLLVMContext(), NativePointeeAddrSpace));
+<<<<<<< HEAD
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::PointerType::getWithSamePointeeType(
           cast<llvm::PointerType>(TargetAddr->getType()),
                                   NativePointeeAddrSpace));
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+>>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
   Address NativeParamAddr = CGF.CreateMemTemp(NativeParamType);
   CGF.EmitStoreOfScalar(TargetAddr, NativeParamAddr, /*Volatile=*/false,
                         NativeParamType);
@@ -3225,10 +3166,13 @@ void CGOpenMPRuntimeGPU::emitOutlinedFunctionCall(
         NativeArg,
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         llvm::PointerType::get(CGF.getLLVMContext(), /*AddrSpace*/ 0));
+<<<<<<< HEAD
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
         llvm::PointerType::getWithSamePointeeType(
             cast<llvm::PointerType>(NativeArg->getType()), /*AddrSpace*/ 0));
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+>>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
     TargetArgs.emplace_back(
         CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(TargetArg, TargetType));
   }

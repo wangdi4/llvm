@@ -4123,6 +4123,7 @@ llvm::GlobalVariable *CGObjCGNU::ObjCIvarOffsetVariable(
   // when linked against code which isn't (most of the time).
   llvm::GlobalVariable *IvarOffsetPointer = TheModule.getNamedGlobal(Name);
   if (!IvarOffsetPointer)
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     IvarOffsetPointer = new llvm::GlobalVariable(
         TheModule, llvm::PointerType::getUnqual(VMContext), false,
@@ -4132,6 +4133,11 @@ llvm::GlobalVariable *CGObjCGNU::ObjCIvarOffsetVariable(
             llvm::Type::getInt32PtrTy(VMContext), false,
             llvm::GlobalValue::ExternalLinkage, nullptr, Name);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+    IvarOffsetPointer = new llvm::GlobalVariable(
+        TheModule, llvm::PointerType::getUnqual(VMContext), false,
+        llvm::GlobalValue::ExternalLinkage, nullptr, Name);
+>>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
   return IvarOffsetPointer;
 }
 
@@ -4175,12 +4181,16 @@ llvm::Value *CGObjCGNU::EmitIvarOffset(CodeGenFunction &CGF,
         CGF.CGM.getTarget().getTriple().isKnownWindowsMSVCEnvironment())
       return CGF.Builder.CreateZExtOrBitCast(
           CGF.Builder.CreateAlignedLoad(
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+>>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
               Int32Ty,
               CGF.Builder.CreateAlignedLoad(
                   llvm::PointerType::getUnqual(VMContext),
                   ObjCIvarOffsetVariable(Interface, Ivar),
                   CGF.getPointerAlign(), "ivar"),
+<<<<<<< HEAD
 #else  // INTEL_SYCL_OPAQUEPOINTER_READY
               Int32Ty,
               CGF.Builder.CreateAlignedLoad(
@@ -4188,6 +4198,8 @@ llvm::Value *CGObjCGNU::EmitIvarOffset(CodeGenFunction &CGF,
                   ObjCIvarOffsetVariable(Interface, Ivar),
                   CGF.getPointerAlign(), "ivar"),
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+>>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
               CharUnits::fromQuantity(4)),
           PtrDiffTy);
     std::string name = "__objc_ivar_offset_value_" +
