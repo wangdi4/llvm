@@ -13,5 +13,13 @@
 
 // CHECK-WITHOUT: "{{.*}}llvm-spirv"
 // CHECK-WITHOUT-NOT: --spirv-preserve-auxdata
+<<<<<<< HEAD
 // CHECK-WITHOUT:-spirv-ext=
 // CHECK-WITHOUT-NOT: +SPV_KHR_non_semantic_info
+=======
+
+// INTEL_CUSTOMIZATION
+// CHECK-WITHOUT:-spirv-ext=
+// CHECK-WITHOUT: +SPV_KHR_non_semantic_info
+// end INTEL_CUSTOMIZATION
+>>>>>>> f6225fab81ee733d22a1f786c79282212d5370ca
