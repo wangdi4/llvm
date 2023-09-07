@@ -29,7 +29,7 @@
 ; + END LOOP
 
 
-; CHECK: %mv.test{{.*}} = &((%t0)[zext.i32.i64(%t1) + -1].0.1) >=u &((float*)(%t2)[0]);
+; CHECK: %mv.test{{.*}} = &((%t0)[zext.i32.i64(%t1) + -1].0.1) >=u &((%t2)[0].0.0);
 ; CHECK: %mv.test{{.*}} = &((%t2)[zext.i32.i64(%t1) + -1].0.1) >=u &((float*)(%t0)[0]);
 
 %"struct.std::complex.33" = type { { float, float } }

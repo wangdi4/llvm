@@ -44,8 +44,7 @@ entry:
 
 for.body1605:                     ; preds = %for.body1605, %entry
   %__first.sroa.0.0111600 = phi ptr [ %incdec.ptr1602, %for.body1605 ], [ %hasPrefixCallbacks, %entry ]
-  %_M_head_impl1601 = getelementptr inbounds %struct1, ptr %__first.sroa.0.0111600, i64 0, i32 0, i32 0, i32 0, i32 0
-  store ptr null, ptr %_M_head_impl1601, align 8
+  store ptr null, ptr %__first.sroa.0.0111600, align 8
   %incdec.ptr1602 = getelementptr inbounds %struct1, ptr %__first.sroa.0.0111600, i64 1
   %cmp1604 = icmp eq ptr %incdec.ptr1602, %add.ptr1595
   br i1 %cmp1604, label %exit, label %for.body1605
