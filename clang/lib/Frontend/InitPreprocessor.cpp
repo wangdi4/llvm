@@ -1402,7 +1402,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (LangOpts.SYCLUnnamedLambda)
     Builder.defineMacro("__SYCL_UNNAMED_LAMBDA__");
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Define a macro indicating that the HLS cpp source file is being compiled.
   if (LangOpts.HLS) {
@@ -1410,12 +1409,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (LangOpts.SYCLESIMDForceStatelessMem)
-=======
   // Stateless memory may be enforced only for SYCL device or host.
   if ((LangOpts.SYCLIsDevice || LangOpts.SYCLIsHost) &&
       LangOpts.SYCLESIMDForceStatelessMem)
->>>>>>> 0da723f2479af06b3e0499c5834a2cc2e30c3846
     Builder.defineMacro("__ESIMD_FORCE_STATELESS_MEM");
 
   // OpenCL definitions.
