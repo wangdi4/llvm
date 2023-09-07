@@ -30,8 +30,12 @@ charset-normalizer==2.1.1
 deprecated==1.2.13
     # via pygithub
 gitdb==4.0.9
+# INTEL_CUSTOMIZATION
+# This change was created by Dependabot. If a conflict is seen in a repo merge
+# accept whichever requires the highest version.
     # via gitpython
-gitpython==3.1.32
+gitpython==3.1.33
+# end INTEL_CUSTOMIZATION
     # via -r requirements.txt.in
 idna==3.4
     # via requests
