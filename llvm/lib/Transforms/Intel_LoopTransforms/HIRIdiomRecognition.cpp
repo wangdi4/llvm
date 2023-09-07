@@ -645,8 +645,11 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
 }
 
 static HLIf *createTripCountCheck(const HLLoop *Loop) {
-  if (SmallTripCount == 0 || Loop->isConstTripLoop()) {
-    // It's already checked that constant trip count loop is not small.
+  // Don't create trip count check if the loop has constant trip count, the
+  // trip count is small, or the loop is not the innermost. We skip
+  // multiversioning for outer loops since they aren't profitable for
+  // vectorization.
+  if (SmallTripCount == 0 || Loop->isConstTripLoop() || !Loop->isInnermost()) {
     return nullptr;
   }
 
