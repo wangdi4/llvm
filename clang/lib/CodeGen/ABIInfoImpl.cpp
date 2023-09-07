@@ -196,16 +196,7 @@ CodeGen::emitVoidPtrDirectVAArg(CodeGenFunction &CGF, Address VAListAddr,
     Addr = CGF.Builder.CreateConstInBoundsByteGEP(Addr, SlotSize - DirectSize);
   }
 
-<<<<<<< HEAD
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Addr = CGF.Builder.CreateElementBitCast(Addr, DirectTy);
-#else
   return Addr.withElementType(DirectTy);
-#endif
-  return Addr;
-=======
-  return Addr.withElementType(DirectTy);
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
 }
 
 Address CodeGen::emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,

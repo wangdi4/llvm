@@ -3176,13 +3176,6 @@ Address CodeGenFunction::EmitFieldAnnotations(const FieldDecl *D,
   unsigned AS = PTy ? PTy->getAddressSpace() : 0;
   llvm::PointerType *IntrinTy =
       llvm::PointerType::get(CGM.getLLVMContext(), AS);
-<<<<<<< HEAD
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      llvm::PointerType::getWithSamePointeeType(CGM.Int8PtrTy, AS);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
   // llvm.ptr.annotation intrinsic accepts a pointer to integer of any width -
   // don't perform bitcasts if value is integer
   if (Addr.getElementType()->isIntegerTy()) {
@@ -3257,12 +3250,6 @@ Address CodeGenFunction::EmitFieldSYCLAnnotations(const FieldDecl *D,
   llvm::Type *IntrType = VTy;
   if (!Addr.getElementType()->isIntegerTy())
     IntrType = llvm::PointerType::get(CGM.getLLVMContext(), AS);
-<<<<<<< HEAD
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    IntrType = llvm::PointerType::getWithSamePointeeType(CGM.Int8PtrTy, AS);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
   llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation,
                                        {IntrType, CGM.ConstGlobalsPtrTy});
 

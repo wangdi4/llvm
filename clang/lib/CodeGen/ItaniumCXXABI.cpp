@@ -673,18 +673,6 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
   // for consistency.
   llvm::Value *This = ThisAddr.getPointer();
   This = Builder.CreateInBoundsGEP(Builder.getInt8Ty(), This, Adj);
-<<<<<<< HEAD
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-#if INTEL_CUSTOMIZATION
-  llvm::Value *Ptr =
-      Builder.CreatePointerBitCastOrAddrSpaceCast(This, Builder.getInt8PtrTy());
-  Ptr = Builder.CreateInBoundsGEP(Builder.getInt8Ty(), Ptr, Adj);
-  This = Builder.CreatePointerBitCastOrAddrSpaceCast(Ptr, This->getType(),
-                                                     "this.adjusted");
-#endif // INTEL_CUSTOMIZATION
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
   ThisPtrForCall = This;
 
   // Load the function pointer.
@@ -786,17 +774,6 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
             CGM.getIntrinsic(llvm::Intrinsic::load_relative,
                              {VTableOffset->getType()}),
             {VTable, VTableOffset});
-<<<<<<< HEAD
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-#if INTEL_COLLAB
-        VirtualFn =
-            CGF.Builder.CreateBitCastFPT(VirtualFn, FTy->getPointerTo());
-#else // INTEL_COLLAB
-        VirtualFn = CGF.Builder.CreateBitCast(VirtualFn, FTy->getPointerTo());
-#endif // INTEL_COLLAB
-#endif
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
       } else {
         llvm::Value *VFPAddr =
             CGF.Builder.CreateGEP(CGF.Int8Ty, VTable, VTableOffset);
@@ -2212,20 +2189,6 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
       VFuncLoad = CGF.Builder.CreateCall(
           CGM.getIntrinsic(llvm::Intrinsic::load_relative, {CGM.Int32Ty}),
           {VTable, llvm::ConstantInt::get(CGM.Int32Ty, 4 * VTableIndex)});
-<<<<<<< HEAD
-#else
-      VTable = CGF.Builder.CreateBitCast(VTable, CGM.Int8PtrTy);
-      llvm::Value *Load = CGF.Builder.CreateCall(
-          CGM.getIntrinsic(llvm::Intrinsic::load_relative, {CGM.Int32Ty}),
-          {VTable, llvm::ConstantInt::get(CGM.Int32Ty, 4 * VTableIndex)});
-#if INTEL_COLLAB
-      VFuncLoad = CGF.Builder.CreateBitCastFPT(Load, TyPtr);
-#else // INTEL_COLLAB
-      VFuncLoad = CGF.Builder.CreateBitCast(Load, TyPtr);
-#endif // INTEL_COLLAB
-#endif
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
     } else {
       llvm::Value *VTableSlotPtr = CGF.Builder.CreateConstInBoundsGEP1_64(
           PtrTy, VTable, VTableIndex, "vfn");
@@ -2364,26 +2327,11 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
   // Perform the virtual adjustment if we have one.
   llvm::Value *ResultPtr;
   if (VirtualAdjustment) {
-<<<<<<< HEAD
-
 #if INTEL_COLLAB
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Address VTablePtrPtr = V.withElementType(CGF.DefaultInt8PtrTy);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    Address VTablePtrPtr =
-        CGF.Builder.CreateElementBitCast(V, CGF.DefaultInt8PtrTy);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #else // INTEL_COLLAB
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Address VTablePtrPtr = V.withElementType(CGF.Int8PtrTy);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    Address VTablePtrPtr = CGF.Builder.CreateElementBitCast(V, CGF.Int8PtrTy);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #endif  // INTEL_COLLAB
-
-=======
-    Address VTablePtrPtr = V.withElementType(CGF.Int8PtrTy);
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
     llvm::Value *VTablePtr = CGF.Builder.CreateLoad(VTablePtrPtr);
 
     llvm::Value *Offset;

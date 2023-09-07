@@ -2236,10 +2236,6 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     unsigned AddressSpace = CGM.getTypes().getTargetAddressSpace(Ret);
     ArgTypes[IRFunctionArgs.getSRetArgNo()] =
         llvm::PointerType::get(getLLVMContext(), AddressSpace);
-<<<<<<< HEAD
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-        llvm::PointerType::get(ConvertType(Ret), AddressSpace);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     addSRetToDTransFuncInfo(*this, DFI, Ret,
@@ -2247,8 +2243,6 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
                             IRFunctionArgs.getSRetArgNo());
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
   }
 
   // Add type for inalloca argument.
@@ -2260,10 +2254,6 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
 #endif // INTEL_CUSTOMIZATION
     ArgTypes[IRFunctionArgs.getInallocaArgNo()] =
         llvm::PointerType::getUnqual(getLLVMContext());
-<<<<<<< HEAD
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-        FI.getArgStruct()->getPointerTo();
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -2272,8 +2262,6 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
   }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
 
   // Add in all of the required arguments.
   unsigned ArgNo = 0;
@@ -2300,11 +2288,7 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
       assert(NumIRArgs == 1);
       // indirect arguments are always on the stack, which is alloca addr space.
       ArgTypes[FirstIRArg] = llvm::PointerType::get(
-<<<<<<< HEAD
           getLLVMContext(),
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      ArgTypes[FirstIRArg] = ConvertTypeForMem(it->type)->getPointerTo(
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_COLLAB
           CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB
@@ -2317,18 +2301,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
                           NumIRArgs);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
-          getLLVMContext(), CGM.getDataLayout().getAllocaAddrSpace());
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
       break;
     case ABIArgInfo::IndirectAliased:
       assert(NumIRArgs == 1);
       ArgTypes[FirstIRArg] = llvm::PointerType::get(
           getLLVMContext(), ArgInfo.getIndirectAddrSpace());
-<<<<<<< HEAD
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      ArgTypes[FirstIRArg] = ConvertTypeForMem(it->type)->getPointerTo(ArgInfo.getIndirectAddrSpace());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -2337,8 +2314,6 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
                           NumIRArgs);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
       break;
     case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
@@ -5979,25 +5954,12 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         } else {
           // Skip the extra memcpy call.
           auto *T = llvm::PointerType::get(
-<<<<<<< HEAD
               CGM.getLLVMContext(),
 #if INTEL_COLLAB
               CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB
               CGM.getDataLayout().getAllocaAddrSpace());
 #endif // INTEL_COLLAB
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-          auto *T = llvm::PointerType::getWithSamePointeeType(
-              cast<llvm::PointerType>(V->getType()),
-#if INTEL_COLLAB
-              CGM.getEffectiveAllocaAddrSpace());
-#else // INTEL_COLLAB
-              CGM.getDataLayout().getAllocaAddrSpace());
-#endif // INTEL_COLLAB
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-              CGM.getLLVMContext(), CGM.getDataLayout().getAllocaAddrSpace());
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
           llvm::Value *Val = getTargetHooks().performAddrSpaceCast(
               *this, V, LangAS::Default, CGM.getASTAllocaAddressSpace(), T,
               true);

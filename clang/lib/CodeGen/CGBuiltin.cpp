@@ -245,16 +245,6 @@ static Value *MakeBinaryAtomicValue(
 
   llvm::IntegerType *IntType = llvm::IntegerType::get(
       CGF.getLLVMContext(), CGF.getContext().getTypeSize(T));
-<<<<<<< HEAD
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  unsigned AddrSpace = DestPtr->getType()->getPointerAddressSpace();
-
-  llvm::IntegerType *IntType = llvm::IntegerType::get(
-      CGF.getLLVMContext(), CGF.getContext().getTypeSize(T));
-  llvm::Type *IntPtrType = IntType->getPointerTo(AddrSpace);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
 
   llvm::Value *Args[2];
   Args[0] = DestPtr;

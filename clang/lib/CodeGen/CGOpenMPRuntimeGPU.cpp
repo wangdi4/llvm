@@ -3117,28 +3117,11 @@ CGOpenMPRuntimeGPU::getParameterAddress(CodeGenFunction &CGF,
   // First cast to generic.
   TargetAddr = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
       TargetAddr,
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::PointerType::get(CGF.getLLVMContext(), /*AddrSpace=*/0));
-<<<<<<< HEAD
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      llvm::PointerType::getWithSamePointeeType(
-          cast<llvm::PointerType>(TargetAddr->getType()), /*AddrSpace=*/0));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
   // Cast from generic to native address space.
   TargetAddr = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
       TargetAddr,
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::PointerType::get(CGF.getLLVMContext(), NativePointeeAddrSpace));
-<<<<<<< HEAD
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      llvm::PointerType::getWithSamePointeeType(
-          cast<llvm::PointerType>(TargetAddr->getType()),
-                                  NativePointeeAddrSpace));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
   Address NativeParamAddr = CGF.CreateMemTemp(NativeParamType);
   CGF.EmitStoreOfScalar(TargetAddr, NativeParamAddr, /*Volatile=*/false,
                         NativeParamType);
@@ -3164,15 +3147,7 @@ void CGOpenMPRuntimeGPU::emitOutlinedFunctionCall(
     }
     llvm::Value *TargetArg = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
         NativeArg,
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         llvm::PointerType::get(CGF.getLLVMContext(), /*AddrSpace*/ 0));
-<<<<<<< HEAD
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-        llvm::PointerType::getWithSamePointeeType(
-            cast<llvm::PointerType>(NativeArg->getType()), /*AddrSpace*/ 0));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
     TargetArgs.emplace_back(
         CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(TargetArg, TargetType));
   }

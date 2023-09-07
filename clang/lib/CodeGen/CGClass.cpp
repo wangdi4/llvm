@@ -2623,29 +2623,11 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
       llvm::FunctionType::get(CGM.Int32Ty, /*isVarArg=*/true)
           ->getPointerTo(ProgAS)
           ->getPointerTo(GlobalsAS);
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
   llvm::Type *PtrTy = llvm::PointerType::get(CGM.getLLVMContext(), GlobalsAS);
   // vtable field is derived from `this` pointer, therefore they should be in
   // the same addr space. Note that this might not be LLVM address space 0.
   VTableField = VTableField.withElementType(PtrTy);
-<<<<<<< HEAD
-#else
-  // vtable field is derived from `this` pointer, therefore it should be in
-  // default address space.
-  VTableField = Builder.CreateElementBitCast(VTableField, VTablePtrTy);
-#if INTEL_COLLAB
-  VTableAddressPoint = Builder.CreatePointerBitCastOrAddrSpaceCast(
-      VTableAddressPoint, VTablePtrTy);
-#else  // INTEL_COLLAB
-  VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
-#endif // INTEL_COLLAB
-#endif
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
 
   llvm::StoreInst *Store = Builder.CreateStore(VTableAddressPoint, VTableField);
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTablePtrTy);
@@ -2740,20 +2722,10 @@ void CodeGenFunction::InitializeVTablePointers(const CXXRecordDecl *RD) {
 
 llvm::Value *CodeGenFunction::GetVTablePtr(Address This, llvm::Type *VTableTy,
                                            const CXXRecordDecl *RD) {
-<<<<<<< HEAD
 #if INTEL_COLLAB
   unsigned AS = CGM.getContext().getTargetAddressSpace(LangAS::Default);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   VTableTy = llvm::PointerType::get(getLLVMContext(), AS);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  VTableTy = llvm::PointerType::getWithSamePointeeType(
-    llvm::cast<llvm::PointerType>(VTableTy), AS);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-
 #endif  // INTEL_COLLAB
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
   Address VTablePtrSrc = This.withElementType(VTableTy);
   llvm::Instruction *VTable = Builder.CreateLoad(VTablePtrSrc, "vtable");
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTableTy);

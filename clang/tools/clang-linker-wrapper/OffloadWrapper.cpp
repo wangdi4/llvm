@@ -368,17 +368,6 @@ GlobalVariable *createFatbinDesc(Module &M, ArrayRef<char> Image, bool IsHIP) {
 Function *createRegisterGlobalsFunction(Module &M, bool IsHIP) {
   LLVMContext &C = M.getContext();
   // Get the __cudaRegisterFunction function declaration.
-<<<<<<< HEAD
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *RegFuncTy = FunctionType::get(
-      Type::getInt32Ty(C),
-      {Type::getInt8PtrTy(C)->getPointerTo(), Type::getInt8PtrTy(C),
-       Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), Type::getInt32Ty(C),
-       Type::getInt8PtrTy(C), Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
-       Type::getInt8PtrTy(C), Type::getInt32PtrTy(C)},
-#else
-=======
->>>>>>> cb34ea9de38d2fcbfa2f5079de8b0ce0a2048697
   PointerType *Int8PtrTy = PointerType::get(C, 0);
   PointerType *Int8PtrPtrTy = PointerType::get(C, 0);
   PointerType *Int32PtrTy = PointerType::get(C, 0);
