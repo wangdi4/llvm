@@ -19,14 +19,14 @@
 ; HIR after transformation:
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK:          @llvm.memcpy.p0.p0.i32(&((i8*)(%r)[0]),  &((i8*)(%p)[0]),  4 * %n,  0);
-; CHECK:          @llvm.memcpy.p0.p0.i32(&((i8*)(%p)[0]),  &((i8*)(%q)[0]),  4 * %n,  0);
-; CHECK:       + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>  <LEGAL_MAX_TC = 4294967295>
-; CHECK:       |   + DO i2 = 0, %n, 1   <DO_LOOP>
-; CHECK:       |   |   (%ret)[0] = i2;
-; CHECK:       |   + END LOOP
-; CHECK:       + END LOOP
-; CHECK: END REGION
+; CHECK-NEXT:          @llvm.memcpy.p0.p0.i32(&((i8*)(%r)[0]),  &((i8*)(%p)[0]),  4 * %n,  0);
+; CHECK-NEXT:          @llvm.memcpy.p0.p0.i32(&((i8*)(%p)[0]),  &((i8*)(%q)[0]),  4 * %n,  0);
+; CHECK-NEXT:       + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>  <LEGAL_MAX_TC = 4294967295>
+; CHECK-NEXT:       |   + DO i2 = 0, %n, 1   <DO_LOOP>
+; CHECK-NEXT:       |   |   (%ret)[0] = i2;
+; CHECK-NEXT:       |   + END LOOP
+; CHECK-NEXT:       + END LOOP
+; CHECK-NEXT: END REGION
 
 ;Module Before HIR; ModuleID = 'memcpy.c'
 source_filename = "memcpy.c"
