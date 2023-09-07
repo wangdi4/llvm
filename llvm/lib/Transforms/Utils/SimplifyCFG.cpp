@@ -109,10 +109,14 @@
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #endif // INTEL_COLLAB
 
 using namespace llvm;
 using namespace PatternMatch;
+#if INTEL_COLLAB
+using namespace vpo;
+#endif // INTEL_COLLAB
 
 #define DEBUG_TYPE "simplifycfg"
 
@@ -3225,7 +3229,27 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI,
 }
 
 /// Return true if we can thread a branch across this block.
+#if INTEL_COLLAB
+static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB,
+                                               DomTreeUpdater *DTU) {
+#else
 static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
+#endif // INTEL_COLLAB
+#if INTEL_COLLAB
+  if (VPOAnalysisUtils::mayHaveOpenmpDirective(*(BB->getParent()))) {
+    IntrinsicInst *EnclosingBeginDir =
+        DTU ? VPOUtils::enclosingBeginDirective(BB->getTerminator(),
+                                                &(DTU->getDomTree()))
+            : VPOUtils::enclosingBeginDirective(BB);
+    if (EnclosingBeginDir &&
+        VPOUtils::hasOpenMPClause(EnclosingBeginDir, QUAL_OMP_JUMP_TO_END_IF)) {
+      LLVM_DEBUG(dbgs() << "Enclosing begin directive is found, disabling "
+                           "threading the branch across this block.\n");
+      return false;
+    }
+  }
+#endif // INTEL_COLLAB
+
   int Size = 0;
   EphemeralValueTracker EphTracker;
 
@@ -3316,7 +3340,11 @@ FoldCondBranchOnValueKnownInPredecessorImpl(BranchInst *BI, DomTreeUpdater *DTU,
   // Now we know that this block has multiple preds and two succs.
   // Check that the block is small enough and values defined in the block are
   // not used outside of it.
+#if INTEL_COLLAB
+  if (!BlockIsSimpleEnoughToThreadThrough(BB, DTU))
+#else
   if (!BlockIsSimpleEnoughToThreadThrough(BB))
+#endif // INTEL_COLLAB
     return false;
 
   for (const auto &Pair : KnownValues) {

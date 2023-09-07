@@ -382,8 +382,9 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   if (kmd.WorkGroupSizeHint.hasValue()) {
     // TODO: SExt <=> ZExt
     hintWGSize[0] = kmd.WorkGroupSizeHint.getXDim();
-    hintWGSize[1] = kmd.WorkGroupSizeHint.getYDim();
-    hintWGSize[2] = kmd.WorkGroupSizeHint.getZDim();
+    size_t numDims = kmd.WorkGroupSizeHint.getNumOfDims();
+    hintWGSize[1] = numDims > 1 ? kmd.WorkGroupSizeHint.getYDim() : 1;
+    hintWGSize[2] = numDims > 2 ? kmd.WorkGroupSizeHint.getZDim() : 1;
 
     if (hintWGSize[0]) {
       optWGSize = hintWGSize[0];

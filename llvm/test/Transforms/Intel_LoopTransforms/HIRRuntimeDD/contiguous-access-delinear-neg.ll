@@ -75,7 +75,6 @@ bb6:                                              ; preds = %bb15, %bb4
 
 bb7:                                              ; preds = %bb7, %bb6
   %phi8 = phi i64 [ 0, %bb6 ], [ %add13, %bb7 ]
-;  %getelementptr = getelementptr inbounds i32, ptr %arg1, i64 %phi8
   %getelementptr = getelementptr inbounds i32, ptr %base, i64 %phi8
   %load = load i32, ptr %getelementptr, align 4
   %add = add nsw i64 %phi8, %mul

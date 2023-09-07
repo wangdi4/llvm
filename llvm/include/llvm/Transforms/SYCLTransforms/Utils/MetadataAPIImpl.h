@@ -606,6 +606,8 @@ public:
 
   typename T::item_type getZDim() { return m_mdlist.getItem(2); }
 
+  size_t getNumOfDims() { return m_mdlist.size(); }
+
   bool hasValue() const { return m_mdlist.hasValue(); }
 
   llvm::StringRef getID() const { return m_mdlist.getID(); }

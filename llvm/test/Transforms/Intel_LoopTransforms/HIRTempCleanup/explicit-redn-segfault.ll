@@ -31,8 +31,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define float @foo() local_unnamed_addr #0 {
 entry:
   %sum = alloca float, align 4
-  %0 = bitcast ptr %sum to ptr
-  call void @llvm.lifetime.start(i64 4, ptr %0) #2
+  call void @llvm.lifetime.start(i64 4, ptr %sum) #2
   store float 0.000000e+00, ptr %sum, align 4, !tbaa !1
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.REDUCTION.ADD", ptr nonnull %sum)
@@ -44,8 +43,8 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %add5 = phi float [ %sum.promoted, %entry ], [ %add, %for.body ]
   %arrayidx = getelementptr inbounds [1024 x float], ptr @arr, i64 0, i64 %indvars.iv
-  %1 = load float, ptr %arrayidx, align 4, !tbaa !5
-  %add = fadd float %1, %add5
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !5
+  %add = fadd float %0, %add5
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.end, label %for.body
@@ -53,7 +52,7 @@ for.body:                                         ; preds = %for.body, %entry
 for.end:                                          ; preds = %for.body
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-  call void @llvm.lifetime.end(i64 4, ptr %0) #2
+  call void @llvm.lifetime.end(i64 4, ptr %sum) #2
   ret float %add
 }
 

@@ -390,6 +390,16 @@ public:
   static IntrinsicInst *enclosingBeginDirective(Instruction *I,
                                                 DominatorTree *DT);
 
+  /// A version of enclosingBeginDirective that accepts a basic block. It works
+  /// when a DomTree is not available and searches for the enclosing begin
+  /// directive intrinsic starting from \p BB using BFS search. It returns the
+  /// next enclosing OpenMP begin directive if it is available, or nullptr if
+  /// none.
+  static IntrinsicInst *enclosingBeginDirective(BasicBlock *BB);
+
+  /// Return true if \p ClauseId is found in \p II, or false if not.
+  static bool hasOpenMPClause(IntrinsicInst *II, int ClauseId);
+
   /// Find BlockAddress references in NewFunction that point to OldFunction,
   /// and replace them. This must be called after all code has moved to
   /// NewFunction.
