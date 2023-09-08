@@ -79,11 +79,7 @@ findAffectedValues(CallBase *CI, TargetTransformInfo *TTI,
 
   auto AddAffected = [&Affected](Value *V, unsigned Idx =
                                                AssumptionCache::ExprResultIdx) {
-<<<<<<< HEAD
-    if (isa<Argument>(V) || isa<GlobalValue>(V)) { // INTEL
-=======
     if (isa<Argument>(V) || isa<GlobalValue>(V)) {
->>>>>>> 52240399f9ccedb44b667a14345a7be6bb1dc40f
       Affected.push_back({V, Idx});
     } else if (auto *I = dyn_cast<Instruction>(V)) {
       Affected.push_back({I, Idx});
