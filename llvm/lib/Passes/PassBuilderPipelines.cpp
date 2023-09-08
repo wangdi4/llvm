@@ -1513,11 +1513,13 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
 
   // Require the GlobalsAA analysis for the module so we can query it within
   // the CGSCC pipeline.
-  MIWP.addModulePass(RequireAnalysisPass<GlobalsAA, Module>());
-  // Invalidate AAManager so it can be recreated and pick up the newly available
-  // GlobalsAA.
-  MIWP.addModulePass(
-      createModuleToFunctionPassAdaptor(InvalidateAnalysisPass<AAManager>()));
+  if (EnableGlobalAnalyses) {
+    MIWP.addModulePass(RequireAnalysisPass<GlobalsAA, Module>());
+    // Invalidate AAManager so it can be recreated and pick up the newly
+    // available GlobalsAA.
+    MIWP.addModulePass(
+        createModuleToFunctionPassAdaptor(InvalidateAnalysisPass<AAManager>()));
+  }
 
   // Require the ProfileSummaryAnalysis for the module so we can query it within
   // the inliner pass.
@@ -2923,7 +2925,8 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // information for all local globals here, the late loop passes and notably
   // the vectorizer will be able to use them to help recognize vectorizable
   // memory operations.
-  MPM.addPass(RecomputeGlobalsAAPass());
+  if (EnableGlobalAnalyses)
+    MPM.addPass(RecomputeGlobalsAAPass());
 
   invokeOptimizerEarlyEPCallbacks(MPM, Level);
 
@@ -3818,21 +3821,22 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #endif // INTEL_CUSTOMIZATION
   // Require the GlobalsAA analysis for the module so we can query it within
   // MainFPM.
-  MPM.addPass(RequireAnalysisPass<GlobalsAA, Module>());
-  // Invalidate AAManager so it can be recreated and pick up the newly available
-  // GlobalsAA.
-  MPM.addPass(
-      createModuleToFunctionPassAdaptor(InvalidateAnalysisPass<AAManager>()));
+  if (EnableGlobalAnalyses) {
+    MPM.addPass(RequireAnalysisPass<GlobalsAA, Module>());
+    // Invalidate AAManager so it can be recreated and pick up the newly
+    // available GlobalsAA.
+    MPM.addPass(
+        createModuleToFunctionPassAdaptor(InvalidateAnalysisPass<AAManager>()));
+  }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // Loop transformations need information about structure fields that are
   // modified/referenced during function calls.
   if (DTransEnabled)
-    MPM.addPass(RequireAnalysisPass<DTransFieldModRefAnalysis, Module>());
+      MPM.addPass(RequireAnalysisPass<DTransFieldModRefAnalysis, Module>());
 #endif // INTEL_FEATURE_SW_DTRANS
   MPM.addPass(IntelIPODeadArgEliminationPass());
 #endif // INTEL_CUSTOMIZATION
-
   FunctionPassManager MainFPM;
   MainFPM.addPass(createFunctionToLoopPassAdaptor(
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
