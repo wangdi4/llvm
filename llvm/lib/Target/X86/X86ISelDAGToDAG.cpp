@@ -2616,29 +2616,6 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
       return false;
     break;
 
-<<<<<<< HEAD
-  case ISD::OR:
-    // We want to look through a transform in InstCombine and DAGCombiner that
-    // turns 'add' into 'or', so we can treat this 'or' exactly like an 'add'.
-    // Example: (or (and x, 1), (shl y, 3)) --> (add (and x, 1), (shl y, 3))
-    // An 'lea' can then be used to match the shift (multiply) and add:
-    // and $1, %esi
-    // lea (%rsi, %rdi, 8), %rax
-    if (CurDAG->haveNoCommonBitsSet(N.getOperand(0), N.getOperand(1)) &&
-        !matchAdd(N, AM, Depth, AllowIdx)) // INTEL
-      return false;
-    break;
-
-  case ISD::XOR:
-    // We want to look through a transform in InstCombine that
-    // turns 'add' with min_signed_val into 'xor', so we can treat this 'xor'
-    // exactly like an 'add'.
-    if (isMinSignedConstant(N.getOperand(1)) && !matchAdd(N, AM, Depth, AllowIdx)) // INTEL
-      return false;
-    break;
-
-=======
->>>>>>> 84447c044f23f16412afae184581413be5e5575f
   case ISD::AND: {
     // Perform some heroic transforms on an and of a constant-count shift
     // with a constant to enable use of the scaled offset field.
