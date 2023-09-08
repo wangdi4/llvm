@@ -97,19 +97,11 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// byte or word instructions with better alternatives.
   void processBasicBlock(MachineFunction &MF, MachineBasicBlock &MBB);
 
-<<<<<<< HEAD
-  /// This sets the \p SuperDestReg to the 32 bit super reg of the original
-  /// destination register of the MachineInstr passed in. It returns true if
-  /// that super register is dead just prior to \p OrigMI, and false if not.
-  bool getSuperRegDestIfDead(MachineInstr *OrigMI,
-                             Register &SuperDestReg, // INTEL
-                             bool IsMOV = true) const; // INTEL
-=======
   /// This returns the 32 bit super reg of the original destination register of
   /// the MachineInstr passed in, if that super register is dead just prior to
   /// \p OrigMI. Otherwise it returns Register().
-  Register getSuperRegDestIfDead(MachineInstr *OrigMI) const;
->>>>>>> bd3a33c08d21ff10bd87bbba78c1676de97becf5
+  Register getSuperRegDestIfDead(MachineInstr *OrigMI,
+                                 bool IsMOV = true) const; // INTEL
 
   /// Change the MachineInstr \p MI into the equivalent extending load to 32 bit
   /// register if it is safe to do so.  Return the replacement instruction if
@@ -225,13 +217,8 @@ bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
 /// destination register.
 ///
 /// If so, return that super register in \p SuperDestReg.
-<<<<<<< HEAD
-bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
-                                            Register &SuperDestReg, // INTEL
-                                            bool IsMOV) const { // INTEL
-=======
-Register FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI) const {
->>>>>>> bd3a33c08d21ff10bd87bbba78c1676de97becf5
+Register FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
+                                                bool IsMOV) const { // INTEL
   const X86RegisterInfo *TRI = &TII->getRegisterInfo();
   Register OrigDestReg = OrigMI->getOperand(0).getReg();
   Register SuperDestReg = getX86SubSuperRegister(OrigDestReg, 32);
@@ -448,8 +435,8 @@ MachineInstr *FixupBWInstPass::tryReplaceUnOp(unsigned NewOpc,
 
   // FIXME: Skip checking implicit operands until we have a better understanding
   // of whether that applies to arithmetic or only moves.
-  Register NewReg;
-  if (!getSuperRegDestIfDead(MI, NewReg, /*IsMOV*/false))
+  Register NewReg = getSuperRegDestIfDead(MI, /*IsMOV=*/false);
+  if (!NewReg)
     return nullptr;
 
   unsigned OldSrcReg = MI->getOperand(1).getReg();
@@ -481,8 +468,8 @@ MachineInstr *FixupBWInstPass::tryReplaceRegImmOp(unsigned NewOpc,
 
   // FIXME: Skip checking implicit operands until we have a better understanding
   // of whether that applies to arithmetic or only moves.
-  Register NewReg;
-  if (!getSuperRegDestIfDead(MI, NewReg, /*IsMOV*/false))
+  Register NewReg = getSuperRegDestIfDead(MI, /*IsMOV=*/false);
+  if (!NewReg)
     return nullptr;
 
   unsigned OldSrcReg = MI->getOperand(1).getReg();
