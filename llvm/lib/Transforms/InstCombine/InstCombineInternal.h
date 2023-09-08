@@ -496,15 +496,7 @@ public:
   void CreateNonTerminatorUnreachable(Instruction *InsertAt) {
     auto &Ctx = InsertAt->getContext();
     auto *SI = new StoreInst(ConstantInt::getTrue(Ctx),
-<<<<<<< HEAD
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                              PoisonValue::get(PointerType::getUnqual(Ctx)),
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-                             PoisonValue::get(Type::getInt1PtrTy(Ctx)),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-                             PoisonValue::get(PointerType::getUnqual(Ctx)),
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
                              /*isVolatile*/ false, Align(1));
     InsertNewInstBefore(SI, *InsertAt);
   }
@@ -818,11 +810,10 @@ public:
 
   Value *EvaluateInDifferentType(Value *V, Type *Ty, bool isSigned);
 
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
   /// Returns a value X such that Val = X * Scale, or null if none.
   ///
   /// If the multiplication is known not to overflow then NoSignedWrap is set.
-#if INTEL_CUSTOMIZATION
   // If "TestOnly" is true, then Descale makes no modifications and only tests
   // whether or not a value can be descaled.
   Value *Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
@@ -833,8 +824,6 @@ public:
   bool createComplexMathInstruction(Value *Real, Value *Imag);
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
   bool tryToSinkInstruction(Instruction *I, BasicBlock *DestBlock);
 
   bool removeInstructionsBeforeUnreachable(Instruction &I);

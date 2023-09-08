@@ -1342,14 +1342,7 @@ Value *IRBuilderBase::CreatePreserveStructAccessIndex(
   Value *GEPIndex = getInt32(Index);
   Constant *Zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
   Type *ResultType =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       GetElementPtrInst::getGEPReturnType(Base, {Zero, GEPIndex});
-<<<<<<< HEAD
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      GetElementPtrInst::getGEPReturnType(ElTy, Base, {Zero, GEPIndex});
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
 
   Module *M = BB->getParent()->getParent();
   Function *FnPreserveStructAccessIndex = Intrinsic::getDeclaration(

@@ -165,23 +165,9 @@ namespace Intrinsic {
     ArgKind getArgumentKind() const {
       assert(Kind == Argument || Kind == ExtendArgument ||
              Kind == TruncArgument || Kind == HalfVecArgument ||
-<<<<<<< HEAD
-             Kind == PtrToArgument ||
-             Kind == SameVecWidthArgument ||
-             Kind == VecElementArgument || Kind == Subdivide2Argument ||
-             Kind == Subdivide4Argument || Kind == VecOfBitcastsToInt);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      assert(Kind == Argument || Kind == ExtendArgument ||
-             Kind == TruncArgument || Kind == HalfVecArgument ||
-             Kind == SameVecWidthArgument ||
-             Kind == VecElementArgument || Kind == Subdivide2Argument ||
-             Kind == Subdivide4Argument || Kind == VecOfBitcastsToInt);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
              Kind == SameVecWidthArgument || Kind == VecElementArgument ||
              Kind == Subdivide2Argument || Kind == Subdivide4Argument ||
              Kind == VecOfBitcastsToInt);
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
       return (ArgKind)(Argument_Info & 7);
     }
 

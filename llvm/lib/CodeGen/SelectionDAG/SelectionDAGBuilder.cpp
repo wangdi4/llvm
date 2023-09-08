@@ -11181,12 +11181,6 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
     SmallVector<EVT, 1> ValueVTs;
     ComputeValueVTs(*TLI, DAG.getDataLayout(),
                     PointerType::get(F.getContext(),
-<<<<<<< HEAD
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-                    F.getReturnType()->getPointerTo(
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
                                      DAG.getDataLayout().getAllocaAddrSpace()),
                     ValueVTs);
 

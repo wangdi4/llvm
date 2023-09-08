@@ -1986,10 +1986,6 @@ def int_vp_scatter: DefaultAttrsIntrinsic<[],
 // Experimental strided memory accesses
 def int_experimental_vp_strided_store : DefaultAttrsIntrinsic<[],
                              [ llvm_anyvector_ty,
-<<<<<<< HEAD
-#if INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
                                llvm_anyptr_ty,
                                llvm_anyint_ty, // Stride in bytes
                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
@@ -1997,10 +1993,6 @@ def int_experimental_vp_strided_store : DefaultAttrsIntrinsic<[],
                              [ NoCapture<ArgIndex<1>>, IntrNoSync, IntrWriteMem, IntrArgMemOnly, IntrWillReturn ]>;
 
 def int_experimental_vp_strided_load  : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
-<<<<<<< HEAD
-#if INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
                              [ llvm_anyptr_ty,
                                llvm_anyint_ty, // Stride in bytes
                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,

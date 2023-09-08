@@ -131,26 +131,9 @@ private:
 Function *GenEmptyFunction(Module *M) {
   // Define a few arguments
   LLVMContext &Context = M->getContext();
-<<<<<<< HEAD
-  Type* ArgsTy[] = {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-    PointerType::get(Context, 0),
-    PointerType::get(Context, 0),
-    PointerType::get(Context, 0),
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    Type::getInt8PtrTy(Context),
-    Type::getInt32PtrTy(Context),
-    Type::getInt64PtrTy(Context),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-    Type::getInt32Ty(Context),
-    Type::getInt64Ty(Context),
-    Type::getInt8Ty(Context)
-  };
-=======
   Type *ArgsTy[] = {PointerType::get(Context, 0), PointerType::get(Context, 0),
                     PointerType::get(Context, 0), Type::getInt32Ty(Context),
                     Type::getInt64Ty(Context),    Type::getInt8Ty(Context)};
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
 
   auto *FuncTy = FunctionType::get(Type::getVoidTy(Context), ArgsTy, false);
   // Pick a unique name to describe the input parameters

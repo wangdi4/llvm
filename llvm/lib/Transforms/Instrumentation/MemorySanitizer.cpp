@@ -5276,15 +5276,7 @@ struct VarArgAArch64Helper : public VarArgHelper {
     Value *SaveAreaPtrPtr = IRB.CreateIntToPtr(
         IRB.CreateAdd(IRB.CreatePtrToInt(VAListTag, MS.IntptrTy),
                       ConstantInt::get(MS.IntptrTy, offset)),
-<<<<<<< HEAD
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         PointerType::get(*MS.C, 0));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-        Type::getInt64PtrTy(*MS.C));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-        PointerType::get(*MS.C, 0));
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
     return IRB.CreateLoad(Type::getInt64Ty(*MS.C), SaveAreaPtrPtr);
   }
 
@@ -5293,15 +5285,7 @@ struct VarArgAArch64Helper : public VarArgHelper {
     Value *SaveAreaPtr = IRB.CreateIntToPtr(
         IRB.CreateAdd(IRB.CreatePtrToInt(VAListTag, MS.IntptrTy),
                       ConstantInt::get(MS.IntptrTy, offset)),
-<<<<<<< HEAD
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         PointerType::get(*MS.C, 0));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-        Type::getInt32PtrTy(*MS.C));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
-        PointerType::get(*MS.C, 0));
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
     Value *SaveArea32 = IRB.CreateLoad(IRB.getInt32Ty(), SaveAreaPtr);
     return IRB.CreateSExt(SaveArea32, MS.IntptrTy);
   }

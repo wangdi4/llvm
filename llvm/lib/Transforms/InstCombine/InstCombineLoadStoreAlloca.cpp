@@ -634,25 +634,11 @@ static StoreInst *combineStoreToNewValue(InstCombinerImpl &IC, StoreInst &SI,
          "can't fold an atomic store of requested type");
 
   Value *Ptr = SI.getPointerOperand();
-<<<<<<< HEAD
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  unsigned AS = SI.getPointerAddressSpace();
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
   SmallVector<std::pair<unsigned, MDNode *>, 8> MD;
   SI.getAllMetadata(MD);
 
   StoreInst *NewStore =
       IC.Builder.CreateAlignedStore(V, Ptr, SI.getAlign(), SI.isVolatile());
-<<<<<<< HEAD
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  StoreInst *NewStore = IC.Builder.CreateAlignedStore(
-      V, IC.Builder.CreateBitCast(Ptr, V->getType()->getPointerTo(AS)),
-      SI.getAlign(), SI.isVolatile());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
   NewStore->setAtomic(SI.getOrdering(), SI.getSyncScopeID());
   for (const auto &MDPair : MD) {
     unsigned ID = MDPair.first;

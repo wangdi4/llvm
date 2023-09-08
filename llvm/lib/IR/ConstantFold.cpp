@@ -1971,14 +1971,7 @@ Constant *llvm::ConstantFoldGetElementPtr(Type *PointeeTy, Constant *C,
   if (Idxs.empty()) return C;
 
   Type *GEPTy = GetElementPtrInst::getGEPReturnType(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       C, ArrayRef((Value *const *)Idxs.data(), Idxs.size()));
-<<<<<<< HEAD
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      PointeeTy, C, ArrayRef((Value *const *)Idxs.data(), Idxs.size()));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
 
   if (isa<PoisonValue>(C))
     return PoisonValue::get(GEPTy);

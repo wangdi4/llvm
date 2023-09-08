@@ -7970,12 +7970,6 @@ SDValue SelectionDAG::getMemcpy(SDValue Chain, const SDLoc &dl, SDValue Dst,
   TargetLowering::ArgListTy Args;
   TargetLowering::ArgListEntry Entry;
   Entry.Ty = PointerType::getUnqual(*getContext());
-<<<<<<< HEAD
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Entry.Ty = Type::getInt8PtrTy(*getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
   Entry.Node = Dst; Args.push_back(Entry);
   Entry.Node = Src; Args.push_back(Entry);
 
