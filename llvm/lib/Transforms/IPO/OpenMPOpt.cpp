@@ -4450,11 +4450,7 @@ struct AAKernelInfoFunction : AAKernelInfo {
 
     // Create local storage for the work function pointer.
     const DataLayout &DL = M.getDataLayout();
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Type *VoidPtrTy = PointerType::getUnqual(Ctx);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    Type *VoidPtrTy = Type::getInt8PtrTy(Ctx);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     Instruction *WorkFnAI =
         new AllocaInst(VoidPtrTy, DL.getAllocaAddrSpace(), nullptr,
                        "worker.work_fn.addr", &Kernel->getEntryBlock().front());
@@ -4480,14 +4476,7 @@ struct AAKernelInfoFunction : AAKernelInfo {
     if (WorkFnAI->getType()->getPointerAddressSpace() !=
         (unsigned int)AddressSpace::Generic) {
       WorkFnAI = new AddrSpaceCastInst(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
           WorkFnAI, PointerType::get(Ctx, (unsigned int)AddressSpace::Generic),
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-          WorkFnAI,
-          PointerType::getWithSamePointeeType(
-              cast<PointerType>(WorkFnAI->getType()),
-              (unsigned int)AddressSpace::Generic),
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
           WorkFnAI->getName() + ".generic", StateMachineBeginBB);
       WorkFnAI->setDebugLoc(DLoc);
     }

@@ -560,17 +560,7 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
       return nullptr;
 
   // Use an integer load+store unless we can find something better.
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  unsigned SrcAddrSp =
-    cast<PointerType>(MI->getArgOperand(1)->getType())->getAddressSpace();
-  unsigned DstAddrSp =
-    cast<PointerType>(MI->getArgOperand(0)->getType())->getAddressSpace();
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-  IntegerType* IntType = IntegerType::get(MI->getContext(), Size<<3);
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *NewSrcPtrTy = PointerType::get(IntType, SrcAddrSp);
-  Type *NewDstPtrTy = PointerType::get(IntType, DstAddrSp);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+  IntegerType *IntType = IntegerType::get(MI->getContext(), Size << 3);
 
   // If the memcpy has metadata describing the members, see if we can get the
   // TBAA tag describing our copy.
@@ -589,13 +579,8 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
       CopyMD = cast<MDNode>(M->getOperand(2));
   }
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Value *Src = MI->getArgOperand(1);
   Value *Dest = MI->getArgOperand(0);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *Src = Builder.CreateBitCast(MI->getArgOperand(1), NewSrcPtrTy);
-  Value *Dest = Builder.CreateBitCast(MI->getArgOperand(0), NewDstPtrTy);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   LoadInst *L = Builder.CreateLoad(IntType, Src);
   // Alignment from the mem intrinsic will be better, so use it.
   L->setAlignment(*CopySrcAlign);
@@ -701,11 +686,6 @@ Instruction *InstCombinerImpl::SimplifyAnyMemSet(AnyMemSetInst *MI) {
     Type *ITy = IntegerType::get(MI->getContext(), Len*8);  // n=1 -> i8.
 
     Value *Dest = MI->getDest();
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    unsigned DstAddrSp = cast<PointerType>(Dest->getType())->getAddressSpace();
-    Type *NewDstPtrTy = PointerType::get(ITy, DstAddrSp);
-    Dest = Builder.CreateBitCast(Dest, NewDstPtrTy);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     // Extract the fill value and store.
     const uint64_t Fill = FillC->getZExtValue()*0x0101010101010101ULL;
@@ -994,10 +974,6 @@ static Instruction *simplifyInvariantGroupIntrinsic(IntrinsicInst &II,
   if (Result->getType()->getPointerAddressSpace() !=
       II.getType()->getPointerAddressSpace())
     Result = IC.Builder.CreateAddrSpaceCast(Result, II.getType());
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  if (Result->getType() != II.getType())
-    Result = IC.Builder.CreateBitCast(Result, II.getType());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   return cast<Instruction>(Result);
 }
@@ -4526,26 +4502,6 @@ bool InstCombinerImpl::transformConstExprCastCall(CallBase &Call) {
     if (CallerPAL.hasParamAttr(i, Attribute::ByVal) !=
         Callee->getAttributes().hasParamAttr(i, Attribute::ByVal))
       return false; // Cannot transform to or from byval.
-
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    // If the parameter is passed as a byval argument, then we have to have a
-    // sized type and the sized type has to have the same size as the old type.
-    if (ParamTy != ActTy && CallerPAL.hasParamAttr(i, Attribute::ByVal)) {
-      PointerType *ParamPTy = dyn_cast<PointerType>(ParamTy);
-      if (!ParamPTy)
-        return false;
-
-      if (!ParamPTy->isOpaque()) {
-        Type *ParamElTy = ParamPTy->getNonOpaquePointerElementType();
-        if (!ParamElTy->isSized())
-          return false;
-
-        Type *CurElTy = Call.getParamByValType(i);
-        if (DL.getTypeAllocSize(CurElTy) != DL.getTypeAllocSize(ParamElTy))
-          return false;
-      }
-    }
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   if (Callee->isDeclaration()) {
@@ -4606,21 +4562,8 @@ bool InstCombinerImpl::transformConstExprCastCall(CallBase &Call) {
     // type. Note that we made sure all incompatible ones are safe to drop.
     AttributeMask IncompatibleAttrs = AttributeFuncs::typeIncompatible(
         ParamTy, AttributeFuncs::ASK_SAFE_TO_DROP);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     ArgAttrs.push_back(
         CallerPAL.getParamAttrs(i).removeAttributes(Ctx, IncompatibleAttrs));
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    if (CallerPAL.hasParamAttr(i, Attribute::ByVal) &&
-        !ParamTy->isOpaquePointerTy()) {
-      AttrBuilder AB(Ctx, CallerPAL.getParamAttrs(i).removeAttributes(
-                              Ctx, IncompatibleAttrs));
-      AB.addByValAttr(ParamTy->getNonOpaquePointerElementType());
-      ArgAttrs.push_back(AttributeSet::get(Ctx, AB));
-    } else {
-      ArgAttrs.push_back(
-          CallerPAL.getParamAttrs(i).removeAttributes(Ctx, IncompatibleAttrs));
-    }
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   // If the function takes more arguments than the call was taking, add them
