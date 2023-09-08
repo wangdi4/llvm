@@ -336,15 +336,12 @@ bool VecCloneImpl::vlaAllocasExist(Function &F) {
   return false;
 }
 
-static bool canInferPtrElementType(Function &F, const VFInfo &Variant) {
+static bool hasLinearUValArg(const VFInfo &Variant) {
   for (const auto &[I, Parm] : enumerate(Variant.getParameters())) {
-    if (Parm.isLinearUVal()) {
-      Type *ArgPtrElemType = inferPtrElementType(*F.getArg(I));
-      if (!ArgPtrElemType)
-        return false;
-    }
+    if (Parm.isLinearUVal())
+      return true;
   }
-  return true;
+  return false;
 }
 
 // The following two functions are virtual and they are overloaded when
@@ -1962,8 +1959,11 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
     //  store i32 %add, ptr %3, align 4
     //
     for (const VFInfo &Variant : Variants) {
-      bool AbleToInferPtrElementType = canInferPtrElementType(F, Variant);
-      if (!AbleToInferPtrElementType) {
+      // We don't know what the actual optlevel is, but checking for optnone is
+      // better anyway because it's the unoptimized IR that causes the issue and
+      // this attribute can be set at opt levels other than -O0.
+      if (F.hasFnAttribute(Attribute::OptimizeNone) &&
+          hasLinearUValArg(Variant)) {
         LLVM_DEBUG(dbgs() << "Bail out due to presence of unoptimized uval "
                           << "parameter\n");
         F.removeFnAttr(VectorUtils::VectorVariantsAttrName);

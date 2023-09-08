@@ -312,6 +312,22 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
         return VFABI::demangleForVFABI(Attr);
       }));
 
+  // Currently uval args are not supported when unoptimized IR is presented to
+  // VecClone. Filter those variants out of the list before doing the matching
+  // in TTI.
+  const Function *F = Call->getParent()->getParent();
+  bool OptNoneFunc = F->hasFnAttribute(Attribute::OptimizeNone);
+  SmallVector<VFInfo, 4> FilteredVariants;
+  for (auto Variant : Variants) {
+    ArrayRef<VFParameter> Parms = Variant.getParameters();
+    if (OptNoneFunc && any_of(Parms, [](VFParameter Parm) {
+                return Parm.isLinearUVal();
+              }))
+      continue;
+    FilteredVariants.push_back(Variant);
+  }
+
+
   if (VPCall->isIntelIndirectCall())
      Masked |= Plan.getVPlanDA()->isDivergent(*VPCall->getOperand(0));
 
@@ -328,13 +344,13 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
                                      VFInfos);
 
   int VariantIdx =
-      TTI->getMatchingVectorVariant(VFInfos, Variants,
+      TTI->getMatchingVectorVariant(VFInfos, FilteredVariants,
                                     Call->getModule(), ArgIsLinearPrivateMem);
 
   if (VariantIdx >= 0) {
-    LLVM_DEBUG(dbgs() << "\nMatched call to: " << Variants[VariantIdx].VectorName
-                      << "\n\n");
-    return std::make_pair(Variants[VariantIdx], (unsigned)VariantIdx);
+    LLVM_DEBUG(dbgs() << "\nMatched call to: "
+                      << FilteredVariants[VariantIdx].VectorName << "\n\n");
+    return std::make_pair(FilteredVariants[VariantIdx], (unsigned)VariantIdx);
   }
 
   return {};
