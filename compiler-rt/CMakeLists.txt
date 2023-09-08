@@ -197,6 +197,20 @@ set(COMPILER_RT_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
 pythonize_bool(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR)
 
+# INTEL_CUSTOMIZATION
+# Create an alias of the "x86_64-unknown-linux-gnu" per-target runtime
+# directory to a "glibc" vendored version. The purpose of this is to support
+# finding runtimes during self-builds with "--target x86_64-glibc-linux-gnu".
+# Note that end users have no use for this link.
+if (LLVM_ENABLE_PER_TARGET_RUNTIME_DIR)
+  if ("${COMPILER_RT_DEFAULT_TARGET_TRIPLE}" MATCHES "x86_64-unknown-linux-gnu")
+    file(MAKE_DIRECTORY "${COMPILER_RT_OUTPUT_LIBRARY_DIR}")
+    file(CREATE_LINK "x86_64-unknown-linux-gnu" "${COMPILER_RT_OUTPUT_LIBRARY_DIR}/x86_64-glibc-linux-gnu" SYMBOLIC)
+    install(FILES "${COMPILER_RT_OUTPUT_LIBRARY_DIR}/x86_64-glibc-linux-gnu" DESTINATION "${COMPILER_RT_INSTALL_LIBRARY_DIR}" COMPONENT clang_rt_glibc_alias)
+  endif()
+endif()
+# end INTEL_CUSTOMIZATION
+
 # We support running instrumented tests when we're not cross-compiling
 # and target a UNIX-like system or Windows.
 # We can run tests on Android even when we are cross-compiling.

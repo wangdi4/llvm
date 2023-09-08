@@ -2058,8 +2058,8 @@ if (INTEL_CUSTOMIZATION)
     set(INTEL_DEPLOY_COMPONENTS_LIST
       # LLVM components
       clang lld llc llvm-link llvm-profdata llvm-profgen llvm-spirv
-      clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
-      clang-resource-headers llvm-cov llvm-ml clang-docs llvm-nm
+      clang_rt.profile-x86_64 clang_rt.profile-i386 clang_rt_glibc_alias
+      llvm-config clang-resource-headers llvm-cov llvm-ml clang-docs llvm-nm
       # Clang tools
       clang-format clang-rename
       # Clang tools extra
