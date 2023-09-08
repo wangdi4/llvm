@@ -183,10 +183,6 @@
 ; CHECK-O23SZ-NEXT: Running pass: GVNPass
 ; CHECK-O23SZ-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-O1-NEXT: Running pass: MemCpyOptPass
-<<<<<<< HEAD
-; COM: CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis ; INTEL
-=======
->>>>>>> efe8aa2e618122e8050af10cc5d6ad83f24ef557
 ; CHECK-O-NEXT: Running pass: SCCPPass
 ; CHECK-O-NEXT: Running pass: BDCEPass
 ; CHECK-O-NEXT: Running analysis: DemandedBitsAnalysis
@@ -197,11 +193,7 @@
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O1-NEXT: Running pass: CoroElidePass
 ; CHECK-O-NEXT: Running pass: ADCEPass
-<<<<<<< HEAD
-; COM: CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis ; INTEL
-=======
-; CHECK-O-NEXT: Running analysis: PostDominatorTreeAnalysis
->>>>>>> efe8aa2e618122e8050af10cc5d6ad83f24ef557
+; COM: CHECK-O-NEXT: Running analysis: PostDominatorTreeAnalysis ; INTEL
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass
 ; CHECK-O23SZ-NEXT: Running pass: MoveAutoInitPass
