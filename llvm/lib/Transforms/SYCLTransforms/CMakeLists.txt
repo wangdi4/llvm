@@ -115,6 +115,7 @@ add_llvm_component_library(LLVMSYCLTransforms
   SYCLRewritePipes.cpp
   Utils/BarrierUtils.cpp
   Utils/CompilationUtils.cpp
+  Utils/DiagnosticInfo.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp
   Utils/LoopPeeling.cpp

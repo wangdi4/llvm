@@ -85,25 +85,6 @@ static void LogHasRecursion(llvm::raw_ostream &logs,
     logs << *i << "\n";
   }
 }
-
-/**
- * Generates the log record (to the given stream) enumerating global names
-   whose depth attribute is ignored.
-   Note: currently only FPGA channels is expected to be such globals.
- */
-static void
-LogHasFPGAChannelsWithDepthIgnored(llvm::raw_ostream &logs,
-                                   const std::vector<std::string> &globals) {
-  logs << "Warning: The default channel depths in the emulation flow will be "
-       << "different from the hardware flow depth (0) to speed up emulation. "
-       << "The following channels are affected:\n";
-
-  for (const auto &global : globals) {
-    logs << " - " << global << "\n";
-  }
-
-  logs << "\n";
-}
 } // namespace Utils
 
 ProgramBuildResult::ProgramBuildResult()
@@ -371,13 +352,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                Optimizer::InvalidFunctionType::RECURSION));
     throw Exceptions::UserErrorCompilerException("Recursive call detected.",
                                                  CL_DEV_INVALID_BINARY);
-  }
-
-  if (optimizer->hasFPGAChannelsWithDepthIgnored()) {
-    // In this case build is not failed, we just need to show diagnostics
-    Utils::LogHasFPGAChannelsWithDepthIgnored(
-        pResult->LogS(), optimizer->GetInvalidGlobals(
-                             Optimizer::InvalidGVType::FPGA_DEPTH_IS_IGNORED));
   }
 
   //

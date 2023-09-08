@@ -1,6 +1,6 @@
 //==---------------------- SYCLChannelPipeUtils.cpp ----------------------==//
 //
-// Copyright (C) 2022 Intel Corporation
+// Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -289,8 +289,7 @@ ChannelKind getChannelKind(const StringRef Name) {
   return Kind;
 }
 
-ChannelPipeMD getChannelPipeMetadata(GlobalVariable *Channel,
-                                     int ChannelDepthEmulationMode) {
+ChannelPipeMD getChannelPipeMetadata(GlobalVariable *Channel) {
   auto GVMetadata = SYCLKernelMetadataAPI::GlobalVariableMetadataAPI(Channel);
 
   assert(GVMetadata.PipePacketSize.hasValue() &&
@@ -304,10 +303,6 @@ ChannelPipeMD getChannelPipeMetadata(GlobalVariable *Channel,
   CMD.IO = GVMetadata.PipeIO.hasValue() ? GVMetadata.PipeIO.get() : "";
   CMD.Protocol =
       GVMetadata.PipeProtocol.hasValue() ? GVMetadata.PipeProtocol.get() : -1;
-
-  if (!GVMetadata.PipeDepth.hasValue() &&
-      ChannelDepthEmulationMode == ChannelDepthMode::Default)
-    GVMetadata.DepthIsIgnored.set(true);
 
   return CMD;
 }
