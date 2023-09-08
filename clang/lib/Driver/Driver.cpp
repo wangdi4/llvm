@@ -6738,17 +6738,14 @@ class OffloadingActionBuilder final {
               TC, DeviceLibs, UseAOTLink,
               C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment());
         }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         SYCLDeviceLibLinked |= addPerformanceDeviceLibs(
             TC, DeviceLibs,
             C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment());
 #endif // INTEL_CUSTOMIZATION
-=======
         if (isSYCLNativeCPU) {
           SYCLDeviceLibLinked |= addSYCLNativeCPULibs(TC, DeviceLibs);
         }
->>>>>>> 6da4d2e77fd3dd7ba3c9099bb42bcddfda5b4dd5
         JobAction *LinkSYCLLibs =
             C.MakeAction<LinkJobAction>(DeviceLibs, types::TY_LLVM_BC);
         for (Action *FullLinkObject : FullLinkObjects) {
