@@ -3032,9 +3032,9 @@ static PrivKindPair getPrivateKind(VPInstruction *Inst, VPLoopEntityList *LE) {
     if (!isa<VPPHINode>(Inst) && Inst->getOpcode() != Instruction::Select)
       return std::nullopt;
 
-    // For conditional last privates we allow the uses only in the header and
-    // outside of the loop, i.e. only two uses. Preventing, e.g., case like
-    // below (%exitI is declared as last private).
+    // For conditional last privates we allow the uses only by phi-s in loop
+    // header(s) and outside of the loop by VPExternalUse. Preventing, e.g.,
+    // case like below (%exitI is declared as last private).
     //
     //    %header_phi = phi [%start_val], [%exitI]
     //    %cond = some_comparison ...
@@ -3042,7 +3042,7 @@ static PrivKindPair getPrivateKind(VPInstruction *Inst, VPLoopEntityList *LE) {
     //    store %exitI, %some_ptr
     //
     // 1) According to OMP standard, the %exitI has undefined values in the
-    //    masked lanes (at least on the first vector itertaion).
+    //    masked lanes (at least on the first vector iteration).
     // 2) Consider the following mask at some vector interation and
     //    the values that will be stored by scalar execution.
     //    iter#    0, 1,  2,  3,  4,  5,  6, 7
@@ -3057,7 +3057,37 @@ static PrivKindPair getPrivateKind(VPInstruction *Inst, VPLoopEntityList *LE) {
     // implement the resulting code will be very slow. Until we don't have
     // support for such code generation (and the proper cost model) we bail out.
     //
-    if (Inst->getNumUsers() != 2)
+    // Example of allowed uses (2 uses case)
+    //   BB3: # preds: BB2, BB3  (Loop header in inner loop vectorization)
+    //    i64 %vp13612 = phi  [ i64 %1, BB2 ],  [ i64 %vp2252, BB3 ]
+    //   ...
+    //    i64 %vp2252 = select i1 %vp2224 i64 %vp40200 i64 %vp13612
+    //   ...
+    // External Uses:
+    //   Id: 0   i64 %vp2252 -> %vp18320 = {%1}
+    //
+    // Allowed use in inner loop case (3 uses case)
+    //   BB3: # preds: BB2, BB6      (Outer loop header)
+    //    i64 %vp39458 = phi  [ i64 %cp.017, BB2 ],  [ i64 %vp38476, BB6 ]
+    //   ...
+    //   BB5: # preds: BB4, BB5      (Inner loop header)
+    //    i64 %vp37914 = phi  [ i64 %vp39458, BB4 ],  [ i64 %vp38476, BB5 ]
+    //    i64 %vp38476 = select i1 %vp38448 i64 %vp37510 i64 %vp37914
+    //   ...
+    // External Uses:
+    //   Id: 0   i64 %vp38476 -> %vp46032 = {%cp.017}
+    //
+    if (!llvm::all_of(Inst->users(), [LE](const VPUser *U) {
+          if (isa<VPExternalUse>(U))
+            return true;
+          if (auto *P = dyn_cast<VPPHINode>(U)) {
+            VPLoop *L =
+                LE->getVPlan().getVPLoopInfo()->getLoopFor(P->getParent());
+            if (L->getHeader() == P->getParent())
+              return true;
+          }
+          return false;
+        }))
       return PrivKindPair(
           std::make_pair(nullptr, VPPrivate::PrivateKind::NonLast));
 

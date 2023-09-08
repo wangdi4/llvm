@@ -942,6 +942,7 @@ public:
   void dump() const { dump(errs()); }
 #endif
   const VPLoop &getLoop() const { return Loop; }
+  VPlanVector &getVPlan() const { return Plan; }
 
   VPPHINode *findInductionStartPhi(const VPInduction *Induction) const;
 
