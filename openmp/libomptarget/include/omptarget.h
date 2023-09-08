@@ -255,7 +255,8 @@ enum OmpIprInfoTy : int32_t {
 
 enum OmpInteropContextTy: int32_t {
   OMP_INTEROP_CONTEXT_TARGET = 0,
-  OMP_INTEROP_CONTEXT_TARGETSYNC
+  OMP_INTEROP_CONTEXT_TARGETSYNC,
+  OMP_INTEROP_CONTEXT_TARGETSYNC_INORDER
 };
 
 /// Common interop properties defined in OpenMP 5.1
@@ -279,8 +280,8 @@ struct __tgt_interop {
 
   void setOwner ( int gtid, void *task );
   bool isOwnedBy ( int gtid, void *current_task );
-  bool isCompatibleWith ( int32_t interop_type, uint32_t num_prefers, 
-		          int32_t *prefer_ids, int64_t device_num, 
+  bool isCompatibleWith ( int32_t interop_type, uint32_t num_prefers,
+		          int32_t *prefer_ids, int64_t device_num,
 			  int gtid, void *current_task );
   void markClean() { Clean = true; }
   void markDirty() { Clean = false; }

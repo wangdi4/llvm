@@ -531,6 +531,17 @@ only device memory becomes resident on all devices at allocation time by default
 
 **Default**: ``0x002``
 
+``LIBOMPTARGET_INTEROP_INORDER_SYCL_QUEUE=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Bool> := 1 | T | t | 0 | F | f
+
+Enables/disables use of inorder queue/commandlist for interop objects created
+with sycl queue/commadlist.
+
+**Default**: Disabled
+
 Plugin OpenCL
 -------------
 

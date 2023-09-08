@@ -16,6 +16,7 @@
  */
 /* end INTEL_CUSTOMIZATION */
 
+#include "properties/queue_properties.hpp"
 #if INTEL_CUSTOMIZATION
 
 //===--- Target SYCL WRAPPER RTLs Implementation --------------------------===//
@@ -94,7 +95,8 @@ EXTERN void *__tgt_sycl_get_interop(void *zedevice) {
 }
 
 EXTERN void __tgt_sycl_create_interop_wrapper(omp_interop_t interop,
-                                              bool is_imm_cmd_list) {
+                                              bool is_imm_cmd_list,
+                                              bool in_order_queue) {
 
   void *ZeDevice;
   void *ZeQueue;
@@ -118,13 +120,22 @@ EXTERN void __tgt_sycl_create_interop_wrapper(omp_interop_t interop,
   else
     ZeQorL = static_cast<ze_command_queue_handle_t>(ZeQueue);
 
-  sycl::backend_input_t<sycl::backend::ext_oneapi_level_zero, sycl::queue>
-      QueueInteropInput = {ZeQorL, *SyclWrapperObj->SyclDevice,
-                           sycl::ext::oneapi::level_zero::ownership::keep};
-
-  SyclWrapperObj->SyclQueue = std::make_unique<sycl::queue>(
-      sycl::make_queue<sycl::backend::ext_oneapi_level_zero>(QueueInteropInput,
-                                                             *SyclContext));
+  if (in_order_queue) {
+    sycl::backend_input_t<sycl::backend::ext_oneapi_level_zero, sycl::queue>
+        QueueInteropInput{ZeQorL, *SyclWrapperObj->SyclDevice,
+                          sycl::ext::oneapi::level_zero::ownership::keep,
+                          property::queue::in_order{}};
+    SyclWrapperObj->SyclQueue = std::make_unique<sycl::queue>(
+        sycl::make_queue<sycl::backend::ext_oneapi_level_zero>(
+            QueueInteropInput, *SyclContext));
+  } else {
+    sycl::backend_input_t<sycl::backend::ext_oneapi_level_zero, sycl::queue>
+        QueueInteropInput = {ZeQorL, *SyclWrapperObj->SyclDevice,
+                             sycl::ext::oneapi::level_zero::ownership::keep};
+    SyclWrapperObj->SyclQueue = std::make_unique<sycl::queue>(
+        sycl::make_queue<sycl::backend::ext_oneapi_level_zero>(
+            QueueInteropInput, *SyclContext));
+  }
 
   SyclWrapperObj->interop = interop;
   SyclWrappers->push_back(SyclWrapperObj);
