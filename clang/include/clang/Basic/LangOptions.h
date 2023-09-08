@@ -60,6 +60,7 @@ namespace clang {
 /// this large collection of bitfields is a trivial class type.
 class LangOptionsBase {
   friend class CompilerInvocation;
+  friend class CompilerInvocationBase;
 
 public:
   // Define simple language options (with no accessors).
