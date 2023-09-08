@@ -208,9 +208,6 @@ public:
   Instruction *visitPHINode(PHINode &PN);
   Instruction *visitGetElementPtrInst(GetElementPtrInst &GEP);
   Instruction *visitGEPOfGEP(GetElementPtrInst &GEP, GEPOperator *Src);
-  #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Instruction *visitGEPOfBitcast(BitCastInst *BCI, GetElementPtrInst &GEP);
-  #endif // INTEL_SYCL_OPAQUEPOINTER_READY
   Instruction *visitAllocaInst(AllocaInst &AI);
   Instruction *visitAllocSite(Instruction &FI);
   Instruction *visitFree(CallInst &FI, Value *FreedOp);
@@ -499,11 +496,15 @@ public:
   void CreateNonTerminatorUnreachable(Instruction *InsertAt) {
     auto &Ctx = InsertAt->getContext();
     auto *SI = new StoreInst(ConstantInt::getTrue(Ctx),
+<<<<<<< HEAD
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                              PoisonValue::get(PointerType::getUnqual(Ctx)),
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
                              PoisonValue::get(Type::getInt1PtrTy(Ctx)),
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+                             PoisonValue::get(PointerType::getUnqual(Ctx)),
+>>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
                              /*isVolatile*/ false, Align(1));
     InsertNewInstBefore(SI, *InsertAt);
   }
@@ -795,9 +796,6 @@ public:
 
   Value *insertRangeTest(Value *V, const APInt &Lo, const APInt &Hi,
                          bool isSigned, bool Inside);
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Instruction *PromoteCastOfAllocation(BitCastInst &CI, AllocaInst &AI);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   bool mergeStoreIntoSuccessor(StoreInst &SI);
 
   /// Given an initial instruction, check to see if it is the root of a
@@ -820,6 +818,7 @@ public:
 
   Value *EvaluateInDifferentType(Value *V, Type *Ty, bool isSigned);
 
+<<<<<<< HEAD
   /// Returns a value X such that Val = X * Scale, or null if none.
   ///
   /// If the multiplication is known not to overflow then NoSignedWrap is set.
@@ -834,6 +833,8 @@ public:
   bool createComplexMathInstruction(Value *Real, Value *Imag);
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
   bool tryToSinkInstruction(Instruction *I, BasicBlock *DestBlock);
 
   bool removeInstructionsBeforeUnreachable(Instruction &I);

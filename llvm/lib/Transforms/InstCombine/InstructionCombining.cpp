@@ -1765,30 +1765,6 @@ Instruction *InstCombinerImpl::foldBinOpIntoSelectOrPhi(BinaryOperator &I) {
   return nullptr;
 }
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-/// Given a pointer type and a constant offset, determine whether or not there
-/// is a sequence of GEP indices into the pointed type that will land us at the
-/// specified offset. If so, fill them into NewIndices and return the resultant
-/// element type, otherwise return null.
-static Type *findElementAtOffset(PointerType *PtrTy, int64_t IntOffset,
-                                 SmallVectorImpl<Value *> &NewIndices,
-                                 const DataLayout &DL) {
-  // Only used by visitGEPOfBitcast(), which is skipped for opaque pointers.
-  Type *Ty = PtrTy->getNonOpaquePointerElementType();
-  if (!Ty->isSized())
-    return nullptr;
-
-  APInt Offset(DL.getIndexTypeSizeInBits(PtrTy), IntOffset);
-  SmallVector<APInt> Indices = DL.getGEPIndicesForOffset(Ty, Offset);
-  if (!Offset.isZero())
-    return nullptr;
-
-  for (const APInt &Index : Indices)
-    NewIndices.push_back(ConstantInt::get(PtrTy->getContext(), Index));
-  return Ty;
-}
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-
 static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
   // If this GEP has only 0 indices, it is the same pointer as
   // Src. If Src is not a trivial GEP too, don't combine
@@ -1808,6 +1784,7 @@ static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
   return true;
 }
 
+<<<<<<< HEAD
 /// Return a value X such that Val = X * Scale, or null if none.
 /// If the multiplication is known not to overflow, then NoSignedWrap is set.
 #if INTEL_CUSTOMIZATION
@@ -2168,6 +2145,8 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
   } while (true);
 }
 
+=======
+>>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
 Instruction *InstCombinerImpl::foldVectorBinop(BinaryOperator &Inst) {
   if (!isa<VectorType>(Inst.getType()))
     return nullptr;
@@ -2575,8 +2554,8 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   // For constant GEPs, use a more general offset-based folding approach.
   // Only do this for opaque pointers, as the result element type may change.
   Type *PtrTy = Src->getType()->getScalarType();
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   if (GEP.hasAllConstantIndices() &&
+<<<<<<< HEAD
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
   if (PtrTy->isOpaquePointerTy() && GEP.hasAllConstantIndices() &&
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
@@ -2586,6 +2565,9 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
       (Src->hasOneUse() || Src->hasAllConstantIndices()) &&
       !GEP.getParent()->getParent()->isPreLoopOpt()) {
 #endif // INTEL_CUSTOMIZATION
+=======
+      (Src->hasOneUse() || Src->hasAllConstantIndices())) {
+>>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
     // Split Src into a variable part and a constant suffix.
     gep_type_iterator GTI = gep_type_begin(*Src);
     Type *BaseType = GTI.getIndexedType();
@@ -2723,6 +2705,7 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   return nullptr;
 }
 
+<<<<<<< HEAD
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 // Note that we may have also stripped an address space cast in between.
 Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
@@ -2911,6 +2894,8 @@ InstCombinerImpl::convertOpaqueGEPToLoadStoreType(GetElementPtrInst &GEP) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
 Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   Value *PtrOp = GEP.getOperand(0);
   SmallVector<Value *, 8> Indices(GEP.indices());
@@ -3147,6 +3132,7 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   if (GEPType->isVectorTy())
     return nullptr;
 
+<<<<<<< HEAD
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // Handle gep(bitcast x) and gep(gep x, 0, 0, 0).
   Value *StrippedPtr = PtrOp->stripPointerCasts();
@@ -3350,6 +3336,8 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       return NewGEP;
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
   if (!GEP.isInBounds()) {
     unsigned IdxWidth =
         DL.getIndexSizeInBits(PtrOp->getType()->getPointerAddressSpace());

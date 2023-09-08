@@ -1805,13 +1805,6 @@ static void speculateSelectInstLoads(SelectInst &SI, LoadInst &LI,
   assert(LI.isSimple() && "We only speculate simple loads");
 
   IRB.SetInsertPoint(&LI);
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  if (auto *TypedPtrTy = LI.getPointerOperandType();
-      !TypedPtrTy->isOpaquePointerTy() && SI.getType() != TypedPtrTy) {
-    TV = IRB.CreateBitOrPointerCast(TV, TypedPtrTy, "");
-    FV = IRB.CreateBitOrPointerCast(FV, TypedPtrTy, "");
-  }
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   // Fix for typed pointers
   auto *LoadPtrType = LI.getPointerOperandType();
   if (LoadPtrType != TV->getType())
@@ -1887,13 +1880,6 @@ static void rewriteMemOpOfSelect(SelectInst &SI, T &I,
     }
     CondMemOp.insertBefore(NewMemOpBB->getTerminator());
     Value *Ptr = SI.getOperand(1 + SuccIdx);
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    if (auto *PtrTy = Ptr->getType();
-        !PtrTy->isOpaquePointerTy() &&
-        PtrTy != CondMemOp.getPointerOperandType())
-      Ptr = BitCastInst::CreatePointerBitCastOrAddrSpaceCast(
-          Ptr, CondMemOp.getPointerOperandType(), "", &CondMemOp);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     CondMemOp.setOperand(I.getPointerOperandIndex(), Ptr);
     if (isa<LoadInst>(I)) {
       CondMemOp.setName(I.getName() + (IsThen ? ".then" : ".else") + ".val");
@@ -2909,11 +2895,13 @@ class llvm::sroa::AllocaSliceRewriter
     if (!IsVolatile || AddrSpace == NewAI.getType()->getPointerAddressSpace())
       return &NewAI;
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Type *AccessTy = IRB.getPtrTy(AddrSpace);
+<<<<<<< HEAD
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
     Type *AccessTy = NewAI.getAllocatedType()->getPointerTo(AddrSpace);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+>>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
     return IRB.CreateAddrSpaceCast(&NewAI, AccessTy);
   }
 public:

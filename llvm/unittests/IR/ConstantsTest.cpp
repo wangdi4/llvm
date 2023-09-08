@@ -125,6 +125,7 @@ TEST(ConstantsTest, FP128Test) {
   EXPECT_TRUE(isa<ConstantFP>(X));
 }
 
+<<<<<<< HEAD
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 TEST(ConstantsTest, PointerCast) {
   LLVMContext C;
@@ -275,6 +276,8 @@ TEST(ConstantsTest, PointerCast) {
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
 }
 #else
+=======
+>>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
 TEST(ConstantsTest, PointerCast) {
   LLVMContext C;
   Type *PtrTy = PointerType::get(C, 0);
@@ -333,7 +336,6 @@ TEST(ConstantsTest, PointerCast) {
             ConstantExpr::getAddrSpaceCast(NullPtr1, PtrTy));
 }
 
-#endif
 #define CHECK(x, y)                                                            \
   {                                                                            \
     std::string __s;                                                           \
@@ -812,11 +814,7 @@ TEST(ConstantsTest, isElementWiseEqual) {
   EXPECT_FALSE(CF12U2->isElementWiseEqual(CF12U1));
   EXPECT_FALSE(CF12U1->isElementWiseEqual(CF12U2));
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  PointerType *PtrTy = Type::getInt8PtrTy(Context);
-#else
   PointerType *PtrTy = PointerType::get(Context, 0);
-#endif
   Constant *CPU = UndefValue::get(PtrTy);
   Constant *CP0 = ConstantPointerNull::get(PtrTy);
   Constant *CP0000 = ConstantVector::get({CP0, CP0, CP0, CP0});

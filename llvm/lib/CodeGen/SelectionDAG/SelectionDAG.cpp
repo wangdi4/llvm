@@ -1324,14 +1324,8 @@ SDNode *SelectionDAG::FindModifiedNodeSlot(SDNode *N, ArrayRef<SDValue> Ops,
 }
 
 Align SelectionDAG::getEVTAlign(EVT VT) const {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *Ty = VT == MVT::iPTR ? PointerType::get(*getContext(), 0)
                              : VT.getTypeForEVT(*getContext());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *Ty = VT == MVT::iPTR ?
-                   PointerType::get(Type::getInt8Ty(*getContext()), 0) :
-                   VT.getTypeForEVT(*getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   return getDataLayout().getABITypeAlign(Ty);
 }
@@ -7975,11 +7969,13 @@ SDValue SelectionDAG::getMemcpy(SDValue Chain, const SDLoc &dl, SDValue Dst,
   // Emit a library call.
   TargetLowering::ArgListTy Args;
   TargetLowering::ArgListEntry Entry;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Entry.Ty = PointerType::getUnqual(*getContext());
+<<<<<<< HEAD
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
   Entry.Ty = Type::getInt8PtrTy(*getContext());
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+>>>>>>> 14f5c1866d7143519e84ebe9820c1264308c6317
   Entry.Node = Dst; Args.push_back(Entry);
   Entry.Node = Src; Args.push_back(Entry);
 
@@ -8097,11 +8093,7 @@ SDValue SelectionDAG::getMemmove(SDValue Chain, const SDLoc &dl, SDValue Dst,
   // Emit a library call.
   TargetLowering::ArgListTy Args;
   TargetLowering::ArgListEntry Entry;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Entry.Ty = PointerType::getUnqual(*getContext());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Entry.Ty = Type::getInt8PtrTy(*getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Entry.Node = Dst; Args.push_back(Entry);
   Entry.Node = Src; Args.push_back(Entry);
 
@@ -8228,11 +8220,7 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
   // If zeroing out and bzero is present, use it.
   if (isNullConstant(Src) && BzeroName) {
     TargetLowering::ArgListTy Args;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Args.push_back(CreateEntry(Dst, PointerType::getUnqual(Ctx)));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    Args.push_back(CreateEntry(Dst, Type::getInt8PtrTy(Ctx)));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     Args.push_back(CreateEntry(Size, DL.getIntPtrType(Ctx)));
     CLI.setLibCallee(
         TLI->getLibcallCallingConv(RTLIB::BZERO), Type::getVoidTy(Ctx),
@@ -8252,11 +8240,7 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     TargetLowering::ArgListTy Args;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Args.push_back(CreateEntry(Dst, PointerType::getUnqual(Ctx)));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    Args.push_back(CreateEntry(Dst, Type::getInt8PtrTy(Ctx)));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     Args.push_back(CreateEntry(Src, Src.getValueType().getTypeForEVT(Ctx)));
     Args.push_back(CreateEntry(Size, DL.getIntPtrType(Ctx)));
     CLI.setLibCallee(TLI->getLibcallCallingConv(libcall), // INTEL
