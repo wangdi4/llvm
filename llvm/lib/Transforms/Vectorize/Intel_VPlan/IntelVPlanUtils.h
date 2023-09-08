@@ -555,6 +555,12 @@ checkUncondLastPrivOperands(const BasicBlock *HeaderBB, Instruction *ExitI,
   return true;
 }
 
+inline bool isFortranRNGLibraryFunc(Function *F, TargetLibraryInfo *TLI) {
+  LibFunc ForRNGLibFunc;
+  return TLI->getLibFunc(*F, ForRNGLibFunc) &&
+         TLI->isFortranRNGLibFunc(ForRNGLibFunc);
+}
+
 } // namespace vpo
 } // namespace llvm
 

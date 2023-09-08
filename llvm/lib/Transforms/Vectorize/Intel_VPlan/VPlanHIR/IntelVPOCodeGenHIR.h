@@ -237,12 +237,12 @@ public:
   void scalarizePredicatedUniformInst(const VPInstruction *VPInst,
                                       RegDDRef *Mask);
 
-  /// Adjust arguments passed to SVML functions to handle masks
-  void addMaskToSVMLCall(Function *OrigF, AttributeList OrigAttrs,
-                         SmallVectorImpl<RegDDRef *> &VecArgs,
-                         SmallVectorImpl<Type *> &VecArgTys,
-                         SmallVectorImpl<AttributeSet> &VecArgAttrs,
-                         RegDDRef *MaskValue);
+  /// Adjust arguments passed to SVML/vector library functions to handle masks
+  void addMaskToLibCall(Function *OrigF, AttributeList OrigAttrs,
+                        SmallVectorImpl<RegDDRef *> &VecArgs,
+                        SmallVectorImpl<Type *> &VecArgTys,
+                        SmallVectorImpl<AttributeSet> &VecArgAttrs,
+                        RegDDRef *MaskValue);
 
   /// Generate instructions to extract two results of a widened sincos call
   /// \p WideInst, and store them to locations designated in the original call
