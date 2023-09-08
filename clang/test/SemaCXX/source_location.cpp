@@ -5,9 +5,9 @@
 // RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fms-extensions -DMS -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
 // RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -fms-extensions -DMS -DUSE_CONSTEVAL -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -fexceptions -verify %s
 //
-/// FIXME: The -DPAREN_INIT one is missing for the new interpreter.
 // RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -fexperimental-new-constant-interpreter -DNEW_INTERP -verify %s
 // RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -DUSE_CONSTEVAL -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -fexceptions -fexperimental-new-constant-interpreter -DNEW_INTERP -verify %s
+// RUN: %clang_cc1 -std=c++2b -fcxx-exceptions -DUSE_CONSTEVAL -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -DPAREN_INIT -fexceptions -fexperimental-new-constant-interpreter -DNEW_INTERP -verify %s
 // RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fms-extensions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -DMS -fexceptions -fexperimental-new-constant-interpreter -DNEW_INTERP -verify %s
 // RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -fms-extensions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -DMS -DUSE_CONSTEVAL -fexceptions -fexperimental-new-constant-interpreter -DNEW_INTERP -verify %s
 // expected-no-diagnostics
