@@ -717,30 +717,23 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
     bool RequiresLoopnestUnswitch; // Candidates needs to be unswitched to the
                                    //   outermost loop
 
-    bool RequiresRegionInvariant; // Candidate condition needs to be invariant
-                                  // to the region
-
     CandidateConstraints(unsigned MinLevel, bool CanTransformParent,
-                         bool PUCAllowed, bool RequiresLoopnestUnswitch,
-                         bool RequiresRegionInvariant)
+                         bool PUCAllowed, bool RequiresLoopnestUnswitch)
         : MinLevel(MinLevel), CanTransformParent(CanTransformParent),
           PUCAllowed(PUCAllowed),
-          RequiresLoopnestUnswitch(RequiresLoopnestUnswitch),
-          RequiresRegionInvariant(RequiresRegionInvariant) {}
+          RequiresLoopnestUnswitch(RequiresLoopnestUnswitch) {}
 
     CandidateConstraints(CandidateConstraints &Constraints)
         : MinLevel(Constraints.MinLevel),
           CanTransformParent(Constraints.CanTransformParent),
           PUCAllowed(Constraints.PUCAllowed),
-          RequiresLoopnestUnswitch(Constraints.RequiresLoopnestUnswitch),
-          RequiresRegionInvariant(Constraints.RequiresRegionInvariant) {}
+          RequiresLoopnestUnswitch(Constraints.RequiresLoopnestUnswitch) {}
 
     CandidateConstraints &operator=(const CandidateConstraints &Constraints) {
       MinLevel = Constraints.MinLevel;
       CanTransformParent = Constraints.CanTransformParent;
       PUCAllowed = Constraints.PUCAllowed;
       RequiresLoopnestUnswitch = Constraints.RequiresLoopnestUnswitch;
-      RequiresRegionInvariant = Constraints.RequiresRegionInvariant;
       return *this;
     }
   };
@@ -761,8 +754,7 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
                   unsigned MinLevel = 0, unsigned CostOfRegion = 0)
       : SkipNode(nullptr), Pass(Pass), HLS(HLS),
         Constraints(MinLevel, CanTransformParent, true /*PUCAllowed*/,
-                    false /*RequiresLoopnestUnswitch*/,
-                    false /*RequiresRegionInvariant*/),
+                    false /*RequiresLoopnestUnswitch*/),
         CurrLoop(CurrLoop), CostOfRegion(CostOfRegion),
         FirstSelectCandidate(nullptr) {}
 
@@ -789,6 +781,7 @@ private:
   bool canUnswitchInnerIf(HLIf *If, HLLoop *Loop);
   bool isRestrictedByConstraints(HLNode *Node, unsigned Level, PUContext &PUC,
                                  CandidateConstraints &Constraints);
+  bool isTargetLoopValid(HLNode *Node, unsigned Level);
 };
 
 // Helper structure used to count the number of nested loops in a region.
@@ -1383,22 +1376,6 @@ bool HIROptPredicate::CandidateLookup::isRestrictedByConstraints(
   if (Constraints.RequiresLoopnestUnswitch && Level != 0)
     return true;
 
-  // Memrefs in the condition needs to be region invariant
-  if (Constraints.RequiresRegionInvariant) {
-    if (Level != 0)
-      return true;
-
-    // This is only supported for If conditions at the moment
-    HLIf *If = dyn_cast<HLIf>(Node);
-    if (!If)
-      return true;
-
-    for (auto *PredOP : make_range(If->op_ddref_begin(), If->op_ddref_end())) {
-      if (!PredOP->isStructurallyRegionInvariant())
-        return true;
-    }
-  }
-
   return false;
 }
 
@@ -1414,8 +1391,7 @@ enum SIMDType {
 // Return the type of SIMD directives that encapsulates the current loop.
 // This result will be used to used to identify which type of analysis will
 // be done.
-static SIMDType getSupportedSIMDType(const HLLoop *Loop,
-                                     bool IsTargetLoop = false) {
+static SIMDType getSupportedSIMDType(const HLLoop *Loop) {
   assert(Loop && "Trying to collect SIMD information from a null Loop");
 
   auto *SIMDBegin = Loop->getSIMDEntryIntrinsic();
@@ -1426,16 +1402,11 @@ static SIMDType getSupportedSIMDType(const HLLoop *Loop,
   if (DisableUnswitchSIMD)
     return SIMDType::NotSupported;
 
-  // If the loop is not the target loop (i.e. source loop that encloses the
-  // If), then it has to be the innermost loop.
-  if (!IsTargetLoop && !Loop->isInnermost())
-    return SIMDType::NotSupported;
-
-  // The target loop needs to be the outermost loop and the parent needs to
-  // be a region.
+  // If the loop is not the innermost, nor the outermost, then we mark it as
+  // not supported.
   //
   // NOTE: This can be improved when we add support for SIMD blocks (JR-47148).
-  if (IsTargetLoop && !isa<HLRegion>(Loop->getParent()))
+  if (!Loop->isInnermost() && !isa<HLRegion>(Loop->getParent()))
     return SIMDType::NotSupported;
 
   const HLInst *SIMDEnd = Loop->getSIMDExitIntrinsic();
@@ -1483,6 +1454,64 @@ static SIMDType getSupportedSIMDType(const HLLoop *Loop,
   // (CMPLRLLVM-47148).
 
   return SIMDType::NotSupported;
+}
+
+// Return true if at least one of the refs is not invariant to the region.
+static bool conditionIsNotInvariantToRegion(HLNode *Node) {
+  // This is only supported for If conditions at the moment
+  //
+  // TODO: We can expand this check for Select instructions by making sure
+  // all the refs are invariant to the region.
+  HLIf *If = dyn_cast<HLIf>(Node);
+  if (!If)
+    return true;
+
+  for (auto *PredOP : make_range(If->op_ddref_begin(), If->op_ddref_end())) {
+    if (!PredOP->isStructurallyRegionInvariant())
+      return true;
+  }
+
+  return false;
+}
+
+// This function will check if the condition (Node) can be hoisted out of the
+// the target loop. The target loop will be the loop at input level + 1. The
+// reason is that level represents where the condition will be moved to
+// (0 means region, 1 is loop level 1, etc.), and target loop (level + 1) is
+// the loop that will be enclosed inside the condition after the
+// transformation.
+bool HIROptPredicate::CandidateLookup::isTargetLoopValid(HLNode *Node,
+                                                         unsigned Level) {
+
+  unsigned CurLevel = Node->getParentLoop()->getNestingLevel();
+  auto *TargetLoop = Node->getParentLoopAtLevel(Level + 1);
+  auto SIMDTy = getSupportedSIMDType(TargetLoop);
+  if (SIMDTy == SIMDType::NotSupported) {
+    // Check if the SIMD directives are supported
+    LLVM_DEBUG(
+        dbgs()
+        << "Outerloop is a simd loop, hoisting will inhibit simd pragma.\n");
+    return false;
+  } else if (SIMDTy == SIMDType::Region) {
+    // Check that all the refs inside the condition are invariant to the
+    // region. The reason is that we want to move the SIMD directives, and
+    // all the instructions between the directives and the target loop inside
+    // the condition too.
+    if (conditionIsNotInvariantToRegion(Node)) {
+      LLVM_DEBUG(dbgs() << "Predicate is not invariant to the region.\n");
+      return false;
+    }
+  }
+
+  if ((Level != CurLevel - 1) &&
+      HLS.getTotalStatistics(TargetLoop).hasConvergentCalls()) {
+    LLVM_DEBUG(
+        dbgs()
+        << "Hoisting disabled as target loop contains convergent calls.\n");
+    return false;
+  }
+
+  return true;
 }
 
 template <typename NodeTy>
@@ -1534,31 +1563,9 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     Level = CurLevel;
   }
 
-  if (IsCandidate && (Level != CurLevel - 1)) {
-    auto *TargetLoop = Node->getParentLoopAtLevel(Level + 1);
-
-    // If the target loop is SIMD and not supported, then disable it.
-    if (TargetLoop->isSIMD() &&
-        getSupportedSIMDType(TargetLoop, true) == SIMDType::NotSupported) {
-      LLVM_DEBUG(
-          dbgs()
-          << "Outerloop is a simd loop, hoisting will inhibit simd pragma.\n");
-
-      IsCandidate = false;
-      Level = CurLevel;
-
-      // We only need to check the TargetLoop if it is not the same as the
-      // parent loop of candidate, (nesting level check below). This is because
-      // visit(HLLoop *) disables all candidates within it if it has convergent
-      // calls. Ideally, we should do the same for SIMD loops as well.
-    } else if (HLS.getTotalStatistics(TargetLoop).hasConvergentCalls()) {
-      LLVM_DEBUG(
-          dbgs()
-          << "Hoisting disabled as target loop contains convergent calls.\n");
-
-      IsCandidate = false;
-      Level = CurLevel;
-    }
+  if (IsCandidate && !isTargetLoopValid(Node, Level)) {
+    IsCandidate = false;
+    Level = CurLevel;
   }
 
   if (IsCandidate && Pass.EarlyPredicateOpt && Level != 0) {
@@ -1664,10 +1671,9 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   if (!Constraints.RequiresLoopnestUnswitch) {
     // Collect candidates within HLIf branches.
     if (auto *If = dyn_cast<HLIf>(Node)) {
-      CandidateConstraints ThenConstraints(Level, WillUnswitchParent,
-                                           Constraints.PUCAllowed,
-                                           Constraints.RequiresLoopnestUnswitch,
-                                           Constraints.RequiresRegionInvariant);
+      CandidateConstraints ThenConstraints(
+          Level, WillUnswitchParent, Constraints.PUCAllowed,
+          Constraints.RequiresLoopnestUnswitch);
 
       // If the current If couldn't be hoisted, then check if there is an
       // opportunity to hoist an inner If.
@@ -1834,7 +1840,7 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   // innermost loops.
   CandidateConstraints NewLoopConstraints(
       Constraints.MinLevel, true /*CanTransformParent*/, true /*PUCAllowed*/,
-      false /*RequiresLoopnestUnswitch*/, Constraints.RequiresRegionInvariant);
+      false /*RequiresLoopnestUnswitch*/);
 
   // Handle innermost loops and outer loops, but only if unswitching can make
   // the loopnest perfectly nested. In this case the loop will have only one
@@ -1864,7 +1870,6 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   if (NewLoopConstraints.CanTransformParent) {
     auto SIMDTy = getSupportedSIMDType(Loop);
     NewLoopConstraints.CanTransformParent = SIMDTy != SIMDType::NotSupported;
-    NewLoopConstraints.RequiresRegionInvariant = SIMDTy == SIMDType::Region;
   }
 
   if (NewLoopConstraints.CanTransformParent &&
@@ -1883,12 +1888,6 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
   if (!isa<SelectInst>(Inst->getLLVMInstruction()) || DisableUnswitchSelect ||
       Pass.EarlyPredicateOpt || !Constraints.CanTransformParent)
-    return;
-
-  // TODO: If the loop was marked in the constraints as region level, then
-  // we need to make sure that the memrefs in the predicate are region
-  // invariant.
-  if (Constraints.RequiresRegionInvariant)
     return;
 
   // Current loop should be innermost and a Do loop
@@ -2054,6 +2053,9 @@ void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
 
     MaxLevel = std::max(DefLevel, MaxLevel);
   }
+
+  if (!isTargetLoopValid(Inst, MaxLevel))
+    return;
 
   // Disable if the LHS is used in the true or false.
   // TODO: This is conservative. There are cases where it can produce a
@@ -2498,7 +2500,7 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     // nodes of the loop. We need to duplicate the SIMD intrinsics. This will
     // only happen if the SIMD intrinsics are part of the loop pre-header and
     // loop post-exit, and these are the only instructions in both lists.
-    if (getSupportedSIMDType(TargetLoop, true) != SIMDType::PreAndPostLoop) {
+    if (getSupportedSIMDType(TargetLoop) != SIMDType::PreAndPostLoop) {
       // TODO: check if candidate is defined in preheader
       TargetLoop->extractZttPreheaderAndPostexit();
     }
