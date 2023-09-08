@@ -3821,22 +3821,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #endif // INTEL_CUSTOMIZATION
   // Require the GlobalsAA analysis for the module so we can query it within
   // MainFPM.
-<<<<<<< HEAD
-  MPM.addPass(RequireAnalysisPass<GlobalsAA, Module>());
-  // Invalidate AAManager so it can be recreated and pick up the newly available
-  // GlobalsAA.
-  MPM.addPass(
-      createModuleToFunctionPassAdaptor(InvalidateAnalysisPass<AAManager>()));
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  // Loop transformations need information about structure fields that are
-  // modified/referenced during function calls.
-  if (DTransEnabled)
-    MPM.addPass(RequireAnalysisPass<DTransFieldModRefAnalysis, Module>());
-#endif // INTEL_FEATURE_SW_DTRANS
-  MPM.addPass(IntelIPODeadArgEliminationPass());
-#endif // INTEL_CUSTOMIZATION
-=======
   if (EnableGlobalAnalyses) {
     MPM.addPass(RequireAnalysisPass<GlobalsAA, Module>());
     // Invalidate AAManager so it can be recreated and pick up the newly
@@ -3844,8 +3828,15 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(
         createModuleToFunctionPassAdaptor(InvalidateAnalysisPass<AAManager>()));
   }
->>>>>>> 281ae4903d6b93d49783115dbbbb2f6bb0112e78
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  // Loop transformations need information about structure fields that are
+  // modified/referenced during function calls.
+  if (DTransEnabled)
+      MPM.addPass(RequireAnalysisPass<DTransFieldModRefAnalysis, Module>());
+#endif // INTEL_FEATURE_SW_DTRANS
+  MPM.addPass(IntelIPODeadArgEliminationPass());
+#endif // INTEL_CUSTOMIZATION
   FunctionPassManager MainFPM;
   MainFPM.addPass(createFunctionToLoopPassAdaptor(
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
