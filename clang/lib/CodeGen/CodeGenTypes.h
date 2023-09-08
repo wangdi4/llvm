@@ -160,7 +160,7 @@ public:
     std::array<QualType, 2> ResultTypes;
     llvm::SmallVector<QualType> Params;
     llvm::SmallVector<QualType> InAllocaTypes;
-    llvm::StructType *InAllocaStruct;
+    llvm::StructType *InAllocaStruct = nullptr;
     unsigned InAllocaIdx = ~0U;
 
     DTransFuncInfo() = default;
