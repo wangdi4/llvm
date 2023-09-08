@@ -2590,8 +2590,6 @@ def SYCLIntelMaxInterleaving : StmtAttr {
   }];
   let Documentation = [SYCLIntelMaxInterleavingAttrDocs];
 }
-def : MutualExclusions<[SYCLIntelDisableLoopPipelining,
-                        SYCLIntelMaxInterleaving]>;
 
 def SYCLIntelSpeculatedIterations : StmtAttr {
   let Spellings = [Pragma<"", "speculated_iterations">, //INTEL
