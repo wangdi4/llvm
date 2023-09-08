@@ -2605,11 +2605,18 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
     return false;
   }
 
+  case ISD::OR:
+  case ISD::XOR:
+    // See if we can treat the OR/XOR node as an ADD node.
+    if (!CurDAG->isADDLike(N))
+      break;
+    [[fallthrough]];
   case ISD::ADD:
     if (!matchAdd(N, AM, Depth, AllowIdx)) // INTEL
       return false;
     break;
 
+<<<<<<< HEAD
   case ISD::OR:
     // We want to look through a transform in InstCombine and DAGCombiner that
     // turns 'add' into 'or', so we can treat this 'or' exactly like an 'add'.
@@ -2630,6 +2637,8 @@ bool X86DAGToDAGISel::matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
       return false;
     break;
 
+=======
+>>>>>>> 84447c044f23f16412afae184581413be5e5575f
   case ISD::AND: {
     // Perform some heroic transforms on an and of a constant-count shift
     // with a constant to enable use of the scaled offset field.
