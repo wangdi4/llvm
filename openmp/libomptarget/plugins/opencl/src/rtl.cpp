@@ -3960,11 +3960,8 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   cl_int RC;
   DP("Initialize OpenCL device\n");
 
-  // Use out-of-order queue by default.
-  std::vector<cl_queue_properties> QProperties {
-      CL_QUEUE_PROPERTIES,
-      CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
-  };
+  // In-order queue is used by default
+  std::vector<cl_queue_properties> QProperties{CL_QUEUE_PROPERTIES, 0};
   if (DeviceInfo->Option.Flags.EnableProfile)
     QProperties.back() |= CL_QUEUE_PROFILING_ENABLE;
   QProperties.push_back(0);
