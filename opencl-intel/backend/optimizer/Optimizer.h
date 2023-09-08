@@ -18,7 +18,6 @@
 #include "OptimizerConfig.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
@@ -38,8 +37,6 @@ public:
 
   enum InvalidFunctionType { RECURSION, RECURSION_WITH_BARRIER };
 
-  enum InvalidGVType { FPGA_DEPTH_IS_IGNORED };
-
   virtual void Optimize(llvm::raw_ostream &LogStream) = 0;
 
   /// @brief recursion was detected after standard LLVM optimizations
@@ -47,21 +44,10 @@ public:
   /// barrier; for OpenCL returns true if any recursive function is present.
   bool hasUnsupportedRecursion();
 
-  /// @brief checks if there are some channels whose depths are differs from
-  /// real depth on FPGA hardware due to channel depth mode, so we should emit
-  /// diagnostic message
-  bool hasFPGAChannelsWithDepthIgnored() const;
-
   /// @brief obtain functions names wich are not valid for OpenCL
   /// @param Ty is a type of invalid function
   /// @return std::vector with function names
   std::vector<std::string> GetInvalidFunctions(InvalidFunctionType Ty) const;
-
-  /// @brief obtain global variable names wich are not valid due to some
-  /// limitations
-  /// @param Ty is a type of global variables to search
-  /// @return std::vector with global variable names
-  std::vector<std::string> GetInvalidGlobals(InvalidGVType Ty) const;
 
   static llvm::ArrayRef<llvm::VectItem> getVectInfos();
 

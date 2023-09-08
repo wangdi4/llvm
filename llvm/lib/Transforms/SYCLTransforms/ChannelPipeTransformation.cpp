@@ -1,6 +1,6 @@
 //===-- ChannelPipeTransformation.cpp -------------------------------------===//
 //
-// Copyright (C) 2022 Intel Corporation
+// Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,7 +16,9 @@
 
 #include "llvm/Transforms/SYCLTransforms/ChannelPipeTransformation.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/DiagnosticInfo.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/SYCLChannelPipeUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -212,6 +214,7 @@ static bool replaceGlobalChannels(Module &M, Type *PipeTy,
   SmallVector<GlobalVariable *, 16> WorkList;
   llvm::transform(M.globals(), std::back_inserter(WorkList),
                   [](auto &GV) { return &GV; });
+  SmallVector<GlobalVariable *, 2> DepthIgnoredGVs;
   for (auto *ChannelGV : WorkList) {
     if (!isGlobalPipe(ChannelGV))
       continue;
@@ -219,8 +222,12 @@ static bool replaceGlobalChannels(Module &M, Type *PipeTy,
     if (!GlobalCtor)
       GlobalCtor = createPipeGlobalCtor(M);
 
-    ChannelPipeMD MD =
-        getChannelPipeMetadata(ChannelGV, SYCLChannelDepthEmulationMode);
+    auto ChannelMD = GlobalVariableMetadataAPI(ChannelGV);
+    if (!ChannelMD.PipeDepth.hasValue() &&
+        SYCLChannelDepthEmulationMode == ChannelDepthMode::Default)
+      DepthIgnoredGVs.push_back(ChannelGV);
+
+    ChannelPipeMD MD = getChannelPipeMetadata(ChannelGV);
     GlobalVariable *PipeGV = nullptr;
     if (auto *GVArrTy = dyn_cast<ArrayType>(ChannelGV->getValueType())) {
       SmallVector<size_t, 8> Dimensions;
@@ -243,7 +250,6 @@ static bool replaceGlobalChannels(Module &M, Type *PipeTy,
       initializeGlobalPipeScalar(PipeGV, MD, GlobalCtor, PipeInitFunc);
     }
 
-    auto ChannelMD = GlobalVariableMetadataAPI(ChannelGV);
     PipeGV->setMetadata(
         ChannelMD.PipePacketSize.getID(),
         ChannelGV->getMetadata(ChannelMD.PipePacketSize.getID()));
@@ -254,11 +260,6 @@ static bool replaceGlobalChannels(Module &M, Type *PipeTy,
                         ChannelGV->getMetadata(ChannelMD.PipeDepth.getID()));
     PipeGV->setMetadata(ChannelMD.PipeIO.getID(),
                         ChannelGV->getMetadata(ChannelMD.PipeIO.getID()));
-    if (ChannelMD.DepthIsIgnored.hasValue()) {
-      PipeGV->setMetadata(
-          ChannelMD.DepthIsIgnored.getID(),
-          ChannelGV->getMetadata(ChannelMD.DepthIsIgnored.getID()));
-    }
     PipeGV->setMetadata(ChannelMD.PipeProtocol.getID(),
                         ChannelGV->getMetadata(ChannelMD.PipeProtocol.getID()));
 
@@ -269,6 +270,18 @@ static bool replaceGlobalChannels(Module &M, Type *PipeTy,
     ChannelGV->setLinkage(GlobalValue::InternalLinkage);
 
     Changed = true;
+  }
+
+  if (!DepthIgnoredGVs.empty()) {
+    std::string NameList;
+    raw_string_ostream OS(NameList);
+    for (auto *GV : DepthIgnoredGVs)
+      OS << "\n - " << GV->getName().str();
+    M.getContext().diagnose(OptimizationWarningDiagInfo(
+        Twine("The default channel depths in the emulation flow will be "
+              "different from the hardware flow depth (0) to speed up "
+              "emulation. The following channels are affected:") +
+        NameList));
   }
 
   return Changed;

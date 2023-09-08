@@ -20,6 +20,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/Intel_VectorVariant/IndirectCallLowering.h"
 #include "llvm/Transforms/SYCLTransforms/SYCLKernelAnalysis.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/DiagnosticInfo.h"
 #include "llvm/Transforms/SYCLTransforms/VFAnalysis.h"
 
 using namespace llvm;
@@ -105,38 +106,24 @@ class OCLDiagnosticHandler : public DiagnosticHandler {
 public:
   OCLDiagnosticHandler(raw_ostream &OS) : OS(OS) {}
   bool handleDiagnostics(const DiagnosticInfo &DI) override {
-    // Handle VFAnalysisDiagInfo emitted by VFAnalysis.
-    if (auto *VFADI = dyn_cast<VFAnalysisDiagInfo>(&DI)) {
-      OS << LLVMContext::getDiagnosticMessagePrefix(VFADI->getSeverity())
-         << ": ";
-      VFADI->print(OS);
-      OS << ".\n";
-      if (VFADI->getSeverity() == DS_Error)
-        throw Exceptions::CompilerException(
-            "Checking vectorization factor failed", CL_DEV_INVALID_BINARY);
-      return true;
-    }
-    if (auto *DKADI = dyn_cast<SYCLKernelAnalysisDiagInfo>(&DI)) {
-      OS << LLVMContext::getDiagnosticMessagePrefix(DKADI->getSeverity())
-         << ": ";
-      DKADI->print(OS);
-      OS << ".\n";
-      if (DKADI->getSeverity() == DS_Error)
-        throw Exceptions::CompilerException(
-            "Analyzing SYCL kernel properties failed", CL_DEV_INVALID_BINARY);
-      return true;
-    }
-    if (auto *VVDI = dyn_cast<VectorVariantDiagInfo>(&DI)) {
-      OS << LLVMContext::getDiagnosticMessagePrefix(VVDI->getSeverity())
-         << ": ";
-      VVDI->print(OS);
-      OS << ".\n";
-      if (VVDI->getSeverity() == DS_Error)
-        throw Exceptions::CompilerException("vector-variant failure",
-                                            CL_DEV_INVALID_BINARY);
-      return true;
-    }
-    return false;
+    std::string ExceptionMsg;
+    if (isa<VFAnalysisDiagInfo>(&DI))
+      ExceptionMsg = "Checking vectorization factor failed";
+    else if (isa<SYCLKernelAnalysisDiagInfo>(&DI))
+      ExceptionMsg = "Analyzing SYCL kernel properties failed";
+    else if (isa<VectorVariantDiagInfo>(&DI))
+      ExceptionMsg = "Vector-variant failure";
+    else if (!isa<OptimizationWarningDiagInfo>(&DI))
+      return false;
+
+    OS << LLVMContext::getDiagnosticMessagePrefix(DI.getSeverity()) << ": ";
+    DI.print(OS);
+    OS << "\n";
+
+    if (DI.getSeverity() == DS_Error)
+      throw Exceptions::CompilerException(ExceptionMsg, CL_DEV_INVALID_BINARY);
+
+    return true;
   }
 
 private:
@@ -174,29 +161,6 @@ bool Optimizer::hasUnsupportedRecursion() {
              ? !GetInvalidFunctions(InvalidFunctionType::RECURSION_WITH_BARRIER)
                     .empty()
              : !GetInvalidFunctions(InvalidFunctionType::RECURSION).empty();
-}
-
-bool Optimizer::hasFPGAChannelsWithDepthIgnored() const {
-  return !GetInvalidGlobals(InvalidGVType::FPGA_DEPTH_IS_IGNORED).empty();
-}
-
-std::vector<std::string> Optimizer::GetInvalidGlobals(InvalidGVType Ty) const {
-  std::vector<std::string> Res;
-
-  for (auto &GV : m_M.globals()) {
-    auto GVM = SYCLKernelMetadataAPI::GlobalVariableMetadataAPI(&GV);
-
-    switch (Ty) {
-    case FPGA_DEPTH_IS_IGNORED:
-      if (GVM.DepthIsIgnored.hasValue() && GVM.DepthIsIgnored.get()) {
-        assert(GV.getName().endswith(".pipe") &&
-               "Only global pipes are expected");
-        Res.push_back(std::string(GV.getName().drop_back(5)));
-      }
-    }
-  }
-
-  return Res;
 }
 
 std::vector<std::string>

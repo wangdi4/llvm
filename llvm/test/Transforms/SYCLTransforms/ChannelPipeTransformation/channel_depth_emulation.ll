@@ -10,23 +10,26 @@
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
 ; opt -passes=sycl-kernel-target-ext-type-lower,sycl-kernel-equalizer %s -S
 ; ----------------------------------------------------
-; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation -sycl-channel-depth-emulation-mode=2 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation -sycl-channel-depth-emulation-mode=2 %s -S | FileCheck %s --check-prefixes=CHECK,IGNOREDEPTH
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation -sycl-channel-depth-emulation-mode=1 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation -sycl-channel-depth-emulation-mode=1 %s -S | FileCheck %s --check-prefixes=CHECK,DEFAULT
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation -sycl-channel-depth-emulation-mode=0 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation -sycl-channel-depth-emulation-mode=0 %s -S | FileCheck %s --check-prefixes=CHECK,STRICT
+
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation -sycl-channel-depth-emulation-mode=2 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation -sycl-channel-depth-emulation-mode=2 %s -S | FileCheck %s --check-prefixes=CHECK,IGNOREDEPTH
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation -sycl-channel-depth-emulation-mode=1 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation -sycl-channel-depth-emulation-mode=1 %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,DEFAULT
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation -sycl-channel-depth-emulation-mode=0 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation -sycl-channel-depth-emulation-mode=0 %s -S | FileCheck %s --check-prefixes=CHECK,STRICT
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
 @ch = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
 
-; DEFAULT: @ch.pipe = addrspace(1) global ptr addrspace(1) null, {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
-; CHECK-NOT: @ch.pipe {{.*}] %opencl.pipe_rw_t {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
-; IGNOREDEPTH-NOT: @ch.pipe {{.*}] %opencl.pipe_rw_t {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
-; STRICT-NOT: @ch.pipe {{.*}] %opencl.pipe_rw_t {{.*}} !depth_is_ignored ![[MD:[0-9]+]]
+; DEFAULT: warning: The default channel depths in the emulation flow will be different from the hardware flow depth (0) to speed up emulation. The following channels are affected:
+; DEFAULT-NEXT: - ch
+
+; DEFAULT: @ch.pipe = addrspace(1) global ptr addrspace(1) null, {{.*}}
+; CHECK-NOT: @ch.pipe {{.*}] %opencl.pipe_rw_t {{.*}}
+; IGNOREDEPTH-NOT: @ch.pipe {{.*}] %opencl.pipe_rw_t {{.*}}
+; STRICT-NOT: @ch.pipe {{.*}] %opencl.pipe_rw_t {{.*}}
 
 ; CHECK: define {{.*}}@__pipe_global_ctor
 ; IGNOREDEPTH: call void @__pipe_init_fpga({{.*}} @ch.pipe.bs, i32 4, i32 0, i32 2)
@@ -46,8 +49,6 @@ attributes #0 = { convergent norecurse nounwind "no-trapping-math"="true" "stack
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!3}
 !sycl.kernels = !{!4}
-
-; DEFAULT: ![[MD]] = !{i1 true}
 
 !0 = !{i32 4}
 !1 = !{i32 1, i32 2}

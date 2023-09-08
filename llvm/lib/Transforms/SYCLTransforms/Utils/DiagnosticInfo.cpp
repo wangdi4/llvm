@@ -1,6 +1,6 @@
-//===-- ChannelPipeTransformation.h ---------------------------------------===//
+//===- DiagnosticInfo.cpp - SYCLTransforms Diagnostic Declaration----------===//
 //
-// Copyright (C) 2022-2023 Intel Corporation
+// Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,19 +14,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_SYCLTRANSFORMS_CHANNEL_PIPE_TRANSFORMATION_H
-#define LLVM_TRANSFORMS_SYCLTRANSFORMS_CHANNEL_PIPE_TRANSFORMATION_H
+#include "llvm/Transforms/SYCLTransforms/Utils/DiagnosticInfo.h"
 
-#include "llvm/IR/PassManager.h"
+using namespace llvm;
 
-namespace llvm {
-
-class ChannelPipeTransformationPass
-    : public PassInfoMixin<ChannelPipeTransformationPass> {
-public:
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
-};
-
-} // namespace llvm
-
-#endif // LLVM_TRANSFORMS_SYCLTRANSFORMS_CHANNEL_PIPE_TRANSFORMATION_H
+DiagnosticKind OptimizationWarningDiagInfo::Kind =
+    static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
