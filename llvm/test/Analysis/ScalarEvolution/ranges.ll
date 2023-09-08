@@ -30,7 +30,11 @@ define i64 @ashr_global() {
 ; CHECK-LABEL: 'ashr_global'
 ; CHECK-NEXT:  Classifying expressions for: @ashr_global
 ; CHECK-NEXT:    %ashr = ashr i64 ptrtoint (ptr @G to i64), 63
+<<<<<<< HEAD
 ; CHECK-NEXT:    --> %ashr U: [0,1) S: [0,1) ;INTEL
+=======
+; CHECK-NEXT:    --> %ashr U: [0,1) S: [0,1)
+>>>>>>> 52240399f9ccedb44b667a14345a7be6bb1dc40f
 ; CHECK-NEXT:  Determining loop execution counts for: @ashr_global
 ;
 ; INTEL_CUSTOMIZATION
