@@ -1642,6 +1642,9 @@ struct RTLOptionTy {
   /// Make USM memory resident
   int32_t MakeResident = 0x002;
 
+  /// Whether interop sycl queue should be inorder
+  bool SyclWrapperInorderSyclQueue = false;
+
   /// Read environment variables
   RTLOptionTy() {
     const char *Env = nullptr;
@@ -2205,6 +2208,11 @@ struct RTLOptionTy {
         MakeResident = Value;
       else
         INVALID_OPTION(LIBOMPTARGET_LEVEL_ZERO_USM_RESIDENT, Env);
+    }
+
+    if ((Env = readEnvVar("LIBOMPTARGET_INTEROP_INORDER_SYCL_QUEUE"))) {
+      if (parseBool(Env) != 0)
+        SyclWrapperInorderSyclQueue = true;
     }
 
     adjustOptions();
@@ -3648,7 +3656,8 @@ std::vector<const char *> IprNames{"targetsync",
                                    "device_global_mem_size",
                                    "device_global_mem_cache_size",
                                    "device_max_clock_frequency",
-                                   "is_imm_cmd_list"};
+                                   "is_imm_cmd_list",
+                                   "is_inorder"};
 
 std::vector<const char *> IprTypeDescs{
     "ze_command_queue_handle_t, level_zero command queue handle",
@@ -3670,7 +3679,8 @@ std::vector<const char *> IprTypeDescs{
     "intptr_t, global memory size in bytes",
     "intptr_t, global memory cache size in bytes",
     "intptr_t, max clock frequency in MHz",
-    "intptr_t, Using immediate command list"};
+    "intptr_t, Using immediate command list",
+    "intptr_t, Using inorder queue/immediate command list"};
 
 // Level Zero property ID
 enum IprIDTy : int32_t {
@@ -3693,6 +3703,7 @@ struct Property {
   // the targetsync field in interop will be changed if preferred type is sycl.
   ze_command_queue_handle_t CommandQueue;
   ze_command_list_handle_t ImmCmdList;
+  bool InOrder;
 };
 
 /// Dump implementation-defined properties
@@ -3707,7 +3718,7 @@ struct SyclWrapperTy {
   bool WrapApiValid = false;
   typedef void(init_sycl_interop_ty)(void *);
   typedef void *(get_sycl_interop_ty)(void *);
-  typedef void(create_sycl_interop_ty)(omp_interop_t, bool);
+  typedef void(create_sycl_interop_ty)(omp_interop_t, bool, bool);
   typedef void(delete_sycl_interop_ty)(omp_interop_t);
   typedef void(delete_all_sycl_interop_ty)();
   typedef int32_t(flush_queue_sycl_ty)(omp_interop_t);
@@ -3779,9 +3790,10 @@ static void wrapInteropSycl(__tgt_interop *Interop) {
     return;
   }
 
+  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   // Call to replace L0 info with Sycl info.
   SyclWrapper.create_sycl_interop(
-      Interop, DeviceInfo->useImmForCompute(Interop->DeviceNum));
+      Interop, DeviceInfo->useImmForCompute(Interop->DeviceNum), L0->InOrder);
 }
 } // namespace L0Interop
 #endif // INTEL_CUSTOMIZATION
@@ -7339,7 +7351,8 @@ __tgt_interop *__tgt_rtl_create_interop(
   Ret->DeviceNum = DeviceId;
 
   if (InteropContext == OMP_INTEROP_CONTEXT_TARGET ||
-      InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
+      InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC ||
+      InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC_INORDER) {
     Ret->Platform = DeviceInfo->Driver;
     Ret->Device = DeviceInfo->Devices[DeviceId];
     Ret->DeviceContext = DeviceInfo->Context;
@@ -7348,6 +7361,12 @@ __tgt_interop *__tgt_rtl_create_interop(
   Ret->RTLProperty = new L0Interop::Property();
   if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
     auto L0 = static_cast<L0Interop::Property *>(Ret->RTLProperty);
+
+    if ((InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC_INORDER) ||
+        DeviceInfo->Option.SyclWrapperInorderSyclQueue)
+      L0->InOrder = true;
+    else
+      L0->InOrder = false;
 
     if (DeviceInfo->useImmForCompute(DeviceId)) {
       auto CmdList = DeviceInfo->createImmCmdList(DeviceId);
@@ -7416,7 +7435,12 @@ int32_t __tgt_rtl_use_interop(int32_t DeviceId, __tgt_interop *Interop) {
     return OFFLOAD_FAIL;
   }
 
-  return __tgt_rtl_sync_barrier(Interop);
+  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
+
+  if (!L0->InOrder)
+    return __tgt_rtl_sync_barrier(Interop);
+  else
+    return OFFLOAD_SUCCESS;
 }
 
 int32_t __tgt_rtl_get_num_interop_properties(int32_t DeviceId) {
