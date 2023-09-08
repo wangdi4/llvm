@@ -688,26 +688,10 @@ static bool isECObject(object::SymbolicFile &Obj) {
   return false;
 }
 
-<<<<<<< HEAD
-static Expected<std::vector<unsigned>>
-getSymbols(MemoryBufferRef Buf, uint16_t Index, raw_ostream &SymNames,
-           SymMap *SymMap, bool &HasObject, bool IsOpaque = false) { // INTEL
-  // In the scenario when LLVMContext is populated SymbolicFile will contain a
-  // reference to it, thus SymbolicFile should be destroyed first.
-  LLVMContext Context;
-
-#ifdef INTEL_CUSTOMIZATION
-  // enable opaque pointers support for the context
-  if (IsOpaque)
-    Context.setOpaquePointers(true);
-#endif // INTEL_CUSTOMIZATION
-
-=======
 static Expected<std::vector<unsigned>> getSymbols(SymbolicFile *Obj,
                                                   uint16_t Index,
                                                   raw_ostream &SymNames,
                                                   SymMap *SymMap) {
->>>>>>> 4cc7c749c31e59459b585f8c69f7fa6a9ccb3440
   std::vector<unsigned> Ret;
 
   if (Obj == nullptr)
@@ -914,23 +898,10 @@ computeMemberData(raw_ostream &StringTable, raw_ostream &SymNames,
     }
     Out.flush();
 
-#ifdef INTEL_CUSTOMIZATION
-    bool IsOpaque = false;
-    for (const NewArchiveMember &Nam : NewMembers)
-      if (Nam.isOpaque()) {
-        IsOpaque = true;
-        break;
-      }
-#endif // INTEL_CUSTOMIZATION
-
     std::vector<unsigned> Symbols;
     if (NeedSymbols != SymtabWritingMode::NoSymtab) {
       Expected<std::vector<unsigned>> SymbolsOrErr =
-<<<<<<< HEAD
-          getSymbols(Buf, Index, SymNames, SymMap, HasObject, IsOpaque); // INTEL
-=======
           getSymbols(CurSymFile.get(), Index, SymNames, SymMap);
->>>>>>> 4cc7c749c31e59459b585f8c69f7fa6a9ccb3440
       if (!SymbolsOrErr)
         return createFileError(M->MemberName, SymbolsOrErr.takeError());
       Symbols = std::move(*SymbolsOrErr);
