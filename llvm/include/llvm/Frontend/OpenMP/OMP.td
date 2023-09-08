@@ -764,7 +764,7 @@ def OMP_Teams : Directive<"teams"> {
   ];
   let allowedOnceClauses = [
     VersionedClause<OMPC_Default>,
-    VersionedClause<OMPC_If>,
+    VersionedClause<OMPC_If, 52>,
     VersionedClause<OMPC_NumTeams>,
     VersionedClause<OMPC_ThreadLimit>
   ];
