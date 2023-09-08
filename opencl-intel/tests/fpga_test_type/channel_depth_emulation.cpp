@@ -519,7 +519,7 @@ TEST_F(TestChannelDepthEmulationWithDefaultEnv, CheckDiagnosticMessage) {
     FAIL() << log << "\n";
   }
 
-  std::string expected_diag = "Warning: The default channel depths in the "
+  std::string expected_diag = "warning: The default channel depths in the "
                               "emulation flow will be different from the "
                               "hardware flow depth (0) to speed up emulation. "
                               "The following channels are affected:\n - c";

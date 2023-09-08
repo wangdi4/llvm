@@ -1,6 +1,6 @@
 //===-- MetadataAPI.h -----------------------------------------------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -17,7 +17,6 @@ namespace llvm {
 namespace SYCLKernelMetadataAPI {
 
 struct GlobalVariableMetadataAPI {
-  typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> DepthIsIgnoredTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketSizeTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketAlignTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipeDepthTy;
@@ -25,12 +24,10 @@ struct GlobalVariableMetadataAPI {
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipeProtocolTy;
 
   GlobalVariableMetadataAPI(llvm::GlobalVariable *Global)
-      : DepthIsIgnored(Global, "depth_is_ignored"),
-        PipePacketSize(Global, "packet_size"),
+      : PipePacketSize(Global, "packet_size"),
         PipePacketAlign(Global, "packet_align"), PipeDepth(Global, "depth"),
         PipeIO(Global, "io"), PipeProtocol(Global, "protocol") {}
 
-  NamedMDValueAccessor<DepthIsIgnoredTy> DepthIsIgnored;
   NamedMDValueAccessor<PipePacketSizeTy> PipePacketSize;
   NamedMDValueAccessor<PipePacketAlignTy> PipePacketAlign;
   NamedMDValueAccessor<PipeDepthTy> PipeDepth;
