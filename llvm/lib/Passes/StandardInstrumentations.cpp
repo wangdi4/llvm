@@ -1098,6 +1098,14 @@ void PrintPassInstrumentation::registerCallbacks(
     OS << "\n";
     Indent += 2;
   });
+  PIC.registerAfterPassCallback(
+      [this, SpecialPasses](StringRef PassID, Any IR,
+                            const PreservedAnalyses &) {
+        if (isSpecialPass(PassID, SpecialPasses))
+          return;
+
+        Indent -= 2;
+      });
   PIC.registerAfterPassInvalidatedCallback(
       [this, SpecialPasses](StringRef PassID, Any IR) {
         if (isSpecialPass(PassID, SpecialPasses))
@@ -1113,7 +1121,7 @@ void PrintPassInstrumentation::registerCallbacks(
               << "\n";
 #endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
       Indent += 2;
-  });
+    });
     PIC.registerAfterAnalysisCallback(
         [this](StringRef PassID, Any IR) { Indent -= 2; });
     PIC.registerAnalysisInvalidatedCallback([this](StringRef PassID, Any IR) {
