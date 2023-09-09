@@ -4309,7 +4309,9 @@ std::pair<Value *, FPClassTest> llvm::fcmpToClassTest(FCmpInst::Predicate Pred,
                                                       Value *LHS, Value *RHS,
                                                       bool LookThroughSrc) {
   const APFloat *ConstRHS;
+#if INTEL_CUSTOMIZATION
   if (!match(RHS, m_APFloat(ConstRHS)))
+#endif // INTEL_CUSTOMIZATION
     return {nullptr, fcNone};
 
   // fcmp ord x, zero|normal|subnormal|inf -> ~fcNan
