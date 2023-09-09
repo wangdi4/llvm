@@ -35,7 +35,6 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/FMF.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Operator.h"
@@ -282,10 +281,6 @@ Intrinsic::ID getIntrinsicForCallSite(const CallBase &CB,
 std::pair<Value *, FPClassTest> fcmpToClassTest(CmpInst::Predicate Pred,
                                                 const Function &F, Value *LHS,
                                                 Value *RHS,
-                                                bool LookThroughSrc = true);
-std::pair<Value *, FPClassTest> fcmpToClassTest(CmpInst::Predicate Pred,
-                                                const Function &F, Value *LHS,
-                                                const APFloat *ConstRHS,
                                                 bool LookThroughSrc = true);
 
 struct KnownFPClass {
