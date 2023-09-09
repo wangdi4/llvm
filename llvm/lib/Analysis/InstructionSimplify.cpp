@@ -4137,6 +4137,7 @@ static Value *simplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
   if (Pred == FCmpInst::FCMP_TRUE)
     return getTrue(RetTy);
 
+#if INTEL_CUSTOMIZATION
   // Fold (un)ordered comparison if we can determine there are no NaNs.
   if (Pred == FCmpInst::FCMP_UNO || Pred == FCmpInst::FCMP_ORD)
     if (FMF.noNaNs() ||
@@ -4150,6 +4151,7 @@ static Value *simplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
   if (match(RHS, m_NaN()))
     return ConstantInt::get(RetTy, CmpInst::isUnordered(Pred));
 
+#endif // INTEL_CUSTOMIZATION
   // fcmp pred x, poison and  fcmp pred poison, x
   // fold to poison
   if (isa<PoisonValue>(LHS) || isa<PoisonValue>(RHS))
@@ -4171,6 +4173,7 @@ static Value *simplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
       return getFalse(RetTy);
   }
 
+#if INTEL_CUSTOMIZATION
   // Handle fcmp with constant RHS.
   // TODO: Use match with a specific FP value, so these work with vectors with
   // undef lanes.
@@ -4201,7 +4204,9 @@ static Value *simplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
           break;
         }
       }
+#endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
       // LHS == Inf
       if (Pred == FCmpInst::FCMP_OEQ &&
           isKnownNeverInfinity(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT))
@@ -4213,38 +4218,50 @@ static Value *simplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
       // LHS == Inf || LHS == NaN
       if (Pred == FCmpInst::FCMP_UEQ &&
           isKnownNeverInfOrNaN(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT))
+#endif // INTEL_CUSTOMIZATION
         return getFalse(RetTy);
+#if INTEL_CUSTOMIZATION
       // LHS != Inf && LHS != NaN
       if (Pred == FCmpInst::FCMP_ONE &&
           isKnownNeverInfOrNaN(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT))
+#endif // INTEL_CUSTOMIZATION
         return getTrue(RetTy);
     }
     if (C->isNegative() && !C->isNegZero()) {
+#if INTEL_CUSTOMIZATION
       assert(!C->isNaN() && "Unexpected NaN constant!");
+#endif // INTEL_CUSTOMIZATION
       // TODO: We can catch more cases by using a range check rather than
       //       relying on CannotBeOrderedLessThanZero.
       switch (Pred) {
       case FCmpInst::FCMP_UGE:
       case FCmpInst::FCMP_UGT:
+#if INTEL_CUSTOMIZATION
       case FCmpInst::FCMP_UNE:
+#endif // INTEL_CUSTOMIZATION
         // (X >= 0) implies (X > C) when (C < 0)
+#if INTEL_CUSTOMIZATION
         if (cannotBeOrderedLessThanZero(LHS, Q.DL, Q.TLI, 0,
                                         Q.AC, Q.CxtI, Q.DT))
+#endif // INTEL_CUSTOMIZATION
           return getTrue(RetTy);
         break;
       case FCmpInst::FCMP_OEQ:
       case FCmpInst::FCMP_OLE:
+#if INTEL_CUSTOMIZATION
       case FCmpInst::FCMP_OLT:
+#endif // INTEL_CUSTOMIZATION
         // (X >= 0) implies !(X < C) when (C < 0)
+#if INTEL_CUSTOMIZATION
         if (cannotBeOrderedLessThanZero(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI,
                                         Q.DT))
+#endif // INTEL_CUSTOMIZATION
           return getFalse(RetTy);
         break;
       default:
         break;
       }
     }
-
     // Check comparison of [minnum/maxnum with constant] with other constant.
     const APFloat *C2;
     if ((match(LHS, m_Intrinsic<Intrinsic::minnum>(m_Value(), m_APFloat(C2))) &&
@@ -4295,9 +4312,11 @@ static Value *simplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
     switch (Pred) {
     case FCmpInst::FCMP_OGE:
     case FCmpInst::FCMP_ULT: {
+#if INTEL_CUSTOMIZATION
       FPClassTest Interested = FMF.noNaNs() ? fcNegative : fcNegative | fcNan;
       KnownFPClass Known = computeKnownFPClass(LHS, Q.DL, Interested, 0,
                                                Q.TLI, Q.AC, Q.CxtI, Q.DT);
+#endif // INTEL_CUSTOMIZATION
 
       // Positive or zero X >= 0.0 --> true
       // Positive or zero X <  0.0 --> false
@@ -4307,10 +4326,14 @@ static Value *simplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
       break;
     }
     case FCmpInst::FCMP_UGE:
+#if INTEL_CUSTOMIZATION
     case FCmpInst::FCMP_OLT:
+#endif // INTEL_CUSTOMIZATION
       // Positive or zero or nan X >= 0.0 --> true
       // Positive or zero or nan X <  0.0 --> false
+#if INTEL_CUSTOMIZATION
       if (cannotBeOrderedLessThanZero(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT))
+#endif // INTEL_CUSTOMIZATION
         return Pred == FCmpInst::FCMP_UGE ? getTrue(RetTy) : getFalse(RetTy);
       break;
     default:
@@ -6948,6 +6971,11 @@ static Value *simplifyInstructionWithOperands(Instruction *I,
                                               const SimplifyQuery &SQ,
                                               unsigned MaxRecurse) {
   assert(I->getFunction() && "instruction should be inserted in a function");
+#ifndef INTEL_CUSTOMIZATION
+  assert((!SQ.CxtI || SQ.CxtI->getFunction() == I->getFunction()) &&
+         "context instruction should be in the same function");
+
+#endif //INTEL_CUSTOMIZATION
   const SimplifyQuery Q = SQ.CxtI ? SQ : SQ.getWithInstruction(I);
 
   switch (I->getOpcode()) {
