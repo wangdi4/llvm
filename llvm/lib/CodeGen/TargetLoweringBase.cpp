@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -216,6 +216,8 @@ void TargetLoweringBase::InitLibcalls(const Triple &TT) {
     setLibcallName(RTLIB::SINCOS_F80, "sincosl");
     setLibcallName(RTLIB::SINCOS_F128, "sincosl");
     setLibcallName(RTLIB::SINCOS_PPCF128, "sincosl");
+    setLibcallName(RTLIB::SINCOS_LIBM_F32, "__libm_sse2_sincosf"); // INTEL
+    setLibcallName(RTLIB::SINCOS_LIBM_F64, "__libm_sse2_sincos");  // INTEL
   }
 
   if (TT.isPS()) {

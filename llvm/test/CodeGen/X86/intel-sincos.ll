@@ -9,11 +9,8 @@ define dso_local float @sincos_test(float noundef nofpclass(nan inf) %a) {
 ; WIN_WITH_LIBM-NEXT:    subq $40, %rsp
 ; WIN_WITH_LIBM-NEXT:    .seh_stackalloc 40
 ; WIN_WITH_LIBM-NEXT:    .seh_endprologue
-; WIN_WITH_LIBM-NEXT:    leaq {{[0-9]+}}(%rsp), %rdx
-; WIN_WITH_LIBM-NEXT:    leaq {{[0-9]+}}(%rsp), %r8
-; WIN_WITH_LIBM-NEXT:    callq sincosf
-; WIN_WITH_LIBM-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; WIN_WITH_LIBM-NEXT:    addss {{[0-9]+}}(%rsp), %xmm0
+; WIN_WITH_LIBM-NEXT:    callq __libm_sse2_sincosf
+; WIN_WITH_LIBM-NEXT:    addss %xmm1, %xmm0
 ; WIN_WITH_LIBM-NEXT:    addq $40, %rsp
 ; WIN_WITH_LIBM-NEXT:    retq
 ; WIN_WITH_LIBM-NEXT:    .seh_endproc
@@ -43,11 +40,8 @@ define dso_local float @sincos_test(float noundef nofpclass(nan inf) %a) {
 ; LINUX:       # %bb.0: # %entry
 ; LINUX-NEXT:    pushq %rax
 ; LINUX-NEXT:    .cfi_def_cfa_offset 16
-; LINUX-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; LINUX-NEXT:    movq %rsp, %rsi
-; LINUX-NEXT:    callq sincosf@PLT
-; LINUX-NEXT:    movss {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; LINUX-NEXT:    addss (%rsp), %xmm0
+; LINUX-NEXT:    callq __libm_sse2_sincosf@PLT
+; LINUX-NEXT:    addss %xmm1, %xmm0
 ; LINUX-NEXT:    popq %rax
 ; LINUX-NEXT:    .cfi_def_cfa_offset 8
 ; LINUX-NEXT:    retq
