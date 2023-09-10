@@ -17,6 +17,9 @@
 # CHECK-NEXT:  2      12    0.50           *            movbew	%r16w, (%r17,%r18)
 # CHECK-NEXT:  2      12    0.50           *            movbel	%r16d, (%r17,%r18)
 # CHECK-NEXT:  2      12    0.50           *            movbeq	%r16, (%r17,%r18)
+# CHECK-NEXT:  1      1     0.20                        movbew	%r16w, %r17w
+# CHECK-NEXT:  1      1     0.20                        movbel	%r16d, %r17d
+# CHECK-NEXT:  1      1     0.20                        movbeq	%r16, %r17
 
 # CHECK:      Resources:
 # CHECK-NEXT: [0]   - SPRPort00
@@ -34,8 +37,8 @@
 # CHECK-NEXT: [12]  - SPRPortInvalid
 
 # CHECK:      Resource pressure per iteration:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   
-# CHECK-NEXT: 0.60   0.60    -      -     1.50   0.60   0.60   1.50   1.50   1.50   0.60    -      -     
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]
+# CHECK-NEXT: 1.20   1.20    -      -     1.50   1.20   1.20   1.50   1.50   1.50   1.20    -      -
 
 # CHECK:      Resource pressure by instruction:
 # CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   Instructions:
@@ -45,3 +48,6 @@
 # CHECK-NEXT:  -      -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     movbew	%r16w, (%r17,%r18)
 # CHECK-NEXT:  -      -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     movbel	%r16d, (%r17,%r18)
 # CHECK-NEXT:  -      -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     movbeq	%r16, (%r17,%r18)
+# CHECK-NEXT: 0.20   0.20    -      -      -     0.20   0.20    -      -      -     0.20    -      -     movbew	%r16w, %r17w
+# CHECK-NEXT: 0.20   0.20    -      -      -     0.20   0.20    -      -      -     0.20    -      -     movbel	%r16d, %r17d
+# CHECK-NEXT: 0.20   0.20    -      -      -     0.20   0.20    -      -      -     0.20    -      -     movbeq	%r16, %r17

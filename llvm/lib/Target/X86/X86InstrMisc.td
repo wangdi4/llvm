@@ -1171,6 +1171,21 @@ let Predicates = [HasMOVBE, HasEGPR] in {
   def MOVBE64mr_EVEX : ITy_EVEX<0x61, MRMDestMem, Xi64, (outs), (ins i64mem:$dst, GR64:$src),
                          "movbe", "{$src, $dst|$dst, $src}", [(store (bswap GR64:$src), addr:$dst)]>;
   }
+  let SchedRW = [WriteALU] in {
+  def MOVBE16rr_EVEX : ITy_EVEX<0x61, MRMDestReg, Xi16, (outs GR16:$dst), (ins GR16:$src),
+                                "movbe", "{$src, $dst|$dst, $src}", []>;
+  def MOVBE32rr_EVEX : ITy_EVEX<0x61, MRMDestReg, Xi32, (outs GR32:$dst), (ins GR32:$src),
+                                "movbe", "{$src, $dst|$dst, $src}", []>;
+  def MOVBE64rr_EVEX : ITy_EVEX<0x61, MRMDestReg, Xi64, (outs GR64:$dst), (ins GR64:$src),
+                                "movbe", "{$src, $dst|$dst, $src}", []>;
+
+  def MOVBE16rr_EVEX_REV : ITy_EVEX<0x60, MRMSrcReg, Xi16, (outs GR16:$dst), (ins GR16:$src),
+                                    "movbe", "{$src, $dst|$dst, $src}", [], 0>;
+  def MOVBE32rr_EVEX_REV : ITy_EVEX<0x60, MRMSrcReg, Xi32, (outs GR32:$dst), (ins GR32:$src),
+                                    "movbe", "{$src, $dst|$dst, $src}", [], 0>;
+  def MOVBE64rr_EVEX_REV : ITy_EVEX<0x60, MRMSrcReg, Xi64, (outs GR64:$dst), (ins GR64:$src),
+                                    "movbe", "{$src, $dst|$dst, $src}", [], 0>;
+  }
 }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
