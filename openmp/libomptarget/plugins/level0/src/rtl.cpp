@@ -5301,6 +5301,25 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   return OFFLOAD_SUCCESS;
 }
 
+static void
+replaceDriverOptsWithBackendOpts(const ze_device_properties_t &DeviceInfo,
+                                 std::string &Options) {
+  // If the user passed -ftarget-compile-fast at compile time, replace it with
+  // the final IGC option for Intel GPUs, and remove it from the options
+  // otherwise.
+  static const std::string TargetCompileFast = "-ftarget-compile-fast";
+  if (auto Pos = Options.find(TargetCompileFast); Pos != std::string::npos) {
+    auto OptLen = TargetCompileFast.size();
+    bool IsIntelGPU =
+        DeviceInfo.vendorId == 0x8086 && DeviceInfo.type == ZE_DEVICE_TYPE_GPU;
+    if (IsIntelGPU)
+      Options.replace(Pos, OptLen,
+                      "-igc_opts 'PartitionUnit=1,SubroutineThreshold=50000'");
+    else
+      Options.erase(Pos, OptLen);
+  }
+}
+
 int32_t MemAllocatorTy::enqueueMemCopy(void *Dst, const void *Src,
                                        size_t Size) {
   return DeviceInfo->enqueueMemCopy(DeviceId, Dst, Src, Size);
@@ -6477,8 +6496,11 @@ int32_t LevelZeroProgramTy::buildModules(std::string &BuildOptions) {
     auto ModuleFormat =
         IsBinary ? ZE_MODULE_FORMAT_NATIVE : ZE_MODULE_FORMAT_IL_SPIRV;
     std::string Options = BuildOptions;
-    if (DeviceInfo->Option.Flags.UseImageOptions)
+    if (DeviceInfo->Option.Flags.UseImageOptions) {
       Options += " " + It->second.CompileOpts + " " + It->second.LinkOpts;
+      replaceDriverOptsWithBackendOpts(DeviceInfo->DeviceProperties[DeviceId],
+                                       Options);
+    }
 
     for (size_t I = 0; I < NumParts; I++) {
       const unsigned char *ImgBegin =
