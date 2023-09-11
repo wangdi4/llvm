@@ -174,6 +174,10 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setLibcallName(RTLIB::SINCOS_F80, "sincosl");
       setLibcallName(RTLIB::SINCOS_F128, "sincosl");
       setLibcallName(RTLIB::SINCOS_PPCF128, "sincosl");
+      if (Subtarget.hasSSE2()) {
+        setLibcallName(RTLIB::SINCOS_LIBM_F32, "__libm_sse2_sincosf");
+        setLibcallName(RTLIB::SINCOS_LIBM_F64, "__libm_sse2_sincos");
+      }
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2877,9 +2881,14 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   // The MULO libcall is not part of libgcc, only compiler-rt.
   setLibcallName(RTLIB::MULO_I128, nullptr);
 
-  // Combine sin / cos into _sincos_stret if it is available.
-  if (getLibcallName(RTLIB::SINCOS_STRET_F32) != nullptr &&
-      getLibcallName(RTLIB::SINCOS_STRET_F64) != nullptr) {
+#if INTEL_CUSTOMIZATION
+  // Combine sin / cos into _sincos_stret or __libm_sse2_sincosf if it is
+  // available.
+  if (((getLibcallName(RTLIB::SINCOS_STRET_F32) != nullptr &&
+        getLibcallName(RTLIB::SINCOS_STRET_F64) != nullptr)) ||
+      ((getLibcallName(RTLIB::SINCOS_LIBM_F32) != nullptr &&
+        getLibcallName(RTLIB::SINCOS_LIBM_F64) != nullptr))) {
+#endif // INTEL_CUSTOMIZATION
     setOperationAction(ISD::FSINCOS, MVT::f64, Custom);
     setOperationAction(ISD::FSINCOS, MVT::f32, Custom);
   }
@@ -33870,7 +33879,11 @@ static SDValue LowerADDSUBO_CARRY(SDValue Op, SelectionDAG &DAG) {
 
 static SDValue LowerFSINCOS(SDValue Op, const X86Subtarget &Subtarget,
                             SelectionDAG &DAG) {
-  assert(Subtarget.isTargetDarwin() && Subtarget.is64Bit());
+#if INTEL_CUSTOMIZATION
+  // Note that after #16086 landed, not only 64 Darwin, but also other targets
+  // will enter here cause they have libm version sincos call to emit.
+  // assert(Subtarget.isTargetDarwin() && Subtarget.is64Bit());
+#endif // INTEL_CUSTOMIZATION
 
   // For MacOSX, we want to call an alternative entry point: __sincos_stret,
   // which returns the values as { float, float } (in XMM0) or
@@ -33894,14 +33907,24 @@ static SDValue LowerFSINCOS(SDValue Op, const X86Subtarget &Subtarget,
   // the small struct {f32, f32} is returned in (eax, edx). For f64,
   // the results are returned via SRet in memory.
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  RTLIB::Libcall LC = isF64 ? RTLIB::SINCOS_STRET_F64 : RTLIB::SINCOS_STRET_F32;
+#if INTEL_CUSTOMIZATION
+  // For scalar FSINCOS, __libm_sse2_sincosf* is faster, which returns the
+  // values as { float, float } or { double, double } (in XMM0, XMM1).
+  RTLIB::Libcall LC = RTLIB::UNKNOWN_LIBCALL;
+  if (Subtarget.isTargetDarwin())
+    LC = isF64 ? RTLIB::SINCOS_STRET_F64 : RTLIB::SINCOS_STRET_F32;
+  else
+    LC = isF64 ? RTLIB::SINCOS_LIBM_F64 : RTLIB::SINCOS_LIBM_F32;
+#endif // INTEL_CUSTOMIZATION
   const char *LibcallName = TLI.getLibcallName(LC);
   SDValue Callee =
       DAG.getExternalSymbol(LibcallName, TLI.getPointerTy(DAG.getDataLayout()));
 
-  Type *RetTy = isF64 ? (Type *)StructType::get(ArgTy, ArgTy)
-                      : (Type *)FixedVectorType::get(ArgTy, 4);
-
+#if INTEL_CUSTOMIZATION
+  Type *RetTy = (isF64 || !Subtarget.isTargetDarwin())
+                    ? (Type *)StructType::get(ArgTy, ArgTy)
+                    : (Type *)FixedVectorType::get(ArgTy, 4);
+#endif // INTEL_CUSTOMIZATION
   TargetLowering::CallLoweringInfo CLI(DAG);
   CLI.setDebugLoc(dl)
       .setChain(DAG.getEntryNode())
@@ -33909,7 +33932,7 @@ static SDValue LowerFSINCOS(SDValue Op, const X86Subtarget &Subtarget,
 
   std::pair<SDValue, SDValue> CallResult = TLI.LowerCallTo(CLI);
 
-  if (isF64)
+  if (isF64 || !Subtarget.isTargetDarwin()) // INTEL
     // Returned in xmm0 and xmm1.
     return CallResult.first;
 
