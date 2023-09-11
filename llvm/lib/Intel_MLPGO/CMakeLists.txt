@@ -80,7 +80,7 @@ if(NOT DEFINED ONNX_MODEL_PATH)
     message(FATAL_ERROR "The ONNX_MODEL_PATH var should point to the directory containing ONNX model")
 endif()
 
-cmake_path(SET ONNX_MODEL_PATH "${ONNX_MODEL_PATH}/icx_bp_0.1.2.onnx")
+cmake_path(SET ONNX_MODEL_PATH "${ONNX_MODEL_PATH}/mlpgo_branch_probability_0.1.3.onnx")
 message("MLPGO. Using model: ${ONNX_MODEL_PATH}")
 
 set(BINARY_BLOB_NAME OnnxModel)

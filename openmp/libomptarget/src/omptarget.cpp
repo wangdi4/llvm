@@ -1685,6 +1685,7 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
                              PrivateArgumentManagerTy &PrivateArgumentManager,
 #if INTEL_COLLAB
                              AsyncInfoTy &AsyncInfo, void *TgtEntryPtr,
+                             int32_t NumTeams, int32_t ThreadLimit,
                              void **TgtNDLoopDesc) {
 #else  // INTEL_COLLAB
                              AsyncInfoTy &AsyncInfo) {
@@ -1705,15 +1706,21 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
     return OFFLOAD_FAIL;
   }
 
+#if INTEL_COLLAB
+  for (int32_t I = 0; I < ArgNum; ++I) {
+    if (!(ArgTypes[I] & OMP_TGT_MAPTYPE_TARGET_PARAM)) {
+      if (ArgTypes[I] & OMP_TGT_MAPTYPE_ND_DESC) {
+        *TgtNDLoopDesc = (void *)Args[I];
+        break;
+      }
+    }
+  }
+#endif // INTEL_COLLAB
   // List of (first-)private arrays allocated for this target region
   SmallVector<int> TgtArgsPositions(ArgNum, -1);
 
   for (int32_t I = 0; I < ArgNum; ++I) {
     if (!(ArgTypes[I] & OMP_TGT_MAPTYPE_TARGET_PARAM)) {
-#if INTEL_COLLAB
-      if (ArgTypes[I] & OMP_TGT_MAPTYPE_ND_DESC)
-        *TgtNDLoopDesc = (void *)Args[I];
-#endif // INTEL_COLLAB
       // This is not a target parameter, do not push it into TgtArgs.
       // Check for lambda mapping.
       if (isLambdaMapping(ArgTypes[I])) {
@@ -1802,6 +1809,7 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
       // other privates.
       const bool AllocImmediately =
           (I < ArgNum - 1 && (ArgTypes[I + 1] & OMP_TGT_MAPTYPE_MEMBER_OF));
+      auto AllocSize = ArgSizes[I];
 #if INTEL_COLLAB
       const bool PassInHostMem =
           Device.isPrivateArgOnHost(TgtEntryPtr, TgtArgs.size());
@@ -1824,9 +1832,19 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
         AllocOpt = ALLOC_OPT_REDUCTION_SCRATCH;
       else if (ArgTypes[I] & OMP_TGT_MAPTYPE_ZERO_INIT_MEM)
         AllocOpt = ALLOC_OPT_REDUCTION_COUNTER;
+      if (ArgTypes[I] & OMP_TGT_MAPTYPE_SIZE_TIMES_NUM_TEAMS) {
+        uint32_t GroupCounts[3];
+        Device.getGroupsShape(TgtEntryPtr, NumTeams, ThreadLimit, nullptr,
+                              GroupCounts, *TgtNDLoopDesc);
+        uint32_t TotalGroupCount =
+            GroupCounts[0] * GroupCounts[1] * GroupCounts[2];
+        DP("Increasing reduction array by num_teams=%" PRId32 " times\n",
+           TotalGroupCount);
+        AllocSize = ArgSizes[I] * TotalGroupCount;
+      }
 #endif // INTEL_COLLAB
       Ret = PrivateArgumentManager.addArg(
-          HstPtrBegin, ArgSizes[I], TgtBaseOffset, IsFirstPrivate, TgtPtrBegin,
+          HstPtrBegin, AllocSize, TgtBaseOffset, IsFirstPrivate, TgtPtrBegin,
 #if INTEL_COLLAB
           TgtArgs.size(), HstPtrName, AllocImmediately, PassInHostMem,
           AllocOpt);
@@ -2012,15 +2030,15 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
   int Ret = OFFLOAD_SUCCESS;
   if (NumClangLaunchArgs) {
     // Process data, such as data mapping, before launching the kernel
-    Ret = processDataBefore(Loc, DeviceId, HostPtr, NumClangLaunchArgs,
-                            KernelArgs.ArgBasePtrs, KernelArgs.ArgPtrs,
-                            KernelArgs.ArgSizes, KernelArgs.ArgTypes,
-                            KernelArgs.ArgNames, KernelArgs.ArgMappers, TgtArgs,
+    Ret = processDataBefore(
+        Loc, DeviceId, HostPtr, NumClangLaunchArgs, KernelArgs.ArgBasePtrs,
+        KernelArgs.ArgPtrs, KernelArgs.ArgSizes, KernelArgs.ArgTypes,
+        KernelArgs.ArgNames, KernelArgs.ArgMappers, TgtArgs,
 #if INTEL_COLLAB
-                            TgtOffsets, PrivateArgumentManager, AsyncInfo,
-                            TgtEntryPtr, &TgtNDLoopDesc);
+        TgtOffsets, PrivateArgumentManager, AsyncInfo, TgtEntryPtr,
+        KernelArgs.NumTeams[0], KernelArgs.ThreadLimit[0], &TgtNDLoopDesc);
 #else  // INTEL_COLLAB
-                            TgtOffsets, PrivateArgumentManager, AsyncInfo);
+        TgtOffsets, PrivateArgumentManager, AsyncInfo);
 #endif // INTEL_COLLAB
     if (Ret != OFFLOAD_SUCCESS) {
       REPORT("Failed to process data before launching the kernel.\n");

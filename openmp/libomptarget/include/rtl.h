@@ -125,6 +125,8 @@ struct RTLInfoTy {
                                                int32_t);
   typedef int(prefetch_shared_mem_ty)(int32_t, size_t, void **, size_t *);
   typedef int(get_device_from_ptr_ty)(const void *);
+  typedef int32_t(get_groups_shape_ty)(int32_t, int32_t, int32_t, void *,
+                                       void *, void *, void *);
 #endif // INTEL_COLLAB
   typedef int32_t(query_async_ty)(int32_t, __tgt_async_info *);
   typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
@@ -225,6 +227,7 @@ struct RTLInfoTy {
   data_aligned_alloc_shared_ty *data_aligned_alloc_shared = nullptr;
   prefetch_shared_mem_ty *prefetch_shared_mem = nullptr;
   get_device_from_ptr_ty *get_device_from_ptr = nullptr;
+  get_groups_shape_ty *get_groups_shape = nullptr;
 #endif // INTEL_COLLAB
   query_async_ty *query_async = nullptr;
   register_lib_ty register_lib = nullptr;

@@ -582,6 +582,7 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
   SET_OPTIONAL_INTERFACE_FN(sync_barrier);
   SET_OPTIONAL_INTERFACE_FN(async_barrier);
   SET_OPTIONAL_INTERFACE_FN(memcpy_rect_3d);
+  SET_OPTIONAL_INTERFACE_FN(get_groups_shape);
 #endif // INTEL_CUSTOMIZATION
 #undef SET_OPTIONAL_INTERFACE
 #undef SET_OPTIONAL_INTERFACE_FN

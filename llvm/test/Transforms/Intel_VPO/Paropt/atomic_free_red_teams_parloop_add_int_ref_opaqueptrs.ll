@@ -81,7 +81,7 @@
 ; CHECK-NEXT:    store i32 0, ptr addrspace(1) %teams_counter
 ; CHECK-LABEL: master.thread.fallthru{{[0-9]+}}:
 
-; MAP:      Adding map-type (@red_buf = extern_weak addrspace(1) global i32 #0, @red_buf = extern_weak addrspace(1) global i32 #0, i64 4096, i64 1152)
+; MAP:      Adding map-type (@red_buf = extern_weak addrspace(1) global i32 #0, @red_buf = extern_weak addrspace(1) global i32 #0, i64 4, i64 66688)
 ; MAP-NEXT: Adding map-type (@teams_counter = private addrspace(1) global i32 0 #1, @teams_counter = private addrspace(1) global i32 0 #1, i64 4, i64 16544)
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
