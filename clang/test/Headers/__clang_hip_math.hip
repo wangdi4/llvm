@@ -1487,15 +1487,9 @@ extern "C" __device__ int test_ilogb(double x) {
 
 // DEFAULT-LABEL: @test___finitef(
 // DEFAULT-NEXT:  entry:
-<<<<<<< HEAD
-// DEFAULT-NEXT:    [[TMP0:%.*]] = tail call float @llvm.fabs.f32(float [[X:%.*]])
-// DEFAULT-NEXT:    [[TMP1:%.*]] = fcmp one float [[TMP0]], 0x7FF0000000000000
-// DEFAULT-NEXT:    [[CONV:%.*]] = zext i1 [[TMP1]] to i32
-=======
 // DEFAULT-NEXT:    [[TMP0:%.*]] = tail call contract float @llvm.fabs.f32(float [[X:%.*]]) #[[ATTR17A:[0-9]+]]
 // DEFAULT-NEXT:    [[CMPINF_I:%.*]] = fcmp contract one float [[TMP0]], 0x7FF0000000000000
 // DEFAULT-NEXT:    [[CONV:%.*]] = zext i1 [[CMPINF_I]] to i32
->>>>>>> e272b19f0bbf5e56d14a76624d0a7a4723618c81
 // DEFAULT-NEXT:    ret i32 [[CONV]]
 //
 // FINITEONLY-LABEL: @test___finitef(
@@ -1504,15 +1498,9 @@ extern "C" __device__ int test_ilogb(double x) {
 //
 // APPROX-LABEL: @test___finitef(
 // APPROX-NEXT:  entry:
-<<<<<<< HEAD
-// APPROX-NEXT:    [[TMP0:%.*]] = tail call float @llvm.fabs.f32(float [[X:%.*]])
-// APPROX-NEXT:    [[TMP1:%.*]] = fcmp one float [[TMP0]], 0x7FF0000000000000
-// APPROX-NEXT:    [[CONV:%.*]] = zext i1 [[TMP1]] to i32
-=======
 // APPROX-NEXT:    [[TMP0:%.*]] = tail call contract float @llvm.fabs.f32(float [[X:%.*]])
 // APPROX-NEXT:    [[CMPINF_I:%.*]] = fcmp contract one float [[TMP0]], 0x7FF0000000000000
 // APPROX-NEXT:    [[CONV:%.*]] = zext i1 [[CMPINF_I]] to i32
->>>>>>> e272b19f0bbf5e56d14a76624d0a7a4723618c81
 // APPROX-NEXT:    ret i32 [[CONV]]
 //
 extern "C" __device__ BOOL_TYPE test___finitef(float x) {
@@ -1521,15 +1509,9 @@ extern "C" __device__ BOOL_TYPE test___finitef(float x) {
 
 // DEFAULT-LABEL: @test___finite(
 // DEFAULT-NEXT:  entry:
-<<<<<<< HEAD
-// DEFAULT-NEXT:    [[TMP0:%.*]] = tail call double @llvm.fabs.f64(double [[X:%.*]])
-// DEFAULT-NEXT:    [[TMP1:%.*]] = fcmp one double [[TMP0]], 0x7FF0000000000000
-// DEFAULT-NEXT:    [[CONV:%.*]] = zext i1 [[TMP1]] to i32
-=======
 // DEFAULT-NEXT:    [[TMP0:%.*]] = tail call contract double @llvm.fabs.f64(double [[X:%.*]]) #[[ATTR17A]]
 // DEFAULT-NEXT:    [[CMPINF_I:%.*]] = fcmp contract one double [[TMP0]], 0x7FF0000000000000
 // DEFAULT-NEXT:    [[CONV:%.*]] = zext i1 [[CMPINF_I]] to i32
->>>>>>> e272b19f0bbf5e56d14a76624d0a7a4723618c81
 // DEFAULT-NEXT:    ret i32 [[CONV]]
 //
 // FINITEONLY-LABEL: @test___finite(
@@ -1538,15 +1520,9 @@ extern "C" __device__ BOOL_TYPE test___finitef(float x) {
 //
 // APPROX-LABEL: @test___finite(
 // APPROX-NEXT:  entry:
-<<<<<<< HEAD
-// APPROX-NEXT:    [[TMP0:%.*]] = tail call double @llvm.fabs.f64(double [[X:%.*]])
-// APPROX-NEXT:    [[TMP1:%.*]] = fcmp one double [[TMP0]], 0x7FF0000000000000
-// APPROX-NEXT:    [[CONV:%.*]] = zext i1 [[TMP1]] to i32
-=======
 // APPROX-NEXT:    [[TMP0:%.*]] = tail call contract double @llvm.fabs.f64(double [[X:%.*]])
 // APPROX-NEXT:    [[CMPINF_I:%.*]] = fcmp contract one double [[TMP0]], 0x7FF0000000000000
 // APPROX-NEXT:    [[CONV:%.*]] = zext i1 [[CMPINF_I]] to i32
->>>>>>> e272b19f0bbf5e56d14a76624d0a7a4723618c81
 // APPROX-NEXT:    ret i32 [[CONV]]
 //
 extern "C" __device__ BOOL_TYPE test___finite(double x) {
@@ -1555,15 +1531,9 @@ extern "C" __device__ BOOL_TYPE test___finite(double x) {
 
 // DEFAULT-LABEL: @test___isinff(
 // DEFAULT-NEXT:  entry:
-<<<<<<< HEAD
-// DEFAULT-NEXT:    [[TMP0:%.*]] = tail call float @llvm.fabs.f32(float [[X:%.*]])
-// DEFAULT-NEXT:    [[TMP1:%.*]] = fcmp oeq float [[TMP0]], 0x7FF0000000000000
-// DEFAULT-NEXT:    [[CONV:%.*]] = zext i1 [[TMP1]] to i32
-=======
 // DEFAULT-NEXT:    [[TMP0:%.*]] = tail call contract float @llvm.fabs.f32(float [[X:%.*]]) #[[ATTR17A]]
 // DEFAULT-NEXT:    [[CMPINF_I:%.*]] = fcmp contract oeq float [[TMP0]], 0x7FF0000000000000
 // DEFAULT-NEXT:    [[CONV:%.*]] = zext i1 [[CMPINF_I]] to i32
->>>>>>> e272b19f0bbf5e56d14a76624d0a7a4723618c81
 // DEFAULT-NEXT:    ret i32 [[CONV]]
 //
 // FINITEONLY-LABEL: @test___isinff(
@@ -1572,15 +1542,9 @@ extern "C" __device__ BOOL_TYPE test___finite(double x) {
 //
 // APPROX-LABEL: @test___isinff(
 // APPROX-NEXT:  entry:
-<<<<<<< HEAD
-// APPROX-NEXT:    [[TMP0:%.*]] = tail call float @llvm.fabs.f32(float [[X:%.*]])
-// APPROX-NEXT:    [[TMP1:%.*]] = fcmp oeq float [[TMP0]], 0x7FF0000000000000
-// APPROX-NEXT:    [[CONV:%.*]] = zext i1 [[TMP1]] to i32
-=======
 // APPROX-NEXT:    [[TMP0:%.*]] = tail call contract float @llvm.fabs.f32(float [[X:%.*]])
 // APPROX-NEXT:    [[CMPINF_I:%.*]] = fcmp contract oeq float [[TMP0]], 0x7FF0000000000000
 // APPROX-NEXT:    [[CONV:%.*]] = zext i1 [[CMPINF_I]] to i32
->>>>>>> e272b19f0bbf5e56d14a76624d0a7a4723618c81
 // APPROX-NEXT:    ret i32 [[CONV]]
 //
 extern "C" __device__ BOOL_TYPE test___isinff(float x) {
@@ -1589,15 +1553,9 @@ extern "C" __device__ BOOL_TYPE test___isinff(float x) {
 
 // DEFAULT-LABEL: @test___isinf(
 // DEFAULT-NEXT:  entry:
-<<<<<<< HEAD
-// DEFAULT-NEXT:    [[TMP0:%.*]] = tail call double @llvm.fabs.f64(double [[X:%.*]])
-// DEFAULT-NEXT:    [[TMP1:%.*]] = fcmp oeq double [[TMP0]], 0x7FF0000000000000
-// DEFAULT-NEXT:    [[CONV:%.*]] = zext i1 [[TMP1]] to i32
-=======
 // DEFAULT-NEXT:    [[TMP0:%.*]] = tail call contract double @llvm.fabs.f64(double [[X:%.*]]) #[[ATTR17A]]
 // DEFAULT-NEXT:    [[CMPINF_I:%.*]] = fcmp contract oeq double [[TMP0]], 0x7FF0000000000000
 // DEFAULT-NEXT:    [[CONV:%.*]] = zext i1 [[CMPINF_I]] to i32
->>>>>>> e272b19f0bbf5e56d14a76624d0a7a4723618c81
 // DEFAULT-NEXT:    ret i32 [[CONV]]
 //
 // FINITEONLY-LABEL: @test___isinf(
@@ -1606,15 +1564,9 @@ extern "C" __device__ BOOL_TYPE test___isinff(float x) {
 //
 // APPROX-LABEL: @test___isinf(
 // APPROX-NEXT:  entry:
-<<<<<<< HEAD
-// APPROX-NEXT:    [[TMP0:%.*]] = tail call double @llvm.fabs.f64(double [[X:%.*]])
-// APPROX-NEXT:    [[TMP1:%.*]] = fcmp oeq double [[TMP0]], 0x7FF0000000000000
-// APPROX-NEXT:    [[CONV:%.*]] = zext i1 [[TMP1]] to i32
-=======
 // APPROX-NEXT:    [[TMP0:%.*]] = tail call contract double @llvm.fabs.f64(double [[X:%.*]])
 // APPROX-NEXT:    [[CMPINF_I:%.*]] = fcmp contract oeq double [[TMP0]], 0x7FF0000000000000
 // APPROX-NEXT:    [[CONV:%.*]] = zext i1 [[CMPINF_I]] to i32
->>>>>>> e272b19f0bbf5e56d14a76624d0a7a4723618c81
 // APPROX-NEXT:    ret i32 [[CONV]]
 //
 extern "C" __device__ BOOL_TYPE test___isinf(double x) {
