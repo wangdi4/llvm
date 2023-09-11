@@ -106,6 +106,9 @@ enum tgt_map_type {
   OMP_TGT_MAPTYPE_ZERO_INIT_MEM   = 0x4000,
   // allocate memory in host USM
   OMP_TGT_MAPTYPE_HOST_MEM        = 0x8000,
+  // multiply the item's mapsize by the actual number of groups to support
+  // atomic-free team reduction buffers.
+  OMP_TGT_MAPTYPE_SIZE_TIMES_NUM_TEAMS   = 0x10000,
 #endif // INTEL_COLLAB
   // descriptor for non-contiguous target-update
   OMP_TGT_MAPTYPE_NON_CONTIG      = 0x100000000000,

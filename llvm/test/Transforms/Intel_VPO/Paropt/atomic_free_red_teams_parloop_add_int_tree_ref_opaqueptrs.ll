@@ -72,7 +72,7 @@
 ; CHECK:        store i32 %[[SUM_PHI]], ptr addrspace(4) %
 ; CHECK-NEXT:   store i32 0, ptr addrspace(1) %teams_counter
 
-; MAP:      Adding map-type (@red_buf = extern_weak addrspace(1) global i32 #0, @red_buf = extern_weak addrspace(1) global i32 #0, i64 4096, i64 1152)
+; MAP:      Adding map-type (@red_buf = extern_weak addrspace(1) global i32 #0, @red_buf = extern_weak addrspace(1) global i32 #0, i64 4, i64 66688)
 ; MAP-NEXT: Adding map-type (@teams_counter = private addrspace(1) global i32 0 #1, @teams_counter = private addrspace(1) global i32 0 #1, i64 4, i64 16544)
 
 

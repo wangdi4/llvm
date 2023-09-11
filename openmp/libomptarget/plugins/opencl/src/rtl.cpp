@@ -2464,14 +2464,13 @@ static void decideKernelGroupArguments(int32_t DeviceId, int32_t NumTeams,
   }
 }
 
-static inline int32_t runTargetTeamNDRegion(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs,
-    ptrdiff_t *TgtOffsets, int32_t NumArgs, int32_t NumTeams,
-    int32_t ThreadLimit, void *LoopDesc) {
-
+static int32_t getGroupsShape(int32_t DeviceId, int32_t NumTeams,
+                              int32_t ThreadLimit, void *TgtEntryPtr,
+                              void *GroupSizes, void *GroupCounts,
+                              void *LoopDesc) {
   cl_kernel Kernel = *static_cast<cl_kernel *>(TgtEntryPtr);
   if (!Kernel) {
-    REPORT("Failed to invoke deleted kernel.\n");
+    REPORT("Failed to query groups shape of a deleted kernel.\n");
     return OFFLOAD_FAIL;
   }
 
@@ -2482,21 +2481,6 @@ static inline int32_t runTargetTeamNDRegion(
     NumTeams = 0;
   if (ThreadLimit < 0)
     ThreadLimit = 0;
-
-#if INTEL_INTERNAL_BUILD
-  // TODO: kernels using to much SLM may limit the number of
-  //       work groups running simultaneously on a sub slice.
-  //       We may take this into account for computing the work partitioning.
-  size_t DeviceLocalMemSize =
-      (size_t)DeviceInfo->DeviceProperties[DeviceId].LocalMemSize;
-  DP("Device local mem size: %zu\n", DeviceLocalMemSize);
-  cl_ulong LocalMemSizeTmp = 0;
-  CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, Kernel,
-                   DeviceInfo->Devices[DeviceId], CL_KERNEL_LOCAL_MEM_SIZE,
-                   sizeof(LocalMemSizeTmp), &LocalMemSizeTmp, nullptr);
-  size_t KernelLocalMemSize = (size_t)LocalMemSizeTmp;
-  DP("Kernel local mem size: %zu\n", KernelLocalMemSize);
-#endif // INTEL_INTERNAL_BUILD
 
   // Read the most recent global thread limit and max teams.
   DeviceInfo->Option.readTeamsThreadLimit();
@@ -2523,6 +2507,69 @@ static inline int32_t runTargetTeamNDRegion(
                                          : nullptr,
                                Kernel, LocalWorkSize, NumWorkGroups);
   }
+
+  if (GroupSizes)
+    std::copy(LocalWorkSize, LocalWorkSize + 3,
+              static_cast<uint32_t *>(GroupSizes));
+  if (GroupCounts)
+    std::copy(NumWorkGroups, NumWorkGroups + 3,
+              static_cast<uint32_t *>(GroupCounts));
+
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int32_t __tgt_rtl_get_groups_shape(int32_t DeviceId, int32_t NumTeams,
+                                          int32_t ThreadLimit,
+                                          void *TgtEntryPtr, void *GroupSizes,
+                                          void *GroupCounts, void *LoopDesc) {
+  return getGroupsShape(DeviceId, NumTeams, ThreadLimit, TgtEntryPtr,
+                        GroupSizes, GroupCounts, LoopDesc);
+}
+
+static inline int32_t
+runTargetTeamNDRegion(int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs,
+                      ptrdiff_t *TgtOffsets, int32_t NumArgs, int32_t NumTeams,
+                      int32_t ThreadLimit, void *LoopDesc) {
+
+  cl_kernel Kernel = *static_cast<cl_kernel *>(TgtEntryPtr);
+  if (!Kernel) {
+    REPORT("Failed to invoke deleted kernel.\n");
+    return OFFLOAD_FAIL;
+  }
+
+#if INTEL_INTERNAL_BUILD
+  // TODO: kernels using to much SLM may limit the number of
+  //       work groups running simultaneously on a sub slice.
+  //       We may take this into account for computing the work partitioning.
+  size_t DeviceLocalMemSize =
+      (size_t)DeviceInfo->DeviceProperties[DeviceId].LocalMemSize;
+  DP("Device local mem size: %zu\n", DeviceLocalMemSize);
+  cl_ulong LocalMemSizeTmp = 0;
+  CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, Kernel,
+                   DeviceInfo->Devices[DeviceId], CL_KERNEL_LOCAL_MEM_SIZE,
+                   sizeof(LocalMemSizeTmp), &LocalMemSizeTmp, nullptr);
+  size_t KernelLocalMemSize = (size_t)LocalMemSizeTmp;
+  DP("Kernel local mem size: %zu\n", KernelLocalMemSize);
+#endif // INTEL_INTERNAL_BUILD
+
+  // Decide group sizes and counts
+  size_t LocalWorkSize[3] = {1, 1, 1};
+  size_t NumWorkGroups[3] = {1, 1, 1};
+
+  // libomptarget calling __tgt_rtl_get_groups_shape provides i32 pointers
+  // for both LWS and the WG number, and getGroupsShape coplies with that,
+  // that's why we need some zext'ing here
+  uint32_t LWS[3], NWG[3];
+
+  auto RC = getGroupsShape(DeviceId, NumTeams, ThreadLimit, TgtEntryPtr, LWS,
+                           NWG, LoopDesc);
+  if (RC != OFFLOAD_SUCCESS) {
+    REPORT("Failed to query groups shape when offloading a region.\n");
+    return OFFLOAD_FAIL;
+  }
+
+  std::copy(LWS, LWS + 3, LocalWorkSize);
+  std::copy(NWG, NWG + 3, NumWorkGroups);
 
   size_t GlobalWorkSize[3];
   for (int32_t I = 0; I < 3; ++I)

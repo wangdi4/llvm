@@ -280,6 +280,11 @@ EXTERN int32_t __tgt_rtl_run_target_team_nd_region(
     int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc,
     __tgt_async_info *AsyncInfo);
 
+EXTERN int32_t __tgt_rtl_get_groups_shape(int32_t DeviceId, int32_t NumTeams,
+                                          int32_t ThreadLimit,
+                                          void *TgtEntryPtr, void *GroupSizes,
+                                          void *GroupCounts, void *LoopDesc);
+
 // Creates an opaque handle to the  context handle.
 EXTERN void *__tgt_rtl_get_context_handle(int32_t ID);
 

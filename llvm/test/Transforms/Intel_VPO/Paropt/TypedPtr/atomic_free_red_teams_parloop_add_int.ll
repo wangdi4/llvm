@@ -86,7 +86,7 @@ target device_triples = "spir64"
 ; TC_FP-NOT: store i32 0, i32 addrspace(1)* %teams_counter
 ; CHECK-LABEL: master.thread.fallthru{{[0-9]+}}:
 
-; MAP:              Adding map-type (@red_buf = extern_weak addrspace(1) global i32 #0, @red_buf = extern_weak addrspace(1) global i32 #0, i64 4096, i64 1152)
+; MAP:              Adding map-type (@red_buf = extern_weak addrspace(1) global i32 #0, @red_buf = extern_weak addrspace(1) global i32 #0, i64 4, i64 66688)
 ; MAP_TC_ZEROINIT:  Adding map-type (@teams_counter = private addrspace(1) global i32 0 #1, @teams_counter = private addrspace(1) global i32 0 #1, i64 4, i64 16544)
 ; MAP_TC_FP:        Adding map-type (@teams_counter = private addrspace(1) global i32 0 #1, @teams_counter = private addrspace(1) global i32 0 #1, i64 4, i64 161)
 

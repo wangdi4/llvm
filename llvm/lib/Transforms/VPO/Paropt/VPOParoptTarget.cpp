@@ -135,6 +135,11 @@ cl::opt<uint32_t> AtomicFreeRedLocalBufSize(
              "buffer used for tree-like local update in"
              "atomic-free reduction"));
 
+cl::opt<bool> AtomicFreeReductionDynamicBuffer(
+    "vpo-paropt-atomic-free-reduction-dyn-buffer", cl::Hidden, cl::init(true),
+    cl::desc("Enable RT-managed number-of-teams adjusted reduction buffer "
+             "allocation"));
+
 extern cl::opt<bool> AtomicFreeReductionUseSLM;
 extern cl::opt<bool> AtomicFreeRedUseFPTeamsCounter;
 
@@ -1650,6 +1655,8 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
           ArrayType::get(BufTy, cast<ConstantInt>(NumElems)->getZExtValue());
 
     uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_CLOSE;
+    if (AtomicFreeReductionDynamicBuffer)
+      MapType |= TGT_MAP_SIZE_TIMES_NUM_TEAMS;
     Value *MapTypeVal =
         ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
     uint64_t Size = DL.getTypeSizeInBits(BufTy) / 8;
@@ -1675,9 +1682,12 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
     }
 
     if (NeedsGlobalBuffer) {
-      Value *MapGlobalSize = ConstantInt::get(
-          Type::getInt64Ty(F->getContext()),
-          Size * (AtomicFreeRedGlobalBufSize ? AtomicFreeRedGlobalBufSize : 1));
+      Value *MapGlobalSize =
+          ConstantInt::get(Type::getInt64Ty(F->getContext()),
+                           Size * ((AtomicFreeRedGlobalBufSize &&
+                                    !AtomicFreeReductionDynamicBuffer)
+                                       ? AtomicFreeRedGlobalBufSize
+                                       : 1));
 
       auto *GlobalBuf = new GlobalVariable(
           *F->getParent(), BufTy, false, BufLinkage, Initializer, "red_buf",
@@ -1691,7 +1701,9 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
       Value *MapLocalSize = ConstantInt::get(
           Type::getInt64Ty(F->getContext()),
           Size * AtomicFreeRedLocalBufSize *
-              (AtomicFreeRedGlobalBufSize ? AtomicFreeRedGlobalBufSize : 1));
+              ((AtomicFreeRedGlobalBufSize && !AtomicFreeReductionDynamicBuffer)
+                   ? AtomicFreeRedGlobalBufSize
+                   : 1));
 
       auto *LocalBuf = new GlobalVariable(
           *F->getParent(), BufTy, false, BufLinkage, Initializer,
