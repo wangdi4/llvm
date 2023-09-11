@@ -6953,7 +6953,7 @@ bool X86TTIImpl::isLegalMaskedGatherScatter(Type *DataTy, Align Alignment) {
 }
 
 bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, Align Alignment) {
-  if (!supportsGather() || !ST->preferGather())
+  if (!supportsGather()) // INTEL
     return false;
   return isLegalMaskedGatherScatter(DataTy, Alignment);
 }
@@ -6995,9 +6995,9 @@ bool X86TTIImpl::isLegalMaskedScatter(Type *DataType, Align Alignment) {
   // AVX2 doesn't support scatter
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  if (!ST->hasAVX3() || !ST->preferScatter())
+  if (!ST->hasAVX3())
 #else // INTEL_FEATURE_ISA_AVX256P
-  if (!ST->hasAVX512() || !ST->preferScatter())
+  if (!ST->hasAVX512())
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
     return false;
