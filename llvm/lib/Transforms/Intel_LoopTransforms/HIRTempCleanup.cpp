@@ -769,7 +769,8 @@ void TempSubstituter::visit(HLGoto *Goto) {
       continue;
 
     if (JumpsOutOfRegion ||
-        (TargetTopSortNum > Temp.getDefLoop()->getMaxTopSortNum()))
+        (Temp.getDefLoop() &&
+         (TargetTopSortNum > Temp.getDefLoop()->getMaxTopSortNum())))
       Temp.markInvalid();
   }
 }

@@ -1470,8 +1470,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
     }
 
     // Give up if the refs do not look structurally similar: A[i1] and B[0].
-    if (!DDRefUtils::haveEqualBaseAndShape(Ref, SymRef, false) ||
-        !DDRefUtils::haveEqualOffsets(Ref, SymRef)) {
+    if (!DDRefUtils::haveEqualBaseAndShapeAndOffsets(Ref, SymRef, false)) {
       RefinedOccurences = 0;
       return false;
     }
@@ -1840,16 +1839,17 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder final
   unsigned BaseIndex;
   const RegDDRef *CurStore;
   BasicBlock *StartBBlock;
+  unsigned StoreLoopLevel;
   bool IsStartLoop;
   bool FoundInvalidRef;
-  bool FoundIdenticalUse;
+  bool FoundProfitableUse;
   bool IsDone;
 
   bool foundInvalidRef() const { return FoundInvalidRef; }
 
   void reset(bool StartLoop) {
     FoundInvalidRef = false;
-    FoundIdenticalUse = false;
+    FoundProfitableUse = false;
     IsDone = false;
     IsStartLoop = StartLoop;
   }
@@ -1859,8 +1859,8 @@ public:
                           unsigned BaseIndex, const RegDDRef *Store,
                           BasicBlock *StartBBlock)
       : PA(PA), BaseIndex(BaseIndex), CurStore(Store), StartBBlock(StartBBlock),
-        IsStartLoop(true), FoundInvalidRef(false), FoundIdenticalUse(false),
-        IsDone(false) {}
+        StoreLoopLevel(Store->getNodeLevel()), IsStartLoop(true),
+        FoundInvalidRef(false), FoundProfitableUse(false), IsDone(false) {}
 
   void visit(const HLNode *Node) {}
 
@@ -1896,7 +1896,8 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::visit(
 
     bool HasNonSimplifiedBlob = false;
 
-    PA.getMaxNonSimplifiedBlobLevel(Ref, HasNonSimplifiedBlob);
+    unsigned DefLevel =
+        PA.getMaxNonSimplifiedBlobLevel(Ref, HasNonSimplifiedBlob);
 
     if (HasNonSimplifiedBlob) {
       FoundInvalidRef = true;
@@ -1916,7 +1917,8 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::visit(
       }
     }
 
-    auto ParLoop = Inst->getParentLoop();
+    auto *ParLoop = Inst->getLexicalParentLoop();
+    unsigned UseLoopLevel = ParLoop ? ParLoop->getNestingLevel() : 0;
     bool IsCandidateLoop = false;
 
     // Check if any parent loop is unroll candidate.
@@ -1932,7 +1934,29 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::visit(
     if (IsCandidateLoop) {
       if (!PA.HCU.IsPreVec || !((PA.HCU.HLS.getSelfStatistics(ParLoop))
                                     .hasProfitableVectorizableCalls())) {
-        FoundIdenticalUse = DDRefUtils::areEqual(CurStore, Ref);
+        // Set use as profitable if it has the same shape as the store and all
+        // its indices can be simplified. Loop nesting level check only serves
+        // as a heuristic to help restrict cases where we deduce load A[i2] as a
+        // profitble use for a store A[i1]. A later store to A[i2] in the same
+        // loop can prevent propagation of all the stores from the previous
+        // loop. See example below.
+        // TODO: Replace this heuritic with a more complicated analysis.
+        //
+        // DO i1 = 4
+        //   A[i1] =
+        // END DO
+        //
+        // DO i1 = n
+        //   DO i2 = 4
+        //         = A[i2]
+        //     A[i2] = // overwites A for all but the first iteration of i1 loop
+        //   END DO
+        // END DO
+        //
+        if ((DefLevel == 0) && (UseLoopLevel == StoreLoopLevel) &&
+            DDRefUtils::haveEqualBaseAndShapeAndOffsets(CurStore, Ref, false)) {
+          FoundProfitableUse = true;
+        }
       }
     } else {
       FoundInvalidRef = true;
@@ -1945,7 +1969,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::visit(
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::
     foundInvalidUse(const HLNode *PrevNode, bool IsStartLoop,
-                    bool *FoundProfitableUse) {
+                    bool *FoundProfitableUsePtr) {
 
   reset(IsStartLoop);
 
@@ -1966,8 +1990,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::
         HLNodeUtils::getLastLexicalChild(StartNode->getParent(), StartNode);
     HLNodeUtils::visitRange(*this, StartNode, EndNode);
 
-    if (FoundProfitableUse) {
-      *FoundProfitableUse = FoundIdenticalUse;
+    if (FoundProfitableUsePtr) {
+      *FoundProfitableUsePtr = FoundProfitableUse;
     }
   }
 
