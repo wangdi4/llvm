@@ -1,5 +1,5 @@
 ; RUN: opt -passes='vplan-vec' -S -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s -check-prefixes=LLVMIR,CHECK
-; RUN: opt -disable-output -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>' -S -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-final-cond-transform -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=HIR,CHECK
+; RUN: opt -disable-output -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>' -S -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-final-cond-transform -vplan-force-vf=2 -vplan-enable-hir-f90-dv < %s 2>&1 | FileCheck %s -check-prefixes=HIR,CHECK
 
 ; Check proper support for SIMD private C1 of integer type.
 ; Fortran sourcecode used for this test
