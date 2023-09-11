@@ -6,13 +6,9 @@ int main() {
 
   queue Queue{{sycl::ext::intel::property::queue::no_immediate_command_list{}}};
 
-<<<<<<< HEAD
-  float DotpData = 0.f;
-=======
   exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
 
   int DotpData = 0;
->>>>>>> 0d4cb8d9668d3ef9f0cea8d6c6648a7ed76cc58b
 
   const size_t N = 10;
   std::vector<int> XData(N);
