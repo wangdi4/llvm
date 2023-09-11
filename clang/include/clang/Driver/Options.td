@@ -1061,9 +1061,9 @@ def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">,
   "promote their architectures and make the intrinsic headers included by default">,
   MarshallingInfoFlag<LangOpts<"IntrinsicAutoPromote">>;
 def intel_mno_intrinsic_promote : Flag<["-"], "mno-intrinsic-promote">, Flags<[NoXarchOption]>;
-def mno_gather : Flag<["-"], "mno-gather">, Flags<[NoXarchOption]>,
+def mno_gather : Flag<["-"], "mno-gather">, Group<m_Group>,
   HelpText<"Disable generation of gather instructions in auto-vectorization">;
-def mno_scatter : Flag<["-"], "mno-scatter">, Flags<[NoXarchOption]>,
+def mno_scatter : Flag<["-"], "mno-scatter">, Group<m_Group>,
   HelpText<"Disable generation of scatter instructions in auto-vectorization">;
 def qactypes : Flag<["-"], "qactypes">, HelpText<"Enable compile and link "
   "support for the Algorithmic C Data-types (AC types)">;
