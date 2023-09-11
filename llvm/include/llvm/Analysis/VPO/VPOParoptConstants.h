@@ -77,6 +77,9 @@ enum TgtMapTypes : uint64_t {
   // Use host USM (which is also device accessible) for the map, instead of
   // device memory.
   TGT_MAP_USE_HOST_MEM = 0x8000,
+  // Multiply the item's mapsize by the actual number of groups to support
+  // atomic-free team reduction buffers.
+  TGT_MAP_SIZE_TIMES_NUM_TEAMS = 0x10000,
   // descriptor for non-contiguous target-update
   TGT_MAP_NON_CONTIG = 0x100000000000,
   // member of struct, member given by [16 MSBs] - 1

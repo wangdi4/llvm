@@ -854,6 +854,13 @@ bool DeviceTy::printDeviceInfo(int32_t RTLDevId) {
 }
 
 #if INTEL_COLLAB
+int32_t DeviceTy::getGroupsShape(void *TgtEntryPtr, int32_t NumTeams,
+                                 int32_t ThreadLimit, void *GroupSizes,
+                                 void *GroupCounts, void *LoopDesc) {
+  return RTL->get_groups_shape(RTLDeviceID, NumTeams, ThreadLimit, TgtEntryPtr,
+                               GroupSizes, GroupCounts, LoopDesc);
+}
+
 int32_t DeviceTy::manifestDataForRegion(void *TgtEntryPtr) {
   if (!RTL->manifest_data_for_region)
     return OFFLOAD_SUCCESS;

@@ -662,6 +662,9 @@ struct DeviceTy {
                        int32_t NumDims, const size_t *Volume,
                        const size_t *DstOffsets, const size_t *SrcOffsets,
                        const size_t *DstDims, const size_t *SrcDims);
+  int32_t getGroupsShape(void *TgtEntryPtr, int32_t NumTeams,
+                         int32_t ThreadLimit, void *GroupSizes,
+                         void *GroupCounts, void *LoopDesc);
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 

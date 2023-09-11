@@ -4984,6 +4984,107 @@ static void decideKernelGroupArguments(
   std::copy(GRPSizes, GRPSizes + 3, GroupSizes);
 }
 
+static int32_t getGroupsShape(int32_t RootId, int32_t SubId, int32_t NumTeams,
+                              int32_t ThreadLimit, ze_kernel_handle_t &Kernel,
+                              KernelPropertiesTy &KernelPR,
+                              uint32_t *GroupSizes,
+                              ze_group_count_t &GroupCounts, void *LoopDesc) {
+
+  // Read the most recent global thread limit and max teams.
+  DeviceInfo->Option.readTeamsThreadLimit();
+
+  // Detect if we need to reduce available HW threads. We need this adjustment
+  // on XeHPG when L0 debug is enabled (ZET_ENABLE_PROGRAM_DEBUGGING=1).
+  static std::once_flag OnceFlag;
+  static bool ZeDebugEnabled = false;
+  std::call_once(OnceFlag, []() {
+    const char *EnvVal = std::getenv("ZET_ENABLE_PROGRAM_DEBUGGING");
+    if (EnvVal && std::atoi(EnvVal) == 1)
+      ZeDebugEnabled = true;
+  });
+  bool IsXeHPG = DeviceInfo->DeviceArchs[RootId] == DeviceArch_XeHPG;
+  bool HalfNumThreads = ZeDebugEnabled && IsXeHPG;
+  if (HalfNumThreads) {
+    DP("Using half of the reported HW threads due to "
+       "ZET_ENABLE_PROGRAM_DEBUGGING set to 1\n");
+  }
+
+  const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(RootId, Kernel);
+  if (!KInfo) {
+    DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
+       DPxPTR(Kernel));
+  }
+
+  // ND-range partitioning should happen iff:
+  // 1. Loop descriptor is provided
+  // 2. NDRangeMode == true
+  // When 1 AND !2 we try to limit the number of teams spawned
+  // based on the loop tripcount to decrease the kernel launch latency.
+  if (LoopDesc && (!KInfo || KInfo->isSpecificNDRange())) {
+    auto RC = decideLoopKernelGroupArguments(
+        SubId, (uint32_t)ThreadLimit, (TgtNDRangeDescTy *)LoopDesc, Kernel,
+        KernelPR, GroupSizes, GroupCounts, HalfNumThreads);
+    if (RC != OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
+    // L0 has implemented heuristics to batch WG-submission. However, L0
+    // is not able apply this optimization if number of WG's is not a multiple
+    // of 8. This could result in  3x performance for small work-items.
+    if (GroupCounts.groupCountX > 8)
+      GroupCounts.groupCountX = (GroupCounts.groupCountX + 7) & ~7;
+  } else {
+    bool UseLoopTC =
+        LoopDesc && !DeviceInfo->Option.Flags.NDRangeIgnoreTripcount;
+    decideKernelGroupArguments(
+        SubId, (uint32_t)NumTeams, (uint32_t)ThreadLimit,
+        UseLoopTC ? (TgtNDRangeDescTy *)LoopDesc : nullptr, Kernel, KernelPR,
+        GroupSizes, GroupCounts, HalfNumThreads);
+  }
+
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int32_t __tgt_rtl_get_groups_shape(int32_t DeviceId, int32_t NumTeams,
+                                          int32_t ThreadLimit,
+                                          void *TgtEntryPtr, void *GroupSizes,
+                                          void *GroupCounts, void *LoopDesc) {
+
+  ze_kernel_handle_t Kernel = *((ze_kernel_handle_t *)TgtEntryPtr);
+  auto &KernelPR = DeviceInfo->getKernelProperties(Kernel);
+
+  int32_t RootId = DeviceId;
+  int32_t SubId = DeviceId;
+  auto SubDeviceCode = DeviceInfo->getSubDeviceCode();
+
+  if (SubDeviceCode < 0 && isValidSubDevice(SubDeviceCode)) {
+    uint32_t SubLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
+    uint32_t SubStart = SUBDEVICE_GET_START(SubDeviceCode);
+    RootId = SUBDEVICE_GET_ROOT(SubDeviceCode);
+    SubId = DeviceInfo->SubDeviceIds[RootId][SubLevel][SubStart];
+  }
+
+  uint32_t GroupSizesLocal[3];
+  ze_group_count_t GroupCountsLocal;
+
+  auto RC =
+      getGroupsShape(RootId, SubId, NumTeams, ThreadLimit, Kernel, KernelPR,
+                     GroupSizesLocal, GroupCountsLocal, LoopDesc);
+  if (RC != OFFLOAD_SUCCESS) {
+    return RC;
+  }
+
+  if (GroupSizes)
+    std::copy(GroupSizesLocal, GroupSizesLocal + 3,
+              static_cast<uint32_t *>(GroupSizes));
+
+  if (GroupCounts) {
+    static_cast<uint32_t *>(GroupCounts)[0] = GroupCountsLocal.groupCountX;
+    static_cast<uint32_t *>(GroupCounts)[1] = GroupCountsLocal.groupCountY;
+    static_cast<uint32_t *>(GroupCounts)[2] = GroupCountsLocal.groupCountZ;
+  }
+
+  return OFFLOAD_SUCCESS;
+}
+
 static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
                                    void **TgtArgs, ptrdiff_t *TgtOffsets,
                                    int32_t NumArgs, int32_t NumTeams,
@@ -5025,9 +5126,6 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
 
   auto &KernelPR = DeviceInfo->getKernelProperties(Kernel);
 
-  // Read the most recent global thread limit and max teams.
-  DeviceInfo->Option.readTeamsThreadLimit();
-
   ScopedTimerTy KernelTimer(SubId, "Kernel ", KernelPR.Name);
 
   // Protect from kernel preparation to submission as kernels are shared.
@@ -5037,58 +5135,22 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   uint32_t GroupSizes[3];
   ze_group_count_t GroupCounts;
 
+  // Read the most recent global thread limit and max teams.
+  DeviceInfo->Option.readTeamsThreadLimit();
+
   // Check if we can reuse previous group parameters
   bool GroupParamsReused = KernelPR.reuseGroupParams(
       (TgtNDRangeDescTy *)LoopDesc, NumTeams, ThreadLimit, GroupSizes,
       GroupCounts);
 
   if (!GroupParamsReused) {
-    // Detect if we need to reduce available HW threads. We need this adjustment
-    // on XeHPG when L0 debug is enabled (ZET_ENABLE_PROGRAM_DEBUGGING=1).
-    static std::once_flag OnceFlag;
-    static bool ZeDebugEnabled = false;
-    std::call_once(OnceFlag, []() {
-      const char *EnvVal = std::getenv("ZET_ENABLE_PROGRAM_DEBUGGING");
-      if (EnvVal && std::atoi(EnvVal) == 1)
-        ZeDebugEnabled = true;
-    });
-    bool IsXeHPG = DeviceInfo->DeviceArchs[RootId] == DeviceArch_XeHPG;
-    bool HalfNumThreads = ZeDebugEnabled && IsXeHPG;
-    if (HalfNumThreads) {
-      DP("Using half of the reported HW threads due to "
-         "ZET_ENABLE_PROGRAM_DEBUGGING set to 1\n");
+    auto RC = getGroupsShape(RootId, SubId, NumTeams, ThreadLimit, Kernel,
+                             KernelPR, GroupSizes, GroupCounts, LoopDesc);
+
+    if (RC != OFFLOAD_SUCCESS) {
+      return RC;
     }
 
-    const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(RootId, Kernel);
-    if (!KInfo) {
-      DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
-         DPxPTR(Kernel));
-    }
-
-    // ND-range partitioning should happen iff:
-    // 1. Loop descriptor is provided
-    // 2. NDRangeMode == true
-    // When 1 AND !2 we try to limit the number of teams spawned
-    // based on the loop tripcount to decrease the kernel launch latency.
-    if (LoopDesc && (!KInfo || KInfo->isSpecificNDRange())) {
-      auto RC = decideLoopKernelGroupArguments(
-          SubId, (uint32_t)ThreadLimit, (TgtNDRangeDescTy *)LoopDesc, Kernel,
-          KernelPR, GroupSizes, GroupCounts, HalfNumThreads);
-      if (RC != OFFLOAD_SUCCESS)
-        return OFFLOAD_FAIL;
-      // L0 has implemented heuristics to batch WG-submission. However, L0
-      // is not able apply this optimization if number of WG's is not a multiple
-      // of 8. This could result in  3x performance for small work-items.
-      if (GroupCounts.groupCountX > 8)
-        GroupCounts.groupCountX = (GroupCounts.groupCountX + 7) & ~7;
-    } else {
-      bool UseLoopTC =
-          LoopDesc && !DeviceInfo->Option.Flags.NDRangeIgnoreTripcount;
-      decideKernelGroupArguments(
-          SubId, (uint32_t)NumTeams, (uint32_t)ThreadLimit,
-          UseLoopTC ? (TgtNDRangeDescTy *)LoopDesc : nullptr, Kernel, KernelPR,
-          GroupSizes, GroupCounts, HalfNumThreads);
-    }
     KernelPR.cacheGroupParams((TgtNDRangeDescTy *)LoopDesc, NumTeams,
                               ThreadLimit, GroupSizes, GroupCounts);
   }
