@@ -69,7 +69,7 @@ bool TransformFPGAReg::runOnModule(Module &M) {
             CDA->getAsCString() == "__builtin_intel_fpga_reg"))
       continue;
 
-    for (auto *GVAccessor : GV.users()) {
+    for (auto *GVAccessor : llvm::make_early_inc_range(GV.users())) {
       // The fpga_reg string literal can be accessed by
       // llvm.annotation.* and llvm.ptr.annotation.*
       // intrinsic calls, thus representing a builtin
