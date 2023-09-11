@@ -1279,6 +1279,7 @@ struct DevicePropertiesTy {
   cl_ulong GlobalMemCacheSize = 0;
   cl_ulong MaxMemAllocSize = 0;
   cl_uint MaxClockFrequency = 0;
+  cl_uint VendorId = 0;
 
   int32_t getDeviceProperties(cl_device_id ID, bool HasExtension);
 };
@@ -2754,6 +2755,23 @@ runTargetTeamNDRegion(int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs,
   return OFFLOAD_SUCCESS;
 }
 
+static void
+replaceDriverOptsWithBackendOpts(const DevicePropertiesTy &DeviceInfo,
+                                 bool IsGPU, std::string &CompOpts,
+                                 std::string &LinkOpts) {
+  // If the user passed -ftarget-compile-fast at compile time, universally
+  // remove it from CompOpts as the runtime needs it in LinkOpts even if it is
+  // an Intel GPU, but only add it to LinkOpts for Intel GPUs
+  static const std::string TargetCompileFast = "-ftarget-compile-fast";
+  if (auto Pos = CompOpts.find(TargetCompileFast); Pos != std::string::npos) {
+    auto OptLen = TargetCompileFast.size();
+    bool IsIntelGPU = DeviceInfo.VendorId == 0x8086 && IsGPU;
+    if (IsIntelGPU)
+      LinkOpts += "-igc_opts 'PartitionUnit=1,SubroutineThreshold=50000'";
+    CompOpts.erase(Pos, OptLen);
+  }
+}
+
 #if INTEL_CUSTOMIZATION
 int32_t RTLDeviceInfoTy::resetProgramData(int32_t DeviceId) {
   for (auto &PGM : Programs[DeviceId])
@@ -2968,6 +2986,8 @@ int32_t DevicePropertiesTy::getDeviceProperties(
                      nullptr);
     Name.append(Buf.data());
   }
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_VENDOR_ID, sizeof(VendorId),
+                   &VendorId, nullptr);
   CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_MAX_WORK_GROUP_SIZE,
                    sizeof(MaxWorkGroupSize), &MaxWorkGroupSize, nullptr);
   CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_LOCAL_MEM_SIZE,
@@ -3249,6 +3269,10 @@ int32_t OpenCLProgramTy::buildPrograms(std::string &CompilationOptions,
     if (DeviceInfo->Option.Flags.UseImageOptions) {
       CompilationOptions += " " + It->second.CompileOpts;
       LinkingOptions += " " + It->second.LinkOpts;
+      replaceDriverOptsWithBackendOpts(DeviceInfo->DeviceProperties[DeviceId],
+                                       DeviceInfo->Option.DeviceType ==
+                                           CL_DEVICE_TYPE_GPU,
+                                       CompilationOptions, LinkingOptions);
     }
 
     return OFFLOAD_SUCCESS;
