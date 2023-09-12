@@ -901,7 +901,7 @@ namespace detail {
 template <typename T, int NBlocks, int Height, int Width, bool Transposed,
           bool Transformed>
 constexpr int get_lsc_block_2d_data_size() {
-  if (Transformed)
+  if constexpr (Transformed)
     return detail::roundUpNextMultiple<Height, 4 / sizeof(T)>() *
            __ESIMD_DNS::getNextPowerOf2<Width>() * NBlocks;
   return Width * Height * NBlocks;
@@ -2799,6 +2799,16 @@ lsc_block_store(AccessorTy acc,
 }
 
 namespace detail {
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+#define __ESIMD_DWORD_BLOCK_2D_WIDTH_SCALE (2)
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
+#ifndef __ESIMD_DWORD_BLOCK_2D_WIDTH_SCALE
+#define __ESIMD_DWORD_BLOCK_2D_WIDTH_SCALE (1)
+#endif
 // Compile-time checks for lsc_load_2d/prefetch_2d/store_2d restrictions.
 template <typename T, int BlockWidth, int BlockHeight, int NBlocks,
           bool Transposed, bool Transformed, bool IsStore = false>
@@ -2822,8 +2832,11 @@ constexpr void check_lsc_block_2d_restrictions() {
     static_assert(sizeof(T) == 8 ? BlockHeight == 8
                                  : BlockHeight >= 1 && BlockHeight <= 32,
                   "Unsupported block height");
-    static_assert(sizeof(T) == 8 ? __ESIMD_DNS::isPowerOf2(BlockWidth, 4)
-                                 : BlockWidth >= 1 && BlockWidth <= 8,
+    static_assert(sizeof(T) == 8
+                      ? __ESIMD_DNS::isPowerOf2(BlockWidth, 4)
+                      : BlockWidth >= 1 &&
+                            BlockWidth <=
+                                8 * __ESIMD_DWORD_BLOCK_2D_WIDTH_SCALE,
                   "Unsupported block width");
   } else if constexpr (Transformed) {
     static_assert(sizeof(T) == 1 || sizeof(T) == 2,
@@ -2848,6 +2861,7 @@ constexpr void check_lsc_block_2d_restrictions() {
                   "Unsupported block width");
   }
 }
+#undef BLOCK_2D_SCALE
 
 } // namespace detail
 
