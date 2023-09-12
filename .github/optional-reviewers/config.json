@@ -7,7 +7,8 @@
   },
   {
     "ids": [
-      "wjschmidt"
+      "wjschmidt",
+      "skozhukh"
     ],
     "match": ".*VPlan.*"
   },
