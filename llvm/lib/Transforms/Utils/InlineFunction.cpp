@@ -1898,24 +1898,18 @@ static Value *HandleByValArgument(Type *ByValType, Value *Arg,
   if (ByValAlignment)
     Alignment = std::max(Alignment, *ByValAlignment);
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   Value *NewAlloca = new AllocaInst(
       ByValType, DL.getAllocaAddrSpace(), nullptr, Alignment, Arg->getName(),
       VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) ? TheCall :
                                                &*Caller->begin()->begin());
-#else //INTEL_COLLAB
-  Value *NewAlloca =
-      new AllocaInst(ByValType, DL.getAllocaAddrSpace(), nullptr, Alignment,
-                     Arg->getName(), &*Caller->begin()->begin());
-#endif // INTEL_COLLAB
   IFI.StaticAllocas.push_back(cast<AllocaInst>(NewAlloca));
-=======
+#else //INTEL_COLLAB
   AllocaInst *NewAlloca = new AllocaInst(ByValType, DL.getAllocaAddrSpace(),
                                          nullptr, Alignment, Arg->getName());
   NewAlloca->insertBefore(Caller->begin()->begin());
   IFI.StaticAllocas.push_back(NewAlloca);
->>>>>>> 6942c64e8128e4ccd891b813d0240f574f80f59e
+#endif // INTEL_COLLAB
 
 #if INTEL_COLLAB
   // If the byval was in a different address space, add a cast.
