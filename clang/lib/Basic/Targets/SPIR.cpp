@@ -54,6 +54,7 @@ void SPIR64TargetInfo::getTargetDefines(const LangOptions &Opts,
   DefineStd(Builder, "SPIR64", Opts);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 const Builtin::Info SPIR32INTELFpgaTargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
@@ -100,19 +101,26 @@ void SPIR64INTELFpgaTargetInfo::getTargetDefines(
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+void BaseSPIRVTargetInfo::getTargetDefines(const LangOptions &Opts,
+                                           MacroBuilder &Builder) const {
+  DefineStd(Builder, "SPIRV", Opts);
+}
+
+>>>>>>> 1b60fb4b3062da137b949fc85026a9c8b21b74eb
 void SPIRVTargetInfo::getTargetDefines(const LangOptions &Opts,
                                        MacroBuilder &Builder) const {
-  DefineStd(Builder, "SPIRV", Opts);
+  BaseSPIRVTargetInfo::getTargetDefines(Opts, Builder);
 }
 
 void SPIRV32TargetInfo::getTargetDefines(const LangOptions &Opts,
                                          MacroBuilder &Builder) const {
-  SPIRVTargetInfo::getTargetDefines(Opts, Builder);
+  BaseSPIRVTargetInfo::getTargetDefines(Opts, Builder);
   DefineStd(Builder, "SPIRV32", Opts);
 }
 
 void SPIRV64TargetInfo::getTargetDefines(const LangOptions &Opts,
                                          MacroBuilder &Builder) const {
-  SPIRVTargetInfo::getTargetDefines(Opts, Builder);
+  BaseSPIRVTargetInfo::getTargetDefines(Opts, Builder);
   DefineStd(Builder, "SPIRV64", Opts);
 }
