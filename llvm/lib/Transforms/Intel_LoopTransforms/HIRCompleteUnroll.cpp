@@ -429,7 +429,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
     unsigned NumSimplifiedTerms = 0;
     unsigned NumNonLinearTerms = 0;
     unsigned NumUnrollableIVBlobs = 0;
-    bool HasUnrollableStandAloneIV = false;
+    unsigned UnrollableStandAloneIVLevel = 0;
   };
 
   class InvalidBasePtrRefFinder;
@@ -2579,11 +2579,36 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
       ++Cost;
     }
   } else if ((CEInfo.NumSimplifiedTerms == 1) &&
-             CEInfo.HasUnrollableStandAloneIV) {
+             CEInfo.UnrollableStandAloneIVLevel) {
     // Make sure we add at least 1 to savings for turning any IV into a
     // constant. Otherwise converting simple expressions like A[i1] to A[0] will
     // not be considered savings.
-    ++Savings;
+    // Make sure the savings are only considered for partial loopnests starting
+    // at IV level. For example, for a reference like A[i1][i2] inside the i2
+    // loop, we shouldn't consider simplification of i1 as savings for the
+    // combined trip count of i1 and i2 loop since i1 is invariant w.r.t i2
+    // loop.
+    //
+    // Incrementing savings works correctly if we are either analyzing a single
+    // loop or the IV being simplified belongs to the innermost loop of the
+    // loopnest.
+    if ((CurLoop == OuterLoop) ||
+        (CurLoop->getNestingLevel() == CEInfo.UnrollableStandAloneIVLevel)) {
+      ++Savings;
+
+    } else {
+      unsigned OuterLoopnestTC = HCU.AvgTripCount.find(OuterLoop)->second;
+
+      auto *Loop =
+          CurLoop->getParentLoopAtLevel(CEInfo.UnrollableStandAloneIVLevel);
+
+      while (Loop != OuterLoop) {
+        OuterLoopnestTC *= HCU.AvgTripCount.find(Loop)->second;
+        Loop = Loop->getParentLoop();
+      }
+
+      ScaledSavings += OuterLoopnestTC;
+    }
   }
 
   // Add 1 to cost/savings for non-unit denominator based on linearity.
@@ -2670,7 +2695,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
       if (Coeff != 1) {
         ++Savings;
       } else {
-        CEInfo.HasUnrollableStandAloneIV = true;
+        CEInfo.UnrollableStandAloneIVLevel = Level;
       }
 
       ++CEInfo.NumSimplifiedTerms;
