@@ -390,9 +390,9 @@ void OpenMPIRBuilder::addAttributes(omp::RuntimeFunction FnID, Function &Fn) {
       if (Param) {
         if (auto AK = TargetLibraryInfo::getExtAttrForI32Param(T, HasSignExt))
           FnAS = FnAS.addAttribute(Ctx, AK);
-      } else
-        if (auto AK = TargetLibraryInfo::getExtAttrForI32Return(T, HasSignExt))
-          FnAS = FnAS.addAttribute(Ctx, AK);
+      } else if (auto AK =
+                     TargetLibraryInfo::getExtAttrForI32Return(T, HasSignExt))
+        FnAS = FnAS.addAttribute(Ctx, AK);
     } else {
       FnAS = FnAS.addAttributes(Ctx, AS);
     }
@@ -406,7 +406,7 @@ void OpenMPIRBuilder::addAttributes(omp::RuntimeFunction FnID, Function &Fn) {
 #define OMP_RTL_ATTRS(Enum, FnAttrSet, RetAttrSet, ArgAttrSets)                \
   case Enum:                                                                   \
     FnAttrs = FnAttrs.addAttributes(Ctx, FnAttrSet);                           \
-    addAttrSet(RetAttrs, RetAttrSet, /*Param*/false);                          \
+    addAttrSet(RetAttrs, RetAttrSet, /*Param*/ false);                         \
     for (size_t ArgNo = 0; ArgNo < ArgAttrSets.size(); ++ArgNo)                \
       addAttrSet(ArgAttrs[ArgNo], ArgAttrSets[ArgNo]);                         \
     Fn.setAttributes(AttributeList::get(Ctx, FnAttrs, RetAttrs, ArgAttrs));    \
@@ -4988,12 +4988,12 @@ void OpenMPIRBuilder::emitOffloadingArrays(
             static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
                 CombinedInfo.Types[I] &
                 OpenMPOffloadMappingFlags::OMP_MAP_NON_CONTIG))
+          ConstSizes[I] =
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-          ConstSizes[I] = ConstantInt::get(Int64Ty,
+            ConstantInt::get(Int64Ty, CombinedInfo.NonContigInfo.Dims[I]);
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
-          ConstSizes[I] = ConstantInt::get(Builder.getInt64Ty(),
+            ConstantInt::get(Builder.getInt64Ty(), CombinedInfo.NonContigInfo.Dims[I]);
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-                                           CombinedInfo.NonContigInfo.Dims[I]);
         else
           ConstSizes[I] = CI;
         continue;
@@ -5064,11 +5064,11 @@ void OpenMPIRBuilder::emitOffloadingArrays(
         createOffloadMapnames(CombinedInfo.Names, MapnamesName);
     Info.RTArgs.MapNamesArray = MapNamesArrayGbl;
   } else {
-    Info.RTArgs.MapNamesArray = Constant::getNullValue(
+    Info.RTArgs.MapNamesArray =
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-        PointerType::getUnqual(Builder.getContext()));
+        Constant::getNullValue(PointerType::getUnqual(Builder.getContext()));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
-        Type::getInt8Ty(Builder.getContext())->getPointerTo());
+        Constant::getNullValue(Type::getInt8Ty(Builder.getContext())->getPointerTo()));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
@@ -5097,20 +5097,20 @@ void OpenMPIRBuilder::emitOffloadingArrays(
     Value *BPVal = CombinedInfo.BasePointers[I];
     Value *BP = Builder.CreateConstInBoundsGEP2_32(
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-        ArrayType::get(PtrTy, Info.NumberOfPtrs),
+        ArrayType::get(PtrTy, Info.NumberOfPtrs), Info.RTArgs.BasePointersArray,
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
-        ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs),
+        ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs), Info.RTArgs.BasePointersArray,
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-        Info.RTArgs.BasePointersArray, 0, I);
+        0, I);
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     BP = Builder.CreatePointerBitCastOrAddrSpaceCast(
         BP, BPVal->getType()->getPointerTo(/*AddrSpace=*/0));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-    Builder.CreateAlignedStore(
+    Builder.CreateAlignedStore(BPVal, BP,
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-        BPVal, BP, M.getDataLayout().getPrefTypeAlign(PtrTy));
+                               M.getDataLayout().getPrefTypeAlign(PtrTy));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
-        BPVal, BP, M.getDataLayout().getPrefTypeAlign(Builder.getInt8PtrTy()));
+                               M.getDataLayout().getPrefTypeAlign(Builder.getInt8PtrTy()));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     if (Info.requiresDevicePointerInfo()) {
@@ -5136,21 +5136,21 @@ void OpenMPIRBuilder::emitOffloadingArrays(
     Value *PVal = CombinedInfo.Pointers[I];
     Value *P = Builder.CreateConstInBoundsGEP2_32(
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-        ArrayType::get(PtrTy, Info.NumberOfPtrs),
+        ArrayType::get(PtrTy, Info.NumberOfPtrs), Info.RTArgs.PointersArray, 0,
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
-        ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs),
+        ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs), Info.RTArgs.PointersArray, 0,
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
-        Info.RTArgs.PointersArray, 0, I);
+        I);
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     P = Builder.CreatePointerBitCastOrAddrSpaceCast(
         P, PVal->getType()->getPointerTo(/*AddrSpace=*/0));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
     // TODO: Check alignment correct.
-    Builder.CreateAlignedStore(
+    Builder.CreateAlignedStore(PVal, P,
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-        PVal, P, M.getDataLayout().getPrefTypeAlign(PtrTy));
+                               M.getDataLayout().getPrefTypeAlign(PtrTy));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
-        PVal, P, M.getDataLayout().getPrefTypeAlign(Builder.getInt8PtrTy()));
+                               M.getDataLayout().getPrefTypeAlign(Builder.getInt8PtrTy()));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     if (RuntimeSizes.test(I)) {
@@ -5158,13 +5158,13 @@ void OpenMPIRBuilder::emitOffloadingArrays(
           ArrayType::get(Int64Ty, Info.NumberOfPtrs), Info.RTArgs.SizesArray,
           /*Idx0=*/0,
           /*Idx1=*/I);
-      Builder.CreateAlignedStore(
-          Builder.CreateIntCast(CombinedInfo.Sizes[I], Int64Ty,
-                                /*isSigned=*/true),
+      Builder.CreateAlignedStore(Builder.CreateIntCast(CombinedInfo.Sizes[I],
+                                                       Int64Ty,
+                                                       /*isSigned=*/true),
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-          S, M.getDataLayout().getPrefTypeAlign(PtrTy));
+                                 S, M.getDataLayout().getPrefTypeAlign(PtrTy));
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
-          S, M.getDataLayout().getPrefTypeAlign(Builder.getInt8PtrTy()));
+                                 S, M.getDataLayout().getPrefTypeAlign(Builder.getInt8PtrTy()));
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
     }
     // Fill up the mapper array.
@@ -5775,11 +5775,12 @@ GlobalVariable *
 OpenMPIRBuilder::createOffloadMapnames(SmallVectorImpl<llvm::Constant *> &Names,
                                        std::string VarName) {
   llvm::Constant *MapNamesArrayInit = llvm::ConstantArray::get(
-      llvm::ArrayType::get(
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-          llvm::PointerType::getUnqual(M.getContext()), Names.size()),
+      llvm::ArrayType::get(llvm::PointerType::getUnqual(M.getContext()),
+                           Names.size()),
 #else //INTEL_SYCL_OPAQUEPOINTER_READY
-          llvm::Type::getInt8Ty(M.getContext())->getPointerTo(), Names.size()),
+      llvm::ArrayType::get(llvm::Type::getInt8Ty(M.getContext())->getPointerTo(),
+                           Names.size()),
 #endif //INTEL_SYCL_OPAQUEPOINTER_READY
       Names);
   auto *MapNamesArrayGlobal = new llvm::GlobalVariable(
