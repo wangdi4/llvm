@@ -1314,6 +1314,7 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
   bool BaseImplRetVal = TargetRegisterInfo::getRegAllocationHints(
       VirtReg, Order, Hints, MF, VRM, Matrix);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   auto ID = RC.getID();
@@ -1342,6 +1343,16 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
       && RC.getID() != X86::TILEPAIRRegClassID
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
      )
+=======
+  unsigned ID = RC.getID();
+  const X86Subtarget &Subtarget = MF.getSubtarget<X86Subtarget>();
+  if ((ID == X86::VK64RegClassID || ID == X86::VK64WMRegClassID) &&
+      Subtarget.hasAVX512() && !Subtarget.hasEVEX512())
+    report_fatal_error(
+        "64-bit mask registers are not supported without EVEX512");
+
+  if (ID != X86::TILERegClassID)
+>>>>>>> 24194090e17b599522a080d502ab0f68125d53dd
     return BaseImplRetVal;
 
   ShapeT VirtShape = getTileShape(VirtReg, const_cast<VirtRegMap *>(VRM), MRI);
