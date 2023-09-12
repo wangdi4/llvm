@@ -13318,7 +13318,8 @@ Value *BoUpSLP::vectorizeTree(
             Instruction *I = EEIt->second;
             if (Builder.GetInsertPoint() != Builder.GetInsertBlock()->end() &&
                 Builder.GetInsertPoint()->comesBefore(I))
-              I->moveBefore(&*Builder.GetInsertPoint());
+              I->moveBefore(*Builder.GetInsertPoint()->getParent(),
+                            Builder.GetInsertPoint());
             Ex = I;
           }
         }

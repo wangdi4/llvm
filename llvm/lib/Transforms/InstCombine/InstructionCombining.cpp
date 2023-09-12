@@ -4437,7 +4437,7 @@ bool InstCombinerImpl::freezeOtherUses(FreezeInst &FI) {
 
   bool Changed = false;
   if (&FI != MoveBefore) {
-    FI.moveBefore(MoveBefore);
+    FI.moveBefore(*MoveBefore->getParent(), MoveBefore->getIterator());
     Changed = true;
   }
 
@@ -4654,7 +4654,7 @@ bool InstCombinerImpl::tryToSinkInstruction(Instruction *I,
   /// the new position.
 
   BasicBlock::iterator InsertPos = DestBlock->getFirstInsertionPt();
-  I->moveBefore(&*InsertPos);
+  I->moveBefore(*DestBlock, InsertPos);
   ++NumSunkInst;
 
   // Also sink all related debug uses from the source basic block. Otherwise we
