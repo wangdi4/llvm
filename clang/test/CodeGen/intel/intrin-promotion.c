@@ -44,7 +44,7 @@ void calls_fma4_intrin(__m128 A, __m128 B, __m128 C) {
 }
 // CHECK: define{{.*}}void @calls_fma4_intrin(<4 x float> noundef %A, <4 x float> noundef %B, <4 x float> noundef %C) #[[ADDFMA4:[0-9]+]]
 
-// CHECK:#[[MVWADDAVX512F]] = {{{[^}]*}}"min-legal-vector-width"="128"{{.*}}"target-features"="+avx,+avx2,+avx512f,+crc32,+cx8,+f16c,+fma,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
-// CHECK:#[[ADDAVX512F_BMI_LZCNT]] = {{{[^}]*}}"target-features"="+avx,+avx2,+avx512f,+bmi,+crc32,+cx8,+f16c,+fma,+lzcnt,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
+// CHECK:#[[MVWADDAVX512F]] = {{{[^}]*}}"min-legal-vector-width"="128"{{.*}}"target-features"="+avx,+avx2,+avx512f,+crc32,+cx8,+evex512,+f16c,+fma,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
+// CHECK:#[[ADDAVX512F_BMI_LZCNT]] = {{{[^}]*}}"target-features"="+avx,+avx2,+avx512f,+bmi,+crc32,+cx8,+evex512,+f16c,+fma,+lzcnt,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
 // CHECK:#[[ADDFMA]] = {{{[^}]*}}"target-features"="+avx,+crc32,+cx8,+fma,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
 // CHECK:#[[ADDFMA4]] = {{{[^}]*}}"target-features"="+avx,+crc32,+cx8,+fma4,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+sse4a,+ssse3,+x87,+xsave"

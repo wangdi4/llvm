@@ -1013,6 +1013,7 @@ def HasAVX3      : Predicate<"Subtarget->hasAVX3()">;
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 def HasAVX1Only  : Predicate<"Subtarget->hasAVX() && !Subtarget->hasAVX2()">;
+def HasEVEX512   : Predicate<"Subtarget->hasEVEX512()">;
 def HasAVX512    : Predicate<"Subtarget->hasAVX512()">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P

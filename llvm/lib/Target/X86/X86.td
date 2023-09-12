@@ -146,6 +146,8 @@ def FeatureF16C    : SubtargetFeature<"f16c", "HasF16C", "true",
 def FeatureAVX512   : SubtargetFeature<"avx512f", "HasAVX512F", "true",
                                       "Enable AVX512F instructions",
 #else // INTEL_FEATURE_ISA_AVX256P
+def FeatureEVEX512  : SubtargetFeature<"evex512", "HasEVEX512", "true",
+                        "Support ZMM and 64-bit mask instructions">;
 def FeatureAVX512   : SubtargetFeature<"avx512f", "X86SSELevel", "AVX512",
                                       "Enable AVX-512 instructions",
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -1212,6 +1214,7 @@ def ProcessorFeatures {
   ];
 
   list<SubtargetFeature> X86_64V4Features = !listconcat(X86_64V3Features, [
+    FeatureEVEX512,
     FeatureBWI,
     FeatureCDI,
     FeatureDQI,
@@ -1344,6 +1347,7 @@ def ProcessorFeatures {
                                                   FeatureXSAVES,
                                                   FeatureCLFLUSHOPT,
                                                   FeatureAVX512,
+                                                  FeatureEVEX512,
                                                   FeatureCDI,
                                                   FeatureDQI,
                                                   FeatureBWI,
@@ -1398,6 +1402,7 @@ def ProcessorFeatures {
 
   // Cannonlake
   list<SubtargetFeature> CNLAdditionalFeatures = [FeatureAVX512,
+                                                  FeatureEVEX512,
                                                   FeatureCDI,
                                                   FeatureDQI,
                                                   FeatureBWI,
@@ -1832,6 +1837,7 @@ def ProcessorFeatures {
                                         FeatureF16C,
                                         FeatureFSGSBase,
                                         FeatureAVX512,
+                                        FeatureEVEX512,
                                         FeatureERI,
                                         FeatureCDI,
                                         FeaturePFI,
@@ -2041,6 +2047,7 @@ def ProcessorFeatures {
     !listconcat(ZN2Features, ZN3AdditionalFeatures);
   list<SubtargetFeature> ZN4Tuning = ZN3Tuning;
   list<SubtargetFeature> ZN4AdditionalFeatures = [FeatureAVX512,
+                                                  FeatureEVEX512,
                                                   FeatureCDI,
                                                   FeatureDQI,
                                                   FeatureBWI,

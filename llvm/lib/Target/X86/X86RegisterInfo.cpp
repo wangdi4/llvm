@@ -1314,9 +1314,15 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
   bool BaseImplRetVal = TargetRegisterInfo::getRegAllocationHints(
       VirtReg, Order, Hints, MF, VRM, Matrix);
 
+  unsigned ID = RC.getID();
+  const X86Subtarget &Subtarget = MF.getSubtarget<X86Subtarget>();
+  if ((ID == X86::VK64RegClassID || ID == X86::VK64WMRegClassID) &&
+      Subtarget.hasAVX512() && !Subtarget.hasEVEX512())
+    report_fatal_error(
+        "64-bit mask registers are not supported without EVEX512");
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-  auto ID = RC.getID();
   if (AggressiveEGPR &&
       (ID == X86::GR8RegClassID || ID == X86::GR16RegClassID ||
        ID == X86::GR32RegClassID || ID == X86::GR64RegClassID)) {
@@ -1328,24 +1334,15 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-  const X86Subtarget &Subtarget = MF.getSubtarget<X86Subtarget>();
-  if ((ID == X86::VK64RegClassID || ID == X86::VK64WMRegClassID) &&
-      !Subtarget.hasAVX512F())
-    report_fatal_error("64-bit mask registers are not supported under AVX-256");
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-  if (RC.getID() != X86::TILERegClassID
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE
-      && RC.getID() != X86::TILEPAIRRegClassID
+  if (ID != X86::TILERegClassID && ID != X86::TILEPAIRRegClassID)
+#else // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  if (ID != X86::TILERegClassID)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
-     )
+#endif // INTEL_CUSTOMIZATION
     return BaseImplRetVal;
 
   ShapeT VirtShape = getTileShape(VirtReg, const_cast<VirtRegMap *>(VRM), MRI);
-#endif // INTEL_CUSTOMIZATION
 
   auto AddHint = [&](MCPhysReg PhysReg) {
     Register VReg = Matrix->getOneVReg(PhysReg);

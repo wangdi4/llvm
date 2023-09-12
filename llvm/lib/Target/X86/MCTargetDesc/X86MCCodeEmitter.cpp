@@ -512,7 +512,8 @@ private:
                             const MCSubtargetInfo &STI,
                             SmallVectorImpl<char> &CB) const;
 
-  PrefixKind emitVEXOpcodePrefix(int MemOperand, const MCInst &MI, const MCSubtargetInfo &STI, // INTEL
+  PrefixKind emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
+                                 const MCSubtargetInfo &STI,
                                  SmallVectorImpl<char> &CB) const;
 
   void emitSegmentOverridePrefix(unsigned SegOperand, const MCInst &MI,
@@ -1112,7 +1113,7 @@ PrefixKind X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
   // REX prefix is optional, but if used must be immediately before the opcode
   // Encoding type for this instruction.
   return (TSFlags & X86II::EncodingMask)
-             ? emitVEXOpcodePrefix(MemoryOperand, MI, STI, CB) // INTEL
+             ? emitVEXOpcodePrefix(MemoryOperand, MI, STI, CB)
              : emitOpcodePrefix(MemoryOperand, MI, STI, CB);
 }
 
@@ -1129,9 +1130,10 @@ PrefixKind X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
 
 /// Emit XOP, VEX2, VEX3 or EVEX prefix.
 /// \returns the used prefix.
-PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
-                                                 const MCInst &MI, const MCSubtargetInfo &STI, // INTEL
-                                                 SmallVectorImpl<char> &CB) const {
+PrefixKind
+X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
+                                      const MCSubtargetInfo &STI,
+                                      SmallVectorImpl<char> &CB) const {
   const MCInstrDesc &Desc = MCII.get(MI.getOpcode());
   uint64_t TSFlags = Desc.TSFlags;
 
@@ -1217,6 +1219,9 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
 
   Prefix.setL(TSFlags & X86II::VEX_L);
   Prefix.setL2(TSFlags & X86II::EVEX_L2);
+  if ((TSFlags & X86II::EVEX_L2) && STI.hasFeature(X86::FeatureAVX512) &&
+      !STI.hasFeature(X86::FeatureEVEX512))
+    report_fatal_error("ZMM registers are not supported without EVEX512");
   switch (TSFlags & X86II::OpPrefixMask) {
   case X86II::PD:
     Prefix.setPP(0x1); // 66
