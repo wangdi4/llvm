@@ -3439,18 +3439,32 @@ void EmitClangAttrPrintList(const std::string &FieldName, RecordKeeper &Records,
 
   std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
   std::vector<Record *> PragmaAttrs;
+  bool first = false;
+
   for (auto *Attr : Attrs) {
     if (!Attr->getValueAsBit("ASTNode"))
       continue;
 
     if (!Attr->getValueAsBit(FieldName))
       continue;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (DisallowedAttr(Attr))
       continue;
 #endif // INTEL_CUSTOMIZATION
     OS << "case attr::" << Attr->getName() << ":\n";
+=======
+
+    if (!first) {
+      first = true;
+      OS << "#define CLANG_ATTR_LIST_" << FieldName;
+    }
+
+    OS << " \\\n case attr::" << Attr->getName() << ":";
+>>>>>>> 0323938d3c7a1a48b60a7dea8ec7300e98b4a931
   }
+
+  OS << '\n';
 }
 
 // Emits the enumeration list for attributes.
