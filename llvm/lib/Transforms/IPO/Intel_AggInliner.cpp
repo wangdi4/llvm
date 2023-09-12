@@ -283,7 +283,7 @@ LongConsecutiveCallChainHeuristic::findChainsWithLongConsecutiveCallChain() {
       Function *CalleeWithLongestCCChain = nullptr;
       // The variable is only for debug message
       (void)CalleeWithLongestCCChain;
-      unsigned LongestCCChainLength = 1;
+      unsigned LongestCCChainLength = 0;
       Function *CalleeForCurrentCCChain = nullptr;
       unsigned CurrentCCChainLength = 0;
       for (Instruction *Curr = ChainStart; Curr != ChainEnd;
@@ -371,7 +371,6 @@ bool LongConsecutiveCallChainHeuristic::run() {
   // to continue.
   DenseSet<const CallChain *> VisitedCallChains;
   for (auto Chain : ChainsWithLCCC) {
-    assert(Chain->Length > 1 && "Too few calls for a long chain");
     VisitedCallChains.insert(Chain);
     for (Instruction *I = Chain->Start; I != Chain->End;
          I = I->getNextNonDebugInstruction())
