@@ -436,6 +436,7 @@ void VPOCodeGen::finalizeLoop() {
   DT->recalculate(*LoopVectorBody->getParent());
   LI->releaseMemory();
   LI->analyze(*DT);
+  VPLI->invalidateUnderlyingLoops();
 
   NewLoop = LI->getLoopFor(LoopVectorBody);
   OrigLoop = LI->getLoopFor(LoopScalarBody);
@@ -5585,24 +5586,7 @@ void VPOCodeGen::lowerRemarksForVectorLoops() {
     // Drop any existing opt-report metadata and re-add the opt-report tracked
     // for current VPLoop to corresponding IR loop. Remarks from prior
     // components are all captured in VPLoop's opt-report during VPlan CFG
-    // construction.  Copy the IR loop's debug location to ensure a source
-    // location is printed for all loops.
-    if (!OR.debugLoc()) {
-      if (IRLp->getStartLoc())
-        OR.setDebugLoc(IRLp->getStartLoc());
-      else {
-        // Additional loops besides the main loop may not have a loop ID
-        // holding the metadata, so get it from the main loop in this case.
-        const VPLoop *MainVPL = Plan->getMainLoop(false);
-        auto *MainLpHeader =
-            cast<BasicBlock>(getScalarValue(MainVPL->getHeader(), 0));
-        Loop *MainIRLp = LI->getLoopFor(MainLpHeader);
-        assert(MainIRLp && "Could not find IR loop for main VPLoop.");
-        if (MainIRLp->getStartLoc())
-          OR.setDebugLoc(MainIRLp->getStartLoc());
-      }
-    }
-
+    // construction.
     MDNode *NewLoopID = OptReport::replaceOptReportForLoopID(
         IRLp->getLoopID(), OR, *Plan->getLLVMContext());
     IRLp->setLoopID(NewLoopID);

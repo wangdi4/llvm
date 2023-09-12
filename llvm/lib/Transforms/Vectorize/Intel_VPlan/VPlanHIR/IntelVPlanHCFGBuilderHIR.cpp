@@ -711,6 +711,8 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
                                  CondBits[ZttStartBlock]);
   }
 
+  Latch->getTerminator()->setLoopIDMetadata(HLp->getLoopMetadata());
+
   // Restore previous current HLLoop.
   CurrentHLp = PrevCurrentHLp;
 }
@@ -862,6 +864,11 @@ void VPlanHCFGBuilderHIR::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     assert(Header2HLLoop.count(Header) &&
            "Missing mapping from loop header to HLLoop!");
     const HLLoop *HLoop = Header2HLLoop[Header];
+
+    const Loop *Lp = HLoop->getLLVMLoop();
+    VPL->setUnderlyingLoop(Lp);
+    if (Lp)
+      VPL->setDebugLoc(Lp->getStartLoc());
 
     using TripCountTy = VPLoop::TripCountTy;
     TripCountTy TripCount;
