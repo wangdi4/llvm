@@ -3447,13 +3447,11 @@ void EmitClangAttrPrintList(const std::string &FieldName, RecordKeeper &Records,
 
     if (!Attr->getValueAsBit(FieldName))
       continue;
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
     if (DisallowedAttr(Attr))
       continue;
 #endif // INTEL_CUSTOMIZATION
-    OS << "case attr::" << Attr->getName() << ":\n";
-=======
 
     if (!first) {
       first = true;
@@ -3461,7 +3459,6 @@ void EmitClangAttrPrintList(const std::string &FieldName, RecordKeeper &Records,
     }
 
     OS << " \\\n case attr::" << Attr->getName() << ":";
->>>>>>> 0323938d3c7a1a48b60a7dea8ec7300e98b4a931
   }
 
   OS << '\n';
