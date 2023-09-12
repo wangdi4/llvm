@@ -498,7 +498,7 @@ bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
         VPBlockUtils::splitBlockEnd(ConflictHeader, VPLI, Plan->getDT(),
                                     Plan->getPDT());
 
-    VPLoop *ConflictLoop = VPLI->AllocateLoop();
+    VPLoop *ConflictLoop = VPLI->AllocateLoop(nullptr);
     VPLoop *ParentLoop = VPLI->getLoopFor(TreeConflictParent);
     ParentLoop->addChildLoop(ConflictLoop);
     VPLI->changeLoopFor(ConflictHeader, ConflictLoop);

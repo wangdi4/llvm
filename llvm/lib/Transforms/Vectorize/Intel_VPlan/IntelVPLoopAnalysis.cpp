@@ -1285,7 +1285,7 @@ void VPLoopEntityList::processRunningInscanArrReduction(
          "Fence BB expected to have only terminator instruction.");
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
-  VPLoop *ArrRednLoop = VPLI->AllocateLoop();
+  VPLoop *ArrRednLoop = VPLI->AllocateLoop(nullptr);
   Loop.addChildLoop(ArrRednLoop);
   VPLI->changeLoopFor(FenceBlock, ArrRednLoop);
   ArrRednLoop->addBlockEntry(FenceBlock);

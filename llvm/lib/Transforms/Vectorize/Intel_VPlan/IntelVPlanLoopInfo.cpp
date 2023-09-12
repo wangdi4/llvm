@@ -363,7 +363,22 @@ TripCountInfo VPLoop::getTripCountInfo() const {
   return DefaultTC;
 }
 
+VPLoop *VPLoopInfo::AllocateLoop(VPLoop *SrcLoop) {
+  VPLoop *TheLoop = Base::AllocateLoop();
+  if (SrcLoop) {
+    TheLoop->setUnderlyingLoop(SrcLoop->getUnderlyingLoop());
+    TheLoop->setDebugLoc(SrcLoop->getDebugLoc());
+  }
+  return TheLoop;
+}
+
 void VPLoopInfo::analyze(const VPDominatorTree &DomTree) {
   assert(begin() == end() && "VPLoopInfo has already been run!");
   Base::analyze(DomTree);
+}
+
+void VPLoopInfo::invalidateUnderlyingLoops() {
+  for (VPLoop *OuterLoop : *this)
+    for (auto *VLP : post_order(OuterLoop))
+      VLP->setUnderlyingLoop(nullptr);
 }
