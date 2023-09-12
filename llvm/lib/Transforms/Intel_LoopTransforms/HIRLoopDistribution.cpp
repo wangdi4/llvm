@@ -156,9 +156,6 @@ bool HIRLoopDistribution::run() {
       continue;
     }
 
-    LLVM_DEBUG_DDG(dbgs() << "DDG dump:\n");
-    LLVM_DEBUG_DDG(DDA.getGraph(Lp).dump());
-
     LLVM_DEBUG(dbgs() << "\nPiGraph dump:\n");
     LLVM_DEBUG(PG->dump());
     LLVM_DEBUG(dbgs() << "\n");

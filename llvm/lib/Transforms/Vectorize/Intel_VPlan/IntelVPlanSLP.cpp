@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements VPlanSlp class methods.
+// This file implements VPlanSLP class methods.
 //
 //===----------------------------------------------------------------------===//
 
@@ -22,12 +22,12 @@
 
 #define DEBUG_TYPE "intel-vplan-slp"
 
-static cl::opt<unsigned> SlpUDDepthLimit(
+static cl::opt<unsigned> SLPUDDepthLimit(
     "vplan-slp-ud-depth-limit", cl::init(10), cl::Hidden,
     cl::desc("Limits how deep SLP pattern search code goes along "
              "use-def chain."));
 
-static cl::opt<unsigned> SlpReportDetailLevel(
+static cl::opt<unsigned> SLPReportDetailLevel(
     "vplan-slp-report-detail-level", cl::init(0), cl::Hidden,
     cl::desc("Enables VPlan SLP detection verbose report"));
 
@@ -37,7 +37,7 @@ namespace llvm {
 
 namespace vpo {
 
-bool VPlanSlp::canMoveTo(const VPLoadStoreInst *FromInst,
+bool VPlanSLP::canMoveTo(const VPLoadStoreInst *FromInst,
                          const VPLoadStoreInst *ToInst) const {
   const RegDDRef *FromDDRef = FromInst->getHIRMemoryRef();
   const RegDDRef *ToDDRef = ToInst->getHIRMemoryRef();
@@ -93,10 +93,9 @@ bool VPlanSlp::canMoveTo(const VPLoadStoreInst *FromInst,
   return true;
 }
 
-void VPlanSlp::collectMemRefDistances(
-    const VPLoadStoreInst *BaseMem,
-    ArrayRef<const VPInstruction *> Insts,
-    SmallVectorImpl<ssize_t> &Distances) {
+void VPlanSLP::collectMemRefDistances(const VPLoadStoreInst *BaseMem,
+                                      ArrayRef<const VPInstruction *> Insts,
+                                      SmallVectorImpl<ssize_t> &Distances) {
 
   const auto *BaseDDRef = BaseMem->getHIRMemoryRef();
   assert(BaseDDRef && "No DDRef for Base memref.");
@@ -116,9 +115,9 @@ void VPlanSlp::collectMemRefDistances(
   }
 }
 
-bool VPlanSlp::isUnitStrideMemRef(SmallVectorImpl<ssize_t> &Distances) const {
+bool VPlanSLP::isUnitStrideMemRef(SmallVectorImpl<ssize_t> &Distances) const {
   llvm::sort(Distances);
-  if (SlpReportDetailLevel >= 1) {
+  if (SLPReportDetailLevel >= 1) {
     LLVM_DEBUG(dbgs() << "VSLP sorted distances (bundle/graph " << BundleID
                  << '/' << GraphID << " in " << BB->getName() << "):\t";
                for (int D : Distances) {
@@ -135,7 +134,7 @@ bool VPlanSlp::isUnitStrideMemRef(SmallVectorImpl<ssize_t> &Distances) const {
   return true;
 }
 
-bool VPlanSlp::isSplatVector(ArrayRef<const VPValue *> Values) const {
+bool VPlanSLP::isSplatVector(ArrayRef<const VPValue *> Values) const {
   assert(!Values.empty() && "Empty array/vector is not expected.");
 
   if (Values.empty())
@@ -145,7 +144,7 @@ bool VPlanSlp::isSplatVector(ArrayRef<const VPValue *> Values) const {
                       [&Values](const VPValue *V) { return V == Values[0]; });
 }
 
-bool VPlanSlp::isConstVector(ArrayRef<const VPValue *> Values) const {
+bool VPlanSLP::isConstVector(ArrayRef<const VPValue *> Values) const {
   assert(!Values.empty() && "Empty array/vector is not expected.");
 
   if (Values.empty())
@@ -155,13 +154,20 @@ bool VPlanSlp::isConstVector(ArrayRef<const VPValue *> Values) const {
     return isa<VPConstant>(V) && (V->getType() == Values[0]->getType()); });
 }
 
-VPInstructionCost VPlanSlp::getVectorCost(const VPInstruction *Base,
+VPInstructionCost VPlanSLP::getVectorCost(const VPInstruction *Base,
                                           unsigned VF, bool IsUnitMemref,
                                           bool IsMasked) const {
   // Apply gather/scatter cost if the operation is load/store and it is not
   // unit. If it is unit, do not call CM->getTTICostForVF() as it might
   // determine input as non unit over iterations and apply gather/scatter
   // cost rather than unit load/store cost.
+  if (SLPReportDetailLevel >= 3) {
+    LLVM_DEBUG(dbgs() << "VSLP fetching vector cost for: ";
+               Base->printAsOperand(dbgs());
+               dbgs() << " with VF = " << VF << ", IsUnitMemref = "
+                      << IsUnitMemref << ", IsMasked = " << IsMasked << '\n');
+  }
+
   if (const auto *BaseMem = dyn_cast<VPLoadStoreInst>(Base)) {
     auto Opcode = BaseMem->getOpcode();
     auto AddrSpace = BaseMem->getPointerAddressSpace();
@@ -184,7 +190,7 @@ VPInstructionCost VPlanSlp::getVectorCost(const VPInstruction *Base,
   return CM->getTTICostForVF(Base, VF);
 }
 
-bool VPlanSlp::areVectorizableInsts(
+bool VPlanSLP::areVectorizableInsts(
     ArrayRef<const VPValue *> Values,
     SmallVectorImpl<const VPInstruction *> &Insts) const {
   assert(!Values.empty() && "Missed operands.");
@@ -250,7 +256,7 @@ bool VPlanSlp::areVectorizableInsts(
   return Insts.size() > 1;
 }
 
-VPInstructionCost VPlanSlp::estimateSLPCostDifference(
+VPInstructionCost VPlanSLP::estimateSLPCostDifference(
     ArrayRef<const VPInstruction *> Insts) const {
   // Determine so-called 'base' instruction in the Values array, which is
   // essential for memrefs: we move all memrefs to the first inst operand in
@@ -270,7 +276,7 @@ VPInstructionCost VPlanSlp::estimateSLPCostDifference(
   if (const auto *BaseMem = dyn_cast<VPLoadStoreInst>(Base)) {
     collectMemRefDistances(BaseMem, Insts, Distances);
 
-    if (SlpReportDetailLevel >= 2) {
+    if (SLPReportDetailLevel >= 2) {
       LLVM_DEBUG(dbgs() << "VSLP unsorted distances (bundle/graph # "
                         << BundleID << '/' << GraphID << " in "
                         << BB->getName() << "):\t";
@@ -299,7 +305,7 @@ VPInstructionCost VPlanSlp::estimateSLPCostDifference(
   VPInstructionCost VecCost =
     getVectorCost(Base, VF, IsUnitMemref, VF != Insts.size());
 
-  if (SlpReportDetailLevel >= 1) {
+  if (SLPReportDetailLevel >= 1) {
     LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # " << BundleID
                       << '/' << GraphID << " in " << BB->getName()
                       << ", vector: " << VecCost << ", scalar: " << ScalCost
@@ -309,7 +315,7 @@ VPInstructionCost VPlanSlp::estimateSLPCostDifference(
   return VecCost - ScalCost;
 }
 
-void VPlanSlp::tryReorderOperands(MutableArrayRef<const VPValue *> Op1,
+void VPlanSLP::tryReorderOperands(MutableArrayRef<const VPValue *> Op1,
                                   MutableArrayRef<const VPValue *> Op2) const {
   const VPValue *BaseV = Op1[0];
   bool IsInst = isa<VPInstruction>(BaseV);
@@ -338,7 +344,7 @@ void VPlanSlp::tryReorderOperands(MutableArrayRef<const VPValue *> Op1,
   for (unsigned Idx = 1; Idx < Op1.size(); Idx++) {
     if (!IsSimilar(Op1[Idx])) {
       std::swap(Op1[Idx], Op2[Idx]);
-      if (SlpReportDetailLevel >= 2) {
+      if (SLPReportDetailLevel >= 2) {
         LLVM_DEBUG(dbgs() << "VSLP: swapped operands ";
                    Op1[Idx]->printAsOperand(dbgs()); dbgs() << " <-> ";
                    Op2[Idx]->printAsOperand(dbgs());
@@ -351,7 +357,7 @@ void VPlanSlp::tryReorderOperands(MutableArrayRef<const VPValue *> Op1,
 }
 
 VPInstructionCost
-VPlanSlp::estimateSLPCostDifference(ArrayRef<const VPValue *> Values) const {
+VPlanSLP::estimateSLPCostDifference(ArrayRef<const VPValue *> Values) const {
   if (Values.empty())
     return VPInstructionCost::getUnknown();
 
@@ -359,7 +365,7 @@ VPlanSlp::estimateSLPCostDifference(ArrayRef<const VPValue *> Values) const {
   // and the cost of a vector constant are both assumed to be 0 as constant
   // is encoded as a part of HW instruction.
   if (isConstVector(Values)) {
-    if (SlpReportDetailLevel >= 1) {
+    if (SLPReportDetailLevel >= 1) {
       LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # "
                         << BundleID << '/' << GraphID << " in " << BB->getName()
                         << ", vector: "  << TTI::TCC_Free << ", scalar: "
@@ -375,7 +381,7 @@ VPlanSlp::estimateSLPCostDifference(ArrayRef<const VPValue *> Values) const {
     auto DiffCost = CM->TTI.getShuffleCost(
         TTI::SK_Broadcast, getWidenedType(Values[0]->getType(), Values.size()));
 
-    if (SlpReportDetailLevel >= 1) {
+    if (SLPReportDetailLevel >= 1) {
       LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # "
                         << BundleID << '/' << GraphID << " in " << BB->getName()
                         << ", vector: X + "  << DiffCost << ", scalar: X\n");
@@ -387,7 +393,7 @@ VPlanSlp::estimateSLPCostDifference(ArrayRef<const VPValue *> Values) const {
   return VPInstructionCost::getUnknown();
 }
 
-VPInstructionCost VPlanSlp::buildGraph(ArrayRef<const VPInstruction *> Seed) {
+VPInstructionCost VPlanSLP::buildGraph(ArrayRef<const VPInstruction *> Seed) {
   unsigned Depth = 0;
   VPInstructionCost Cost = 0;
   // The queue stores the operands yet to be processed.
@@ -398,7 +404,7 @@ VPInstructionCost VPlanSlp::buildGraph(ArrayRef<const VPInstruction *> Seed) {
   // Initialize the queue with Seed from input and proceed to the main loop.
   WorkQueue.emplace(Seed);
 
-  while (!WorkQueue.empty() && Depth++ < SlpUDDepthLimit) {
+  while (!WorkQueue.empty() && Depth++ < SLPUDDepthLimit) {
     SmallVector<const VPValue *, 8> Values = WorkQueue.front();
     SmallVector<const VPInstruction *, 8> Insts;
     WorkQueue.pop();
@@ -417,19 +423,12 @@ VPInstructionCost VPlanSlp::buildGraph(ArrayRef<const VPInstruction *> Seed) {
       VL = Insts.size();
     }
 
-    if (SlpReportDetailLevel >= 1) {
+    if (SLPReportDetailLevel >= 1) {
       LLVM_DEBUG(dbgs() << "VSLP: bundle/graph " << BundleID << '/' << GraphID
                         << " in " << BB->getName() << " is"
                         << (VCost.isValid() ? " " : " not ")
                         << "vectorizable with VL = " << VL << ":\n";
-                 for (const auto *V : Values) {
-                   dbgs() << '\t';
-                   if (const auto *I = dyn_cast<VPInstruction>(V))
-                     I->printWithoutAnalyses(dbgs());
-                   else
-                     V->printAsOperand(dbgs());
-                   dbgs() << '\n';
-                 });
+                 printVector(Values));
     }
 
     if (!VCost.isValid())
@@ -490,11 +489,10 @@ VPInstructionCost VPlanSlp::buildGraph(ArrayRef<const VPInstruction *> Seed) {
   return Cost;
 }
 
-VPInstructionCost VPlanSlp::formAndCostBundles(
-  ArrayRef<const VPInstruction *> InSeed,
-  std::function<bool(const VPInstruction *,
-                     const VPInstruction *) > Compare,
-  SmallVectorImpl<const VPInstruction *> *OutSeed) {
+VPInstructionCost VPlanSLP::formAndCostBundles(
+    ArrayRef<const VPInstruction *> InSeed,
+    std::function<bool(const VPInstruction *, const VPInstruction *)> Compare,
+    SmallVectorImpl<const VPInstruction *> *OutSeed) {
   // We consider 2 <= VLs <= 16. SLP does not support non-power-of-2 VLs yet but
   // in many cases the code is SLP'ed with power-of-2 VLs after unroll.
   // TODO: yet to be proven that unroll would be likely to happen and that it
@@ -553,7 +551,7 @@ VPInstructionCost VPlanSlp::formAndCostBundles(
   return Cost;
 }
 
-VPInstructionCost VPlanSlp::searchSLPPatterns(
+VPInstructionCost VPlanSLP::searchSLPPatterns(
     SmallVectorImpl<const VPInstruction *> &Seed) {
   // Sort input vector so the same symbol memrefs go bundled and sorted by
   // offset from the base.
@@ -653,7 +651,7 @@ VPInstructionCost VPlanSlp::searchSLPPatterns(
   return Cost;
 }
 
-VPInstructionCost VPlanSlp::estimateSLPCostDifference() {
+VPInstructionCost VPlanSLP::estimateSLPCostDifference() {
   // Bailout in LLVM-IR pipeline.
   if (CM->DDG == nullptr)
     return 0;
@@ -688,6 +686,19 @@ VPInstructionCost VPlanSlp::estimateSLPCostDifference() {
 
   return Cost;
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPlanSLP::printVector(ArrayRef<const VPValue *> Values) {
+  for (const auto *V : Values) {
+    dbgs() << '\t';
+    if (const auto *I = dyn_cast<VPInstruction>(V))
+      I->printWithoutAnalyses(dbgs());
+    else
+      V->printAsOperand(dbgs());
+    dbgs() << '\n';
+  }
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 } // namespace vpo
 
