@@ -969,9 +969,6 @@ OptimizeGlobalAddressOfAllocation(GlobalVariable *GV, CallInst *CI,
   // Update users of the allocation to use the new global instead.
   CI->replaceAllUsesWith(NewGV);
 
-  SmallSetVector<Constant *, 1> RepValues;
-  RepValues.insert(NewGV);
-
   // If there is a comparison against null, we will insert a global bool to
   // keep track of whether the global was initialized yet or not.
   GlobalVariable *InitBool =
@@ -1002,9 +999,7 @@ OptimizeGlobalAddressOfAllocation(GlobalVariable *GV, CallInst *CI,
       Use &LoadUse = *LI->use_begin();
       ICmpInst *ICI = dyn_cast<ICmpInst>(LoadUse.getUser());
       if (!ICI) {
-        auto *CE = ConstantExpr::getBitCast(NewGV, LI->getType());
-        RepValues.insert(CE);
-        LoadUse.set(CE);
+        LoadUse.set(NewGV);
         continue;
       }
 
@@ -1050,8 +1045,7 @@ OptimizeGlobalAddressOfAllocation(GlobalVariable *GV, CallInst *CI,
   // To further other optimizations, loop over all users of NewGV and try to
   // constant prop them.  This will promote GEP instructions with constant
   // indices into GEP constant-exprs, which will allow global-opt to hack on it.
-  for (auto *CE : RepValues)
-    ConstantPropUsersOf(CE, DL, TLI);
+  ConstantPropUsersOf(NewGV, DL, TLI);
 
   return NewGV;
 }
@@ -2029,7 +2023,7 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
             GV->getAddressSpace());
         NGV->takeName(GV);
         NGV->copyAttributesFrom(GV);
-        GV->replaceAllUsesWith(ConstantExpr::getBitCast(NGV, GV->getType()));
+        GV->replaceAllUsesWith(NGV);
         GV->eraseFromParent();
         GV = NGV;
       }
@@ -2814,7 +2808,7 @@ OptimizeGlobalAliases(Module &M,
     if (!hasUsesToReplace(J, Used, RenameTarget))
       continue;
 
-    J.replaceAllUsesWith(ConstantExpr::getBitCast(Aliasee, J.getType()));
+    J.replaceAllUsesWith(Aliasee);
     ++NumAliasesResolved;
     Changed = true;
 

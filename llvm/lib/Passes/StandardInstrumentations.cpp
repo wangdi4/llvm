@@ -545,7 +545,7 @@ void IRChangedTester::handleIR(const std::string &S, StringRef PassID) {
   static SmallVector<int> FD{-1};
   SmallVector<StringRef> SR{S};
   static SmallVector<std::string> FileName{""};
-  if (auto Err = prepareTempFiles(FD, SR, FileName)) {
+  if (prepareTempFiles(FD, SR, FileName)) {
     dbgs() << "Unable to create temporary file.";
     return;
   }
@@ -562,7 +562,7 @@ void IRChangedTester::handleIR(const std::string &S, StringRef PassID) {
     return;
   }
 
-  if (auto Err = cleanUpTempFiles(FileName))
+  if (cleanUpTempFiles(FileName))
     dbgs() << "Unable to remove temporary file.";
 }
 

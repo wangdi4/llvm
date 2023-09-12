@@ -193,6 +193,12 @@ def SDTFPToIntSatOp : SDTypeProfile<1, 2, [    // fp_to_[su]int_sat
 def SDTFPExpOp : SDTypeProfile<1, 2, [      // ldexp
   SDTCisSameAs<0, 1>, SDTCisFP<0>, SDTCisInt<2>
 ]>;
+def SDTGetFPStateOp : SDTypeProfile<1, 0, [ // get_fpenv, get_fpmode
+  SDTCisInt<0>
+]>;
+def SDTSetFPStateOp : SDTypeProfile<0, 1, [ // set_fpenv, set_fpmode
+  SDTCisInt<0>
+]>;
 def SDTExtInreg : SDTypeProfile<1, 2, [     // sext_inreg
   SDTCisSameAs<0, 1>, SDTCisInt<0>, SDTCisVT<2, OtherVT>,
   SDTCisVTSmallerThanOp<2, 1>
@@ -326,7 +332,7 @@ def SDTFPAtomic2 : SDTypeProfile<1, 2, [
 ]>;
 
 def SDTAtomicStore : SDTypeProfile<0, 2, [
-  SDTCisPtrTy<0>, SDTCisInt<1>
+  SDTCisInt<0>, SDTCisPtrTy<1>
 ]>;
 def SDTAtomicLoad : SDTypeProfile<1, 1, [
   SDTCisInt<0>, SDTCisPtrTy<1>
@@ -531,6 +537,7 @@ def fatan      : SDNode<"ISD::FATAN"      , SDTFPUnaryOp>;
 def fatan2     : SDNode<"ISD::FATAN2"     , SDTFPBinOp>;
 #endif // INTEL_CUSTOMIZATION
 def fexp2      : SDNode<"ISD::FEXP2"      , SDTFPUnaryOp>;
+def fexp10     : SDNode<"ISD::FEXP10"     , SDTFPUnaryOp>;
 def fpow       : SDNode<"ISD::FPOW"       , SDTFPBinOp>;
 def flog2      : SDNode<"ISD::FLOG2"      , SDTFPUnaryOp>;
 def fldexp     : SDNode<"ISD::FLDEXP"     , SDTFPExpOp>;
@@ -637,6 +644,10 @@ def strict_uint_to_fp : SDNode<"ISD::STRICT_UINT_TO_FP",
 def strict_fsetcc  : SDNode<"ISD::STRICT_FSETCC",  SDTSetCC, [SDNPHasChain]>;
 def strict_fsetccs : SDNode<"ISD::STRICT_FSETCCS", SDTSetCC, [SDNPHasChain]>;
 
+def get_fpmode     : SDNode<"ISD::GET_FPMODE", SDTGetFPStateOp, [SDNPHasChain]>;
+def set_fpmode     : SDNode<"ISD::SET_FPMODE", SDTSetFPStateOp, [SDNPHasChain]>;
+def reset_fpmode   : SDNode<"ISD::RESET_FPMODE", SDTNone, [SDNPHasChain]>;
+
 def setcc      : SDNode<"ISD::SETCC"      , SDTSetCC>;
 def select     : SDNode<"ISD::SELECT"     , SDTSelect>;
 def vselect    : SDNode<"ISD::VSELECT"    , SDTVSelect>;
@@ -666,6 +677,9 @@ def readcyclecounter : SDNode<"ISD::READCYCLECOUNTER", SDTIntLeaf,
 
 def membarrier : SDNode<"ISD::MEMBARRIER", SDTNone,
                         [SDNPHasChain, SDNPSideEffect]>;
+
+def jump_table_debug_info : SDNode<"ISD::JUMP_TABLE_DEBUG_INFO", SDTNone,
+                        [SDNPHasChain]>;
 
 def atomic_fence : SDNode<"ISD::ATOMIC_FENCE" , SDTAtomicFence,
                           [SDNPHasChain, SDNPSideEffect]>;
@@ -1693,7 +1707,6 @@ defm atomic_load_min  : binary_atomic_op<atomic_load_min>;
 defm atomic_load_max  : binary_atomic_op<atomic_load_max>;
 defm atomic_load_umin : binary_atomic_op<atomic_load_umin>;
 defm atomic_load_umax : binary_atomic_op<atomic_load_umax>;
-defm atomic_store     : binary_atomic_op<atomic_store>;
 defm atomic_cmp_swap  : ternary_atomic_op<atomic_cmp_swap>;
 
 /// Atomic load which zeroes the excess high bits.
@@ -1888,6 +1901,35 @@ def trunc_masked_scatter_i32 :
   return MSN->isTruncatingStore() &&
          MSN->getMemoryVT().getScalarType() == MVT::i32;
 }]>;
+
+
+def atomic_store_8 :
+  PatFrag<(ops node:$val, node:$ptr),
+          (atomic_store node:$val, node:$ptr)> {
+  let IsAtomic = true;
+  let MemoryVT = i8;
+}
+
+def atomic_store_16 :
+  PatFrag<(ops node:$val, node:$ptr),
+          (atomic_store node:$val, node:$ptr)> {
+  let IsAtomic = true;
+  let MemoryVT = i16;
+}
+
+def atomic_store_32 :
+  PatFrag<(ops node:$val, node:$ptr),
+          (atomic_store node:$val, node:$ptr)> {
+  let IsAtomic = true;
+  let MemoryVT = i32;
+}
+
+def atomic_store_64 :
+  PatFrag<(ops node:$val, node:$ptr),
+          (atomic_store node:$val, node:$ptr)> {
+  let IsAtomic = true;
+  let MemoryVT = i64;
+}
 
 //===----------------------------------------------------------------------===//
 // Selection DAG Pattern Support.

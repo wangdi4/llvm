@@ -636,10 +636,10 @@ bool InstCombinerImpl::SimplifyAssociativeOrCommutative(BinaryOperator &I) {
            BinaryOperator::Create(Opcode, A, B);
 
          if (isa<FPMathOperator>(NewBO)) {
-          FastMathFlags Flags = I.getFastMathFlags();
-          Flags &= Op0->getFastMathFlags();
-          Flags &= Op1->getFastMathFlags();
-          NewBO->setFastMathFlags(Flags);
+           FastMathFlags Flags = I.getFastMathFlags() &
+                                 Op0->getFastMathFlags() &
+                                 Op1->getFastMathFlags();
+           NewBO->setFastMathFlags(Flags);
         }
         InsertNewInstWith(NewBO, I);
         NewBO->takeName(Op1);
@@ -1421,45 +1421,36 @@ Instruction *InstCombinerImpl::FoldOpIntoSelect(Instruction &Op, SelectInst *SI,
       return nullptr;
   }
 
-#if INTEL_CUSTOMIZATION
-  // After cbca9ce, because we do not 100% canonicalize to min/max, the
-  // compiler may loop without the llorg code below.
-
-  // Test if a CmpInst instruction is used exclusively by a select as
+  // Test if a FCmpInst instruction is used exclusively by a select as
   // part of a minimum or maximum operation. If so, refrain from doing
   // any other folding. This helps out other analyses which understand
-  // non-obfuscated minimum and maximum idioms, such as ScalarEvolution
-  // and CodeGen. And in this case, at least one of the comparison
-  // operands has at least one user besides the compare (the select),
-  // which would often largely negate the benefit of folding anyway.
-  if (auto *CI = dyn_cast<CmpInst>(SI->getCondition())) {
+  // non-obfuscated minimum and maximum idioms. And in this case, at
+  // least one of the comparison operands has at least one user besides
+  // the compare (the select), which would often largely negate the
+  // benefit of folding anyway.
+  if (auto *CI = dyn_cast<FCmpInst>(SI->getCondition())) {
     if (CI->hasOneUse()) {
       Value *Op0 = CI->getOperand(0), *Op1 = CI->getOperand(1);
+      if ((TV == Op0 && FV == Op1) || (FV == Op0 && TV == Op1))
+        return nullptr;
+    }
+  }
 
-      // FIXME: This is a hack to avoid infinite looping with min/max patterns.
-      //        We have to ensure that vector constants that only differ with
-      //        undef elements are treated as equivalent.
-      auto areLooselyEqual = [](Value *A, Value *B) {
-        if (A == B)
-          return true;
-
-        // Test for vector constants.
-        Constant *ConstA, *ConstB;
-        if (!match(A, m_Constant(ConstA)) || !match(B, m_Constant(ConstB)))
-          return false;
-
-        // TODO: Deal with FP constants?
-        if (!A->getType()->isIntOrIntVectorTy() || A->getType() != B->getType())
-          return false;
-
-        // Compare for equality including undefs as equal.
-        auto *Cmp = ConstantExpr::getCompare(ICmpInst::ICMP_EQ, ConstA, ConstB);
-        const APInt *C;
-        return match(Cmp, m_APIntAllowUndef(C)) && C->isOne();
-      };
-
-      if ((areLooselyEqual(TV, Op0) && areLooselyEqual(FV, Op1)) ||
-          (areLooselyEqual(FV, Op0) && areLooselyEqual(TV, Op1)))
+#if INTEL_CUSTOMIZATION
+  // If we have this:
+  // %cmp37 = icmp slt i32 %conv13, 0
+  // %spec.store.select = select i1 %cmp37, i32 0, i32 %conv13
+  // %conv62 = trunc i32 %spec.store.select to i8
+  //
+  // and we try to hoist the trunc before the select (converting the select
+  // operands to i8), we may sink the trunc back down in visitSelectInst,
+  // creating an infinite loop. The above pattern would normally be recognized
+  // as max(%conv13,0), which avoids the loop. But if we suppress min/max
+  // recognition, we have to also suppress the hoisting.
+  if (auto *CI = dyn_cast<ICmpInst>(SI->getCondition())) {
+    if (CI->hasOneUse() && suppressMinMax(CI)) {
+      Value *Op0 = CI->getOperand(0), *Op1 = CI->getOperand(1);
+      if ((TV == Op0 && FV == Op1) || (FV == Op0 && TV == Op1))
         return nullptr;
     }
   }
@@ -1817,7 +1808,6 @@ static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
   return true;
 }
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 /// Return a value X such that Val = X * Scale, or null if none.
 /// If the multiplication is known not to overflow, then NoSignedWrap is set.
 #if INTEL_CUSTOMIZATION
@@ -2177,7 +2167,6 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
     Ancestor = Ancestor->user_back();
   } while (true);
 }
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 Instruction *InstCombinerImpl::foldVectorBinop(BinaryOperator &Inst) {
   if (!isa<VectorType>(Inst.getType()))
@@ -2839,6 +2828,7 @@ Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
 
   return nullptr;
 }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 #if INTEL_CUSTOMIZATION
 // Transform:
@@ -2851,8 +2841,10 @@ Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
 // %ld = load i32, ptr %newgep
 GetElementPtrInst *
 InstCombinerImpl::convertOpaqueGEPToLoadStoreType(GetElementPtrInst &GEP) {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   assert(cast<PointerType>(GEP.getType())->isOpaque() &&
          "Opaque ptr expected!");
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   Type *LoadStoreTy = nullptr;
   Type *SrcElemTy = GEP.getSourceElementType();
@@ -2918,8 +2910,6 @@ InstCombinerImpl::convertOpaqueGEPToLoadStoreType(GetElementPtrInst &GEP) {
   return nullptr;
 }
 #endif // INTEL_CUSTOMIZATION
-
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   Value *PtrOp = GEP.getOperand(0);
@@ -3352,6 +3342,13 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     if (Instruction *I = visitGEPOfBitcast(BCI, GEP))
       return I;
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
+#if INTEL_CUSTOMIZATION
+  if (GEP.getNumOperands() == 2 && !IsGEPSrcEleScalable &&
+      GEPEltType->isSized())
+    if (auto *NewGEP = convertOpaqueGEPToLoadStoreType(GEP))
+      return NewGEP;
+#endif // INTEL_CUSTOMIZATION
 
   if (!GEP.isInBounds()) {
     unsigned IdxWidth =
@@ -4701,7 +4698,7 @@ Instruction *InstCombinerImpl::foldFreezeIntoRecurrence(FreezeInst &FI,
   Value *StartV = StartU->get();
   BasicBlock *StartBB = PN->getIncomingBlock(*StartU);
   bool StartNeedsFreeze = !isGuaranteedNotToBeUndefOrPoison(StartV);
-  // We can't insert freeze if the the start value is the result of the
+  // We can't insert freeze if the start value is the result of the
   // terminator (e.g. an invoke).
   if (StartNeedsFreeze && StartBB->getTerminator() == StartV)
     return nullptr;

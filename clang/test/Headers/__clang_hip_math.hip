@@ -231,8 +231,8 @@ extern "C" __device__ uint64_t test___make_mantissa(const char *p) {
 
 // CHECK-LABEL: @test_abs(
 // CHECK-NEXT:  entry:
-// CHECK-NEXT:    [[SUB_I:%.*]] = tail call i32 @llvm.abs.i32(i32 [[X:%.*]], i1 true)
-// CHECK-NEXT:    ret i32 [[SUB_I]]
+// CHECK-NEXT:    [[ABS_I:%.*]] = tail call i32 @llvm.abs.i32(i32 [[X:%.*]], i1 true)
+// CHECK-NEXT:    ret i32 [[ABS_I]]
 //
 extern "C" __device__ int test_abs(int x) {
   return abs(x);
@@ -240,8 +240,8 @@ extern "C" __device__ int test_abs(int x) {
 
 // CHECK-LABEL: @test_labs(
 // CHECK-NEXT:  entry:
-// CHECK-NEXT:    [[SUB_I:%.*]] = tail call i64 @llvm.abs.i64(i64 [[X:%.*]], i1 true)
-// CHECK-NEXT:    ret i64 [[SUB_I]]
+// CHECK-NEXT:    [[ABS_I:%.*]] = tail call i64 @llvm.abs.i64(i64 [[X:%.*]], i1 true)
+// CHECK-NEXT:    ret i64 [[ABS_I]]
 //
 extern "C" __device__ long test_labs(long x) {
   return labs(x);
@@ -249,8 +249,8 @@ extern "C" __device__ long test_labs(long x) {
 
 // CHECK-LABEL: @test_llabs(
 // CHECK-NEXT:  entry:
-// CHECK-NEXT:    [[SUB_I:%.*]] = tail call i64 @llvm.abs.i64(i64 [[X:%.*]], i1 true)
-// CHECK-NEXT:    ret i64 [[SUB_I]]
+// CHECK-NEXT:    [[ABS_I:%.*]] = tail call i64 @llvm.abs.i64(i64 [[X:%.*]], i1 true)
+// CHECK-NEXT:    ret i64 [[ABS_I]]
 //
 extern "C" __device__ long long test_llabs(long x) {
   return llabs(x);

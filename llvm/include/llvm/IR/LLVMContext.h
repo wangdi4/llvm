@@ -319,15 +319,15 @@ public:
   /// times, but only with the same value. Note that creating a pointer type or
   /// otherwise querying the opaque pointer mode performs an implicit set to
   /// the default value.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+#if !INTEL_CUSTOMIZATION
   [[deprecated("Opaque pointers are always enabled")]]
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+#endif // !INTEL_CUSTOMIZATION
   void setOpaquePointers(bool Enable) const;
 
   /// Whether typed pointers are supported. If false, all pointers are opaque.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+#if !INTEL_CUSTOMIZATION
   [[deprecated("Always returns false")]]
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+#endif // !INTEL_CUSTOMIZATION
   bool supportsTypedPointers() const;
 
 private:

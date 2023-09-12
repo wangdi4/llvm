@@ -9,16 +9,16 @@
   define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 noundef signext %col0, i16 noundef signext %col1) local_unnamed_addr #0 {
 ; CHECK-LABEL: @test_tile_t2rpntlvwz0(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = tail call { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16 [[ROW:%.*]], i16 [[COL0:%.*]], i16 [[COL1:%.*]], i8* getelementptr inbounds ([2048 x i8], [2048 x i8]* @buf, i64 0, i64 0), i64 32) #[[ATTR3:[0-9]+]]
+; CHECK-NEXT:    [[TMP0:%.*]] = tail call { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16 [[ROW:%.*]], i16 [[COL0:%.*]], i16 [[COL1:%.*]], ptr @buf, i64 32) #[[ATTR3:[0-9]+]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = extractvalue { x86_amx, x86_amx } [[TMP0]], 0
 ; CHECK-NEXT:    [[TMP2:%.*]] = extractvalue { x86_amx, x86_amx } [[TMP0]], 1
 ; CHECK-NEXT:    [[TMP3:%.*]] = tail call x86_amx @llvm.x86.tilezero.internal(i16 [[ROW]], i16 [[COL0]]) #[[ATTR3]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = tail call x86_amx @llvm.x86.tdpbssd.internal(i16 [[ROW]], i16 [[COL1]], i16 [[COL0]], x86_amx [[TMP3]], x86_amx [[TMP1]], x86_amx [[TMP2]]) #[[ATTR3]]
-; CHECK-NEXT:    tail call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], i8* getelementptr inbounds ([2048 x i8], [2048 x i8]* @buf2, i64 0, i64 0), i64 32, x86_amx [[TMP4]]) #[[ATTR3]]
+; CHECK-NEXT:    tail call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], ptr @buf2, i64 32, x86_amx [[TMP4]]) #[[ATTR3]]
 ; CHECK-NEXT:    ret void
 ;
   entry:
-  %0 = tail call { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16 %row, i16 %col0, i16 %col1, i8* getelementptr inbounds ([2048 x i8], [2048 x i8]* @buf, i64 0, i64 0), i64 32) #5
+  %0 = tail call { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16 %row, i16 %col0, i16 %col1, ptr @buf, i64 32) #5
   %1 = extractvalue { x86_amx, x86_amx } %0, 0
   %2 = tail call <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx %1) #5
   %3 = extractvalue { x86_amx, x86_amx } %0, 1
@@ -31,12 +31,12 @@
   %10 = tail call x86_amx @llvm.x86.tdpbssd.internal(i16 %row, i16 %col1, i16 %col0, x86_amx %7, x86_amx %8, x86_amx %9) #5
   %11 = tail call <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx %10) #5
   %12 = tail call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32> %11) #5
-  tail call void @llvm.x86.tilestored64.internal(i16 %row, i16 %col0, i8* getelementptr inbounds ([2048 x i8], [2048 x i8]* @buf2, i64 0, i64 0), i64 32, x86_amx %12) #5
+  tail call void @llvm.x86.tilestored64.internal(i16 %row, i16 %col0, ptr @buf2, i64 32, x86_amx %12) #5
   ret void
   }
 
   ; Function Attrs: argmemonly nounwind readonly
-  declare { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16, i16, i16, i8*, i64) #1
+  declare { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16, i16, i16, ptr, i64) #1
 
   ; Function Attrs: nounwind readnone
   declare <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx) #2
@@ -51,7 +51,7 @@
   declare x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32>) #2
 
   ; Function Attrs: argmemonly nounwind writeonly
-  declare void @llvm.x86.tilestored64.internal(i16, i16, i8*, i64, x86_amx) #4
+  declare void @llvm.x86.tilestored64.internal(i16, i16, ptr, i64, x86_amx) #4
 
   attributes #0 = { nounwind uwtable "frame-pointer"="all" "min-legal-vector-width"="8192" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+amx-avx512,+amx-bf16,+amx-int8,+amx-tile,+amx-transpose,+avx,+avx2,+avx512f,+crc32,+cx8,+f16c,+fma,+fxsr,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+amx-tile,+amx-bf16,+avx512f,+amx-transpose,+amx-avx512" "tune-cpu"="generic" }
   attributes #1 = { argmemonly nounwind readonly "target-features"="+amx-tile,+amx-bf16,+avx512f,+amx-transpose,+amx-avx512" }

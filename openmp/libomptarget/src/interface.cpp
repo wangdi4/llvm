@@ -135,7 +135,7 @@ targetDataMapper(ident_t *Loc, int64_t DeviceId, int32_t ArgNum,
   static_assert(std::is_convertible_v<TargetAsyncInfoTy, AsyncInfoTy>,
                 "TargetAsyncInfoTy must be convertible to AsyncInfoTy.");
 
-  TIMESCOPE_WITH_IDENT(Loc);
+  TIMESCOPE_WITH_RTM_AND_IDENT(RegionTypeMsg, Loc);
 
 #if INTEL_CUSTOMIZATION
   XPTIEventCacheTy XPTIEvt(Loc, __func__);
@@ -234,10 +234,10 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *Loc, int64_t DeviceId,
                                            int64_t *ArgTypes,
                                            map_var_info_t *ArgNames,
                                            void **ArgMappers) {
-  TIMESCOPE_WITH_IDENT(Loc);
+
   targetDataMapper<AsyncInfoTy>(Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes,
                                 ArgTypes, ArgNames, ArgMappers, targetDataBegin,
-                                "Entering OpenMP data region", "begin");
+                                "Entering OpenMP data region with being_mapper", "begin");
 }
 
 EXTERN void __tgt_target_data_begin_nowait_mapper(
@@ -245,10 +245,10 @@ EXTERN void __tgt_target_data_begin_nowait_mapper(
     void **Args, int64_t *ArgSizes, int64_t *ArgTypes, map_var_info_t *ArgNames,
     void **ArgMappers, int32_t DepNum, void *DepList, int32_t NoAliasDepNum,
     void *NoAliasDepList) {
-  TIMESCOPE_WITH_IDENT(Loc);
+  
   targetDataMapper<TaskAsyncInfoWrapperTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
-      ArgMappers, targetDataBegin, "Entering OpenMP data region", "begin");
+      ArgMappers, targetDataBegin, "Entering OpenMP data region with being_nowait_mapper", "begin");
 }
 
 /// passes data from the target, releases target memory and destroys
@@ -260,10 +260,10 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *Loc, int64_t DeviceId,
                                          int64_t *ArgTypes,
                                          map_var_info_t *ArgNames,
                                          void **ArgMappers) {
-  TIMESCOPE_WITH_IDENT(Loc);
+  
   targetDataMapper<AsyncInfoTy>(Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes,
                                 ArgTypes, ArgNames, ArgMappers, targetDataEnd,
-                                "Exiting OpenMP data region", "end");
+                                "Exiting OpenMP data region with end_mapper", "end");
 }
 
 EXTERN void __tgt_target_data_end_nowait_mapper(
@@ -271,10 +271,10 @@ EXTERN void __tgt_target_data_end_nowait_mapper(
     void **Args, int64_t *ArgSizes, int64_t *ArgTypes, map_var_info_t *ArgNames,
     void **ArgMappers, int32_t DepNum, void *DepList, int32_t NoAliasDepNum,
     void *NoAliasDepList) {
-  TIMESCOPE_WITH_IDENT(Loc);
+  
   targetDataMapper<TaskAsyncInfoWrapperTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
-      ArgMappers, targetDataEnd, "Exiting OpenMP data region", "end");
+      ArgMappers, targetDataEnd, "Exiting OpenMP data region with end_nowait_mapper", "end");
 }
 
 EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
@@ -283,10 +283,10 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
                                             int64_t *ArgTypes,
                                             map_var_info_t *ArgNames,
                                             void **ArgMappers) {
-  TIMESCOPE_WITH_IDENT(Loc);
+  
   targetDataMapper<AsyncInfoTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
-      ArgMappers, targetDataUpdate, "Updating OpenMP data", "update");
+      ArgMappers, targetDataUpdate, "Updating data within the OpenMP data region with update_mapper", "update");
 }
 
 EXTERN void __tgt_target_data_update_nowait_mapper(
@@ -294,10 +294,9 @@ EXTERN void __tgt_target_data_update_nowait_mapper(
     void **Args, int64_t *ArgSizes, int64_t *ArgTypes, map_var_info_t *ArgNames,
     void **ArgMappers, int32_t DepNum, void *DepList, int32_t NoAliasDepNum,
     void *NoAliasDepList) {
-  TIMESCOPE_WITH_IDENT(Loc);
   targetDataMapper<TaskAsyncInfoWrapperTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
-      ArgMappers, targetDataUpdate, "Updating OpenMP data", "update");
+      ArgMappers, targetDataUpdate, "Updating data within the OpenMP data region with update_nowait_mapper", "update");
 }
 
 static KernelArgsTy *upgradeKernelArgs(KernelArgsTy *KernelArgs,
@@ -441,7 +440,6 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
 EXTERN int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
                                int32_t ThreadLimit, void *HostPtr,
                                KernelArgsTy *KernelArgs) {
-  TIMESCOPE_WITH_IDENT(Loc);
 #if INTEL_CUSTOMIZATION
   // TODO: investigate what it costs to enable the new (improved) scheme of
   // invoking asynchronous target region. We are using customization in all

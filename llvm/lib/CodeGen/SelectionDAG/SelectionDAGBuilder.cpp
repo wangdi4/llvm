@@ -1008,7 +1008,7 @@ void RegsForValue::getCopyToRegs(SDValue Val, SelectionDAG &DAG,
     Chain = DAG.getNode(ISD::TokenFactor, dl, MVT::Other, Chains);
 }
 
-void RegsForValue::AddInlineAsmOperands(unsigned Code, bool HasMatching,
+void RegsForValue::AddInlineAsmOperands(InlineAsm::Kind Code, bool HasMatching,
                                         unsigned MatchingIdx, const SDLoc &dl,
                                         SelectionDAG &DAG,
                                         std::vector<SDValue> &Ops) const {
@@ -1031,7 +1031,7 @@ void RegsForValue::AddInlineAsmOperands(unsigned Code, bool HasMatching,
   SDValue Res = DAG.getTargetConstant(Flag, dl, MVT::i32);
   Ops.push_back(Res);
 
-  if (Code == InlineAsm::Kind_Clobber) {
+  if (Code == InlineAsm::Kind::Clobber) {
     // Clobbers should always have a 1:1 mapping with registers, and may
     // reference registers that have illegal (e.g. vector) types. Hence, we
     // shouldn't try to apply any sort of splitting logic to them.
@@ -5167,8 +5167,8 @@ void SelectionDAGBuilder::visitAtomicStore(const StoreInst &I) {
     DAG.setRoot(S);
     return;
   }
-  SDValue OutChain = DAG.getAtomic(ISD::ATOMIC_STORE, dl, MemVT, InChain,
-                                   Ptr, Val, MMO);
+  SDValue OutChain =
+      DAG.getAtomic(ISD::ATOMIC_STORE, dl, MemVT, InChain, Val, Ptr, MMO);
 
   setValue(&I, OutChain);
   DAG.setRoot(OutChain);
@@ -6123,26 +6123,6 @@ bool SelectionDAGBuilder::EmitFuncArgumentDbgValue(
   if (!Op)
     return false;
 
-  // If the expression refers to the entry value of an Argument, use the
-  // corresponding livein physical register. As per the Verifier, this is only
-  // allowed for swiftasync Arguments.
-  if (Op->isReg() && Expr->isEntryValue()) {
-    assert(Arg->hasAttribute(Attribute::AttrKind::SwiftAsync));
-    auto OpReg = Op->getReg();
-    for (auto [PhysReg, VirtReg] : FuncInfo.RegInfo->liveins())
-      if (OpReg == VirtReg || OpReg == PhysReg) {
-        SDDbgValue *SDV = DAG.getVRegDbgValue(
-            Variable, Expr, PhysReg,
-            Kind != FuncArgumentDbgValueKind::Value /*is indirect*/, DL,
-            SDNodeOrder);
-        DAG.AddDbgValue(SDV, false /*treat as dbg.declare byval parameter*/);
-        return true;
-      }
-    LLVM_DEBUG(dbgs() << "Dropping dbg.value: expression is entry_value but "
-                         "couldn't find a physical register\n");
-    return true;
-  }
-
   assert(Variable->isValidLocationForIntrinsic(DL) &&
          "Expected inlined-at fields to agree");
   MachineInstr *NewMI = nullptr;
@@ -6229,6 +6209,41 @@ static const CallBase *FindPreallocatedCall(const Value *PreallocatedSetup) {
     }
   }
   llvm_unreachable("expected corresponding call to preallocated setup/arg");
+}
+
+/// If DI is a debug value with an EntryValue expression, lower it using the
+/// corresponding physical register of the associated Argument value
+/// (guaranteed to exist by the verifier).
+bool SelectionDAGBuilder::visitEntryValueDbgValue(const DbgValueInst &DI) {
+  DILocalVariable *Variable = DI.getVariable();
+  DIExpression *Expr = DI.getExpression();
+  if (!Expr->isEntryValue() || !hasSingleElement(DI.getValues()))
+    return false;
+
+  // These properties are guaranteed by the verifier.
+  Argument *Arg = cast<Argument>(DI.getValue(0));
+  assert(Arg->hasAttribute(Attribute::AttrKind::SwiftAsync));
+
+  auto ArgIt = FuncInfo.ValueMap.find(Arg);
+  if (ArgIt == FuncInfo.ValueMap.end()) {
+    LLVM_DEBUG(
+        dbgs() << "Dropping dbg.value: expression is entry_value but "
+                  "couldn't find an associated register for the Argument\n");
+    return true;
+  }
+  Register ArgVReg = ArgIt->getSecond();
+
+  for (auto [PhysReg, VirtReg] : FuncInfo.RegInfo->liveins())
+    if (ArgVReg == VirtReg || ArgVReg == PhysReg) {
+      SDDbgValue *SDV =
+          DAG.getVRegDbgValue(Variable, Expr, PhysReg, false /*IsIndidrect*/,
+                              DI.getDebugLoc(), SDNodeOrder);
+      DAG.AddDbgValue(SDV, false /*treat as dbg.declare byval parameter*/);
+      return true;
+    }
+  LLVM_DEBUG(dbgs() << "Dropping dbg.value: expression is entry_value but "
+                       "couldn't find a physical register\n");
+  return true;
 }
 
 /// Lower the call to the specified intrinsic function.
@@ -6593,6 +6608,9 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     DIExpression *Expression = DI.getExpression();
     dropDanglingDebugInfo(Variable, Expression);
 
+    if (visitEntryValueDbgValue(DI))
+      return;
+
     if (DI.isKillLocation()) {
       handleKillDebugValue(Variable, Expression, DI.getDebugLoc(), SDNodeOrder);
       return;
@@ -6718,6 +6736,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
   case Intrinsic::fabs:
   case Intrinsic::sin:
   case Intrinsic::cos:
+  case Intrinsic::exp10:
   case Intrinsic::floor:
   case Intrinsic::ceil:
   case Intrinsic::trunc:
@@ -6733,6 +6752,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     case Intrinsic::fabs:      Opcode = ISD::FABS;       break;
     case Intrinsic::sin:       Opcode = ISD::FSIN;       break;
     case Intrinsic::cos:       Opcode = ISD::FCOS;       break;
+    case Intrinsic::exp10:     Opcode = ISD::FEXP10;     break;
     case Intrinsic::floor:     Opcode = ISD::FFLOOR;     break;
     case Intrinsic::ceil:      Opcode = ISD::FCEIL;      break;
     case Intrinsic::trunc:     Opcode = ISD::FTRUNC;     break;
@@ -6992,6 +7012,25 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
   case Intrinsic::reset_fpenv:
     DAG.setRoot(DAG.getNode(ISD::RESET_FPENV, sdl, MVT::Other, getRoot()));
     return;
+  case Intrinsic::get_fpmode:
+    Res = DAG.getNode(
+        ISD::GET_FPMODE, sdl,
+        DAG.getVTList(TLI.getValueType(DAG.getDataLayout(), I.getType()),
+                      MVT::Other),
+        DAG.getRoot());
+    setValue(&I, Res);
+    DAG.setRoot(Res.getValue(1));
+    return;
+  case Intrinsic::set_fpmode:
+    Res = DAG.getNode(ISD::SET_FPMODE, sdl, MVT::Other, {DAG.getRoot()},
+                      getValue(I.getArgOperand(0)));
+    DAG.setRoot(Res);
+    return;
+  case Intrinsic::reset_fpmode: {
+    Res = DAG.getNode(ISD::RESET_FPMODE, sdl, MVT::Other, getRoot());
+    DAG.setRoot(Res);
+    return;
+  }
   case Intrinsic::pcmarker: {
     SDValue Tmp = getValue(I.getArgOperand(0));
     DAG.setRoot(DAG.getNode(ISD::PCMARKER, sdl, MVT::Other, getRoot(), Tmp));
@@ -8331,6 +8370,16 @@ void SelectionDAGBuilder::visitVectorPredicationIntrinsic(
     }
     break;
   }
+  case ISD::VP_IS_FPCLASS: {
+    const DataLayout DLayout = DAG.getDataLayout();
+    EVT DestVT = TLI.getValueType(DLayout, VPIntrin.getType());
+    auto Constant = cast<ConstantSDNode>(OpValues[1])->getZExtValue();
+    SDValue Check = DAG.getTargetConstant(Constant, DL, MVT::i32);
+    SDValue V = DAG.getNode(ISD::VP_IS_FPCLASS, DL, DestVT,
+                            {OpValues[0], Check, OpValues[2], OpValues[3]});
+    setValue(&VPIntrin, V);
+    return;
+  }
   case ISD::VP_INTTOPTR: {
     SDValue N = OpValues[0];
     EVT DestVT = TLI.getValueType(DAG.getDataLayout(), VPIntrin.getType());
@@ -9094,6 +9143,12 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
           return;
         break;
 #endif  // INTEL_CUSTOMIZATION
+      case LibFunc_exp10:
+      case LibFunc_exp10f:
+      case LibFunc_exp10l:
+        if (visitUnaryFloatCall(I, ISD::FEXP10))
+          return;
+        break;
       case LibFunc_ldexp:
       case LibFunc_ldexpf:
       case LibFunc_ldexpl:
@@ -9657,7 +9712,7 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
                "Failed to convert memory constraint code to constraint id.");
 
         // Add information to the INLINEASM node to know about this output.
-        unsigned OpFlags = InlineAsm::getFlagWord(InlineAsm::Kind_Mem, 1);
+        unsigned OpFlags = InlineAsm::getFlagWord(InlineAsm::Kind::Mem, 1);
         OpFlags = InlineAsm::getFlagWordForMem(OpFlags, ConstraintID);
         AsmNodeOperands.push_back(DAG.getTargetConstant(OpFlags, getCurSDLoc(),
                                                         MVT::i32));
@@ -9679,8 +9734,8 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
         // Add information to the INLINEASM node to know that this register is
         // set.
         OpInfo.AssignedRegs.AddInlineAsmOperands(
-            OpInfo.isEarlyClobber ? InlineAsm::Kind_RegDefEarlyClobber
-                                  : InlineAsm::Kind_RegDef,
+            OpInfo.isEarlyClobber ? InlineAsm::Kind::RegDefEarlyClobber
+                                  : InlineAsm::Kind::RegDef,
             false, 0, getCurSDLoc(), DAG, AsmNodeOperands);
       }
       break;
@@ -9727,9 +9782,9 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
           SDLoc dl = getCurSDLoc();
           // Use the produced MatchedRegs object to
           MatchedRegs.getCopyToRegs(InOperandVal, DAG, dl, Chain, &Glue, &Call);
-          MatchedRegs.AddInlineAsmOperands(InlineAsm::Kind_RegUse,
-                                           true, OpInfo.getMatchedOperand(), dl,
-                                           DAG, AsmNodeOperands);
+          MatchedRegs.AddInlineAsmOperands(InlineAsm::Kind::RegUse, true,
+                                           OpInfo.getMatchedOperand(), dl, DAG,
+                                           AsmNodeOperands);
           break;
         }
 
@@ -9773,7 +9828,7 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
 
         // Add information to the INLINEASM node to know about this input.
         unsigned ResOpType =
-          InlineAsm::getFlagWord(InlineAsm::Kind_Imm, Ops.size());
+            InlineAsm::getFlagWord(InlineAsm::Kind::Imm, Ops.size());
         AsmNodeOperands.push_back(DAG.getTargetConstant(
             ResOpType, getCurSDLoc(), TLI.getPointerTy(DAG.getDataLayout())));
         llvm::append_range(AsmNodeOperands, Ops);
@@ -9794,7 +9849,7 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
                "Failed to convert memory constraint code to constraint id.");
 
         // Add information to the INLINEASM node to know about this input.
-        unsigned ResOpType = InlineAsm::getFlagWord(InlineAsm::Kind_Mem, 1);
+        unsigned ResOpType = InlineAsm::getFlagWord(InlineAsm::Kind::Mem, 1);
         ResOpType = InlineAsm::getFlagWordForMem(ResOpType, ConstraintID);
         AsmNodeOperands.push_back(DAG.getTargetConstant(ResOpType,
                                                         getCurSDLoc(),
@@ -9809,12 +9864,12 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
         assert(ConstraintID != InlineAsm::Constraint_Unknown &&
                "Failed to convert memory constraint code to constraint id.");
 
-        unsigned ResOpType = InlineAsm::getFlagWord(InlineAsm::Kind_Mem, 1);
+        unsigned ResOpType = InlineAsm::getFlagWord(InlineAsm::Kind::Mem, 1);
 
         SDValue AsmOp = InOperandVal;
         if (isFunction(InOperandVal)) {
           auto *GA = cast<GlobalAddressSDNode>(InOperandVal);
-          ResOpType = InlineAsm::getFlagWord(InlineAsm::Kind_Func, 1);
+          ResOpType = InlineAsm::getFlagWord(InlineAsm::Kind::Func, 1);
           AsmOp = DAG.getTargetGlobalAddress(GA->getGlobal(), getCurSDLoc(),
                                              InOperandVal.getValueType(),
                                              GA->getOffset());
@@ -9859,15 +9914,15 @@ void SelectionDAGBuilder::visitInlineAsm(const CallBase &Call,
       OpInfo.AssignedRegs.getCopyToRegs(InOperandVal, DAG, dl, Chain, &Glue,
                                         &Call);
 
-      OpInfo.AssignedRegs.AddInlineAsmOperands(InlineAsm::Kind_RegUse, false, 0,
-                                               dl, DAG, AsmNodeOperands);
+      OpInfo.AssignedRegs.AddInlineAsmOperands(InlineAsm::Kind::RegUse, false,
+                                               0, dl, DAG, AsmNodeOperands);
       break;
     }
     case InlineAsm::isClobber:
       // Add the clobbered value to the operand list, so that the register
       // allocator is aware that the physreg got clobbered.
       if (!OpInfo.AssignedRegs.Regs.empty())
-        OpInfo.AssignedRegs.AddInlineAsmOperands(InlineAsm::Kind_Clobber,
+        OpInfo.AssignedRegs.AddInlineAsmOperands(InlineAsm::Kind::Clobber,
                                                  false, 0, getCurSDLoc(), DAG,
                                                  AsmNodeOperands);
       break;

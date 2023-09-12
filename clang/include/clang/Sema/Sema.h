@@ -3391,7 +3391,13 @@ public:
                                       QualType NewT, QualType OldT);
   void CheckMain(FunctionDecl *FD, const DeclSpec &D);
   void CheckMSVCRTEntryPoint(FunctionDecl *FD);
+  void ActOnHLSLTopLevelFunction(FunctionDecl *FD);
   void CheckHLSLEntryPoint(FunctionDecl *FD);
+  void CheckHLSLSemanticAnnotation(FunctionDecl *EntryPoint, const Decl *Param,
+                                   const HLSLAnnotationAttr *AnnotationAttr);
+  void DiagnoseHLSLAttrStageMismatch(
+      const Attr *A, HLSLShaderAttr::ShaderType Stage,
+      std::initializer_list<HLSLShaderAttr::ShaderType> AllowedStages);
   Attr *getImplicitCodeSegOrSectionAttrForFunction(const FunctionDecl *FD,
                                                    bool IsDefinition);
   void CheckFunctionOrTemplateParamDeclarator(Scope *S, Declarator &D);
@@ -3999,10 +4005,6 @@ public:
   /// or C function we're in, otherwise return null.  If we're currently
   /// in a 'block', this returns the containing context.
   NamedDecl *getCurFunctionOrMethodDecl() const;
-
-  /// getCurLocalScopeDecl - Return the Decl for either of:
-  /// block, lambda, captured statement, function, or nullptr.
-  Decl *getCurLocalScopeDecl();
 
   /// Add this decl to the scope shadowed decl chains.
   void PushOnScopeChains(NamedDecl *D, Scope *S, bool AddToContext = true);
@@ -7664,6 +7666,11 @@ public:
 
   CXXMethodDecl *CreateLambdaCallOperator(SourceRange IntroducerRange,
                                           CXXRecordDecl *Class);
+
+  void AddTemplateParametersToLambdaCallOperator(
+      CXXMethodDecl *CallOperator, CXXRecordDecl *Class,
+      TemplateParameterList *TemplateParams);
+
   void CompleteLambdaCallOperator(
       CXXMethodDecl *Method, SourceLocation LambdaLoc,
       SourceLocation CallOperatorLoc, Expr *TrailingRequiresClause,
@@ -7796,6 +7803,8 @@ public:
                                            SourceLocation ConvLocation,
                                            CXXConversionDecl *Conv,
                                            Expr *Src);
+
+  sema::LambdaScopeInfo *RebuildLambdaScopeInfo(CXXMethodDecl *CallOperator);
 
   /// Check whether the given expression is a valid constraint expression.
   /// A diagnostic is emitted if it is not, false is returned, and
@@ -12193,13 +12202,12 @@ public:
   StmtResult ActOnOpenMPPrefetchDirective(
       ArrayRef<OMPClause *> Clauses, SourceLocation StartLoc,
       SourceLocation EndLoc);
+#endif // INTEL_COLLAB
   /// Called on well-formed '\#pragma omp scope' after parsing of the
   /// associated statement.
   StmtResult ActOnOpenMPScopeDirective(ArrayRef<OMPClause *> Clauses,
                                        Stmt *AStmt, SourceLocation StartLoc,
                                        SourceLocation EndLoc);
-#endif // INTEL_COLLAB
-
   /// Called on well-formed '\#pragma omp single' after parsing of the
   /// associated statement.
   StmtResult ActOnOpenMPSingleDirective(ArrayRef<OMPClause *> Clauses,
@@ -14184,7 +14192,9 @@ public:
     PCC_ParenthesizedExpression,
     /// Code completion occurs within a sequence of declaration
     /// specifiers within a function, method, or block.
-    PCC_LocalDeclarationSpecifiers
+    PCC_LocalDeclarationSpecifiers,
+    /// Code completion occurs at top-level in a REPL session
+    PCC_TopLevelOrExpression,
   };
 
   void CodeCompleteModuleImport(SourceLocation ImportLoc, ModuleIdPath Path);

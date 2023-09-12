@@ -1402,6 +1402,7 @@ public:
   const SDValue &getBasePtr() const {
     switch (getOpcode()) {
     case ISD::STORE:
+    case ISD::ATOMIC_STORE:
     case ISD::VP_STORE:
     case ISD::MSTORE:
     case ISD::VP_SCATTER:
@@ -1474,8 +1475,12 @@ public:
             MMO->isAtomic()) && "then why are we using an AtomicSDNode?");
   }
 
-  const SDValue &getBasePtr() const { return getOperand(1); }
-  const SDValue &getVal() const { return getOperand(2); }
+  const SDValue &getBasePtr() const {
+    return getOpcode() == ISD::ATOMIC_STORE ? getOperand(2) : getOperand(1);
+  }
+  const SDValue &getVal() const {
+    return getOpcode() == ISD::ATOMIC_STORE ? getOperand(1) : getOperand(2);
+  }
 
   /// Returns true if this SDNode represents cmpxchg atomic operation, false
   /// otherwise.

@@ -257,7 +257,9 @@ public:
 
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   /// True if this is an instance of an opaque PointerType.
+#if !INTEL_CUSTOMIZATION
   LLVM_DEPRECATED("Use isPointerTy() instead", "isPointerTy")
+#endif // !INTEL_CUSTOMIZATION
   bool isOpaquePointerTy() const { return isPointerTy(); };
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
   bool isOpaquePointerTy() const;
@@ -417,7 +419,9 @@ public:
   /// or part of deprecated methods that will be removed as part of the opaque
   /// pointers transition.
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+#if !INTEL_CUSTOMIZATION
   [[deprecated("Pointers no longer have element types")]]
+#endif // !INTEL_CUSTOMIZATION
   Type *getNonOpaquePointerElementType() const {
     llvm_unreachable("Pointers no longer have element types");
   }

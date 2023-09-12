@@ -368,11 +368,19 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
   StringRef NewName;
   if (IsDouble) {
     FpTy = Type::getDoubleTy(C);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     FpPtrTy = Type::getDoublePtrTy(C, ADDRESS_SPACE_GENERIC /*=4*/);
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
+    FpPtrTy = PointerType::get(C, ADDRESS_SPACE_GENERIC /*=4*/);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     NewName = "_Z18__spirv_ocl_sincosdPd";
   } else {
     FpTy = Type::getFloatTy(C);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     FpPtrTy = Type::getFloatPtrTy(C, ADDRESS_SPACE_GENERIC /*=4*/);
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
+    FpPtrTy = PointerType::get(C, ADDRESS_SPACE_GENERIC /*=4*/);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     NewName = "_Z18__spirv_ocl_sincosfPf";
   }
   FunctionType *FnTy = FunctionType::get(FpTy, {FpTy, FpPtrTy}, false);

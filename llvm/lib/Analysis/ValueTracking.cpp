@@ -1568,7 +1568,17 @@ static void computeKnownBitsFromOperator(const Operator *I,
                 Pred = CmpInst::getInversePredicate(Pred);
               // Get the knownbits implied by the incoming phi condition.
               auto CR = ConstantRange::makeExactICmpRegion(Pred, *RHSC);
-              Known2 = Known2.unionWith(CR.toKnownBits());
+              KnownBits KnownUnion = Known2.unionWith(CR.toKnownBits());
+              // We can have conflicts here if we are analyzing deadcode (its
+              // impossible for us reach this BB based the icmp).
+              if (KnownUnion.hasConflict()) {
+                // No reason to continue analyzing in a known dead region, so
+                // just resetAll and break. This will cause us to also exit the
+                // outer loop.
+                Known.resetAll();
+                break;
+              }
+              Known2 = KnownUnion;
             }
           }
         }
@@ -2695,26 +2705,33 @@ static bool isKnownNonZeroFromOperator(const Operator *I,
     return isNonZeroShift(I, DemandedElts, Depth, Q, Known);
   }
   case Instruction::UDiv:
-  case Instruction::SDiv:
+  case Instruction::SDiv: {
     // X / Y
     // div exact can only produce a zero if the dividend is zero.
     if (cast<PossiblyExactOperator>(I)->isExact())
       return isKnownNonZero(I->getOperand(0), DemandedElts, Depth, Q);
-    if (I->getOpcode() == Instruction::UDiv) {
-      std::optional<bool> XUgeY;
-      KnownBits XKnown =
-          computeKnownBits(I->getOperand(0), DemandedElts, Depth, Q);
-      if (!XKnown.isUnknown()) {
-        KnownBits YKnown =
-            computeKnownBits(I->getOperand(1), DemandedElts, Depth, Q);
-        // If X u>= Y then div is non zero (0/0 is UB).
-        XUgeY = KnownBits::uge(XKnown, YKnown);
-      }
-      // If X is total unknown or X u< Y we won't be able to prove non-zero
-      // with compute known bits so just return early.
-      return XUgeY && *XUgeY;
+
+    std::optional<bool> XUgeY;
+    KnownBits XKnown =
+        computeKnownBits(I->getOperand(0), DemandedElts, Depth, Q);
+    // If X is fully unknown we won't be able to figure anything out so don't
+    // both computing knownbits for Y.
+    if (XKnown.isUnknown())
+      return false;
+
+    KnownBits YKnown =
+        computeKnownBits(I->getOperand(1), DemandedElts, Depth, Q);
+    if (I->getOpcode() == Instruction::SDiv) {
+      // For signed division need to compare abs value of the operands.
+      XKnown = XKnown.abs(/*IntMinIsPoison*/ false);
+      YKnown = YKnown.abs(/*IntMinIsPoison*/ false);
     }
-    break;
+    // If X u>= Y then div is non zero (0/0 is UB).
+    XUgeY = KnownBits::uge(XKnown, YKnown);
+    // If X is total unknown or X u< Y we won't be able to prove non-zero
+    // with compute known bits so just return early.
+    return XUgeY && *XUgeY;
+  }
   case Instruction::Add: {
     // X + Y.
 
@@ -4292,7 +4309,9 @@ std::pair<Value *, FPClassTest> llvm::fcmpToClassTest(FCmpInst::Predicate Pred,
                                                       Value *LHS, Value *RHS,
                                                       bool LookThroughSrc) {
   const APFloat *ConstRHS;
+#if INTEL_CUSTOMIZATION
   if (!match(RHS, m_APFloat(ConstRHS)))
+#endif // INTEL_CUSTOMIZATION
     return {nullptr, fcNone};
 
   // fcmp ord x, zero|normal|subnormal|inf -> ~fcNan
@@ -4965,7 +4984,8 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
       break;
     }
     case Intrinsic::exp:
-    case Intrinsic::exp2: {
+    case Intrinsic::exp2:
+    case Intrinsic::exp10: {
       Known.knownNot(fcNegative);
       if ((InterestedClasses & fcNan) == fcNone)
         break;
@@ -6980,6 +7000,7 @@ static bool canCreateUndefOrPoison(const Operator *Op, bool PoisonOnly,
       case Intrinsic::log2:
       case Intrinsic::exp:
       case Intrinsic::exp2:
+      case Intrinsic::exp10:
       case Intrinsic::fabs:
       case Intrinsic::copysign:
       case Intrinsic::floor:
@@ -7558,6 +7579,8 @@ static bool programUndefinedIfUndefOrPoison(const Value *V,
     Begin = Inst->getIterator();
     Begin++;
   } else if (const auto *Arg = dyn_cast<Argument>(V)) {
+    if (Arg->getParent()->isDeclaration())
+      return false;
     BB = &Arg->getParent()->getEntryBlock();
     Begin = BB->begin();
   } else {

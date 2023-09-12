@@ -131,8 +131,13 @@ class OpenACC_Attr<string name, string attrMnemonic,
 // easier to find out whether the variable is in a declare clause and what kind
 // of clause it is.
 def DeclareAttr : OpenACC_Attr<"Declare", "declare"> {
-  let parameters = (ins "DataClauseAttr":$dataClause);
+  let parameters = (ins "DataClauseAttr":$dataClause,
+                        DefaultValuedParameter<"bool", "false">:$implicit);
   let assemblyFormat = "`<` struct(params) `>`";
+  let builders = [AttrBuilder<(ins "DataClauseAttr":$dataClause), [{
+      return $_get($_ctxt, dataClause, /*implicit=*/false);
+    }]>
+  ];
 }
 
 // Attribute to attach functions that perform the pre/post allocation actions or
@@ -1489,6 +1494,39 @@ def OpenACC_ShutdownOp : OpenACC_Op<"shutdown", [AttrSizedOperandSegments]> {
     oilist(`device_type` `(` $deviceTypeOperands `:` type($deviceTypeOperands) `)`
     |`device_num` `(` $deviceNumOperand `:` type($deviceNumOperand) `)`
     |`if` `(` $ifCond `)`
+    ) attr-dict-with-keyword
+  }];
+  let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// 2.14.3. Set
+//===----------------------------------------------------------------------===//
+
+def OpenACC_SetOp : OpenACC_Op<"set", [AttrSizedOperandSegments]> {
+  let summary = "set operation";
+
+  let description = [{
+    The "acc.set" operation represents the OpenACC set directive.
+
+    Example:
+
+    ```mlir
+    acc.set device_num(%dev1 : i32)
+    ```
+  }];
+
+  let arguments = (ins Optional<IntOrIndex>:$deviceType,
+                       Optional<IntOrIndex>:$defaultAsync,
+                       Optional<IntOrIndex>:$deviceNum,
+                       Optional<I1>:$ifCond);
+
+  let assemblyFormat = [{
+    oilist(
+      `device_type` `(` $deviceType `:` type($deviceType) `)`
+    | `default_async` `(` $defaultAsync `:` type($defaultAsync) `)`
+    | `device_num` `(` $deviceNum `:` type($deviceNum) `)`
+    | `if` `(` $ifCond `)`
     ) attr-dict-with-keyword
   }];
   let hasVerifier = 1;

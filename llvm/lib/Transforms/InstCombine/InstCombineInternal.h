@@ -167,6 +167,19 @@ public:
    }
    return false;
   }
+  bool suppressMinMax(Instruction *I) {
+    // Suppress min/max: for AVX2 always, and AVX512 before loopopt. Avoids
+    // vectorization cases that don't produce optimal codegen.
+    // CMPLRLLVM-36522,37173,37342
+    auto HasAVX512 =
+        TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
+    auto HasAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+    auto &TTI = getTargetTransformInfo();
+    return TTI.isAdvancedOptEnabled(HasAVX2) &&
+               !TTI.isAdvancedOptEnabled(HasAVX512) ||
+           TTI.isAdvancedOptEnabled(HasAVX512) &&
+               I->getFunction()->isPreLoopOpt();
+  }
 #endif // INTEL_CUSTOMIZATION
   Instruction *FoldShiftByConstant(Value *Op0, Constant *Op1,
                                    BinaryOperator &I);
@@ -240,6 +253,27 @@ public:
 
   LoadInst *combineLoadToNewType(LoadInst &LI, Type *NewTy,
                                  const Twine &Suffix = "");
+
+  KnownFPClass computeKnownFPClass(Value *Val, FastMathFlags FMF,
+                                   FPClassTest Interested = fcAllFlags,
+                                   const Instruction *CtxI = nullptr,
+                                   unsigned Depth = 0) const {
+    return llvm::computeKnownFPClass(Val, FMF, DL, Interested, Depth, &TLI, &AC,
+                                     CtxI, &DT);
+  }
+
+  KnownFPClass computeKnownFPClass(Value *Val,
+                                   FPClassTest Interested = fcAllFlags,
+                                   const Instruction *CtxI = nullptr,
+                                   unsigned Depth = 0) const {
+    return llvm::computeKnownFPClass(Val, DL, Interested, Depth, &TLI, &AC,
+                                     CtxI, &DT);
+  }
+
+  /// Check if fmul \p MulVal, +0.0 will yield +0.0 (or signed zero is
+  /// ignorable).
+  bool fmulByZeroIsZero(Value *MulVal, FastMathFlags FMF,
+                        const Instruction *CtxI) const;
 
 private:
   bool annotateAnyAllocSite(CallBase &Call, const TargetLibraryInfo *TLI);
@@ -639,7 +673,8 @@ public:
 
   Instruction *foldAddWithConstant(BinaryOperator &Add);
 
-  Instruction *foldSquareSumInts(BinaryOperator &I);
+  Instruction *foldSquareSumInt(BinaryOperator &I);
+  Instruction *foldSquareSumFP(BinaryOperator &I);
 
   /// Try to rotate an operation below a PHI node, using PHI nodes for
   /// its operands.

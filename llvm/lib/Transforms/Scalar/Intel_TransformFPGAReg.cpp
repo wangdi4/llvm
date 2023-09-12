@@ -69,39 +69,32 @@ bool TransformFPGAReg::runOnModule(Module &M) {
             CDA->getAsCString() == "__builtin_intel_fpga_reg"))
       continue;
 
-    // This global constant is usually accessed via a
-    // GetElementPtrConstantExpr. This "latches" the
-    // constant to its 'actual' users in functions
-    for (auto *GVAccessor : GV.users()) {
-      // Now come the 'actual' users
-      for (Value::user_iterator UI = GVAccessor->user_begin();
-               UI != GVAccessor->user_end(); ) {
-        // The fpga_reg string literal can be accessed by
-        // llvm.annotation.* and llvm.ptr.annotation.*
-        // intrinsic calls, thus representing a builtin
-        auto *II = dyn_cast<IntrinsicInst>(*UI++);
-        if (!II)
-          continue;
-        if (II->getIntrinsicID() == Intrinsic::annotation ||
-                II->getIntrinsicID() == Intrinsic::ptr_annotation) {
-          // We will be creating an fpga.reg intrinsic of the
-          // same return type, with the same variable argument
-          Type *TysForDecl[] = { II->getFunctionType()->getReturnType() };
-          Value *Args[] = { II->getArgOperand(0) };
+    for (auto *GVAccessor : llvm::make_early_inc_range(GV.users())) {
+      // The fpga_reg string literal can be accessed by
+      // llvm.annotation.* and llvm.ptr.annotation.*
+      // intrinsic calls, thus representing a builtin
+      auto *II = dyn_cast<IntrinsicInst>(GVAccessor);
+      if (!II)
+        continue;
+      if (II->getIntrinsicID() == Intrinsic::annotation ||
+          II->getIntrinsicID() == Intrinsic::ptr_annotation) {
+        // We will be creating an fpga.reg intrinsic of the
+        // same return type, with the same variable argument
+        Type *TysForDecl[] = {II->getFunctionType()->getReturnType()};
+        Value *Args[] = {II->getArgOperand(0)};
 
-          Function *FPGARegBuiltinFn = Intrinsic::getDeclaration(
-              &M, Intrinsic::fpga_reg, TysForDecl);
-          assert(FPGARegBuiltinFn &&
-                     "Failure to generate llvm.fpga.reg declaration");
-          CallInst *FPGARegBuiltinCall = CallInst::Create(
-              FPGARegBuiltinFn, Args, "", II);
+        Function *FPGARegBuiltinFn =
+            Intrinsic::getDeclaration(&M, Intrinsic::fpga_reg, TysForDecl);
+        assert(FPGARegBuiltinFn &&
+               "Failure to generate llvm.fpga.reg declaration");
+        CallInst *FPGARegBuiltinCall =
+            CallInst::Create(FPGARegBuiltinFn, Args, "", II);
 
-          // The iterator that pointed to the instruction has already
-          // been incremented. We can safely replace & erase it
-          II->replaceAllUsesWith(FPGARegBuiltinCall);
-          II->eraseFromParent();
-          HasChanged = true;
-        }
+        // The iterator that pointed to the instruction has already
+        // been incremented. We can safely replace & erase it
+        II->replaceAllUsesWith(FPGARegBuiltinCall);
+        II->eraseFromParent();
+        HasChanged = true;
       }
     }
   }

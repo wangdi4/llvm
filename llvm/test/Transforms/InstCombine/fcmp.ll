@@ -718,9 +718,11 @@ define i1 @is_signbit_clear_nonzero(double %x) {
 
 define i1 @is_signbit_set_simplify_zero(double %x) {
 ; CHECK-LABEL: @is_signbit_set_simplify_zero(
+; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[S:%.*]] = call double @llvm.copysign.f64(double 0.000000e+00, double [[X:%.*]])
 ; CHECK-NEXT:    [[R:%.*]] = fcmp ogt double [[S]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[R]]
+; end INTEL_CUSTOMIZATION
 ;
   %s = call double @llvm.copysign.f64(double 0.0, double %x)
   %r = fcmp ogt double %s, 0.0
@@ -731,9 +733,11 @@ define i1 @is_signbit_set_simplify_zero(double %x) {
 
 define i1 @is_signbit_set_simplify_nan(double %x) {
 ; CHECK-LABEL: @is_signbit_set_simplify_nan(
+; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[S:%.*]] = call double @llvm.copysign.f64(double 0xFFFFFFFFFFFFFFFF, double [[X:%.*]])
 ; CHECK-NEXT:    [[R:%.*]] = fcmp ogt double [[S]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[R]]
+; end INTEL_CUSTOMIZATION
 ;
   %s = call double @llvm.copysign.f64(double 0xffffffffffffffff, double %x)
   %r = fcmp ogt double %s, 0.0

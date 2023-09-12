@@ -3155,7 +3155,7 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI,
     //   store %merge, %x.dest, !DIAssignID !2
     //   dbg.assign %merge, "x", ..., !2
     for (auto *DAI : at::getAssignmentMarkers(SpeculatedStore)) {
-      if (any_of(DAI->location_ops(), [&](Value *V) { return V == OrigV; }))
+      if (llvm::is_contained(DAI->location_ops(), OrigV))
         DAI->replaceVariableLocationOp(OrigV, S);
     }
   }
@@ -7247,7 +7247,7 @@ getCaseResults(SwitchInst *SI, ConstantInt *CaseVal, BasicBlock *CaseDest,
   for (Instruction &I : CaseDest->instructionsWithoutDebug(false)) {
     if (I.isTerminator()) {
       // If the terminator is a simple branch, continue to the next block.
-      if (I.getNumSuccessors() != 1 || I.isExceptionalTerminator())
+      if (I.getNumSuccessors() != 1 || I.isSpecialTerminator())
         return false;
       Pred = CaseDest;
       CaseDest = I.getSuccessor(0);

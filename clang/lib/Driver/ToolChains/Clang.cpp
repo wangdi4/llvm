@@ -525,8 +525,7 @@ static bool useFramePointerForTargetByDefault(const ArgList &Args,
     return !areOptimizationsEnabled(Args);
   }
 
-  if (Triple.isOSLinux() || Triple.getOS() == llvm::Triple::CloudABI ||
-      Triple.isOSHurd()) {
+  if (Triple.isOSLinux() || Triple.isOSHurd()) {
     switch (Triple.getArch()) {
     // Don't use a frame pointer on linux if optimizing for certain targets.
     case llvm::Triple::arm:
@@ -951,8 +950,6 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
     else if (Val != "single")
       D.Diag(diag::err_drv_unsupported_option_argument)
           << A->getSpelling() << Val;
-  } else if (SanArgs.needsTsanRt()) {
-    CmdArgs.push_back("-fprofile-update=atomic");
   }
 
   int FunctionGroups = 1;
@@ -2756,7 +2753,8 @@ void Clang::DumpCompilationDatabase(Compilation &C, StringRef Filename,
     CWD = ".";
   CDB << "{ \"directory\": \"" << escape(*CWD) << "\"";
   CDB << ", \"file\": \"" << escape(Input.getFilename()) << "\"";
-  CDB << ", \"output\": \"" << escape(Output.getFilename()) << "\"";
+  if (Output.isFilename())
+    CDB << ", \"output\": \"" << escape(Output.getFilename()) << "\"";
   CDB << ", \"arguments\": [\"" << escape(D.ClangExecutable) << "\"";
   SmallString<128> Buf;
   Buf = "-x";
@@ -2768,7 +2766,8 @@ void Clang::DumpCompilationDatabase(Compilation &C, StringRef Filename,
     CDB << ", \"" << escape(Buf) << "\"";
   }
   CDB << ", \"" << escape(Input.getFilename()) << "\"";
-  CDB << ", \"-o\", \"" << escape(Output.getFilename()) << "\"";
+  if (Output.isFilename())
+    CDB << ", \"-o\", \"" << escape(Output.getFilename()) << "\"";
   for (auto &A: Args) {
     auto &O = A->getOption();
     // Skip language selection, which is positional.
@@ -3344,7 +3343,8 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
         // -ffp-model=precise sets PreciseFPModel to on and Val to
         // "precise". FPContract is set.
         ;
-      } else if (Val.equals("fast") || Val.equals("on") || Val.equals("off")) {
+      } else if (Val.equals("fast") || Val.equals("on") || Val.equals("off") ||
+                 Val.equals("fast-honor-pragmas")) {
         FPContract = Val;
         LastSeenFfpContractOption = Val;
       } else
@@ -7103,6 +7103,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-mms-bitfields");
   }
 
+  if (Triple.isWindowsGNUEnvironment()) {
+    Args.addOptOutFlag(CmdArgs, options::OPT_fauto_import,
+                       options::OPT_fno_auto_import);
+  }
+
   // Non-PIC code defaults to -fdirect-access-external-data while PIC code
   // defaults to -fno-direct-access-external-data. Pass the option if different
   // from the default.
@@ -7382,13 +7387,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (Arg *A = Args.getLastArg(options::OPT_fsplit_machine_functions,
                                options::OPT_fno_split_machine_functions)) {
-    // This codegen pass is only available on x86-elf targets.
-    if (Triple.isX86() && Triple.isOSBinFormatELF()) {
-      if (A->getOption().matches(options::OPT_fsplit_machine_functions))
+    if (!A->getOption().matches(options::OPT_fno_split_machine_functions)) {
+      // This codegen pass is only available on x86-elf targets.
+      if (Triple.isX86() && Triple.isOSBinFormatELF())
         A->render(Args, CmdArgs);
-    } else {
-      D.Diag(diag::err_drv_unsupported_opt_for_target)
-          << A->getAsString(Args) << TripleStr;
+      else
+        D.Diag(diag::err_drv_unsupported_opt_for_target)
+            << A->getAsString(Args) << TripleStr;
     }
   }
 
@@ -8563,11 +8568,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_flegacy_pass_manager,
                   options::OPT_fno_legacy_pass_manager);
 #endif // INTEL_CUSTOMIZATION
+
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   if (!CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL)
     CmdArgs.push_back("-no-opaque-pointers");
   else if ((Triple.isSPIRV() || Triple.isSPIR()) &&
            !SPIRV_ENABLE_OPAQUE_POINTERS)
     CmdArgs.push_back("-no-opaque-pointers");
+#endif
 
   ObjCRuntime Runtime = AddObjCRuntimeArgs(Args, Inputs, CmdArgs, rewriteKind);
   RenderObjCOptions(TC, D, RawTriple, Args, Runtime, rewriteKind != RK_None,
@@ -11718,6 +11726,14 @@ void LinkerWrapper::ConstructJob(Compilation &C, const JobAction &JA,
   if (const Arg *A = Args.getLastArg(options::OPT_g_Group)) {
     if (!A->getOption().matches(options::OPT_g0))
       CmdArgs.push_back("--device-debug");
+  }
+
+  // code-object-version=X needs to be passed to clang-linker-wrapper to ensure
+  // that it is used by lld.
+  if (const Arg *A = Args.getLastArg(options::OPT_mcode_object_version_EQ)) {
+    CmdArgs.push_back(Args.MakeArgString("-mllvm"));
+    CmdArgs.push_back(Args.MakeArgString(
+        Twine("--amdhsa-code-object-version=") + A->getValue()));
   }
 
   for (const auto &A : Args.getAllArgValues(options::OPT_Xcuda_ptxas))

@@ -1354,7 +1354,7 @@ ASTUnit::getMainBufferWithPrecompiledPreamble(
     return nullptr;
 
   PreambleBounds Bounds = ComputePreambleBounds(
-      *PreambleInvocationIn.getLangOpts(), *MainFileBuffer, MaxLines);
+      PreambleInvocationIn.getLangOpts(), *MainFileBuffer, MaxLines);
   if (!Bounds.Size)
     return nullptr;
 
@@ -2028,7 +2028,8 @@ static void CalculateHiddenNames(const CodeCompletionContext &Context,
   case CodeCompletionContext::CCC_SymbolOrNewName:
   case CodeCompletionContext::CCC_ParenthesizedExpression:
   case CodeCompletionContext::CCC_ObjCInterfaceName:
-    break;
+  case CodeCompletionContext::CCC_TopLevelOrExpression:
+      break;
 
   case CodeCompletionContext::CCC_EnumTag:
   case CodeCompletionContext::CCC_UnionTag:
@@ -2187,7 +2188,8 @@ void ASTUnit::CodeComplete(
     std::shared_ptr<PCHContainerOperations> PCHContainerOps,
     DiagnosticsEngine &Diag, LangOptions &LangOpts, SourceManager &SourceMgr,
     FileManager &FileMgr, SmallVectorImpl<StoredDiagnostic> &StoredDiagnostics,
-    SmallVectorImpl<const llvm::MemoryBuffer *> &OwnedBuffers) {
+    SmallVectorImpl<const llvm::MemoryBuffer *> &OwnedBuffers,
+    std::unique_ptr<SyntaxOnlyAction> Act) {
   if (!Invocation)
     return;
 
@@ -2216,7 +2218,7 @@ void ASTUnit::CodeComplete(
   FrontendOpts.CodeCompletionAt.Column = Column;
 
   // Set the language options appropriately.
-  LangOpts = *CCInvocation->getLangOpts();
+  LangOpts = CCInvocation->getLangOpts();
 
   // Spell-checking and warnings are wasteful during code-completion.
   LangOpts.SpellChecking = false;
@@ -2324,8 +2326,9 @@ void ASTUnit::CodeComplete(
   if (!Clang->getLangOpts().Modules)
     PreprocessorOpts.DetailedRecord = false;
 
-  std::unique_ptr<SyntaxOnlyAction> Act;
-  Act.reset(new SyntaxOnlyAction);
+  if (!Act)
+    Act.reset(new SyntaxOnlyAction);
+
   if (Act->BeginSourceFile(*Clang.get(), Clang->getFrontendOpts().Inputs[0])) {
     if (llvm::Error Err = Act->Execute()) {
       consumeError(std::move(Err)); // FIXME this drops errors on the floor.

@@ -44,6 +44,7 @@
 #include "clang/AST/OSLog.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
+#include "clang/Basic/TargetOptions.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "llvm/ADT/APFloat.h"
@@ -71,6 +72,7 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/MatrixBuilder.h"
 #include "llvm/Support/ConvertUTF.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/TargetParser/AArch64TargetParser.h"
 #include "llvm/TargetParser/X86TargetParser.h"
@@ -170,13 +172,12 @@ llvm::Constant *CodeGenModule::getBuiltinLibFunction(const FunctionDecl *FD,
     // PPC, after backend supports IEEE 128-bit style libcalls.
     if (getTriple().isPPC64() &&
         &getTarget().getLongDoubleFormat() == &llvm::APFloat::IEEEquad() &&
-        F128Builtins.find(BuiltinID) != F128Builtins.end())
+        F128Builtins.contains(BuiltinID))
       Name = F128Builtins[BuiltinID];
     else if (getTriple().isOSAIX() &&
              &getTarget().getLongDoubleFormat() ==
                  &llvm::APFloat::IEEEdouble() &&
-             AIXLongDouble64Builtins.find(BuiltinID) !=
-                 AIXLongDouble64Builtins.end())
+             AIXLongDouble64Builtins.contains(BuiltinID))
       Name = AIXLongDouble64Builtins[BuiltinID];
     else
       Name = Context.BuiltinInfo.getName(BuiltinID).substr(10);
@@ -656,8 +657,9 @@ static Value *emitUnaryMaybeConstrainedFPBuiltin(
   if (Func)
     return CreateBuiltinCallWithAttr(CGF, Name, Func, {Src0},
                                      FPAccuracyIntrinsicID);
+
+  CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, E);
   if (CGF.Builder.getIsFPConstrained()) {
-    CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, E);
     Function *F = CGF.CGM.getIntrinsic(ConstrainedIntrinsicID, Src0->getType());
     return CGF.Builder.CreateConstrainedFPCall(F, {Src0});
   } else {
@@ -11389,7 +11391,7 @@ Value *CodeGenFunction::EmitTileslice(Value *Offset, Value *Base) {
   return Builder.CreateAdd(Base, CastOffset, "tileslice");
 }
 
-Value *CodeGenFunction::EmitSMELd1St1(SVETypeFlags TypeFlags,
+Value *CodeGenFunction::EmitSMELd1St1(const SVETypeFlags &TypeFlags,
                                       SmallVectorImpl<Value *> &Ops,
                                       unsigned IntID) {
   Ops[3] = EmitSVEPredicateCast(
@@ -11419,7 +11421,7 @@ Value *CodeGenFunction::EmitSMELd1St1(SVETypeFlags TypeFlags,
   return Builder.CreateCall(F, NewOps);
 }
 
-Value *CodeGenFunction::EmitSMEReadWrite(SVETypeFlags TypeFlags,
+Value *CodeGenFunction::EmitSMEReadWrite(const SVETypeFlags &TypeFlags,
                                          SmallVectorImpl<Value *> &Ops,
                                          unsigned IntID) {
   auto *VecTy = getSVEType(TypeFlags);
@@ -11436,7 +11438,7 @@ Value *CodeGenFunction::EmitSMEReadWrite(SVETypeFlags TypeFlags,
   return Builder.CreateCall(F, Ops);
 }
 
-Value *CodeGenFunction::EmitSMEZero(SVETypeFlags TypeFlags,
+Value *CodeGenFunction::EmitSMEZero(const SVETypeFlags &TypeFlags,
                                     SmallVectorImpl<Value *> &Ops,
                                     unsigned IntID) {
   // svzero_za() intrinsic zeros the entire za tile and has no paramters.
@@ -11446,7 +11448,7 @@ Value *CodeGenFunction::EmitSMEZero(SVETypeFlags TypeFlags,
   return Builder.CreateCall(F, Ops);
 }
 
-Value *CodeGenFunction::EmitSMELdrStr(SVETypeFlags TypeFlags,
+Value *CodeGenFunction::EmitSMELdrStr(const SVETypeFlags &TypeFlags,
                                       SmallVectorImpl<Value *> &Ops,
                                       unsigned IntID) {
   Function *Cntsb = CGM.getIntrinsic(Intrinsic::aarch64_sme_cntsb);
@@ -15436,13 +15438,10 @@ Value *CodeGenFunction::EmitX86CpuSupports(ArrayRef<StringRef> FeatureStrs) {
   return EmitX86CpuSupports(llvm::X86::getCpuSupportsMask(FeatureStrs));
 }
 
-llvm::Value *CodeGenFunction::EmitX86CpuSupports(uint64_t FeaturesMask) {
-  uint32_t Features1 = Lo_32(FeaturesMask);
-  uint32_t Features2 = Hi_32(FeaturesMask);
-
+llvm::Value *
+CodeGenFunction::EmitX86CpuSupports(std::array<uint32_t, 4> FeatureMask) {
   Value *Result = Builder.getTrue();
-
-  if (Features1 != 0) {
+  if (FeatureMask[0] != 0) {
     // Matching the struct layout from the compiler-rt/libgcc structure that is
     // filled in:
     // unsigned int __cpu_vendor;
@@ -15465,22 +15464,26 @@ llvm::Value *CodeGenFunction::EmitX86CpuSupports(uint64_t FeaturesMask) {
                                                 CharUnits::fromQuantity(4));
 
     // Check the value of the bit corresponding to the feature requested.
-    Value *Mask = Builder.getInt32(Features1);
+    Value *Mask = Builder.getInt32(FeatureMask[0]);
     Value *Bitset = Builder.CreateAnd(Features, Mask);
     Value *Cmp = Builder.CreateICmpEQ(Bitset, Mask);
     Result = Builder.CreateAnd(Result, Cmp);
   }
 
-  if (Features2 != 0) {
-    llvm::Constant *CpuFeatures2 = CGM.CreateRuntimeVariable(Int32Ty,
-                                                             "__cpu_features2");
-    cast<llvm::GlobalValue>(CpuFeatures2)->setDSOLocal(true);
-
-    Value *Features = Builder.CreateAlignedLoad(Int32Ty, CpuFeatures2,
-                                                CharUnits::fromQuantity(4));
-
+  llvm::Type *ATy = llvm::ArrayType::get(Int32Ty, 3);
+  llvm::Constant *CpuFeatures2 =
+      CGM.CreateRuntimeVariable(ATy, "__cpu_features2");
+  cast<llvm::GlobalValue>(CpuFeatures2)->setDSOLocal(true);
+  for (int i = 1; i != 4; ++i) {
+    const uint32_t M = FeatureMask[i];
+    if (!M)
+      continue;
+    Value *Idxs[] = {Builder.getInt32(0), Builder.getInt32(i - 1)};
+    Value *Features = Builder.CreateAlignedLoad(
+        Int32Ty, Builder.CreateGEP(ATy, CpuFeatures2, Idxs),
+        CharUnits::fromQuantity(4));
     // Check the value of the bit corresponding to the feature requested.
-    Value *Mask = Builder.getInt32(Features2);
+    Value *Mask = Builder.getInt32(M);
     Value *Bitset = Builder.CreateAnd(Features, Mask);
     Value *Cmp = Builder.CreateICmpEQ(Bitset, Mask);
     Result = Builder.CreateAnd(Result, Cmp);
@@ -19776,32 +19779,77 @@ Value *EmitAMDGPUImplicitArgPtr(CodeGenFunction &CGF) {
 }
 
 // \p Index is 0, 1, and 2 for x, y, and z dimension, respectively.
+/// Emit code based on Code Object ABI version.
+/// COV_4    : Emit code to use dispatch ptr
+/// COV_5    : Emit code to use implicitarg ptr
+/// COV_NONE : Emit code to load a global variable "llvm.amdgcn.abi.version"
+///            and use its value for COV_4 or COV_5 approach. It is used for
+///            compiling device libraries in an ABI-agnostic way.
+///
+/// Note: "llvm.amdgcn.abi.version" is supposed to be emitted and intialized by
+///       clang during compilation of user code.
 Value *EmitAMDGPUWorkGroupSize(CodeGenFunction &CGF, unsigned Index) {
-  bool IsCOV_5 = CGF.getTarget().getTargetOpts().CodeObjectVersion ==
-                 clang::TargetOptions::COV_5;
-  Constant *Offset;
-  Value *DP;
-  if (IsCOV_5) {
+  llvm::LoadInst *LD;
+
+  auto Cov = CGF.getTarget().getTargetOpts().CodeObjectVersion;
+
+  if (Cov == clang::TargetOptions::COV_None) {
+    auto *ABIVersionC = CGF.CGM.GetOrCreateLLVMGlobal(
+        "llvm.amdgcn.abi.version", CGF.Int32Ty, LangAS::Default, nullptr,
+        CodeGen::NotForDefinition);
+
+    // This load will be eliminated by the IPSCCP because it is constant
+    // weak_odr without externally_initialized. Either changing it to weak or
+    // adding externally_initialized will keep the load.
+    Value *ABIVersion = CGF.Builder.CreateAlignedLoad(CGF.Int32Ty, ABIVersionC,
+                                                      CGF.CGM.getIntAlign());
+
+    Value *IsCOV5 = CGF.Builder.CreateICmpSGE(
+        ABIVersion,
+        llvm::ConstantInt::get(CGF.Int32Ty, clang::TargetOptions::COV_5));
+
     // Indexing the implicit kernarg segment.
-    Offset = llvm::ConstantInt::get(CGF.Int32Ty, 12 + Index * 2);
-    DP = EmitAMDGPUImplicitArgPtr(CGF);
-  } else {
+    Value *ImplicitGEP = CGF.Builder.CreateConstGEP1_32(
+        CGF.Int8Ty, EmitAMDGPUImplicitArgPtr(CGF), 12 + Index * 2);
+
     // Indexing the HSA kernel_dispatch_packet struct.
-    Offset = llvm::ConstantInt::get(CGF.Int32Ty, 4 + Index * 2);
-    DP = EmitAMDGPUDispatchPtr(CGF);
+    Value *DispatchGEP = CGF.Builder.CreateConstGEP1_32(
+        CGF.Int8Ty, EmitAMDGPUDispatchPtr(CGF), 4 + Index * 2);
+
+    auto Result = CGF.Builder.CreateSelect(IsCOV5, ImplicitGEP, DispatchGEP);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    LD = CGF.Builder.CreateLoad(
+        Address(Result, CGF.Int16Ty, CharUnits::fromQuantity(2)));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    auto *DstTy =
+        CGF.Int16Ty->getPointerTo(Result->getType()->getPointerAddressSpace());
+    auto *Cast = CGF.Builder.CreateBitCast(Result, DstTy);
+    LD = CGF.Builder.CreateLoad(
+        Address(Cast, CGF.Int16Ty, CharUnits::fromQuantity(2)));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+  } else {
+    Value *GEP = nullptr;
+    if (Cov == clang::TargetOptions::COV_5) {
+      // Indexing the implicit kernarg segment.
+      GEP = CGF.Builder.CreateConstGEP1_32(
+          CGF.Int8Ty, EmitAMDGPUImplicitArgPtr(CGF), 12 + Index * 2);
+    } else {
+      // Indexing the HSA kernel_dispatch_packet struct.
+      GEP = CGF.Builder.CreateConstGEP1_32(
+          CGF.Int8Ty, EmitAMDGPUDispatchPtr(CGF), 4 + Index * 2);
+    }
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    LD = CGF.Builder.CreateLoad(
+        Address(GEP, CGF.Int16Ty, CharUnits::fromQuantity(2)));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    auto *DstTy =
+        CGF.Int16Ty->getPointerTo(GEP->getType()->getPointerAddressSpace());
+    auto *Cast = CGF.Builder.CreateBitCast(GEP, DstTy);
+    LD = CGF.Builder.CreateLoad(
+        Address(Cast, CGF.Int16Ty, CharUnits::fromQuantity(2)));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
-  auto *GEP = CGF.Builder.CreateGEP(CGF.Int8Ty, DP, Offset);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *LD = CGF.Builder.CreateLoad(
-      Address(GEP, CGF.Int16Ty, CharUnits::fromQuantity(2)));
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *DstTy =
-      CGF.Int16Ty->getPointerTo(GEP->getType()->getPointerAddressSpace());
-  auto *Cast = CGF.Builder.CreateBitCast(GEP, DstTy);
-  auto *LD = CGF.Builder.CreateLoad(
-      Address(Cast, CGF.Int16Ty, CharUnits::fromQuantity(2)));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::MDBuilder MDHelper(CGF.getLLVMContext());
   llvm::MDNode *RNode = MDHelper.createRange(APInt(16, 1),
       APInt(16, CGF.getTarget().getMaxOpenCLWorkGroupSize() + 1));

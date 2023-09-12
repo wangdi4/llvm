@@ -75,12 +75,11 @@ void LLDJITBuilder::addDllMainFunction(llvm::Module *M) {
    *   entry: ret i32 1
    * }
    */
+#define POINTER_TYPE PointerType::getUnqual(Ctx)
 #ifdef _WIN64
-#define POINTER_TYPE Type::getInt64PtrTy(Ctx)
   assert(sizeof(BOOL) == 4 && sizeof(HANDLE) == 8 && sizeof(DWORD) == 4 &&
          sizeof(LPVOID) == 8);
 #else
-#define POINTER_TYPE Type::getInt32PtrTy(Ctx)
   assert(sizeof(BOOL) == 4 && sizeof(HANDLE) == 4 && sizeof(DWORD) == 4 &&
          sizeof(LPVOID) == 4);
 #endif

@@ -28,6 +28,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/TargetParser/X86TargetParser.h"
+#include "llvm/ADT/Bitset.h"
 #include "llvm/ADT/StringSwitch.h"
 #include <numeric>
 
@@ -36,88 +37,7 @@ using namespace llvm::X86;
 
 namespace {
 
-/// Container class for CPU features.
-/// This is a constexpr reimplementation of a subset of std::bitset. It would be
-/// nice to use std::bitset directly, but it doesn't support constant
-/// initialization.
-class FeatureBitset {
-  static constexpr unsigned NUM_FEATURE_WORDS =
-      (X86::CPU_FEATURE_MAX + 31) / 32;
-
-  // This cannot be a std::array, operator[] is not constexpr until C++17.
-  uint32_t Bits[NUM_FEATURE_WORDS] = {};
-
-public:
-  constexpr FeatureBitset() = default;
-  constexpr FeatureBitset(std::initializer_list<unsigned> Init) {
-    for (auto I : Init)
-      set(I);
-  }
-
-  bool any() const {
-    return llvm::any_of(Bits, [](uint64_t V) { return V != 0; });
-  }
-
-  constexpr FeatureBitset &set(unsigned I) {
-    // GCC <6.2 crashes if this is written in a single statement.
-    uint32_t NewBits = Bits[I / 32] | (uint32_t(1) << (I % 32));
-    Bits[I / 32] = NewBits;
-    return *this;
-  }
-
-  constexpr bool operator[](unsigned I) const {
-    uint32_t Mask = uint32_t(1) << (I % 32);
-    return (Bits[I / 32] & Mask) != 0;
-  }
-
-  constexpr FeatureBitset &operator&=(const FeatureBitset &RHS) {
-    for (unsigned I = 0, E = std::size(Bits); I != E; ++I) {
-      // GCC <6.2 crashes if this is written in a single statement.
-      uint32_t NewBits = Bits[I] & RHS.Bits[I];
-      Bits[I] = NewBits;
-    }
-    return *this;
-  }
-
-  constexpr FeatureBitset &operator|=(const FeatureBitset &RHS) {
-    for (unsigned I = 0, E = std::size(Bits); I != E; ++I) {
-      // GCC <6.2 crashes if this is written in a single statement.
-      uint32_t NewBits = Bits[I] | RHS.Bits[I];
-      Bits[I] = NewBits;
-    }
-    return *this;
-  }
-
-  // gcc 5.3 miscompiles this if we try to write this using operator&=.
-  constexpr FeatureBitset operator&(const FeatureBitset &RHS) const {
-    FeatureBitset Result;
-    for (unsigned I = 0, E = std::size(Bits); I != E; ++I)
-      Result.Bits[I] = Bits[I] & RHS.Bits[I];
-    return Result;
-  }
-
-  // gcc 5.3 miscompiles this if we try to write this using operator&=.
-  constexpr FeatureBitset operator|(const FeatureBitset &RHS) const {
-    FeatureBitset Result;
-    for (unsigned I = 0, E = std::size(Bits); I != E; ++I)
-      Result.Bits[I] = Bits[I] | RHS.Bits[I];
-    return Result;
-  }
-
-  constexpr FeatureBitset operator~() const {
-    FeatureBitset Result;
-    for (unsigned I = 0, E = std::size(Bits); I != E; ++I)
-      Result.Bits[I] = ~Bits[I];
-    return Result;
-  }
-
-  constexpr bool operator!=(const FeatureBitset &RHS) const {
-    for (unsigned I = 0, E = std::size(Bits); I != E; ++I)
-      if (Bits[I] != RHS.Bits[I])
-        return true;
-    return false;
-  }
-};
+using FeatureBitset = Bitset<X86::CPU_FEATURE_MAX>;
 
 struct ProcInfo {
   StringLiteral Name;
@@ -129,8 +49,15 @@ struct ProcInfo {
 };
 
 struct FeatureInfo {
-  StringLiteral Name;
+  StringLiteral NameWithPlus;
   FeatureBitset ImpliedFeatures;
+
+  StringRef getName(bool WithPlus = false) const {
+    assert(NameWithPlus[0] == '+' && "Expected string to start with '+'");
+    if (WithPlus)
+      return NameWithPlus;
+    return NameWithPlus.drop_front();
+  }
 };
 
 } // end anonymous namespace
@@ -456,6 +383,7 @@ constexpr FeatureBitset FeaturesRoyal =
 // listed here before, which means it doesn't support -march, -mtune and so on.
 // FIXME: Remove OnlyForCPUDispatchSpecific after all CPUs here support both
 // cpu_dispatch/specific() feature and -march, -mtune, and so on.
+// clang-format off
 constexpr ProcInfo Processors[] = {
  // Empty processor. Include X87 and CMPXCHG8 for backwards compatibility.
   { {""}, CK_None, ~0U, FeatureX87 | FeatureCMPXCHG8B, '\0', false },
@@ -624,10 +552,10 @@ constexpr ProcInfo Processors[] = {
   { {"znver4"}, CK_ZNVER4, FEATURE_AVX512VBMI2, FeaturesZNVER4, '\0', false },
   // Generic 64-bit processor.
 #if INTEL_CUSTOMIZATION
-  { {"x86-64"}, CK_x86_64, ~0U, FeaturesX86_64, 'J', false },
-  { {"x86-64-v2"}, CK_x86_64_v2, ~0U, FeaturesX86_64_V2, 'R', false },
-  { {"x86-64-v3"}, CK_x86_64_v3, ~0U, FeaturesX86_64_V3, 'V', false },
-  { {"x86-64-v4"}, CK_x86_64_v4, ~0U, FeaturesX86_64_V4, 'a', false },
+  { {"x86-64"}, CK_x86_64, FEATURE_SSE2, FeaturesX86_64, 'J', false },
+  { {"x86-64-v2"}, CK_x86_64_v2, FEATURE_SSE4_2, FeaturesX86_64_V2, 'R', false },
+  { {"x86-64-v3"}, CK_x86_64_v3, FEATURE_AVX2, FeaturesX86_64_V3, 'V', false },
+  { {"x86-64-v4"}, CK_x86_64_v4, FEATURE_AVX512VL, FeaturesX86_64_V4, 'a', false },
   // Intersection of SKX and KNL.
   { {"common-avx512"}, CK_CommonAVX512, ~0U, FeaturesCommonAVX512, 'q', false },
   { {"common_avx512"}, CK_CommonAVX512, ~0U, FeaturesCommonAVX512, 'q', true },
@@ -647,6 +575,7 @@ constexpr ProcInfo Processors[] = {
   // Geode processors.
   { {"geode"}, CK_Geode, ~0U, FeaturesGeode, '\0', false },
 };
+// clang-format on
 
 constexpr const char *NoTuneList[] = {"x86-64-v2", "x86-64-v3", "x86-64-v4"};
 
@@ -1042,18 +971,13 @@ constexpr FeatureBitset ImpliedFeaturesWIDEKL = FeatureKL;
 constexpr FeatureBitset ImpliedFeaturesAVXVNNI = FeatureAVX2;
 
 constexpr FeatureInfo FeatureInfos[X86::CPU_FEATURE_MAX] = {
-#define X86_FEATURE(ENUM, STR) {{STR}, ImpliedFeatures##ENUM},
-#include "llvm/TargetParser/X86TargetParser.def"
-};
-
-constexpr FeatureInfo FeatureInfos_WithPLUS[X86::CPU_FEATURE_MAX] = {
 #define X86_FEATURE(ENUM, STR) {{"+" STR}, ImpliedFeatures##ENUM},
 #include "llvm/TargetParser/X86TargetParser.def"
 };
 
 void llvm::X86::getFeaturesForCPU(StringRef CPU,
                                   SmallVectorImpl<StringRef> &EnabledFeatures,
-                                  bool IfNeedPlus) {
+                                  bool NeedPlus) {
   auto I = llvm::find_if(Processors,
                          [&](const ProcInfo &P) { return P.Name == CPU; });
   assert(I != std::end(Processors) && "Processor not found!");
@@ -1066,11 +990,8 @@ void llvm::X86::getFeaturesForCPU(StringRef CPU,
 
   // Add the string version of all set bits.
   for (unsigned i = 0; i != CPU_FEATURE_MAX; ++i)
-    if (Bits[i] && !FeatureInfos[i].Name.empty() &&
-        !FeatureInfos_WithPLUS[i].Name.empty()){
-      EnabledFeatures.push_back(IfNeedPlus ? FeatureInfos_WithPLUS[i].Name
-                                           : FeatureInfos[i].Name);
-    }
+    if (Bits[i] && !FeatureInfos[i].getName(NeedPlus).empty())
+      EnabledFeatures.push_back(FeatureInfos[i].getName(NeedPlus));
 }
 
 // For each feature that is (transitively) implied by this feature, set it.
@@ -1107,8 +1028,9 @@ static void getImpliedDisabledFeatures(FeatureBitset &Bits, unsigned Value) {
 void llvm::X86::updateImpliedFeatures(
     StringRef Feature, bool Enabled,
     StringMap<bool> &Features) {
-  auto I = llvm::find_if(
-      FeatureInfos, [&](const FeatureInfo &FI) { return FI.Name == Feature; });
+  auto I = llvm::find_if(FeatureInfos, [&](const FeatureInfo &FI) {
+    return FI.getName() == Feature;
+  });
   if (I == std::end(FeatureInfos)) {
     // FIXME: This shouldn't happen, but may not have all features in the table
     // yet.
@@ -1124,8 +1046,8 @@ void llvm::X86::updateImpliedFeatures(
 
   // Update the map entry for all implied features.
   for (unsigned i = 0; i != CPU_FEATURE_MAX; ++i)
-    if (ImpliedBits[i] && !FeatureInfos[i].Name.empty())
-      Features[FeatureInfos[i].Name] = Enabled;
+    if (ImpliedBits[i] && !FeatureInfos[i].getName().empty())
+      Features[FeatureInfos[i].getName()] = Enabled;
 }
 
 char llvm::X86::getCPUDispatchMangling(StringRef CPU) {
@@ -1142,18 +1064,22 @@ bool llvm::X86::validateCPUSpecificCPUDispatch(StringRef Name) {
   return I != std::end(Processors);
 }
 
-uint64_t llvm::X86::getCpuSupportsMask(ArrayRef<StringRef> FeatureStrs) {
+std::array<uint32_t, 4>
+llvm::X86::getCpuSupportsMask(ArrayRef<StringRef> FeatureStrs) {
   // Processor features and mapping to processor feature value.
-  uint64_t FeaturesMask = 0;
-  for (const StringRef &FeatureStr : FeatureStrs) {
+  std::array<uint32_t, 4> FeatureMask{};
+  for (StringRef FeatureStr : FeatureStrs) {
     unsigned Feature = StringSwitch<unsigned>(FeatureStr)
 #define X86_FEATURE_COMPAT(ENUM, STR, PRIORITY)                                \
   .Case(STR, llvm::X86::FEATURE_##ENUM)
+#define X86_MICROARCH_LEVEL(ENUM, STR, PRIORITY)                               \
+  .Case(STR, llvm::X86::FEATURE_##ENUM)
 #include "llvm/TargetParser/X86TargetParser.def"
         ;
-    FeaturesMask |= (1ULL << Feature);
+    assert(Feature / 32 < FeatureMask.size());
+    FeatureMask[Feature / 32] |= 1U << (Feature % 32);
   }
-  return FeaturesMask;
+  return FeatureMask;
 }
 
 unsigned llvm::X86::getFeaturePriority(ProcessorFeatures Feat) {
@@ -1164,13 +1090,11 @@ unsigned llvm::X86::getFeaturePriority(ProcessorFeatures Feat) {
 #define X86_FEATURE_COMPAT(ENUM, STR, PRIORITY) PRIORITY,
   unsigned Priorities[] = {
 #include "llvm/TargetParser/X86TargetParser.def"
-      std::numeric_limits<unsigned>::max() // Need to consume last comma.
   };
-  std::array<unsigned, std::size(Priorities) - 1> HelperList;
+  std::array<unsigned, std::size(Priorities)> HelperList;
   std::iota(HelperList.begin(), HelperList.end(), 0);
   assert(std::is_permutation(HelperList.begin(), HelperList.end(),
-                             std::begin(Priorities),
-                             std::prev(std::end(Priorities))) &&
+                             std::begin(Priorities), std::end(Priorities)) &&
          "Priorities don't form consecutive range!");
 #endif
 

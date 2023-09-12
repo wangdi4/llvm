@@ -3492,8 +3492,15 @@ llvm::Value *CodeGenFunction::FormX86ResolverCondition(
 #endif // INTEL_CUSTOMIZATION
   llvm::Value *Condition = nullptr;
 
-  if (!RO.Conditions.Architecture.empty())
-    Condition = EmitX86CpuIs(RO.Conditions.Architecture);
+  if (!RO.Conditions.Architecture.empty()) {
+    StringRef Arch = RO.Conditions.Architecture;
+    // If arch= specifies an x86-64 micro-architecture level, test the feature
+    // with __builtin_cpu_supports, otherwise use __builtin_cpu_is.
+    if (Arch.starts_with("x86-64"))
+      Condition = EmitX86CpuSupports({Arch});
+    else
+      Condition = EmitX86CpuIs(Arch);
+  }
 
   if (!RO.Conditions.Features.empty()) {
 #if INTEL_CUSTOMIZATION

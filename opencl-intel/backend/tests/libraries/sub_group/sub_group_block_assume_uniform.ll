@@ -1,4 +1,4 @@
-; RUN: llvm-extract %libdir/../clbltfnshared.rtl -rfunc intel_sub_group_block -S -o - | opt -opaque-pointers=1 -S -o - | FileCheck %s
+; RUN: llvm-extract %libdir/../clbltfnshared.rtl -rfunc intel_sub_group_block -S -o - | opt -S -o - | FileCheck %s
 
 ; CHECK-DAG: define <4 x i32> @_Z29intel_sub_group_block_read1_4Dv4_PU3AS1KjDv4_j(<4 x ptr addrspace(1)> %data, <4 x i32> %vec_mask){{.*}} [[ATTR_RO_128:#[0-9]+]]
 ; CHECK-DAG: call <4 x i32> @_Z29intel_sub_group_block_read1_4PU3AS1KjDv4_j(ptr addrspace(1) %vecext, <4 x i32> %vec_mask)

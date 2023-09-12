@@ -183,9 +183,8 @@ static bool isScalarTBAANode(const MDNode *MD);
 // threshold if the memcpy is transformed. If the number exceeds
 // some threshold, the expansion will give up due to performance reason.
 //
-// For Fortran, we lower all struct-to-struct copies, for structs without
-// nested ArrayTypes or VectorTypes, for compatibility with what was done
-// in ifort.
+// This code depends on TBAA MD. It must be extended, if it needs to work
+// for Fortran.
 //
 static bool isGoodStructMemcpyOpaque(AnyMemTransferInst *MI, uint64_t Size,
                                      StructType *&STy) {
@@ -282,10 +281,18 @@ static bool isGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size,
   }
   STy = SrcSTy;
   const DataLayout &DL = MI->getParent()->getModule()->getDataLayout();
+
+  // NOTE: this code depends on typed pointers. CMPLRLLVM-24134 needs to be
+  // revisited if we want this to work with opaque pointers.
+  //
+  // For Fortran, we lower all struct-to-struct copies, for structs without
+  // nested ArrayTypes or VectorTypes, for compatibility with what was done
+  // in ifort.
   if (MI->getFunction()->isFortran())
     return DL.getTypeStoreSize(SrcSTy) == Size &&
         Size <= StructCopySizeThresholdFortran &&
         !hasNonStructNonSingleValueType(SrcSTy);
+
   if ((Size & (Size - 1)) != 0)
     return false;
   MDNode *M = MI->getMetadata(LLVMContext::MD_tbaa_struct);
@@ -706,7 +713,7 @@ Instruction *InstCombinerImpl::SimplifyAnyMemSet(AnyMemSetInst *MI) {
     StoreInst *S = Builder.CreateStore(FillVal, Dest, MI->isVolatile());
     S->copyMetadata(*MI, LLVMContext::MD_DIAssignID);
     for (auto *DAI : at::getAssignmentMarkers(S)) {
-      if (any_of(DAI->location_ops(), [&](Value *V) { return V == FillC; }))
+      if (llvm::is_contained(DAI->location_ops(), FillC))
         DAI->replaceVariableLocationOp(FillC, FillVal);
     }
 
@@ -1404,7 +1411,23 @@ Instruction *InstCombinerImpl::foldIntrinsicIsFPClass(IntrinsicInst &II) {
     return replaceOperand(II, 0, FAbsSrc);
   }
 
-  // TODO: is.fpclass(x, fcInf) -> fabs(x) == inf
+  if ((OrderedMask == fcInf || OrderedInvertedMask == fcInf) &&
+      (IsOrdered || IsUnordered) && !IsStrict) {
+    // is.fpclass(x, fcInf) -> fcmp oeq fabs(x), +inf
+    // is.fpclass(x, ~fcInf) -> fcmp one fabs(x), +inf
+    // is.fpclass(x, fcInf|fcNan) -> fcmp ueq fabs(x), +inf
+    // is.fpclass(x, ~(fcInf|fcNan)) -> fcmp une fabs(x), +inf
+    Constant *Inf = ConstantFP::getInfinity(Src0->getType());
+    FCmpInst::Predicate Pred =
+        IsUnordered ? FCmpInst::FCMP_UEQ : FCmpInst::FCMP_OEQ;
+    if (OrderedInvertedMask == fcInf)
+      Pred = IsUnordered ? FCmpInst::FCMP_UNE : FCmpInst::FCMP_ONE;
+
+    Value *Fabs = Builder.CreateUnaryIntrinsic(Intrinsic::fabs, Src0);
+    Value *CmpInf = Builder.CreateFCmp(Pred, Fabs, Inf);
+    CmpInf->takeName(&II);
+    return replaceInstUsesWith(II, CmpInf);
+  }
 
   if ((OrderedMask == fcPosInf || OrderedMask == fcNegInf) &&
       (IsOrdered || IsUnordered) && !IsStrict) {
@@ -1481,8 +1504,7 @@ Instruction *InstCombinerImpl::foldIntrinsicIsFPClass(IntrinsicInst &II) {
     return replaceInstUsesWith(II, FCmp);
   }
 
-  KnownFPClass Known = computeKnownFPClass(
-      Src0, DL, Mask, 0, &getTargetLibraryInfo(), &AC, &II, &DT);
+  KnownFPClass Known = computeKnownFPClass(Src0, Mask, &II);
 
   // Clear test bits we know must be false from the source value.
   // fp_class (nnan x), qnan|snan|other -> fp_class (nnan x), other
@@ -3618,7 +3640,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     auto *DstTy = dyn_cast<FixedVectorType>(ReturnType);
     auto *VecTy = dyn_cast<FixedVectorType>(Vec->getType());
 
-    // Only canonicalize if the the destination vector and Vec are fixed
+    // Only canonicalize if the destination vector and Vec are fixed
     // vectors.
     if (DstTy && VecTy) {
       unsigned DstNumElts = DstTy->getNumElements();

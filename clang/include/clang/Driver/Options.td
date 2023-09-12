@@ -233,6 +233,8 @@ def m_x86_Features_Group : OptionGroup<"<x86 features group>">,
                            DocName<"X86">;
 def m_riscv_Features_Group : OptionGroup<"<riscv features group>">,
                              Group<m_Group>, DocName<"RISC-V">;
+def m_ve_Features_Group : OptionGroup<"<ve features group>">,
+                          Group<m_Group>, DocName<"VE">;
 
 def m_libc_Group : OptionGroup<"<m libc group>">, Group<m_mips_Features_Group>,
                    Flags<[HelpHidden]>;
@@ -312,12 +314,6 @@ def : Flag<["-"], "fno-slp-vectorize-aggressive">, Group<clang_ignored_legacy_op
 // Retired with clang-10.0. Previously controlled X86 MPX ISA.
 def mmpx : Flag<["-"], "mmpx">, Group<clang_ignored_legacy_options_Group>;
 def mno_mpx : Flag<["-"], "mno-mpx">, Group<clang_ignored_legacy_options_Group>;
-
-// Retired with clang-16.0, to provide a deprecation period; it should
-// be removed in Clang 18 or later.
-def enable_trivial_var_init_zero : Flag<["-"], "enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang">,
-  Flags<[NoArgumentUnused]>, Visibility<[ClangOption, CC1Option, CLOption]>,
-  Group<clang_ignored_legacy_options_Group>;
 
 // Group that ignores all gcc optimizations that won't be implemented
 def clang_ignored_gcc_optimization_f_Group : OptionGroup<
@@ -877,6 +873,7 @@ are searched. If the same directory is in the SYSTEM include search
 paths, for example if also specified with -isystem, the -I option
 will be ignored}]>;
 def L : JoinedOrSeparate<["-"], "L">, Flags<[RenderJoined]>, Group<Link_Group>,
+    Visibility<[ClangOption, FlangOption]>,
     MetaVarName<"<dir>">, HelpText<"Add directory to library search path">;
 def MD : Flag<["-"], "MD">, Group<M_Group>,
     HelpText<"Write a depfile containing user and system headers">;
@@ -1782,6 +1779,17 @@ defm autolink : BoolFOption<"autolink",
   NegFlag<SetFalse, [], [ClangOption, CC1Option],
           "Disable generation of linker directives for automatic library linking">,
   PosFlag<SetTrue>>;
+
+let Flags = [TargetSpecific] in {
+defm auto_import : BoolFOption<"auto-import",
+  CodeGenOpts<"AutoImport">, DefaultTrue,
+  NegFlag<SetFalse, [], [ClangOption, CC1Option],
+          "MinGW specific. Disable support for automatic dllimport in code generation "
+          "and linking">,
+  PosFlag<SetTrue, [], [], "MinGW specific. Enable code generation support for "
+          "automatic dllimport, and enable support for it in the linker. "
+          "Enabled by default.">>;
+} // let Flags = [TargetSpecific]
 
 // In the future this option will be supported by other offloading
 // languages and accept other values such as CPU/GPU architectures,
@@ -2752,13 +2760,13 @@ defm reciprocal_math : BoolFOption<"reciprocal-math",
   PosFlag<SetTrue, [], [ClangOption, CC1Option, FC1Option, FlangOption],
           "Allow division operations to be reassociated",
           [funsafe_math_optimizations.KeyPath]>,
-  NegFlag<SetFalse>>;
+  NegFlag<SetFalse, [], [ClangOption, CC1Option, FC1Option, FlangOption]>>;
 defm approx_func : BoolFOption<"approx-func", LangOpts<"ApproxFunc">, DefaultFalse,
    PosFlag<SetTrue, [], [ClangOption, CC1Option, FC1Option, FlangOption],
            "Allow certain math function calls to be replaced "
            "with an approximately equivalent calculation",
            [funsafe_math_optimizations.KeyPath]>,
-   NegFlag<SetFalse>>;
+   NegFlag<SetFalse, [], [ClangOption, CC1Option, FC1Option, FlangOption]>>;
 defm finite_math_only : BoolFOption<"finite-math-only",
   LangOpts<"FiniteMathOnly">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, CC1Option],
@@ -2772,7 +2780,7 @@ defm signed_zeros : BoolFOption<"signed-zeros",
   NegFlag<SetTrue, [], [ClangOption, CC1Option, FC1Option, FlangOption],
           "Allow optimizations that ignore the sign of floating point zeros",
             [cl_no_signed_zeros.KeyPath, funsafe_math_optimizations.KeyPath]>,
-  PosFlag<SetFalse>>;
+  PosFlag<SetFalse, [], [ClangOption, CC1Option, FC1Option, FlangOption]>>;
 def fhonor_nans : Flag<["-"], "fhonor-nans">, Group<f_Group>,
   Visibility<[ClangOption, FlangOption]>,
   HelpText<"Specify that floating-point optimizations are not allowed that "
@@ -3725,7 +3733,7 @@ def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>,
 def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>,
   Flags<[NoArgumentUnused]>,
   Visibility<[ClangOption, CC1Option, FlangOption, FC1Option]>,
-  HelpText<"Set OpenMP version (e.g. 45 for OpenMP 4.5, 50 for OpenMP 5.0). Default value is 50 for Clang and 11 for Flang">;
+  HelpText<"Set OpenMP version (e.g. 45 for OpenMP 4.5, 51 for OpenMP 5.1). Default value is 51 for Clang">;
 defm openmp_extensions: BoolFOption<"openmp-extensions",
   LangOpts<"OpenMPExtensions">, DefaultTrue,
   PosFlag<SetTrue, [NoArgumentUnused], [ClangOption, CC1Option],
@@ -4002,12 +4010,12 @@ defm ropi : BoolFOption<"ropi",
   LangOpts<"ROPI">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, FlangOption, CC1Option],
           "Generate read-only position independent code (ARM only)">,
-  NegFlag<SetFalse>>;
+  NegFlag<SetFalse, [], [ClangOption, FlangOption, CC1Option]>>;
 defm rwpi : BoolFOption<"rwpi",
   LangOpts<"RWPI">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, FlangOption, CC1Option],
           "Generate read-write position independent code (ARM only)">,
-  NegFlag<SetFalse>>;
+  NegFlag<SetFalse, [], [ClangOption, FlangOption, CC1Option]>>;
 def fplugin_EQ : Joined<["-"], "fplugin=">, Group<f_Group>,
   Flags<[NoXarchOption]>, MetaVarName<"<dsopath>">,
   HelpText<"Load the named plugin (dynamic shared object)">;
@@ -6173,6 +6181,10 @@ def print_supported_cpus : Flag<["-", "--"], "print-supported-cpus">,
   HelpText<"Print supported cpu models for the given target (if target is not specified,"
            " it will print the supported cpus for the default target)">,
   MarshallingInfoFlag<FrontendOpts<"PrintSupportedCPUs">>;
+def print_supported_extensions : Flag<["-", "--"], "print-supported-extensions">,
+  Visibility<[ClangOption, CC1Option, CLOption]>,
+  HelpText<"Print supported extensions for RISC-V">,
+  MarshallingInfoFlag<FrontendOpts<"PrintSupportedExtensions">>;
 def : Flag<["-"], "mcpu=help">, Alias<print_supported_cpus>;
 def : Flag<["-"], "mtune=help">, Alias<print_supported_cpus>;
 def time : Flag<["-"], "time">,
@@ -6262,7 +6274,7 @@ def y : Joined<["-"], "y">;
 defm integrated_as : BoolFOption<"integrated-as",
   CodeGenOpts<"DisableIntegratedAS">, DefaultFalse,
   NegFlag<SetTrue, [], [ClangOption, CC1Option, FlangOption], "Disable">,
-  PosFlag<SetFalse, [], [ClangOption], "Enable">,
+  PosFlag<SetFalse, [], [ClangOption, CC1Option, FlangOption], "Enable">,
   BothFlags<[], [ClangOption], " the integrated assembler">>;
 
 def fintegrated_cc1 : Flag<["-"], "fintegrated-cc1">,
@@ -7084,6 +7096,13 @@ def mno_scatter : Flag<["-"], "mno-scatter">, Group<m_Group>,
                   HelpText<"Disable generation of scatter instructions in auto-vectorization(x86 only)">;
 } // let Flags = [TargetSpecific]
 
+// VE feature flags
+let Flags = [TargetSpecific] in {
+def mvevpu : Flag<["-"], "mvevpu">, Group<m_ve_Features_Group>,
+  HelpText<"Emit VPU instructions for VE">;
+def mno_vevpu : Flag<["-"], "mno-vevpu">, Group<m_ve_Features_Group>;
+} // let Flags = [TargetSpecific]
+
 // These are legacy user-facing driver-level option spellings. They are always
 // aliases for options that are spelled using the more common Unix / GNU flag
 // style of double-dash and equals-joined flags.
@@ -7234,7 +7253,7 @@ def fbinutils_version_EQ : Joined<["-"], "fbinutils-version=">,
   "generated assembly will consider GNU as support. 'none' means that all ELF "
   "features can be used, regardless of binutils support. Defaults to 2.26.">;
 def fuse_ld_EQ : Joined<["-"], "fuse-ld=">, Group<f_Group>,
-  Flags<[LinkOption]>, Visibility<[ClangOption, CLOption]>;
+  Flags<[LinkOption]>, Visibility<[ClangOption, FlangOption, CLOption]>;
 def ld_path_EQ : Joined<["--"], "ld-path=">, Group<Link_Group>;
 
 defm align_labels : BooleanFFlag<"align-labels">, Group<clang_ignored_gcc_optimization_f_Group>;

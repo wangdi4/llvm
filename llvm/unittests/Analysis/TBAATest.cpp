@@ -66,7 +66,11 @@ static std::pair <StoreInst*, LoadInst*> getFunctionWithLoadStore(Module *M, Str
   auto *SI = new StoreInst(ConstantInt::get(CharType, 10),
                            dyn_cast<Value>(CharGlobal), BB);
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   auto *IntPtrType = Type::getInt32PtrTy(C);
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
+  auto *IntPtrType = PointerType::getUnqual(C);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   auto *LI = new LoadInst(Type::getInt32Ty(C),
                           ConstantPointerNull::get(IntPtrType), "load", BB);
 

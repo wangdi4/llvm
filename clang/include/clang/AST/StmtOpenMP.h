@@ -2307,6 +2307,7 @@ public:
     return T->getStmtClass() == OMPPrefetchDirectiveClass;
   }
 };
+#endif // INTEL_COLLAB
 
 /// This represents '#pragma omp scope' directive.
 /// \code
@@ -2342,9 +2343,10 @@ public:
   /// \param EndLoc Ending Location of the directive.
   /// \param AssociatedStmt Statement, associated with the directive.
   ///
-  static OMPScopeDirective *
-  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt);
+  static OMPScopeDirective *Create(const ASTContext &C, SourceLocation StartLoc,
+                                   SourceLocation EndLoc,
+                                   ArrayRef<OMPClause *> Clauses,
+                                   Stmt *AssociatedStmt);
 
   /// Creates an empty directive.
   ///
@@ -2357,7 +2359,6 @@ public:
     return T->getStmtClass() == OMPScopeDirectiveClass;
   }
 };
-#endif // INTEL_COLLAB
 
 /// This represents '#pragma omp single' directive.
 ///

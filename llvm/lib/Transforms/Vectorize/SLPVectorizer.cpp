@@ -359,6 +359,17 @@ static bool isVectorLikeInstWithConstOps(Value *V) {
   return isConstant(I->getOperand(2));
 }
 
+#if !defined(NDEBUG)
+/// Print a short descriptor of the instruction bundle suitable for debug output.
+static std::string shortBundleName(ArrayRef<Value *> VL) {
+  std::string Result;
+  raw_string_ostream OS(Result);
+  OS << "n=" << VL.size() << " [" << *VL.front() << ", ..]";
+  OS.flush();
+  return Result;
+}
+#endif
+
 /// \returns true if all of the instructions in \p VL are in the same block or
 /// false otherwise.
 static bool allSameBlock(ArrayRef<Value *> VL) {
@@ -822,7 +833,7 @@ static Value *isOneOf(const InstructionsState &S, Value *Op) {
   return S.OpValue;
 }
 
-/// \returns true if \p Opcode is allowed as part of of the main/alternate
+/// \returns true if \p Opcode is allowed as part of the main/alternate
 /// instruction for SLP vectorization.
 ///
 /// Example of unsupported opcode is SDIV that can potentially cause UB if the
@@ -2454,7 +2465,7 @@ public:
       for (int Pass = 0; Pass != 2; ++Pass) {
         // Check if no need to reorder operands since they're are perfect or
         // shuffled diamond match.
-        // Need to to do it to avoid extra external use cost counting for
+        // Need to do it to avoid extra external use cost counting for
         // shuffled matches, which may cause regressions.
         if (SkipReordering())
           break;
@@ -3809,7 +3820,7 @@ private:
 
   /// Return information about the vector formed for the specified index
   /// of a vector of (the same) instruction.
-  TargetTransformInfo::OperandValueInfo getOperandInfo(ArrayRef<Value *> VL,
+  TargetTransformInfo::OperandValueInfo getOperandInfo(const TreeEntry &E,
                                                        unsigned OpIdx);
 
   /// \returns the cost of the vectorizable entry.
@@ -3902,9 +3913,9 @@ private:
   collectUserStores(const BoUpSLP::TreeEntry *TE) const;
 
   /// Helper for `findExternalStoreUsersReorderIndices()`. It checks if the
-  /// stores in \p StoresVec can form a vector instruction. If so it returns true
-  /// and populates \p ReorderIndices with the shuffle indices of the the stores
-  /// when compared to the sorted vector.
+  /// stores in \p StoresVec can form a vector instruction. If so it returns
+  /// true and populates \p ReorderIndices with the shuffle indices of the
+  /// stores when compared to the sorted vector.
   bool canFormVector(ArrayRef<StoreInst *> StoresVec,
                      OrdersType &ReorderIndices) const;
 
@@ -5862,7 +5873,9 @@ BoUpSLP::getReorderingData(const TreeEntry &TE, bool TopToBottom) {
       !TE.isAltShuffle())
     return TE.ReorderIndices;
   if (TE.State == TreeEntry::Vectorize && TE.getOpcode() == Instruction::PHI) {
-    auto PHICompare = [](llvm::Value *V1, llvm::Value *V2) {
+    auto PHICompare = [&](unsigned I1, unsigned I2) {
+      Value *V1 = TE.Scalars[I1];
+      Value *V2 = TE.Scalars[I2];
       if (V1 == V2)
         return false;
       if (!V1->hasOneUse() || !V2->hasOneUse())
@@ -5901,14 +5914,13 @@ BoUpSLP::getReorderingData(const TreeEntry &TE, bool TopToBottom) {
     };
     if (!TE.ReorderIndices.empty())
       return TE.ReorderIndices;
-    DenseMap<Value *, unsigned> PhiToId;
-    SmallVector<Value *, 4> Phis;
+    DenseMap<unsigned, unsigned> PhiToId;
+    SmallVector<unsigned> Phis(TE.Scalars.size());
+    std::iota(Phis.begin(), Phis.end(), 0);
     OrdersType ResOrder(TE.Scalars.size());
-    for (unsigned Id = 0, Sz = TE.Scalars.size(); Id < Sz; ++Id) {
-      PhiToId[TE.Scalars[Id]] = Id;
-      Phis.push_back(TE.Scalars[Id]);
-    }
-    llvm::stable_sort(Phis, PHICompare);
+    for (unsigned Id = 0, Sz = TE.Scalars.size(); Id < Sz; ++Id)
+      PhiToId[Id] = Id;
+    stable_sort(Phis, PHICompare);
     for (unsigned Id = 0, Sz = Phis.size(); Id < Sz; ++Id)
       ResOrder[Id] = PhiToId[Phis[Id]];
     if (IsIdentityOrder(ResOrder))
@@ -8136,7 +8148,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
                                    ReuseShuffleIndicies);
       TE->setOperandsInOrder();
       for (unsigned i = 0, e = CI->arg_size(); i != e; ++i) {
-        // For scalar operands no need to to create an entry since no need to
+        // For scalar operands no need to create an entry since no need to
         // vectorize it.
         if (isVectorIntrinsicWithScalarOpAtArg(ID, i))
           continue;
@@ -8449,52 +8461,29 @@ static bool isAlternateInstruction(const Instruction *I,
   return I->getOpcode() == AltOp->getOpcode();
 }
 
-TTI::OperandValueInfo BoUpSLP::getOperandInfo(ArrayRef<Value *> VL,
+TTI::OperandValueInfo BoUpSLP::getOperandInfo(const TreeEntry &E,
                                               unsigned OpIdx) {
+  ArrayRef<Value*> VL = E.getOperand(OpIdx);
   assert(!VL.empty());
-  const auto *I0 = cast<Instruction>(*find_if(VL, Instruction::classof));
-  const auto *Op0 = I0->getOperand(OpIdx);
+  const auto *Op0 = VL.front();
 
-  const bool IsConstant = all_of(VL, [&](Value *V) {
+  const bool IsConstant = all_of(VL, [](Value *V) {
     // TODO: We should allow undef elements here
-    const auto *I = dyn_cast<Instruction>(V);
-    if (!I)
-      return true;
-    auto *Op = I->getOperand(OpIdx);
-    return isConstant(Op) && !isa<UndefValue>(Op);
+    return isConstant(V) && !isa<UndefValue>(V);
   });
-  const bool IsUniform = all_of(VL, [&](Value *V) {
+  const bool IsUniform = all_of(VL, [=](Value *V) {
     // TODO: We should allow undef elements here
-    const auto *I = dyn_cast<Instruction>(V);
-    if (!I)
-      return false;
-    return I->getOperand(OpIdx) == Op0;
+    return V == Op0;
   });
-  const bool IsPowerOfTwo = all_of(VL, [&](Value *V) {
+  const bool IsPowerOfTwo = all_of(VL, [](Value *V) {
     // TODO: We should allow undef elements here
-    const auto *I = dyn_cast<Instruction>(V);
-    if (!I) {
-      assert((isa<UndefValue>(V) ||
-              I0->getOpcode() == Instruction::GetElementPtr) &&
-             "Expected undef or GEP.");
-      return true;
-    }
-    auto *Op = I->getOperand(OpIdx);
-    if (auto *CI = dyn_cast<ConstantInt>(Op))
+    if (auto *CI = dyn_cast<ConstantInt>(V))
       return CI->getValue().isPowerOf2();
     return false;
   });
-  const bool IsNegatedPowerOfTwo = all_of(VL, [&](Value *V) {
+  const bool IsNegatedPowerOfTwo = all_of(VL, [](Value *V) {
     // TODO: We should allow undef elements here
-    const auto *I = dyn_cast<Instruction>(V);
-    if (!I) {
-      assert((isa<UndefValue>(V) ||
-              I0->getOpcode() == Instruction::GetElementPtr) &&
-             "Expected undef or GEP.");
-      return true;
-    }
-    const auto *Op = I->getOperand(OpIdx);
-    if (auto *CI = dyn_cast<ConstantInt>(Op))
+    if (auto *CI = dyn_cast<ConstantInt>(V))
       return CI->getValue().isNegatedPowerOf2();
     return false;
   });
@@ -9397,8 +9386,8 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
         // node. Cost is 0.
         LLVM_DEBUG(
             dbgs()
-            << "SLP: perfect diamond match for gather bundle that starts with "
-            << *VL.front() << ".\n");
+            << "SLP: perfect diamond match for gather bundle "
+            << shortBundleName(VL) << ".\n");
         // Restore the mask for previous partially matched values.
         for (auto [I, V] : enumerate(E->Scalars)) {
           if (isa<PoisonValue>(V)) {
@@ -9424,8 +9413,8 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
           GatheredScalars[I] = PoisonValue::get(ScalarTy);
       }
       LLVM_DEBUG(dbgs() << "SLP: shuffled " << Entries.size()
-                        << " entries for bundle that starts with "
-                        << *VL.front() << ".\n";);
+                        << " entries for bundle "
+                        << shortBundleName(VL) << ".\n");
       if (Entries.size() == 1)
         Estimator.add(Entries.front(), Mask);
       else
@@ -9944,8 +9933,8 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
     };
     auto GetVectorCost = [=](InstructionCost CommonCost) {
       unsigned OpIdx = isa<UnaryOperator>(VL0) ? 0 : 1;
-      TTI::OperandValueInfo Op1Info = getOperandInfo(VL, 0);
-      TTI::OperandValueInfo Op2Info = getOperandInfo(VL, OpIdx);
+      TTI::OperandValueInfo Op1Info = getOperandInfo(*E, 0);
+      TTI::OperandValueInfo Op2Info = getOperandInfo(*E, OpIdx);
       return TTI->getArithmeticInstrCost(ShuffleOrOp, VecTy, CostKind, Op1Info,
                                          Op2Info) +
              CommonCost;
@@ -10023,7 +10012,7 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
     bool IsReorder = !E->ReorderIndices.empty();
     auto GetScalarCost = [=](unsigned Idx) {
       auto *VI = cast<StoreInst>(VL[Idx]);
-      TTI::OperandValueInfo OpInfo = getOperandInfo(VI, 0);
+      TTI::OperandValueInfo OpInfo = TTI::getOperandInfo(VI->getValueOperand());
       return TTI->getMemoryOpCost(Instruction::Store, ScalarTy, VI->getAlign(),
                                   VI->getPointerAddressSpace(), CostKind,
                                   OpInfo, VI);
@@ -10032,7 +10021,7 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
         cast<StoreInst>(IsReorder ? VL[E->ReorderIndices.front()] : VL0);
     auto GetVectorCost = [=](InstructionCost CommonCost) {
       // We know that we can merge the stores. Calculate the cost.
-      TTI::OperandValueInfo OpInfo = getOperandInfo(VL, 0);
+      TTI::OperandValueInfo OpInfo = getOperandInfo(*E, 0);
       return TTI->getMemoryOpCost(Instruction::Store, VecTy, BaseSI->getAlign(),
                                   BaseSI->getPointerAddressSpace(), CostKind,
                                   OpInfo) +
@@ -10591,8 +10580,8 @@ InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals) {
           E->isSame(TE.Scalars)) {
         // Some gather nodes might be absolutely the same as some vectorizable
         // nodes after reordering, need to handle it.
-        LLVM_DEBUG(dbgs() << "SLP: Adding cost 0 for bundle that starts with "
-                          << *TE.Scalars[0] << ".\n"
+        LLVM_DEBUG(dbgs() << "SLP: Adding cost 0 for bundle "
+                          << shortBundleName(TE.Scalars) << ".\n"
                           << "SLP: Current total cost = " << Cost << "\n");
         continue;
       }
@@ -10603,9 +10592,8 @@ InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals) {
     TE.Cost = C;
 #endif // INTEL_CUSTOMIZATION
     Cost += C;
-    LLVM_DEBUG(dbgs() << "SLP: Adding cost " << C
-                      << " for bundle that starts with " << *TE.Scalars[0]
-                      << ".\n"
+    LLVM_DEBUG(dbgs() << "SLP: Adding cost " << C << " for bundle "
+                      << shortBundleName(TE.Scalars) << ".\n"
                       << "SLP: Current total cost = " << Cost << "\n");
   }
 
@@ -11997,8 +11985,8 @@ ResTy BoUpSLP::processBuildVector(const TreeEntry *E, Args &...Params) {
         // node. Cost is 0.
         LLVM_DEBUG(
             dbgs()
-            << "SLP: perfect diamond match for gather bundle that starts with "
-            << *E->Scalars.front() << ".\n");
+            << "SLP: perfect diamond match for gather bundle "
+            << shortBundleName(E->Scalars) << ".\n");
         // Restore the mask for previous partially matched values.
         if (Entries.front()->ReorderIndices.empty() &&
             ((Entries.front()->ReuseShuffleIndices.empty() &&
@@ -12102,22 +12090,22 @@ ResTy BoUpSLP::processBuildVector(const TreeEntry *E, Args &...Params) {
       if (It != Scalars.end()) {
         // Replace undefs by the non-poisoned scalars and emit broadcast.
         int Pos = std::distance(Scalars.begin(), It);
-        for_each(UndefPos, [&](int I) {
+        for (int I : UndefPos) {
           // Set the undef position to the non-poisoned scalar.
           ReuseMask[I] = Pos;
           // Replace the undef by the poison, in the mask it is replaced by
           // non-poisoned scalar already.
           if (I != Pos)
             Scalars[I] = PoisonValue::get(ScalarTy);
-        });
+        }
       } else {
         // Replace undefs by the poisons, emit broadcast and then emit
         // freeze.
-        for_each(UndefPos, [&](int I) {
+        for (int I : UndefPos) {
           ReuseMask[I] = PoisonMaskElem;
           if (isa<UndefValue>(Scalars[I]))
             Scalars[I] = PoisonValue::get(ScalarTy);
-        });
+        }
         NeedFreeze = true;
       }
     }
@@ -16699,8 +16687,7 @@ private:
                                    bool IsCmpSelMinMax, unsigned ReduxWidth,
                                    FastMathFlags FMF) {
     TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
-    Value *FirstReducedVal = ReducedVals.front();
-    Type *ScalarTy = FirstReducedVal->getType();
+    Type *ScalarTy = ReducedVals.front()->getType();
     FixedVectorType *VectorTy = FixedVectorType::get(ScalarTy, ReduxWidth);
     InstructionCost VectorCost = 0, ScalarCost;
     // If all of the reduced values are constant, the vector cost is 0, since
@@ -16749,7 +16736,7 @@ private:
             TTI->getArithmeticReductionCost(RdxOpcode, VectorTy, FMF, CostKind);
 #if INTEL_COLLAB
       if (RdxKind == RecurKind::FAdd) {
-        auto *I = dyn_cast<Instruction>(FirstReducedVal);
+        auto *I = dyn_cast<Instruction>(ReducedVals.front());
         if (I &&
             I->getOpcode() == Instruction::FMul &&
             I->hasAllowContract()) {
@@ -16790,7 +16777,7 @@ private:
     }
 
     LLVM_DEBUG(dbgs() << "SLP: Adding cost " << VectorCost - ScalarCost
-                      << " for reduction that starts with " << *FirstReducedVal
+                      << " for reduction of " << shortBundleName(ReducedVals)
                       << " (It is a splitting reduction)\n");
     return VectorCost - ScalarCost;
   }
@@ -16805,7 +16792,7 @@ private:
            "A call to the llvm.fmuladd intrinsic is not handled yet");
 
     ++NumVectorInstructions;
-    return createSimpleTargetReduction(Builder, TTI, VectorizedValue, RdxKind);
+    return createSimpleTargetReduction(Builder, VectorizedValue, RdxKind);
   }
 
   /// Emits optimized code for unique scalar value reused \p Cnt times.

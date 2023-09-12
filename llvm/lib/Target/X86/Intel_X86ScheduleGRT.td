@@ -100,7 +100,7 @@ multiclass GRTWriteResPair<X86FoldableSchedWrite SchedRW,
   // Register variant is using a single cycle on ExePort.
   def : WriteRes<SchedRW, ExePorts> {
     let Latency = Lat;
-    let ResourceCycles = Res;
+    let ReleaseAtCycles = Res;
     let NumMicroOps = UOps;
   }
 
@@ -108,7 +108,7 @@ multiclass GRTWriteResPair<X86FoldableSchedWrite SchedRW,
   // the latency (default = 4).
   def : WriteRes<SchedRW.Folded, !listconcat([GRTPort10_11], ExePorts)> {
     let Latency = !add(Lat, LoadLat);
-    let ResourceCycles = !listconcat([NumLD], Res);
+    let ReleaseAtCycles = !listconcat([NumLD], Res);
     let NumMicroOps = !add(UOps, NumLD);
   }
 }
@@ -745,7 +745,7 @@ def : InstRW<[GRTWriteResGroup12], (instregex "^CMPXCHG(8|16)B$",
                                               "^LCMPXCHG16B$")>;
 
 def GRTWriteResGroup13 : SchedWriteRes<[GRTPortInvalid, GRTPort00_01_02_03, GRTPort08_09, GRTPort10_11, GRTPort12_13]> {
-  let ResourceCycles = [1, 5, 1, 1, 1];
+  let ReleaseAtCycles = [1, 5, 1, 1, 1];
   let Latency = 9;
   let NumMicroOps = 9;
 }
@@ -753,7 +753,7 @@ def : InstRW<[GRTWriteResGroup13], (instregex "^CMPXCHG8rm$",
                                               "^LCMPXCHG8$")>;
 
 def GRTWriteResGroup14 : SchedWriteRes<[GRTPort00_01_02_03]> {
-  let ResourceCycles = [3];
+  let ReleaseAtCycles = [3];
   let Latency = 4;
   let NumMicroOps = 3;
 }
@@ -786,14 +786,14 @@ def : InstRW<[GRTWriteResGroup17], (instregex "^F(DE|IN)CSTP$",
                                               "^ST_FPrr$")>;
 
 def GRTWriteResGroup18 : SchedWriteRes<[GRTPort00_01_02_03, GRTPort20_21]> {
-  let ResourceCycles = [1, 2];
+  let ReleaseAtCycles = [1, 2];
   let Latency = 3;
   let NumMicroOps = 3;
 }
 def : InstRW<[GRTWriteResGroup18], (instregex "^FFREEP$")>;
 
 def GRTWriteResGroup19 : SchedWriteRes<[GRTPort00_01_02_03, GRTPort20]> {
-  let ResourceCycles = [2, 1];
+  let ReleaseAtCycles = [2, 1];
   let Latency = 6;
   let NumMicroOps = 3;
 }
@@ -811,7 +811,7 @@ def : InstRW<[GRTWriteResGroup21], (instregex "^JMP64r$",
                                               "^PTWRITE((64)?)r$")>;
 
 def GRTWriteResGroup22 : SchedWriteRes<[GRTPort00_01_02_03, GRTPort10_11]> {
-  let ResourceCycles = [3, 1];
+  let ReleaseAtCycles = [3, 1];
   let Latency = 7;
   let NumMicroOps = 4;
 }
@@ -819,7 +819,7 @@ def : InstRW<[GRTWriteResGroup22], (instregex "^LEAVE64$",
                                               "^POP16r$")>;
 
 def GRTWriteResGroup23 : SchedWriteRes<[GRTPortInvalid, GRTPort00_01_02_03, GRTPort08_09, GRTPort10_11, GRTPort12_13]> {
-  let ResourceCycles = [1, 2, 1, 1, 1];
+  let ReleaseAtCycles = [1, 2, 1, 1, 1];
   let Latency = 6;
   let NumMicroOps = 6;
 }
@@ -848,7 +848,7 @@ def : InstRW<[GRTWriteResGroup26], (instregex "^MMX_MOVQ2DQrr$",
                                               "^MMX_MOVQ2FR64rr$")>;
 
 def GRTWriteResGroup27 : SchedWriteRes<[GRTPort00_01_02_03, GRTPort10_11, GRTPort20_21_22]> {
-  let ResourceCycles = [1, 1, 3];
+  let ReleaseAtCycles = [1, 1, 3];
   let Latency = 8;
   let NumMicroOps = 5;
 }
@@ -856,7 +856,7 @@ def : InstRW<[GRTWriteResGroup27, ReadAfterVecLd], (instregex "^MMX_PH(ADD|SUB)D
 def : InstRW<[GRTWriteResGroup27, ReadAfterVecXLd], (instregex "^VPH(ADD|SUB)Drm$")>;
 
 def GRTWriteResGroup28 : SchedWriteRes<[GRTPort00_01_02_03, GRTPort20_21_22]> {
-  let ResourceCycles = [1, 3];
+  let ReleaseAtCycles = [1, 3];
   let Latency = 4;
   let NumMicroOps = 4;
 }
@@ -889,7 +889,7 @@ def GRTWriteResGroup32 : SchedWriteRes<[GRTPort00_01_02_03, GRTPort08_09, GRTPor
 def : InstRW<[GRTWriteResGroup32], (instregex "^MOVBE(16|32|64)mr$")>;
 
 def GRTWriteResGroup33 : SchedWriteRes<[GRTPortInvalid, GRTPort10_11, GRTPort20]> {
-  let ResourceCycles = [1, 1, 2];
+  let ReleaseAtCycles = [1, 1, 2];
   let Latency = 13;
   let NumMicroOps = 4;
 }
@@ -902,7 +902,7 @@ def GRTWriteResGroup34 : SchedWriteRes<[GRTPort01, GRTPort10_11]> {
 def : InstRW<[GRTWriteResGroup34, ReadAfterLd], (instregex "^P(DEP|EXT)(32|64)rm$")>;
 
 def GRTWriteResGroup35 : SchedWriteRes<[GRTPortInvalid, GRTPort00_01_02_03, GRTPort08_09, GRTPort10_11, GRTPort12_13, GRTPort30_31]> {
-  let ResourceCycles = [1, 2, 1, 1, 1, 1];
+  let ReleaseAtCycles = [1, 2, 1, 1, 1, 1];
   let Latency = 7;
   let NumMicroOps = 7;
 }
@@ -946,14 +946,14 @@ def : InstRW<[GRTWriteResGroup40], (instregex "^SHA1RNDS4rri$",
 def : InstRW<[GRTWriteResGroup40, ReadDefault, ReadInt2Fpu], (instregex "^VPINSRWrr$")>;
 
 def GRTWriteResGroup41 : SchedWriteRes<[GRTPortInvalid, GRTPort00_01_02_03, GRTPort08_09, GRTPort10_11, GRTPort12_13]> {
-  let ResourceCycles = [1, 3, 1, 1, 1];
+  let ReleaseAtCycles = [1, 3, 1, 1, 1];
   let Latency = 7;
   let NumMicroOps = 7;
 }
 def : InstRW<[GRTWriteResGroup41], (instregex "^SH(L|R)D32mrCL$")>;
 
 def GRTWriteResGroup42 : SchedWriteRes<[GRTPort00_01_02_03]> {
-  let ResourceCycles = [3];
+  let ReleaseAtCycles = [3];
   let Latency = 3;
   let NumMicroOps = 3;
 }
@@ -990,7 +990,7 @@ def : InstRW<[GRTWriteResGroup47], (instregex "^VAES(DE|EN)CLASTrr$",
                                               "^VAES(DE|EN)Crr$")>;
 
 def GRTWriteResGroup48 : SchedWriteRes<[GRTPort10_11, GRTPort20_21_22]> {
-  let ResourceCycles = [2, 2];
+  let ReleaseAtCycles = [2, 2];
   let Latency = 6;
   let NumMicroOps = 4;
 }
@@ -1012,19 +1012,19 @@ def : InstRW<[GRTWriteResGroup50], (instregex "^VDIVSSrr$",
                                               "^VDIVSSrr_Int$")>;
 
 def GRTWriteResGroup51 : SchedWriteRes<[GRTPort12_13, GRTPort20, GRTPort28_29]> {
-  let ResourceCycles = [2, 2, 2];
+  let ReleaseAtCycles = [2, 2, 2];
   let NumMicroOps = 6;
 }
 def : InstRW<[GRTWriteResGroup51], (instregex "^VEXTRACT(F|I)128mr$")>;
 
 def GRTWriteResGroup52 : SchedWriteRes<[GRTPort20]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let NumMicroOps = 2;
 }
 def : InstRW<[GRTWriteResGroup52], (instregex "^VEXTRACT(F|I)128rr$")>;
 
 def GRTWriteResGroup53 : SchedWriteRes<[GRTPort00_01_02_03]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let Latency = GRTModel.MaxLatency;
   let NumMicroOps = 2;
 }
@@ -1034,14 +1034,14 @@ def : InstRW<[GRTWriteResGroup53, WriteVecMaskedGatherWriteback], (instregex "^V
                                                                              "^VPGATHERDQYrm$")>;
 
 def GRTWriteResGroup54 : SchedWriteRes<[GRTPort10_11, GRTPort20_21]> {
-  let ResourceCycles = [2, 2];
+  let ReleaseAtCycles = [2, 2];
   let Latency = 9;
   let NumMicroOps = 4;
 }
 def : InstRW<[GRTWriteResGroup54, ReadAfterVecXLd], (instregex "^VGF2P8AFFINE((INV)?)QBYrmi$")>;
 
 def GRTWriteResGroup55 : SchedWriteRes<[GRTPort20_21]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let Latency = 4;
   let NumMicroOps = 2;
 }
@@ -1061,7 +1061,7 @@ def GRTWriteResGroup57 : SchedWriteRes<[GRTPort20_21]> {
 def : InstRW<[GRTWriteResGroup57], (instregex "^VGF2P8AFFINE((INV)?)QBrri$")>;
 
 def GRTWriteResGroup58 : SchedWriteRes<[GRTPort10_11, GRTPort20]> {
-  let ResourceCycles = [2, 2];
+  let ReleaseAtCycles = [2, 2];
   let Latency = 9;
   let NumMicroOps = 4;
 }
@@ -1070,7 +1070,7 @@ def : InstRW<[GRTWriteResGroup58, ReadAfterVecXLd], (instregex "^VGF2P8MULBYrm$"
 def : InstRW<[GRTWriteResGroup58, ReadAfterVecYLd], (instregex "^VPCMPGTQYrm$")>;
 
 def GRTWriteResGroup59 : SchedWriteRes<[GRTPort20]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let Latency = 4;
   let NumMicroOps = 2;
 }
@@ -1079,56 +1079,56 @@ def : InstRW<[GRTWriteResGroup59], (instregex "^VGF2P8MULBYrr$",
                                               "^VPDP(BU|WS)SD(S?)Yrr$")>;
 
 def GRTWriteResGroup60 : SchedWriteRes<[GRTPort12_13, GRTPort20, GRTPort28_29, GRTPort30_31]> {
-  let ResourceCycles = [2, 2, 2, 1];
+  let ReleaseAtCycles = [2, 2, 2, 1];
   let Latency = 3;
   let NumMicroOps = 7;
 }
 def : InstRW<[GRTWriteResGroup60], (instregex "^VMASKMOVDQU64$")>;
 
 def GRTWriteResGroup61 : SchedWriteRes<[GRTPort10_11, GRTPort20]> {
-  let ResourceCycles = [2, 2];
+  let ReleaseAtCycles = [2, 2];
   let Latency = 6;
   let NumMicroOps = 4;
 }
 def : InstRW<[GRTWriteResGroup61, ReadAfterVecYLd], (instregex "^VPERM2(F|I)128rm$")>;
 
 def GRTWriteResGroup62 : SchedWriteRes<[GRTPort20]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let Latency = 6;
   let NumMicroOps = 2;
 }
 def : InstRW<[GRTWriteResGroup62], (instregex "^VPERM2(F|I)128rr$")>;
 
 def GRTWriteResGroup63 : SchedWriteRes<[GRTPort10_11, GRTPort20]> {
-  let ResourceCycles = [2, 2];
+  let ReleaseAtCycles = [2, 2];
   let Latency = 18;
   let NumMicroOps = 4;
 }
 def : InstRW<[GRTWriteResGroup63, ReadAfterVecYLd], (instregex "^VPERM(Q|PD)Ymi$")>;
 
 def GRTWriteResGroup64 : SchedWriteRes<[GRTPort20]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let Latency = 8;
   let NumMicroOps = 2;
 }
 def : InstRW<[GRTWriteResGroup64], (instregex "^VPERM(Q|PD)Yri$")>;
 
 def GRTWriteResGroup65 : SchedWriteRes<[GRTPort00_01_02_03, GRTPort10_11, GRTPort20_21_22]> {
-  let ResourceCycles = [2, 2, 6];
+  let ReleaseAtCycles = [2, 2, 6];
   let Latency = 8;
   let NumMicroOps = 10;
 }
 def : InstRW<[GRTWriteResGroup65, ReadAfterVecYLd], (instregex "^VPH(ADD|SUB)DYrm$")>;
 
 def GRTWriteResGroup66 : SchedWriteRes<[GRTPort00_01_02_03, GRTPort20_21_22]> {
-  let ResourceCycles = [2, 6];
+  let ReleaseAtCycles = [2, 6];
   let Latency = 4;
   let NumMicroOps = 8;
 }
 def : InstRW<[GRTWriteResGroup66], (instregex "^VPH(ADD|SUB)DYrr$")>;
 
 def GRTWriteResGroup67 : SchedWriteRes<[GRTPortInvalid, GRTPort00_01_02_03, GRTPort12_13]> {
-  let ResourceCycles = [1, 2, 1];
+  let ReleaseAtCycles = [1, 2, 1];
   let Latency = 6;
   let NumMicroOps = 4;
 }

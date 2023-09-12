@@ -41,7 +41,7 @@ namespace serialization {
 /// Version 4 of AST files also requires that the version control branch and
 /// revision match exactly, since there is no backward compatibility of
 /// AST files at this time.
-const unsigned VERSION_MAJOR = 28;
+const unsigned VERSION_MAJOR = 29;
 
 /// AST file minor version number supported by this version of
 /// Clang.
@@ -2008,8 +2008,8 @@ enum StmtCode {
 #if INTEL_COLLAB
   STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE,
   STMT_OMP_PREFETCH_DIRECTIVE,
-  STMT_OMP_SCOPE_DIRECTIVE,
 #endif // INTEL_COLLAB
+  STMT_OMP_SCOPE_DIRECTIVE,
   STMT_OMP_INTEROP_DIRECTIVE,
   STMT_OMP_DISPATCH_DIRECTIVE,
   STMT_OMP_MASKED_DIRECTIVE,

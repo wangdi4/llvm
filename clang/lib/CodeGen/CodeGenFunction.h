@@ -352,7 +352,6 @@ public:
   struct CGCoroInfo {
     std::unique_ptr<CGCoroData> Data;
     bool InSuspendBlock = false;
-    bool MayCoroHandleEscape = false;
     CGCoroInfo();
     ~CGCoroInfo();
   };
@@ -364,10 +363,6 @@ public:
 
   bool inSuspendBlock() const {
     return isCoroutine() && CurCoro.InSuspendBlock;
-  }
-
-  bool mayCoroHandleEscape() const {
-    return isCoroutine() && CurCoro.MayCoroHandleEscape;
   }
 
   /// CurGD - The GlobalDecl for the current function being compiled.
@@ -1477,11 +1472,11 @@ public:
   /// destroyed by aggressive peephole optimizations that assume that
   /// all uses of a value have been realized in the IR.
   class PeepholeProtection {
-    llvm::Instruction *Inst;
+    llvm::Instruction *Inst = nullptr;
     friend class CodeGenFunction;
 
   public:
-    PeepholeProtection() : Inst(nullptr) {}
+    PeepholeProtection() = default;
   };
 
   /// A non-RAII class containing all the information about a bound
@@ -4878,16 +4873,16 @@ public:
                                   unsigned IntID);
   llvm::Value *EmitAArch64SVEBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
 
-  llvm::Value *EmitSMELd1St1(SVETypeFlags TypeFlags,
+  llvm::Value *EmitSMELd1St1(const SVETypeFlags &TypeFlags,
                              llvm::SmallVectorImpl<llvm::Value *> &Ops,
                              unsigned IntID);
-  llvm::Value *EmitSMEReadWrite(SVETypeFlags TypeFlags,
+  llvm::Value *EmitSMEReadWrite(const SVETypeFlags &TypeFlags,
                                 llvm::SmallVectorImpl<llvm::Value *> &Ops,
                                 unsigned IntID);
-  llvm::Value *EmitSMEZero(SVETypeFlags TypeFlags,
+  llvm::Value *EmitSMEZero(const SVETypeFlags &TypeFlags,
                            llvm::SmallVectorImpl<llvm::Value *> &Ops,
                            unsigned IntID);
-  llvm::Value *EmitSMELdrStr(SVETypeFlags TypeFlags,
+  llvm::Value *EmitSMELdrStr(const SVETypeFlags &TypeFlags,
                              llvm::SmallVectorImpl<llvm::Value *> &Ops,
                              unsigned IntID);
   llvm::Value *EmitAArch64SMEBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
@@ -5574,7 +5569,7 @@ private:
   llvm::Value *EmitX86CpuIs(StringRef CPUStr);
   llvm::Value *EmitX86CpuSupports(const CallExpr *E);
   llvm::Value *EmitX86CpuSupports(ArrayRef<StringRef> FeatureStrs);
-  llvm::Value *EmitX86CpuSupports(uint64_t Mask);
+  llvm::Value *EmitX86CpuSupports(std::array<uint32_t, 4> FeatureMask);
   llvm::Value *EmitX86CpuInit();
 #if INTEL_CUSTOMIZATION
   llvm::Value *FormX86ResolverCondition(const MultiVersionResolverOption &RO,

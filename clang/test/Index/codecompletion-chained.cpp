@@ -1,6 +1,3 @@
-
-// <rdar://12889089>
-
 #ifndef HEADER1
 #define HEADER1
 
@@ -29,5 +26,5 @@ Cake::
 
 // RUN: c-index-test -write-pch %t1.h.pch %s
 // INTEL RUN: c-index-test -write-pch %t2.h.pch %s -include-pch %t1.h.pch
-// INTEL RUN: c-index-test -code-completion-at=%s:25:1 %s -include-pch %t2.h.pch | FileCheck -check-prefix=CHECK-TU %s
-// INTEL RUN: c-index-test -code-completion-at=%s:25:7 %s -include-pch %t2.h.pch | FileCheck -check-prefix=CHECK-NAMESPACE %s
+// INTEL RUN: c-index-test -code-completion-at=%s:22:1 %s -include-pch %t2.h.pch | FileCheck -check-prefix=CHECK-TU %s
+// INTEL RUN: c-index-test -code-completion-at=%s:22:7 %s -include-pch %t2.h.pch | FileCheck -check-prefix=CHECK-NAMESPACE %s

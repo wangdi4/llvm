@@ -2153,13 +2153,16 @@ enum CXCursorKind {
    */
   CXCursor_OMPErrorDirective = 305,
 
+  /** OpenMP scope directive.
+   */
+  CXCursor_OMPScopeDirective = 306,
+
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 306,
-  CXCursor_OMPPrefetchDirective = 307,
-  CXCursor_OMPScopeDirective = 308,
+  CXCursor_OMPTargetVariantDispatchDirective = 307,
+  CXCursor_OMPPrefetchDirective = 308,
+  CXCursor_LastStmt = CXCursor_OMPPrefetchDirective,
+#else  /* INTEL_COLLAB */
   CXCursor_LastStmt = CXCursor_OMPScopeDirective,
-#else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPErrorDirective,
 #endif /* INTEL_COLLAB */
 
   /**

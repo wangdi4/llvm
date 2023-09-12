@@ -39,6 +39,7 @@
 #include "HIPAMD.h"
 #include "Hexagon.h"
 #include "MSP430.h"
+#include "Solaris.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/ObjCRuntime.h"
@@ -644,7 +645,7 @@ bool tools::isUseSeparateSections(const Driver &D,
   if (D.IsIntelMode())
     return false;
 #endif // INTEL_CUSTOMIZATION
-  return Triple.getOS() == llvm::Triple::CloudABI || Triple.isPS();
+  return Triple.isPS();
 }
 
 #if INTEL_CUSTOMIZATION
@@ -823,15 +824,22 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   else if (IsThinLTO && IsOSAIX)
     CmdArgs.push_back(Args.MakeArgString(Twine("-bdbg:thinlto")));
 
+  // Matrix intrinsic lowering happens at link time with ThinLTO. Enable
+  // LowerMatrixIntrinsicsPass, which is transitively called by
+  // buildThinLTODefaultPipeline under EnableMatrix.
+  if (IsThinLTO && Args.hasArg(options::OPT_fenable_matrix))
+    CmdArgs.push_back(
+        Args.MakeArgString(Twine(PluginOptPrefix) + "-enable-matrix"));
 
   StringRef Parallelism = getLTOParallelism(Args, D);
   if (!Parallelism.empty())
     CmdArgs.push_back(
         Args.MakeArgString(Twine(PluginOptPrefix) + "jobs=" + Parallelism));
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   if (!CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL)
     CmdArgs.push_back(Args.MakeArgString("-plugin-opt=no-opaque-pointers"));
-
+#endif
   // If an explicit debugger tuning argument appeared, pass it along.
   if (Arg *A =
           Args.getLastArg(options::OPT_gTune_Group, options::OPT_ggdbN_Group)) {
@@ -1660,9 +1668,11 @@ static void addSanitizerRuntime(const ToolChain &TC, const ArgList &Args,
 static bool addSanitizerDynamicList(const ToolChain &TC, const ArgList &Args,
                                     ArgStringList &CmdArgs,
                                     StringRef Sanitizer) {
+  bool LinkerIsGnuLd = solaris::isLinkerGnuLd(TC, Args);
+
   // Solaris ld defaults to --export-dynamic behaviour but doesn't support
   // the option, so don't try to pass it.
-  if (TC.getTriple().getOS() == llvm::Triple::Solaris)
+  if (TC.getTriple().isOSSolaris() && !LinkerIsGnuLd)
     return true;
   SmallString<128> SanRT(TC.getCompilerRT(Args, Sanitizer));
   if (llvm::sys::fs::exists(SanRT + ".syms")) {
@@ -1672,24 +1682,33 @@ static bool addSanitizerDynamicList(const ToolChain &TC, const ArgList &Args,
   return false;
 }
 
-const char *tools::getAsNeededOption(const ToolChain &TC, bool as_needed) {
+void tools::addAsNeededOption(const ToolChain &TC,
+                              const llvm::opt::ArgList &Args,
+                              llvm::opt::ArgStringList &CmdArgs,
+                              bool as_needed) {
   assert(!TC.getTriple().isOSAIX() &&
          "AIX linker does not support any form of --as-needed option yet.");
+  bool LinkerIsGnuLd = solaris::isLinkerGnuLd(TC, Args);
 
   // While the Solaris 11.2 ld added --as-needed/--no-as-needed as aliases
   // for the native forms -z ignore/-z record, they are missing in Illumos,
   // so always use the native form.
-  if (TC.getTriple().isOSSolaris())
-    return as_needed ? "-zignore" : "-zrecord";
-  else
-    return as_needed ? "--as-needed" : "--no-as-needed";
+  // GNU ld doesn't support -z ignore/-z record, so don't use them even on
+  // Solaris.
+  if (TC.getTriple().isOSSolaris() && !LinkerIsGnuLd) {
+    CmdArgs.push_back("-z");
+    CmdArgs.push_back(as_needed ? "ignore" : "record");
+  } else {
+    CmdArgs.push_back(as_needed ? "--as-needed" : "--no-as-needed");
+  }
 }
 
 void tools::linkSanitizerRuntimeDeps(const ToolChain &TC,
+                                     const llvm::opt::ArgList &Args,
                                      ArgStringList &CmdArgs) {
   // Force linking against the system libraries sanitizers depends on
   // (see PR15823 why this is necessary).
-  CmdArgs.push_back(getAsNeededOption(TC, false));
+  addAsNeededOption(TC, Args, CmdArgs, false);
   // There's no libpthread or librt on RTEMS & Android.
   if (TC.getTriple().getOS() != llvm::Triple::RTEMS &&
       !TC.getTriple().isAndroid() && !TC.getTriple().isOHOSFamily()) {
@@ -1933,8 +1952,10 @@ bool tools::addXRayRuntime(const ToolChain&TC, const ArgList &Args, ArgStringLis
   return false;
 }
 
-void tools::linkXRayRuntimeDeps(const ToolChain &TC, ArgStringList &CmdArgs) {
-  CmdArgs.push_back(getAsNeededOption(TC, false));
+void tools::linkXRayRuntimeDeps(const ToolChain &TC,
+                                const llvm::opt::ArgList &Args,
+                                ArgStringList &CmdArgs) {
+  addAsNeededOption(TC, Args, CmdArgs, false);
   CmdArgs.push_back("-lpthread");
   if (!TC.getTriple().isOSOpenBSD())
     CmdArgs.push_back("-lrt");
@@ -2490,7 +2511,7 @@ static void AddUnwindLibrary(const ToolChain &TC, const Driver &D,
 #endif // INTEL_CUSTOMIZATION
                   !TC.getTriple().isOSCygMing() && !TC.getTriple().isOSAIX();
   if (AsNeeded)
-    CmdArgs.push_back(getAsNeededOption(TC, true));
+    addAsNeededOption(TC, Args, CmdArgs, true);
 
   switch (UNW) {
   case ToolChain::UNW_None:
@@ -2524,7 +2545,7 @@ static void AddUnwindLibrary(const ToolChain &TC, const Driver &D,
   }
 
   if (AsNeeded)
-    CmdArgs.push_back(getAsNeededOption(TC, false));
+    addAsNeededOption(TC, Args, CmdArgs, false);
 }
 
 static void AddLibgcc(const ToolChain &TC, const Driver &D,

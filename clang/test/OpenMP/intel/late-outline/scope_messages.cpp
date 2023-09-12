@@ -1,32 +1,22 @@
 // INTEL_COLLAB
 //
 // RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
-// RUN: -fopenmp-version=51 -DLATEOUT %s -verify=expected,omp51
+// RUN: -fopenmp-version=51 %s -verify=expected,omp51
 //
 // RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
-// RUN: -fopenmp-version=52 -DLATEOUT %s -verify=expected
+// RUN: -fopenmp-version=52 %s -verify=expected
 //
-// RUN: %clang_cc1 -fopenmp -fopenmp-version=51 %s -verify=expected,omp51
-//
-// RUN: %clang_cc1 -fopenmp -fopenmp-version=52 %s -verify=expected
 void test1()
 {
   int var1;
   int var2;
   int var3 = 1;
 
-#ifdef LATEOUT
   // expected-error@+1 {{directive '#pragma omp scope' cannot contain more than one 'nowait' clause}} //omp51-error@+1{{unexpected OpenMP clause 'firstprivate' in directive '#pragma omp scope'}}
   #pragma omp scope private(var1) firstprivate(var3) reduction(+:var2) nowait nowait
   { var1 = 123; ++var2; var3 = 2;}
-#else
-  // expected-error@+1 {{unexpected OpenMP directive '#pragma omp scope'}}
-  #pragma omp scope
-  { var1 = 123; ++var2; }
-#endif
 }
 
-#if LATEOUT
 void bar();
 
 void test2() {
@@ -205,5 +195,4 @@ void test2() {
     bar();
   }
 }
-#endif // LATEOUT
 // end INTEL_COLLAB

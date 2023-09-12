@@ -144,15 +144,13 @@ struct C {
 // TARG-NEXT:    [[TMP1:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[P_ADDR_ASCAST]], align 8
 // TARG-NEXT:    [[TMP2:%.*]] = load { i64, i64 }, ptr addrspace(4) [[Q_ADDR_ASCAST]], align 8
 // TARG-NEXT:    [[MEMPTR_ADJ:%.*]] = extractvalue { i64, i64 } [[TMP2]], 1
-// TARG-NEXT:    [[TMP3:%.*]] = addrspacecast ptr addrspace(4) [[TMP1]] to ptr
-// TARG-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i8, ptr [[TMP3]], i64 [[MEMPTR_ADJ]]
-// TARG-NEXT:    [[THIS_ADJUSTED:%.*]] = addrspacecast ptr [[TMP4]] to ptr addrspace(4)
+// TARG-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i8, ptr addrspace(4) [[TMP1]], i64 [[MEMPTR_ADJ]]
 // TARG-NEXT:    [[MEMPTR_PTR:%.*]] = extractvalue { i64, i64 } [[TMP2]], 0
 // TARG-NEXT:    [[TMP5:%.*]] = and i64 [[MEMPTR_PTR]], 1
 // TARG-NEXT:    [[MEMPTR_ISVIRTUAL:%.*]] = icmp ne i64 [[TMP5]], 0
 // TARG-NEXT:    br i1 [[MEMPTR_ISVIRTUAL]], label [[MEMPTR_VIRTUAL:%.*]], label [[MEMPTR_NONVIRTUAL:%.*]]
 // TARG:       memptr.virtual:
-// TARG-NEXT:    [[VTABLE:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[THIS_ADJUSTED]], align 8
+// TARG-NEXT:    [[VTABLE:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[TMP4]], align 8
 // TARG-NEXT:    [[TMP6:%.*]] = sub i64 [[MEMPTR_PTR]], 1
 // TARG-NEXT:    [[TMP7:%.*]] = getelementptr i8, ptr addrspace(4) [[VTABLE]], i64 [[TMP6]], !nosanitize !11
 // TARG-NEXT:    [[MEMPTR_VIRTUALFN:%.*]] = load ptr, ptr addrspace(4) [[TMP7]], align 8, !nosanitize !11
@@ -165,7 +163,7 @@ struct C {
 // TARG-NEXT:    [[TMP9:%.*]] = ptrtoint ptr [[TMP8]] to i64
 // TARG-NEXT:    [[TMP10:%.*]] = call ptr addrspace(4) @__kmpc_target_translate_fptr(i64 [[TMP9]])
 // TARG-NEXT:    [[TMP11:%.*]] = addrspacecast ptr addrspace(4) [[TMP10]] to ptr
-// TARG-NEXT:    call void [[TMP11]](ptr addrspace(4) [[THIS_ADJUSTED]])
+// TARG-NEXT:    call void [[TMP11]](ptr addrspace(4) [[TMP4]])
 // TARG-NEXT:    ret void
 //
 void test_5(C *p, void (C::*q)(void)) {
