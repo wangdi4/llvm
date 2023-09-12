@@ -9145,15 +9145,18 @@ bool VPOParoptTransform::genFirstPrivatizationCode(
               NewArg, ElementTy, NewArg->getName() + Twine(".bcast"));
           RegBuilder.CreateStore(NewArg, NewPrivInst);
         } else if (!NewPrivInst ||
-            // Note that NewPrivInst will be nullptr, if the variable
-            // is also lastprivate.
+                   // Note that NewPrivInst will be nullptr, if the variable
+                   // is also lastprivate.
 #if INTEL_CUSTOMIZATION
-            // Pointers can be marked as F90_NONPODs. We need to generate
-            // cctor/dtor calls for them, instead of just copying their value.
-            FprivI->getIsF90NonPod() ||
+                   // Pointers can be marked as F90_NONPODs. We need to generate
+                   // cctor/dtor calls for them, instead of just copying their
+                   // value.
+                   FprivI->getIsF90NonPod() ||
 #endif // INTEL_CUSTOMIZATION
-            FprivI->getIsByRef() || !NewPrivInst->getType()->isPointerTy() ||
-            !ElementTy->isPointerTy()) {
+                   FprivI->getIsByRef() ||
+                   !NewPrivInst->getType()->isPointerTy() ||
+                   // Scalar ptrs like `%x = alloca ptr` can be copied by value.
+                   !(ElementTy->isPointerTy() && !NumElements)) {
           // Copy the firstprivate data from the original version to the
           // private copy. In the case of lastprivate, this is the lastprivate
           // copy. The lastprivate codegen will replace all original vars

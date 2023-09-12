@@ -1666,6 +1666,15 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
   ClonedVPLInfo->analyze(*TargetPlan->getDT());
   LLVM_DEBUG(ClonedVPLInfo->verify(*TargetPlan->getDT()));
 
+  // Copy VPLoop data
+  auto ToLoops = ClonedVPLInfo->getLoopsInPreorder();
+  auto FromLoops = getVPLoopInfo()->getLoopsInPreorder();
+  assert(ToLoops.size() == FromLoops.size() && "Loop info size mismatch!");
+  for (size_t I = 0; I < ToLoops.size(); I++) {
+    ToLoops[I]->setUnderlyingLoop(FromLoops[I]->getUnderlyingLoop());
+    ToLoops[I]->setDebugLoc(FromLoops[I]->getDebugLoc());
+  }
+
   // Update HasNormalizedInduction
   VPLoop *ThisLoop = *getVPLoopInfo()->begin();
   VPLoop *ClonedLoop = *ClonedVPLInfo->begin();

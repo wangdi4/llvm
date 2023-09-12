@@ -1847,7 +1847,7 @@ void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P, VPLoopDescrMap &LoopDescrs) {
 
   auto CopyLoop = [DestLI, SrcLI, this,
                    &LoopDescrs](VPLoop *L, VPLoop *ParentL) -> VPLoop * {
-    VPLoop *NewLoop = DestLI->AllocateLoop();
+    VPLoop *NewLoop = DestLI->AllocateLoop(L);
     if (ParentL)
       ParentL->addChildLoop(NewLoop);
     else

@@ -119,6 +119,10 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
            "VPLoopLatch does not correspond to Latch, massaging happened?");
     assert(SE && "SCEV has not been calculated.");
 
+    VPL->setUnderlyingLoop(Lp);
+    if (Lp)
+      VPL->setDebugLoc(Lp->getStartLoc());
+
     using TripCountTy = TripCountInfo::TripCountTy;
     // Check if we know the TC exactly.
     if (TripCountTy KnownTC = SE->getSmallConstantTripCount(Lp)) {
