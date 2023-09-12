@@ -4437,8 +4437,11 @@ private:
     }
     if (Last->State != TreeEntry::NeedToGather) {
       for (Value *V : VL) {
-        [[maybe_unused]] const TreeEntry *TE = getTreeEntry(V);
-        assert((!TE || TE == Last) && "Scalar already in tree!");
+        const TreeEntry *TE = getTreeEntry(V);
+        assert((!TE || TE == Last || doesNotNeedToBeScheduled(V)) &&
+               "Scalar already in tree!");
+        if (TE)
+          continue;
         ScalarToTreeEntry[V] = Last;
       }
       // Update the scheduler bundle to point to this TreeEntry.
@@ -7683,7 +7686,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
 
   // Check that none of the instructions in the bundle are already in the tree.
   for (Value *V : VL) {
-    if (!IsScatterVectorizeUserTE && !isa<Instruction>(V))
+    if ((!IsScatterVectorizeUserTE && !isa<Instruction>(V)) ||
+        doesNotNeedToBeScheduled(V))
       continue;
     if (getTreeEntry(V)) {
       LLVM_DEBUG(dbgs() << "SLP: The instruction (" << *V
@@ -9499,6 +9503,12 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
       E->isAltShuffle() ? (unsigned)Instruction::ShuffleVector : E->getOpcode();
   SetVector<Value *> UniqueValues(VL.begin(), VL.end());
   const unsigned Sz = UniqueValues.size();
+  SmallBitVector UsedScalars(Sz, false);
+  for (unsigned I = 0; I < Sz; ++I) {
+    if (getTreeEntry(UniqueValues[I]) == E)
+      continue;
+    UsedScalars.set(I);
+  }
   auto GetCostDiff =
       [=](function_ref<InstructionCost(unsigned)> ScalarEltCost,
           function_ref<InstructionCost(InstructionCost)> VectorCost) {
@@ -9508,10 +9518,13 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
           // For some of the instructions no need to calculate cost for each
           // particular instruction, we can use the cost of the single
           // instruction x total number of scalar instructions.
-          ScalarCost = Sz * ScalarEltCost(0);
+          ScalarCost = (Sz - UsedScalars.count()) * ScalarEltCost(0);
         } else {
-          for (unsigned I = 0; I < Sz; ++I)
+          for (unsigned I = 0; I < Sz; ++I) {
+            if (UsedScalars.test(I))
+              continue;
             ScalarCost += ScalarEltCost(I);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           // TODO: Ideally this cost adjustment for x86 CPUs superscalar feature
           // should belong to TTI. Currently implemented cost modeling
@@ -9544,6 +9557,9 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
             ScalarCost /= 2;
           }
 #endif // INTEL_CUSTOMIZATION
+=======
+          }
+>>>>>>> 5bab59de4463927d3680eee3762a9b27a53581e4
         }
 
         InstructionCost VecCost = VectorCost(CommonCost);
