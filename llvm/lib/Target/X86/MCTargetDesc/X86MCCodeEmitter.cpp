@@ -512,12 +512,8 @@ private:
                             const MCSubtargetInfo &STI,
                             SmallVectorImpl<char> &CB) const;
 
-<<<<<<< HEAD
-  PrefixKind emitVEXOpcodePrefix(int MemOperand, const MCInst &MI, const MCSubtargetInfo &STI, // INTEL
-=======
   PrefixKind emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
                                  const MCSubtargetInfo &STI,
->>>>>>> 24194090e17b599522a080d502ab0f68125d53dd
                                  SmallVectorImpl<char> &CB) const;
 
   void emitSegmentOverridePrefix(unsigned SegOperand, const MCInst &MI,
@@ -1117,11 +1113,7 @@ PrefixKind X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
   // REX prefix is optional, but if used must be immediately before the opcode
   // Encoding type for this instruction.
   return (TSFlags & X86II::EncodingMask)
-<<<<<<< HEAD
-             ? emitVEXOpcodePrefix(MemoryOperand, MI, STI, CB) // INTEL
-=======
              ? emitVEXOpcodePrefix(MemoryOperand, MI, STI, CB)
->>>>>>> 24194090e17b599522a080d502ab0f68125d53dd
              : emitOpcodePrefix(MemoryOperand, MI, STI, CB);
 }
 
@@ -1138,16 +1130,10 @@ PrefixKind X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
 
 /// Emit XOP, VEX2, VEX3 or EVEX prefix.
 /// \returns the used prefix.
-<<<<<<< HEAD
-PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
-                                                 const MCInst &MI, const MCSubtargetInfo &STI, // INTEL
-                                                 SmallVectorImpl<char> &CB) const {
-=======
 PrefixKind
 X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
                                       const MCSubtargetInfo &STI,
                                       SmallVectorImpl<char> &CB) const {
->>>>>>> 24194090e17b599522a080d502ab0f68125d53dd
   const MCInstrDesc &Desc = MCII.get(MI.getOpcode());
   uint64_t TSFlags = Desc.TSFlags;
 
