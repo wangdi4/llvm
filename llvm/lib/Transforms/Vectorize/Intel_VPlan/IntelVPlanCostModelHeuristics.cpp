@@ -301,8 +301,8 @@ void HeuristicSLP::apply(
     // TODO: Eventually SLP cost modelling on scalar Plan should completely
     // replace the code below and we should be able to delete it.
     for (const VPBasicBlock *Block : depth_first(&Plan->getEntryBlock())) {
-      VPlanSlp SlpDetector(CM, Block);
-      Cost += SlpDetector.estimateSLPCostDifference();
+      VPlanSLP SLPDetector(CM, Block);
+      Cost += SLPDetector.estimateSLPCostDifference();
     }
     return;
   }

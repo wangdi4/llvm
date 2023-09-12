@@ -10,7 +10,7 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// This file defines VPlanSlp class which incorporates SLP related methods
+/// This file defines VPlanSLP class which incorporates SLP related methods
 /// that are run on top of VPlan IR.
 //===----------------------------------------------------------------------===//
 
@@ -31,7 +31,7 @@ class VPInstructionCost;
 class VPlanTTICostModel;
 class VPLoadStoreInst;
 
-class VPlanSlp {
+class VPlanSLP {
   VPlanTTICostModel *CM;
   // Only instructions belonging BB are subject for SLP.
   const VPBasicBlock *BB;
@@ -40,6 +40,8 @@ class VPlanSlp {
   // Used in debugging dumps only.
   unsigned BundleID;
   unsigned GraphID;
+  // Formatted print of 'Values' into dbgs() stream.
+  static void printVector(ArrayRef<const VPValue *> Values);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Return true if at least two values from Values array can be represented
@@ -53,7 +55,7 @@ class VPlanSlp {
 
   // Returns true iff VPInstruction FromInst can be moved to ToInst.
   // TODO: It might be duplication of VPVLSClientMemref::canMoveTo().
-  // We want these utilities to be merged once VPlanSlp matures.
+  // We want these utilities to be merged once VPlanSLP matures.
   bool canMoveTo(const VPLoadStoreInst *FromInst,
                  const VPLoadStoreInst *ToInst) const;
 
@@ -146,20 +148,20 @@ class VPlanSlp {
   //
   // The costs of profitable to vectorize groups is accumulated and returned.
   VPInstructionCost formAndCostBundles(
-    ArrayRef<const VPInstruction *> InSeed,
-    std::function<bool(const VPInstruction *,
-                       const VPInstruction *) > Compare,
-    SmallVectorImpl<const VPInstruction *> *OutSeed = nullptr);
+      ArrayRef<const VPInstruction *> InSeed,
+      std::function<bool(const VPInstruction *, const VPInstruction *)> Compare,
+      SmallVectorImpl<const VPInstruction *> *OutSeed = nullptr);
 
 public:
-  VPlanSlp(VPlanTTICostModel *CM, const VPBasicBlock *BB) :
-    CM(CM), BB(BB)
+  VPlanSLP(VPlanTTICostModel *CM, const VPBasicBlock *BB)
+    : CM(CM), BB(BB)
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    , BundleID(0), GraphID(0)
+      ,
+      BundleID(0), GraphID(0)
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   {}
 
-  ~VPlanSlp() = default;
+  ~VPlanSLP() = default;
 
   // Tries to detect SLP patterns and return the cost gain if found. The
   // result is either a negative cost, which is a gain for SLP, or 0 if
