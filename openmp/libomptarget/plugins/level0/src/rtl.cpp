@@ -7606,12 +7606,7 @@ int32_t __tgt_rtl_use_interop(int32_t DeviceId, __tgt_interop *Interop) {
     return OFFLOAD_FAIL;
   }
 
-  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
-
-  if (!L0->InOrder)
-    return __tgt_rtl_sync_barrier(Interop);
-  else
-    return OFFLOAD_SUCCESS;
+  return __tgt_rtl_sync_barrier(Interop);
 }
 
 int32_t __tgt_rtl_get_num_interop_properties(int32_t DeviceId) {
@@ -8134,6 +8129,9 @@ int32_t __tgt_rtl_async_barrier(__tgt_interop *Interop) {
   if (!Interop->TargetSync)
     return OFFLOAD_SUCCESS;
 
+  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
+  if (L0->InOrder)
+    return OFFLOAD_SUCCESS;
   // use a SYCL barrier for SYCL objects unless immediate command lists
   // are being used
   if (!DeviceInfo->useImmForCompute(Interop->DeviceNum) && Interop->FrId == 4) {
@@ -8141,7 +8139,6 @@ int32_t __tgt_rtl_async_barrier(__tgt_interop *Interop) {
        DPxPTR(Interop));
     return L0Interop::SyclWrapper.append_barrier_sycl(Interop);
   } else {
-    auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
     if (DeviceInfo->useImmForCompute(Interop->DeviceNum)) {
       DP("__tgt_rtl_async_barrier: Appending ImmCmdList barrier to " DPxMOD
          "\n",
