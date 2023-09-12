@@ -539,8 +539,6 @@ public:
 
   bool isAboveThreshold() const { return Count > CountThreshold; }
 };
-<<<<<<< HEAD
-=======
 
 #include "llvm/Support/TimeProfiler.h"
 #define TIMESCOPE() llvm::TimeTraceScope TimeScope(__FUNCTION__)
@@ -562,4 +560,3 @@ public:
 #define TIMESCOPE_WITH_RTM_AND_IDENT(RegionTypeMsg, IDENT)
 
 #endif
->>>>>>> c9733b8a9efe39ec1daf20d16352657390019d86
