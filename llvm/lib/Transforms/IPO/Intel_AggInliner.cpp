@@ -179,6 +179,17 @@ class LongConsecutiveCallChainHeuristic {
   // Given two calls, determine whether inlining them is profitable. CallA and
   // CallB must be two adjacent calls in the same call chain.
   bool isProfitableToInlineCallPair(CallInst *CallA, CallInst *CallB);
+  // Add a custom "lccc-call-in-leaf" attribute to every direct call in leaf
+  // functions that is not in a loop.
+  // If there are function calls outside of the loop we're targeting in the leaf
+  // function, it's likely they'll interfere with optimizations like loop
+  // fusion. The attribute can tell later passes (e.g. partial inlining) to
+  // optimize these calls more aggressively and hopefully eliminate them.
+  // Note we put the attribute on the instructions instead of the leaf function
+  // itself, or the callers of inlined call chains. Though the latter approach
+  // is simpler, the attribute would be lost when the function carrying it is
+  // inlined.
+  void markCallsInLeafFunctions(const DenseSet<Function *> &LeafFunctions);
 
 public:
   // This class uses SetInline and SetNoInline callback to mark call sites to be
@@ -325,6 +336,23 @@ LongConsecutiveCallChainHeuristic::findChainsWithLongConsecutiveCallChain() {
   return Result;
 }
 
+void LongConsecutiveCallChainHeuristic::markCallsInLeafFunctions(
+    const DenseSet<Function *> &LeafFunctions) {
+  for (auto F : LeafFunctions) {
+    Loop *L = LeafFunctionCandidacyCache[F];
+    assert(L && "Leaf functions should've been cached");
+    for (auto &BB : *F) {
+      if (L->contains(&BB))
+        continue;
+      for (auto &I : BB) {
+        auto CI = dyn_cast<CallInst>(&I);
+        if (CI && CI->getCalledFunction())
+          CI->addFnAttr("lccc-call-in-leaf");
+      }
+    }
+  }
+}
+
 bool LongConsecutiveCallChainHeuristic::run() {
   LLVM_DEBUG(dbgs() << "AggInl: LongConsecutiveCallChainHeuristic\n");
   // First, find all long consecutive call chains.
@@ -378,6 +406,8 @@ bool LongConsecutiveCallChainHeuristic::run() {
     if (CheckProfitabilityForCallChain(Chain) != Chain->Length - 1)
       return false;
   }
+
+  markCallsInLeafFunctions(LeafFunctions);
 
   // We've found the leaf functions from the long chains. Check profitability of
   // inlining for every call chain that calls a leaf function.

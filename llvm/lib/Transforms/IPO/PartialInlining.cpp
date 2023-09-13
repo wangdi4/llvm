@@ -191,6 +191,12 @@ static cl::opt<bool> ForceRunLTOPartialInline(
 static cl::opt<bool> ForceEnableSpecialCasesPartialInline(
     "force-enable-special-cases-partial-inline", cl::init(false), cl::Hidden,
     cl::desc("Force partial inliner to handle special cases"));
+
+static cl::opt<unsigned>
+    HugeCaseCountForSwitch("partial-inline-huge-case-count", cl::init(12),
+                           cl::Hidden,
+                           cl::desc("Switch construct with this many cases is "
+                                    "considered huge in partial inlining"));
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -1504,12 +1510,55 @@ static bool SpecialEarlySwitch(Function *F) {
   auto RI = dyn_cast<ReturnInst>(*PHIN->user_begin());
   return RI;
 }
+
+// CMPLRLLVM-48721: Returns true if F met the following conditions to enable
+// partial inlining for it:
+// * The entry block is terminated by a conditional branch on a boolean global
+// variable.
+// * One of the successors of the entry block is a switch with a large number of
+// cases, the other successor is just a return.
+// * Has variadic arguments.
+// * Is called by a leaf function of a long consecutive call chain.
+static bool SpecialEarlySwitchForLargeSwitch(Function *F) {
+  if (!F->isVarArg())
+    return false;
+  auto EntryCondBranch =
+      dyn_cast<BranchInst>(F->getEntryBlock().getTerminator());
+  if (!EntryCondBranch || !EntryCondBranch->isConditional())
+    return false;
+  auto LI = dyn_cast<LoadInst>(EntryCondBranch->getCondition());
+  if (!LI || !LI->hasOneUse())
+    return false;
+  auto GV = dyn_cast<GlobalValue>(LI->getPointerOperand());
+  if (!GV)
+    return false;
+  BasicBlock *BTS = EntryCondBranch->getSuccessor(0);
+  auto Switch = dyn_cast<SwitchInst>(BTS->getTerminator());
+  if (!Switch || Switch->getNumCases() < HugeCaseCountForSwitch)
+    return false;
+  BasicBlock *BFS = EntryCondBranch->getSuccessor(1);
+  if (!isa<ReturnInst>(BFS->getTerminator()))
+    return false;
+
+  bool CalledByLCCCLeafFunction = false;
+  for (User *U : F->users()) {
+    auto CI = dyn_cast<CallInst>(U);
+    if (!CI || CI->getCalledFunction() != F)
+      continue;
+    if (CI->hasFnAttr("lccc-call-in-leaf")) {
+      CalledByLCCCLeafFunction = true;
+      break;
+    }
+  }
+  return CalledByLCCCLeafFunction;
+}
 #endif // INTEL_CUSTOMIZATION
 
 std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function &F) {
 
 #if INTEL_CUSTOMIZATION
-  if (!(EnableSpecialCases && SpecialEarlySwitch(&F))) {
+  if (!((EnableSpecialCases && SpecialEarlySwitch(&F)) ||
+        SpecialEarlySwitchForLargeSwitch(&F))) {
 #if INTEL_FEATURE_SW_DTRANS
     // Only do LTO partial inlining for functions that are targets of
     // virtual calls
