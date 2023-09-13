@@ -318,7 +318,7 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
   const Function *F = Call->getParent()->getParent();
   bool OptNoneFunc = F->hasFnAttribute(Attribute::OptimizeNone);
   SmallVector<VFInfo, 4> FilteredVariants;
-  for (auto Variant : Variants) {
+  for (auto &Variant : Variants) {
     ArrayRef<VFParameter> Parms = Variant.getParameters();
     if (OptNoneFunc && any_of(Parms, [](VFParameter Parm) {
                 return Parm.isLinearUVal();
@@ -326,7 +326,6 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
       continue;
     FilteredVariants.push_back(Variant);
   }
-
 
   if (VPCall->isIntelIndirectCall())
      Masked |= Plan.getVPlanDA()->isDivergent(*VPCall->getOperand(0));
