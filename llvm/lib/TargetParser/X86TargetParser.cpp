@@ -1050,6 +1050,14 @@ void llvm::X86::updateImpliedFeatures(
       Features[FeatureInfos[i].getName()] = Enabled;
 }
 
+#if INTEL_CUSTOMIZATION
+bool llvm::X86::getCPUDispatchSupported(StringRef CPU) {
+  auto I = llvm::find_if(Processors,
+                         [&](const ProcInfo &P) { return P.Name == CPU; });
+  return I != std::end(Processors) && I->Mangling != '\0';
+}
+#endif // INTEL_CUSTOMIZATION
+
 char llvm::X86::getCPUDispatchMangling(StringRef CPU) {
   auto I = llvm::find_if(Processors,
                          [&](const ProcInfo &P) { return P.Name == CPU; });

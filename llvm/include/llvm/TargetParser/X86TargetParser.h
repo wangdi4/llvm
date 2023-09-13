@@ -204,6 +204,7 @@ void getFeaturesForCPU(StringRef CPU, SmallVectorImpl<StringRef> &Features,
 void updateImpliedFeatures(StringRef Feature, bool Enabled,
                            StringMap<bool> &Features);
 
+bool getCPUDispatchSupported(StringRef Name); // INTEL
 char getCPUDispatchMangling(StringRef Name);
 bool validateCPUSpecificCPUDispatch(StringRef Name);
 std::array<uint32_t, 4> getCpuSupportsMask(ArrayRef<StringRef> FeatureStrs);
