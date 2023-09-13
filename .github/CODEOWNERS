@@ -104,6 +104,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /clang/test/Preprocessor/INTEL_ISA_* @phoebewang @FreddyLeaf
 /llvm/include/llvm/Support/X86DisassemblerDecoderCommon.h @phoebewang @KanRobert
 /llvm/include/llvm/TargetParser/X86TargetParser.def @phoebewang @FreddyLeaf
+/llvm/include/llvm/TargetParser/X86TargetParser.h @phoebewang @FreddyLeaf
 /llvm/lib/TargetParser/Host.cpp @phoebewang @FreddyLeaf
 /llvm/lib/Support/intel_glob_isa_list.def @phoebewang @FreddyLeaf @zhaomaosu
 /llvm/lib/TargetParser/X86TargetParser.cpp @phoebewang @FreddyLeaf
