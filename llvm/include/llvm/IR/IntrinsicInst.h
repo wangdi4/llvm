@@ -738,7 +738,10 @@ public:
   }
   /// @}
 };
+<<<<<<< HEAD
 
+=======
+>>>>>>> 82472e4a158049b057516f8f2e6c2e8fa26e30a6
 
 /// This is the common base class for constrained floating point intrinsics.
 class ConstrainedFPIntrinsic : public IntrinsicInst {
