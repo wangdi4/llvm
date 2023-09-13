@@ -1,7 +1,13 @@
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
-// TODO: Reenable the test for Gen12 once driver issue is fixed
-// REQUIRES: gpu-intel-pvc
+// UNSUPPORTED: esimd_emulator
+
+// TODO: GPU driver on Windows requires a fix/update.
+// XFAIL: windows && gpu-intel-gen12
+
+// Failure on Linux: https://github.com/intel/llvm/issues/10138
+// UNSUPPORTED: linux
+
 // This test verifies usage of local_accessor methods operator[]
 // and get_pointer().
 
