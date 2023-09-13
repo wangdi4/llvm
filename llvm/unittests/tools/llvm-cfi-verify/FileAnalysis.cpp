@@ -713,6 +713,8 @@ TEST_F(BasicX86FileAnalysisTest, CFIProtectionComplexExample) {
 }
 
 TEST_F(BasicX86FileAnalysisTest, UndefSearchLengthOneTest) {
+  if (!SuccessfullyInitialised)
+    GTEST_SKIP();
   Analysis.parseSectionContents(
       {
           0x77, 0x0d,                   // 0x688118: ja 0x688127 [+12]
@@ -732,6 +734,8 @@ TEST_F(BasicX86FileAnalysisTest, UndefSearchLengthOneTest) {
 }
 
 TEST_F(BasicX86FileAnalysisTest, UndefSearchLengthOneTestFarAway) {
+  if (!SuccessfullyInitialised)
+    GTEST_SKIP();
   Analysis.parseSectionContents(
       {
           0x74, 0x73,                         // 0x7759eb: je 0x775a60

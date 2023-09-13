@@ -5019,6 +5019,7 @@ struct VarArgAMD64Helper : public VarArgHelper {
 };
 
 /// MIPS64-specific implementation of VarArgHelper.
+/// NOTE: This is also used for LoongArch64.
 struct VarArgMIPS64Helper : public VarArgHelper {
   Function &F;
   MemorySanitizer &MS;
@@ -5910,6 +5911,10 @@ struct VarArgSystemZHelper : public VarArgHelper {
   }
 };
 
+// Loongarch64 is not a MIPS, but the current vargs calling convention matches
+// the MIPS.
+using VarArgLoongArch64Helper = VarArgMIPS64Helper;
+
 /// A no-op implementation of VarArgHelper.
 struct VarArgNoOpHelper : public VarArgHelper {
   VarArgNoOpHelper(Function &F, MemorySanitizer &MS,
@@ -5942,6 +5947,8 @@ static VarArgHelper *CreateVarArgHelper(Function &Func, MemorySanitizer &Msan,
     return new VarArgPowerPC64Helper(Func, Msan, Visitor);
   else if (TargetTriple.getArch() == Triple::systemz)
     return new VarArgSystemZHelper(Func, Msan, Visitor);
+  else if (TargetTriple.isLoongArch64())
+    return new VarArgLoongArch64Helper(Func, Msan, Visitor);
   else
     return new VarArgNoOpHelper(Func, Msan, Visitor);
 }
