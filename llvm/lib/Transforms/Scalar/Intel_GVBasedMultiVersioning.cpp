@@ -39,7 +39,10 @@
 // we've built a set of invariants (InvariantSet) that can be assumed throughout
 // the function if all of the invariants are satisfied at the entry of function.
 // As the starting global may take 2 values, we try to build 2 InvariantSets.
-// Bail out if we can't build any InvariantSet.
+// * If an instruction may modify an invariant, but we can't find a new
+// invariant to exclude it, we'll then try to shrink the scope of
+// multiversioning to avoid that instruction. Bail out if this still doesn't
+// work.
 // * Do the actual multiversioning by cloning the function body and generating
 // dispatch code based on the InvariantSets. The InvariantSets are applied to
 // the new clones and some quick constant folding is done.
@@ -50,10 +53,14 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
@@ -93,13 +100,82 @@ struct InvariantDesc {
   InvariantDesc(GlobalVariable *GV, bool Value) : GV(GV), Value(Value) {}
 };
 
+// A Scope represents a set of instructions inside a function with single-entry,
+// single-exit control flow.
+// It'd identified by an entry point and exit point. For a scope to be valid,
+// the entry must dominate the exit, and the exit must post-dominate the entry.
+// However we don't have a good way to check for validity defined above because
+// the "post-dominate" part have caveats: We allow unreachables in a scope. But
+// they're also included in LLVM post-dominator tree contains. Because there is
+// no successor to these blocks, they basically mess up the entire pdom tree as
+// they're not executed in runtime, and thus not useful to us. It seems the
+// community have no desire to change this (D12676, D119760). For now,
+// unreachables are handled with some special casing.
+// The exit point we store here is not contained by the scope. Doing so is
+// useful when the scope ends just before a basic block that has multiple
+// predecessors, but the first instruction of that block has properties that we
+// don't want (e.g. side effect). We can also create an intermediate block to
+// deal with such cases, but since we use scopes in the analysis phase, mutation
+// to IR is not appropriate.
+struct ScopeTy {
+  Instruction *Entry;
+  // If Exit is nullptr, the scope terminates when the function returns.
+  Instruction *Exit;
+  // Create a scope covering the entire function F.
+  ScopeTy(Function &F) : Entry(&F.getEntryBlock().front()), Exit(nullptr) {}
+  ScopeTy(Instruction *Entry, Instruction *Exit) : Entry(Entry), Exit(Exit) {}
+  bool coversWholeFunction() const {
+    return Entry == &Entry->getFunction()->getEntryBlock().front() &&
+           Exit == nullptr;
+  }
+  bool operator==(const ScopeTy &Other) const {
+    return std::tie(Entry, Exit) == std::tie(Other.Entry, Other.Exit);
+  }
+  bool operator!=(const ScopeTy &Other) const { return !(*this == Other); }
+};
+
+raw_ostream &operator<<(raw_ostream &OS, const ScopeTy &Scope) {
+  if (Scope.coversWholeFunction()) {
+    dbgs() << "entire function";
+    return OS;
+  }
+  OS << "from " << *Scope.Entry << " to ";
+  if (Scope.Exit)
+    OS << *Scope.Exit;
+  else
+    OS << "function exit";
+  return OS;
+}
+
 // Use MapVector to generate consistent code for testing the invariants.
 using InvariantSet = MapVector<GlobalVariable *, bool>;
+
+// Represent multiversioning restricted to a scope. Note that the scope can be
+// the entire function, as the constructor defaults to.
+struct ScopedInvariantSet {
+  InvariantSet Invariants;
+  ScopeTy Scope;
+  ScopedInvariantSet(Function &F) : Scope(F) {}
+};
+
+// Data that is helpful for the scope shrinking algorithm, derived from
+// analysis.
+struct ScopeShrinkInfoTy {
+  // Some patterns can make scope shrinking hard (e.g. irreducible control
+  // flow). They're checked to set this field.
+  bool CanDoScopeShrink = false;
+  // Set to the function's unique return instruction (if there's only one).
+  Instruction *UniqueExit = nullptr;
+  // All loads of principal globals used in conditional branches.
+  DenseSet<LoadInst *> LoadsForPrincipalGlobalInBranches;
+};
 
 class GVBasedMultiVersioning {
   Function *F;
   DominatorTree *DT;
   AAManager::Result *AAR;
+  std::function<LoopInfo &()> GetLI;
+  std::function<PostDominatorTree &()> GetPDT;
   // One-to-many mapping from i1 global variables to every conditional branch in
   // F based on that variable.
   // MapVector is used because we need to deterministically select a branch with
@@ -108,6 +184,10 @@ class GVBasedMultiVersioning {
   // Inverse mapping of GlobalBranches. Used only to determine whether a branch
   // is a eligible branch for an invariant quickly.
   DenseMap<BranchInst *, GlobalVariable *> BranchToGlobal;
+  GlobalVariable *PrincipalGlobal = nullptr;
+  // Because scope shrinking may be executed for multiple times or not executed
+  // at all, this is lazily computed and memorized.
+  std::optional<ScopeShrinkInfoTy> ScopeShrinkInfo;
 
   // Given a BB, try to find an invariant that must hold for the BB to be
   // executed.
@@ -115,25 +195,43 @@ class GVBasedMultiVersioning {
   // for an invariant by walking upwards the dominator tree from BB.
   std::optional<InvariantDesc> findInvariantForBlock(BasicBlock *BB);
 
-  // Given an initial invariant, try to build a InvariantSet (which is
+  // Try to create a new scope, that is a subset of OldScope, but doesn't
+  // contain InstrToExclude. Returns std::nullopt if fails to do so.
+  // All basic blocks removed from OldScope will also be removed from BBs set.
+  std::optional<ScopeTy> tryShrinkScope(ScopeTy OldScope,
+                                        Instruction *InstrToExclude,
+                                        DenseSet<BasicBlock *> &BBs);
+
+  // Given an initial invariant, try to build a ScopedInvariantSet (which is
   // guaranteed to include the initial one), so that when all the invariants in
-  // the set are satisfied at the entry of F, they're also guaranteed to hold at
-  // the exit of F. (i.e. all global variables of these invariants are not
-  // modified throughout the function)
-  // Returns empty set if failed InvariantSet.
-  InvariantSet
+  // the set are satisfied at the entry of the scope, they're also guaranteed to
+  // hold at the exit of scope. (i.e. all global variables of these invariants
+  // are not modified throughout the scope)
+  // Return value has empty InvariantSet if failed to do so.
+  ScopedInvariantSet
   buildInvariantSetFromInvariant(const InvariantDesc &InitialInvariant);
 
-  // Analyze F and try to build a few InvariantSets. By doing multiversioning
-  // based on the returned InvariantSets, conditional branches on globals can be
-  // reduced. The result inveriant sets are pushed to Out.
-  void buildInvariantSetsForMultiversioning(SmallVectorImpl<InvariantSet> &Out);
-  // Do multiversioning on F for the given InvariantSets.
-  void doTransformation(ArrayRef<InvariantSet> BranchInvariantSets);
+  // Analyze F and try to build a few ScopedInvariantSets. By doing
+  // multiversioning based on them, conditional branches on globals can be
+  // reduced. The results are pushed to Out.
+  void buildInvariantSetsForMultiversioning(
+      SmallVectorImpl<ScopedInvariantSet> &Out);
+
+  // Attempt to do multiversioning on F for the given ScopedInvariantSets.
+  // The signature allows some really complex inputs such as multiple
+  // ScopedInvariantSets with non-identical overlapping scopes. So there is no
+  // promise that every input is actually used.
+  void doTransformation(ArrayRef<ScopedInvariantSet> BranchInvariantSets);
+
+  // Return the cached ScopeShrinkInfo, do the analysis to compute it if not
+  // yet.
+  const ScopeShrinkInfoTy &getScopeShrinkInfo();
 
 public:
-  GVBasedMultiVersioning(Function *F, DominatorTree *DT, AAManager::Result *AAR)
-      : F(F), DT(DT), AAR(AAR) {}
+  GVBasedMultiVersioning(Function *F, DominatorTree *DT, AAManager::Result *AAR,
+                         std::function<LoopInfo &()> GetLI,
+                         std::function<PostDominatorTree &()> GetPDT)
+      : F(F), DT(DT), AAR(AAR), GetLI(GetLI), GetPDT(GetPDT) {}
   bool run();
 };
 
@@ -231,16 +329,155 @@ GVBasedMultiVersioning::findInvariantForBlock(BasicBlock *BB) {
   return std::nullopt;
 }
 
-InvariantSet GVBasedMultiVersioning::buildInvariantSetFromInvariant(
+// Returns the function's only exit if there is only one. Returns nullptr
+// otherwise.
+static Instruction *getFunctionUniqueExit(Function *F, PostDominatorTree &PDT) {
+  // Attempt to identify the unique exit by checking whether post dominator tree
+  // has a root BasicBlock.
+  if (auto ExitBlock = PDT.getRootNode()->getBlock())
+    return ExitBlock->getTerminator();
+
+  // If the PDT approach failed, maybe the PDT is tainted by unreachables. Check
+  // every terminator manually.
+  Instruction *Result = nullptr;
+  unsigned NumReturnInst = 0;
+  for (auto &BB : *F) {
+    Instruction *Term = BB.getTerminator();
+    // Only handle the most common terminators for simplicity
+    if (!(isa<BranchInst>(Term) || isa<SwitchInst>(Term) ||
+          isa<ReturnInst>(Term)))
+      return nullptr;
+    if (isa<ReturnInst>(Term)) {
+      NumReturnInst += 1;
+      Result = Term;
+    }
+  }
+  return NumReturnInst == 1 ? Result : nullptr;
+}
+
+const ScopeShrinkInfoTy &GVBasedMultiVersioning::getScopeShrinkInfo() {
+  if (ScopeShrinkInfo.has_value())
+    return ScopeShrinkInfo.value();
+
+  ScopeShrinkInfo = ScopeShrinkInfoTy();
+  ScopeShrinkInfoTy &Result = ScopeShrinkInfo.value();
+
+  // The scope shrinking heuristic (see tryShrinkScope() below) needs to split a
+  // scope into two. Irreducible cycles and multiple-exit functions make it
+  // harder.
+  ReversePostOrderTraversal<BasicBlock *> RPOT(&F->getEntryBlock());
+  Result.UniqueExit = getFunctionUniqueExit(F, GetPDT());
+  Result.CanDoScopeShrink =
+      !containsIrreducibleCFG<BasicBlock *>(RPOT, GetLI()) && Result.UniqueExit;
+  if (!Result.CanDoScopeShrink) {
+    LLVM_DEBUG(dbgs() << "GVMV analysis for " << F->getName()
+                      << ": shrink scope not supported for this function\n");
+    return Result;
+  }
+
+  for (BranchInst *BI : GlobalBranches[PrincipalGlobal])
+    Result.LoadsForPrincipalGlobalInBranches.insert(
+        cast<LoadInst>(BI->getCondition()));
+
+  return Result;
+}
+
+std::optional<ScopeTy>
+GVBasedMultiVersioning::tryShrinkScope(ScopeTy OldScope,
+                                       Instruction *InstrToExclude,
+                                       DenseSet<BasicBlock *> &BBs) {
+  // There is no guarantee that a valid and optimal result can be found with
+  // acceptable cost. Here we just implement some heuristics for common cases.
+  if (InstrToExclude->isTerminator())
+    return std::nullopt;
+  const ScopeShrinkInfoTy &SSI = getScopeShrinkInfo();
+  if (!SSI.CanDoScopeShrink)
+    return std::nullopt;
+
+  // Because all instructions in a scope must be continuous in control flow. If
+  // we want to produce a new scope that is a sub-scope of OldScope and doesn't
+  // contain InstrToExclude, the result must be either a subset of the control
+  // flow from OldScope.Entry to InstrToExclude, or subset of control flow from
+  // InstrToExclude to OldScope.Exit.
+  // To get a clear cut of OldScope by InstrToExclude, InstrExclude can't be
+  // located inside a loop (Irreducibles are already taken care of in
+  // CanDoScopeShrink).
+  if (GetLI().getLoopFor(InstrToExclude->getParent()))
+    return std::nullopt;
+
+  // A simple profitability check is performed below to choose whether the new
+  // scope would be before or after InstrToExclude, depending on whether
+  // InstrToExclude dominates all loads of principal global (that are used for
+  // conditional branches), or post-dominates all loads. Note it requires "all
+  // loads" to be consistent in the domination queries, we can do better e.g.
+  // checking which side has more than 80% loads, but this is simpler and works
+  // well for our cases.
+  bool InstrDominatesAllLoads = true;
+  bool InstrPostDominatesAllLoads = true;
+  for (LoadInst *Load : SSI.LoadsForPrincipalGlobalInBranches) {
+    if (!DT->dominates(InstrToExclude, Load))
+      InstrDominatesAllLoads = false;
+    if (!GetPDT().dominates(InstrToExclude, Load))
+      InstrPostDominatesAllLoads = false;
+  }
+
+  // If either InstrDominatesAllLoads or InstrPostDominatesAllLoads is true, it
+  // means InstrToExclude partitions the scope into two fragments: one with all
+  // the loads of globals, and another without.
+  // If InstrDominatesAllLoads is true, what we care about is in the latter
+  // half, and we can try shrinking the scope of multiversioning by setting the
+  // entry of the scope to the next instruction of InstrToExclude. This also
+  // works vice versa: If InstrToExclude post-dominates all loads, use the
+  // former half.
+  BasicBlock *UniqueExitBB = SSI.UniqueExit->getParent();
+  BasicBlock *SplitBB = InstrToExclude->getParent();
+
+  if (InstrDominatesAllLoads) {
+    Instruction *NewEntry = InstrToExclude->getNextNode();
+    auto CheckNewEntryDominatesOldExit = [this, &OldScope, NewEntry, SplitBB,
+                                          UniqueExitBB]() {
+      return OldScope.Exit ? DT->dominates(NewEntry, OldScope.Exit)
+                           : DT->dominates(SplitBB, UniqueExitBB);
+    };
+    auto CheckOldExitPostDominatesNewEntry = [this, &OldScope, NewEntry]() {
+      return OldScope.Exit ? GetPDT().dominates(OldScope.Exit, NewEntry) : true;
+    };
+
+    if (CheckNewEntryDominatesOldExit() &&
+        CheckOldExitPostDominatesNewEntry()) {
+      filterBBsWithPred(
+          [this, SplitBB](BasicBlock *BB) {
+            return !DT->dominates(SplitBB, BB);
+          },
+          BBs);
+      return ScopeTy(NewEntry, OldScope.Exit);
+    }
+  }
+
+  if (InstrPostDominatesAllLoads &&
+      DT->dominates(OldScope.Entry, InstrToExclude) &&
+      GetPDT().dominates(InstrToExclude, OldScope.Entry)) {
+    filterBBsWithPred(
+        [this, SplitBB](BasicBlock *BB) {
+          return !GetPDT().dominates(SplitBB, BB);
+        },
+        BBs);
+    return ScopeTy(OldScope.Entry, InstrToExclude);
+  }
+
+  return std::nullopt;
+}
+
+ScopedInvariantSet GVBasedMultiVersioning::buildInvariantSetFromInvariant(
     const InvariantDesc &InitialInvariant) {
   LLVM_DEBUG(dbgs() << "Populating InvariantSet for "
                     << InitialInvariant.GV->getName() << " = "
                     << InitialInvariant.Value << "\n");
-  InvariantSet Result;
+  ScopedInvariantSet Result(*F);
   SmallVector<InvariantDesc, 4> NewInvariants;
   auto AddInvariant = [&Result, &NewInvariants](InvariantDesc Invariant) {
     NewInvariants.push_back(Invariant);
-    Result[Invariant.GV] = Invariant.Value;
+    Result.Invariants[Invariant.GV] = Invariant.Value;
   };
   AddInvariant(InitialInvariant);
 
@@ -255,43 +492,78 @@ InvariantSet GVBasedMultiVersioning::buildInvariantSetFromInvariant(
     removeUnreachableBasicBlocksForInvariant(BlocksToCheck, Invariant, DT,
                                              GlobalBranches);
     MemoryLocation Loc(Invariant.GV, LocationSize::precise(1));
-    for (auto *BB : BlocksToCheck) {
-      if (!AAR->canBasicBlockModify(*BB, Loc))
-        continue;
+    bool ScopeChanged = false;
+    do {
+      ScopeChanged = false;
+      for (auto *BB : BlocksToCheck) {
+        // The loop below is an extension of AAResults::canBasicBlockModify()
+        // with support of Scope. It avoids scanning instructions before the
+        // entry of a scope, or after its exit.
+        bool BBViolatesInvariant = false;
+        Instruction *AliasedInstr = nullptr;
+        Instruction *Begin = BB == Result.Scope.Entry->getParent()
+                                 ? Result.Scope.Entry
+                                 : &BB->front();
+        Instruction *End =
+            Result.Scope.Exit && BB == Result.Scope.Exit->getParent()
+                ? Result.Scope.Exit
+                : nullptr;
+        for (Instruction *I = Begin; I != End; I = I->getNextNode())
+          if (isModOrRefSet(AAR->getModRefInfo(I, Loc) & ModRefInfo::Mod)) {
+            BBViolatesInvariant = true;
+            AliasedInstr = I;
+            break;
+          }
+        if (!BBViolatesInvariant)
+          continue;
 
-      std::optional<InvariantDesc> MaybeNewInvariant =
-          findInvariantForBlock(BB);
-      if (!MaybeNewInvariant.has_value()) {
-        LLVM_DEBUG(dbgs() << "Cannot find invariant for block " << *BB << "\n");
-        return InvariantSet();
+        std::optional<InvariantDesc> MaybeNewInvariant =
+            findInvariantForBlock(BB);
+
+        // If we can't exclude the infringing instruction with a new invariant,
+        // try scope shrinking.
+        if (!MaybeNewInvariant.has_value()) {
+          std::optional<ScopeTy> MaybeShrunkScope =
+              tryShrinkScope(Result.Scope, AliasedInstr, BlocksToCheck);
+          if (!MaybeShrunkScope.has_value()) {
+            LLVM_DEBUG(dbgs()
+                       << "Cannot find invariant or shrink scope for block "
+                       << *BB << "\n");
+            return ScopedInvariantSet(*F);
+          }
+          Result.Scope = MaybeShrunkScope.value();
+          ScopeChanged = true;
+          break;
+        }
+
+        InvariantDesc NewInvariant = MaybeNewInvariant.value();
+
+        // BB may modify Invariant.GV. To keep Invariant.GV constant, we need BB
+        // not to be executed, so invert the value of NewInvariant.
+        NewInvariant.Value = !NewInvariant.Value;
+
+        auto It = Result.Invariants.find(NewInvariant.GV);
+        if (It != Result.Invariants.end()) {
+          // The GV we found already exists in the InvariantSet, but the new
+          // invariant needs a value for this GV that's different from that in
+          // the InvariantSet. We can't satisfy two conflicting values for the
+          // same GV, bail out.
+          if (It->second != NewInvariant.Value)
+            return ScopedInvariantSet(*F);
+        } else {
+          // This invariant is new, add to worklist to find what may modify its
+          // GV in later iterations.
+          AddInvariant(NewInvariant);
+        }
       }
-      InvariantDesc NewInvariant = MaybeNewInvariant.value();
-
-      // BB may modify Invariant.GV. To keep Invariant.GV constant, we need BB
-      // not to be executed, so invert the value of NewInvariant.
-      NewInvariant.Value = !NewInvariant.Value;
-
-      auto It = Result.find(NewInvariant.GV);
-      if (It != Result.end()) {
-        // The GV we found already exists in the InvariantSet, but the new
-        // invariant needs a value for this GV that's different from that in the
-        // InvariantSet. We can't satisfy two conflicting values for the same
-        // GV, bail out.
-        if (It->second != NewInvariant.Value)
-          return InvariantSet();
-      } else {
-        // This invariant is new, add to worklist to find what may modify its GV
-        // in later iterations.
-        AddInvariant(NewInvariant);
-      }
-    }
+    } while (ScopeChanged);
   }
 
   return Result;
 }
 
 void GVBasedMultiVersioning::buildInvariantSetsForMultiversioning(
-    SmallVectorImpl<InvariantSet> &Out) {
+    SmallVectorImpl<ScopedInvariantSet> &Out) {
   // Scan terminators of all BBs to find all conditional branches based on
   // global variables.
   for (BasicBlock &BB : *F) {
@@ -308,7 +580,6 @@ void GVBasedMultiVersioning::buildInvariantSetsForMultiversioning(
 
   // Find the global variable that's most frequently used in conditional
   // branches.
-  GlobalVariable *PrincipalGlobal = nullptr;
   unsigned NumUses = 0;
   for (const auto &[GV, Branches] : GlobalBranches) {
     unsigned NumBranches = Branches.size();
@@ -339,27 +610,28 @@ void GVBasedMultiVersioning::buildInvariantSetsForMultiversioning(
 
   // Attempt to build two InvariantSets with the initial invariants:
   // PrincipalGlobal = true and PrincipalGlobal = false.
-  auto TryBuildAndAddInvariantSetWithInitialValue =
-      [this, &Out, PrincipalGlobal](bool InitialValue) {
-        InvariantSet Result = buildInvariantSetFromInvariant(
-            InvariantDesc(PrincipalGlobal, InitialValue));
-        if (Result.empty())
-          return;
-        if (Result.size() > GVBasedMultiversionMaxNumInvariants) {
-          LLVM_DEBUG(dbgs() << "GVMV analysis for " << F->getName()
-                            << " created invariant set with " << Result.size()
-                            << " invariants, too many for multiversioning.\n");
-          return;
-        }
-        LLVM_DEBUG(dbgs() << "GVMV analysis for " << F->getName()
-                          << " created invariant set: ";
-                   for (const auto &Invariant
-                        : Result) dbgs()
-                   << "(" << Invariant.first->getName() << " = "
-                   << Invariant.second << ") ";
-                   dbgs() << "\n");
-        Out.push_back(Result);
-      };
+  auto TryBuildAndAddInvariantSetWithInitialValue = [this,
+                                                     &Out](bool InitialValue) {
+    ScopedInvariantSet Result = buildInvariantSetFromInvariant(
+        InvariantDesc(PrincipalGlobal, InitialValue));
+    if (Result.Invariants.empty())
+      return;
+    if (Result.Invariants.size() > GVBasedMultiversionMaxNumInvariants) {
+      LLVM_DEBUG(dbgs() << "GVMV analysis for " << F->getName()
+                        << " created invariant set with "
+                        << Result.Invariants.size()
+                        << " invariants, too many for multiversioning.\n");
+      return;
+    }
+    LLVM_DEBUG(dbgs() << "GVMV analysis for " << F->getName()
+                      << " created invariant set: ";
+               for (const auto &Invariant
+                    : Result.Invariants) dbgs()
+               << "(" << Invariant.first->getName() << " = " << Invariant.second
+               << ") ";
+               dbgs() << "Scope: " << Result.Scope << "\n");
+    Out.push_back(Result);
+  };
 
   TryBuildAndAddInvariantSetWithInitialValue(true);
   TryBuildAndAddInvariantSetWithInitialValue(false);
@@ -453,7 +725,18 @@ static void cloneBBsWithInvariants(ArrayRef<BasicBlock *> BBs,
 }
 
 void GVBasedMultiVersioning::doTransformation(
-    ArrayRef<InvariantSet> BranchInvariantSets) {
+    ArrayRef<ScopedInvariantSet> BranchInvariantSets) {
+  // Each entry of the input is handled in different ways, depending on whether
+  // its scope is the entire function.
+  SmallVector<InvariantSet, 4> UnscopedInvariantSets;
+  // At most one scoped invariant set is supported.
+  std::optional<ScopedInvariantSet> MaybeScopedInvariantSet;
+  for (auto &ScopedInvariants : BranchInvariantSets)
+    if (ScopedInvariants.Scope.coversWholeFunction())
+      UnscopedInvariantSets.push_back(ScopedInvariants.Invariants);
+    else if (!MaybeScopedInvariantSet.has_value())
+      MaybeScopedInvariantSet = ScopedInvariants;
+
   BasicBlock *OrigEntryBB = &F->getEntryBlock();
   SmallVector<BasicBlock *, 32> OrigBBs;
   for (auto &BB : *F)
@@ -472,11 +755,13 @@ void GVBasedMultiVersioning::doTransformation(
   BasicBlock *BBAfterLoadsBB = OrigEntryBB;
   auto *EntryBr = BranchInst::Create(OrigEntryBB, GlobalLoadsBB);
 
+  // First, do cloning for the unscoped invariant sets.
   // Clone the function body for every InvariantSet and generate dispatch code
   // to each clone. Reuse the original code if possible.
-  const bool ReuseOriginalCode = canReuseOriginalCode(BranchInvariantSets);
-  for (const auto &Invariants : BranchInvariantSets) {
-    if (ReuseOriginalCode && &Invariants == &BranchInvariantSets.back()) {
+  const bool ReuseOriginalCode = !MaybeScopedInvariantSet.has_value() &&
+                                 canReuseOriginalCode(UnscopedInvariantSets);
+  for (const auto &Invariants : UnscopedInvariantSets) {
+    if (ReuseOriginalCode && &Invariants == &UnscopedInvariantSets.back()) {
       LLVM_DEBUG(dbgs() << "GVMV transformation for " << F->getName() << ": "
                         << "Reusing the original code.\n");
       applyInvariantSetToClone(Invariants, OrigBBs);
@@ -513,6 +798,8 @@ void GVBasedMultiVersioning::doTransformation(
     BBAfterLoadsBB = CondBB;
   }
 
+  // TODO: Process the scoped invariant set, if any.
+
   // Run some CFG simplification transformations to constant fold branches on
   // the globals.
   // Currently it's done globally. This is okay because it's rarely triggered.
@@ -524,7 +811,7 @@ void GVBasedMultiVersioning::doTransformation(
 }
 
 bool GVBasedMultiVersioning::run() {
-  SmallVector<InvariantSet, 2> InvariantSets;
+  SmallVector<ScopedInvariantSet, 2> InvariantSets;
   buildInvariantSetsForMultiversioning(InvariantSets);
   if (InvariantSets.empty()) {
     LLVM_DEBUG(
@@ -546,7 +833,11 @@ PreservedAnalyses GVBasedMultiVersioningPass::run(Function &F,
   auto &AAR = AM.getResult<AAManager>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
 
-  GVBasedMultiVersioning GVMV(&F, &DT, &AAR);
+  GVBasedMultiVersioning GVMV(
+      &F, &DT, &AAR,
+      [&AM, &F ]() -> auto & { return AM.getResult<LoopAnalysis>(F); },
+      [&AM, &
+       F ]() -> auto & { return AM.getResult<PostDominatorTreeAnalysis>(F); });
   if (GVMV.run()) {
     auto PA = PreservedAnalyses();
     PA.preserve<WholeProgramAnalysis>();
