@@ -720,7 +720,8 @@ mapPIMetadataToUR(const pi_device_binary_property *pi_metadata,
 namespace pi2ur {
 
 inline pi_result piTearDown(void *PluginParameter) {
-  std::ignore = PluginParameter;
+  bool *pluginTeardown = static_cast<bool *>(PluginParameter);
+  *pluginTeardown = true;
   // TODO: Dont check for errors in urTearDown, since
   // when using Level Zero plugin, the second urTearDown
   // will fail as ur_loader.so has already been unloaded,
