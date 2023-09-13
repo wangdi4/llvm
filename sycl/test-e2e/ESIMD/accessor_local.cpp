@@ -1,9 +1,13 @@
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
 
-// https://github.com/intel/llvm/issues/10369
-// UNSUPPORTED: gpu
 // UNSUPPORTED: esimd_emulator
+
+// TODO: GPU driver on Windows requires a fix/update.
+// XFAIL: windows && gpu-intel-gen12
+
+// Failure on Linux: https://github.com/intel/llvm/issues/10138
+// UNSUPPORTED: linux
 
 // This test verifies usage of local_accessor methods operator[]
 // and get_pointer().
