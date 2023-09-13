@@ -496,3 +496,51 @@ define i1 @orflag64ri8(i64 %a) {
   store i64 %v0, ptr @d64
   ret i1 %v1
 }
+
+define void @or8mr_legacy(ptr %a, i8 noundef %b) {
+; CHECK-LABEL: or8mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    orb %sil, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i8, ptr %a
+  %or = or i8 %t, %b
+  store i8 %or, ptr %a
+  ret void
+}
+
+define void @or16mr_legacy(ptr %a, i16 noundef %b) {
+; CHECK-LABEL: or16mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    orw %si, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i16, ptr %a
+  %or = or i16 %t, %b
+  store i16 %or, ptr %a
+  ret void
+}
+
+define void @or32mr_legacy(ptr %a, i32 noundef %b) {
+; CHECK-LABEL: or32mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    orl %esi, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i32, ptr %a
+  %or = or i32 %t, %b
+  store i32 %or, ptr %a
+  ret void
+}
+
+define void @or64mr_legacy(ptr %a, i64 noundef %b) {
+; CHECK-LABEL: or64mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    orq %rsi, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i64, ptr %a
+  %or = or i64 %t, %b
+  store i64 %or, ptr %a
+  ret void
+}

@@ -498,3 +498,51 @@ define i1 @add64ri_reloc(i16 %k) {
   %cmp = icmp ne ptr %g, null
   ret i1 %cmp
 }
+
+define void @add8mr_legacy(ptr %a, i8 noundef %b) {
+; CHECK-LABEL: add8mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    addb %sil, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i8, ptr %a
+  %add = add i8 %t, %b
+  store i8 %add, ptr %a
+  ret void
+}
+
+define void @add16mr_legacy(ptr %a, i16 noundef %b) {
+; CHECK-LABEL: add16mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    addw %si, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i16, ptr %a
+  %add = add i16 %t, %b
+  store i16 %add, ptr %a
+  ret void
+}
+
+define void @add32mr_legacy(ptr %a, i32 noundef %b) {
+; CHECK-LABEL: add32mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    addl %esi, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i32, ptr %a
+  %add = add i32 %t, %b
+  store i32 %add, ptr %a
+  ret void
+}
+
+define void @add64mr_legacy(ptr %a, i64 noundef %b) {
+; CHECK-LABEL: add64mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    addq %rsi, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i64, ptr %a
+  %add = add i64 %t, %b
+  store i64 %add, ptr %a
+  ret void
+}

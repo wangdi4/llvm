@@ -512,3 +512,51 @@ t:
 f:
   ret void
 }
+
+define void @sub8mr_legacy(ptr %a, i8 noundef %b) {
+; CHECK-LABEL: sub8mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    subb %sil, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i8, ptr %a
+  %sub = sub i8 %t, %b
+  store i8 %sub, ptr %a
+  ret void
+}
+
+define void @sub16mr_legacy(ptr %a, i16 noundef %b) {
+; CHECK-LABEL: sub16mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    subw %si, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i16, ptr %a
+  %sub = sub i16 %t, %b
+  store i16 %sub, ptr %a
+  ret void
+}
+
+define void @sub32mr_legacy(ptr %a, i32 noundef %b) {
+; CHECK-LABEL: sub32mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    subl %esi, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i32, ptr %a
+  %sub = sub i32 %t, %b
+  store i32 %sub, ptr %a
+  ret void
+}
+
+define void @sub64mr_legacy(ptr %a, i64 noundef %b) {
+; CHECK-LABEL: sub64mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    subq %rsi, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i64, ptr %a
+  %sub = sub i64 %t, %b
+  store i64 %sub, ptr %a
+  ret void
+}

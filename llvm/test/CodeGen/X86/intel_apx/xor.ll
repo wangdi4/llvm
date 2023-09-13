@@ -496,3 +496,51 @@ define i1 @xorflag64ri8(i64 %a) {
   store i64 %v0, ptr @d64
   ret i1 %v1
 }
+
+define void @xor8mr_legacy(ptr %a, i8 noundef %b) {
+; CHECK-LABEL: xor8mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorb %sil, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i8, ptr %a
+  %xor = xor i8 %t, %b
+  store i8 %xor, ptr %a
+  ret void
+}
+
+define void @xor16mr_legacy(ptr %a, i16 noundef %b) {
+; CHECK-LABEL: xor16mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorw %si, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i16, ptr %a
+  %xor = xor i16 %t, %b
+  store i16 %xor, ptr %a
+  ret void
+}
+
+define void @xor32mr_legacy(ptr %a, i32 noundef %b) {
+; CHECK-LABEL: xor32mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %esi, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i32, ptr %a
+  %xor = xor i32 %t, %b
+  store i32 %xor, ptr %a
+  ret void
+}
+
+define void @xor64mr_legacy(ptr %a, i64 noundef %b) {
+; CHECK-LABEL: xor64mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorq %rsi, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i64, ptr %a
+  %xor = xor i64 %t, %b
+  store i64 %xor, ptr %a
+  ret void
+}
