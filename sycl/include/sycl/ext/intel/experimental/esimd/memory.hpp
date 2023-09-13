@@ -2801,6 +2801,16 @@ lsc_block_store(AccessorTy acc,
 }
 
 namespace detail {
+<<<<<<< HEAD
+=======
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+#define __ESIMD_DWORD_BLOCK_2D_WIDTH_SCALE (2)
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
+>>>>>>> 8d517c5deffc23582d16c99794f66b174eb700d4
 #ifndef __ESIMD_DWORD_BLOCK_2D_WIDTH_SCALE
 #define __ESIMD_DWORD_BLOCK_2D_WIDTH_SCALE (1)
 #endif
@@ -2858,6 +2868,7 @@ constexpr void check_lsc_block_2d_restrictions() {
                   "Unsupported block width");
   }
 }
+#undef BLOCK_2D_SCALE
 
 } // namespace detail
 
