@@ -329,19 +329,7 @@ llvm_regcomp(llvm_regex_t *preg, const char *pattern, int cflags)
 
 	/* set things up */
 	p->g = g;
-<<<<<<< HEAD
-	/* suppress warning from the following explicit cast. */
-#if defined( __GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-qual"
-#endif /* __GNUC__ */
-	p->next = (char *)pattern;	/* convenience; we do not modify it */
-#if defined( __GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif /* __GNUC__ */
-=======
 	p->next = pattern;
->>>>>>> bc8f4a1b0a843df8ff22bd06e455f2c74e30a226
 	p->end = p->next + len;
 	p->error = 0;
 	p->ncsalloc = 0;
