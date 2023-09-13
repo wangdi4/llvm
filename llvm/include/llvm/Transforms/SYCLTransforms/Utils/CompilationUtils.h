@@ -1,6 +1,6 @@
 //===-- CompilationUtils.h - Function declarations --------------*- C++ -*-===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -880,12 +880,6 @@ void patchNotInlinedTIDUserFunc(
     DenseMap<Function *, Value *> &PatchedFToLocalIds,
     PointerType *LocalIdAllocTy,
     function_ref<Value *(CallInst *CI)> CreateLIDArg);
-
-/// Check opencl.compiler.options for -g flag
-bool getDebugFlagFromMetadata(Module *M);
-
-/// Check opencl.compiler.options for -cl-opt-disable flag
-bool getOptDisableFlagFromMetadata(Module *M);
 
 bool hasFDivWithFastFlag(Module *M);
 

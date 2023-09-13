@@ -1,8 +1,8 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced, asserts
-; Ignore profitability check because it's not implemented yet.
-; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -debug-only=agginliner -inline-report=0xe807 -S -inline-agg-long-consecutive-call-chain-ignore-profitability=true 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
-; RUN: opt < %s -whole-program-assume -passes='inlinereportsetup,module(agginliner),cgscc(inline),inlinereportemitter' -debug-only=agginliner -inline-report=0xe886 -S -inline-agg-long-consecutive-call-chain-ignore-profitability=true 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -debug-only=agginliner -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt < %s -whole-program-assume -passes='inlinereportsetup,module(agginliner),cgscc(inline),inlinereportemitter' -debug-only=agginliner -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt < %s -whole-program-assume -passes='module(agginliner)' -debug-only=agginliner -S 2>&1 | FileCheck %s --check-prefix=NO-INLINE-NONPROFITABLE
 
 ; Check trace to test AggInliner's long-consecutive-call-chain heuristic.
 
@@ -22,7 +22,8 @@
 ; CHECK-DAG: AggInl: Inserting:   tail call void @leaf_2(ptr noundef %p, i32 noundef %n)
 ; CHECK-DAG: AggInl: Inserting:   tail call void @leaf_2(ptr noundef %p, i32 noundef %n)
 ; CHECK-DAG: AggInl: Inserting:   tail call void @leaf_2(ptr noundef %p, i32 noundef %n)
-; CHECK-DAG: AggInl: Inserting:   tail call void @leaf_2(ptr noundef %q, i32 noundef %m)
+
+; NO-INLINE-NONPROFITABLE-NOT: AggInl: Inserting:   tail call void @leaf_2(ptr noundef %q, i32 noundef %m)
 
 ; CHECK-MD-INLREP: Begin Inlining Report{{.*}}(via metadata)
 ; CHECK-MD-INLREP: COMPILE FUNC: leaf_3
@@ -40,7 +41,7 @@
 ; CHECK-MD-INLREP: -> recursive_call_leaf_3 {{.*}}Callsite is noinline
 ; CHECK-MD-INLREP: INLINE: leaf_1 {{.*}}Aggressive inline
 ; CHECK-MD-INLREP: INLINE: leaf_2 {{.*}}Aggressive inline
-; CHECK-MD-INLREP: INLINE: leaf_2 {{.*}}Aggressive inline
+; CHECK-MD-INLREP-NOT: INLINE: leaf_2 {{.*}}Aggressive inline
 
 ; CHECK-MD-INLREP: COMPILE FUNC: call_leaves_2
 ; CHECK-MD-INLREP: INLINE: leaf_2 {{.*}}Aggressive inline
@@ -54,8 +55,13 @@
 
 ; The call to recursive_call_leaf_3 can't be inlined since it'll make leaf_3 recursive
 ; CHECK-LABEL: define{{.*}}@leaf_3
-; CHECK: tail call void @recursive_call_leaf_3({{.*}}) [[ATTR_NOINLINE:#[0-9]+]]
-; CHECK: attributes [[ATTR_NOINLINE]] = {{{.*}} noinline
+; CHECK: tail call void @recursive_call_leaf_3({{.*}}) [[ATTR_NOINLINE_CALL_IN_LEAF:#[0-9]+]]
+; CHECK: call i32 @function_to_be_marked() [[ATTR_CALL_IN_LEAF:#[0-9]+]]
+; CHECK-LABEL: for.body:
+; CHECK-NOT: call i32 @function_to_be_marked() [[ATTR_ANY:#[0-9]+]]
+; CHECK: }
+; CHECK: attributes [[ATTR_NOINLINE_CALL_IN_LEAF]] = {{{.*}} noinline "lccc-call-in-leaf"
+; CHECK: attributes [[ATTR_CALL_IN_LEAF]] = {{{.*}} "lccc-call-in-leaf"
 
 ; CHECK-NOT: call void @leaf_1(ptr noundef %p, i32 noundef %n)
 ; CHECK-NOT: call void @leaf_2(ptr noundef %p, i32 noundef %n)
@@ -77,7 +83,7 @@
 ; CHECK-INLREP: -> recursive_call_leaf_3 {{.*}}Callsite is noinline
 ; CHECK-INLREP: INLINE: leaf_1 {{.*}}Aggressive inline
 ; CHECK-INLREP: INLINE: leaf_2 {{.*}}Aggressive inline
-; CHECK-INLREP: INLINE: leaf_2 {{.*}}Aggressive inline
+; CHECK-INLREP-NOT: INLINE: leaf_2 {{.*}}Aggressive inline
 
 ; CHECK-INLREP: COMPILE FUNC: call_leaves_2
 ; CHECK-INLREP: INLINE: leaf_2 {{.*}}Aggressive inline
@@ -154,10 +160,17 @@ if.end:
   ret void
 }
 
+define i32 @function_to_be_marked() #4 {
+  ret i32 1
+}
+
 define void @leaf_3(ptr nocapture noundef %p, i32 noundef %n) #1 {
 entry:
   tail call void @recursive_call_leaf_3(ptr noundef %p, i32 noundef %n)
-  %cmp3 = icmp sgt i32 %n, 0
+  ; This call should be marked with "lccc-call-in-leaf" attribute because it's
+  ; outside of the loop
+  %cond = call i32 @function_to_be_marked()
+  %cmp3 = icmp sgt i32 %cond, 0
   br i1 %cmp3, label %for.body.preheader, label %for.cond.cleanup
 
 for.body.preheader:
@@ -173,6 +186,8 @@ for.body:
   %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, 3
   store i32 %add, ptr %arrayidx, align 4
+  ; This call shouldn't be marked because it's inside of the loop
+  call i32 @function_to_be_marked()
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -253,4 +268,5 @@ attributes #0 = { nofree norecurse nosync nounwind memory(argmem: readwrite) uwt
 attributes #1 = { nofree nosync nounwind memory(argmem: readwrite) uwtable }
 attributes #2 = { nofree nounwind uwtable }
 attributes #3 = { nofree nounwind }
+attributes #4 = { nofree nounwind uwtable noinline }
 ; end INTEL_FEATURE_SW_ADVANCED

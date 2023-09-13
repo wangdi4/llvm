@@ -287,17 +287,8 @@ ProgramBuilder::BuildProgram(Program *pProgram,
     // Need to do it to eliminate RT hanging when clBuildProgramm failed
     ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler, nullptr);
 
-    std::string MergeOptions(pBuildOpts ? pBuildOpts : "");
-    if ((MergeOptions.find("-cl-opt-disable") == std::string::npos) &&
-        (CompilationUtils::getOptDisableFlagFromMetadata(pModule)))
-      MergeOptions.append(" -cl-opt-disable");
-    if ((MergeOptions.find("-g") == std::string::npos) &&
-        (CompilationUtils::getDebugFlagFromMetadata(pModule)))
-      MergeOptions.append(" -g");
-
     std::unique_ptr<TargetMachine> targetMachine;
-    pCompiler->BuildProgram(pModule, MergeOptions.c_str(), &buildResult,
-                            targetMachine);
+    pCompiler->BuildProgram(pModule, pBuildOpts, &buildResult, targetMachine);
 
     pProgram->SetBuiltinModule(pCompiler->GetBuiltinModuleList());
 
@@ -332,7 +323,7 @@ ProgramBuilder::BuildProgram(Program *pProgram,
       // LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL,
       // L"Start iterating over kernels");
       std::unique_ptr<KernelSet> pKernels =
-          CreateKernels(pProgram, MergeOptions.c_str(), buildResult);
+          CreateKernels(pProgram, pBuildOpts, buildResult);
       // update kernels with RuntimeService
       Utils::UpdateKernelsWithRuntimeService(lRuntimeService, pKernels.get());
 

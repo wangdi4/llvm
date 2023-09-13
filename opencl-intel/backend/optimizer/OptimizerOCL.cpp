@@ -259,32 +259,31 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
   MPM.addPass(ModuleInlinerWrapperPass(InlineParams));
 
   FunctionPassManager FPM3;
-  if (UnrollLoops) {
-    // Unroll small loops
-    // Parameters for unrolling are as follows:
-    // Optimization level, OnlyWhenForced (If false, use cost model to
-    // determine loop unrolling profitability. If true, only loops that
-    // explicitly request unrolling via metadata are considered),
-    // ForgetAllSCEV (If false, when SCEV is invalidated, only forget
-    // everything in the top-most loop), cost threshold, explicit unroll
-    // count, allow partial unrolling, allow runtime unrolling.
-    LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
-    UnrollOpts.setPartial(false).setRuntime(false).setThreshold(512); // INTEL
-    FPM3.addPass(LoopUnrollPass(UnrollOpts));
+  // Unroll small loops
+  // Parameters for unrolling are as follows:
+  // Optimization level, OnlyWhenForced (If false, use cost model to
+  // determine loop unrolling profitability. If true, only loops that
+  // explicitly request unrolling via metadata are considered),
+  // ForgetAllSCEV (If false, when SCEV is invalidated, only forget
+  // everything in the top-most loop), cost threshold, explicit unroll
+  // count, allow partial unrolling, allow runtime unrolling.
+  LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
+  UnrollOpts.setPartial(false).setRuntime(false).setThreshold(512); // INTEL
+  FPM3.addPass(LoopUnrollPass(UnrollOpts));
 
-    // unroll loops with non-constant trip count
-    const int thresholdBase = 16;
-    int RTLoopUnrollFactor = Config.GetRTLoopUnrollFactor();
-    if (RTLoopUnrollFactor > 1) {
-      LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
-      const unsigned threshold = thresholdBase * RTLoopUnrollFactor;
-      // RTLoopUnrollFactor is to customize Count. However, LoopUnrollOptions
-      // doesn't allow the customization.
-      UnrollOpts.setPartial(false).setRuntime(true).setThreshold(
-          threshold); // INTEL
-      FPM3.addPass(LoopUnrollPass(UnrollOpts));
-    }
+  // unroll loops with non-constant trip count
+  const int thresholdBase = 16;
+  int RTLoopUnrollFactor = Config.GetRTLoopUnrollFactor();
+  if (RTLoopUnrollFactor > 1) {
+    LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
+    const unsigned threshold = thresholdBase * RTLoopUnrollFactor;
+    // RTLoopUnrollFactor is to customize Count. However, LoopUnrollOptions
+    // doesn't allow the customization.
+    UnrollOpts.setPartial(false).setRuntime(true).setThreshold(
+        threshold); // INTEL
+    FPM3.addPass(LoopUnrollPass(UnrollOpts));
   }
+
   // Break up aggregate allocas
   FPM3.addPass(SROAPass(SROAOptions::ModifyCFG));
   // Clean up after the unroller
@@ -556,11 +555,9 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   // Unroll small loops with unknown trip count.
   FunctionPassManager FPM1;
   if (Level != OptimizationLevel::O0) {
-    if (UnrollLoops) {
-      LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
-      UnrollOpts.setPartial(false).setRuntime(false).setThreshold(16); // INTEL
-      FPM1.addPass(LoopUnrollPass(UnrollOpts));
-    }
+    LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
+    UnrollOpts.setPartial(false).setRuntime(false).setThreshold(16); // INTEL
+    FPM1.addPass(LoopUnrollPass(UnrollOpts));
 
     FPM1.addPass(OptimizeIDivAndIRemPass());
   }
@@ -730,7 +727,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   MPM.addPass(CleanupWrappedKernelPass());
 
   // Unroll small loops
-  if (UnrollLoops && Level != OptimizationLevel::O0) {
+  if (Level != OptimizationLevel::O0) {
     LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
     UnrollOpts.setPartial(false).setRuntime(false).setThreshold(4); // INTEL
     MPM.addPass(createModuleToFunctionPassAdaptor(LoopUnrollPass(UnrollOpts)));

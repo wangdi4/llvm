@@ -533,7 +533,7 @@ public:
   }
 
   void visit(HLSwitch *Switch) {
-    for (unsigned Case = 1, E = Switch->getNumCases(); Case < E; ++Case) {
+    for (unsigned Case = 1, E = Switch->getNumCases(); Case <= E; ++Case) {
       visitChildContainer(Switch, make_range(Switch->case_child_begin(Case),
                                              Switch->case_child_end(Case)));
     }

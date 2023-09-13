@@ -1,6 +1,6 @@
 //===-- CompilationUtils.cpp - Compilation utilities -------------*- C++ *-===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -3170,23 +3170,6 @@ void patchNotInlinedTIDUserFunc(
     OldF->eraseFromParent();
 }
 
-bool getDebugFlagFromMetadata(Module *M) {
-  if (llvm::NamedMDNode *CompileOptsNamed =
-          M->getNamedMetadata("opencl.compiler.options")) {
-
-    llvm::MDTupleTypedArrayWrapper<llvm::MDString> CompileOpts(
-        cast<llvm::MDTuple>(CompileOptsNamed->getOperand(0)));
-
-    for (llvm::MDString *Opt : CompileOpts) {
-      if (Opt->getString() == "-g") {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 bool hasFDivWithFastFlag(Module *M) {
   for (Function &F : *M)
     for (BasicBlock &B : F)
@@ -3239,23 +3222,6 @@ bool isImagesUsed(const Module &M) {
        i < e; ++i) {
     if (StructType::getTypeByName(M.getContext(), ImageTypeNames[i]))
       return true;
-  }
-
-  return false;
-}
-
-bool getOptDisableFlagFromMetadata(Module *M) {
-  if (NamedMDNode *CompileOptsNamed =
-          M->getNamedMetadata("opencl.compiler.options")) {
-
-    MDTupleTypedArrayWrapper<MDString> CompileOpts(
-        cast<MDTuple>(CompileOptsNamed->getOperand(0)));
-
-    for (MDString *Opt : CompileOpts) {
-      if (Opt->getString() == "-cl-opt-disable") {
-        return true;
-      }
-    }
   }
 
   return false;

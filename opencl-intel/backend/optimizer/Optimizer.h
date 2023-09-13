@@ -92,8 +92,6 @@ protected:
   bool m_IsFpgaEmulator;
 
   bool m_UseTLSGlobals;
-
-  bool UnrollLoops;
 };
 
 } // namespace DeviceBackend
