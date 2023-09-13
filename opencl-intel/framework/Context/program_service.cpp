@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1055,34 +1055,8 @@ cl_err_code ProgramService::LinkProgram(
       if (arrBuildForDevice[i]) {
         bNeedToBuild = true;
         ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BE_BUILDING);
-
-        // Propagate "-cl-opt-disable" and "-g" options used for
-        // compilation to build task because build task is actually
-        // performing all backend optimizations depending on
-        // provided options. This propagation is necessary for
-        // scenario when SYCL compiler is used with CPU backend
-        // because SYCL compiler doesn't add metadata for these
-        // options. In case of OpenCL options are propagated using
-        // opencl.compiler.options metadata.
-        std::string compileOptions;
-        for (unsigned int libIndex = 0; libIndex < num_input_programs;
-             ++libIndex) {
-          if (const char *opts =
-                  input_programs[libIndex]->GetBuildOptionsInternal(
-                      ppDevicePrograms[i]->GetDeviceId())) {
-            if (std::string(opts).find("-cl-opt-disable") !=
-                    std::string::npos &&
-                compileOptions.find("-cl-opt-disable") == std::string::npos)
-              compileOptions.append(" -cl-opt-disable");
-            if (std::string(opts).find("-g") != std::string::npos &&
-                compileOptions.find("-g") == std::string::npos)
-              compileOptions.append(" -g");
-          }
-        }
-
-        std::string mergedOptions = compileOptions + buildOptions;
         arrDeviceBuildTasks[i] = DeviceBuildTask::Allocate(
-            context, program, ppDevicePrograms[i], mergedOptions.c_str());
+            context, program, ppDevicePrograms[i], buildOptions.c_str());
         if (NULL == arrDeviceBuildTasks[i].GetPtr()) {
           ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
         } else if (NULL != arrLinkTasks[i].GetPtr()) {
