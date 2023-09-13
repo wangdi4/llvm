@@ -1121,7 +1121,8 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
     Align Alignment(16);
     MaxAlign = std::max(MaxAlign, Alignment);
     // FIXME: 782045e was reverted by community, uncomment when relanded
-    // Offset = alignTo(Offset, Alignment, Skew);
+    // Recover offset adjustment to fix: CMPLRLLVM-49467
+    Offset = alignTo(Offset, Alignment);
   }
 #endif // INTEL_CUSTOMIZATION
   // Now walk the objects and actually assign base offsets to them.
