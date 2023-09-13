@@ -190,8 +190,8 @@ static struct cname {
  * other clumsinesses
  */
 struct parse {
-	char *next;		/* next character in RE */
-	char *end;		/* end of string (-> NUL normally) */
+	const char *next;	/* next character in RE */
+	const char *end;	/* end of string (-> NUL normally) */
 	int error;		/* has an error been seen? */
 	sop *strip;		/* malloced strip */
 	sopno ssize;		/* malloced strip size (allocated) */
@@ -329,6 +329,7 @@ llvm_regcomp(llvm_regex_t *preg, const char *pattern, int cflags)
 
 	/* set things up */
 	p->g = g;
+<<<<<<< HEAD
 	/* suppress warning from the following explicit cast. */
 #if defined( __GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
@@ -338,6 +339,9 @@ llvm_regcomp(llvm_regex_t *preg, const char *pattern, int cflags)
 #if defined( __GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif /* __GNUC__ */
+=======
+	p->next = pattern;
+>>>>>>> bc8f4a1b0a843df8ff22bd06e455f2c74e30a226
 	p->end = p->next + len;
 	p->error = 0;
 	p->ncsalloc = 0;
@@ -948,7 +952,7 @@ p_b_term(struct parse *p, cset *cs)
 static void
 p_b_cclass(struct parse *p, cset *cs)
 {
-	char *sp = p->next;
+	const char *sp = p->next;
 	struct cclass *cp;
 	size_t len;
 	const char *u;
@@ -1012,7 +1016,7 @@ static char			/* value of collating element */
 p_b_coll_elem(struct parse *p,
     int endc)			/* name ended by endc,']' */
 {
-	char *sp = p->next;
+	const char *sp = p->next;
 	struct cname *cp;
 	size_t len;
 
@@ -1056,8 +1060,8 @@ othercase(int ch)
 static void
 bothcases(struct parse *p, int ch)
 {
-	char *oldnext = p->next;
-	char *oldend = p->end;
+	const char *oldnext = p->next;
+	const char *oldend = p->end;
 	char bracket[3];
 
 	ch = (uch)ch;
@@ -1098,16 +1102,12 @@ ordinary(struct parse *p, int ch)
 static void
 nonnewline(struct parse *p)
 {
-	char *oldnext = p->next;
-	char *oldend = p->end;
-	char bracket[4];
+	const char *oldnext = p->next;
+	const char *oldend = p->end;
+	static const char bracket[4] = {'^', '\n', ']', '\0'};
 
 	p->next = bracket;
 	p->end = bracket+3;
-	bracket[0] = '^';
-	bracket[1] = '\n';
-	bracket[2] = ']';
-	bracket[3] = '\0';
 	p_bracket(p);
 	assert(p->next == bracket+3);
 	p->next = oldnext;
