@@ -6,13 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-<<<<<<< HEAD
-#include "llvm/Analysis/AliasAnalysisEvaluator.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"   // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/Passes.h"
-=======
->>>>>>> 4d5906e0bf27b7aea451cf60e0d38a01f9b96085
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
