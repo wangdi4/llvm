@@ -1801,7 +1801,7 @@ void MachineInstr::print(raw_ostream &OS, ModuleSlotTracker &MST,
       }
 
       if (F.isMemKind()) {
-        const unsigned MCID = F.getMemoryConstraintID();
+        const InlineAsm::ConstraintCode MCID = F.getMemoryConstraintID();
         OS << ":" << InlineAsm::getMemConstraintName(MCID);
       }
 
