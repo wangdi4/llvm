@@ -498,3 +498,51 @@ define i1 @andflag64ri8(i64 %a) {
   store i64 %v0, ptr @d64
   ret i1 %v1
 }
+
+define void @and8mr_legacy(ptr %a, i8 noundef %b) {
+; CHECK-LABEL: and8mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    andb %sil, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i8, ptr %a
+  %and = and i8 %t, %b
+  store i8 %and, ptr %a
+  ret void
+}
+
+define void @and16mr_legacy(ptr %a, i16 noundef %b) {
+; CHECK-LABEL: and16mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    andw %si, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i16, ptr %a
+  %and = and i16 %t, %b
+  store i16 %and, ptr %a
+  ret void
+}
+
+define void @and32mr_legacy(ptr %a, i32 noundef %b) {
+; CHECK-LABEL: and32mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    andl %esi, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i32, ptr %a
+  %and = and i32 %t, %b
+  store i32 %and, ptr %a
+  ret void
+}
+
+define void @and64mr_legacy(ptr %a, i64 noundef %b) {
+; CHECK-LABEL: and64mr_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    andq %rsi, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i64, ptr %a
+  %and = and i64 %t, %b
+  store i64 %and, ptr %a
+  ret void
+}

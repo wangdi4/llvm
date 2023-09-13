@@ -372,3 +372,63 @@ define i64 @sbb64mi(ptr %ptr, i64 %x, i64 %y) nounwind {
   %r = sub i64 %s, %z
   ret i64 %r
 }
+
+define void @sbb8mr_legacy(i8 %a, ptr %ptr, i8 %x, i8 %y) nounwind {
+; CHECK-LABEL: sbb8mr_legacy:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    cmpb %dl, %cl
+; CHECK-NEXT:    sbbb %dil, (%rsi)
+; CHECK-NEXT:    retq
+  %b = load i8, ptr %ptr
+  %s = sub i8 %b, %a
+  %k = icmp ugt i8 %x, %y
+  %z = zext i1 %k to i8
+  %r = sub i8 %s, %z
+  store i8 %r, ptr %ptr
+  ret void
+}
+
+define void @sbb16mr_legacy(i16 %a, ptr %ptr, i16 %x, i16 %y) nounwind {
+; CHECK-LABEL: sbb16mr_legacy:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    cmpw %dx, %cx
+; CHECK-NEXT:    sbbw %di, (%rsi)
+; CHECK-NEXT:    retq
+  %b = load i16, ptr %ptr
+  %s = sub i16 %b, %a
+  %k = icmp ugt i16 %x, %y
+  %z = zext i1 %k to i16
+  %r = sub i16 %s, %z
+  store i16 %r, ptr %ptr
+  ret void
+}
+
+define void @sbb32mr_legacy(i32 %a, ptr %ptr, i32 %x, i32 %y) nounwind {
+; CHECK-LABEL: sbb32mr_legacy:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    cmpl %edx, %ecx
+; CHECK-NEXT:    sbbl %edi, (%rsi)
+; CHECK-NEXT:    retq
+  %b = load i32, ptr %ptr
+  %s = sub i32 %b, %a
+  %k = icmp ugt i32 %x, %y
+  %z = zext i1 %k to i32
+  %r = sub i32 %s, %z
+  store i32 %r, ptr %ptr
+  ret void
+}
+
+define void @sbb64mr_legacy(i64 %a, ptr %ptr, i64 %x, i64 %y) nounwind {
+; CHECK-LABEL: sbb64mr_legacy:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    cmpq %rdx, %rcx
+; CHECK-NEXT:    sbbq %rdi, (%rsi)
+; CHECK-NEXT:    retq
+  %b = load i64, ptr %ptr
+  %s = sub i64 %b, %a
+  %k = icmp ugt i64 %x, %y
+  %z = zext i1 %k to i64
+  %r = sub i64 %s, %z
+  store i64 %r, ptr %ptr
+  ret void
+}

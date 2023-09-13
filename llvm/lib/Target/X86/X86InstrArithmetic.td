@@ -744,7 +744,6 @@ multiclass BinOpMR_Common<bits<8> opcode, string mnemonic,
   // Instructions like "add [mem], reg".
   let mayStore = 1 in {
   let Defs = [EFLAGS] in {
-    let Predicates = [NoNDD] in
     def NAME: BinOpMR_RMW<opcode, mnemonic, typeinfo, opnode>;
     let Predicates = [In64BitMode], mayLoad = 1, mayStore = 1 in
     def _EVEX: BinOpMR_RMW_EVEX<opcode, mnemonic, typeinfo>,
