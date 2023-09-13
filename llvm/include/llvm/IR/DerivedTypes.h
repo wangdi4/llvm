@@ -724,10 +724,25 @@ public:
   /// given address space. This is only useful during the opaque pointer
   /// transition.
   /// TODO: remove after opaque pointer transition is complete.
+<<<<<<< HEAD
   [[deprecated("Use PointerType::get() with LLVMContext argument "
                "instead")]] static PointerType *
   getWithSamePointeeType(PointerType *PT, unsigned AddressSpace) {
     return get(PT->getContext(), AddressSpace);
+=======
+#if !INTEL_CUSTOMIZATION
+  [[deprecated("Use PointerType::get() with LLVMContext argument instead")]]
+#endif // !INTEL_CUSTOMIZATION
+  static PointerType *getWithSamePointeeType(PointerType *PT,
+                                             unsigned AddressSpace) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    return get(PT->getContext(), AddressSpace);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    if (PT->isOpaque())
+      return get(PT->getContext(), AddressSpace);
+    return get(PT->PointeeTy, AddressSpace);
+#endif // !INTEL_CUSTOMIZATION
+>>>>>>> f79d0e2a872887d2081fb8be262eedaeacd6ab34
   }
 
   [[deprecated("Pointer element types are deprecated. You can *temporarily* "
@@ -737,7 +752,18 @@ public:
     return PointeeTy;
   }
 
+<<<<<<< HEAD
   [[deprecated("Always returns true")]] bool isOpaque() const { return true; }
+=======
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+#if !INTEL_CUSTOMIZATION
+  [[deprecated("Always returns true")]]
+#endif // !INTEL_CUSTOMIZATION
+  bool isOpaque() const { return true; }
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  bool isOpaque() const { return !PointeeTy; }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> f79d0e2a872887d2081fb8be262eedaeacd6ab34
 
   /// Return true if the specified type is valid as a element type.
   static bool isValidElementType(Type *ElemTy);
@@ -752,7 +778,13 @@ public:
   /// type matches Ty. Primarily used for checking if an instruction's pointer
   /// operands are valid types. Will be useless after non-opaque pointers are
   /// removed.
+<<<<<<< HEAD
+=======
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+#if !INTEL_CUSTOMIZATION
+>>>>>>> f79d0e2a872887d2081fb8be262eedaeacd6ab34
   [[deprecated("Always returns true")]]
+#endif // !INTEL_CUSTOMIZATION
   bool isOpaqueOrPointeeTypeMatches(Type *) {
     return true;
   }
