@@ -111,12 +111,39 @@ public:
       : HLS(HLS), HDDA(HDDA) {}
   bool run(HLLoop *Lp);
 
-  bool collectMemoryReductions(HLLoop *Lp);
-
   bool validateReductionTemp(DDGraph DDG, const HLLoop *Lp);
   bool validateMemoryReductions(const HLLoop *Lp);
 
   void sinkInvariantReductions(HLLoop *Lp);
+
+private:
+  void clearReductionVectors() {
+    MemoryReductions.clear();
+    InvariantMemoryReductions.clear();
+  }
+};
+
+// This visitor is used to traverse through the innermost loop and identify
+// the possible reductions that will be sinked.
+class CandidatesCollector final : public HLNodeVisitorBase {
+private:
+  SmallVector<MemoryReductionInfo, 16> &MemoryReductions;
+  SmallVector<MemoryReductionInfo, 8> &InvariantMemoryReductions;
+  HLLoop *ParentLoop;
+
+public:
+  CandidatesCollector(
+      SmallVector<MemoryReductionInfo, 16> &MemoryReductions,
+      SmallVector<MemoryReductionInfo, 8> &InvariantMemoryReductions,
+      HLLoop *Loop)
+      : MemoryReductions(MemoryReductions),
+        InvariantMemoryReductions(InvariantMemoryReductions), ParentLoop(Loop) {
+  }
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+
+  void visit(HLInst *HInst);
 };
 
 } // namespace
@@ -166,106 +193,97 @@ static HLInst *getReductionStore(HLInst *LoadInst, bool CheckSelfBlobRval) {
   return SInst;
 }
 
-bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
-  unsigned Level = Lp->getNestingLevel();
-  auto *FirstChild = Lp->getFirstChild();
+// Goes through top-level loop nodes and collects candidates which structually
+// look like memory reductions. DD based legality is checked later.
+void CandidatesCollector::visit(HLInst *HInst) {
+  unsigned Level = ParentLoop->getNestingLevel();
+  auto *FirstChild = ParentLoop->getFirstChild();
 
-  // Goes through top-level loop nodes and collects candidates which structually
-  // look like memory reductions. DD based legality is checked later.
-  for (auto &Node : make_range(Lp->child_begin(), Lp->child_end())) {
-    auto *HInst = dyn_cast<HLInst>(&Node);
-    bool IsFirstPattern = true;
+  bool IsFirstPattern = true;
 
-    if (!HInst) {
-      continue;
+  auto *LLVMInst = HInst->getLLVMInstruction();
+  unsigned Opcode;
+  FastMathFlags FMF;
+  RegDDRef *LoadRef = nullptr;
+  RegDDRef *AlternateLoadRef = nullptr;
+  HLInst *StoreInst = nullptr;
+
+  if (isa<LoadInst>(LLVMInst)) {
+    // Looking for this pattern for integer types-
+    // (first pattern)
+    //    %0 = A[5];
+    //    A[5] = %0 + t;
+    LoadRef = HInst->getRvalDDRef();
+
+    if (!LoadRef->getDestType()->isIntegerTy()) {
+      return;
     }
 
-    auto *LLVMInst = HInst->getLLVMInstruction();
-    unsigned Opcode;
-    FastMathFlags FMF;
-    RegDDRef *LoadRef = nullptr;
-    RegDDRef *AlternateLoadRef = nullptr;
-    HLInst *StoreInst = nullptr;
+    Opcode = Instruction::Add;
 
-    if (isa<LoadInst>(LLVMInst)) {
-      // Looking for this pattern for integer types-
-      // (first pattern)
-      //    %0 = A[5];
-      //    A[5] = %0 + t;
-      LoadRef = HInst->getRvalDDRef();
+  } else if (isa<BinaryOperator>(LLVMInst) && HInst->isReductionOp(&Opcode)) {
+    // Looking for this pattern-
+    // (second pattern)
+    //   %add = A[5]  +  %t;
+    //   A[5] = %add;
+    auto *FPOp = dyn_cast<FPMathOperator>(LLVMInst);
 
-      if (!LoadRef->getDestType()->isIntegerTy()) {
-        continue;
+    if (FPOp) {
+      if (!FPOp->hasAllowReassoc()) {
+        return;
       }
-
-      Opcode = Instruction::Add;
-
-    } else if (isa<BinaryOperator>(LLVMInst) && HInst->isReductionOp(&Opcode)) {
-      // Looking for this pattern-
-      // (second pattern)
-      //   %add = A[5]  +  %t;
-      //   A[5] = %add;
-      auto *FPOp = dyn_cast<FPMathOperator>(LLVMInst);
-
-      if (FPOp) {
-        if (!FPOp->hasAllowReassoc()) {
-          continue;
-        }
-        FMF = FPOp->getFastMathFlags();
-      }
-
-      LoadRef = HInst->getOperandDDRef(1);
-      if (Instruction::isCommutative(Opcode))
-        AlternateLoadRef = HInst->getOperandDDRef(2);
-
-      if (!LoadRef->isMemRef() &&
-          (!AlternateLoadRef || !AlternateLoadRef->isMemRef()))
-        continue;
-
-      IsFirstPattern = false;
-
-    } else {
-      continue;
+      FMF = FPOp->getFastMathFlags();
     }
 
-    StoreInst = getReductionStore(HInst, !IsFirstPattern);
-    if (!StoreInst)
-      continue;
+    LoadRef = HInst->getOperandDDRef(1);
+    if (Instruction::isCommutative(Opcode))
+      AlternateLoadRef = HInst->getOperandDDRef(2);
 
-    auto *StoreRef = StoreInst->getLvalDDRef();
+    if (!LoadRef->isMemRef() &&
+        (!AlternateLoadRef || !AlternateLoadRef->isMemRef()))
+      return;
 
-    if (!LoadRef->isMemRef() || !DDRefUtils::areEqual(LoadRef, StoreRef)) {
-      if (AlternateLoadRef && AlternateLoadRef->isMemRef() &&
-          DDRefUtils::areEqual(AlternateLoadRef, StoreRef))
-        LoadRef = AlternateLoadRef;
-      else
-        continue;
-    }
+    IsFirstPattern = false;
 
-    if (!HLNodeUtils::postDominates(StoreInst, FirstChild))
-      continue;
-
-    if (LoadRef->isStructurallyInvariantAtLevel(Level)) {
-      InvariantMemoryReductions.emplace_back(Opcode, FMF, LoadRef,
-                                             StoreInst->getLvalDDRef());
-    } else if (!Lp->isLiveOut(HInst->getLvalDDRef()->getSymbase())) {
-      // MemoryReductions tracks the non-invariant reductions that could
-      // alias to other invariant reductions, which we are trying to sink.
-      // Example:
-      // %0 = (@A)[0][i1];  <-- Memory Reduction candidate
-      // (@A)[0][i1] = %0 + 2;
-      // %1 = (@A)[0][5];   <-- InvariantMemoryReduction candidate
-      // (@A)[0][5] = %1 + 3;
-
-      // We only save memory reduction if the Lval Temp is not liveout.
-      // Sinking an aliasing invariant memory reduction does not preserve
-      // liveout for this reduction. Later validation checks will bailout.
-      MemoryReductions.emplace_back(Opcode, FMF, LoadRef,
-                                    StoreInst->getLvalDDRef());
-    }
+  } else {
+    return;
   }
 
-  return !InvariantMemoryReductions.empty();
+  StoreInst = getReductionStore(HInst, !IsFirstPattern);
+  if (!StoreInst)
+    return;
+
+  auto *StoreRef = StoreInst->getLvalDDRef();
+
+  if (!LoadRef->isMemRef() || !DDRefUtils::areEqual(LoadRef, StoreRef)) {
+    if (AlternateLoadRef && AlternateLoadRef->isMemRef() &&
+        DDRefUtils::areEqual(AlternateLoadRef, StoreRef))
+      LoadRef = AlternateLoadRef;
+    else
+      return;
+  }
+
+  if (!HLNodeUtils::postDominates(StoreInst, FirstChild))
+    return;
+
+  if (LoadRef->isStructurallyInvariantAtLevel(Level)) {
+    InvariantMemoryReductions.emplace_back(Opcode, FMF, LoadRef,
+                                           StoreInst->getLvalDDRef());
+  } else if (!ParentLoop->isLiveOut(HInst->getLvalDDRef()->getSymbase())) {
+    // MemoryReductions tracks the non-invariant reductions that could
+    // alias to other invariant reductions, which we are trying to sink.
+    // Example:
+    // %0 = (@A)[0][i1];  <-- Memory Reduction candidate
+    // (@A)[0][i1] = %0 + 2;
+    // %1 = (@A)[0][5];   <-- InvariantMemoryReduction candidate
+    // (@A)[0][5] = %1 + 3;
+
+    // We only save memory reduction if the Lval Temp is not liveout.
+    // Sinking an aliasing invariant memory reduction does not preserve
+    // liveout for this reduction. Later validation checks will bailout.
+    MemoryReductions.emplace_back(Opcode, FMF, LoadRef,
+                                  StoreInst->getLvalDDRef());
+  }
 }
 
 bool HIRMemoryReductionSinking::validateReductionTemp(DDGraph DDG,
@@ -434,94 +452,113 @@ static unsigned getCommutativeOpcode(unsigned Opcode) {
   return Opcode;
 }
 
-void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
+// This function uses the information in the input MemoryReductionInfo to
+// create a reduction temp and replaces reduction load/store inside the loop
+// with the temp.
+static void createReductionTemp(HLLoop *Lp, MemoryReductionInfo *InvRedn) {
   auto &HNU = Lp->getHLNodeUtils();
   unsigned Level = Lp->getNestingLevel();
+
+  auto *LoadRef = InvRedn->LoadRef;
+  auto *LoadInst = cast<HLInst>(LoadRef->getHLDDNode());
+
+  auto *StoreRef = InvRedn->StoreRef;
+  auto *StoreInst = StoreRef->getHLDDNode();
+
+  unsigned Opcode = getCommutativeOpcode(InvRedn->Opcode);
+
+  auto *RednTemp = createReductionInitializer(Lp, Opcode, InvRedn->FMF,
+                                              LoadRef->getDestType());
+
+  auto *BinOp = dyn_cast<BinaryOperator>(LoadInst->getLLVMInstruction());
+  RegDDRef *RednOpRef = nullptr;
+
+  // Replace reduction operand by new temp in the original reduction
+  // instruction. The original reduction operand will be used in temp
+  // reduction.
+  if (BinOp) {
+    // Handling this pattern-
+    //   %add = A[5]  +  B[i];
+    //   A[5] = %add;
+    //
+    //   ==>
+    //
+    //   %add = A[5]  +  %tmp
+    //   A[5] = %add;
+    if (LoadRef == LoadInst->getOperandDDRef(1)) {
+      RednOpRef = LoadInst->removeOperandDDRef(2);
+      LoadInst->setOperandDDRef(RednTemp->clone(), 2);
+    } else {
+      RednOpRef = LoadInst->removeOperandDDRef(1);
+      LoadInst->setOperandDDRef(RednTemp->clone(), 1);
+    }
+  } else {
+    // Handling this pattern (integer types only)-
+    //   %0 = A[5];
+    //   A[5] = %0 + t;
+    //
+    //   ==>
+    //
+    //   %0 = A[5];
+    //   A[5] = %0 + %tmp;
+    RednOpRef = StoreInst->removeOperandDDRef(1);
+    auto *LoadTemp = LoadInst->getLvalDDRef();
+    unsigned TempIndex = LoadTemp->getSelfBlobIndex();
+    RednOpRef->getSingleCanonExpr()->removeBlob(TempIndex);
+    RednOpRef->makeConsistent({}, Level);
+
+    auto *NewStoreRval = RednTemp->clone();
+    NewStoreRval->getSingleCanonExpr()->addBlob(TempIndex, 1);
+    StoreInst->setOperandDDRef(NewStoreRval, 1);
+    NewStoreRval->makeConsistent({RednTemp, LoadTemp}, Level - 1);
+  }
+
+  auto *TmpRednInst = HNU.createBinaryHLInst(
+      Opcode, RednTemp->clone(), RednOpRef, "redn", RednTemp->clone(), BinOp);
+
+  HLNodeUtils::insertBefore(LoadInst, TmpRednInst);
+}
+
+// This function updates the optimization remarks after the transformation.
+static void addOptimizationsRemark(HLLoop *Lp, MemoryReductionInfo *InvRedn) {
+
   OptReportBuilder &ORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
+  auto *StoreRef = InvRedn->StoreRef;
 
+  unsigned StoreLineNum = 0;
+
+  if (StoreRef->getDebugLoc()) {
+    StoreLineNum = StoreRef->getDebugLoc().getLine();
+  }
+
+  // Load/Store of reduction at line %d sinked after loop
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                           OptRemarkID::MemoryReductionSinking, StoreLineNum);
+}
+
+void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
   // Sink collected reduction in reverse order to keep lexical order same in
   // loop postexit.
-  for (auto RedIt = InvariantMemoryReductions.rbegin(),
-            E = InvariantMemoryReductions.rend();
-       RedIt != E; ++RedIt) {
-    auto *LoadRef = RedIt->LoadRef;
-    auto *LoadInst = cast<HLInst>(LoadRef->getHLDDNode());
+  for (auto &InvRedn : make_range(InvariantMemoryReductions.rbegin(),
+                                  InvariantMemoryReductions.rend())) {
+    // Create the reduction temp and update the load and store instructions
+    createReductionTemp(Lp, &InvRedn);
+    auto *LoadInst = cast<HLInst>(InvRedn.LoadRef->getHLDDNode());
+    auto *StoreInst = cast<HLInst>(InvRedn.StoreRef->getHLDDNode());
 
-    auto *StoreRef = RedIt->StoreRef;
-    auto *StoreInst = StoreRef->getHLDDNode();
-
-    unsigned Opcode = getCommutativeOpcode(RedIt->Opcode);
-
-    auto *RednTemp = createReductionInitializer(Lp, Opcode, RedIt->FMF,
-                                                LoadRef->getDestType());
-
-    auto *BinOp = dyn_cast<BinaryOperator>(LoadInst->getLLVMInstruction());
-    RegDDRef *RednOpRef = nullptr;
-
-    // Replace reduction operand by new temp in the original reduction
-    // instruction. The original reduction operand will be used in temp
-    // reduction.
-    if (BinOp) {
-      // Handling this pattern-
-      //   %add = A[5]  +  B[i];
-      //   A[5] = %add;
-      //
-      //   ==>
-      //
-      //   %add = A[5]  +  %tmp
-      //   A[5] = %add;
-      if (LoadRef == LoadInst->getOperandDDRef(1)) {
-        RednOpRef = LoadInst->removeOperandDDRef(2);
-        LoadInst->setOperandDDRef(RednTemp->clone(), 2);
-      } else {
-        RednOpRef = LoadInst->removeOperandDDRef(1);
-        LoadInst->setOperandDDRef(RednTemp->clone(), 1);
-      }
-    } else {
-      // Handling this pattern (integer types only)-
-      //   %0 = A[5];
-      //   A[5] = %0 + t;
-      //
-      //   ==>
-      //
-      //   %0 = A[5];
-      //   A[5] = %0 + %tmp;
-      RednOpRef = StoreInst->removeOperandDDRef(1);
-      auto *LoadTemp = LoadInst->getLvalDDRef();
-      unsigned TempIndex = LoadTemp->getSelfBlobIndex();
-      RednOpRef->getSingleCanonExpr()->removeBlob(TempIndex);
-      RednOpRef->makeConsistent({}, Level);
-
-      auto *NewStoreRval = RednTemp->clone();
-      NewStoreRval->getSingleCanonExpr()->addBlob(TempIndex, 1);
-      StoreInst->setOperandDDRef(NewStoreRval, 1);
-      NewStoreRval->makeConsistent({RednTemp, LoadTemp}, Level - 1);
-    }
-
-    auto *TmpRednInst = HNU.createBinaryHLInst(
-        Opcode, RednTemp->clone(), RednOpRef, "redn", RednTemp->clone(), BinOp);
-
-    HLNodeUtils::insertBefore(LoadInst, TmpRednInst);
-
-    // Move original reduction instructions to postexit.
+    // Move them to the post exit
     HLNodeUtils::moveAsFirstPostexitNode(Lp, StoreInst);
     HLNodeUtils::moveAsFirstPostexitNode(Lp, LoadInst);
 
-    unsigned StoreLineNum = 0;
-
-    if (StoreRef->getDebugLoc()) {
-      StoreLineNum = StoreRef->getDebugLoc().getLine();
-    }
-
-    // Load/Store of reduction at line %d sinked after loop
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                             OptRemarkID::MemoryReductionSinking, StoreLineNum);
+    // Add optimization remarks
+    addOptimizationsRemark(Lp, &InvRedn);
 
     // Linear (invariant) memrefs can become non-linear in post-exit as they are
     // now in outer loop scope.
-    LoadRef->makeConsistent({}, Level - 1);
-    StoreRef->makeConsistent({}, Level - 1);
+    unsigned Level = Lp->getNestingLevel();
+    InvRedn.LoadRef->makeConsistent({}, Level - 1);
+    InvRedn.StoreRef->makeConsistent({}, Level - 1);
   }
 
   Lp->getParentRegion()->setGenCode();
@@ -543,12 +580,17 @@ bool HIRMemoryReductionSinking::run(HLLoop *Lp) {
     return false;
   }
 
-  MemoryReductions.clear();
-  InvariantMemoryReductions.clear();
+  clearReductionVectors();
 
-  if (!collectMemoryReductions(Lp)) {
+  // Currently, we don't support handling reductions inside If or Switch.
+  // This is a work in progress (CMPLRLLVM-48084).
+  CandidatesCollector Candidates(MemoryReductions, InvariantMemoryReductions,
+                                 Lp);
+  HLNodeUtils::visitRange<false /* Recurse */>(Candidates, Lp->child_begin(),
+                                               Lp->child_end());
+
+  if (InvariantMemoryReductions.empty())
     return false;
-  }
 
   if (!validateMemoryReductions(Lp)) {
     return false;
