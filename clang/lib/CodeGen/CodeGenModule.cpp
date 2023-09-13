@@ -7301,10 +7301,6 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalCtor(Fn, CA->getPriority());
   if (const DestructorAttr *DA = D->getAttr<DestructorAttr>())
     AddGlobalDtor(Fn, DA->getPriority(), true);
-<<<<<<< HEAD
-  if (D->hasAttr<AnnotateAttr>())
-    AddGlobalAnnotations(D, Fn);
-
 #if INTEL_COLLAB
   if (LangOpts.OpenMPLateOutline && LangOpts.OpenMP >= 51 &&
       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(D)) {
@@ -7326,8 +7322,6 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     }
   } else
 #endif // INTEL_COLLAB
-=======
->>>>>>> c6a33ff49dfb3498dae15c718820ea3d9c19f3cb
   if (getLangOpts().OpenMP && D->hasAttr<OMPDeclareTargetDeclAttr>())
     getOpenMPRuntime().emitDeclareTargetFunction(D, GV);
 
