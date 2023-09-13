@@ -798,6 +798,9 @@ public:
 
 PreservedAnalyses NontemporalStorePass::run(Function &F,
                                             FunctionAnalysisManager &AM) {
+  if (DisableUnalignedNontemporal)
+    return PreservedAnalyses::all();
+
   NontemporalStore Impl(F,
       AM.getResult<AAManager>(F),
       AM.getResult<DominatorTreeAnalysis>(F),
