@@ -1,8 +1,8 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced, asserts
-; Ignore profitability check because it's not implemented yet.
-; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -debug-only=agginliner -inline-report=0xe807 -S -inline-agg-long-consecutive-call-chain-ignore-profitability=true 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
-; RUN: opt < %s -whole-program-assume -passes='inlinereportsetup,module(agginliner),cgscc(inline),inlinereportemitter' -debug-only=agginliner -inline-report=0xe886 -S -inline-agg-long-consecutive-call-chain-ignore-profitability=true 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -debug-only=agginliner -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt < %s -whole-program-assume -passes='inlinereportsetup,module(agginliner),cgscc(inline),inlinereportemitter' -debug-only=agginliner -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt < %s -whole-program-assume -passes='module(agginliner)' -debug-only=agginliner -S 2>&1 | FileCheck %s --check-prefix=NO-INLINE-NONPROFITABLE
 
 ; Check trace to test AggInliner's long-consecutive-call-chain heuristic.
 
@@ -22,7 +22,8 @@
 ; CHECK-DAG: AggInl: Inserting:   tail call void @leaf_2(ptr noundef %p, i32 noundef %n)
 ; CHECK-DAG: AggInl: Inserting:   tail call void @leaf_2(ptr noundef %p, i32 noundef %n)
 ; CHECK-DAG: AggInl: Inserting:   tail call void @leaf_2(ptr noundef %p, i32 noundef %n)
-; CHECK-DAG: AggInl: Inserting:   tail call void @leaf_2(ptr noundef %q, i32 noundef %m)
+
+; NO-INLINE-NONPROFITABLE-NOT: AggInl: Inserting:   tail call void @leaf_2(ptr noundef %q, i32 noundef %m)
 
 ; CHECK-MD-INLREP: Begin Inlining Report{{.*}}(via metadata)
 ; CHECK-MD-INLREP: COMPILE FUNC: leaf_3
@@ -40,7 +41,7 @@
 ; CHECK-MD-INLREP: -> recursive_call_leaf_3 {{.*}}Callsite is noinline
 ; CHECK-MD-INLREP: INLINE: leaf_1 {{.*}}Aggressive inline
 ; CHECK-MD-INLREP: INLINE: leaf_2 {{.*}}Aggressive inline
-; CHECK-MD-INLREP: INLINE: leaf_2 {{.*}}Aggressive inline
+; CHECK-MD-INLREP-NOT: INLINE: leaf_2 {{.*}}Aggressive inline
 
 ; CHECK-MD-INLREP: COMPILE FUNC: call_leaves_2
 ; CHECK-MD-INLREP: INLINE: leaf_2 {{.*}}Aggressive inline
@@ -82,7 +83,7 @@
 ; CHECK-INLREP: -> recursive_call_leaf_3 {{.*}}Callsite is noinline
 ; CHECK-INLREP: INLINE: leaf_1 {{.*}}Aggressive inline
 ; CHECK-INLREP: INLINE: leaf_2 {{.*}}Aggressive inline
-; CHECK-INLREP: INLINE: leaf_2 {{.*}}Aggressive inline
+; CHECK-INLREP-NOT: INLINE: leaf_2 {{.*}}Aggressive inline
 
 ; CHECK-INLREP: COMPILE FUNC: call_leaves_2
 ; CHECK-INLREP: INLINE: leaf_2 {{.*}}Aggressive inline

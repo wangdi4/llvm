@@ -31,10 +31,11 @@ namespace llvm {
 using AggInlGetTLITy =
     std::function<const TargetLibraryInfo &(const Function &)>;
 using AggInlGetLITy = std::function<const LoopInfo &(const Function &)>;
+using AggInlGetSETy = std::function<ScalarEvolution &(const Function &)>;
 
 // It handles actual analysis and results of Inline Aggressive analysis.
 struct InlineAggressiveInfo {
-  InlineAggressiveInfo(AggInlGetTLITy, AggInlGetLITy);
+  InlineAggressiveInfo(AggInlGetTLITy, AggInlGetLITy, AggInlGetSETy);
   InlineAggressiveInfo(InlineAggressiveInfo &&);
   InlineAggressiveInfo();
   ~InlineAggressiveInfo();
@@ -42,12 +43,13 @@ struct InlineAggressiveInfo {
 
   static InlineAggressiveInfo runImpl(Module &M, WholeProgramInfo &WPI,
                                       AggInlGetTLITy GetTLI,
-                                      AggInlGetLITy GetLI);
+                                      AggInlGetLITy GetLI, AggInlGetSETy GetSE);
   bool analyzeModule(Module &MI);
 
 private:
   AggInlGetTLITy GetTLI;
   AggInlGetLITy GetLI;
+  AggInlGetSETy GetSE;
 
   // List of calls that are marked as AggInline.
   SetVector<CallBase *> AggInlCalls;
