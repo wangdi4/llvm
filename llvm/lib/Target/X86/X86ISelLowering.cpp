@@ -21738,6 +21738,7 @@ SDValue X86TargetLowering::LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const {
 
   // If we're called by the type legalizer, handle a few cases.
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+<<<<<<< HEAD
   if (!TLI.isTypeLegal(InVT)) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
@@ -21747,6 +21748,9 @@ SDValue X86TargetLowering::LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const {
               Subtarget.hasAVX256P()) &&
              "Unexpected subtarget!");
 #else  // INTEL_FEATURE_ISA_AVX256P
+=======
+  if (!TLI.isTypeLegal(VT) || !TLI.isTypeLegal(InVT)) {
+>>>>>>> 4a32c48280912306507a0f8466eae64dca672cfe
     if ((InVT == MVT::v8i64 || InVT == MVT::v16i32 || InVT == MVT::v16i64) &&
         VT.is128BitVector() && Subtarget.hasAVX512()) {
       assert((InVT == MVT::v16i64 || Subtarget.hasVLX()) &&
