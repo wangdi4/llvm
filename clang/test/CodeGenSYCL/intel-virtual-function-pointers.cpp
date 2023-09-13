@@ -77,23 +77,23 @@ int main() {
 // CHECK: store { i64, i64 } { i64 ptrtoint (ptr @"_ZN1C3zooEv$SIMDTable" to i64), i64 0 }, ptr addrspace(4) %pf.ascast.i, align 8
 // CHECK: ret void
 
-// CHECK: define dso_local spir_func void{{.+}}aoo{{.+}}
+// CHECK: define linkonce_odr spir_func void{{.+}}aoo{{.+}}
 // CHECK: call spir_func void @_ZN4Base1fEi({{.+}}, i32 noundef 10)
 // CHECK: ret void
 
-// CHECK: define dso_local spir_func void {{.+}}bar{{.+}}
+// CHECK: define linkonce_odr spir_func void {{.+}}bar{{.+}}
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 20)
 // CHECK: ret void
 
-// CHECK: define dso_local spir_func void {{.+}}zoo{{.+}}
+// CHECK: define linkonce_odr spir_func void {{.+}}zoo{{.+}}
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 30)
 // CHECK: ret void
 
-// CHECK: define dso_local spir_func void {{.+}}test_1{{.+}}
+// CHECK: define linkonce_odr spir_func void {{.+}}test_1{{.+}}
 // CHECK: call void @__intel_indirect_call_1(
 // CHECK: ret void
 
-// CHECK: define dso_local spir_func void {{.+}}test_2{{.+}}
+// CHECK: define linkonce_odr spir_func void {{.+}}test_2{{.+}}
 // CHECK: [[L10:%.*]] = phi ptr [ %memptr.virtualfn, %memptr.virtual ], [ %memptr.nonvirtualfn, %memptr.nonvirtual ]
 // CHECK: [[L11:%.*]] = addrspacecast ptr [[L10]] to ptr addrspace(4)
 // CHECK: call void @__intel_indirect_call_1({{.+}}[[L11]], ptr addrspace(4) [[GEP:%.*]])
