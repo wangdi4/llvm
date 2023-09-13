@@ -3860,6 +3860,13 @@ static bool runAttributorOnFunctions(InformationCache &InfoCache,
   AC.IsModulePass = IsModulePass;
   AC.DeleteFns = DeleteFns;
 
+#if INTEL_CUSTOMIZATION
+  auto OREGetter = [&AG](Function *F) -> OptimizationRemarkEmitter & {
+    return *(AG.getAnalysis<OptimizationRemarkEmitterAnalysis>(*F));
+  };
+  AC.OREGetter = OREGetter;
+#endif // INTEL_CUSTOMIZATION
+
   /// Tracking callback for specialization of indirect calls.
   DenseMap<CallBase *, std::unique_ptr<SmallPtrSet<Function *, 8>>>
       IndirectCalleeTrackingMap;
@@ -3971,6 +3978,13 @@ static bool runAttributorLightOnFunctions(InformationCache &InfoCache,
        &AANoFPClass::ID, &AAMustProgress::ID, &AANonNull::ID});
   AC.Allowed = &Allowed;
   AC.UseLiveness = false;
+
+#if INTEL_CUSTOMIZATION
+  auto OREGetter = [&AG](Function *F) -> OptimizationRemarkEmitter & {
+    return *(AG.getAnalysis<OptimizationRemarkEmitterAnalysis>(*F));
+  };
+  AC.OREGetter = OREGetter;
+#endif // INTEL_CUSTOMIZATION
 
   Attributor A(Functions, InfoCache, AC);
 

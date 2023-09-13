@@ -398,12 +398,9 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
     for (const MDOperand &TargetInfoIt : TargetsMD->operands()) {
       StringRef TargetCpu = cast<MDString>(TargetInfoIt.get())->getString();
-
-      auto TargetCpuSuffix = X86::getCPUDispatchMangling(TargetCpu);
-      // Skip target if not recognized by llvm/TargetParser/X86TargetParser.def
-      assert(TargetCpuSuffix != '\0' && "A target is not recognized!");
-      if (TargetCpuSuffix == '\0')
+      if (!X86::getCPUDispatchSupported(TargetCpu))
         continue;
+      auto TargetCpuSuffix = X86::getCPUDispatchMangling(TargetCpu);
 
       ValueToValueMapTy VMap;
       Function *New = CloneFunction(Fn, VMap);
