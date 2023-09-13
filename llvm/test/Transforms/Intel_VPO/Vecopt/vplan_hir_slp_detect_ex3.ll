@@ -1,14 +1,12 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -disable-output -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec -vplan-cost-model-print-analysis-for-vf=1 | FileCheck %s --check-prefix=VPLAN-CM-DEF
-; RUN: opt < %s -disable-output -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec -vplan-cost-model-print-analysis-for-vf=1 -march=+sse | FileCheck %s --check-prefix=VPLAN-CM-SSE
+; RUN: opt < %s -disable-output -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec -vplan-cost-model-print-analysis-for-vf=1 -mattr=+avx512f | FileCheck %s
 
-; The test checks that SLP patterns in all functions are found to be profitable for
-; SSE-able target, and none is profitable for target w/o SSE.
+; The test checks that SLP patterns based on constant and splat vectors
+; formations are recognized by VPlan SLP detector.
 
-; VPLAN-CM-DEF-NOT: Cost decrease due to SLP breaking heuristic is
-; VPLAN-CM-SSE: Cost decrease due to SLP breaking heuristic is 5
-; VPLAN-CM-SSE: Cost decrease due to SLP breaking heuristic is 1
+; CHECK: Cost decrease due to SLP breaking heuristic is 5
+; CHECK: Cost decrease due to SLP breaking heuristic is 1
 
 target triple = "x86_64-unknown-linux-gnu"
 

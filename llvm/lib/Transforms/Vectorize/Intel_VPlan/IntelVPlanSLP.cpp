@@ -272,6 +272,11 @@ VPInstructionCost VPlanSLP::estimateSLPCostDifference(
                     });
 
   SmallVector<ssize_t, 8> Distances;
+  // IsMasked tells when masked load/store instructions needs to be used.
+  // On platforms that do not have such instructions the cost of masked
+  // memory operations is prohibiting.
+  bool IsMasked = false;
+
   // Now collect the distances for memrefs.
   if (const auto *BaseMem = dyn_cast<VPLoadStoreInst>(Base)) {
     collectMemRefDistances(BaseMem, Insts, Distances);
@@ -286,24 +291,30 @@ VPInstructionCost VPlanSLP::estimateSLPCostDifference(
                  };
                  dbgs() << '\n';);
     }
+    // Anything that is not power of two definitely needs a mask. Small sizes
+    // such 32 and 64 are covered with scalar instructions. We let TTI to handle
+    // cost of even smaller sizes such as 2 .. 16 and register pumping case with
+    // sizes that do not fit available HW.
+    unsigned DataElBitSize = CM->DL->getTypeSizeInBits(BaseMem->getValueType());
+    IsMasked = !llvm::isPowerOf2_32(DataElBitSize * Insts.size());
   }
 
   // Now we have ScalCost calculated, all Values checked and Distances for
   // memrefs. Calculate the cost of vector instruction representing Values.
   //
-  // For VF we pick the nearest power of two value from Values.size() rounding
-  // upwards assuming that SLP can vectorize it with masked loads/stores,
-  // although SLP doesn't support non power of two VFs yet.
-  unsigned VF = llvm::NextPowerOf2(Insts.size());
+  // For VF we pick the nearest power of two value from Insts.size() rounding
+  // upwards for non power of two Insts.size(). We assume that SLP can vectorize
+  // it with masked loads/stores, although SLP doesn't support non power of two
+  // VFs yet.
+  unsigned VF = llvm::PowerOf2Ceil(Insts.size());
 
   // If it is a memory reference. Now see if it is unit by checking
   // that values in Distance make sequence w/o gaps (SLP doesn't support
   // masked loads/stores).
-  bool IsUnitMemref = Distances.size() == Insts.size() ?
-    isUnitStrideMemRef(Distances) : false;
+  bool IsUnitMemref =
+      Distances.size() == Insts.size() ? isUnitStrideMemRef(Distances) : false;
 
-  VPInstructionCost VecCost =
-    getVectorCost(Base, VF, IsUnitMemref, VF != Insts.size());
+  VPInstructionCost VecCost = getVectorCost(Base, VF, IsUnitMemref, IsMasked);
 
   if (SLPReportDetailLevel >= 1) {
     LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # " << BundleID
