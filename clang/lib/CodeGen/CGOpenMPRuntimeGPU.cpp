@@ -3378,8 +3378,6 @@ Address CGOpenMPRuntimeGPU::getAddressOfLocalVariable(CodeGenFunction &CGF,
       break;
     case OMPAllocateDeclAttr::OMPLargeCapMemAlloc:
     case OMPAllocateDeclAttr::OMPCGroupMemAlloc:
-      AS = getLangASFromTargetAS(
-          CGF.CGM.getModule().getDataLayout().getDefaultGlobalsAddressSpace());
       break;
     }
     llvm::Type *VarTy = CGF.ConvertTypeForMem(VD->getType());
