@@ -3148,7 +3148,7 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
     auto *FI = new FreezeInst(FreezeTop, FreezeTop->getName() + ".fr");
     // Insert the new freeze instruction just above the single use of
     // FreezeTop.
-    InsertNewInstBefore(FI, *UseI);
+    InsertNewInstBefore(FI, UseI->getIterator());
     // Replace FreezeTop's use with the frozen instruction.
     replaceUse(*Use, FI);
     // If we changed StartVal, return it.

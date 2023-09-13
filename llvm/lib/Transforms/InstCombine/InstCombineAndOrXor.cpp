@@ -4878,7 +4878,8 @@ Instruction *InstCombinerImpl::combineAndOrToFcmpMinMax(Instruction &I, Value *A
     Fcmp1->setOperand(1, B);
     Fcmp1->setPredicate(Pred);
     Fcmp1->moveBefore(&I);
-    Instruction *SI = InsertNewInstWith(SelectInst::Create(Fcmp1, A, B), I);
+    Instruction *SI =
+        InsertNewInstWith(SelectInst::Create(Fcmp1, A, B), I.getIterator());
     // fix second fcmp.
     Fcmp2->setOperand(0, C);
     Fcmp2->setOperand(1, SI);

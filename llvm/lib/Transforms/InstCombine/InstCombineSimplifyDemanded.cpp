@@ -545,7 +545,7 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
             ConstantInt::get(I->getType(), MaxDemandedValue);
         SelectInst *NewSelect =
             SelectInst::Create(I->getOperand(0), DemandedConstant, Zero);
-        return InsertNewInstWith(NewSelect, *I);
+        return InsertNewInstWith(NewSelect, I->getIterator());
       }
     }
 #endif // INTEL_CUSTOMIZATION
