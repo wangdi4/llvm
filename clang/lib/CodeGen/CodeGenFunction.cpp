@@ -3156,11 +3156,7 @@ void CodeGenFunction::EmitVarAnnotations(const VarDecl *D, llvm::Value *V) {
   // FIXME We create a new bitcast for every annotation because that's what
   // llvm-gcc was doing.
   unsigned AS = V->getType()->getPointerAddressSpace();
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Type *I8PtrTy = Builder.getPtrTy(AS);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  llvm::Type *I8PtrTy = Builder.getInt8PtrTy(AS);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   for (const auto *I : D->specific_attrs<AnnotateAttr>())
     EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation,
                                         {I8PtrTy, CGM.ConstGlobalsPtrTy}),

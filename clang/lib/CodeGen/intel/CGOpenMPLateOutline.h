@@ -520,11 +520,7 @@ public:
         QualType PtrTy = CGF.getContext().getPointerType(
             MT.second->getType().getNonReferenceType());
         A = CGF.EmitLoadOfPointer(
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-            CGF.Builder.CreateElementBitCast(A, CGF.ConvertTypeForMem(PtrTy)),
-#else
             A.withElementType(CGF.ConvertTypeForMem(PtrTy)),
-#endif
             PtrTy->castAs<PointerType>());
       }
       QualType PTy = MT.second->getType();

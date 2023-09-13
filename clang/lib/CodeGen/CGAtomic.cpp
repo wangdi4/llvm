@@ -2040,12 +2040,8 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 
 Address AtomicInfo::castToAtomicIntPointer(Address addr) const {
   llvm::IntegerType *ty =
-    llvm::IntegerType::get(CGF.getLLVMContext(), AtomicSizeInBits);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      llvm::IntegerType::get(CGF.getLLVMContext(), AtomicSizeInBits);
   return addr.withElementType(ty);
-#else
-  return CGF.Builder.CreateElementBitCast(addr, ty);
-#endif
 }
 
 Address AtomicInfo::convertToAtomicIntPointer(Address Addr) const {

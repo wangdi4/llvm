@@ -169,14 +169,8 @@ static llvm::Constant *buildBlockDescriptor(CodeGenModule &CGM,
     cast<llvm::IntegerType>(CGM.getTypes().ConvertType(C.UnsignedLongTy));
   llvm::PointerType *i8p = nullptr;
   if (CGM.getLangOpts().OpenCL)
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     i8p = llvm::PointerType::get(
         CGM.getLLVMContext(), C.getTargetAddressSpace(LangAS::opencl_constant));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    i8p =
-      llvm::Type::getInt8PtrTy(
-           CGM.getLLVMContext(), C.getTargetAddressSpace(LangAS::opencl_constant));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   else
     i8p = CGM.VoidPtrTy;
   std::string descName;

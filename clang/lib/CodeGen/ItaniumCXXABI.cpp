@@ -2738,12 +2738,8 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
   ClangGuardTy = CGF.CGM.getContext().getPointerType(ClangGuardTy);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::PointerType *guardPtrTy = llvm::PointerType::get(
       CGF.CGM.getLLVMContext(),
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  llvm::PointerType *guardPtrTy = guardTy->getPointerTo(
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY  
       CGF.CGM.getDataLayout().getDefaultGlobalsAddressSpace());
 
   // Create the guard variable if we don't already have it (as we

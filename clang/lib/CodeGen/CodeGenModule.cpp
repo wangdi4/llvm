@@ -5648,11 +5648,7 @@ llvm::Constant *CodeGenModule::GetFunctionStart(const ValueDecl *Decl) {
 
   return llvm::ConstantExpr::getBitCast(
       llvm::NoCFIValue::get(F),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::PointerType::get(VMContext, F->getAddressSpace()));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      llvm::Type::getInt8PtrTy(VMContext, F->getAddressSpace()));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 static const FunctionDecl *
