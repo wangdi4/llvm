@@ -256,7 +256,9 @@ public:
   bool isPointerTy() const { return getTypeID() == PointerTyID; }
 
   /// True if this is an instance of an opaque PointerType.
+#if !INTEL_CUSTOMIZATION
   LLVM_DEPRECATED("Use isPointerTy() instead", "isPointerTy")
+#endif // !INTEL_CUSTOMIZATION
   bool isOpaquePointerTy() const { return isPointerTy(); };
 
   /// Return true if this is a pointer type or a vector of pointer types.
