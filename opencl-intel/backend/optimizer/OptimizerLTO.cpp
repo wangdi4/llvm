@@ -451,8 +451,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     // Can't run loop unroll between WGLoopCreator and LoopIdiom for scalar
     // workload, which can benefit from LoopIdiom.
     // TODO wen can consider move this unroll into ScalarOptimizerLate callback.
-    if (UnrollLoops && Level != OptimizationLevel::O0 &&
-        Config.GetTransposeSize() != 1) {
+    if (Level != OptimizationLevel::O0 && Config.GetTransposeSize() != 1) {
       // unroll loops with non-constant trip count
       const int thresholdBase = 16;
       int RTLoopUnrollFactor = Config.GetRTLoopUnrollFactor();

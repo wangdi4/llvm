@@ -135,7 +135,7 @@ Optimizer::Optimizer(Module &M, SmallVectorImpl<Module *> &RtlModules,
     : m_M(M), m_RtlModules(RtlModules.begin(), RtlModules.end()),
       Config(OptConfig), m_IsSYCL(CompilationUtils::isGeneratedFromOCLCPP(M)),
       m_IsOMP(CompilationUtils::isGeneratedFromOMP(M)),
-      m_IsFpgaEmulator(Config.isFpgaEmulator()), UnrollLoops(true) {
+      m_IsFpgaEmulator(Config.isFpgaEmulator()) {
   assert(Config.GetCpuId() && "Invalid optimizer config");
   ISA = VectorizerUtils::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
