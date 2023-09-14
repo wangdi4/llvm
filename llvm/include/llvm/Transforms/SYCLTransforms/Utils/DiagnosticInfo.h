@@ -23,6 +23,21 @@
 
 namespace llvm {
 
+class OptimizationErrorDiagInfo : public DiagnosticInfo {
+  const Twine &Msg;
+
+public:
+  static DiagnosticKind Kind;
+  OptimizationErrorDiagInfo(const Twine &Msg)
+      : DiagnosticInfo(Kind, DS_Error), Msg(Msg) {}
+
+  static bool classof(const DiagnosticInfo *DI) {
+    return DI->getKind() == Kind;
+  }
+
+  void print(DiagnosticPrinter &DP) const override { DP << Msg; }
+};
+
 class OptimizationWarningDiagInfo : public DiagnosticInfo {
   const Twine &Msg;
 

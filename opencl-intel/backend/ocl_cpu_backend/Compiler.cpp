@@ -349,14 +349,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
 
   optimizer->Optimize(pResult->LogS());
 
-  if (optimizer->hasUnsupportedRecursion()) {
-    Utils::LogHasRecursion(pResult->LogS(),
-                           optimizer->GetInvalidFunctions(
-                               Optimizer::InvalidFunctionType::RECURSION));
-    throw Exceptions::UserErrorCompilerException("Recursive call detected.",
-                                                 CL_DEV_INVALID_BINARY);
-  }
-
   //
   // Populate the build results
   //

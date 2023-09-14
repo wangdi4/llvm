@@ -44,8 +44,6 @@ const StringRef KernelAttribute::HasSubGroups = "has-sub-groups";
 const StringRef KernelAttribute::HasVPlanMask = "has-vplan-mask";
 const StringRef KernelAttribute::OCLVecUniformReturn =
     "opencl-vec-uniform-return";
-const StringRef KernelAttribute::RecursionWithBarrier =
-    "barrier_with_recursion";
 const StringRef KernelAttribute::UniformCall = "kernel-uniform-call";
 const StringRef KernelAttribute::VectorVariantFailure = "vector-variant-failure";
 

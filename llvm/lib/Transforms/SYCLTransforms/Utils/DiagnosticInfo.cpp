@@ -18,5 +18,8 @@
 
 using namespace llvm;
 
+DiagnosticKind OptimizationErrorDiagInfo::Kind =
+    static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
+
 DiagnosticKind OptimizationWarningDiagInfo::Kind =
     static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
