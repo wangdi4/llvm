@@ -4137,21 +4137,6 @@ static Value *simplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
   if (Pred == FCmpInst::FCMP_TRUE)
     return getTrue(RetTy);
 
-#if INTEL_CUSTOMIZATION
-  // Fold (un)ordered comparison if we can determine there are no NaNs.
-  if (Pred == FCmpInst::FCMP_UNO || Pred == FCmpInst::FCMP_ORD)
-    if (FMF.noNaNs() ||
-        (isKnownNeverNaN(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT) &&
-         isKnownNeverNaN(RHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT)))
-      return ConstantInt::get(RetTy, Pred == FCmpInst::FCMP_ORD);
-
-  // NaN is unordered; NaN is not ordered.
-  assert((FCmpInst::isOrdered(Pred) || FCmpInst::isUnordered(Pred)) &&
-         "Comparison must be either ordered or unordered");
-  if (match(RHS, m_NaN()))
-    return ConstantInt::get(RetTy, CmpInst::isUnordered(Pred));
-
-#endif // INTEL_CUSTOMIZATION
   // fcmp pred x, poison and  fcmp pred poison, x
   // fold to poison
   if (isa<PoisonValue>(LHS) || isa<PoisonValue>(RHS))
@@ -4173,91 +4158,93 @@ static Value *simplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
       return getFalse(RetTy);
   }
 
-#if INTEL_CUSTOMIZATION
-  // Handle fcmp with constant RHS.
-  // TODO: Use match with a specific FP value, so these work with vectors with
-  // undef lanes.
-  const APFloat *C;
-  if (match(RHS, m_APFloat(C))) {
-    // Check whether the constant is an infinity.
-    if (C->isInfinity()) {
-      if (C->isNegative()) {
-        switch (Pred) {
-        case FCmpInst::FCMP_OLT:
-          // No value is ordered and less than negative infinity.
-          return getFalse(RetTy);
-        case FCmpInst::FCMP_UGE:
-          // All values are unordered with or at least negative infinity.
-          return getTrue(RetTy);
-        default:
-          break;
-        }
-      } else {
-        switch (Pred) {
-        case FCmpInst::FCMP_OGT:
-          // No value is ordered and greater than infinity.
-          return getFalse(RetTy);
-        case FCmpInst::FCMP_ULE:
-          // All values are unordered with and at most infinity.
-          return getTrue(RetTy);
-        default:
-          break;
-        }
-      }
-#endif // INTEL_CUSTOMIZATION
+  // Fold (un)ordered comparison if we can determine there are no NaNs.
+  //
+  // This catches the 2 variable input case, constants are handled below as a
+  // class-like compare.
+  if (Pred == FCmpInst::FCMP_ORD || Pred == FCmpInst::FCMP_UNO) {
+    if (FMF.noNaNs() ||
+        (isKnownNeverNaN(RHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT) &&
+         isKnownNeverNaN(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT)))
+      return ConstantInt::get(RetTy, Pred == FCmpInst::FCMP_ORD);
+  }
 
+  const APFloat *C = nullptr;
+  match(RHS, m_APFloatAllowUndef(C));
+  std::optional<KnownFPClass> FullKnownClassLHS;
+
+  // Lazily compute the possible classes for LHS. Avoid computing it twice if
+  // RHS is a 0.
+  auto computeLHSClass = [=, &FullKnownClassLHS](FPClassTest InterestedFlags =
+                                                     fcAllFlags) {
+    if (FullKnownClassLHS)
+      return *FullKnownClassLHS;
 #if INTEL_CUSTOMIZATION
-      // LHS == Inf
-      if (Pred == FCmpInst::FCMP_OEQ &&
-          isKnownNeverInfinity(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT))
-        return getFalse(RetTy);
-      // LHS != Inf
-      if (Pred == FCmpInst::FCMP_UNE &&
-          isKnownNeverInfinity(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT))
-        return getTrue(RetTy);
-      // LHS == Inf || LHS == NaN
-      if (Pred == FCmpInst::FCMP_UEQ &&
-          isKnownNeverInfOrNaN(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT))
+    auto FMFWithInfs = FMF;
+    // If fast (or ninf) are specified, the known FP class is computed assuming
+    // that the value is not +/-INF, even if this value is actually possible at
+    // run-time. Modify fast math flags for this call so we properly detect the
+    // possibility of +/-INF. This prevents us from optimizing away runtime
+    // checks for +/-INF (see CMPLRLLVM-51224).
+    FMFWithInfs.setNoInfs(false);
+    return computeKnownFPClass(LHS, FMFWithInfs, Q.DL, InterestedFlags, 0,
+                               Q.TLI, Q.AC, Q.CxtI, Q.DT, Q.IIQ.UseInstrInfo);
 #endif // INTEL_CUSTOMIZATION
+  };
+
+  if (C && Q.CxtI) {
+    // Fold out compares that express a class test.
+    //
+    // FIXME: Should be able to perform folds without context
+    // instruction. Always pass in the context function?
+
+    const Function *ParentF = Q.CxtI->getFunction();
+    auto [ClassVal, ClassTest] = fcmpToClassTest(Pred, *ParentF, LHS, C);
+    if (ClassVal) {
+      FullKnownClassLHS = computeLHSClass();
+      if ((FullKnownClassLHS->KnownFPClasses & ClassTest) == fcNone)
         return getFalse(RetTy);
-#if INTEL_CUSTOMIZATION
-      // LHS != Inf && LHS != NaN
-      if (Pred == FCmpInst::FCMP_ONE &&
-          isKnownNeverInfOrNaN(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT))
-#endif // INTEL_CUSTOMIZATION
+      if ((FullKnownClassLHS->KnownFPClasses & ~ClassTest) == fcNone)
         return getTrue(RetTy);
     }
+  }
+
+  // Handle fcmp with constant RHS.
+  if (C) {
+    // TODO: If we always required a context function, we wouldn't need to
+    // special case nans.
+    if (C->isNaN())
+      return ConstantInt::get(RetTy, CmpInst::isUnordered(Pred));
+
+    // TODO: Need version fcmpToClassTest which returns implied class when the
+    // compare isn't a complete class test. e.g. > 1.0 implies fcPositive, but
+    // isn't implementable as a class call.
     if (C->isNegative() && !C->isNegZero()) {
-#if INTEL_CUSTOMIZATION
-      assert(!C->isNaN() && "Unexpected NaN constant!");
-#endif // INTEL_CUSTOMIZATION
+      FPClassTest Interested = KnownFPClass::OrderedLessThanZeroMask;
+
       // TODO: We can catch more cases by using a range check rather than
       //       relying on CannotBeOrderedLessThanZero.
       switch (Pred) {
       case FCmpInst::FCMP_UGE:
       case FCmpInst::FCMP_UGT:
-#if INTEL_CUSTOMIZATION
-      case FCmpInst::FCMP_UNE:
-#endif // INTEL_CUSTOMIZATION
+      case FCmpInst::FCMP_UNE: {
+        KnownFPClass KnownClass = computeLHSClass(Interested);
+
         // (X >= 0) implies (X > C) when (C < 0)
-#if INTEL_CUSTOMIZATION
-        if (cannotBeOrderedLessThanZero(LHS, Q.DL, Q.TLI, 0,
-                                        Q.AC, Q.CxtI, Q.DT))
-#endif // INTEL_CUSTOMIZATION
+        if (KnownClass.cannotBeOrderedLessThanZero())
           return getTrue(RetTy);
         break;
+      }
       case FCmpInst::FCMP_OEQ:
       case FCmpInst::FCMP_OLE:
-#if INTEL_CUSTOMIZATION
-      case FCmpInst::FCMP_OLT:
-#endif // INTEL_CUSTOMIZATION
+      case FCmpInst::FCMP_OLT: {
+        KnownFPClass KnownClass = computeLHSClass(Interested);
+
         // (X >= 0) implies !(X < C) when (C < 0)
-#if INTEL_CUSTOMIZATION
-        if (cannotBeOrderedLessThanZero(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI,
-                                        Q.DT))
-#endif // INTEL_CUSTOMIZATION
+        if (KnownClass.cannotBeOrderedLessThanZero())
           return getFalse(RetTy);
         break;
+      }
       default:
         break;
       }
@@ -4308,15 +4295,17 @@ static Value *simplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
     }
   }
 
+  // TODO: Could fold this with above if there were a matcher which returned all
+  // classes in a non-splat vector.
   if (match(RHS, m_AnyZeroFP())) {
     switch (Pred) {
     case FCmpInst::FCMP_OGE:
     case FCmpInst::FCMP_ULT: {
-#if INTEL_CUSTOMIZATION
-      FPClassTest Interested = FMF.noNaNs() ? fcNegative : fcNegative | fcNan;
-      KnownFPClass Known = computeKnownFPClass(LHS, Q.DL, Interested, 0,
-                                               Q.TLI, Q.AC, Q.CxtI, Q.DT);
-#endif // INTEL_CUSTOMIZATION
+      FPClassTest Interested = KnownFPClass::OrderedLessThanZeroMask;
+      if (!FMF.noNaNs())
+        Interested |= fcNan;
+
+      KnownFPClass Known = computeLHSClass(Interested);
 
       // Positive or zero X >= 0.0 --> true
       // Positive or zero X <  0.0 --> false
@@ -4326,16 +4315,16 @@ static Value *simplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
       break;
     }
     case FCmpInst::FCMP_UGE:
-#if INTEL_CUSTOMIZATION
-    case FCmpInst::FCMP_OLT:
-#endif // INTEL_CUSTOMIZATION
+    case FCmpInst::FCMP_OLT: {
+      FPClassTest Interested = KnownFPClass::OrderedLessThanZeroMask;
+      KnownFPClass Known = computeLHSClass(Interested);
+
       // Positive or zero or nan X >= 0.0 --> true
       // Positive or zero or nan X <  0.0 --> false
-#if INTEL_CUSTOMIZATION
-      if (cannotBeOrderedLessThanZero(LHS, Q.DL, Q.TLI, 0, Q.AC, Q.CxtI, Q.DT))
-#endif // INTEL_CUSTOMIZATION
+      if (Known.cannotBeOrderedLessThanZero())
         return Pred == FCmpInst::FCMP_UGE ? getTrue(RetTy) : getFalse(RetTy);
       break;
+    }
     default:
       break;
     }
@@ -7025,11 +7014,9 @@ static Value *simplifyInstructionWithOperands(Instruction *I,
                                               const SimplifyQuery &SQ,
                                               unsigned MaxRecurse) {
   assert(I->getFunction() && "instruction should be inserted in a function");
-#ifndef INTEL_CUSTOMIZATION
   assert((!SQ.CxtI || SQ.CxtI->getFunction() == I->getFunction()) &&
          "context instruction should be in the same function");
 
-#endif //INTEL_CUSTOMIZATION
   const SimplifyQuery Q = SQ.CxtI ? SQ : SQ.getWithInstruction(I);
 
   switch (I->getOpcode()) {
