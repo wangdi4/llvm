@@ -196,17 +196,12 @@ void GDBJITRegistrationListener::notifyObjectLoaded(
          "Second attempt to perform debug registration.");
   jit_code_entry *JITCodeEntry = new jit_code_entry();
 
-  if (!JITCodeEntry) {
-    llvm::report_fatal_error(
-        "Allocation failed when registering a JIT entry!\n");
-  } else {
-    JITCodeEntry->symfile_addr = Buffer;
-    JITCodeEntry->symfile_size = Size;
+  JITCodeEntry->symfile_addr = Buffer;
+  JITCodeEntry->symfile_size = Size;
 
-    ObjectBufferMap[K] =
-        RegisteredObjectInfo(Size, JITCodeEntry, std::move(DebugObj));
-    NotifyDebugger(JITCodeEntry);
-  }
+  ObjectBufferMap[K] =
+      RegisteredObjectInfo(Size, JITCodeEntry, std::move(DebugObj));
+  NotifyDebugger(JITCodeEntry);
 }
 
 void GDBJITRegistrationListener::notifyFreeingObject(ObjectKey K) {

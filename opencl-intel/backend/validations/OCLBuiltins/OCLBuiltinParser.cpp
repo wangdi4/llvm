@@ -152,7 +152,6 @@ public:
   static T *Instance() {
     if (!m_pInstance)
       m_pInstance = new T;
-    assert(m_pInstance != NULL);
     return m_pInstance;
   }
 

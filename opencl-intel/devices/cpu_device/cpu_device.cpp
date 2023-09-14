@@ -352,9 +352,6 @@ cl_dev_err_code CPUDevice::Init() {
   m_pTaskDispatcher = new TaskDispatcher(
       m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator,
       m_pLogDescriptor, &m_CPUDeviceConfig, this);
-  if ((nullptr == m_pMemoryAllocator) || (nullptr == m_pTaskDispatcher)) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   ret = m_pTaskDispatcher->init();
   if (CL_DEV_SUCCESS != ret) {
@@ -366,9 +363,6 @@ cl_dev_err_code CPUDevice::Init() {
 cl_dev_err_code CPUDevice::QueryHWInfo() {
   m_numCores = GetNumberOfProcessors();
   m_pComputeUnitMap = new unsigned int[m_numCores];
-  if (nullptr == m_pComputeUnitMap) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
   // Todo: m_pComputeUnitScoreboard.reserve(m_numCores);
 
   m_threadToCore.reserve(m_numCores);
@@ -2451,10 +2445,6 @@ cl_dev_err_code CPUDevice::clDevPartition(
     for (cl_uint i = 0; i < (cl_uint)numPartitions; ++i) {
       cl_dev_internal_subdevice_id *pNewsubdeviceId =
           new cl_dev_internal_subdevice_id;
-      if (nullptr == pNewsubdeviceId) {
-        rollBackSubdeviceAllocation(subdevice_ids, i);
-        return CL_DEV_OUT_OF_MEMORY;
-      }
 
       pNewsubdeviceId->legal_core_ids = nullptr;
       pNewsubdeviceId->is_by_names = false;
@@ -2501,10 +2491,6 @@ cl_dev_err_code CPUDevice::clDevPartition(
     for (cl_uint i = 0; i < num_subdevices_to_create; ++i) {
       cl_dev_internal_subdevice_id *pNewsubdeviceId =
           new cl_dev_internal_subdevice_id;
-      if (nullptr == pNewsubdeviceId) {
-        rollBackSubdeviceAllocation(subdevice_ids, i);
-        return CL_DEV_OUT_OF_MEMORY;
-      }
 
       pNewsubdeviceId->legal_core_ids = nullptr;
       pNewsubdeviceId->is_by_names = false;
@@ -2539,14 +2525,8 @@ cl_dev_err_code CPUDevice::clDevPartition(
 
     cl_dev_internal_subdevice_id *pNewsubdeviceId =
         new cl_dev_internal_subdevice_id;
-    if (nullptr == pNewsubdeviceId) {
-      return CL_DEV_OUT_OF_MEMORY;
-    }
+
     pNewsubdeviceId->legal_core_ids = new unsigned int[totalNumUnits];
-    if (nullptr == pNewsubdeviceId->legal_core_ids) {
-      delete pNewsubdeviceId;
-      return CL_DEV_OUT_OF_MEMORY;
-    }
 
     pNewsubdeviceId->is_by_names = true;
     pNewsubdeviceId->is_by_numa = false;
@@ -2596,14 +2576,9 @@ cl_dev_err_code CPUDevice::clDevPartition(
       numUnits[i] = index.size();
       cl_dev_internal_subdevice_id *pNewsubdeviceId =
           new cl_dev_internal_subdevice_id;
-      if (nullptr == pNewsubdeviceId) {
-        return CL_DEV_OUT_OF_MEMORY;
-      }
+
       pNewsubdeviceId->legal_core_ids = new uint32_t[numUnits[i]];
-      if (nullptr == pNewsubdeviceId->legal_core_ids) {
-        delete pNewsubdeviceId;
-        return CL_DEV_OUT_OF_MEMORY;
-      }
+
       // since we need to specify which device a cpu core wound be
       // bound to, each subdevice is allocated according to the name
       // of cpu cores.
@@ -2708,9 +2683,6 @@ CPUDevice::clDevCreateCommandList(cl_dev_cmd_list_props IN props,
   CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
              TEXT("clDevCreateCommandList Function enter"));
   cl_dev_internal_cmd_list *pList = new cl_dev_internal_cmd_list();
-  if (nullptr == pList) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   cl_dev_internal_subdevice_id *pSubdeviceData =
       reinterpret_cast<cl_dev_internal_subdevice_id *>(subdevice_id);

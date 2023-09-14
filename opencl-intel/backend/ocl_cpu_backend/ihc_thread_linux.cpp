@@ -18,9 +18,6 @@
 
 extern "C" LLVM_BACKEND_API void *_ihc_mutex_create() {
   pthread_mutex_t *handle = new pthread_mutex_t;
-  if (handle == 0)
-    return nullptr;
-
   *handle = PTHREAD_MUTEX_INITIALIZER;
   return handle;
 }
@@ -46,9 +43,6 @@ extern "C" LLVM_BACKEND_API int _ihc_mutex_unlock(void *handle) {
 
 extern "C" LLVM_BACKEND_API void *_ihc_cond_create() {
   pthread_cond_t *cv = new pthread_cond_t;
-  if (cv == 0)
-    return nullptr;
-
   *cv = PTHREAD_COND_INITIALIZER;
   return cv;
 }

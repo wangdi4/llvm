@@ -110,7 +110,6 @@ public:
   static WorkItemInterfaceSetter *inst() {
     if (!m_pInst)
       m_pInst = new WorkItemInterfaceSetter;
-    assert(m_pInst != NULL);
     return m_pInst;
   }
 

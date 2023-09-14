@@ -20,7 +20,6 @@ const std::string &WorkloadInfo::getWorkloadID(const std::string &location,
                                                const std::string &name) {
 
   std::string *id = new std::string();
-  assert(id && "No space for new workload ID");
 
   id->assign(std::string(
       llvm::sys::path::parent_path(llvm::StringRef(location.c_str()))));
