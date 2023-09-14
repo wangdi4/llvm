@@ -340,35 +340,26 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   BuilderElse.SetInsertPoint(LastI);
 #endif // !0
 
-  // Generates the call __kmpc_threadprivate_cached() if threadprivate local global pointer
-  // is empty.
+  // Generates the call __kmpc_threadprivate_cached() if threadprivate local
+  // global pointer is empty.
+  //
   // Example:
-  //   %6 = bitcast i32* @a to i8*                                           (1)
-  //   %7 = call i8* @__kmpc_threadprivate_cached(...)                       (2)
-  //   store i8* %7, i8** %a.tpv.cached.addr                                 (3)
-  //   %a.tpv.cached = load i8*, i8** %a.tpv.cached.addr                     (4)
+  //   %7 = call ptr @__kmpc_threadprivate_cached(...)                       (1)
+  //   store ptr %7, ptr %a.tpv.cached.addr                                  (2)
+  //   %a.tpv.cached = load ptr, ptr %a.tpv.cached.addr                      (3)
 
   Instruction *AI = ElseBB->getTerminator();
-  LLVMContext &C = F->getContext();
   StructType *IdentTy = VPOParoptUtils::getIdentStructType(F);
 
   Type *TpvVarValueTy = cast<GlobalVariable>(V)->getValueType();
-  Value *VI8Ptr = nullptr;
-#if !ENABLE_OPAQUEPOINTER
-  if (V->getType() != Type::getInt8PtrTy(C))
-    VI8Ptr = CastInst::CreatePointerCast(V, Type::getInt8PtrTy(C), Twine(""),
-                                         ElseBB->getTerminator()); //        (1)
-  else
-#endif // !ENABLE_OPAQUEPOINTER
-    VI8Ptr = V;
 
   Type *SizeTTy = GeneralUtils::getSizeTTy(F);
   unsigned SizeTBitWidth = SizeTTy->getIntegerBitWidth();
   Value *SizeV =
       BuilderElse.getIntN(SizeTBitWidth, DL.getTypeAllocSize(TpvVarValueTy));
 
-  CallInst *TC = VPOParoptUtils::genKmpcThreadPrivateCachedCall( //          (2)
-      F, AI, IdentTy, TidV, VI8Ptr, SizeV, TpvGV);
+  CallInst *TC = VPOParoptUtils::genKmpcThreadPrivateCachedCall( //          (1)
+      F, AI, IdentTy, TidV, V, SizeV, TpvGV);
 
   TC->insertBefore(AI);
   // TODO DT needs to be added as a dependence on the pass.
@@ -378,8 +369,8 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   // used directly instead of the load from TpvPtrRef, since we don't have the
   // store to TpvPtrRef in the `#if 0` block above.
   IRBuilder<> BuilderSL(AI);
-  BuilderSL.CreateStore(TC, TpvPtrRef); //                                   (3)
-  LoadInst *TpvCachedVal = BuilderSL.CreateLoad( //                          (4)
+  BuilderSL.CreateStore(TC, TpvPtrRef); //                                   (2)
+  LoadInst *TpvCachedVal = BuilderSL.CreateLoad( //                          (3)
       TpvPtrRef->getAllocatedType(), TpvPtrRef, V->getName() + ".tpv.cached");
   TpvAcc[{V, F}] = TpvCachedVal;
 }

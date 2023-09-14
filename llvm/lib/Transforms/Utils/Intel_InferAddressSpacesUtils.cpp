@@ -62,13 +62,6 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
     auto *ValTy = dyn_cast<PointerType>(GV->getValueType());
     if (!ValTy)
       continue;
-#if !ENABLE_OPAQUEPOINTER
-    if (!ValTy->isOpaque() &&
-        isa<PointerType>(ValTy->getNonOpaquePointerElementType()))
-      // TODO: for now analyze only pointer to non-pointer globals.
-      // TODO: OPAQUEPOINTER: remove this check
-      continue;
-#endif // !ENABLE_OPAQUEPOINTER
 
     if (ValTy->getAddressSpace() != FlatAddrSpace)
       continue;
