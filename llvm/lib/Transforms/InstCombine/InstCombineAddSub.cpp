@@ -2196,7 +2196,9 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
     // a - b <nsw>
     // -->
     // -b + a <nsw>
-    if (Value *NegOp1 = Negator::Negate(IsNegation, Op1, *this)) {
+    if (Value *NegOp1 = Negator::Negate(IsNegation, /* IsNSW */ IsNegation &&
+                                                        I.hasNoSignedWrap(),
+                                        Op1, *this)) {
       auto *NewBOp = I.hasNoSignedWrap()
                          ? BinaryOperator::CreateNSWAdd(NegOp1, Op0)
                          : BinaryOperator::CreateAdd(NegOp1, Op0);
