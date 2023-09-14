@@ -2191,6 +2191,7 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
                      m_Select(m_Value(), m_Specific(Op1), m_Specific(&I))) ||
                match(UI, m_Select(m_Value(), m_Specific(&I), m_Specific(Op1)));
       })) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // We should preserve NSW for this transformation-
     // a - b <nsw>
@@ -2203,6 +2204,12 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
       return NewBOp;
     }
 #endif // INTEL_CUSTOMIZATION
+=======
+    if (Value *NegOp1 = Negator::Negate(IsNegation, /* IsNSW */ IsNegation &&
+                                                        I.hasNoSignedWrap(),
+                                        Op1, *this))
+      return BinaryOperator::CreateAdd(NegOp1, Op0);
+>>>>>>> 1fc73cacb2068c79eafabf49bec33c076ed1d1ee
   }
   if (IsNegation)
     return TryToNarrowDeduceFlags(); // Should have been handled in Negator!
