@@ -37,6 +37,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/TargetParser/Triple.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include <string>
 
 using namespace llvm;
@@ -329,6 +330,11 @@ CPUCompiler::CreateLLJIT(Module *M, std::unique_ptr<TargetMachine> TM,
 
 bool CPUCompiler::useLLDJITForExecution(Module *pModule) const {
 #ifdef _WIN32
+  if (CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
+      !pModule->debug_compile_units().empty())
+    return true;
+  // Following line should be removed when amplifier is working with LLDJIT, see
+  // CMPLRLLVM-50721.
   return m_buildOptions.GetDebugInfoFlag();
 #else
   // The parameter is used in Windows code

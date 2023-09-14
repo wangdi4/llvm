@@ -25,15 +25,6 @@
 
 using namespace llvm;
 
-#if INTEL_CUSTOMIZATION
-// Enable vectorization at O0 optimization level.
-extern cl::opt<bool> SYCLEnableO0Vectorization;
-#endif // INTEL_CUSTOMIZATION
-
-// If set, then optimization passes will process functions as if they have the
-// optnone attribute.
-extern bool SYCLForceOptnone;
-
 namespace {
 
 struct CreateDebugPM {
@@ -139,7 +130,6 @@ Optimizer::Optimizer(Module &M, SmallVectorImpl<Module *> &RtlModules,
   assert(Config.GetCpuId() && "Invalid optimizer config");
   ISA = VectorizerUtils::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
-  SYCLForceOptnone = Config.GetDisableOpt();
   m_HasOcl20 = CompilationUtils::hasOcl20Support(M);
   m_UseTLSGlobals = !M.debug_compile_units().empty();
 

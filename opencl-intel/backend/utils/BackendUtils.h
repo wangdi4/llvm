@@ -18,6 +18,7 @@
 #define __BACKEND_UTILS_H__
 
 #include "llvm/IR/Module.h"
+#include "llvm/Passes/OptimizationLevel.h"
 #include <vector>
 
 namespace Intel {
@@ -25,6 +26,11 @@ namespace OpenCL {
 namespace DeviceBackend {
 
 namespace BackendUtils {
+
+/// Get optimization level based on compile flag and module.
+/// Return level 0 if either -cl-opt-disable is present in build options or all
+/// kernels have optnone attribute.
+llvm::OptimizationLevel getOptLevel(bool HasDisableOptFlag, llvm::Module &M);
 
 void recordGlobalCtorDtors(llvm::Module &M, std::vector<std::string> &CtorNames,
                            std::vector<std::string> &DtorNames);

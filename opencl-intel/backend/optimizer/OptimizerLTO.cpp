@@ -11,6 +11,7 @@
 // License.
 
 #include "OptimizerLTO.h"
+#include "BackendUtils.h"
 #include "VectorizerUtils.h"
 
 #include "SPIRVLowerConstExpr.h"
@@ -143,13 +144,13 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   registerOptimizerLastCallback(PB);
 
   ModulePassManager MPM;
-
-  if (Config.GetDisableOpt())
+  auto OptLevel = BackendUtils::getOptLevel(Config.GetDisableOpt(), m_M);
+  if (OptLevel == OptimizationLevel::O0)
     MPM = PB.buildO0DefaultPipeline(OptimizationLevel::O0);
   else
     MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O3);
 
-  SYCLForceOptnone = Config.GetDisableOpt();
+  SYCLForceOptnone = (OptLevel == OptimizationLevel::O0);
 
   registerLastPasses(MPM);
 
