@@ -858,7 +858,6 @@ protected:
     const int32_t NumOfElements = 100;
 
     DataBufI32 = new int32_t[NumOfElements];
-    ASSERT_TRUE(DataBufI32);
 
     for (int32_t cntEl = 0; cntEl < NumOfElements; ++cntEl) {
       DataBufI32[cntEl] = rand();

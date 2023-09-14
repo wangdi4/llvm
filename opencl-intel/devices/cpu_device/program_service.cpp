@@ -217,11 +217,6 @@ cl_dev_err_code ProgramService::CreateProgram(size_t IN binSize,
 
   // Create new program
   TProgramEntry *pEntry = new TProgramEntry;
-  if (nullptr == pEntry) {
-    CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
-              TEXT("Cann't allocate program entry"));
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   pEntry->programType = PTCompiledProgram;
   pEntry->pProgram = nullptr;
@@ -260,11 +255,6 @@ ProgramService::CreateBuiltInKernelProgram(const char *IN szBuiltInNames,
   }
 
   TProgramEntry *pEntry = new TProgramEntry;
-  if (nullptr == pEntry) {
-    CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
-              TEXT("Failed to allocate new handle"));
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   pEntry->programType = PTBuiltInProgram;
   pEntry->pProgram = pProg;

@@ -304,11 +304,6 @@ cl_dev_err_code TaskDispatcher::init() {
   cl_ulong timeOut = 8000000ULL * m_uiNumThreads; // in nanoseconds
   SharedPtr<AffinitizeThreads> pAffinitizeThreads =
       AffinitizeThreads::Allocate(m_uiNumThreads, timeOut);
-  if (0 == pAffinitizeThreads) {
-    // Todo
-    assert(0);
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList> pTaskList =
       m_pRootDevice->CreateTaskList(CommandListCreationParam(

@@ -205,9 +205,6 @@ ReadWriteMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
                            SharedPtr<ITaskBase> *pTask,
                            const SharedPtr<ITaskList> & /*pList*/) {
   ReadWriteMemObject *pCommand = new ReadWriteMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   // run CheckCommandParams only in Debug mode
   assert(CL_DEV_SUCCESS == pCommand->CheckCommandParams(pCmd) &&
@@ -358,9 +355,7 @@ cl_dev_err_code CopyMemObject::Create(TaskDispatcher *pTD,
                                       SharedPtr<ITaskBase> *pTask,
                                       const SharedPtr<ITaskList> & /*pList*/) {
   CopyMemObject *pCommand = new CopyMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -524,9 +519,7 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher *pTD,
                                        SharedPtr<ITaskBase> *pTask,
                                        const SharedPtr<ITaskList> & /*pList*/) {
   NativeFunction *pCommand = new NativeFunction(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -540,14 +533,7 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher *pTD,
 
   // Create temporal buffer for execution
   char *pArgV = new char[cmdParams->args];
-  if (nullptr == pArgV) {
-#ifdef _DEBUG
-    CpuErrLog(pCommand->m_pLogDescriptor, pCommand->m_iLogHandle, TEXT("%s"),
-              TEXT("Can't allocate memory for parameters"));
-#endif
-    delete pCommand;
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
   pCommand->m_pArgV = pArgV;
   MEMCPY_S(pArgV, cmdParams->args, cmdParams->argv, cmdParams->args);
 
@@ -616,9 +602,7 @@ cl_dev_err_code MapMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
                                      SharedPtr<ITaskBase> *pTask,
                                      const SharedPtr<ITaskList> & /*pList*/) {
   MapMemObject *pCommand = new MapMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -699,9 +683,7 @@ cl_dev_err_code UnmapMemObject::Create(TaskDispatcher *pTD,
                                        SharedPtr<ITaskBase> *pTask,
                                        const SharedPtr<ITaskList> & /*pList*/) {
   UnmapMemObject *pCommand = new UnmapMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -1211,9 +1193,7 @@ cl_dev_err_code FillMemObject::Create(TaskDispatcher *pTD,
                                       SharedPtr<ITaskBase> *pTask,
                                       const SharedPtr<ITaskList> & /*pList*/) {
   FillMemObject *pCommand = new FillMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -1365,9 +1345,7 @@ MigrateMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
                          SharedPtr<ITaskBase> *pTask,
                          const SharedPtr<ITaskList> & /*pList*/) {
   MigrateMemObject *pCommand = new MigrateMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -1429,9 +1407,7 @@ MigrateUSMMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
                             SharedPtr<ITaskBase> *pTask,
                             const SharedPtr<ITaskList> & /*pList*/) {
   MigrateUSMMemObject *pCommand = new MigrateUSMMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -1568,9 +1544,6 @@ cl_dev_err_code NativeKernelTask::Create(TaskDispatcher *pTD,
                                          cl_dev_cmd_desc *pCmd,
                                          SharedPtr<ITaskBase> *pTask) {
   NativeKernelTask *pCommand = new NativeKernelTask(pTD, pList, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   assert(pTask);
   *pTask = static_cast<ITaskBase *>(pCommand);
