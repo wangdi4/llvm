@@ -4210,10 +4210,6 @@ defm sycl_esimd_force_stateless_mem : BoolFOption<"sycl-esimd-force-stateless-me
             "Disabled by default. (experimental)">,
     NegFlag<SetFalse, [], [ClangOption], "Do not enforce using stateless memory accesses. (experimental)">,
     BothFlags<[], [ClangOption, CLOption, DXCOption, CC1Option], "">>;
-<<<<<<< HEAD
-
-def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[NoXarchOption, DpcppOption]>,
-=======
 // TODO: Remove this option once ESIMD headers are updated to
 // guard vectors to be device only.
 defm sycl_esimd_build_host_code : BoolFOption<"sycl-esimd-build-host-code",
@@ -4222,8 +4218,8 @@ defm sycl_esimd_build_host_code : BoolFOption<"sycl-esimd-build-host-code",
             "Enabled by default.">,
     NegFlag<SetFalse, [], [ClangOption], "Don't build the host implementation of ESIMD functions.">,
     BothFlags<[HelpHidden], [ClangOption, CLOption, DXCOption, CC1Option], "">>;    
-def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[NoXarchOption]>,
->>>>>>> 3d6bc0fad07ef739b168d8aca0bb80ec2e014d84
+
+def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[NoXarchOption, DpcppOption]>,
   Visibility<[ClangOption, CLOption, DXCOption, CC1Option]>,
   HelpText<"Specify comma-separated list of triples that correspond to SYCL "
   "offloading targets to be supported. Valid triples include spir64_gen, "
