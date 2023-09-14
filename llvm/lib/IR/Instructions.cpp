@@ -949,11 +949,7 @@ static Instruction *createMalloc(Instruction *InsertBefore,
   // Create the call to Malloc.
   BasicBlock *BB = InsertBefore ? InsertBefore->getParent() : InsertAtEnd;
   Module *M = BB->getParent()->getParent();
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *BPTy = PointerType::getUnqual(BB->getContext());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *BPTy = Type::getInt8PtrTy(BB->getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   FunctionCallee MallocFunc = MallocF;
   if (!MallocFunc)
     // prototype malloc as "void *malloc(size_t)"
@@ -1049,35 +1045,14 @@ static Instruction *createFree(Value *Source,
   Module *M = BB->getParent()->getParent();
 
   Type *VoidTy = Type::getVoidTy(M->getContext());
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *VoidPtrTy = PointerType::getUnqual(M->getContext());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *IntPtrTy = Type::getInt8PtrTy(M->getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   // prototype free as "void free(void*)"
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   FunctionCallee FreeFunc = M->getOrInsertFunction("free", VoidTy, VoidPtrTy);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  FunctionCallee FreeFunc = M->getOrInsertFunction("free", VoidTy, IntPtrTy);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   CallInst *Result = nullptr;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   if (InsertBefore)
     Result = CallInst::Create(FreeFunc, Source, Bundles, "", InsertBefore);
   else
     Result = CallInst::Create(FreeFunc, Source, Bundles, "");
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *PtrCast = Source;
-  if (InsertBefore) {
-    if (Source->getType() != IntPtrTy)
-      PtrCast = new BitCastInst(Source, IntPtrTy, "", InsertBefore);
-    Result = CallInst::Create(FreeFunc, PtrCast, Bundles, "", InsertBefore);
-  } else {
-    if (Source->getType() != IntPtrTy)
-      PtrCast = new BitCastInst(Source, IntPtrTy, "", InsertAtEnd);
-    Result = CallInst::Create(FreeFunc, PtrCast, Bundles, "");
-  }
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Result->setTailCall();
   if (Function *F = dyn_cast<Function>(FreeFunc.getCallee()))
     Result->setCallingConv(F->getCallingConv());

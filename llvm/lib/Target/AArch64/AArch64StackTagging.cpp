@@ -435,11 +435,7 @@ void AArch64StackTagging::tagAlloca(AllocaInst *AI, Instruction *InsertBefore,
 void AArch64StackTagging::untagAlloca(AllocaInst *AI, Instruction *InsertBefore,
                                       uint64_t Size) {
   IRBuilder<> IRB(InsertBefore);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   IRB.CreateCall(SetTagFunc, {IRB.CreatePointerCast(AI, IRB.getPtrTy()),
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  IRB.CreateCall(SetTagFunc, {IRB.CreatePointerCast(AI, IRB.getInt8PtrTy()),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
                               ConstantInt::get(IRB.getInt64Ty(), Size)});
 }
 
@@ -568,11 +564,7 @@ bool AArch64StackTagging::runOnFunction(Function &Fn) {
       }
     } else {
       uint64_t Size = *Info.AI->getAllocationSize(*DL);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Value *Ptr = IRB.CreatePointerCast(TagPCall, IRB.getPtrTy());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Value *Ptr = IRB.CreatePointerCast(TagPCall, IRB.getInt8PtrTy());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       tagAlloca(AI, &*IRB.GetInsertPoint(), Ptr, Size);
       for (auto *RI : SInfo.RetVec) {
         untagAlloca(AI, RI, Size);

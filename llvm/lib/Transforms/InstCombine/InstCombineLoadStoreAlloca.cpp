@@ -529,10 +529,6 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
         // types.
         const Align MaxAlign = std::max(EntryAI->getAlign(), AI.getAlign());
         EntryAI->setAlignment(MaxAlign);
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-        if (AI.getType() != EntryAI->getType())
-          return new BitCastInst(EntryAI, AI.getType());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
         return replaceInstUsesWith(AI, EntryAI);
       }
     }
@@ -558,19 +554,11 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
       LLVM_DEBUG(dbgs() << "Found alloca equal to global: " << AI << '\n');
       LLVM_DEBUG(dbgs() << "  memcpy = " << *Copy << '\n');
       unsigned SrcAddrSpace = TheSrc->getType()->getPointerAddressSpace();
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-      auto *DestTy = PointerType::get(AI.getAllocatedType(), SrcAddrSpace);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       if (AI.getAddressSpace() == SrcAddrSpace) {
         for (Instruction *Delete : ToDelete)
           eraseInstFromFunction(*Delete);
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         Instruction *NewI = replaceInstUsesWith(AI, TheSrc);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-        Value *Cast = Builder.CreateBitCast(TheSrc, DestTy);
-        Instruction *NewI = replaceInstUsesWith(AI, Cast);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
         eraseInstFromFunction(*Copy);
         ++NumGlobalCopies;
         return NewI;
@@ -581,12 +569,7 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
         for (Instruction *Delete : ToDelete)
           eraseInstFromFunction(*Delete);
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         PtrReplacer.replacePointer(TheSrc);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-        Value *Cast = Builder.CreateBitCast(TheSrc, DestTy);
-        PtrReplacer.replacePointer(Cast);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
         ++NumGlobalCopies;
       }
     }

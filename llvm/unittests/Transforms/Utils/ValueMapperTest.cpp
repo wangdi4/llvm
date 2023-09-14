@@ -66,11 +66,7 @@ TEST(ValueMapperTest, mapMDNodeCycle) {
 
 TEST(ValueMapperTest, mapMDNodeDuplicatedCycle) {
   LLVMContext Context;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   auto *PtrTy = PointerType::get(Context, 0);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *PtrTy = Type::getInt8Ty(Context)->getPointerTo();
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   std::unique_ptr<GlobalVariable> G0 = std::make_unique<GlobalVariable>(
       PtrTy, false, GlobalValue::ExternalLinkage, nullptr, "G0");
   std::unique_ptr<GlobalVariable> G1 = std::make_unique<GlobalVariable>(

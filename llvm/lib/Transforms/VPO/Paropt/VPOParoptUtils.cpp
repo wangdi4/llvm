@@ -844,11 +844,7 @@ void VPOParoptUtils::genSPIRVLscPrefetchBuiltIn(
     assert(OriginalElementTy->isPointerTy() &&
            "The data address should be a pointer.");
     unsigned AS = cast<PointerType>(OriginalElementTy)->getAddressSpace();
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    Type *PrefetchPtrTy = Type::getIntNPtrTy(C, ElementSize, AS);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
     Type *PrefetchPtrTy = PointerType::get(C, AS);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
     IRBuilder<> Builder(InsertPt);
     Value *ElemOffset = ConstantInt::get(ElemOffsetTy, 0);

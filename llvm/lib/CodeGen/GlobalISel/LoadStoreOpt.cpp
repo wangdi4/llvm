@@ -934,14 +934,8 @@ void LoadStoreOpt::initializeStoreMergeTargetInfo(unsigned AddrSpace) {
   BitVector LegalSizes(MaxStoreSizeToForm * 2);
   const auto &LI = *MF->getSubtarget().getLegalizerInfo();
   const auto &DL = MF->getFunction().getParent()->getDataLayout();
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *IRPtrTy = PointerType::get(MF->getFunction().getContext(), AddrSpace);
   LLT PtrTy = getLLTForType(*IRPtrTy, DL);
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *IntPtrIRTy =
-      DL.getIntPtrType(MF->getFunction().getContext(), AddrSpace);
-  LLT PtrTy = getLLTForType(*IntPtrIRTy->getPointerTo(AddrSpace), DL);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   // We assume that we're not going to be generating any stores wider than
   // MaxStoreSizeToForm bits for now.
   for (unsigned Size = 2; Size <= MaxStoreSizeToForm; Size *= 2) {

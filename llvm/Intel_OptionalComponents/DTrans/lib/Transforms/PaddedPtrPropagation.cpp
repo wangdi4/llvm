@@ -940,7 +940,6 @@ bool PaddedPtrPropImpl<InfoClass>::run(Module &M, WholeProgramInfo &WPInfo) {
   // include them into initial work set
 
   Function *Annotations[] = {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
                                 {PointerType::get(M.getContext(), 0),
                                  PointerType::get(M.getContext(), 0)}),
@@ -959,27 +958,6 @@ bool PaddedPtrPropImpl<InfoClass>::run(Module &M, WholeProgramInfo &WPInfo) {
       Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
                                 {PointerType::get(M.getContext(), 0),
                                  PointerType::get(M.getContext(), 0)})};
-
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {Type::getInt8PtrTy(M.getContext()),
-                                 Type::getInt8PtrTy(M.getContext())}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {Type::getInt16PtrTy(M.getContext()),
-                                 Type::getInt8PtrTy(M.getContext())}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {Type::getInt32PtrTy(M.getContext()),
-                                 Type::getInt8PtrTy(M.getContext())}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {Type::getInt64PtrTy(M.getContext()),
-                                 Type::getInt8PtrTy(M.getContext())}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {Type::getFloatPtrTy(M.getContext()),
-                                 Type::getInt8PtrTy(M.getContext())}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {Type::getDoublePtrTy(M.getContext()),
-                                 Type::getInt8PtrTy(M.getContext())})};
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   for (auto AFunc : Annotations) {
     for (auto U : AFunc->users()) {

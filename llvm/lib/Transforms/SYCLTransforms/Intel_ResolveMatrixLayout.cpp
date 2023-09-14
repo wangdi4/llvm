@@ -142,11 +142,7 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4sS0_iii",
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-        Type::getInt16PtrTy(Ctx),
-#else
         PointerType::get(Ctx, 0),
-#endif
         IsMatUseUnnecessary
             ? MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.packed.b"))
             : MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.packed")),
@@ -180,11 +176,7 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii",
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-        Type::getInt16PtrTy(Ctx),
-#else
         PointerType::get(Ctx, 0),
-#endif
         MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
         Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
         Builder.getInt64(MCols), false, WorkList);
@@ -227,11 +219,7 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii",
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-        Type::getInt16PtrTy(Ctx),
-#else
         PointerType::get(Ctx, 0),
-#endif
         MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
         Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
         Builder.getInt64(MCols), true, WorkList);

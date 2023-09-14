@@ -19779,13 +19779,8 @@ static SDValue LowerToTLSExecModel(GlobalAddressSDNode *GA, SelectionDAG &DAG,
   SDLoc dl(GA);
 
   // Get the Thread Pointer, which is %gs:0 (32-bit) or %fs:0 (64-bit).
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Value *Ptr = Constant::getNullValue(
       PointerType::get(*DAG.getContext(), is64Bit ? 257 : 256));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *Ptr = Constant::getNullValue(Type::getInt8PtrTy(*DAG.getContext(),
-                                                         is64Bit ? 257 : 256));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   SDValue ThreadPointer =
       DAG.getLoad(PtrVT, dl, DAG.getEntryNode(), DAG.getIntPtrConstant(0, dl),
@@ -28135,11 +28130,7 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
       SDLoc dl(Op);
       EVT PtrVT = getPointerTy(DAG.getDataLayout());
       // Get the Thread Pointer, which is %gs:0 (32-bit) or %fs:0 (64-bit).
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Value *Ptr = Constant::getNullValue(PointerType::get(
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Value *Ptr = Constant::getNullValue(Type::getInt8PtrTy(
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
           *DAG.getContext(), Subtarget.is64Bit() ? X86AS::FS : X86AS::GS));
       return DAG.getLoad(PtrVT, dl, DAG.getEntryNode(),
                          DAG.getIntPtrConstant(0, dl), MachinePointerInfo(Ptr));

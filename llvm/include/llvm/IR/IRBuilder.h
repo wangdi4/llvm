@@ -1066,15 +1066,7 @@ public:
   /// Create a call to llvm.stacksave
   CallInst *CreateStackSave(const Twine &Name = "") {
     const DataLayout &DL = BB->getModule()->getDataLayout();
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return CreateIntrinsic(Intrinsic::stacksave, {DL.getAllocaPtrType(Context)},
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-    return CreateIntrinsic(
-        Intrinsic::stacksave,
-        {Context.supportsTypedPointers()
-             ? Type::getInt8PtrTy(Context, DL.getAllocaAddrSpace())
-             : DL.getAllocaPtrType(Context)},
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                            {}, nullptr, Name);
   }
 
@@ -1090,9 +1082,6 @@ private:
                                   ArrayRef<Type *> OverloadedTypes,
                                   const Twine &Name = "");
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *getCastedInt8PtrValue(Value *Ptr);
-#endif
 #if INTEL_CUSTOMIZATION
   /// Insert and return the specified instruction without changing its debug
   /// location.

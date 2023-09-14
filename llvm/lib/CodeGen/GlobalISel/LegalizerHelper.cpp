@@ -691,11 +691,7 @@ llvm::createMemLibcall(MachineIRBuilder &MIRBuilder, MachineRegisterInfo &MRI,
     LLT OpLLT = MRI.getType(Reg);
     Type *OpTy = nullptr;
     if (OpLLT.isPointer())
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       OpTy = PointerType::get(Ctx, OpLLT.getAddressSpace());
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-      OpTy = Type::getInt8PtrTy(Ctx, OpLLT.getAddressSpace());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     else
       OpTy = IntegerType::get(Ctx, OpLLT.getSizeInBits());
     Args.push_back({Reg, OpTy, 0});

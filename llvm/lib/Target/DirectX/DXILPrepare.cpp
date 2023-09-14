@@ -98,11 +98,7 @@ class DXILPrepareModule : public ModulePass {
     PointerType *PtrTy = cast<PointerType>(Operand->getType());
     return Builder.Insert(
         CastInst::Create(Instruction::BitCast, Operand,
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                          Builder.getPtrTy(PtrTy->getAddressSpace())));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-                         Builder.getInt8PtrTy(PtrTy->getAddressSpace())));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
 public:

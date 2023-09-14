@@ -9699,11 +9699,7 @@ SDValue TargetLowering::LowerToTLSEmulatedModel(const GlobalAddressSDNode *GA,
   // Access to address of TLS varialbe xyz is lowered to a function call:
   //   __emutls_get_address( address of global variable named "__emutls_v.xyz" )
   EVT PtrVT = getPointerTy(DAG.getDataLayout());
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *VoidPtrType = PointerType::get(*DAG.getContext(), 0);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  PointerType *VoidPtrType = Type::getInt8PtrTy(*DAG.getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   SDLoc dl(GA);
 
   ArgListTy Args;

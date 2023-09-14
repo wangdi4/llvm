@@ -15091,17 +15091,6 @@ bool AArch64TargetLowering::lowerInterleavedLoad(
   // The base address of the load.
   Value *BaseAddr = LI->getPointerOperand();
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  if (NumLoads > 1) {
-    // We will compute the pointer operand of each load from the original base
-    // address using GEPs. Cast the base address to a pointer to the scalar
-    // element type.
-    BaseAddr = Builder.CreateBitCast(
-        BaseAddr,
-        LDVTy->getElementType()->getPointerTo(LI->getPointerAddressSpace()));
-  }
-
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Type *PtrTy = LI->getPointerOperandType();
   Type *PredTy = VectorType::get(Type::getInt1Ty(LDVTy->getContext()),
                                  LDVTy->getElementCount());
@@ -15139,19 +15128,9 @@ bool AArch64TargetLowering::lowerInterleavedLoad(
 
     CallInst *LdN;
     if (UseScalable)
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       LdN = Builder.CreateCall(LdNFunc, {PTrue, BaseAddr}, "ldN");
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      LdN = Builder.CreateCall(
-          LdNFunc, {PTrue, Builder.CreateBitCast(BaseAddr, PtrTy)}, "ldN");
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     else
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       LdN = Builder.CreateCall(LdNFunc, BaseAddr, "ldN");
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      LdN = Builder.CreateCall(LdNFunc, Builder.CreateBitCast(BaseAddr, PtrTy),
-                               "ldN");
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     // Extract and store the sub-vectors returned by the load intrinsic.
     for (unsigned i = 0; i < Shuffles.size(); i++) {
@@ -15271,17 +15250,6 @@ bool AArch64TargetLowering::lowerInterleavedStore(StoreInst *SI,
   // The base address of the store.
   Value *BaseAddr = SI->getPointerOperand();
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  if (NumStores > 1) {
-    // We will compute the pointer operand of each store from the original base
-    // address using GEPs. Cast the base address to a pointer to the scalar
-    // element type.
-    BaseAddr = Builder.CreateBitCast(
-        BaseAddr,
-        SubVecTy->getElementType()->getPointerTo(SI->getPointerAddressSpace()));
-  }
-
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   auto Mask = SVI->getShuffleMask();
 
   // Sanity check if all the indices are NOT in range.
@@ -15364,11 +15332,7 @@ bool AArch64TargetLowering::lowerInterleavedStore(StoreInst *SI,
       BaseAddr = Builder.CreateConstGEP1_32(SubVecTy->getElementType(),
                                             BaseAddr, LaneLen * Factor);
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Ops.push_back(BaseAddr);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    Ops.push_back(Builder.CreateBitCast(BaseAddr, PtrTy));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     Builder.CreateCall(StNFunc, Ops);
   }
   return true;
@@ -24557,9 +24521,6 @@ Value *AArch64TargetLowering::emitLoadLinked(IRBuilderBase &Builder,
         IsAcquire ? Intrinsic::aarch64_ldaxp : Intrinsic::aarch64_ldxp;
     Function *Ldxr = Intrinsic::getDeclaration(M, Int);
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    Addr = Builder.CreateBitCast(Addr, Type::getInt8PtrTy(M->getContext()));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     Value *LoHi = Builder.CreateCall(Ldxr, Addr, "lohi");
 
     Value *Lo = Builder.CreateExtractValue(LoHi, 0, "lo");
@@ -24608,9 +24569,6 @@ Value *AArch64TargetLowering::emitStoreConditional(IRBuilderBase &Builder,
 
     Value *Lo = Builder.CreateTrunc(Val, Int64Ty, "lo");
     Value *Hi = Builder.CreateTrunc(Builder.CreateLShr(Val, 64), Int64Ty, "hi");
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    Addr = Builder.CreateBitCast(Addr, Type::getInt8PtrTy(M->getContext()));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     return Builder.CreateCall(Stxr, {Lo, Hi, Addr});
   }
 
@@ -24658,11 +24616,7 @@ static Value *UseTlsOffset(IRBuilderBase &IRB, unsigned Offset) {
   return IRB.CreatePointerCast(
       IRB.CreateConstGEP1_32(IRB.getInt8Ty(), IRB.CreateCall(ThreadPointerFunc),
                              Offset),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       IRB.getPtrTy(0));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      IRB.getInt8PtrTy()->getPointerTo(0));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 Value *AArch64TargetLowering::getIRStackGuard(IRBuilderBase &IRB) const {

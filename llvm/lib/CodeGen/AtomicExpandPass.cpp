@@ -546,10 +546,6 @@ static void createCmpXchgInstFun(IRBuilderBase &Builder, Value *Addr,
   bool NeedBitcast = OrigTy->isFloatingPointTy();
   if (NeedBitcast) {
     IntegerType *IntTy = Builder.getIntNTy(OrigTy->getPrimitiveSizeInBits());
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    unsigned AS = Addr->getType()->getPointerAddressSpace();
-    Addr = Builder.CreateBitCast(Addr, IntTy->getPointerTo(AS));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     NewVal = Builder.CreateBitCast(NewVal, IntTy);
     Loaded = Builder.CreateBitCast(Loaded, IntTy);
   }
@@ -722,9 +718,6 @@ static PartwordMaskValues createMaskInstrs(IRBuilderBase &Builder,
   assert(ValueSize < MinWordSize);
 
   PointerType *PtrTy = cast<PointerType>(Addr->getType());
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *WordPtrType = PMV.WordType->getPointerTo(PtrTy->getAddressSpace());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   IntegerType *IntTy = DL.getIntPtrType(Ctx, PtrTy->getAddressSpace());
   Value *PtrLSB;
 
@@ -758,12 +751,6 @@ static PartwordMaskValues createMaskInstrs(IRBuilderBase &Builder,
 
   PMV.Inv_Mask = Builder.CreateNot(PMV.Mask, "Inv_Mask");
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  // Cast for typed pointers.
-  PMV.AlignedAddr =
-    Builder.CreateBitCast(PMV.AlignedAddr, WordPtrType, "AlignedAddr");
-
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   return PMV;
 }
 
@@ -1846,17 +1833,8 @@ bool AtomicExpand::expandAtomicOpToLibcall(
   // variables.
 
   AllocaInst *AllocaCASExpected = nullptr;
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *AllocaCASExpected_i8 = nullptr;
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   AllocaInst *AllocaValue = nullptr;
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *AllocaValue_i8 = nullptr;
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   AllocaInst *AllocaResult = nullptr;
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *AllocaResult_i8 = nullptr;
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   Type *ResultTy;
   SmallVector<Value *, 6> Args;
@@ -1873,36 +1851,17 @@ bool AtomicExpand::expandAtomicOpToLibcall(
   // implementation and that addresses are convertable.  For systems without
   // that property, we'd need to extend this mechanism to support AS-specific
   // families of atomic intrinsics.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Value *PtrVal = PointerOperand;
   PtrVal = Builder.CreateAddrSpaceCast(PtrVal, PointerType::getUnqual(Ctx));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  auto PtrTypeAS = PointerOperand->getType()->getPointerAddressSpace();
-  Value *PtrVal =
-      Builder.CreateBitCast(PointerOperand, Type::getInt8PtrTy(Ctx, PtrTypeAS));
-  PtrVal = Builder.CreateAddrSpaceCast(PtrVal, Type::getInt8PtrTy(Ctx));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Args.push_back(PtrVal);
 
   // 'expected' argument, if present.
   if (CASExpected) {
     AllocaCASExpected = AllocaBuilder.CreateAlloca(CASExpected->getType());
     AllocaCASExpected->setAlignment(AllocaAlignment);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Builder.CreateLifetimeStart(AllocaCASExpected, SizeVal64);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    unsigned AllocaAS = AllocaCASExpected->getType()->getPointerAddressSpace();
-
-    AllocaCASExpected_i8 = Builder.CreateBitCast(
-        AllocaCASExpected, Type::getInt8PtrTy(Ctx, AllocaAS));
-    Builder.CreateLifetimeStart(AllocaCASExpected_i8, SizeVal64);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     Builder.CreateAlignedStore(CASExpected, AllocaCASExpected, AllocaAlignment);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Args.push_back(AllocaCASExpected);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    Args.push_back(AllocaCASExpected_i8);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   // 'val' argument ('desired' for cas), if present.
@@ -1914,19 +1873,9 @@ bool AtomicExpand::expandAtomicOpToLibcall(
     } else {
       AllocaValue = AllocaBuilder.CreateAlloca(ValueOperand->getType());
       AllocaValue->setAlignment(AllocaAlignment);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Builder.CreateLifetimeStart(AllocaValue, SizeVal64);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      AllocaValue_i8 =
-          Builder.CreateBitCast(AllocaValue, Type::getInt8PtrTy(Ctx));
-      Builder.CreateLifetimeStart(AllocaValue_i8, SizeVal64);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       Builder.CreateAlignedStore(ValueOperand, AllocaValue, AllocaAlignment);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Args.push_back(AllocaValue);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Args.push_back(AllocaValue_i8);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     }
   }
 
@@ -1934,16 +1883,8 @@ bool AtomicExpand::expandAtomicOpToLibcall(
   if (!CASExpected && HasResult && !UseSizedLibcall) {
     AllocaResult = AllocaBuilder.CreateAlloca(I->getType());
     AllocaResult->setAlignment(AllocaAlignment);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Builder.CreateLifetimeStart(AllocaResult, SizeVal64);
     Args.push_back(AllocaResult);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    unsigned AllocaAS = AllocaResult->getType()->getPointerAddressSpace();
-    AllocaResult_i8 =
-        Builder.CreateBitCast(AllocaResult, Type::getInt8PtrTy(Ctx, AllocaAS));
-    Builder.CreateLifetimeStart(AllocaResult_i8, SizeVal64);
-    Args.push_back(AllocaResult_i8);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   // 'ordering' ('success_order' for cas) argument.
@@ -1975,11 +1916,7 @@ bool AtomicExpand::expandAtomicOpToLibcall(
 
   // And then, extract the results...
   if (ValueOperand && !UseSizedLibcall)
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Builder.CreateLifetimeEnd(AllocaValue, SizeVal64);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    Builder.CreateLifetimeEnd(AllocaValue_i8, SizeVal64);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   if (CASExpected) {
     // The final result from the CAS is {load of 'expected' alloca, bool result
@@ -1988,11 +1925,7 @@ bool AtomicExpand::expandAtomicOpToLibcall(
     Value *V = PoisonValue::get(FinalResultTy);
     Value *ExpectedOut = Builder.CreateAlignedLoad(
         CASExpected->getType(), AllocaCASExpected, AllocaAlignment);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Builder.CreateLifetimeEnd(AllocaCASExpected, SizeVal64);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    Builder.CreateLifetimeEnd(AllocaCASExpected_i8, SizeVal64);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     V = Builder.CreateInsertValue(V, ExpectedOut, 0);
     V = Builder.CreateInsertValue(V, Result, 1);
     I->replaceAllUsesWith(V);
@@ -2003,11 +1936,7 @@ bool AtomicExpand::expandAtomicOpToLibcall(
     else {
       V = Builder.CreateAlignedLoad(I->getType(), AllocaResult,
                                     AllocaAlignment);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Builder.CreateLifetimeEnd(AllocaResult, SizeVal64);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Builder.CreateLifetimeEnd(AllocaResult_i8, SizeVal64);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     }
     I->replaceAllUsesWith(V);
   }

@@ -2491,15 +2491,7 @@ void InnerLoopVectorizer::vectorizeInterleaveGroup(
     if (auto *gep = dyn_cast<GetElementPtrInst>(AddrPart->stripPointerCasts()))
       InBounds = gep->isInBounds();
     AddrPart = Builder.CreateGEP(ScalarTy, AddrPart, Idx, "", InBounds);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     AddrParts.push_back(AddrPart);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-
-    // Cast to the vector pointer type.
-    unsigned AddressSpace = AddrPart->getType()->getPointerAddressSpace();
-    Type *PtrTy = VecTy->getPointerTo(AddressSpace);
-    AddrParts.push_back(Builder.CreateBitCast(AddrPart, PtrTy));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   State.setDebugLocFrom(Instr->getDebugLoc());
@@ -9594,12 +9586,7 @@ void VPWidenMemoryInstructionRecipe::execute(VPTransformState &State) {
       PartPtr = Builder.CreateGEP(ScalarDataTy, Ptr, Increment, "", InBounds);
     }
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return PartPtr;
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    unsigned AddressSpace = Ptr->getType()->getPointerAddressSpace();
-    return Builder.CreateBitCast(PartPtr, DataTy->getPointerTo(AddressSpace));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   };
 
   // Handle Stores:

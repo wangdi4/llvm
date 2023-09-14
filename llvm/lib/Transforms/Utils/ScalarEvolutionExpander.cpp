@@ -2328,12 +2328,7 @@ Value *SCEVExpander::generateOverflowCheck(const SCEVAddRecExpr *AR,
     bool NeedNegCheck = !SE.isKnownPositive(Step);
 
     if (PointerType *ARPtrTy = dyn_cast<PointerType>(ARTy)) {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       StartValue = InsertNoopCastOfTo(StartValue, ARPtrTy);
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-      StartValue = InsertNoopCastOfTo(
-          StartValue, Builder.getInt8PtrTy(ARPtrTy->getAddressSpace()));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       Value *NegMulV = Builder.CreateNeg(MulV);
       if (NeedPosCheck)
         Add = Builder.CreateGEP(Builder.getInt8Ty(), StartValue, MulV);
@@ -2439,11 +2434,7 @@ Value *SCEVExpander::fixupLCSSAFormFor(Value *V) {
   // instruction.
   Type *ToTy;
   if (DefI->getType()->isIntegerTy())
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     ToTy = PointerType::get(DefI->getContext(), 0);
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-    ToTy = DefI->getType()->getPointerTo();
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   else
     ToTy = Type::getInt32Ty(DefI->getContext());
   Instruction *User =

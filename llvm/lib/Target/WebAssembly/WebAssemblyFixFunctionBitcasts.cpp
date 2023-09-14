@@ -247,12 +247,7 @@ bool FixFunctionBitcasts::runOnModule(Module &M) {
     if (F.getName() == "main") {
       Main = &F;
       LLVMContext &C = M.getContext();
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Type *MainArgTys[] = {Type::getInt32Ty(C), PointerType::get(C, 0)};
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Type *MainArgTys[] = {Type::getInt32Ty(C),
-                            PointerType::get(Type::getInt8PtrTy(C), 0)};
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       FunctionType *MainTy = FunctionType::get(Type::getInt32Ty(C), MainArgTys,
                                                /*isVarArg=*/false);
       if (shouldFixMainFunction(F.getFunctionType(), MainTy)) {
@@ -260,12 +255,7 @@ bool FixFunctionBitcasts::runOnModule(Module &M) {
                           << *F.getFunctionType() << "\n");
         Value *Args[] = {UndefValue::get(MainArgTys[0]),
                          UndefValue::get(MainArgTys[1])};
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         Value *Casted = ConstantExpr::getBitCast(Main, PointerType::get(C, 0));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-        Value *Casted =
-            ConstantExpr::getBitCast(Main, PointerType::get(MainTy, 0));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
         CallMain = CallInst::Create(MainTy, Casted, Args, "call_main");
         Uses.push_back(std::make_pair(CallMain, &F));
       }

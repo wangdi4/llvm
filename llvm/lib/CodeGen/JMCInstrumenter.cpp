@@ -120,11 +120,7 @@ void attachDebugInfo(GlobalVariable &GV, DISubprogram &SP) {
 
 FunctionType *getCheckFunctionType(LLVMContext &Ctx) {
   Type *VoidTy = Type::getVoidTy(Ctx);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *VoidPtrTy = PointerType::getUnqual(Ctx);
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-  PointerType *VoidPtrTy = Type::getInt8PtrTy(Ctx);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   return FunctionType::get(VoidTy, VoidPtrTy, false);
 }
 

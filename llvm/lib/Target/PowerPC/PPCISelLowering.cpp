@@ -18608,13 +18608,7 @@ Value *PPCTargetLowering::emitMaskedAtomicRMWIntrinsic(
   Value *IncrLo = Builder.CreateTrunc(Incr, Int64Ty, "incr_lo");
   Value *IncrHi =
       Builder.CreateTrunc(Builder.CreateLShr(Incr, 64), Int64Ty, "incr_hi");
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Value *LoHi = Builder.CreateCall(RMW, {AlignedAddr, IncrLo, IncrHi});
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *Addr =
-      Builder.CreateBitCast(AlignedAddr, Type::getInt8PtrTy(M->getContext()));
-  Value *LoHi = Builder.CreateCall(RMW, {Addr, IncrLo, IncrHi});
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Value *Lo = Builder.CreateExtractValue(LoHi, 0, "lo");
   Value *Hi = Builder.CreateExtractValue(LoHi, 1, "hi");
   Lo = Builder.CreateZExt(Lo, ValTy, "lo64");
@@ -18639,17 +18633,9 @@ Value *PPCTargetLowering::emitMaskedAtomicCmpXchgIntrinsic(
   Value *NewLo = Builder.CreateTrunc(NewVal, Int64Ty, "new_lo");
   Value *NewHi =
       Builder.CreateTrunc(Builder.CreateLShr(NewVal, 64), Int64Ty, "new_hi");
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *Addr =
-      Builder.CreateBitCast(AlignedAddr, Type::getInt8PtrTy(M->getContext()));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   emitLeadingFence(Builder, CI, Ord);
   Value *LoHi =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Builder.CreateCall(IntCmpXchg, {AlignedAddr, CmpLo, CmpHi, NewLo, NewHi});
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Builder.CreateCall(IntCmpXchg, {Addr, CmpLo, CmpHi, NewLo, NewHi});
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   emitTrailingFence(Builder, CI, Ord);
   Value *Lo = Builder.CreateExtractValue(LoHi, 0, "lo");
   Value *Hi = Builder.CreateExtractValue(LoHi, 1, "hi");

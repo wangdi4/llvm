@@ -643,11 +643,7 @@ struct DevirtModule {
       : M(M), AARGetter(AARGetter), LookupDomTree(LookupDomTree),
         ExportSummary(ExportSummary), ImportSummary(ImportSummary),
         Int8Ty(Type::getInt8Ty(M.getContext())),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         Int8PtrTy(PointerType::getUnqual(M.getContext())),
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-        Int8PtrTy(Type::getInt8PtrTy(M.getContext())),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
         Int32Ty(Type::getInt32Ty(M.getContext())),
         Int64Ty(Type::getInt64Ty(M.getContext())),
         IntPtrTy(M.getDataLayout().getIntPtrType(M.getContext(), 0)),
@@ -1990,12 +1986,7 @@ void DevirtModule::applyVirtualConstProp(CallSiteInfo &CSInfo, StringRef FnName,
       Call.replaceAndErase("virtual-const-prop-1-bit", FnName, RemarksEnabled,
                            OREGetter, IsBitSet);
     } else {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Value *Val = B.CreateLoad(RetType, Addr);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      Value *ValAddr = B.CreateBitCast(Addr, RetType->getPointerTo());
-      Value *Val = B.CreateLoad(RetType, ValAddr);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       NumVirtConstProp++;
       Call.replaceAndErase("virtual-const-prop", FnName, RemarksEnabled,
                            OREGetter, Val);

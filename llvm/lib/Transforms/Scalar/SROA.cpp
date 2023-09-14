@@ -4717,11 +4717,7 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
     for (;;) {
       auto *PartTy = Type::getIntNTy(LI->getContext(), PartSize * 8);
       auto AS = LI->getPointerAddressSpace();
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       auto *PartPtrTy = LI->getPointerOperandType();
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      auto *PartPtrTy = PartTy->getPointerTo(AS);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       LoadInst *PLoad = IRB.CreateAlignedLoad(
           PartTy,
           getAdjustedPtr(IRB, DL, BasePtr,
@@ -4776,12 +4772,7 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
       for (int Idx = 0, Size = SplitLoads.size(); Idx < Size; ++Idx) {
         LoadInst *PLoad = SplitLoads[Idx];
         uint64_t PartOffset = Idx == 0 ? 0 : Offsets.Splits[Idx - 1];
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         auto *PartPtrTy = SI->getPointerOperandType();
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-        auto *PartPtrTy =
-            PLoad->getType()->getPointerTo(SI->getPointerAddressSpace());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
         auto AS = SI->getPointerAddressSpace();
         StoreInst *PStore = IRB.CreateAlignedStore(
@@ -4861,13 +4852,8 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
     int Idx = 0, Size = Offsets.Splits.size();
     for (;;) {
       auto *PartTy = Type::getIntNTy(Ty->getContext(), PartSize * 8);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       auto *LoadPartPtrTy = LI->getPointerOperandType();
       auto *StorePartPtrTy = SI->getPointerOperandType();
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      auto *LoadPartPtrTy = PartTy->getPointerTo(LI->getPointerAddressSpace());
-      auto *StorePartPtrTy = PartTy->getPointerTo(SI->getPointerAddressSpace());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
       // Either lookup a split load or create one.
       LoadInst *PLoad;

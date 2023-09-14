@@ -8318,13 +8318,7 @@ static bool splitMergedValStore(StoreInst &SI, const DataLayout &DL,
   bool IsLE = SI.getModule()->getDataLayout().isLittleEndian();
   auto CreateSplitStore = [&](Value *V, bool Upper) {
     V = Builder.CreateZExtOrBitCast(V, SplitStoreType);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Value *Addr = SI.getPointerOperand();
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-    Value *Addr = Builder.CreateBitCast(
-        SI.getOperand(1),
-        SplitStoreType->getPointerTo(SI.getPointerAddressSpace()));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     Align Alignment = SI.getAlign();
     const bool IsOffsetStore = (IsLE && Upper) || (!IsLE && !Upper);
     if (IsOffsetStore) {

@@ -392,13 +392,8 @@ void MetadataStreamerYamlV2::emitHiddenKernelArgs(const Function &Func,
   if (HiddenArgNumBytes >= 24)
     emitKernelArg(DL, Int64Ty, Align(8), ValueKind::HiddenGlobalOffsetZ);
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   auto Int8PtrTy =
       PointerType::get(Func.getContext(), AMDGPUAS::GLOBAL_ADDRESS);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  auto Int8PtrTy = Type::getInt8PtrTy(Func.getContext(),
-                                      AMDGPUAS::GLOBAL_ADDRESS);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   if (HiddenArgNumBytes >= 32) {
     // We forbid the use of features requiring hostcall when compiling OpenCL
@@ -835,11 +830,7 @@ void MetadataStreamerMsgPackV3::emitHiddenKernelArgs(
                   Args);
 
   auto Int8PtrTy =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       PointerType::get(Func.getContext(), AMDGPUAS::GLOBAL_ADDRESS);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Type::getInt8PtrTy(Func.getContext(), AMDGPUAS::GLOBAL_ADDRESS);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   if (HiddenArgNumBytes >= 32) {
     // We forbid the use of features requiring hostcall when compiling OpenCL
@@ -1059,11 +1050,7 @@ void MetadataStreamerMsgPackV5::emitHiddenKernelArgs(
 
   Offset += 6; // Reserved.
   auto Int8PtrTy =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       PointerType::get(Func.getContext(), AMDGPUAS::GLOBAL_ADDRESS);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Type::getInt8PtrTy(Func.getContext(), AMDGPUAS::GLOBAL_ADDRESS);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   if (M->getNamedMetadata("llvm.printf.fmts")) {
     emitKernelArg(DL, Int8PtrTy, Align(8), "hidden_printf_buffer", Offset,

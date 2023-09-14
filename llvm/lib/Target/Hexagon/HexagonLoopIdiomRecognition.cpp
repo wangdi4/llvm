@@ -2054,12 +2054,8 @@ bool HexagonLoopIdiomRecognize::processCopyingStore(Loop *CurLoop,
   // includes the load that feeds the stores.  Check for an alias by generating
   // the base address and checking everything.
   Value *StoreBasePtr = Expander.expandCodeFor(
-      StoreEv->getStart(),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-      Builder.getPtrTy(SI->getPointerAddressSpace()), ExpPt);
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-      Builder.getInt8PtrTy(SI->getPointerAddressSpace()), ExpPt);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+      StoreEv->getStart(), Builder.getPtrTy(SI->getPointerAddressSpace()),
+      ExpPt);
   Value *LoadBasePtr = nullptr;
 
   bool Overlap = false;
@@ -2130,12 +2126,8 @@ CleanupAndExit:
   // For a memcpy, we have to make sure that the input array is not being
   // mutated by the loop.
   LoadBasePtr = Expander.expandCodeFor(
-      LoadEv->getStart(),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-      Builder.getPtrTy(LI->getPointerAddressSpace()), ExpPt);
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-      Builder.getInt8PtrTy(LI->getPointerAddressSpace()), ExpPt);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+      LoadEv->getStart(), Builder.getPtrTy(LI->getPointerAddressSpace()),
+      ExpPt);
 
   SmallPtrSet<Instruction*, 2> Ignore2;
   Ignore2.insert(SI);
@@ -2273,19 +2265,11 @@ CleanupAndExit:
 
     if (DestVolatile) {
       Type *Int32Ty = Type::getInt32Ty(Ctx);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Type *PtrTy = PointerType::get(Ctx, 0);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Type *Int32PtrTy = Type::getInt32PtrTy(Ctx);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       Type *VoidTy = Type::getVoidTy(Ctx);
       Module *M = Func->getParent();
-      FunctionCallee Fn = M->getOrInsertFunction(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-          HexagonVolatileMemcpyName, VoidTy, PtrTy, PtrTy, Int32Ty);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-          HexagonVolatileMemcpyName, VoidTy, Int32PtrTy, Int32PtrTy, Int32Ty);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+      FunctionCallee Fn = M->getOrInsertFunction(HexagonVolatileMemcpyName,
+                                                 VoidTy, PtrTy, PtrTy, Int32Ty);
 
       const SCEV *OneS = SE->getConstant(Int32Ty, 1);
       const SCEV *BECount32 = SE->getTruncateOrZeroExtend(BECount, Int32Ty);
@@ -2296,18 +2280,8 @@ CleanupAndExit:
         if (Value *Simp = simplifyInstruction(In, {*DL, TLI, DT}))
           NumWords = Simp;
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-      NewCall = CondBuilder.CreateCall(Fn,
-                                       {StoreBasePtr, LoadBasePtr, NumWords});
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Value *Op0 = (StoreBasePtr->getType() == Int32PtrTy)
-                      ? StoreBasePtr
-                      : CondBuilder.CreateBitCast(StoreBasePtr, Int32PtrTy);
-      Value *Op1 = (LoadBasePtr->getType() == Int32PtrTy)
-                      ? LoadBasePtr
-                      : CondBuilder.CreateBitCast(LoadBasePtr, Int32PtrTy);
-      NewCall = CondBuilder.CreateCall(Fn, {Op0, Op1, NumWords});
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+      NewCall =
+          CondBuilder.CreateCall(Fn, {StoreBasePtr, LoadBasePtr, NumWords});
     } else {
       NewCall = CondBuilder.CreateMemMove(
           StoreBasePtr, SI->getAlign(), LoadBasePtr, LI->getAlign(), NumBytes);

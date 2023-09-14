@@ -740,11 +740,7 @@ TEST_F(ScalarEvolutionsTest, SCEVExitLimitForgetLoop) {
   NIM.setDataLayout(DataLayout);
 
   Type *T_int64 = Type::getInt64Ty(Context);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *T_pint64 = PointerType::get(Context, 10);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *T_pint64 = T_int64->getPointerTo(10);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   FunctionType *FTy =
       FunctionType::get(Type::getVoidTy(Context), {T_pint64}, false);
@@ -842,11 +838,7 @@ TEST_F(ScalarEvolutionsTest, SCEVExitLimitForgetValue) {
   NIM.setDataLayout(DataLayout);
 
   Type *T_int64 = Type::getInt64Ty(Context);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *T_pint64 = PointerType::get(Context, 10);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *T_pint64 = T_int64->getPointerTo(10);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   FunctionType *FTy =
       FunctionType::get(Type::getVoidTy(Context), {T_pint64}, false);

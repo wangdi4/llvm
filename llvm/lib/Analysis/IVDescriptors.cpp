@@ -1289,24 +1289,11 @@ RecurrenceDescriptor::getReductionOpChain(PHINode *Phi, Loop *L) const {
 
 InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
                                          const SCEV *Step, BinaryOperator *BOp,
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-                                         Type *ElementType,
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                                          SmallVectorImpl<Instruction *> *Casts)
 #if INTEL_CUSTOMIZATION
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    : InductionDescriptorTempl(Start, K, BOp), Step(Step),
-      ElementType(ElementType) {
+    : InductionDescriptorTempl(Start, K, BOp), Step(Step) {
 #else
-    : InductionDescriptorTempl(Start, K, BOp), Step(Step){
-#endif
-#else
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     : StartValue(Start), IK(K), Step(Step), InductionBinOp(BOp) {
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    : StartValue(Start), IK(K), Step(Step), InductionBinOp(BOp),
-      ElementType(ElementType) {
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   assert(IK != IK_NoInduction && "Not an induction");
 
   // Start value type should match the induction kind and the value
@@ -1334,13 +1321,6 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
             InductionBinOp->getOpcode() == Instruction::FSub))) &&
          "Binary opcode should be specified for FP induction");
 #endif
-
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  if (IK == IK_PtrInduction)
-    assert(ElementType && "Pointer induction must have element type");
-  else
-    assert(!ElementType && "Non-pointer induction cannot have element type");
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   if (Casts) {
     for (auto &Inst : *Casts) {
@@ -1618,72 +1598,14 @@ bool InductionDescriptor::isInductionPHI(
   if (PhiTy->isIntegerTy()) {
     BinaryOperator *BOp =
         dyn_cast<BinaryOperator>(Phi->getIncomingValueForBlock(Latch));
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     D = InductionDescriptor(StartValue, IK_IntInduction, Step, BOp,
                             CastsToIgnore);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    D = InductionDescriptor(StartValue, IK_IntInduction, Step, BOp,
-                        /* ElementType */ nullptr, CastsToIgnore);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     return true;
   }
 
   assert(PhiTy->isPointerTy() && "The PHI must be a pointer");
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   // This allows induction variables w/non-constant steps.
   D = InductionDescriptor(StartValue, IK_PtrInduction, Step);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  PointerType *PtrTy = cast<PointerType>(PhiTy);
-  // Always use i8 element type for opaque pointer inductions.
-  // This allows induction variables w/non-constant steps.
-  if (PtrTy->isOpaque()) {
-    D = InductionDescriptor(StartValue, IK_PtrInduction, Step,
-                            /* BinOp */ nullptr,
-                            Type::getInt8Ty(PtrTy->getContext()));
-    return true;
-  }
-
-  // Pointer induction should be a constant.
-  // INTEL Non-constant step is supported in VPlan Vectorizer only.
-  if (OnlyConstPtrStep && !ConstStep) // INTEL
-    return false;
-
-  Type *ElementType = PtrTy->getNonOpaquePointerElementType();
-  if (!ElementType->isSized())
-    return false;
-
-#if !INTEL_CUSTOMIZATION
-  ConstantInt *CV = ConstStep->getValue();
-#endif // INTEL_CUSTOMIZATION
-  const DataLayout &DL = Phi->getModule()->getDataLayout();
-  TypeSize TySize = DL.getTypeAllocSize(ElementType);
-  // TODO: We could potentially support this for scalable vectors if we can
-  // prove at compile time that the constant step is always a multiple of
-  // the scalable type.
-  if (TySize.isZero() || TySize.isScalable())
-    return false;
-  int64_t Size = static_cast<int64_t>(TySize.getFixedValue());
-
-#if INTEL_CUSTOMIZATION
-  if (ConstStep) {
-    ConstantInt *CV = ConstStep->getValue();
-#endif // INTEL_CUSTOMIZATION
-    int64_t CVSize = CV->getSExtValue();
-    if (CVSize % Size)
-      return false;
-    auto *StepValue =
-        SE->getConstant(CV->getType(), CVSize / Size, true /* signed */);
-    D = InductionDescriptor(StartValue, IK_PtrInduction, StepValue,
-                            /* BinOp */ nullptr, ElementType);
-#if INTEL_CUSTOMIZATION
-  } else {
-    auto *StepValue =
-        SE->getUDivExpr(Step, SE->getConstant(Step->getType(), Size));
-    D = InductionDescriptor(StartValue, IK_PtrInduction, StepValue,
-                            /* BinOp */ nullptr, ElementType);
-  }
-#endif // INTEL_CUSTOMIZATION
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   return true;
 }

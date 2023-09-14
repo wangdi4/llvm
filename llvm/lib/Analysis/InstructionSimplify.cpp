@@ -6158,14 +6158,7 @@ static Value *simplifyRelativeLoad(Constant *Ptr, Constant *Offset,
   if (!IsConstantOffsetFromGlobal(Ptr, PtrSym, PtrOffset, DL))
     return nullptr;
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *Int8PtrTy = Type::getInt8PtrTy(Ptr->getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Type *Int32Ty = Type::getInt32Ty(Ptr->getContext());
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *Int32PtrTy = Int32Ty->getPointerTo();
-  Type *Int64Ty = Type::getInt64Ty(Ptr->getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   auto *OffsetConstInt = dyn_cast<ConstantInt>(Offset);
   if (!OffsetConstInt || OffsetConstInt->getType()->getBitWidth() > 64)
@@ -6176,14 +6169,7 @@ static Value *simplifyRelativeLoad(Constant *Ptr, Constant *Offset,
   if (OffsetInt.srem(4) != 0)
     return nullptr;
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Constant *Loaded = ConstantFoldLoadFromConstPtr(Ptr, Int32Ty, OffsetInt, DL);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  Constant *C = ConstantExpr::getGetElementPtr(
-      Int32Ty, ConstantExpr::getBitCast(Ptr, Int32PtrTy),
-      ConstantInt::get(Int64Ty, OffsetInt.getSExtValue() / 4));
-  Constant *Loaded = ConstantFoldLoadFromConstPtr(C, Int32Ty, DL);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   if (!Loaded)
     return nullptr;
 
@@ -6213,11 +6199,7 @@ static Value *simplifyRelativeLoad(Constant *Ptr, Constant *Offset,
       PtrSym != LoadedRHSSym || PtrOffset != LoadedRHSOffset)
     return nullptr;
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   return LoadedLHSPtr;
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  return ConstantExpr::getBitCast(LoadedLHSPtr, Int8PtrTy);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 // TODO: Need to pass in FastMathFlags
