@@ -42,7 +42,6 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Allocator.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstdio>
@@ -69,8 +68,7 @@ namespace {
 
 /// A simple identifier lookup iterator that represents an
 /// empty sequence of identifiers.
-class EmptyLookupIterator : public IdentifierIterator
-{
+class EmptyLookupIterator : public IdentifierIterator {
 public:
   StringRef Next() override { return StringRef(); }
 };
