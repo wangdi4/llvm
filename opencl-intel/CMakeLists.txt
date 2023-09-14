@@ -503,7 +503,11 @@ if(NOT BUILD_X64)
 endif()
 
 # TBB_LIBRARY_DIR - Used for LIT environment
-set(TBB_DIR "${TBB_ROOT_DIR}/lib/cmake/tbb")
+if(EXISTS "${TBB_ROOT_DIR}/tbb")
+  set(TBB_DIR "${TBB_ROOT_DIR}/tbb/latest/lib/cmake/tbb")
+else()
+  set(TBB_DIR "${TBB_ROOT_DIR}/lib/cmake/tbb")
+endif()
 find_package(TBB REQUIRED tbb)
 get_target_property(TBB_LOC TBB::tbb LOCATION_RELEASE)
 get_target_property(TBB_INC_DIR TBB::tbb INTERFACE_INCLUDE_DIRECTORIES)
