@@ -375,14 +375,9 @@ define i8 @neg_nsw_shl_missing_nsw_on_shl(i8 %a1, i8 %a2, i8 %b) {
 
 define i8 @neg_nsw_shl_to_mul(i8 %a, i8 %b) {
 ; CHECK-LABEL: @neg_nsw_shl_to_mul(
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[SHL:%.*]] = shl nsw i8 [[A:%.*]], 1 ;INTEL
 ; CHECK-NEXT:    [[NEG:%.*]] = sub nsw i8 0, [[SHL]] ;INTEL
 ; CHECK-NEXT:    ret i8 [[NEG]] ;INTEL
-=======
-; CHECK-NEXT:    [[SHL_NEG:%.*]] = mul nsw i8 [[A:%.*]], -2
-; CHECK-NEXT:    ret i8 [[SHL_NEG]]
->>>>>>> 1fc73cacb2068c79eafabf49bec33c076ed1d1ee
 ;
   %shl = shl nsw i8 %a, 1
   %neg = sub nsw i8 0, %shl

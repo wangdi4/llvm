@@ -420,21 +420,17 @@ std::array<Value *, 2> Negator::getSortedOperandsOfBinOp(Instruction *I) {
   }
   case Instruction::Shl: {
     // `shl` is negatible if the first operand is negatible.
-<<<<<<< HEAD
+    IsNSW &= I->hasNoSignedWrap();
 #if INTEL_CUSTOMIZATION
-    Value *NegOp0 = negate(I->getOperand(0), Depth + 1);
+    Value *NegOp0 = negate(I->getOperand(0), IsNSW, Depth + 1);
     if (!NegOp0) // Early return.
       return nullptr;
-    return Builder.CreateShl(NegOp0, I->getOperand(1), I->getName() + ".neg");
+    return Builder.CreateShl(NegOp0, I->getOperand(1), I->getName() + ".neg",
+                             /* HasNUW */ false, IsNSW);
 #else
-    if (Value *NegOp0 = negate(I->getOperand(0), Depth + 1))
-      return Builder.CreateShl(NegOp0, I->getOperand(1), I->getName() + ".neg");
-=======
-    IsNSW &= I->hasNoSignedWrap();
     if (Value *NegOp0 = negate(I->getOperand(0), IsNSW, Depth + 1))
       return Builder.CreateShl(NegOp0, I->getOperand(1), I->getName() + ".neg",
                                /* HasNUW */ false, IsNSW);
->>>>>>> 1fc73cacb2068c79eafabf49bec33c076ed1d1ee
     // Otherwise, `shl %x, C` can be interpreted as `mul %x, 1<<C`.
     auto *Op1C = dyn_cast<Constant>(I->getOperand(1));
     if (!Op1C || !IsTrulyNegation)
@@ -442,12 +438,8 @@ std::array<Value *, 2> Negator::getSortedOperandsOfBinOp(Instruction *I) {
     return Builder.CreateMul(
         I->getOperand(0),
         ConstantExpr::getShl(Constant::getAllOnesValue(Op1C->getType()), Op1C),
-<<<<<<< HEAD
-        I->getName() + ".neg");
-#endif
-=======
         I->getName() + ".neg", /* HasNUW */ false, IsNSW);
->>>>>>> 1fc73cacb2068c79eafabf49bec33c076ed1d1ee
+#endif
   }
   case Instruction::Or: {
     if (!haveNoCommonBitsSet(I->getOperand(0), I->getOperand(1), DL, &AC, I,
