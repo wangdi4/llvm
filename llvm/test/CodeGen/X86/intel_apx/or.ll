@@ -544,3 +544,51 @@ entry:
   store i64 %or, ptr %a
   ret void
 }
+
+define void @or8mi_legacy(ptr %a) {
+; CHECK-LABEL: or8mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    orb $123, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i8, ptr %a
+  %or = or i8 %t, 123
+  store i8 %or, ptr %a
+  ret void
+}
+
+define void @or16mi_legacy(ptr %a) {
+; CHECK-LABEL: or16mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    orw $1234, (%rdi) # imm = 0x4D2
+; CHECK-NEXT:    retq
+entry:
+  %t= load i16, ptr %a
+  %or = or i16 %t, 1234
+  store i16 %or, ptr %a
+  ret void
+}
+
+define void @or32mi_legacy(ptr %a) {
+; CHECK-LABEL: or32mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    orl $123456, (%rdi) # imm = 0x1E240
+; CHECK-NEXT:    retq
+entry:
+  %t= load i32, ptr %a
+  %or = or i32 %t, 123456
+  store i32 %or, ptr %a
+  ret void
+}
+
+define void @or64mi_legacy(ptr %a) {
+; CHECK-LABEL: or64mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    orq $123456, (%rdi) # imm = 0x1E240
+; CHECK-NEXT:    retq
+entry:
+  %t= load i64, ptr %a
+  %or = or i64 %t, 123456
+  store i64 %or, ptr %a
+  ret void
+}

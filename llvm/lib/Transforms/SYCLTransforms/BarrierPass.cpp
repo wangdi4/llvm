@@ -24,6 +24,7 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/BarrierRegionInfo.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/DiagnosticInfo.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -406,9 +407,16 @@ bool KernelBarrierImpl::run(Module &M) {
   // functions to be resolved in this pass are undefined.
   CompilationUtils::FuncSet RecursiveFunctions =
       Utils.getRecursiveFunctionsWithSync();
-  for (Function *F : RecursiveFunctions)
-    F->addFnAttr(KernelAttribute::RecursionWithBarrier);
-  Changed |= !RecursiveFunctions.empty();
+  if (!RecursiveFunctions.empty() &&
+      CompilationUtils::isGeneratedFromOCLCPP(M)) {
+    std::string ErrMsg;
+    raw_string_ostream OS(ErrMsg);
+    OS << "Recursive call in function with barrier is unsupported:";
+    for (Function *F : RecursiveFunctions)
+      OS << "\n  " << F->getName();
+    Context->diagnose(OptimizationErrorDiagInfo(ErrMsg));
+    Changed = true;
+  }
 
   // Collect data for each function with synchronize instruction.
   for (Function *Func : FunctionsWithSync) {

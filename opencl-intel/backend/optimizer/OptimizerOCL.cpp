@@ -11,6 +11,7 @@
 // License.
 
 #include "OptimizerOCL.h"
+#include "BackendUtils.h"
 
 #include "SPIRVLowerConstExpr.h"
 #include "SPIRVToOCL.h"
@@ -79,8 +80,8 @@ namespace DeviceBackend {
 OptimizerOCL::OptimizerOCL(Module &M, SmallVectorImpl<Module *> &RtlModuleList,
                            const intel::OptimizerConfig &Config)
     : Optimizer(M, RtlModuleList, Config) {
-  Level =
-      Config.GetDisableOpt() ? OptimizationLevel::O0 : OptimizationLevel::O3;
+  Level = BackendUtils::getOptLevel(Config.GetDisableOpt(), m_M);
+  SYCLForceOptnone = (Level == OptimizationLevel::O0);
 }
 
 void OptimizerOCL::Optimize(raw_ostream &LogStream) {

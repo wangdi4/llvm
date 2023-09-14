@@ -1,5 +1,7 @@
 ; RUN: SATest -BUILD -pass-manager-type=lto -llvm-option=-debug-pass-manager -config=%S/pipeline_lto_O0.tst.cfg 2>&1 | FileCheck %s
 ; RUN: SATest -BUILD -llvm-option=-debug-pass-manager -config=%S/pipeline_lto_O0.tst.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -llvm-option=-debug-pass=Structure -config=%S/pipeline_lto_O0.tst.cfg 2>&1 | FileCheck %s --check-prefix=CHECK-CG
+
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled
 
@@ -80,3 +82,5 @@
 ; CHECK:      Running pass: CleanupWrappedKernelPass
 
 ; CHECK: Test program was successfully built.
+
+; CHECK-CG-NOT: Type-Based Alias Analysis

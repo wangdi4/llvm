@@ -25,15 +25,6 @@
 
 using namespace llvm;
 
-#if INTEL_CUSTOMIZATION
-// Enable vectorization at O0 optimization level.
-extern cl::opt<bool> SYCLEnableO0Vectorization;
-#endif // INTEL_CUSTOMIZATION
-
-// If set, then optimization passes will process functions as if they have the
-// optnone attribute.
-extern bool SYCLForceOptnone;
-
 namespace {
 
 struct CreateDebugPM {
@@ -113,6 +104,8 @@ public:
       ExceptionMsg = "Analyzing SYCL kernel properties failed";
     else if (isa<VectorVariantDiagInfo>(&DI))
       ExceptionMsg = "Vector-variant failure";
+    else if (isa<OptimizationErrorDiagInfo>(&DI))
+      ExceptionMsg = "Optimization error";
     else if (!isa<OptimizationWarningDiagInfo>(&DI))
       return false;
 
@@ -139,7 +132,6 @@ Optimizer::Optimizer(Module &M, SmallVectorImpl<Module *> &RtlModules,
   assert(Config.GetCpuId() && "Invalid optimizer config");
   ISA = VectorizerUtils::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
-  SYCLForceOptnone = Config.GetDisableOpt();
   m_HasOcl20 = CompilationUtils::hasOcl20Support(M);
   m_UseTLSGlobals = !M.debug_compile_units().empty();
 
@@ -154,46 +146,6 @@ Optimizer::Optimizer(Module &M, SmallVectorImpl<Module *> &RtlModules,
 void Optimizer::setDiagnosticHandler(raw_ostream &LogStream) {
   m_M.getContext().setDiagnosticHandler(
       std::make_unique<OCLDiagnosticHandler>(LogStream));
-}
-
-bool Optimizer::hasUnsupportedRecursion() {
-  return m_IsSYCL
-             ? !GetInvalidFunctions(InvalidFunctionType::RECURSION_WITH_BARRIER)
-                    .empty()
-             : !GetInvalidFunctions(InvalidFunctionType::RECURSION).empty();
-}
-
-std::vector<std::string>
-Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
-  std::vector<std::string> Res;
-
-  for (auto &F : m_M) {
-    auto KMD = SYCLKernelMetadataAPI::FunctionMetadataAPI(&F);
-
-    bool Invalid = false;
-
-    switch (Ty) {
-    case RECURSION:
-      Invalid = KMD.RecursiveCall.hasValue() && KMD.RecursiveCall.get();
-      break;
-    case RECURSION_WITH_BARRIER:
-      Invalid = F.hasFnAttribute(KernelAttribute::RecursionWithBarrier);
-      break;
-    }
-
-    if (Invalid) {
-      std::string Message;
-      raw_string_ostream MStr(Message);
-      MStr << std::string(F.getName());
-      if (auto SP = F.getSubprogram()) {
-        MStr << " at ";
-        MStr << "file: " << SP->getFilename() << ", line:" << SP->getLine();
-      }
-      Res.push_back(std::move(Message));
-    }
-  }
-
-  return Res;
 }
 
 void Optimizer::initOptimizerOptions() {

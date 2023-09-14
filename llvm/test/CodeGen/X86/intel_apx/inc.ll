@@ -144,3 +144,51 @@ declare i8 @llvm.uadd.sat.i8(i8, i8)
 declare i16 @llvm.uadd.sat.i16(i16, i16)
 declare i32 @llvm.uadd.sat.i32(i32, i32)
 declare i64 @llvm.uadd.sat.i64(i64, i64)
+
+define void @inc8m_legacy(ptr %ptr) {
+; CHECK-LABEL: inc8m_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    incb (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i8, ptr %ptr
+  %inc = add i8 %a, 1
+  store i8 %inc, ptr %ptr
+  ret void
+}
+
+define void @inc16m_legacy(ptr %ptr) {
+; CHECK-LABEL: inc16m_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    incw (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i16, ptr %ptr
+  %inc = add i16 %a, 1
+  store i16 %inc, ptr %ptr
+  ret void
+}
+
+define void @inc32m_legacy(ptr %ptr) {
+; CHECK-LABEL: inc32m_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    incl (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i32, ptr %ptr
+  %inc = add i32 %a, 1
+  store i32 %inc, ptr %ptr
+  ret void
+}
+
+define void @inc64m_legacy(ptr %ptr) {
+; CHECK-LABEL: inc64m_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    incq (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i64, ptr %ptr
+  %inc = add i64 %a, 1
+  store i64 %inc, ptr %ptr
+  ret void
+}

@@ -281,3 +281,155 @@ entry:
   %shl = shl i64 %a, %cl
   ret i64 %shl
 }
+
+define void @shl8m1_legacy(ptr %ptr) {
+; CHECK-LABEL: shl8m1_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    shlb (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i8, ptr %ptr
+  %shl = shl i8 %a, 1
+  store i8 %shl, ptr %ptr
+  ret void
+}
+
+define void @shl16m1_legacy(ptr %ptr) {
+; CHECK-LABEL: shl16m1_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    shlw (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i16, ptr %ptr
+  %shl = shl i16 %a, 1
+  store i16 %shl, ptr %ptr
+  ret void
+}
+
+define void @shl32m1_legacy(ptr %ptr) {
+; CHECK-LABEL: shl32m1_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    shll (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i32, ptr %ptr
+  %shl = shl i32 %a, 1
+  store i32 %shl, ptr %ptr
+  ret void
+}
+
+define void @shl64m1_legacy(ptr %ptr) {
+; CHECK-LABEL: shl64m1_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    shlq (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i64, ptr %ptr
+  %shl = shl i64 %a, 1
+  store i64 %shl, ptr %ptr
+  ret void
+}
+
+define void @shl8mi_legacy(ptr %ptr) {
+; CHECK-LABEL: shl8mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    shlb $4, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i8, ptr %ptr
+  %shl = shl i8 %a, 4
+  store i8 %shl, ptr %ptr
+  ret void
+}
+
+define void @shl16mi_legacy(ptr %ptr) {
+; CHECK-LABEL: shl16mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    shlw $4, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i16, ptr %ptr
+  %shl = shl i16 %a, 4
+  store i16 %shl, ptr %ptr
+  ret void
+}
+
+define void @shl32mi_legacy(ptr %ptr) {
+; CHECK-LABEL: shl32mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    shll $4, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i32, ptr %ptr
+  %shl = shl i32 %a, 4
+  store i32 %shl, ptr %ptr
+  ret void
+}
+
+define void @shl64mi_legacy(ptr %ptr) {
+; CHECK-LABEL: shl64mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    shlq $4, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i64, ptr %ptr
+  %shl = shl i64 %a, 4
+  store i64 %shl, ptr %ptr
+  ret void
+}
+
+define void @shl8mcl_legacy(ptr %ptr, i8 %cl) {
+; CHECK-LABEL: shl8mcl_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    movl %esi, %ecx
+; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
+; CHECK-NEXT:    shlb %cl, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i8, ptr %ptr
+  %shl = shl i8 %a, %cl
+  store i8 %shl, ptr %ptr
+  ret void
+}
+
+define void @shl16mcl_legacy(ptr %ptr, i16 %cl) {
+; CHECK-LABEL: shl16mcl_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    movl %esi, %ecx
+; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
+; CHECK-NEXT:    shlw %cl, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i16, ptr %ptr
+  %shl = shl i16 %a, %cl
+  store i16 %shl, ptr %ptr
+  ret void
+}
+
+define void @shl32mcl_legacy(ptr %ptr, i32 %cl) {
+; CHECK-LABEL: shl32mcl_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    movl %esi, %ecx
+; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
+; CHECK-NEXT:    shll %cl, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i32, ptr %ptr
+  %shl = shl i32 %a, %cl
+  store i32 %shl, ptr %ptr
+  ret void
+}
+
+define void @shl64mcl_legacy(ptr %ptr, i64 %cl) {
+; CHECK-LABEL: shl64mcl_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    movq %rsi, %rcx
+; CHECK-NEXT:    # kill: def $cl killed $cl killed $rcx
+; CHECK-NEXT:    shlq %cl, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i64, ptr %ptr
+  %shl = shl i64 %a, %cl
+  store i64 %shl, ptr %ptr
+  ret void
+}

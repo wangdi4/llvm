@@ -35,19 +35,7 @@ public:
 
   virtual ~Optimizer() {}
 
-  enum InvalidFunctionType { RECURSION, RECURSION_WITH_BARRIER };
-
   virtual void Optimize(llvm::raw_ostream &LogStream) = 0;
-
-  /// @brief recursion was detected after standard LLVM optimizations
-  /// @return for SYCL returns true if the recursive function also calls
-  /// barrier; for OpenCL returns true if any recursive function is present.
-  bool hasUnsupportedRecursion();
-
-  /// @brief obtain functions names wich are not valid for OpenCL
-  /// @param Ty is a type of invalid function
-  /// @return std::vector with function names
-  std::vector<std::string> GetInvalidFunctions(InvalidFunctionType Ty) const;
 
   static llvm::ArrayRef<llvm::VectItem> getVectInfos();
 

@@ -104,7 +104,6 @@ extern const StringRef ConvergentCall;
 extern const StringRef HasSubGroups;
 extern const StringRef HasVPlanMask;
 extern const StringRef OCLVecUniformReturn;
-extern const StringRef RecursionWithBarrier;
 extern const StringRef UniformCall;
 extern const StringRef VectorVariantFailure;
 

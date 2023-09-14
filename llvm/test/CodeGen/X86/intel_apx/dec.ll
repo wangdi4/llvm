@@ -88,3 +88,51 @@ entry:
   %dec = sub i64 %a, 1
   ret i64 %dec
 }
+
+define void @dec8m_legacy(ptr %ptr) {
+; CHECK-LABEL: dec8m_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    decb (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i8, ptr %ptr
+  %dec = sub i8 %a, 1
+  store i8 %dec, ptr %ptr
+  ret void
+}
+
+define void @dec16m_legacy(ptr %ptr) {
+; CHECK-LABEL: dec16m_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    decw (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i16, ptr %ptr
+  %dec = sub i16 %a, 1
+  store i16 %dec, ptr %ptr
+  ret void
+}
+
+define void @dec32m_legacy(ptr %ptr) {
+; CHECK-LABEL: dec32m_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    decl (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i32, ptr %ptr
+  %dec = sub i32 %a, 1
+  store i32 %dec, ptr %ptr
+  ret void
+}
+
+define void @dec64m_legacy(ptr %ptr) {
+; CHECK-LABEL: dec64m_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    decq (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i64, ptr %ptr
+  %dec = sub i64 %a, 1
+  store i64 %dec, ptr %ptr
+  ret void
+}

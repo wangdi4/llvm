@@ -667,7 +667,7 @@ class BinOpMI8_ND<string mnemonic, X86TypeInfo typeinfo, Format f,
 multiclass BinOpMI8_RMW_Common<string mnemonic, X86TypeInfo typeinfo,
                                Format f, Predicate pred = TruePredicate> {
 let Defs = [EFLAGS] in {
-  let Predicates = [pred, NoNDD], mayStore = 1 in
+  let Predicates = [pred], mayStore = 1 in
     def NAME : BinOpMI8_RMW<mnemonic, typeinfo, f>;
   let Predicates = [In64BitMode], mayStore = 1 in
     def _EVEX : BinOpMI8_RMW_EVEX<mnemonic, typeinfo, f>,
@@ -713,7 +713,7 @@ multiclass BinOpMI_Common<bits<8> opcode, string mnemonic,
                           Predicate pred = TruePredicate>{
   // Instructions like "add [mem], imm".
   let Defs = [EFLAGS] in {
-  let Predicates = [pred, NoNDD], mayStore = 1 in {
+  let Predicates = [pred], mayStore = 1 in {
     def NAME: BinOpMI_RMW<opcode, mnemonic, typeinfo, opnode, f>;
   }
   let Predicates = [In64BitMode], mayStore = 1 in
@@ -1010,7 +1010,7 @@ let Predicates = [HasNDD, In64BitMode] in
 multiclass NegOpM<bits<8> opcode, string mnemonic, X86TypeInfo info>{
 let CodeSize = 2 in {
 let Defs = [EFLAGS] in {
-let Predicates = !if(info.HasREX_W, [NoNDD, In64BitMode], [NoNDD]) in
+let Predicates = !if(info.HasREX_W, [In64BitMode], [TruePredicate]) in
   def NAME : UnaryOpM<opcode, MRM3m, mnemonic, info,
                       [(store (ineg (info.LoadNode addr:$dst)), addr:$dst),
                        (implicit EFLAGS)]>;
@@ -1035,7 +1035,7 @@ let Predicates = [HasNDD, In64BitMode], mayLoad = 1 in
 //  NotOpM - Instructions like "not [mem]".
 multiclass NotOpM<bits<8> opcode, string mnemonic, X86TypeInfo info>{
 let CodeSize = 2 in {
-let Predicates = !if(info.HasREX_W, [NoNDD, In64BitMode], [NoNDD]) in
+let Predicates = !if(info.HasREX_W, [In64BitMode], [TruePredicate]) in
   def NAME : UnaryOpM<opcode, MRM2m, mnemonic, info,
                       [(store (not (info.LoadNode addr:$dst)), addr:$dst)]>;
 let Predicates = [In64BitMode], mayLoad = 1, mayStore = 1 in
@@ -2278,7 +2278,7 @@ class BinOpMI8_FF_ND<string mnemonic, X86TypeInfo typeinfo, Format f>
 // and APX version.
 multiclass BinOpMI8_RMW_FF_Common<string mnemonic, X86TypeInfo typeinfo,
                                   Format f, Predicate pred = TruePredicate> {
-let Predicates = [NoNDD, pred], mayStore = 1 in
+let Predicates = [pred], mayStore = 1 in
   def NAME : BinOpMI8_RMW_FF<mnemonic, typeinfo, f>;
 let Predicates = [In64BitMode], mayStore = 1 in
   def _EVEX : BinOpMI8_RMW_FF_EVEX<mnemonic, typeinfo, f>,
@@ -2312,7 +2312,7 @@ class BinOpMI_FF_ND<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
 multiclass BinOpMI_RMW_FF_Common<bits<8> opcode, string mnemonic,
                                  X86TypeInfo typeinfo, SDNode opnode,
                                  Format f, Predicate pred = TruePredicate>{
-let Predicates = [NoNDD, pred], mayStore = 1 in
+let Predicates = [pred], mayStore = 1 in
   def NAME : BinOpMI_RMW_FF<opcode, mnemonic, typeinfo, opnode, f>;
 let Predicates = [In64BitMode], mayStore = 1 in
   def _EVEX : BinOpMI_RMW_FF_EVEX<opcode, mnemonic, typeinfo, f>,

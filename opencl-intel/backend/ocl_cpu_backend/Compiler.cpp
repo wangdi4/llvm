@@ -13,6 +13,7 @@
 #define NOMINMAX
 
 #include "Compiler.h"
+#include "BackendUtils.h"
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
 #include "CompilerConfig.h"
@@ -283,7 +284,9 @@ llvm::TargetMachine *Compiler::GetTargetMachine(llvm::Module *pModule) const {
     TargetOpts.DoFMAOpt = false;
 #endif // INTEL_CUSTOMIZATION
 
-  llvm::CodeGenOpt::Level CGOptLevel = m_buildOptions.GetDisableOpt()
+  OptimizationLevel OptLevel =
+      BackendUtils::getOptLevel(m_buildOptions.GetDisableOpt(), *pModule);
+  llvm::CodeGenOpt::Level CGOptLevel = OptLevel == OptimizationLevel::O0
                                            ? llvm::CodeGenOpt::None
                                            : llvm::CodeGenOpt::Default;
 
@@ -345,14 +348,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   };
 
   optimizer->Optimize(pResult->LogS());
-
-  if (optimizer->hasUnsupportedRecursion()) {
-    Utils::LogHasRecursion(pResult->LogS(),
-                           optimizer->GetInvalidFunctions(
-                               Optimizer::InvalidFunctionType::RECURSION));
-    throw Exceptions::UserErrorCompilerException("Recursive call detected.",
-                                                 CL_DEV_INVALID_BINARY);
-  }
 
   //
   // Populate the build results
