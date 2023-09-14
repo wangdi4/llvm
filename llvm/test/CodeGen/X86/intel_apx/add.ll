@@ -546,3 +546,51 @@ entry:
   store i64 %add, ptr %a
   ret void
 }
+
+define void @add8mi_legacy(ptr %a) {
+; CHECK-LABEL: add8mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    addb $123, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i8, ptr %a
+  %add = add nsw i8 %t, 123
+  store i8 %add, ptr %a
+  ret void
+}
+
+define void @add16mi_legacy(ptr %a) {
+; CHECK-LABEL: add16mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    addw $1234, (%rdi) # imm = 0x4D2
+; CHECK-NEXT:    retq
+entry:
+  %t= load i16, ptr %a
+  %add = add nsw i16 %t, 1234
+  store i16 %add, ptr %a
+  ret void
+}
+
+define void @add32mi_legacy(ptr %a) {
+; CHECK-LABEL: add32mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    addl $123456, (%rdi) # imm = 0x1E240
+; CHECK-NEXT:    retq
+entry:
+  %t= load i32, ptr %a
+  %add = add nsw i32 %t, 123456
+  store i32 %add, ptr %a
+  ret void
+}
+
+define void @add64mi_legacy(ptr %a) {
+; CHECK-LABEL: add64mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    addq $123456, (%rdi) # imm = 0x1E240
+; CHECK-NEXT:    retq
+entry:
+  %t= load i64, ptr %a
+  %add = add nsw i64 %t, 123456
+  store i64 %add, ptr %a
+  ret void
+}

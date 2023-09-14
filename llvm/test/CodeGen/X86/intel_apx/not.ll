@@ -88,3 +88,51 @@ entry:
   %not = xor i64 %a, -1
   ret i64 %not
 }
+
+define void @not8m_legacy(ptr %ptr) {
+; CHECK-LABEL: not8m_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    notb (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i8, ptr %ptr
+  %not = xor i8 %a, -1
+  store i8 %not, ptr %ptr
+  ret void
+}
+
+define void @not16m_legacy(ptr %ptr) {
+; CHECK-LABEL: not16m_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    notw (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i16, ptr %ptr
+  %not = xor i16 %a, -1
+  store i16 %not, ptr %ptr
+  ret void
+}
+
+define void @not32m_legacy(ptr %ptr) {
+; CHECK-LABEL: not32m_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    notl (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i32, ptr %ptr
+  %not = xor i32 %a, -1
+  store i32 %not, ptr %ptr
+  ret void
+}
+
+define void @not64m_legacy(ptr %ptr) {
+; CHECK-LABEL: not64m_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    notq (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i64, ptr %ptr
+  %not = xor i64 %a, -1
+  store i64 %not, ptr %ptr
+  ret void
+}

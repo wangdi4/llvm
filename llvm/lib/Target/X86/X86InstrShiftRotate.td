@@ -307,8 +307,7 @@ class shift_mCL_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
 multiclass mshift_mCL<bits<8> opcode, Format f, string mnemonic, SDNode node,
                       X86TypeInfo typeinfo>{
 let Defs = [EFLAGS] in {
-let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode],
-                                        [NoNDD]) in
+let Predicates = !if(typeinfo.HasREX_W, [In64BitMode], [TruePredicate]) in
   def NAME : shift_mCL<opcode, f, mnemonic, node, typeinfo>;
 let Predicates = [In64BitMode], mayLoad = 1, mayStore = 1 in
   def _EVEX : shift_mCL_NoPat<opcode, f, mnemonic, typeinfo>,
@@ -369,8 +368,7 @@ class shift_mi_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
 multiclass mshift_mi<bits<8> opcode, Format f, string mnemonic, SDNode node,
                      X86TypeInfo typeinfo>{
 let Defs = [EFLAGS] in {
-let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode],
-                                        [NoNDD]) in
+let Predicates = !if(typeinfo.HasREX_W, [In64BitMode], [TruePredicate]) in
   def NAME : shift_mi<opcode, f, mnemonic, node, typeinfo>;
 let Predicates = [In64BitMode], mayLoad = 1, mayStore = 1 in
   def _EVEX : shift_mi_NoPat<opcode, f, mnemonic, typeinfo>,
@@ -396,7 +394,7 @@ class shift_m1_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
 multiclass mshift_m1<bits<8> opcode, Format f, string mnemonic,
                      X86TypeInfo typeinfo>{
 let Defs = [EFLAGS] in {
-let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode], [NoNDD]),
+let Predicates = !if(typeinfo.HasREX_W, [In64BitMode], [TruePredicate]),
     mayLoad = 1, mayStore = 1 in
   def NAME : I_N_M<opcode, f, typeinfo, mnemonic, "$dst", []>;
 let Predicates = [In64BitMode], mayLoad = 1, mayStore = 1 in
@@ -594,7 +592,7 @@ multiclass mshift_mCL_NoNF<bits<8> opcode, Format f, string mnemonic,
                            X86TypeInfo typeinfo>{
 let Defs = [EFLAGS], mayLoad = 1 in {
 let Predicates = !if(typeinfo.HasREX_W,
-                     [NoNDD, In64BitMode], [NoNDD]), mayStore = 1 in
+                     [In64BitMode], [TruePredicate]), mayStore = 1 in
   def NAME : I_N_M<opcode, f, typeinfo, mnemonic, "{%cl, $dst|$dst, cl}", []>;
 let Predicates = [In64BitMode], mayStore = 1 in
   def _EVEX : shift_mCL_NoPat<opcode, f, mnemonic, typeinfo>,
@@ -608,7 +606,7 @@ multiclass mshift_mi_NoNF<bits<8> opcode, Format f, string mnemonic,
                           X86TypeInfo typeinfo>{
 let Defs = [EFLAGS], mayLoad = 1 in {
 let Predicates = !if(typeinfo.HasREX_W,
-                     [NoNDD, In64BitMode], [NoNDD]), mayStore = 1 in
+                     [In64BitMode], [TruePredicate]), mayStore = 1 in
   def NAME : shift_mi_NoPat_legacy<opcode, f, mnemonic, typeinfo>;
 let Predicates = [In64BitMode], mayStore = 1 in
   def _EVEX : shift_mi_NoPat<opcode, f, mnemonic, typeinfo>,
@@ -622,7 +620,7 @@ multiclass mshift_m1_NoNF<bits<8> opcode, Format f, string mnemonic,
                           X86TypeInfo typeinfo>{
 let Defs = [EFLAGS], mayLoad = 1 in {
 let Predicates = !if(typeinfo.HasREX_W,
-                     [NoNDD, In64BitMode], [NoNDD]), mayStore = 1 in
+                     [In64BitMode], [TruePredicate]), mayStore = 1 in
   def NAME : I_N_M<opcode, f, typeinfo, mnemonic, "$dst", []>;
 let Predicates = [In64BitMode], mayStore = 1 in
   def _EVEX : shift_m1_NoPat<opcode, f, mnemonic, typeinfo>,
@@ -1080,7 +1078,6 @@ class shiftLD_mrCL_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
 multiclass mshiftLD_mrCL<bits<8> opcode, Format f, string mnemonic,
                          SDNode node, X86TypeInfo typeinfo>{
 let Defs = [EFLAGS] in {
-let Predicates = [NoNDD] in
   def NAME : shiftLD_mrCL<opcode, f, mnemonic, node, typeinfo>;
 let Predicates = [In64BitMode], mayLoad = 1, mayStore = 1 in
   def _EVEX : shiftLD_mrCL_NoPat<opcode, f, mnemonic, typeinfo>,
@@ -1132,7 +1129,6 @@ class shiftRD_mrCL_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
 multiclass mshiftRD_mrCL<bits<8> opcode, Format f, string mnemonic,
                          SDNode node, X86TypeInfo typeinfo>{
 let Defs = [EFLAGS] in {
-let Predicates = [NoNDD] in
   def NAME : shiftRD_mrCL<opcode, f, mnemonic, node, typeinfo>;
 let Predicates = [In64BitMode], mayLoad = 1, mayStore = 1 in
   def _EVEX : shiftRD_mrCL_NoPat<opcode, f, mnemonic, typeinfo>,
@@ -1198,7 +1194,6 @@ class shiftLD_mri8_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
 multiclass mshiftLD_mri8<bits<8> opcode, bits<8> newcode, Format f,
                          string mnemonic, SDNode node, X86TypeInfo typeinfo>{
 let Defs = [EFLAGS] in {
-let Predicates = [NoNDD] in
   def NAME : shiftLD_mri8<opcode, f, mnemonic, node, typeinfo>;
 let Predicates = [In64BitMode], mayLoad = 1, mayStore = 1 in
   def _EVEX : shiftLD_mri8_NoPat<newcode, f, mnemonic, typeinfo>,
@@ -1254,7 +1249,6 @@ class shiftRD_mri8_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
 multiclass mshiftRD_mri8<bits<8> opcode, bits<8> newcode, Format f,
                          string mnemonic, SDNode node, X86TypeInfo typeinfo>{
 let Defs = [EFLAGS] in {
-let Predicates = [NoNDD] in
   def NAME : shiftRD_mri8<opcode, f, mnemonic, node, typeinfo>;
 let Predicates = [In64BitMode], mayLoad = 1, mayStore = 1 in
   def _EVEX : shiftRD_mri8_NoPat<newcode, f, mnemonic, typeinfo>,

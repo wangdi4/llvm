@@ -422,3 +422,65 @@ define void @adc64mr_legacy(i64 %a, ptr %ptr, i64 %x, i64 %y) nounwind {
   store i64 %r, ptr %ptr
   ret void
 }
+
+define void @adc8mi_legacy(ptr %ptr, i8 %x, i8 %y) nounwind {
+; CHECK-LABEL: adc8mi_legacy:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    cmpb %sil, %dl
+; CHECK-NEXT:    adcb $123, (%rdi)
+; CHECK-NEXT:    retq
+  %a = load i8, ptr %ptr
+  %s = add i8 %a, 123
+  %k = icmp ugt i8 %x, %y
+  %z = zext i1 %k to i8
+  %r = add i8 %s, %z
+  store i8 %r, ptr %ptr
+  ret void
+}
+
+define void @adc16mi_legacy(ptr %ptr, i16 %x, i16 %y) nounwind {
+; CHECK-LABEL: adc16mi_legacy:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    cmpw %si, %dx
+; CHECK-NEXT:    adcw $0, (%rdi), %ax
+; CHECK-NEXT:    addl $1234, %eax # imm = 0x4D2
+; CHECK-NEXT:    movw %ax, (%rdi)
+; CHECK-NEXT:    retq
+  %a = load i16, ptr %ptr
+  %s = add i16 %a, 1234
+  %k = icmp ugt i16 %x, %y
+  %z = zext i1 %k to i16
+  %r = add i16 %s, %z
+  store i16 %r, ptr %ptr
+  ret void
+}
+
+define void @adc32mi_legacy(ptr %ptr, i32 %x, i32 %y) nounwind {
+; CHECK-LABEL: adc32mi_legacy:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    cmpl %esi, %edx
+; CHECK-NEXT:    adcl $123456, (%rdi) # imm = 0x1E240
+; CHECK-NEXT:    retq
+  %a = load i32, ptr %ptr
+  %s = add i32 %a, 123456
+  %k = icmp ugt i32 %x, %y
+  %z = zext i1 %k to i32
+  %r = add i32 %s, %z
+  store i32 %r, ptr %ptr
+  ret void
+}
+
+define void @adc64mi_legacy(ptr %ptr, i64 %x, i64 %y) nounwind {
+; CHECK-LABEL: adc64mi_legacy:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    cmpq %rsi, %rdx
+; CHECK-NEXT:    adcq $123456, (%rdi) # imm = 0x1E240
+; CHECK-NEXT:    retq
+  %a = load i64, ptr %ptr
+  %s = add i64 %a, 123456
+  %k = icmp ugt i64 %x, %y
+  %z = zext i1 %k to i64
+  %r = add i64 %s, %z
+  store i64 %r, ptr %ptr
+  ret void
+}

@@ -281,3 +281,155 @@ entry:
   %sar = ashr i64 %a, 4
   ret i64 %sar
 }
+
+define void @sar8m1_legacy(ptr %ptr) {
+; CHECK-LABEL: sar8m1_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    sarb (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i8, ptr %ptr
+  %sar = ashr i8 %a, 1
+  store i8 %sar, ptr %ptr
+  ret void
+}
+
+define void @sar16m1_legacy(ptr %ptr) {
+; CHECK-LABEL: sar16m1_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    sarw (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i16, ptr %ptr
+  %sar = ashr i16 %a, 1
+  store i16 %sar, ptr %ptr
+  ret void
+}
+
+define void @sar32m1_legacy(ptr %ptr) {
+; CHECK-LABEL: sar32m1_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    sarl (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i32, ptr %ptr
+  %sar = ashr i32 %a, 1
+  store i32 %sar, ptr %ptr
+  ret void
+}
+
+define void @sar64m1_legacy(ptr %ptr) {
+; CHECK-LABEL: sar64m1_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    sarq (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i64, ptr %ptr
+  %sar = ashr i64 %a, 1
+  store i64 %sar, ptr %ptr
+  ret void
+}
+
+define void @sar8mcl_legacy(ptr %ptr, i8 %cl) {
+; CHECK-LABEL: sar8mcl_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    movl %esi, %ecx
+; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
+; CHECK-NEXT:    sarb %cl, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i8, ptr %ptr
+  %sar = ashr i8 %a, %cl
+  store i8 %sar, ptr %ptr
+  ret void
+}
+
+define void @sar16mcl_legacy(ptr %ptr, i16 %cl) {
+; CHECK-LABEL: sar16mcl_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    movl %esi, %ecx
+; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
+; CHECK-NEXT:    sarw %cl, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i16, ptr %ptr
+  %sar = ashr i16 %a, %cl
+  store i16 %sar, ptr %ptr
+  ret void
+}
+
+define void @sar32mcl_legacy(ptr %ptr, i32 %cl) {
+; CHECK-LABEL: sar32mcl_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    movl %esi, %ecx
+; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
+; CHECK-NEXT:    sarl %cl, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i32, ptr %ptr
+  %sar = ashr i32 %a, %cl
+  store i32 %sar, ptr %ptr
+  ret void
+}
+
+define void @sar64mcl_legacy(ptr %ptr, i64 %cl) {
+; CHECK-LABEL: sar64mcl_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    movq %rsi, %rcx
+; CHECK-NEXT:    # kill: def $cl killed $cl killed $rcx
+; CHECK-NEXT:    sarq %cl, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i64, ptr %ptr
+  %sar = ashr i64 %a, %cl
+  store i64 %sar, ptr %ptr
+  ret void
+}
+
+define void @sar8mi_legacy(ptr %ptr) {
+; CHECK-LABEL: sar8mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    sarb $4, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i8, ptr %ptr
+  %sar = ashr i8 %a, 4
+  store i8 %sar, ptr %ptr
+  ret void
+}
+
+define void @sar16mi_legacy(ptr %ptr) {
+; CHECK-LABEL: sar16mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    sarw $4, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i16, ptr %ptr
+  %sar = ashr i16 %a, 4
+  store i16 %sar, ptr %ptr
+  ret void
+}
+
+define void @sar32mi_legacy(ptr %ptr) {
+; CHECK-LABEL: sar32mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    sarl $4, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i32, ptr %ptr
+  %sar = ashr i32 %a, 4
+  store i32 %sar, ptr %ptr
+  ret void
+}
+
+define void @sar64mi_legacy(ptr %ptr) {
+; CHECK-LABEL: sar64mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    sarq $4, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %a = load i64, ptr %ptr
+  %sar = ashr i64 %a, 4
+  store i64 %sar, ptr %ptr
+  ret void
+}

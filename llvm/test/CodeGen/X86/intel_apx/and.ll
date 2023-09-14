@@ -546,3 +546,51 @@ entry:
   store i64 %and, ptr %a
   ret void
 }
+
+define void @and8mi_legacy(ptr %a) {
+; CHECK-LABEL: and8mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    andb $123, (%rdi)
+; CHECK-NEXT:    retq
+entry:
+  %t= load i8, ptr %a
+  %and = and i8 %t, 123
+  store i8 %and, ptr %a
+  ret void
+}
+
+define void @and16mi_legacy(ptr %a) {
+; CHECK-LABEL: and16mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    andw $1234, (%rdi) # imm = 0x4D2
+; CHECK-NEXT:    retq
+entry:
+  %t= load i16, ptr %a
+  %and = and i16 %t, 1234
+  store i16 %and, ptr %a
+  ret void
+}
+
+define void @and32mi_legacy(ptr %a) {
+; CHECK-LABEL: and32mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    andl $123456, (%rdi) # imm = 0x1E240
+; CHECK-NEXT:    retq
+entry:
+  %t= load i32, ptr %a
+  %and = and i32 %t, 123456
+  store i32 %and, ptr %a
+  ret void
+}
+
+define void @and64mi_legacy(ptr %a) {
+; CHECK-LABEL: and64mi_legacy:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    andq $123456, (%rdi) # imm = 0x1E240
+; CHECK-NEXT:    retq
+entry:
+  %t= load i64, ptr %a
+  %and = and i64 %t, 123456
+  store i64 %and, ptr %a
+  ret void
+}
