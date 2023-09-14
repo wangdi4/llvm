@@ -159,30 +159,16 @@ float asinhf(float x) { return __devicelib_asinhf(x); }
 DEVICE_EXTERN_C_INLINE
 float atanhf(float x) { return __devicelib_atanhf(x); }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-#if OMP_LIBDEVICE
-#pragma omp end declare target
-#endif  // OMP_LIBDEVICE
-#endif  // INTEL_COLLAB
-
-#if INTEL_COLLAB
-#if OMP_LIBDEVICE
-#pragma omp declare target
-#endif  // OMP_LIBDEVICE
-#endif  // INTEL_COLLAB
-
-#if INTEL_COLLAB
-#if OMP_LIBDEVICE
-#pragma omp end declare target
-#endif  // OMP_LIBDEVICE
-#endif  // INTEL_COLLAB
-=======
 #ifdef __NVPTX__
 extern "C" SYCL_EXTERNAL float __nv_nearbyintf(float);
 DEVICE_EXTERN_C_INLINE
 float nearbyintf(float x) { return __nv_nearbyintf(x); }
 #endif // __NVPTX__
 
->>>>>>> 0ef26d3ee8086cb51d4f5deb9ad8c3d81cdd8f16
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp end declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
+
 #endif // __SPIR__ || __NVPTX__
