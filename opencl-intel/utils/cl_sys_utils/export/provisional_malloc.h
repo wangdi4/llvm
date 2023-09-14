@@ -273,7 +273,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep) {
 
 #define PROV_ARRAY_NAME _mallocArr_
 
-#ifndef GOOGLETEST_INCLUDE_GTEST_GTEST_H_
+#ifndef GTEST_INCLUDE_GTEST_GTEST_H_
 /**
  * Call this macro in the function body, before starting dynamic allocation.
  * You can set the value for PROVISIONAL_MALLOC_SIZE !!before!! including this
@@ -284,7 +284,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep) {
   _PROVISONAL_MallocArray_t PROV_ARRAY_NAME;                                   \
   PROV_INIT_MALLOCARRAY_T(PROV_ARRAY_NAME, PROVISIONAL_MALLOC_SIZE)
 
-#endif // !GOOGLETEST_INCLUDE_GTEST_GTEST_H_
+#endif // !GTEST_INCLUDE_GTEST_GTEST_H_
 
 /**
  * Call this macro instead of malloc.
@@ -302,7 +302,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep) {
   alignedMallocAndRegister(&PROV_ARRAY_NAME, sz, align,                        \
                            #sz " aligned at: " #align, __LINE__)
 
-#ifndef GOOGLETEST_INCLUDE_GTEST_GTEST_H_
+#ifndef GTEST_INCLUDE_GTEST_GTEST_H_
 /**
  * Call this macro when exiting your function, if all is OK, and
  * the dynamically allocated data should be kept.
@@ -321,7 +321,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep) {
   finalizeMalloc(&PROV_ARRAY_NAME, false);                                     \
   return retval;
 
-#endif // !GOOGLETEST_INCLUDE_GTEST_GTEST_H_
+#endif // !GTEST_INCLUDE_GTEST_GTEST_H_
 
 #ifdef __cplusplus
 
@@ -345,7 +345,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep) {
 
 #endif // __cplusplus
 
-#ifdef GOOGLETEST_INCLUDE_GTEST_GTEST_H_
+#ifdef GTEST_INCLUDE_GTEST_GTEST_H_
 
 #ifdef PROV_ARRAY_NAME
 #undef PROV_ARRAY_NAME
@@ -365,6 +365,6 @@ protected:
   _PROVISONAL_MallocArray_t PROV_ARRAY_NAME;
 };
 
-#endif // GOOGLETEST_INCLUDE_GTEST_GTEST_H_
+#endif // GTEST_INCLUDE_GTEST_GTEST_H_
 
 #endif // __PROVISIONAL_MALLOC_H_
