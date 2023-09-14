@@ -1530,6 +1530,12 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
       // Skip if the current user is the new value itself.
       if (CurUser == NewV)
         continue;
+#if INTEL_COLLAB
+      if (auto *CurUserI = dyn_cast<Instruction>(CurUser);
+          CurUserI && CurUserI->getFunction() != F)
+        continue;
+
+#endif // INTEL_COLLAB
       // Handle more complex cases like intrinsic that need to be remangled.
       if (auto *MI = dyn_cast<MemIntrinsic>(CurUser)) {
         if (!MI->isVolatile() && handleMemIntrinsicPtrUse(MI, V, NewV))
