@@ -6631,7 +6631,6 @@ void OffloadEntriesInfoManager::actOnDeviceGlobalVarEntriesInfo(
     Action(E.getKey(), E.getValue());
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 void OffloadEntriesInfoManager::actOnDeviceIndirectFnEntriesInfo(
     const OffloadDeviceIndirectFnEntryInfoActTy &Action) {
@@ -6640,11 +6639,10 @@ void OffloadEntriesInfoManager::actOnDeviceIndirectFnEntriesInfo(
     Action(E.first, E.second);
 }
 #endif // INTEL_COLLAB
-=======
+
 //===----------------------------------------------------------------------===//
 // CanonicalLoopInfo
 //===----------------------------------------------------------------------===//
->>>>>>> 094a63a20bf54f18efafbb6a727466da0f22a245
 
 void CanonicalLoopInfo::collectControlBlocks(
     SmallVectorImpl<BasicBlock *> &BBs) {
