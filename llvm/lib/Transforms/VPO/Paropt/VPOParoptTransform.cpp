@@ -12062,7 +12062,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   // Finally, nuke the original extracted function.
   NewF->eraseFromParent();
 
-  // If Proc_Bind clause is set to Master, Close or Spread, Generate
+  // If Proc_Bind clause is set to Primary, Close or Spread, Generate
   // __kmpc_push_proc_bind(LOC, TID, i32 policy) and insert it before
   // __kmpc_fork_call.
   if (W->getIsPar()) {

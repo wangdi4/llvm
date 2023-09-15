@@ -882,7 +882,7 @@ public:
                             const StringRef LockNameSuffix);
 
   /// Emits a call to __kmpc_push_proc_bind(LOC, TID, i32 policy), where
-  /// policy is: 2 for MASTER - 3 for CLOSE - 4 for SPREAD.
+  /// policy is: 2 for PRIMARY - 3 for CLOSE - 4 for SPREAD.
   static CallInst *genKmpcPushProcBindCall(WRegionNode *W, StructType *IdentTy,
                                            Value *TidPtr,
                                            Instruction *InsertPt);
