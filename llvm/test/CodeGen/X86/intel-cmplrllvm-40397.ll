@@ -4,11 +4,9 @@
 define void @test() {
 ; CHECK-LABEL: test:
 ; CHECK:       # %bb.0: # %alloca_25
-; CHECK-NEXT:    vpcmpnleuq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
-; CHECK-NEXT:    vpcmpnleuq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k1
-; CHECK-NEXT:    kunpckbw %k0, %k1, %k0
-; CHECK-NEXT:    kortestw %k0, %k0
-; CHECK-NEXT:    je .LBB0_2
+; CHECK-NEXT:    movb $1, %al
+; CHECK-NEXT:    testb %al, %al
+; CHECK-NEXT:    jne .LBB0_2
 ; CHECK-NEXT:  # %bb.1: # %then.71
 ; CHECK-NEXT:  .LBB0_2: # %ifmerge.71
 alloca_25:
