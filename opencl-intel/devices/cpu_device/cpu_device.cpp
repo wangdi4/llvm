@@ -3023,14 +3023,6 @@ cl_dev_err_code CPUDevice::clDevBuildProgram(cl_dev_program IN prog,
                                              cl_build_status *OUT buildStatus) {
   CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
              TEXT("clDevBuildProgram Function enter"));
-#if defined(_WIN32)
-  if (options) {
-    std::string buildOptions(options);
-    if (!m_disableMasterJoin &&
-        buildOptions.find("-cl-opt-disable") != std::string::npos)
-      m_disableMasterJoin = true;
-  }
-#endif
   return (cl_dev_err_code)m_pProgramService->BuildProgram(prog, options,
                                                           buildStatus);
 }

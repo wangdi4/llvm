@@ -901,7 +901,18 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 
   AfterExecution();
 #else
-  if (!m_useAutoMemory || m_stackActualSize < m_stackDefaultSize)
+#if defined(_WIN32)
+  thread_local cl_ulong stackSize = 0u;
+  // Get Windows stack size.
+  if (stackSize == 0u) {
+    ULONG_PTR lowAddr, highAddr;
+    GetCurrentThreadStackLimits(&lowAddr, &highAddr);
+    stackSize = highAddr - lowAddr;
+  }
+#else
+  cl_ulong stackSize = m_stackDefaultSize;
+#endif
+  if (!m_useAutoMemory || m_stackActualSize < stackSize)
     kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
   else {
 #if defined(_WIN32)
