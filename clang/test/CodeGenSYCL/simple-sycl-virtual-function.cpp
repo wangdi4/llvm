@@ -13,10 +13,19 @@
 // until we emit proper address spaces (and casts) everywhere.
 // RUNx: %clang_cc1 -triple spir64 -fsycl-allow-virtual-functions -fsycl-is-device -fexperimental-relative-c++-abi-vtables -emit-llvm %s -o - | FileCheck %s --check-prefix CHECK-REL
 
+<<<<<<< HEAD
 // CHECK-REL lines below were not updated for "we don't emit RTTI" change
 // CHECK-REL: @_ZTI4Base = linkonce_odr constant { ptr addrspace(4), ptr addrspace(4) } { ptr addrspace(4) getelementptr inbounds (i8, ptr addrspace(4) null, i32 8)
 // CHECK-REL: @_ZTI8Derived1 = linkonce_odr constant { ptr addrspace(4), ptr addrspace(4), ptr addrspace(4) } { ptr addrspace(4) getelementptr inbounds (i8, ptr addrspace(4) null, i32 8)
 #endif // INTEL_CUSTOMIZATION
+=======
+// CHECK: @_ZTVN10__cxxabiv120__si_class_type_infoE = external addrspace(1) global [0 x ptr addrspace(4)]
+// CHECK: @_ZTVN10__cxxabiv117__class_type_infoE = external addrspace(1) global [0 x ptr addrspace(4)]
+// CHECK-PTR: @_ZTI4Base = linkonce_odr constant { ptr addrspace(4), ptr } { ptr addrspace(4) getelementptr inbounds (ptr addrspace(4), ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTVN10__cxxabiv117__class_type_infoE to ptr addrspace(4)), i64 2)
+// CHECK-PTR: @_ZTI8Derived1 = linkonce_odr constant { ptr addrspace(4), ptr, ptr } { ptr addrspace(4) getelementptr inbounds (ptr addrspace(4), ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTVN10__cxxabiv120__si_class_type_infoE to ptr addrspace(4)), i64 2)
+// CHECK-REL: @_ZTI4Base = linkonce_odr constant { ptr addrspace(4), ptr } { ptr addrspace(4) getelementptr inbounds (i8, ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTVN10__cxxabiv117__class_type_infoE to ptr addrspace(4)), i32 8)
+// CHECK-REL: @_ZTI8Derived1 = linkonce_odr constant { ptr addrspace(4), ptr, ptr } { ptr addrspace(4) getelementptr inbounds (i8, ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTVN10__cxxabiv120__si_class_type_infoE to ptr addrspace(4)), i32 8)
+>>>>>>> 0989c8a4884e8627310b63dde31572ff9af58d6b
 
 SYCL_EXTERNAL bool rand();
 
