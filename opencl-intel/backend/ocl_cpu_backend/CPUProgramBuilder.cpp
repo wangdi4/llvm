@@ -450,7 +450,7 @@ static void dumpAssembly(Module *M, TargetMachine *TM,
   legacy::PassManager PM;
   PM.add(new TargetLibraryInfoWrapperPass(TLII));
   if (TM->addPassesToEmitFile(PM, Out->os(),
-                              /*DwoOut*/ nullptr, CGFT_AssemblyFile,
+                              /*DwoOut*/ nullptr, CodeGenFileType::AssemblyFile,
                               /*DisableVerify*/ true))
     throw Exceptions::CompilerException(
         "failed to add passes to dump assembly file");

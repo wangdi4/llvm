@@ -286,9 +286,9 @@ llvm::TargetMachine *Compiler::GetTargetMachine(llvm::Module *pModule) const {
 
   OptimizationLevel OptLevel =
       BackendUtils::getOptLevel(m_buildOptions.GetDisableOpt(), *pModule);
-  llvm::CodeGenOpt::Level CGOptLevel = OptLevel == OptimizationLevel::O0
-                                           ? llvm::CodeGenOptLevel::None
-                                           : llvm::CodeGenOptLevel::Default;
+  llvm::CodeGenOptLevel CGOptLevel = OptLevel == OptimizationLevel::O0
+                                         ? llvm::CodeGenOptLevel::None
+                                         : llvm::CodeGenOptLevel::Default;
 
   llvm::EngineBuilder Builder;
 
