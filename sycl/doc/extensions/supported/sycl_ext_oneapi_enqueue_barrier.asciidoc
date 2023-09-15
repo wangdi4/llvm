@@ -27,7 +27,7 @@ This document presents a series of changes proposed for a future version of the 
 
 == Notice
 
-Copyright (c) 2019-2020 Intel Corporation.  All rights reserved.
+Copyright (c) 2019 Intel Corporation.  All rights reserved.
 
 == Status
 

@@ -1,6 +1,6 @@
 //====-- Intel_FMACGCommon.h - Fused Multiply Add optimization -----------====//
 //
-//      Copyright (c) 2016-2019 Intel Corporation.
+//      Copyright (c) 2016 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION

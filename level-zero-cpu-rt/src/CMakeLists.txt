@@ -1,5 +1,5 @@
 # INTEL_COPYRIGHT_BEGIN
-# Copyright (c) 2019-2020, Intel Corporation.  All rights reserved.
+# Copyright (c) 2019, Intel Corporation.  All rights reserved.
 # INTEL_COPYRIGHT_END
 
 set(SRC

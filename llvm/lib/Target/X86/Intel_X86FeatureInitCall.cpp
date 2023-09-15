@@ -1,6 +1,6 @@
 //====-- Intel_FeatureInitCall.cpp ----------------====
 //
-//      Copyright (c) 2019-2022 Intel Corporation.
+//      Copyright (c) 2019 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION

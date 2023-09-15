@@ -2,7 +2,7 @@
 //===---------------------*- tablegen -*-----------------------------------===//
 //=- Intel_X86InstrMOVGET.td - MOVGET Instruction Set Extension -*- tablegen -*=//
 //
-//      Copyright (c) 2018-2021 Intel Corporation.
+//      Copyright (c) 2018 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION

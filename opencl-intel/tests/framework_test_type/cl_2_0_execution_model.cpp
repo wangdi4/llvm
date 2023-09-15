@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2012 Intel Corporation
+// Copyright (c) 2008 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER

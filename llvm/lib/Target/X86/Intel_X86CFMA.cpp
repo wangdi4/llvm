@@ -1,6 +1,6 @@
 //====------ Intel_X86CFMA.cpp - Complex FMA optimization -----------------====
 //
-//      Copyright (c) 2016-2021 Intel Corporation.
+//      Copyright (c) 2016 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION

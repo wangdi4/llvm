@@ -24,7 +24,7 @@ Contributors
 Notice
 ------
 
-Copyright (c) 2019-2020 Intel Corporation. All rights reserved.
+Copyright (c) 2019 Intel Corporation. All rights reserved.
 
 Status
 ------

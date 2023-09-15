@@ -28,7 +28,7 @@ and their `marray` equivalents.
 
 == Notice
 
-Copyright (c) 2021-2022 Intel Corporation.  All rights reserved.
+Copyright (c) 2021 Intel Corporation.  All rights reserved.
 
 == Status
 

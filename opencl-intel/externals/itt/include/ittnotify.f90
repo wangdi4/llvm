@@ -3,7 +3,7 @@
 ! SAMPLE SOURCE CODE - SUBJECT TO THE TERMS OF END-USER LICENSE AGREEMENT        
 ! FOR INTEL(R) INSPECTOR XE 2013.                                                
 !                                                                                
-! Copyright (c) 2012-2013 Intel Corporation. All rights reserved.                
+! Copyright (c) 2012 Intel Corporation. All rights reserved.                
 !                                                                                
 ! THIS FILE IS PROVIDED "AS IS" WITH NO WARRANTIES, EXPRESS OR IMPLIED,        
 ! INCLUDING BUT NOT LIMITED TO ANY IMPLIED WARRANTY OF MERCHANTABILITY,          

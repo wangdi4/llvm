@@ -1,6 +1,6 @@
 /*******************************************************************************
 * INTEL CONFIDENTIAL
-* Modifications, Copyright (C) 1996-2022 Intel Corporation
+* Modifications, Copyright (C) 1996 Intel Corporation
 *
 * This software and the related documents are Intel copyrighted  materials,  and
 * your use of  them is  governed by the  express license  under which  they were

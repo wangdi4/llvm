@@ -1,6 +1,6 @@
 //==-- Intel_X86AvoidMemoryRenamingBlocks.cpp - Avoid Memory Renaming Block --==
 //
-//      Copyright (c) 2022-2022 Intel Corporation.
+//      Copyright (c) 2022 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
