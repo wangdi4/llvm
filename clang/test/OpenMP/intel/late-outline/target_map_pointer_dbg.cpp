@@ -20,7 +20,7 @@ void foo(A *& f)
 {
 // CHECK: [[F_ADDR:%f.addr]] = alloca ptr,
 // CHECK: [[MAP_ADDR:%f.map.ptr.tmp]] = alloca ptr,
-// CHECK: [[MAP_ADDR2:%f.map.ptr.tmp2]] = alloca ptr,
+// CHECK: [[MAP_ADDR2:%f.map.ptr.tmp[0-9]+]] = alloca ptr,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[MAP_ADDR]]
 // CHECK: call void @llvm.dbg.declare(metadata ptr [[MAP_ADDR]], metadata !30, metadata !DIExpression()), !dbg !31

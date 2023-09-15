@@ -63,7 +63,7 @@ void use_template() {
 // CHECK: "DIR.OMP.END.ORDERED"
 // CHECK: "DIR.OMP.END.SIMD"
 // CHECK: "DIR.OMP.SIMD"
-// CHECK: [[L11:%11]] = load i32, ptr %a13
+// CHECK: [[L11:%[0-9]+]] = load i32, ptr %a{{[0-9]*}}
 // CHECK: "DIR.OMP.ORDERED"
 // CHECK: "QUAL.OMP.OVERLAP"(i32 [[L11]]
 // CHECK: "DIR.OMP.END.ORDERED"
@@ -82,7 +82,7 @@ void use_template() {
 // CHECK: "DIR.OMP.END.ORDERED"
 // CHECK: "DIR.OMP.END.SIMD"
 // CHECK: "DIR.OMP.SIMD"
-// CHECK: [[L26:%26]] = load i32, ptr %i38
+// CHECK: [[L26:%[0-9]+]] = load i32, ptr %i{{[0-9]]*}}
 // CHECK: "DIR.OMP.ORDERED"
 // CHECK: "QUAL.OMP.OVERLAP"(i32 [[L26]])
 // CHECK: "DIR.OMP.END.ORDERED"

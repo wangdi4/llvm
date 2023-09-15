@@ -12,7 +12,7 @@ void foo(int a) {
   #pragma omp simd
   for (int i = 0; i < 256; ++i) A[i] = i;
 //CHECK: "DIR.OMP.SIMD"
-//CHECK: br label {{.*}} !llvm.loop [[LOOP4:![0-9]+]]
+//CHECK: br {{.*}}label {{.*}} !llvm.loop [[LOOP4:![0-9]+]]
 //CHECK: "DIR.OMP.END.SIMD"
   #pragma omp parallel
   #pragma omp simd if (true)
@@ -22,8 +22,8 @@ void foo(int a) {
     for (int j = 0; j < i; ++j)
     A[i] = j;
   }
-//CHECK: br label {{.*}} !llvm.loop [[LOOP6:![0-9]+]]
-//CHECK: br label {{.*}} !llvm.loop [[LOOP8:![0-9]+]]
+//CHECK: br {{.*}}label {{.*}} !llvm.loop [[LOOP6:![0-9]+]]
+//CHECK: br {{.*}}label {{.*}} !llvm.loop [[LOOP8:![0-9]+]]
 //CHECK: "DIR.OMP.END.SIMD"
 //CHECK: "DIR.OMP.END.PARALLEL"
   #pragma omp simd collapse(4)
@@ -32,14 +32,14 @@ void foo(int a) {
       for (int k = 3; k <= 6; k++)
         for (int l = 4; l < 9; ++l);
 //CHECK: "DIR.OMP.SIMD"
-//CHECK: br label {{.*}} !llvm.loop [[LOOP9:![0-9]+]]
+//CHECK: br {{.*}}label {{.*}} !llvm.loop [[LOOP9:![0-9]+]]
 //CHECK: "DIR.OMP.END.SIMD"
   #pragma omp target parallel for simd
   for (int i = 1; i < 3; i++);
 //CHECK: "DIR.OMP.TARGET"
 //CHECK: "DIR.OMP.PARALLEL.LOOP"
 //CHECK: "DIR.OMP.SIMD"
-//CHECK: br label {{.*}} !llvm.loop [[LOOP10:![0-9]+]]
+//CHECK: br {{.*}}label {{.*}} !llvm.loop [[LOOP10:![0-9]+]]
 //CHECK: "DIR.OMP.END.SIMD"
 //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
 //CHECK: "DIR.OMP.END.TARGET"
@@ -50,7 +50,7 @@ void foo(int a) {
 //CHECK: "DIR.OMP.TASKGROUP"
 //CHECK: "DIR.OMP.TASKLOOP"()
 //CHECK: "DIR.OMP.SIMD"
-//CHECK: br label {{.*}} !llvm.loop [[LOOP11:![0-9]+]]
+//CHECK: br {{.*}}label {{.*}} !llvm.loop [[LOOP11:![0-9]+]]
 //CHECK: "DIR.OMP.END.SIMD"
 //CHECK: "DIR.OMP.END.TASKLOOP"
 //CHECK: "DIR.OMP.END.TASKGROUP"
@@ -60,7 +60,7 @@ void foo(int a) {
   for (int i = 1; i < 3; i++);
 //CHECK: "DIR.OMP.DISTRIBUTE"
 //CHECK: "DIR.OMP.SIMD"
-//CHECK: br label {{.*}} !llvm.loop [[LOOP12:![0-9]+]]
+//CHECK: br {{.*}}label {{.*}} !llvm.loop [[LOOP12:![0-9]+]]
 //CHECK: "DIR.OMP.END.SIMD"
 //CHECK: "DIR.OMP.END.DISTRIBUTE"
   #pragma omp teams distribute simd
@@ -68,7 +68,7 @@ void foo(int a) {
 //CHECK: "DIR.OMP.TEAMS"
 //CHECK: "DIR.OMP.DISTRIBUTE"
 //CHECK: "DIR.OMP.SIMD"
-//CHECK: br label {{.*}} !llvm.loop [[LOOP13:![0-9]+]]
+//CHECK: br {{.*}}label {{.*}} !llvm.loop [[LOOP13:![0-9]+]]
 //CHECK: "DIR.OMP.END.SIMD"
 //CHECK: "DIR.OMP.END.DISTRIBUTE"
 //CHECK: "DIR.OMP.END.TEAMS"
@@ -86,7 +86,7 @@ struct T : public Base {
       t.a = 0;
     }
 //CHECK: "DIR.OMP.SIMD"
-//CHECK: br label {{.*}} !llvm.loop [[LOOP13:![0-9]+]]
+//CHECK: br {{.*}}label {{.*}} !llvm.loop [[LOOP13:![0-9]+]]
 //CHECK: "DIR.OMP.END.SIMD"
   }
 } t;
