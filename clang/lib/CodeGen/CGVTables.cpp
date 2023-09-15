@@ -732,10 +732,10 @@ llvm::Type *CodeGenModule::getVTableComponentType() const {
   if (UseRelativeLayout(*this))
     return Int32Ty;
 #if INTEL_COLLAB
-  return DefaultInt8PtrTy;
-#else // INTEL_COLLAB
-  return Int8PtrTy;
+  if (getTriple().isSPIR())
+    return DefaultInt8PtrTy;
 #endif // INTEL_COLLAB
+  return GlobalsInt8PtrTy;
 }
 
 llvm::Type *CodeGenVTables::getVTableComponentType() const {
@@ -745,14 +745,12 @@ llvm::Type *CodeGenVTables::getVTableComponentType() const {
 static void AddPointerLayoutOffset(const CodeGenModule &CGM,
                                    ConstantArrayBuilder &builder,
                                    CharUnits offset) {
+  builder.add(llvm::ConstantExpr::getIntToPtr(
+      llvm::ConstantInt::get(CGM.PtrDiffTy, offset.getQuantity()),
 #if INTEL_COLLAB
-  builder.add(llvm::ConstantExpr::getIntToPtr(
-      llvm::ConstantInt::get(CGM.PtrDiffTy, offset.getQuantity()),
-      CGM.DefaultInt8PtrTy));
+      CGM.getTriple().isSPIR() ? CGM.DefaultInt8PtrTy : CGM.GlobalsInt8PtrTy));
 #else // INTEL_COLLAB
-  builder.add(llvm::ConstantExpr::getIntToPtr(
-      llvm::ConstantInt::get(CGM.PtrDiffTy, offset.getQuantity()),
-      CGM.Int8PtrTy));
+      CGM.GlobalsInt8PtrTy));
 #endif  // INTEL_COLLAB
 }
 
@@ -790,12 +788,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
                                   vtableHasLocalLinkage,
                                   /*isCompleteDtor=*/false);
     else
-#if INTEL_COLLAB
-      return builder.add(
-          llvm::ConstantExpr::getBitCast(rtti, CGM.DefaultInt8PtrTy));
-#else // INTEL_COLLAB
-      return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.Int8PtrTy));
-#endif // INTEL_COLLAB
+      return builder.add(rtti);
 
   case VTableComponent::CK_FunctionPointer:
   case VTableComponent::CK_CompleteDtorPointer:
@@ -814,7 +807,14 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
               ? MD->hasAttr<CUDADeviceAttr>()
               : (MD->hasAttr<CUDAHostAttr>() || !MD->hasAttr<CUDADeviceAttr>());
       if (!CanEmitMethod)
-        return builder.add(llvm::ConstantExpr::getNullValue(CGM.Int8PtrTy));
+        return builder.add(
+#if INTEL_COLLAB
+            llvm::ConstantExpr::getNullValue(CGM.getTriple().isSPIR()
+                                                 ? CGM.DefaultInt8PtrTy
+                                                 : CGM.GlobalsInt8PtrTy));
+#else  // INTEL_COLLAB
+            llvm::ConstantExpr::getNullValue(CGM.GlobalsInt8PtrTy));
+#endif // INTEL_COLLAB
       // Method is acceptable, continue processing as usual.
     }
 
@@ -838,20 +838,20 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       // with the local symbol. As a temporary solution, fill these components
       // with zero. We shouldn't be calling these in the first place anyway.
       if (useRelativeLayout())
-        return llvm::ConstantPointerNull::get(CGM.Int8PtrTy);
+        return llvm::ConstantPointerNull::get(CGM.GlobalsInt8PtrTy);
 
       // For NVPTX devices in OpenMP emit special functon as null pointers,
       // otherwise linking ends up with unresolved references.
       if (CGM.getLangOpts().OpenMP && CGM.getLangOpts().OpenMPIsTargetDevice &&
           CGM.getTriple().isNVPTX())
-        return llvm::ConstantPointerNull::get(CGM.Int8PtrTy);
+        return llvm::ConstantPointerNull::get(CGM.GlobalsInt8PtrTy);
       llvm::FunctionType *fnTy =
           llvm::FunctionType::get(CGM.VoidTy, /*isVarArg=*/false);
       llvm::Constant *fn = cast<llvm::Constant>(
           CGM.CreateRuntimeFunction(fnTy, name).getCallee());
       if (auto f = dyn_cast<llvm::Function>(fn))
         f->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-      return llvm::ConstantExpr::getBitCast(fn, CGM.Int8PtrTy);
+      return fn;
     };
 
     llvm::Constant *fnPtr;
@@ -897,13 +897,27 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       return addRelativeComponent(
           builder, fnPtr, vtableAddressPoint, vtableHasLocalLinkage,
           component.getKind() == VTableComponent::CK_CompleteDtorPointer);
-    } else
+    } else {
+      // TODO: this icky and only exists due to functions being in the generic
+      //       address space, rather than the global one, even though they are
+      //       globals;  fixing said issue might be intrusive, and will be done
+      //       later.
+      unsigned FnAS = fnPtr->getType()->getPointerAddressSpace();
+      unsigned GVAS = CGM.GlobalsInt8PtrTy->getPointerAddressSpace();
 #if INTEL_COLLAB
-      return builder.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-          fnPtr, CGM.DefaultInt8PtrTy));
-#else // INTEL_COLLAB
-      return builder.add(llvm::ConstantExpr::getBitCast(fnPtr, CGM.Int8PtrTy));
+      if (CGM.getTriple().isSPIR()) {
+        GVAS = CGM.DefaultInt8PtrTy->getPointerAddressSpace();
+        if (FnAS != GVAS)
+          fnPtr =
+              llvm::ConstantExpr::getAddrSpaceCast(fnPtr, CGM.DefaultInt8PtrTy);
+      } else
 #endif // INTEL_COLLAB
+
+      if (FnAS != GVAS)
+        fnPtr =
+            llvm::ConstantExpr::getAddrSpaceCast(fnPtr, CGM.GlobalsInt8PtrTy);
+      return builder.add(fnPtr);
+    }
   }
 
   case VTableComponent::CK_UnusedFunctionPointer:
@@ -911,10 +925,11 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       return builder.add(llvm::ConstantExpr::getNullValue(CGM.Int32Ty));
     else
 #if INTEL_COLLAB
-      return builder.addNullPointer(CGM.DefaultInt8PtrTy);
-#else // INTEL_COLLAB
-      return builder.addNullPointer(CGM.Int8PtrTy);
-#endif  // INTEL_COLLAB
+      if (CGM.getTriple().isSPIR())
+        return builder.addNullPointer(CGM.DefaultInt8PtrTy);
+      else
+#endif // INTEL_COLLAB
+      return builder.addNullPointer(CGM.GlobalsInt8PtrTy);
   }
 
   llvm_unreachable("Unexpected vtable component kind");

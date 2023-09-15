@@ -506,12 +506,7 @@ llvm::Value *CodeGenFunction::GetVTTParameter(GlobalDecl GD,
   if (CGM.getCXXABI().NeedsVTTParameter(CurGD)) {
     // A VTT parameter was passed to the constructor, use it.
     llvm::Value *VTT = LoadCXXVTT();
-#if INTEL_COLLAB
-    return Builder.CreateConstInBoundsGEP1_64(DefaultInt8PtrTy, VTT,
-                                              SubVTTIndex);
-#else // INTEL_COLLAB
     return Builder.CreateConstInBoundsGEP1_64(VoidPtrTy, VTT, SubVTTIndex);
-#endif  // INTEL_COLLAB
   } else {
     // We're the complete constructor, so get the VTT by name.
     llvm::GlobalValue *VTT = CGM.getVTables().GetAddrOfVTT(RD);
@@ -2724,8 +2719,9 @@ llvm::Value *CodeGenFunction::GetVTablePtr(Address This, llvm::Type *VTableTy,
                                            const CXXRecordDecl *RD) {
 #if INTEL_COLLAB
   unsigned AS = CGM.getContext().getTargetAddressSpace(LangAS::Default);
-  VTableTy = llvm::PointerType::get(getLLVMContext(), AS);
-#endif  // INTEL_COLLAB
+  if (CGM.getTriple().isSPIR())
+    VTableTy = llvm::PointerType::get(getLLVMContext(), AS);
+#endif // INTEL_COLLAB
   Address VTablePtrSrc = This.withElementType(VTableTy);
   llvm::Instruction *VTable = Builder.CreateLoad(VTablePtrSrc, "vtable");
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTableTy);
