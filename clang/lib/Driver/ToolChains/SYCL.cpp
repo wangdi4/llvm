@@ -1903,19 +1903,24 @@ SYCLToolChain::GetCXXStdlibType(const ArgList &Args) const {
 void SYCLToolChain::AddSYCLIncludeArgs(const clang::driver::Driver &Driver,
                                        const ArgList &DriverArgs,
                                        ArgStringList &CC1Args) {
-  // Add ../include/sycl and ../include (in that order)
+  // Add include/sycl and include (in that order)
   SmallString<128> P(Driver.getInstalledDir());
   llvm::sys::path::append(P, "..");
 #if INTEL_CUSTOMIZATION
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
-  if (!llvm::sys::fs::exists(P + "/include/sycl")) {
-    // Location of SYCL specific headers is <install>/include/sycl, which is
-    // two levels up from the clang binary (Driver installed dir).
-    llvm::sys::path::append(P, "..");
+  // When in the unified layout, the location is in opt/compiler/include/sycl
+  // Use this location when it exists
+  if (!llvm::sys::fs::exists(P + "/include/sycl") &&
+      llvm::sys::fs::exists(P + "/../opt/compiler/include/sycl")) {
+    llvm::sys::path::append(P, "..", "opt", "compiler");
+    llvm::sys::path::append(P, "include", "sycl");
+  } else {
+    llvm::sys::path::append(P, "include");
   }
+#else
+  llvm::sys::path::append(P, "include");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 #endif // INTEL_CUSTOMIZATION
-  llvm::sys::path::append(P, "include");
   SmallString<128> SYCLP(P);
   llvm::sys::path::append(SYCLP, "sycl");
   CC1Args.push_back("-internal-isystem");
