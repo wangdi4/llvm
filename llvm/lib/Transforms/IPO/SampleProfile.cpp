@@ -1851,7 +1851,10 @@ void SampleProfileLoader::generateMDProfMetadata(Function &F) {
       if (!SampleProfileUseProfi) {
         // Weight is added by one to avoid propagation errors introduced by
         // 0 weights.
-        Weights.push_back(static_cast<uint32_t>(Weight + 1));
+#if INTEL_CUSTOMIZATION
+        const bool CanInc = (Weight < std::numeric_limits<uint32_t>::max());
+        Weights.push_back(static_cast<uint32_t>(Weight + (CanInc ? 1 : 0)));
+#endif // INTEL_CUSTOMIZATION
       } else {
         // Profi creates proper weights that do not require "+1" adjustments but
         // we evenly split the weight among branches with the same destination.
