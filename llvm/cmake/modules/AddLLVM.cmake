@@ -433,7 +433,7 @@ function(set_windows_version_resource_properties name resource_file)
                PROPERTY COMPILE_DEFINITIONS
 # INTEL_CUSTOMIZATION
                "RC_COMPANY_NAME=\"Intel Corporation\""
-               "RC_COPYRIGHT=\"Copyright (C) 2019-2020 Intel Corporation\""
+               "RC_COPYRIGHT=\"Copyright (C) 2019 Intel Corporation\""
 # end INTEL_CUSTOMIZATION
                "RC_VERSION_FIELD_1=${ARG_VERSION_MAJOR}"
                "RC_VERSION_FIELD_2=${ARG_VERSION_MINOR}"

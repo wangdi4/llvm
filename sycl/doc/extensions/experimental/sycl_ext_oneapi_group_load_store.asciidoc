@@ -32,7 +32,7 @@ direction of the extension.
 
 == Notice
 
-Copyright (c) 2019-2022 Intel Corporation.  All rights reserved.
+Copyright (c) 2019 Intel Corporation.  All rights reserved.
 
 == Contact
 

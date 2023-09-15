@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 Intel Corporation
+// Copyright (c) 2019 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER

@@ -1,7 +1,7 @@
 //===---------------------*- tablegen -*-----------------------------------===//
 //===- Intel_X86InstrAMX.td - AMX Instruction Set Extension -*- tablegen -*===//
 //
-//      Copyright (c) 2018-2019 Intel Corporation.
+//      Copyright (c) 2018 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION

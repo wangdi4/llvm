@@ -15,7 +15,7 @@ John Pennycook, Intel +
 Jessica Davies, Intel
 
 == Notice
-Copyright (c) 2019-2021 Intel Corporation.  All rights reserved.
+Copyright (c) 2019 Intel Corporation.  All rights reserved.
 
 == Status
 

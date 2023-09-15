@@ -1,6 +1,6 @@
 //====-- Intel_X86PRAExpandPseudo - X86 PreRegAlloc PSEUDO expansion -------====
 //
-//      Copyright (c) 2016-2021 Intel Corporation.
+//      Copyright (c) 2016 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
