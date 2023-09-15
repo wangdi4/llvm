@@ -51,13 +51,13 @@ struct UnrollThresholds {
 class HIRCompleteUnroll {
 public:
   HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
-                    const TargetTransformInfo &TTI, HIRLoopStatistics &HLS,
+                    const TargetTransformInfo &TTI,
+                    const TargetLibraryInfo &TLI, HIRLoopStatistics &HLS,
                     HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &HSRA,
 #if INTEL_FEATURE_SW_DTRANS
                     DTransImmutableInfo *DTII,
 #endif // INTEL_FEATURE_SW_DTRANS
-                    unsigned OptLevel, bool IsPreVec,
-                    bool PragmaOnlyUnroll);
+                    unsigned OptLevel, bool IsPreVec, bool PragmaOnlyUnroll);
 
   bool run();
 
@@ -73,6 +73,7 @@ private:
   HIRFramework &HIRF;
   DominatorTree &DT;
   const TargetTransformInfo &TTI;
+  const TargetLibraryInfo &TLI;
   HIRLoopStatistics &HLS;
   HIRDDAnalysis &DDA;
   HIRSafeReductionAnalysis &HSRA;

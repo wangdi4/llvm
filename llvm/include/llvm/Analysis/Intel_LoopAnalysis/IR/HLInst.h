@@ -25,6 +25,7 @@
 namespace llvm {
 
 class BasicBlock;
+class TargetLibraryInfo;
 
 namespace loopopt {
 
@@ -378,6 +379,9 @@ public:
   /// Checks whether the instruction is a call to an auto vectorization
   /// directive.
   bool isAutoVecDirective() const;
+
+  /// Returns true if this is a call inst which can be vectorized.
+  bool isVectorizableCall(const TargetLibraryInfo &TLI) const;
 
   /// Returns true if instruction is lifetime.start intrinsic.
   bool isLifetimeStartIntrinsic() const {

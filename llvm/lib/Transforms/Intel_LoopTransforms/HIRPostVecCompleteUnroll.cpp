@@ -16,6 +16,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPostVecCompleteUnrollPass.h"
 #include "HIRCompleteUnroll.h"
 
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/InitializePasses.h"
@@ -49,6 +50,7 @@ PreservedAnalyses HIRPostVecCompleteUnrollPass::runImpl(
       HIRCompleteUnroll(
           HIRF, AM.getResult<DominatorTreeAnalysis>(F),
           AM.getResult<TargetIRAnalysis>(F),
+          AM.getResult<TargetLibraryAnalysis>(F),
           AM.getResult<HIRLoopStatisticsAnalysis>(F),
           AM.getResult<HIRDDAnalysisPass>(F),
           AM.getResult<HIRSafeReductionAnalysisPass>(F),

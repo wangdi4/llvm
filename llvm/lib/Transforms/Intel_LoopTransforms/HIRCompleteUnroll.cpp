@@ -215,6 +215,7 @@ void completeUnrollLoop(HLLoop *Loop) { HIRCompleteUnroll::doUnroll(Loop); }
 
 HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
                                      const TargetTransformInfo &TTI,
+                                     const TargetLibraryInfo &TLI,
                                      HIRLoopStatistics &HLS, HIRDDAnalysis &DDA,
                                      HIRSafeReductionAnalysis &HSRA,
 #if INTEL_FEATURE_SW_DTRANS
@@ -222,7 +223,7 @@ HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
 #endif // INTEL_FEATURE_SW_DTRANS
                                      unsigned OptLevel, bool IsPreVec,
                                      bool PragmaOnlyUnroll)
-    : HIRF(HIRF), DT(DT), TTI(TTI), HLS(HLS), DDA(DDA), HSRA(HSRA),
+    : HIRF(HIRF), DT(DT), TTI(TTI), TLI(TLI), HLS(HLS), DDA(DDA), HSRA(HSRA),
 #if INTEL_FEATURE_SW_DTRANS
       DTII(DTII),
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -438,6 +439,8 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   const HLLoop *CurLoop;
   const HLLoop *OuterLoop;
 
+  bool CurLoopIsVectorizationCandidate;
+
   const unsigned CurLevel;
   unsigned LoopNestTripCount;
 
@@ -514,6 +517,10 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
         DTII(DTII),
 #endif // INTEL_FEATURE_SW_DTRANS
         SimplifiedNonLoopParents(SimplifiedNonLoopParents) {
+
+    CurLoopIsVectorizationCandidate =
+        (HCU.IsPreVec && CurLoop->isInnermost() && CurLoop->isDo());
+
     auto Iter = HCU.AvgTripCount.find(CurLp);
     assert((Iter != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
     LoopNestTripCount = (ParentLoopNestTripCount * Iter->second);
@@ -858,7 +865,7 @@ void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
 
-  if (HCU.IsPreVec && CurLoop->isInnermost() && CurLoop->isDo()) {
+  if (CurLoopIsVectorizationCandidate) {
     // compute safe reduction chain for innermost do loops if we are executing
     // before vectorizer. This is to add extra cost to the loops containing
     // reductions.
@@ -1156,11 +1163,14 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
   if (!CanSimplifyRvals || !CanSimplifyLval) {
 
     if (HInst && !IsSelect) {
-      // Add extra cost if instruction is a non-simplifiable reduction and we
-      // are executing before vectorizer. We should prefer vectorizing
-      // reductions rather than unrolling them.
-      Cost +=
-          (HCU.IsPreVec && LvalRef && HCU.HSRA.isSafeReduction(HInst)) ? 2 : 1;
+      // Add extra cost if instruction is a non-simplifiable reduction or
+      // vectorizable call and we are executing before vectorizer. We should
+      // prefer vectorizing reductions/calls rather than unrolling them.
+      Cost += (CurLoopIsVectorizationCandidate &&
+               (HCU.HSRA.isSafeReduction(HInst) ||
+                HInst->isVectorizableCall(HCU.TLI)))
+                  ? 2
+                  : 1;
     } else {
       // Add extra cost for ifs/switches/selects.
       Cost += 2;
