@@ -297,14 +297,14 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     case 4:
       Row = II->getArgOperand(2);
       Col = II->getArgOperand(0);
-      if (TM->getOptLevel() == CodeGenOpt::None) {
+      if (TM->getOptLevel() == CodeGenOptLevel::None) {
         Row = getRowFromCol(II, Row, 4);
         Col = getColFromRow(II, Col, 4);
       }
       break;
     case 5:
       Row = II->getArgOperand(2);
-      if (TM->getOptLevel() == CodeGenOpt::None)
+      if (TM->getOptLevel() == CodeGenOptLevel::None)
         Row = getRowFromCol(II, Row, 4);
       Col = II->getArgOperand(1);
       break;
@@ -323,7 +323,7 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     case 4:
       Row = II->getArgOperand(1);
       Col = II->getArgOperand(0);
-      if (TM->getOptLevel() == CodeGenOpt::None) {
+      if (TM->getOptLevel() == CodeGenOptLevel::None) {
         Row = getRowFromCol(II, Row, 4);
         Col = getColFromRow(II, Col, 4);
       }
@@ -1494,8 +1494,8 @@ public:
 
     // Prepare for fast register allocation at O0.
     // Todo: May better check the volatile model of AMX code, not just
-    // by checking Attribute::OptimizeNone and CodeGenOpt::None.
-    if (TM->getOptLevel() == CodeGenOpt::None) {
+    // by checking Attribute::OptimizeNone and CodeGenOptLevel::None.
+    if (TM->getOptLevel() == CodeGenOptLevel::None) {
       // If Front End not use O0 but the Mid/Back end use O0, (e.g.
       // "Clang -O2 -S -emit-llvm t.c" + "llc t.ll") we should make
       // sure the amx data is volatile, that is nessary for AMX fast

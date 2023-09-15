@@ -1331,9 +1331,9 @@ Align SelectionDAG::getEVTAlign(EVT VT) const {
 }
 
 // EntryNode could meaningfully have debug info if we can find it...
-SelectionDAG::SelectionDAG(const TargetMachine &tm, CodeGenOpt::Level OL)
-    : TM(tm), OptLevel(OL),
-      EntryNode(ISD::EntryToken, 0, DebugLoc(), getVTList(MVT::Other, MVT::Glue)),
+SelectionDAG::SelectionDAG(const TargetMachine &tm, CodeGenOptLevel OL)
+    : TM(tm), OptLevel(OL), EntryNode(ISD::EntryToken, 0, DebugLoc(),
+                                      getVTList(MVT::Other, MVT::Glue)),
       Root(getEntryNode()) {
   InsertNode(&EntryNode);
   DbgInfo = new SDDbgInfo();
@@ -7985,7 +7985,7 @@ SDValue SelectionDAG::getMemcpy(SDValue Chain, const SDLoc &dl, SDValue Dst,
   RTLIB::Libcall libcall = RTLIB::MEMCPY;
 #if INTEL_FEATURE_SW_ADVANCED
   if (LibInfo->has(LibFunc_memcpy) &&
-      OptLevel > CodeGenOpt::Less &&
+      OptLevel > CodeGenOptLevel::Less &&
       MF->getTarget().Options.IntelLibIRCAllowed) {
     libcall = RTLIB::INTEL_MEMCPY;
   }
@@ -8227,7 +8227,7 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
     // level is higher than O1.
     RTLIB::Libcall libcall = RTLIB::MEMSET;
 #if INTEL_FEATURE_SW_ADVANCED
-    if (LibInfo->has(LibFunc_memset) && OptLevel > CodeGenOpt::Less &&
+    if (LibInfo->has(LibFunc_memset) && OptLevel > CodeGenOptLevel::Less &&
         MF->getTarget().Options.IntelLibIRCAllowed) {
       libcall = RTLIB::INTEL_MEMSET;
     }
@@ -10379,7 +10379,7 @@ SDNode *SelectionDAG::SelectNodeTo(SDNode *N, unsigned MachineOpc,
 /// For IROrder, we keep the smaller of the two
 SDNode *SelectionDAG::UpdateSDLocOnMergeSDNode(SDNode *N, const SDLoc &OLoc) {
   DebugLoc NLoc = N->getDebugLoc();
-  if (NLoc && OptLevel == CodeGenOpt::None && OLoc.getDebugLoc() != NLoc) {
+  if (NLoc && OptLevel == CodeGenOptLevel::None && OLoc.getDebugLoc() != NLoc) {
     N->setDebugLoc(DebugLoc());
   }
   unsigned Order = std::min(N->getIROrder(), OLoc.getIROrder());
