@@ -33,9 +33,9 @@
 #include "llvm/Support/CachePruning.h"
 #include <optional>
 
-namespace llvm::CodeGenOpt {
-enum Level : int;
-} // namespace llvm::CodeGenOpt
+namespace llvm {
+enum class CodeGenOptLevel;
+} // namespace llvm
 
 namespace lld::wasm {
 
@@ -89,7 +89,7 @@ struct Configuration {
   uint64_t zStackSize;
   unsigned ltoPartitions;
   unsigned ltoo;
-  llvm::CodeGenOpt::Level ltoCgo;
+  llvm::CodeGenOptLevel ltoCgo;
   unsigned optimize;
   llvm::StringRef thinLTOJobs;
   bool ltoNewPassManager; // INTEL
