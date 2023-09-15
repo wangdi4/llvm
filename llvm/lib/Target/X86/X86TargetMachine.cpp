@@ -402,7 +402,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
       // reduce RequiredVectorWidth to PreferVectorWidthOverride.
       RequiredVectorWidth = PreferVectorWidthOverride;
     } else if (Options.IntelAdvancedOptim &&
-        getOptLevel() >= CodeGenOpt::Aggressive) {
+        getOptLevel() >= CodeGenOptLevel::Aggressive) {
       // Avoid CPU frequency drop issue.
       RequiredVectorWidth = 0;
     }
@@ -564,7 +564,7 @@ MachineFunctionInfo *X86TargetMachine::createMachineFunctionInfo(
 void X86PassConfig::addIRPasses() {
   addPass(createAtomicExpandPass());
   addPass(createFloat128ExpandPass()); // INTEL
-  if (TM->getOptLevel() != CodeGenOpt::None) { // INTEL
+  if (TM->getOptLevel() != CodeGenOptLevel::None) { // INTEL
     addPass(createFoldLoadsToGatherPass()); // INTEL
     addPass(createX86Gather2LoadPermutePass()); // INTEL
   } // INTEL
@@ -576,7 +576,7 @@ void X86PassConfig::addIRPasses() {
   addPass(createX86LowerAMXTypePass());
 
 #if INTEL_CUSTOMIZATION
-  if (TM->getOptLevel() == CodeGenOpt::Aggressive) {
+  if (TM->getOptLevel() == CodeGenOptLevel::Aggressive) {
     insertPass(&ExpandVectorPredicationID, &X86InstCombineID);
     if (TM->Options.IntelLibIRCAllowed)
       insertPass(&ExpandVectorPredicationID, &X86HeteroArchOptID);
@@ -662,7 +662,7 @@ void X86PassConfig::addAdvancedPatternMatchingOpts() { // INTEL
 }                                                      // INTEL
 #if INTEL_CUSTOMIZATION
 void X86PassConfig::addPreStackSlotColoring() {
-  if (getOptLevel() == CodeGenOpt::Aggressive &&
+  if (getOptLevel() == CodeGenOptLevel::Aggressive &&
       TM->Options.IntelAdvancedOptim &&
       !TM->getTargetTriple().isOSWindows())
     addPass(createX86VecSpillPass());
@@ -674,17 +674,17 @@ bool X86PassConfig::addPreISel() {
   if (TT.isOSWindows() && TT.getArch() == Triple::x86)
     addPass(createX86WinEHStatePass());
 #if INTEL_CUSTOMIZATION
-  if (getOptLevel() >= CodeGenOpt::Default &&
+  if (getOptLevel() >= CodeGenOptLevel::Default &&
       TM->Options.IntelAdvancedOptim)
     addPass(createX86SplitVectorValueTypePass());
-  if (getOptLevel() == CodeGenOpt::Aggressive &&
+  if (getOptLevel() == CodeGenOptLevel::Aggressive &&
       TM->Options.IntelAdvancedOptim)
     addPass(createX86CiscizationHelperPass());
 #if INTEL_FEATURE_SW_ADVANCED
   // Always run this pass for feature like X87 precision control.
   addPass(createFeatureInitPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
-  if (getOptLevel() == CodeGenOpt::Aggressive)
+  if (getOptLevel() == CodeGenOptLevel::Aggressive)
     addPass(createIVSplitLegacyPass());
   addPass(createX86PreISelIntrinsicLoweringPass());
 #endif // INTEL_CUSTOMIZATION
@@ -766,7 +766,7 @@ void X86PassConfig::addPreEmitPass2() {
   const MCAsmInfo *MAI = TM->getMCAsmInfo();
 
 #if INTEL_CUSTOMIZATION
-  if (getOptLevel() != CodeGenOpt::None)
+  if (getOptLevel() != CodeGenOptLevel::None)
     addPass(createX86SplitLongBlockPass());
 #endif // INTEL_CUSTOMIZATION
 
@@ -837,7 +837,7 @@ static bool onlyAllocateTileRegisters(const TargetRegisterInfo &TRI,
 
 bool X86PassConfig::addRegAssignAndRewriteOptimized() {
 #if INTEL_CUSTOMIZATION
-  if (getOptLevel() == CodeGenOpt::Aggressive && TM->Options.IntelAdvancedOptim)
+  if (getOptLevel() == CodeGenOptLevel::Aggressive && TM->Options.IntelAdvancedOptim)
     addPass(createX86StackRealignPass());
 #endif // INTEL_CUSTOMIZATION
   // Don't support tile RA when RA is specified by command line "-regalloc".

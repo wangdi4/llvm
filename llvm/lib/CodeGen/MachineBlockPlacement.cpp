@@ -3834,7 +3834,7 @@ bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
   }
 #if INTEL_CUSTOMIZATION
   else if (!MF.getFunction().hasOptSize() &&
-           MF.getTarget().getOptLevel() >= CodeGenOpt::Aggressive &&
+           MF.getTarget().getOptLevel() >= CodeGenOptLevel::Aggressive &&
            MF.getSubtarget().hasDSB()) {
     const TargetTransformInfo *TTI =
         &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(MF.getFunction());

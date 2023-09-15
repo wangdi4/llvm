@@ -2920,7 +2920,7 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     MachineFunction *MF = FuncInfo.MF;
     RTLIB::Libcall libcall = RTLIB::MEMCPY;
     if (LibInfo->has(LibFunc_memcpy) &&
-        TM.getOptLevel() > CodeGenOpt::Less &&
+        TM.getOptLevel() > CodeGenOptLevel::Less &&
         MF->getTarget().Options.IntelLibIRCAllowed) {
       libcall = RTLIB::INTEL_MEMCPY;
     }
@@ -2953,7 +2953,7 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     MachineFunction *MF = FuncInfo.MF;
     RTLIB::Libcall libcall = RTLIB::MEMSET;
     if (LibInfo->has(LibFunc_memset) &&
-        TM.getOptLevel() > CodeGenOpt::Less &&
+        TM.getOptLevel() > CodeGenOptLevel::Less &&
         MF->getTarget().Options.IntelLibIRCAllowed) {
       libcall = RTLIB::INTEL_MEMSET;
     }

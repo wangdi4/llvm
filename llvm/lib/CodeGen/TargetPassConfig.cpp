@@ -957,17 +957,13 @@ void TargetPassConfig::addIRPasses() {
   if (!DisableExpandReductions)
     addPass(createExpandReductionsPass());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If the target doesn't support complex intrinsics, or if they need to be
   // expanded into more complex calls, generate the expansion to complex calls.
   addPass(createExpandComplexPass());
 #endif // INTEL_CUSTOMIZATION
 
-  if (getOptLevel() != CodeGenOpt::None)
-=======
   if (getOptLevel() != CodeGenOptLevel::None)
->>>>>>> acfca4919e07c7dfb435855e5ce1554c6134a4ec
     addPass(createTLSVariableHoistPass());
 
   // Convert conditional moves to conditional jumps when profitable.
@@ -1309,17 +1305,13 @@ void TargetPassConfig::addMachinePasses() {
   addPass(&LiveDebugValuesID);
   addPass(&MachineSanitizerBinaryMetadataID);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (IntelOptReportEmitter == OptReportOptions::MIR)
     addPass(&MachineOptReportEmitterID);
 #endif  // INTEL_CUSTOMIZATION
 
-  if (TM->Options.EnableMachineOutliner && getOptLevel() != CodeGenOpt::None &&
-=======
   if (TM->Options.EnableMachineOutliner &&
       getOptLevel() != CodeGenOptLevel::None &&
->>>>>>> acfca4919e07c7dfb435855e5ce1554c6134a4ec
       EnableMachineOutliner != RunOutliner::NeverOutline) {
     bool RunOnAllFunctions =
         (EnableMachineOutliner == RunOutliner::AlwaysOutline);

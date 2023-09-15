@@ -297,14 +297,14 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     case 4:
       Row = II->getArgOperand(2);
       Col = II->getArgOperand(0);
-      if (TM->getOptLevel() == CodeGenOpt::None) {
+      if (TM->getOptLevel() == CodeGenOptLevel::None) {
         Row = getRowFromCol(II, Row, 4);
         Col = getColFromRow(II, Col, 4);
       }
       break;
     case 5:
       Row = II->getArgOperand(2);
-      if (TM->getOptLevel() == CodeGenOpt::None)
+      if (TM->getOptLevel() == CodeGenOptLevel::None)
         Row = getRowFromCol(II, Row, 4);
       Col = II->getArgOperand(1);
       break;
@@ -323,7 +323,7 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     case 4:
       Row = II->getArgOperand(1);
       Col = II->getArgOperand(0);
-      if (TM->getOptLevel() == CodeGenOpt::None) {
+      if (TM->getOptLevel() == CodeGenOptLevel::None) {
         Row = getRowFromCol(II, Row, 4);
         Col = getColFromRow(II, Col, 4);
       }

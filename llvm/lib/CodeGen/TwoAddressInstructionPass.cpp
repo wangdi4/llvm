@@ -1843,7 +1843,7 @@ bool TwoAddressInstructionPass::runOnMachineFunction(MachineFunction &Func) {
     OptLevel = CodeGenOptLevel::None;
 
   EnableSink3AddrInstr = MF->getTarget().Options.IntelAdvancedOptim && // INTEL
-      OptLevel >= CodeGenOpt::Aggressive;                              // INTEL
+      OptLevel >= CodeGenOptLevel::Aggressive;                         // INTEL
 
   bool MadeChange = false;
 

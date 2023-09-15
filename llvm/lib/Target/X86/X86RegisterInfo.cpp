@@ -1388,7 +1388,7 @@ bool X86RegisterInfo::shouldCoalesce(
     const TargetRegisterClass *DstRC, unsigned DstSubReg,
     const TargetRegisterClass *NewRC, LiveIntervals &LIS) const {
   if (MI->getMF()->getTarget().Options.IntelAdvancedOptim &&
-      MI->getMF()->getTarget().getOptLevel() >= CodeGenOpt::Aggressive &&
+      MI->getMF()->getTarget().getOptLevel() >= CodeGenOptLevel::Aggressive &&
       MI->getMF()->getSubtarget().has4KDSB() &&
       MI->isCopy() && (SubReg || DstSubReg) &&
       (DstRC->MC->RegSizeInBits != SrcRC->MC->RegSizeInBits) &&

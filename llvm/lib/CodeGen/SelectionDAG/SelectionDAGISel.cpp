@@ -358,15 +358,10 @@ SelectionDAGISel::~SelectionDAGISel() {
 }
 
 void SelectionDAGISel::getAnalysisUsage(AnalysisUsage &AU) const {
-<<<<<<< HEAD
-  if (OptLevel != CodeGenOpt::None)
-    AU.addRequired<AAResultsWrapperPass>();
-  AU.addRequired<ScalarEvolutionWrapperPass>(); // INTEL
-  AU.addRequired<AssumptionCacheTracker>(); // INTEL
-=======
   if (OptLevel != CodeGenOptLevel::None)
       AU.addRequired<AAResultsWrapperPass>();
->>>>>>> acfca4919e07c7dfb435855e5ce1554c6134a4ec
+  AU.addRequired<ScalarEvolutionWrapperPass>(); // INTEL
+  AU.addRequired<AssumptionCacheTracker>(); // INTEL
   AU.addRequired<GCModuleInfo>();
   AU.addRequired<StackProtector>();
   AU.addPreserved<GCModuleInfo>();

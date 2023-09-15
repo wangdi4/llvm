@@ -7985,7 +7985,7 @@ SDValue SelectionDAG::getMemcpy(SDValue Chain, const SDLoc &dl, SDValue Dst,
   RTLIB::Libcall libcall = RTLIB::MEMCPY;
 #if INTEL_FEATURE_SW_ADVANCED
   if (LibInfo->has(LibFunc_memcpy) &&
-      OptLevel > CodeGenOpt::Less &&
+      OptLevel > CodeGenOptLevel::Less &&
       MF->getTarget().Options.IntelLibIRCAllowed) {
     libcall = RTLIB::INTEL_MEMCPY;
   }
@@ -8227,7 +8227,7 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
     // level is higher than O1.
     RTLIB::Libcall libcall = RTLIB::MEMSET;
 #if INTEL_FEATURE_SW_ADVANCED
-    if (LibInfo->has(LibFunc_memset) && OptLevel > CodeGenOpt::Less &&
+    if (LibInfo->has(LibFunc_memset) && OptLevel > CodeGenOptLevel::Less &&
         MF->getTarget().Options.IntelLibIRCAllowed) {
       libcall = RTLIB::INTEL_MEMSET;
     }
