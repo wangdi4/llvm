@@ -229,7 +229,6 @@ namespace {
         : MI(mi), Def(def), FI(fi) {}
     };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     void PopulateDiscriminatorTable(MachineFunction &MF);
     using LocationDiscriminator = std::tuple<StringRef, unsigned, unsigned>;
@@ -268,11 +267,8 @@ namespace {
     RegisterClassInfo RegClassInfo;
     bool IAOpt = false;
 #endif //INTEL_CUSTOMIZATION
-    void HoistRegionPostRA();
-=======
     void HoistRegionPostRA(MachineLoop *CurLoop,
                            MachineBasicBlock *CurPreheader);
->>>>>>> 5ec9699c4d1f165364586d825baef434e2c110b4
 
     void HoistPostRA(MachineInstr *MI, unsigned Def, MachineLoop *CurLoop,
                      MachineBasicBlock *CurPreheader);
@@ -391,20 +387,6 @@ INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(EarlyMachineLICM, "early-machinelicm",
                     "Early Machine Loop Invariant Code Motion", false, false)
 
-<<<<<<< HEAD
-/// Test if the given loop is the outer-most loop that has a unique predecessor.
-static bool LoopIsOuterMostWithPredecessor(MachineLoop *CurLoop) {
-  // Check whether this loop even has a unique predecessor.
-  if (!CurLoop->getLoopPredecessor())
-    return false;
-  // Ok, now check to see if any of its outer loops do.
-  for (MachineLoop *L = CurLoop->getParentLoop(); L; L = L->getParentLoop())
-    if (L->getLoopPredecessor())
-      return false;
-  // None of them did, so this is the outermost with a unique predecessor.
-  return true;
-}
-
 #if INTEL_CUSTOMIZATION
 // To maintain debug information on lines moved out of loops and be able to
 // track profile counts for the line when it is within or outside the loop, we
@@ -438,8 +420,6 @@ void MachineLICMBase::PopulateDiscriminatorTable(MachineFunction& MF) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 5ec9699c4d1f165364586d825baef434e2c110b4
 bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
     return false;
@@ -486,26 +466,8 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
 
   SmallVector<MachineLoop *, 8> Worklist(MLI->begin(), MLI->end());
   while (!Worklist.empty()) {
-<<<<<<< HEAD
-    CurLoop = Worklist.pop_back_val();
-    CurPreheader = nullptr;
-    ExitBlocks.clear();
-
-#if INTEL_CUSTOMIZATION
-    Worklist.append(CurLoop->begin(), CurLoop->end());
-    if (PreRegAlloc) {
-      // If this is done before regalloc, only visit outer-most
-      // preheader-sporting loops.
-      if (!LoopIsOuterMostWithPredecessor(CurLoop) && !IAOpt)
-        continue;
-    }
-#endif
-
-    CurLoop->getExitBlocks(ExitBlocks);
-=======
     MachineLoop *CurLoop = Worklist.pop_back_val();
     MachineBasicBlock *CurPreheader = nullptr;
->>>>>>> 5ec9699c4d1f165364586d825baef434e2c110b4
 
     if (!PreRegAlloc)
       HoistRegionPostRA(CurLoop, CurPreheader);
@@ -628,13 +590,8 @@ void MachineLICMBase::ProcessMI(MachineInstr *MI, BitVector &PhysRegDefs,
   // operands. FIXME: Consider unfold load folding instructions.
   if (Def && !RuledOut) {
     int FI = std::numeric_limits<int>::min();
-<<<<<<< HEAD
-    if ((!HasNonInvariantUse && IsLICMCandidate(*MI)) ||
-        (TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI))) { // INTEL
-=======
     if ((!HasNonInvariantUse && IsLICMCandidate(*MI, CurLoop)) ||
-        (TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI)))
->>>>>>> 5ec9699c4d1f165364586d825baef434e2c110b4
+        (TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI))) { // INTEL
       Candidates.push_back(CandidateInfo(MI, Def, FI));
       return; // INTEL
     } // INTEL
@@ -842,7 +799,7 @@ void MachineLICMBase::HoistRegionPostRA(MachineLoop *CurLoop,
       MBB->getParent()->moveCallSiteInfo(HoistableLoad.MI,
                                          HoistableLoad.NewMIs[1]);
     HoistableLoad.MI->eraseFromParent();
-    HoistPostRA(HoistableLoad.NewMIs[0], AllocReg);
+    HoistPostRA(HoistableLoad.NewMIs[0], AllocReg, CurLoop, CurPreheader);
   }
   MRI->clearVirtRegs();
 #endif //INTEL_CUSTOMIZATION
