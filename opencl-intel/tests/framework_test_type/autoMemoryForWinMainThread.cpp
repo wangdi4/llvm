@@ -23,7 +23,7 @@
 
 extern cl_device_type gDeviceType;
 
-class DisableMasterJoinTest : public ::testing::Test {
+class AutoMemoryForWinMainThreadTest : public ::testing::Test {
 protected:
   cl_platform_id platform_private;
   cl_device_id device_private;
@@ -33,11 +33,9 @@ protected:
   cl_mem buffer_private;
   cl_program program_private;
 
-  // In test with disabling master join we allocate 1.5 MB for array, set
-  // private mem size 2MB via environment CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE.
-  // Default stack size is 1MB for windows x86 and x64. And there will be no
-  // stack overflow issue since master thread does not participate in kernel
-  // computations on O0 mode for Windows.
+  // Kernel allocates 1.5 MB for array which is greater than windows default
+  // stack size 1MB. And there will be no stack overflow issue since auto memory
+  // is actived.
   const std::string programSources =
       "__kernel void test(__global int* o)\n"
       "{\n"
@@ -58,7 +56,7 @@ protected:
                        const std::string &options);
 };
 
-void DisableMasterJoinTest::setUp() {
+void AutoMemoryForWinMainThreadTest::setUp() {
   cl_int iRet = clGetPlatformIDs(1, &platform_private, nullptr);
   ASSERT_OCL_SUCCESS(iRet, "clGetPlatformIDs");
 
@@ -79,7 +77,8 @@ void DisableMasterJoinTest::setUp() {
   ASSERT_OCL_SUCCESS(iRet, "clCreateCommandQueueWithProperties");
 }
 
-cl_ulong DisableMasterJoinTest::trySetPrivateMemSize(cl_ulong size,
+cl_ulong
+AutoMemoryForWinMainThreadTest::trySetPrivateMemSize(cl_ulong size,
                                                      std::string unit) {
   std::string str;
   if (unit.empty() || unit == "B")
@@ -99,7 +98,7 @@ cl_ulong DisableMasterJoinTest::trySetPrivateMemSize(cl_ulong size,
 }
 
 #ifdef _WIN32
-TEST_F(DisableMasterJoinTest, testWithSource) {
+TEST_F(AutoMemoryForWinMainThreadTest, testWithSource) {
   printf("testWithSource\n");
 
   // Set private mem size 2MB
@@ -110,8 +109,7 @@ TEST_F(DisableMasterJoinTest, testWithSource) {
 
   const char *ps = programSources.c_str();
   std::string options =
-      "-DPRI_MEM_SIZE=" + std::to_string(expectedPrivateMemSize) +
-      " -cl-opt-disable";
+      "-DPRI_MEM_SIZE=" + std::to_string(expectedPrivateMemSize);
   ASSERT_TRUE(BuildProgramSynch(context_private, 1, (const char **)&ps, nullptr,
                                 options.c_str(), &program_private));
 
@@ -119,7 +117,7 @@ TEST_F(DisableMasterJoinTest, testWithSource) {
 }
 #endif
 
-void DisableMasterJoinTest::buildFromBinary(
+void AutoMemoryForWinMainThreadTest::buildFromBinary(
     const std::vector<unsigned char> &binary, const std::string &options) {
   // Create and build program
   cl_int binaryStatus[1];
@@ -138,7 +136,7 @@ void DisableMasterJoinTest::buildFromBinary(
 }
 
 #ifdef _WIN32
-TEST_F(DisableMasterJoinTest, testWithBinary) {
+TEST_F(AutoMemoryForWinMainThreadTest, testWithBinary) {
   printf("testWithBinary\n");
 
   cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(1024 * 1024 * 2, "M");
@@ -148,8 +146,7 @@ TEST_F(DisableMasterJoinTest, testWithBinary) {
 
   const char *ps = programSources.c_str();
   std::string options =
-      "-DPRI_MEM_SIZE=" + std::to_string(expectedPrivateMemSize) +
-      " -cl-opt-disable";
+      "-DPRI_MEM_SIZE=" + std::to_string(expectedPrivateMemSize);
   ASSERT_TRUE(BuildProgramSynch(context_private, 1, (const char **)&ps, nullptr,
                                 options.c_str(), &program_private));
 
@@ -174,7 +171,7 @@ TEST_F(DisableMasterJoinTest, testWithBinary) {
 }
 #endif
 
-void DisableMasterJoinTest::cleanupPrivate() {
+void AutoMemoryForWinMainThreadTest::cleanupPrivate() {
   if (buffer_private)
     clReleaseMemObject(buffer_private);
   if (kernel_private)
@@ -187,7 +184,7 @@ void DisableMasterJoinTest::cleanupPrivate() {
     clReleaseContext(context_private);
 }
 
-void DisableMasterJoinTest::clDevicePrivateMemSizeTestBody() {
+void AutoMemoryForWinMainThreadTest::clDevicePrivateMemSizeTestBody() {
   cl_int iRet = CL_SUCCESS;
   const size_t global_work_size = 1;
   buffer_private =
