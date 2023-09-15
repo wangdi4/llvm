@@ -7530,11 +7530,27 @@ __tgt_interop *__tgt_rtl_create_interop(
   }
 
   Ret->RTLProperty = new L0Interop::Property();
-  if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
+  if ((InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) ||
+      (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC_INORDER)) {
+
+    // Currently we only support prefer-type level0 and sycl
+    // Default is level0.
+    // For sycl we need to wrap  the interop  object with sycl wrapper.
+    bool FoundSYCL = false;
+    for (int I = 0; I < NumPrefers; I++) {
+      if (PreferIDs[I] == omp_ifr_level_zero)
+        break;
+      else if (PreferIDs[I] == omp_ifr_sycl) {
+        FoundSYCL = true;
+        break;
+      }
+    }
+
     auto L0 = static_cast<L0Interop::Property *>(Ret->RTLProperty);
 
-    if ((InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC_INORDER) ||
-        DeviceInfo->Option.SyclWrapperInorderSyclQueue)
+    if (FoundSYCL &&
+        ((InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC_INORDER) ||
+         DeviceInfo->Option.SyclWrapperInorderSyclQueue))
       L0->InOrder = true;
     else
       L0->InOrder = false;
@@ -7548,22 +7564,9 @@ __tgt_interop *__tgt_rtl_create_interop(
       L0->CommandQueue =
           static_cast<ze_command_queue_handle_t>(Ret->TargetSync);
     }
-  }
 
-  // Currently we only support prefer-type level0 and sycl
-  // Default is level0.
-  // For sycl we need to wrap  the interop  object with sycl wrapper.
-  bool FoundSYCL = false;
-  for (int I = 0; I < NumPrefers; I++) {
-    if (PreferIDs[I] == omp_ifr_level_zero)
-      break;
-    else if (PreferIDs[I] == omp_ifr_sycl) {
-      FoundSYCL = true;
-      break;
-    }
-  }
-  if (FoundSYCL) {
-    L0Interop::wrapInteropSycl(Ret);
+    if (FoundSYCL)
+      L0Interop::wrapInteropSycl(Ret);
   }
 
   return Ret;

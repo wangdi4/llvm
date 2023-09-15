@@ -394,7 +394,7 @@ void bar7(float *A, int N, int S)
   //CHECK-NEXT:    [[TMP68:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_22]], align 4
   //CHECK-NEXT:    [[CMP103:%.*]] = icmp slt i32 0, [[TMP68]]
   //CHECK-NEXT:    br i1 [[CMP103]], label [[OMP_PRECOND_THEN104:%.*]], label [[OMP_PRECOND_END120:%.*]]
-  //CHECK:       omp.precond.then104:
+  //CHECK:       omp.precond.then{{[0-9]*}}:
   //CHECK-NEXT:    [[TMP69:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_24]], align 4
   //CHECK-NEXT:    store i32 [[TMP69]], ptr [[DOTOMP_UB106:%.*]], align 4
   //CHECK-NEXT:    [[TMP70:%.*]] = load i32, ptr [[DOTNEW_STEP23]], align 4

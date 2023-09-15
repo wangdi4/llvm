@@ -218,6 +218,7 @@ def "QUAL.OMP.UPDATE" : Clause;
 def "QUAL.OMP.UPDATE.SEQ_CST" : Clause;
 def "QUAL.OMP.CAPTURE" : Clause;
 def "QUAL.OMP.CAPTURE.SEQ_CST" : Clause;
+def "QUAL.OMP.PROC_BIND.PRIMARY" : Clause;
 def "QUAL.OMP.PROC_BIND.MASTER" : Clause;
 def "QUAL.OMP.PROC_BIND.CLOSE" : Clause;
 def "QUAL.OMP.PROC_BIND.SPREAD" : Clause;

@@ -719,10 +719,14 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           if (NewCallee) {
             if (!NewCallee->isDeclaration()) {
 #if INTEL_CUSTOMIZATION
-              if (IsAlwaysInlineRecursive)
-                 ICB->addFnAttr(Attribute::AlwaysInlineRecursive);
-              if (IsInlineHintRecursive)
-                 ICB->addFnAttr(Attribute::InlineHintRecursive);
+              // do not propagate recursive inline attributes if callee
+              // is noinline
+              if (!NewCallee->hasFnAttribute(Attribute::NoInline)) {
+                if (IsAlwaysInlineRecursive)
+                  ICB->addFnAttr(Attribute::AlwaysInlineRecursive);
+                if (IsInlineHintRecursive)
+                  ICB->addFnAttr(Attribute::InlineHintRecursive);
+              }
 #endif // INTEL_CUSTOMIZATION
               Calls.push_back({ICB, NewHistoryID});
               // Continually inlining through an SCC can result in huge compile

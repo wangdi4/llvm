@@ -2407,11 +2407,11 @@ typedef enum WRNCancelKind {
 // so do not change them
 //
 typedef enum WRNProcBindKind {
-    WRNProcBindAbsent = 0,   // proc_bind clause not present
-    WRNProcBindTrue   = 1,   // what is this for?
-    WRNProcBindMaster = 2,   // proc_bind(master)
-    WRNProcBindClose  = 3,   // proc_bind(close)
-    WRNProcBindSpread = 4    // proc_bind(srpead)
+  WRNProcBindAbsent  = 0, // proc_bind clause not present
+  WRNProcBindTrue    = 1, // what is this for?
+  WRNProcBindPrimary = 2, // proc_bind(primary)
+  WRNProcBindClose   = 3, // proc_bind(close)
+  WRNProcBindSpread  = 4  // proc_bind(srpead)
 } WRNProcBindKind;
 
 //

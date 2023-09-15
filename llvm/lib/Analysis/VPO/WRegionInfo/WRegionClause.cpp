@@ -91,11 +91,11 @@ DenseMap<int, StringRef> WRNCancelName = {
     {WRNCancelKind::WRNCancelTaskgroup,"TASKGROUP"}};
 
 DenseMap<int, StringRef> WRNProcBindName = {
-    {WRNProcBindKind::WRNProcBindAbsent, "UNSPECIFIED"},
-    {WRNProcBindKind::WRNProcBindTrue,   "TRUE"},
-    {WRNProcBindKind::WRNProcBindMaster, "MASTER"},
-    {WRNProcBindKind::WRNProcBindClose,  "CLOSE"},
-    {WRNProcBindKind::WRNProcBindSpread, "SPREAD"}};
+    {WRNProcBindKind::WRNProcBindAbsent,  "UNSPECIFIED"},
+    {WRNProcBindKind::WRNProcBindTrue,    "TRUE"},
+    {WRNProcBindKind::WRNProcBindPrimary, "PRIMARY"},
+    {WRNProcBindKind::WRNProcBindClose,   "CLOSE"},
+    {WRNProcBindKind::WRNProcBindSpread,  "SPREAD"}};
 
 DenseMap<int, StringRef> WRNLoopBindName = {
     {WRNLoopBindKind::WRNLoopBindAbsent, "UNSPECIFIED"},

@@ -846,8 +846,9 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_NOGROUP:
     setNogroup(true);
     break;
-  case QUAL_OMP_PROC_BIND_MASTER:
-    setProcBind(WRNProcBindMaster);
+  case QUAL_OMP_PROC_BIND_PRIMARY:
+  case QUAL_OMP_PROC_BIND_MASTER: // TODO: remove when FE stop emiting master
+    setProcBind(WRNProcBindPrimary);
     break;
   case QUAL_OMP_PROC_BIND_CLOSE:
     setProcBind(WRNProcBindClose);

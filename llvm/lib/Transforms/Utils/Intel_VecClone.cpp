@@ -495,7 +495,6 @@ void VecCloneImpl::Factory::cloneFunction() {
   Function::arg_iterator NewArgIt = Clone->arg_begin();
   for (Argument &Arg : F.args()) {
     VMap[&Arg] = &*NewArgIt;
-    ReverseVMap[&*NewArgIt] = &Arg;
     int NumChunks = ArgChunks[Arg.getArgNo()];
     SetArgName(NewArgIt, Arg.getName(), NumChunks);
   }
@@ -976,8 +975,8 @@ VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
 }
 
 Value *VecCloneImpl::Factory::generateStrideForArgument(
-    Value *Arg, Instruction *ArgUser, Value *Stride, PHINode *Phi,
-    const VFParameter &Parm) {
+    Value *Arg, unsigned ArgIdx, Instruction *ArgUser, Value *Stride,
+    PHINode *Phi, const VFParameter &Parm) {
   // For linear values, a mul + add/gep sequence is needed to generate the
   // correct value. i.e., val = linear_var + stride * loop_index;
 
@@ -1023,7 +1022,7 @@ Value *VecCloneImpl::Factory::generateStrideForArgument(
       // stride, then the stride in bytes is %c * pointee size. The pointee
       // size information is obtained via the
       // llvm.intel.directive.elementsize intrinsic.
-      Value *EltSize = PointeeTypeSize.lookup(ReverseVMap[Arg]);
+      Value *EltSize = PointeeTypeSize[ArgIdx];
       assert(EltSize && "No llvm.intel.directive.elementsize intrinsic?");
       // TODO: We can change VecClone to generate i64 phis for the loop iv and
       // make the last conversion unnecessary. This will also remove a
@@ -1263,7 +1262,7 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
         }
 
         Value *StrideInst =
-            generateStrideForArgument(ArgVal, User, StrideVal, Phi, Parm);
+            generateStrideForArgument(ArgVal, I, User, StrideVal, Phi, Parm);
         User->setOperand(U.getOperandNo(), StrideInst);
       }
     } else if (Parm.isLinearUVal() || Parm.isLinearVal()) {
@@ -1559,7 +1558,8 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
         for (auto &U : make_early_inc_range(ArgValLoad->uses())) {
           auto *User = cast<Instruction>(U.getUser());
           Value *StrideInst =
-              generateStrideForArgument(ArgValLoad, User, StrideVal, Phi, Parm);
+              generateStrideForArgument(ArgValLoad, I, User, StrideVal, Phi,
+                                        Parm);
           User->setOperand(U.getOperandNo(), StrideInst);
         }
       }
@@ -1950,15 +1950,16 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
     // before cloning will ensure they don't make it into the vector versions
     // of the function.
     SmallVector<IntrinsicInst *, 2> IntrinsicsToRemove;
-    /// The map of linear pointer args to pointee type size.
-    DenseMap<Value *, Value *> PointeeTypeSize;
+    /// Vector of pointee type sizes based on argument position in the function
+    /// signature.
+    SmallVector<Value *> PointeeTypeSize(F.arg_size(), nullptr);
     for (auto &Inst : instructions(F)) {
       Instruction *I = &Inst;
       if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
         if (II->getIntrinsicID() == Intrinsic::intel_directive_elementsize) {
           Value *Arg = II->getOperand(0);
           Value *ElemSize = II->getOperand(1);
-          PointeeTypeSize[Arg] = ElemSize;
+          PointeeTypeSize[cast<Argument>(Arg)->getArgNo()] = ElemSize;
           IntrinsicsToRemove.push_back(II);
         }
       }

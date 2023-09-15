@@ -185,12 +185,12 @@ for (int i=0; i<16; ++i) {
  #pragma omp parallel for
  #pragma unroll(4)
  for (iter = first1(); iter < last1(); ++iter) { }
- // CHECK: br label {{.*}}, !llvm.loop ![[LOOP_1:.*]]
+ // CHECK: br {{.*}}label {{.*}}, !llvm.loop ![[LOOP_1:.*]]
 
  #pragma omp parallel for
  #pragma unroll
  for (iter = first1(); iter < last1(); ++iter) { }
- // CHECK: br label {{.*}}, !llvm.loop ![[LOOP_2:.*]]
+ // CHECK: br {{.*}}label {{.*}}, !llvm.loop ![[LOOP_2:.*]]
 }
 
 // CHECK: doacross_test

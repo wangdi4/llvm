@@ -902,6 +902,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_CAPTURE:
     case QUAL_OMP_MERGEABLE:
     case QUAL_OMP_NOGROUP:
+    case QUAL_OMP_PROC_BIND_PRIMARY:
     case QUAL_OMP_PROC_BIND_MASTER:
     case QUAL_OMP_PROC_BIND_CLOSE:
     case QUAL_OMP_PROC_BIND_SPREAD:
