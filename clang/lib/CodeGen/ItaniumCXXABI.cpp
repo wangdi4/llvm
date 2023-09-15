@@ -694,7 +694,7 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
   CGF.EmitBlock(FnVirtual);
 
   // Cast the adjusted this to a pointer to vtable pointer and load.
-  llvm::Type *VTableTy = Builder.getInt8PtrTy();
+  llvm::Type *VTableTy = CGF.CGM.GlobalsInt8PtrTy;
   CharUnits VTablePtrAlign =
     CGF.CGM.getDynamicOffsetAlignment(ThisAddr.getAlignment(), RD,
                                       CGF.getPointerAlign());
@@ -1797,7 +1797,9 @@ ItaniumCXXABI::buildStructorSignature(GlobalDecl GD,
                                              : GD.getDtorType() == Dtor_Base) &&
       cast<CXXMethodDecl>(GD.getDecl())->getParent()->getNumVBases() != 0) {
 #if INTEL_COLLAB
-    LangAS AS = LangAS::Default;
+    LangAS AS = CGM.getTriple().isSPIR()
+                    ? LangAS::Default
+                    : CGM.GetGlobalVarAddressSpace(nullptr);
 #else // INTEL_COLLAB
     LangAS AS = CGM.GetGlobalVarAddressSpace(nullptr);
 #endif // INTEL_COLLAB
@@ -1837,7 +1839,9 @@ void ItaniumCXXABI::addImplicitStructorParams(CodeGenFunction &CGF,
 
     // FIXME: avoid the fake decl
 #if INTEL_COLLAB
-    LangAS AS = LangAS::Default;
+    LangAS AS = CGM.getTriple().isSPIR()
+                    ? LangAS::Default
+                    : CGM.GetGlobalVarAddressSpace(nullptr);
 #else // INTEL_COLLAB
     LangAS AS = CGM.GetGlobalVarAddressSpace(nullptr);
 #endif // INTEL_COLLAB
@@ -1890,7 +1894,8 @@ CGCXXABI::AddedStructorArgs ItaniumCXXABI::getImplicitConstructorArgs(
   llvm::Value *VTT =
       CGF.GetVTTParameter(GlobalDecl(D, Type), ForVirtualBase, Delegating);
 #if INTEL_COLLAB
-  LangAS AS = LangAS::Default;
+  LangAS AS = CGM.getTriple().isSPIR() ? LangAS::Default
+                                       : CGM.GetGlobalVarAddressSpace(nullptr);
 #else // INTEL_COLLAB
   LangAS AS = CGM.GetGlobalVarAddressSpace(nullptr);
 #endif // INTEL_COLLAB
@@ -2074,20 +2079,21 @@ llvm::Value *ItaniumCXXABI::getVTableAddressPointInStructorWithVTT(
   llvm::Value *VTT = CGF.LoadCXXVTT();
   if (VirtualPointerIndex)
 #if INTEL_COLLAB
-    VTT = CGF.Builder.CreateConstInBoundsGEP1_64(
-        CGF.DefaultInt8PtrTy, VTT, VirtualPointerIndex);
-
+    if (CGF.CGM.getTriple().isSPIR())
+      VTT = CGF.Builder.CreateConstInBoundsGEP1_64(CGF.DefaultInt8PtrTy, VTT,
+                                                   VirtualPointerIndex);
+    else
+#endif // INTEL_COLLAB
+    VTT = CGF.Builder.CreateConstInBoundsGEP1_64(CGF.GlobalsVoidPtrTy, VTT,
+                                                 VirtualPointerIndex);
   // And load the address point from the VTT.
-  return CGF.Builder.CreateAlignedLoad(CGF.DefaultInt8PtrTy, VTT,
-                                       CGF.getPointerAlign());
-#else // INTEL_COLLAB
-    VTT = CGF.Builder.CreateConstInBoundsGEP1_64(
-        CGF.VoidPtrTy, VTT, VirtualPointerIndex);
-
-  // And load the address point from the VTT.
-  return CGF.Builder.CreateAlignedLoad(CGF.VoidPtrTy, VTT,
-                                       CGF.getPointerAlign());
+#if INTEL_COLLAB
+  if (CGF.CGM.getTriple().isSPIR())
+    return CGF.Builder.CreateAlignedLoad(CGF.DefaultInt8PtrTy, VTT,
+                                         CGF.getPointerAlign());
 #endif  // INTEL_COLLAB
+  return CGF.Builder.CreateAlignedLoad(CGF.GlobalsVoidPtrTy, VTT,
+                                       CGF.getPointerAlign());
 }
 
 llvm::Constant *ItaniumCXXABI::getVTableAddressPointForConstExpr(
@@ -2120,12 +2126,13 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
       CGM.getItaniumVTableContext().getVTableLayout(RD);
   llvm::Type *VTableType = CGM.getVTables().getVTableType(VTLayout);
 
-  // Use pointer alignment for the vtable. Otherwise we would align them based
-  // on the size of the initializer which doesn't make sense as only single
-  // values are read.
+  // Use pointer to global alignment for the vtable. Otherwise we would align
+  // them based on the size of the initializer which doesn't make sense as only
+  // single values are read.
+  LangAS AS = CGM.GetGlobalVarAddressSpace(nullptr);
   unsigned PAlign = CGM.getItaniumVTableContext().isRelativeLayout()
                         ? 32
-                        : CGM.getTarget().getPointerAlign(LangAS::Default);
+                        : CGM.getTarget().getPointerAlign(AS);
 
   VTable = CGM.CreateOrReplaceCXXRuntimeVariable(
       Name, VTableType, llvm::GlobalValue::ExternalLinkage,
@@ -3592,16 +3599,17 @@ ItaniumRTTIBuilder::GetAddrOfExternalRTTIDescriptor(QualType Ty) {
     // RTTI, check if emitting vtables opportunistically need any adjustment.
 
 #if INTEL_COLLAB
-    GV = new llvm::GlobalVariable(CGM.getModule(), CGM.DefaultInt8PtrTy,
-                                  /*isConstant=*/true,
-                                  llvm::GlobalValue::ExternalLinkage, nullptr,
-                                  Name);
-#else // INTEL_COLLAB
-    GV = new llvm::GlobalVariable(CGM.getModule(), CGM.Int8PtrTy,
-                                  /*isConstant=*/true,
-                                  llvm::GlobalValue::ExternalLinkage, nullptr,
-                                  Name);
+    if (CGM.getTriple().isSPIR())
+      GV = new llvm::GlobalVariable(CGM.getModule(), CGM.DefaultInt8PtrTy,
+                                    /*isConstant=*/true,
+                                    llvm::GlobalValue::ExternalLinkage, nullptr,
+                                    Name);
+    else
 #endif // INTEL_COLLAB
+    GV = new llvm::GlobalVariable(CGM.getModule(), CGM.GlobalsInt8PtrTy,
+                                  /*isConstant=*/true,
+                                  llvm::GlobalValue::ExternalLinkage, nullptr,
+                                  Name);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -3623,13 +3631,13 @@ ItaniumRTTIBuilder::GetAddrOfExternalRTTIDescriptor(QualType Ty) {
       }
     }
   }
-
 #if INTEL_COLLAB
-  return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-      GV, CGM.DefaultInt8PtrTy);
-#else // INTEL_COLLAB
-  return llvm::ConstantExpr::getBitCast(GV, CGM.Int8PtrTy);
+  if (CGM.getTriple().isSPIR())
+    return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+        GV, CGM.DefaultInt8PtrTy);
 #endif // INTEL_COLLAB
+
+  return GV;
 }
 
 /// TypeInfoIsInStandardLibrary - Given a builtin type, returns whether the type
@@ -4016,10 +4024,22 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   // Check if the alias exists. If it doesn't, then get or create the global.
   if (CGM.getItaniumVTableContext().isRelativeLayout())
     VTable = CGM.getModule().getNamedAlias(VTableName);
+<<<<<<< HEAD
   if (!VTable) {
     llvm::Type *Ty = llvm::ArrayType::get(CGM.GlobalsInt8PtrTy, 0);
     VTable = CGM.getModule().getOrInsertGlobal(VTableName, Ty);
   }
+=======
+
+  if (!VTable)
+#if INTEL_COLLAB
+    if (CGM.getTriple().isSPIR())
+      VTable = CGM.CreateRuntimeVariable(CGM.DefaultInt8PtrTy, VTableName);
+    else
+#endif // INTEL_COLLAB
+    VTable =
+        CGM.getModule().getOrInsertGlobal(VTableName, CGM.GlobalsInt8PtrTy);
+>>>>>>> 62ea9ded8bbea3fa39bd87c9295494090cb54256
 
   CGM.setDSOLocal(cast<llvm::GlobalValue>(VTable->stripPointerCasts()));
 
@@ -4048,8 +4068,15 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
         llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.Int8Ty, VTable, Eight);
   } else {
     llvm::Constant *Two = llvm::ConstantInt::get(PtrDiffTy, 2);
-    VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(CGM.DefaultInt8PtrTy,
-                                                          VTable, Two);
+
+#if INTEL_COLLAB
+    if (CGM.getTriple().isSPIR())
+      VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(
+          CGM.DefaultInt8PtrTy, VTable, Two);
+    else
+#endif // INTEL_COLLAB
+    VTable = llvm::ConstantExpr::getInBoundsGetElementPtr(
+        CGM.GlobalsInt8PtrTy, VTable, Two);
   }
 
   Fields.push_back(VTable);
@@ -4123,11 +4150,11 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(QualType Ty) {
            "available_externally typeinfos not yet implemented");
 
 #if INTEL_COLLAB
-    return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-        OldGV, CGM.DefaultInt8PtrTy);
-#else // INTEL_COLLAB
-    return llvm::ConstantExpr::getBitCast(OldGV, CGM.Int8PtrTy);
+    if (CGM.getTriple().isSPIR())
+      return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+          OldGV, CGM.DefaultInt8PtrTy);
 #endif // INTEL_COLLAB
+    return OldGV;
   }
 
   // Check if there is already an external RTTI descriptor for this type.
@@ -4186,20 +4213,16 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
     llvm::Constant *flag =
         llvm::ConstantInt::get(CGM.Int64Ty, ((uint64_t)1) << 63);
     TypeNameField = llvm::ConstantExpr::getAdd(TypeNameField, flag);
-#if INTEL_COLLAB
     TypeNameField =
-        llvm::ConstantExpr::getIntToPtr(TypeNameField, CGM.DefaultInt8PtrTy);
-#else // INTEL_COLLAB
-    TypeNameField =
-        llvm::ConstantExpr::getIntToPtr(TypeNameField, CGM.Int8PtrTy);
-#endif // INTEL_COLLAB
+        llvm::ConstantExpr::getIntToPtr(TypeNameField, CGM.GlobalsInt8PtrTy);
   } else {
 #if INTEL_COLLAB
-    TypeNameField = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-        TypeName, CGM.DefaultInt8PtrTy);
-#else // INTEL_COLLAB
-    TypeNameField = llvm::ConstantExpr::getBitCast(TypeName, CGM.Int8PtrTy);
+    if (CGM.getTriple().isSPIR())
+      TypeNameField = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+          TypeName, CGM.DefaultInt8PtrTy);
+    else
 #endif // INTEL_COLLAB
+    TypeNameField = TypeName;
   }
   Fields.push_back(TypeNameField);
 
@@ -4334,7 +4357,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
     GV->setComdat(M.getOrInsertComdat(GV->getName()));
 
   CharUnits Align = CGM.getContext().toCharUnitsFromBits(
-      CGM.getTarget().getPointerAlign(LangAS::Default));
+      CGM.getTarget().getPointerAlign(CGM.GetGlobalVarAddressSpace(nullptr)));
   GV->setAlignment(Align.getAsAlign());
 
   // The Itanium ABI specifies that type_info objects must be globally
@@ -4367,16 +4390,16 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   GV->setPartition(CGM.getCodeGenOpts().SymbolPartition);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-  GV = CGM.addDTransTypeInfo(GV, Fields); 
+  GV = CGM.addDTransTypeInfo(GV, Fields);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
-  return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-      GV, CGM.DefaultInt8PtrTy);
-#else // INTEL_COLLAB
-  return llvm::ConstantExpr::getBitCast(GV, CGM.Int8PtrTy);
+  if (CGM.getTriple().isSPIR())
+    return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+        GV, CGM.DefaultInt8PtrTy);
 #endif // INTEL_COLLAB
+  return GV;
 }
 
 /// BuildObjCObjectTypeInfo - Build the appropriate kind of type_info
