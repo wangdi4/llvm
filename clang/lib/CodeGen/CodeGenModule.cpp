@@ -8878,11 +8878,11 @@ llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,
   // and it's not for EH?
   if (!shouldEmitRTTI(ForEH))
 #if INTEL_COLLAB
-    return llvm::Constant::getNullValue(DefaultInt8PtrTy);
-#else // INTEL_COLLAB
-    return llvm::Constant::getNullValue(Int8PtrTy);
+    if (getTriple().isSPIR())
+      return llvm::Constant::getNullValue(DefaultInt8PtrTy);
+    else
 #endif // INTEL_COLLAB
-
+    return llvm::Constant::getNullValue(GlobalsInt8PtrTy);
   if (ForEH && Ty->isObjCObjectPointerType() &&
       LangOpts.ObjCRuntime.isGNUFamily())
     return ObjCRuntime->GetEHType(Ty);
