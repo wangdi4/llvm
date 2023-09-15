@@ -2623,13 +2623,6 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   // vtable field is derived from `this` pointer, therefore they should be in
   // the same addr space. Note that this might not be LLVM address space 0.
   VTableField = VTableField.withElementType(PtrTy);
-<<<<<<< HEAD
-=======
-#if INTEL_COLLAB
-  VTableAddressPoint = Builder.CreatePointerBitCastOrAddrSpaceCast(
-      VTableAddressPoint, VTablePtrTy);
-#endif // INTEL_COLLAB
->>>>>>> 62ea9ded8bbea3fa39bd87c9295494090cb54256
 
   llvm::StoreInst *Store = Builder.CreateStore(VTableAddressPoint, VTableField);
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTablePtrTy);
@@ -2726,14 +2719,9 @@ llvm::Value *CodeGenFunction::GetVTablePtr(Address This, llvm::Type *VTableTy,
                                            const CXXRecordDecl *RD) {
 #if INTEL_COLLAB
   unsigned AS = CGM.getContext().getTargetAddressSpace(LangAS::Default);
-<<<<<<< HEAD
-  VTableTy = llvm::PointerType::get(getLLVMContext(), AS);
-#endif  // INTEL_COLLAB
-=======
   if (CGM.getTriple().isSPIR())
     VTableTy = llvm::PointerType::get(getLLVMContext(), AS);
 #endif // INTEL_COLLAB
->>>>>>> 62ea9ded8bbea3fa39bd87c9295494090cb54256
   Address VTablePtrSrc = This.withElementType(VTableTy);
   llvm::Instruction *VTable = Builder.CreateLoad(VTablePtrSrc, "vtable");
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTableTy);
