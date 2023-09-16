@@ -222,7 +222,6 @@ namespace {
         : MI(mi), Def(def), FI(fi) {}
     };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     void PopulateDiscriminatorTable(MachineFunction &MF);
     using LocationDiscriminator = std::tuple<StringRef, unsigned, unsigned>;
@@ -261,11 +260,7 @@ namespace {
     RegisterClassInfo RegClassInfo;
     bool IAOpt = false;
 #endif //INTEL_CUSTOMIZATION
-    void HoistRegionPostRA(MachineLoop *CurLoop,
-                           MachineBasicBlock *CurPreheader);
-=======
     void HoistRegionPostRA();
->>>>>>> 3454cf67bd0a650097dc6ca99874a34e1d59b500
 
     void HoistPostRA(MachineInstr *MI, unsigned Def);
 
@@ -379,7 +374,6 @@ INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(EarlyMachineLICM, "early-machinelicm",
                     "Early Machine Loop Invariant Code Motion", false, false)
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // To maintain debug information on lines moved out of loops and be able to
 // track profile counts for the line when it is within or outside the loop, we
@@ -412,7 +406,6 @@ void MachineLICMBase::PopulateDiscriminatorTable(MachineFunction& MF) {
   }
 }
 #endif // INTEL_CUSTOMIZATION
-=======
 /// Test if the given loop is the outer-most loop that has a unique predecessor.
 static bool LoopIsOuterMostWithPredecessor(MachineLoop *CurLoop) {
   // Check whether this loop even has a unique predecessor.
@@ -425,7 +418,6 @@ static bool LoopIsOuterMostWithPredecessor(MachineLoop *CurLoop) {
   // None of them did, so this is the outermost with a unique predecessor.
   return true;
 }
->>>>>>> 3454cf67bd0a650097dc6ca99874a34e1d59b500
 
 bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
@@ -607,13 +599,8 @@ void MachineLICMBase::ProcessMI(MachineInstr *MI,
   // operands. FIXME: Consider unfold load folding instructions.
   if (Def && !RuledOut) {
     int FI = std::numeric_limits<int>::min();
-<<<<<<< HEAD
-    if ((!HasNonInvariantUse && IsLICMCandidate(*MI, CurLoop)) ||
-        (TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI))) { // INTEL
-=======
     if ((!HasNonInvariantUse && IsLICMCandidate(*MI)) ||
-        (TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI)))
->>>>>>> 3454cf67bd0a650097dc6ca99874a34e1d59b500
+        (TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI))) { // INTEL
       Candidates.push_back(CandidateInfo(MI, Def, FI));
       return; // INTEL
     } // INTEL
@@ -819,7 +806,7 @@ void MachineLICMBase::HoistRegionPostRA() {
       MBB->getParent()->moveCallSiteInfo(HoistableLoad.MI,
                                          HoistableLoad.NewMIs[1]);
     HoistableLoad.MI->eraseFromParent();
-    HoistPostRA(HoistableLoad.NewMIs[0], AllocReg, CurLoop, CurPreheader);
+    HoistPostRA(HoistableLoad.NewMIs[0], AllocReg);
   }
   MRI->clearVirtRegs();
 #endif //INTEL_CUSTOMIZATION
