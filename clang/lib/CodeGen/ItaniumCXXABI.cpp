@@ -4024,7 +4024,6 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   // Check if the alias exists. If it doesn't, then get or create the global.
   if (CGM.getItaniumVTableContext().isRelativeLayout())
     VTable = CGM.getModule().getNamedAlias(VTableName);
-<<<<<<< HEAD
 
   if (!VTable)
 #if INTEL_COLLAB
@@ -4034,12 +4033,6 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
 #endif // INTEL_COLLAB
     VTable =
         CGM.getModule().getOrInsertGlobal(VTableName, CGM.GlobalsInt8PtrTy);
-=======
-  if (!VTable) {
-    llvm::Type *Ty = llvm::ArrayType::get(CGM.DefaultInt8PtrTy, 0);
-    VTable = CGM.CreateRuntimeVariable(Ty, VTableName);
-  }
->>>>>>> 0989c8a4884e8627310b63dde31572ff9af58d6b
 
   CGM.setDSOLocal(cast<llvm::GlobalValue>(VTable->stripPointerCasts()));
 
