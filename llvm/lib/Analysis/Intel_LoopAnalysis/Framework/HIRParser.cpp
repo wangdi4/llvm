@@ -1869,7 +1869,7 @@ bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
     int64_t OpMultiplier;
     BlobTy NewOp;
 
-    if (!breakConstantMultiplierCommutativeBlob(Op, &OpMultiplier, &NewOp)) {
+    if (!breakConstantMultiplierAddOrMulBlob(Op, &OpMultiplier, &NewOp)) {
       Ops.push_back(Op);
       continue;
     }
@@ -1899,10 +1899,10 @@ bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
   return true;
 }
 
-bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
-                                                       int64_t *Multiplier,
-                                                       BlobTy *NewBlob,
-                                                       bool IsTop) {
+bool HIRParser::breakConstantMultiplierAddOrMulBlob(BlobTy Blob,
+                                                    int64_t *Multiplier,
+                                                    BlobTy *NewBlob,
+                                                    bool IsTop) {
 
   if (auto *Const = dyn_cast<SCEVConstant>(Blob)) {
     if (!IsTop) {
@@ -1918,9 +1918,9 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
     return breakConstantMultiplierMulBlob(MulBlob, Multiplier, NewBlob);
   }
 
-  auto *CommutativeBlob = dyn_cast<SCEVCommutativeExpr>(Blob);
+  auto *AddBlob = dyn_cast<SCEVAddExpr>(Blob);
 
-  if (!CommutativeBlob) {
+  if (!AddBlob) {
     return false;
   }
 
@@ -1931,14 +1931,14 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
   SmallVector<BlobTy, 4> Ops;
   SmallVector<int64_t, 4> OpMultipliers;
 
-  for (auto I : CommutativeBlob->operands()) {
+  for (auto I : AddBlob->operands()) {
 
     BlobTy Op = I;
 
     BlobTy NewOp;
     int64_t OpMultiplier;
 
-    if (!breakConstantMultiplierCommutativeBlob(Op, &OpMultiplier, &NewOp) ||
+    if (!breakConstantMultiplierAddOrMulBlob(Op, &OpMultiplier, &NewOp) ||
         (OpMultiplier == LONG_MIN)) {
       return false;
     }
@@ -1966,35 +1966,13 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
       auto *UnusedMultiplier = ScopedSE.getConstant(
           Ops[I]->getType(), OpMultipliers[I] / LocalMultiplier, true);
 
-      auto *CommutativeOp = dyn_cast<SCEVCommutativeExpr>(Ops[I]);
-
-      Ops[I] = ScopedSE.getMulExpr(
-          Ops[I], UnusedMultiplier,
-          CommutativeOp ? CommutativeOp->getNoWrapFlags() : SCEV::FlagAnyWrap);
+      Ops[I] = ScopedSE.getMulExpr(Ops[I], UnusedMultiplier);
     }
   }
 
   *Multiplier = LocalMultiplier;
 
-  switch (CommutativeBlob->getSCEVType()) {
-  case scAddExpr:
-    *NewBlob = ScopedSE.getAddExpr(Ops, CommutativeBlob->getNoWrapFlags());
-    break;
-  case scUMaxExpr:
-    *NewBlob = ScopedSE.getUMaxExpr(Ops);
-    break;
-  case scSMaxExpr:
-    *NewBlob = ScopedSE.getSMaxExpr(Ops);
-    break;
-  case scUMinExpr:
-    *NewBlob = ScopedSE.getUMinExpr(Ops);
-    break;
-  case scSMinExpr:
-    *NewBlob = ScopedSE.getSMinExpr(Ops);
-    break;
-  default:
-    llvm_unreachable("Unexpected scev type!");
-  }
+  *NewBlob = ScopedSE.getAddExpr(Ops);
 
   return true;
 }
@@ -2002,7 +1980,7 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
 void HIRParser::breakConstantMultiplierBlob(BlobTy Blob, int64_t *Multiplier,
                                             BlobTy *NewBlob) {
 
-  if (breakConstantMultiplierCommutativeBlob(Blob, Multiplier, NewBlob, true)) {
+  if (breakConstantMultiplierAddOrMulBlob(Blob, Multiplier, NewBlob, true)) {
     return;
   }
 

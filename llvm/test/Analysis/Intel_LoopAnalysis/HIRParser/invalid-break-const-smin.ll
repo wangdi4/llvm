@@ -1,9 +1,14 @@
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output 2>&1 | FileCheck %s
+
+; Verify that the smin blob is not broken down using a multiplier of 2 like this-
+; 2 * smin(50, (1 + (-1 * %a.030.out)))
+
+; The transformation is invalid if operations inside smin overflow.
 
 ;       BEGIN REGION { }
 ; CHECK:      + DO i1 = 0, 49999, 1   <DO_LOOP>
 ;             |   %a.030.out = %a.030;
-; CHECK:      |   %a.030 = 0  -  2 * smin(50, (1 + (-1 * %a.030.out)));
+; CHECK:      |   %a.030 = 0  -  smin(100, (2 + (-2 * %a.030.out)));
 ; CHECK:      + END LOOP
 ;       END REGION
 
