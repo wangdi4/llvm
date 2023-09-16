@@ -1305,10 +1305,15 @@ void TargetPassConfig::addMachinePasses() {
   addPass(&LiveDebugValuesID);
   addPass(&MachineSanitizerBinaryMetadataID);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (IntelOptReportEmitter == OptReportOptions::MIR)
     addPass(&MachineOptReportEmitterID);
 #endif  // INTEL_CUSTOMIZATION
+=======
+  if (EnableMachineOutliner == RunOutliner::NeverOutline)
+    TM->Options.EnableMachineOutliner = false;
+>>>>>>> 003bcad9a8b21e15e3786a52b1dafa844075ab84
 
   if (TM->Options.EnableMachineOutliner &&
       getOptLevel() != CodeGenOptLevel::None &&
