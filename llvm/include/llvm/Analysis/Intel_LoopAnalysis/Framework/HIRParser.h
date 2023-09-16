@@ -288,9 +288,8 @@ class HIRParser {
   /// Recusively breaks commutative blobs such as (2 + 2 * n) into multiplier 2
   /// and new blob (1 + n). Returns false if no such multiplier is found. \p
   /// IsTop is true for the topmost call.
-  bool breakConstantMultiplierCommutativeBlob(BlobTy Blob, int64_t *Multiplier,
-                                              BlobTy *NewBlob,
-                                              bool IsTop = false);
+  bool breakConstantMultiplierAddOrMulBlob(BlobTy Blob, int64_t *Multiplier,
+                                           BlobTy *NewBlob, bool IsTop = false);
 
   /// Breaks multiplication blobs such as (2 * n) into multiplier 2 and new blob
   /// n, otherwise sets the multiplier to 1. Also returns new or the orignal
