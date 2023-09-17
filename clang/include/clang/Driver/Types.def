@@ -116,7 +116,11 @@ TYPE("plist",                    Plist,        INVALID,         "plist",  phases
 TYPE("rewritten-objc",           RewrittenObjC,INVALID,         "cpp",    phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("rewritten-legacy-objc",    RewrittenLegacyObjC,INVALID,   "cpp",    phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("remap",                    Remap,        INVALID,         "remap",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+<<<<<<< HEAD
 TYPE("precompiled-header",       PCH,          INVALID,         "pchi",    phases::Compile, phases::Backend, phases::Assemble, phases::Link) // INTEL
+=======
+TYPE("precompiled-header",       PCH,          INVALID,         "pch",    phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+>>>>>>> 4da1c180b996ca0a7f8d64782d1a875eb162ce9c
 TYPE("object",                   Object,       INVALID,         "o",      phases::Link)
 TYPE("treelang",                 Treelang,     INVALID,         nullptr,  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("image",                    Image,        INVALID,         "out",    phases::Compile, phases::Backend, phases::Assemble, phases::Link)
