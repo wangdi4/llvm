@@ -112,12 +112,6 @@ DeviceKernel::DeviceKernel(Kernel *pKernel,
   }
 
   char *kernelAttrs = new char[attrSize];
-  if (nullptr == kernelAttrs) {
-    LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"),
-              pKernelName, CL_DEV_OUT_OF_MEMORY);
-    *pErr = CL_OUT_OF_HOST_MEMORY;
-    return;
-  }
 
   clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(
       m_clDevKernel, CL_DEV_KERNEL_ATTRIBUTES, 0, nullptr, attrSize,
@@ -733,9 +727,6 @@ cl_err_code Kernel::CreateDeviceKernels(
         new DeviceKernel(this, ppDevicePrograms[i]->GetDevice(),
                          ppDevicePrograms[i]->GetDeviceProgramHandle(),
                          GET_LOGGER_CLIENT, &clErrRet);
-    if (NULL == pDeviceKernel) {
-      clErrRet = CL_OUT_OF_HOST_MEMORY;
-    }
     if (CL_FAILED(clErrRet)) {
       LOG_ERROR(TEXT("new DeviceKernel(...) failed (returned %s)"),
                 ClErrTxt(clErrRet));
@@ -896,9 +887,6 @@ cl_err_code Kernel::SetKernelPrototype(const SKernelPrototype &sKernelPrototype,
   }
 
   m_pArgsBlob = new char[maxArgumentBufferSize];
-  if (nullptr == m_pArgsBlob) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
   memset(m_pArgsBlob, 0, maxArgumentBufferSize);
 
   m_sKernelPrototype.m_dispatchBufferProperties.size = maxArgumentBufferSize;

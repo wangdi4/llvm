@@ -369,12 +369,11 @@ void Command::GPA_InitCommand() {
       (pGPAData->bEnableContextTracing)) {
     m_pGpaCommand = nullptr;
     m_pGpaCommand = new ocl_gpa_command();
-    if (nullptr != m_pGpaCommand) {
-      // Create task name strings
-      const char *commandName = GPA_GetCommandName();
-      if (nullptr != commandName) {
-        m_pGpaCommand->m_strCmdName = __itt_string_handle_create(commandName);
-      }
+
+    // Create task name strings
+    const char *commandName = GPA_GetCommandName();
+    if (nullptr != commandName) {
+      m_pGpaCommand->m_strCmdName = __itt_string_handle_create(commandName);
     }
   }
 #endif // ITT
@@ -801,15 +800,10 @@ cl_err_code MapMemObjCommand::Init() {
       (pMemObj->IsSynchDataWithHostRequired(m_pMappedRegion, m_pHostDataPtr))) {
     m_pPostfixCommand = new PrePostFixRuntimeCommand(
         this, PrePostFixRuntimeCommand::POSTFIX_MODE, GetCommandQueue());
-
-    if (nullptr != m_pPostfixCommand) {
-      err = m_pPostfixCommand->Init();
-      if (CL_FAILED(err)) {
-        delete m_pPostfixCommand;
-        m_pPostfixCommand = nullptr;
-      }
-    } else {
-      err = CL_OUT_OF_HOST_MEMORY;
+    err = m_pPostfixCommand->Init();
+    if (CL_FAILED(err)) {
+      delete m_pPostfixCommand;
+      m_pPostfixCommand = nullptr;
     }
 
     if (nullptr == m_pPostfixCommand) {
@@ -1108,19 +1102,14 @@ cl_err_code UnmapMemObjectCommand::Init() {
     m_pPrefixCommand = new PrePostFixRuntimeCommand(
         this, PrePostFixRuntimeCommand::PREFIX_MODE, GetCommandQueue());
 
-    if (nullptr != m_pPrefixCommand) {
-      err = m_pPrefixCommand->Init();
-      if (CL_FAILED(err)) {
-        delete m_pPrefixCommand;
-        m_pPrefixCommand = nullptr;
-      }
-    } else {
-      err = CL_OUT_OF_HOST_MEMORY;
+    err = m_pPrefixCommand->Init();
+    if (CL_FAILED(err)) {
+      delete m_pPrefixCommand;
+      m_pPrefixCommand = nullptr;
     }
 
     if (nullptr == m_pPrefixCommand) {
       pMemObj->UndoMappedRegionInvalidation(m_pMappedRegion);
-
       assert(0);
       return err;
     }
@@ -1355,21 +1344,13 @@ cl_err_code NativeKernelCommand::Init() {
     return CL_INVALID_KERNEL_ARGS;
   }
   char *pNewArgs = new char[m_szCbArgs];
-  if (nullptr == pNewArgs) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   // Now copy the whole buffer
   MEMCPY_S(pNewArgs, m_szCbArgs, m_pArgs, m_szCbArgs);
 
   size_t *ppNewArgsOffset = nullptr;
-  if (m_uNumMemObjects > 0) {
+  if (m_uNumMemObjects > 0)
     ppNewArgsOffset = new size_t[m_uNumMemObjects];
-    if (nullptr == ppNewArgsOffset) {
-      delete[] pNewArgs;
-      return CL_OUT_OF_HOST_MEMORY;
-    }
-  }
 
   cl_uint i;
   for (i = 0; i < m_uNumMemObjects; i++) {
@@ -2710,10 +2691,6 @@ cl_err_code MigrateSVMMemCommand::Init() {
   m_migrateCmdParams.memObjs =
       new IOCLDevMemoryObject *[m_migrateCmdParams.mem_num];
 
-  if (nullptr == m_migrateCmdParams.memObjs) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
-
   MemoryObject::MemObjUsage access =
       (0 !=
        (m_migrateCmdParams.flags & CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED))
@@ -2817,10 +2794,6 @@ cl_err_code MigrateMemObjCommand::Init() {
   // Allocate
   m_migrateCmdParams.memObjs =
       new IOCLDevMemoryObject *[m_migrateCmdParams.mem_num];
-
-  if (nullptr == m_migrateCmdParams.memObjs) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   MemoryObject::MemObjUsage access =
       (0 !=
