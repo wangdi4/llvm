@@ -5254,12 +5254,16 @@ void Clang::ConstructHostCompilerJob(Compilation &C, const JobAction &JA,
 
   // Add default header search directories.
   SmallString<128> BaseDir(C.getDriver().Dir);
+  llvm::sys::path::append(BaseDir, "..");
 #if INTEL_CUSTOMIZATION
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
-  llvm::sys::path::append(BaseDir, "..");
+  // When in the unified layout, the headers are in opt/compiler/include/sycl
+  llvm::sys::path::append(BaseDir, "..", "opt", "compiler");
+  llvm::sys::path::append(BaseDir, "include", "sycl");
+#else
+  llvm::sys::path::append(BaseDir, "include");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 #endif // INTEL_CUSTOMIZATION
-  llvm::sys::path::append(BaseDir, "..", "include");
   SmallString<128> SYCLDir(BaseDir);
   llvm::sys::path::append(SYCLDir, "sycl");
   HostCompileArgs.push_back("-I");

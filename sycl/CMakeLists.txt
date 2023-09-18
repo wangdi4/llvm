@@ -164,6 +164,15 @@ set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION
 set(SYCL_INCLUDE_DIR "include")
 set(SYCL_INCLUDE_BUILD_DIR ${LLVM_BINARY_DIR}/${SYCL_INCLUDE_DIR})
 
+# INTEL_CUSTOMIZATION
+# From this point on all uses of SYCL_INCLUDE_DIR are constructing installation
+# destinations. The product compiler places sycl headers in the
+# component-private area.
+if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+  set(SYCL_INCLUDE_DIR "opt/${INTEL_DEPLOY_PKGCOMP_NAME}/${SYCL_INCLUDE_DIR}/sycl")
+endif()
+# end INTEL_CUSTOMIZATION
+
 add_llvm_external_project(opencl)
 list(FIND LLVM_ENABLE_PROJECTS opencl OPENCL_FOUND)
 if(OPENCL_FOUND EQUAL -1)
