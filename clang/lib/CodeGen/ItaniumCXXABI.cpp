@@ -3861,7 +3861,7 @@ static bool ContainsIncompleteClassType(QualType Ty) {
 
   if (const MemberPointerType *MemberPointerTy =
       dyn_cast<MemberPointerType>(Ty)) {
-    // Check if the class type is incomplete.
+    // class type is incomplete.
     const RecordType *ClassType = cast<RecordType>(MemberPointerTy->getClass());
     if (IsIncompleteClassType(ClassType))
       return true;
@@ -4024,15 +4024,15 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   // Check if the alias exists. If it doesn't, then get or create the global.
   if (CGM.getItaniumVTableContext().isRelativeLayout())
     VTable = CGM.getModule().getNamedAlias(VTableName);
-
-  if (!VTable)
+  if (!VTable) {
+    llvm::Type *Ty = llvm::ArrayType::get(CGM.GlobalsInt8PtrTy, 0);
 #if INTEL_COLLAB
     if (CGM.getTriple().isSPIR())
       VTable = CGM.CreateRuntimeVariable(CGM.DefaultInt8PtrTy, VTableName);
     else
 #endif // INTEL_COLLAB
-    VTable =
-        CGM.getModule().getOrInsertGlobal(VTableName, CGM.GlobalsInt8PtrTy);
+    VTable = CGM.getModule().getOrInsertGlobal(VTableName, Ty);
+  }
 
   CGM.setDSOLocal(cast<llvm::GlobalValue>(VTable->stripPointerCasts()));
 
