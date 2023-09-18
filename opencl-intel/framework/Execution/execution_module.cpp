@@ -125,9 +125,6 @@ cl_err_code ExecutionModule::Initialize(ocl_entry_points *pOclEntryPoints,
 
   m_enableParallelCopy = pOclConfig->EnableParallelCopy();
 
-  if ((NULL == m_pOclCommandQueueMap) || (NULL == m_pEventsManager)) {
-    return CL_ERR_FAILURE;
-  }
   return CL_SUCCESS;
 }
 
@@ -558,9 +555,6 @@ cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(
 
   MarkerCommand *const pMarkerCommand =
       new MarkerCommand(pCommandQueue, uiNumEvents > 0);
-  if (NULL == pMarkerCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   cl_err_code err = pMarkerCommand->Init();
   if (CL_FAILED(err)) {
@@ -598,9 +592,6 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(
 
   BarrierCommand *const pBarrierCommand =
       new BarrierCommand(pCommandQueue, uiNumEvents > 0);
-  if (NULL == pBarrierCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   cl_err_code err = pBarrierCommand->Init();
   if (CL_FAILED(err)) {
@@ -653,9 +644,6 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(
 
   Command *pWaitForEventsCommand =
       new WaitForEventsCommand(pCommandQueue, uiNumEvents > 0);
-  if (NULL == pWaitForEventsCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pWaitForEventsCommand->Init();
   if (CL_FAILED(errVal)) {
@@ -859,9 +847,6 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(
       (ocl_entry_points *)((_cl_command_queue_int *)pCommandQueue->GetHandle())
           ->dispatch,
       clFlags, uiNumMemObjects, pMemObjects);
-  if (NULL == pMigrateCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   cl_err_code err = pMigrateCommand->Init();
   if (CL_FAILED(err)) {
@@ -942,9 +927,6 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(
   Command *pEnqueueReadBufferCmd =
       new ReadBufferCommand(pCommandQueue, m_pOclEntryPoints, pBuffer,
                             pszOrigin, pszRegion, pOutData);
-  if (NULL == pEnqueueReadBufferCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pEnqueueReadBufferCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -1031,9 +1013,6 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
       pCommandQueue, m_pOclEntryPoints, pBuffer, szBufferOrigin, szHostOrigin,
       region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch,
       host_slice_pitch, pOutData);
-  if (NULL == pEnqueueReadBufferRectCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pEnqueueReadBufferRectCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -1120,9 +1099,6 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(
   Command *pWriteBufferCmd = new WriteBufferCommand(
       pCommandQueue, m_pOclEntryPoints, avoidBlock ? CL_FALSE : bBlocking,
       pBuffer, pszOrigin, pszRegion, cpSrcData);
-  if (NULL == pWriteBufferCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pWriteBufferCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -1210,10 +1186,6 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
       pCommandQueue, m_pOclEntryPoints, bBlocking, pBuffer, szBufferOrigin,
       szHostOrigin, region, buffer_row_pitch, buffer_slice_pitch,
       host_row_pitch, host_slice_pitch, pOutData);
-
-  if (NULL == pWriteBufferRectCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pWriteBufferRectCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -1323,9 +1295,6 @@ cl_err_code ExecutionModule::EnqueueFillBuffer(
   Command *pFillBufferCmd =
       new FillBufferCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, pattern,
                             pattern_size, offset, size);
-  if (NULL == pFillBufferCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pFillBufferCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -1410,9 +1379,6 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
   Command *pCopyBufferCommand =
       new CopyBufferCommand(pCommandQueue, m_pOclEntryPoints, pSrcBuffer,
                             pDstBuffer, pszSrcOrigin, pszDstOrigin, pszRegion);
-  if (NULL == pCopyBufferCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pCopyBufferCommand->Init();
   if (CL_FAILED(errVal)) {
@@ -1522,9 +1488,6 @@ cl_err_code ExecutionModule::EnqueueCopyBufferRect(
       pCommandQueue, m_pOclEntryPoints, pSrcBuffer, pDstBuffer, szSrcOrigin,
       szDstOrigin, region, src_buffer_row_pitch, src_buffer_slice_pitch,
       dst_buffer_row_pitch, dst_buffer_slice_pitch);
-  if (NULL == pCopyBufferRectCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pCopyBufferRectCommand->Init();
   if (CL_FAILED(errVal)) {
@@ -1704,9 +1667,6 @@ cl_err_code ExecutionModule::EnqueueFillImage(
   Command *pFillBufferCmd =
       new FillImageCommand(pCommandQueue, m_pOclEntryPoints, img, pattern,
                            pattern_size, img_dim_count, origin, region);
-  if (NULL == pFillBufferCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pFillBufferCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -1786,12 +1746,8 @@ void *ExecutionModule::EnqueueMapBuffer(
 
   MapBufferCommand *pMapBufferCommand = new MapBufferCommand(
       pCommandQueue, m_pOclEntryPoints, pBuffer, clMapFlags, szOffset, szCb);
-  // Must set device Id before init for buffer resource allocation.
-  if (NULL == pMapBufferCommand) {
-    *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
-    return NULL;
-  }
 
+  // Must set device Id before init for buffer resource allocation.
   *pErrcodeRet = pMapBufferCommand->Init();
   if (CL_FAILED(*pErrcodeRet)) {
     delete pMapBufferCommand;
@@ -1840,11 +1796,8 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(
 
   Command *pUnmapMemObjectCommand = new UnmapMemObjectCommand(
       pCommandQueue, m_pOclEntryPoints, pMemObject, mappedPtr);
-  // Must set device Id before init for buffer resource allocation.
-  if (NULL == pUnmapMemObjectCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
+  // Must set device Id before init for buffer resource allocation.
   errVal = pUnmapMemObjectCommand->Init();
   if (CL_FAILED(errVal)) {
     delete pUnmapMemObjectCommand;
@@ -2326,11 +2279,8 @@ cl_err_code ExecutionModule::EnqueueTask(cl_command_queue clCommandQueue,
 
   Command *pTaskCommand =
       new TaskCommand(pCommandQueue, m_pOclEntryPoints, pKernel);
-  // Must set device Id before init for buffer resource allocation.
-  if (NULL == pTaskCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
+  // Must set device Id before init for buffer resource allocation.
   errVal = pTaskCommand->Init();
   if (CL_FAILED(errVal)) {
     delete pTaskCommand;
@@ -2378,10 +2328,6 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(
   if (uNumMemObjects > 0) {
     // Create MemoryObjects references
     pMemObjectsList = new SharedPtr<MemoryObject>[uNumMemObjects];
-
-    if (NULL == pMemObjectsList) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
     cl_uint i;
     for (i = 0; i < uNumMemObjects; i++) {
       // Check that buffer is available
@@ -2399,12 +2345,6 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(
   Command *pNativeKernelCommand = new NativeKernelCommand(
       pCommandQueue, m_pOclEntryPoints, pUserFnc, pArgs, szCbArgs,
       uNumMemObjects, pMemObjectsList, ppArgsMemLoc);
-  if (NULL == pNativeKernelCommand) {
-    if (NULL != pMemObjectsList) {
-      delete[] pMemObjectsList;
-    }
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pNativeKernelCommand->Init();
   if (CL_FAILED(errVal)) {
@@ -2607,9 +2547,6 @@ cl_err_code ExecutionModule::EnqueueReadImage(
   Command *pReadImageCmd =
       new ReadImageCommand(pCommandQueue, m_pOclEntryPoints, pImage, szOrigin,
                            szRegion, szRowPitch, szSlicePitch, pOutData);
-  if (NULL == pReadImageCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pReadImageCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -2680,9 +2617,6 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
   Command *pWriteImageCmd = new WriteImageCommand(
       pCommandQueue, m_pOclEntryPoints, bBlocking, pImage, szOrigin, szRegion,
       szRowPitch, szSlicePitch, cpSrcData);
-  if (NULL == pWriteImageCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pWriteImageCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -2852,9 +2786,6 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
   Command *pCopyImageCmd =
       new CopyImageCommand(pCommandQueue, m_pOclEntryPoints, pSrcImage,
                            pDstImage, szSrcOrigin, szDstOrigin, szRegion);
-  if (NULL == pCopyImageCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pCopyImageCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -2934,9 +2865,6 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
   Command *pCopyImageToBufferCmd = new CopyImageToBufferCommand(
       pCommandQueue, m_pOclEntryPoints, pSrcImage, pDstBuffer, szSrcOrigin,
       szRegion, pszDstOffset /*szDstOffset*/);
-  if (NULL == pCopyImageToBufferCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pCopyImageToBufferCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -3017,9 +2945,6 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
   Command *pCopyBufferToImageCmd = new CopyBufferToImageCommand(
       pCommandQueue, m_pOclEntryPoints, pSrcBuffer, pDstImage, pszSrcOffset,
       szDstOrigin, szRegion);
-  if (NULL == pCopyBufferToImageCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pCopyBufferToImageCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -3108,11 +3033,6 @@ void *ExecutionModule::EnqueueMapImage(
       pszImageRowPitch, pszImageSlicePitch);
 
   // Must set device Id before init for image resource allocation.
-  if (NULL == pMapImageCmd) {
-    *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
-    return NULL;
-  }
-
   *pErrcodeRet = pMapImageCmd->Init();
 
   if (CL_FAILED(*pErrcodeRet)) {
@@ -3197,9 +3117,6 @@ cl_int ExecutionModule::EnqueueSVMFree(
   SVMFreeCommand *const pSvmFreeCmd =
       new SVMFreeCommand(uiNumSvmPointers, pSvmPointers, pfnFreeFunc, pUserData,
                          pQueue, uiNumEventsInWaitList > 0);
-  if (NULL == pSvmFreeCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   err = pSvmFreeCmd->Init();
   if (CL_FAILED(err)) {
@@ -3237,10 +3154,6 @@ cl_err_code ExecutionModule::EnqueueSVMMigrateMem(
 
   MigrateSVMMemCommand *pMigrateSVMCommand = new MigrateSVMMemCommand(
       pQueue, flags, num_svm_pointers, svm_pointers, sizes);
-
-  if (NULL == pMigrateSVMCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   cl_err_code err = pMigrateSVMCommand->Init();
   if (CL_FAILED(err)) {
@@ -3354,9 +3267,6 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(
                                       pszRegion);
     }
   }
-  if (NULL == pCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
   err = pCmd->Init();
   if (CL_FAILED(err)) {
     delete pCmd;
@@ -3427,9 +3337,6 @@ cl_int ExecutionModule::EnqueueSVMMemFill(
     pCmd = new RuntimeSVMMemFillCommand(pSvmPtr, pPattern, szPatternSize, size,
                                         pQueue, uiNumEventsInWaitList > 0);
   }
-  if (NULL == pCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
   err = pCmd->Init();
   if (CL_FAILED(err)) {
     delete pCmd;
@@ -3488,10 +3395,6 @@ cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue,
     // if it's a system pointer, it must work like a marker.
     pCmd = new SVMMAP_Command_NOOP(pQueue, uiNumEventsInWaitList);
   }
-
-  if (NULL == pCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
   err = pCmd->Init();
   if (CL_FAILED(err)) {
     delete pCmd;
@@ -3544,9 +3447,6 @@ cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue,
     pCmd = new SVMUNMAP_Command_NOOP(pQueue, uiNumEventsInWaitList);
   }
 
-  if (NULL == pCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
   err = pCmd->Init();
   if (CL_FAILED(err)) {
     delete pCmd;
@@ -3978,8 +3878,6 @@ cl_err_code ExecutionModule::EnqueueReadHostPipeINTEL(
 
   Command *readHostPipeCmd = new ReadHostPipeIntelFPGACommand(
       queue, ptr, gvPipeBS, size, blocking_read);
-  if (nullptr == readHostPipeCmd)
-    return CL_OUT_OF_HOST_MEMORY;
 
   err = readHostPipeCmd->EnqueueSelf(blocking_read, num_events_in_wait_list,
                                      event_wait_list, event, apiLogger);
@@ -4026,9 +3924,6 @@ cl_err_code ExecutionModule::EnqueueWriteHostPipeINTEL(
 
   Command *writeHostPipeCmd = new WriteHostPipeIntelFPGACommand(
       queue, gvPipeBS, ptr, size, blocking_write);
-
-  if (nullptr == writeHostPipeCmd)
-    return CL_OUT_OF_HOST_MEMORY;
 
   err = writeHostPipeCmd->EnqueueSelf(blocking_write, num_events_in_wait_list,
                                       event_wait_list, event, apiLogger);
@@ -4101,8 +3996,6 @@ cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
 
   Command *readGVCmd = new ReadGVCommand(
       queue, ptr, (void *)((size_t)gv.pointer + offset), size);
-  if (nullptr == readGVCmd)
-    return CL_OUT_OF_HOST_MEMORY;
 
   err = readGVCmd->EnqueueSelf(blocking_read, num_events_in_wait_list,
                                event_wait_list, event, apiLogger);
@@ -4176,8 +4069,6 @@ cl_err_code ExecutionModule::EnqueueWriteGlobalVariable(
 
   Command *writeGVCmd = new WriteGVCommand(
       queue, (void *)((size_t)gv.pointer + offset), ptr, size);
-  if (nullptr == writeGVCmd)
-    return CL_OUT_OF_HOST_MEMORY;
 
   err = writeGVCmd->EnqueueSelf(blocking_write, num_events_in_wait_list,
                                 event_wait_list, event, apiLogger);

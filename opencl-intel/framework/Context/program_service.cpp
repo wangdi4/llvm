@@ -213,13 +213,6 @@ bool CompileTask::Execute() {
   }
 
   pBinary.reset(new char[uiBinarySize]);
-  if (NULL == pBinary.get()) {
-    // Build failed
-    m_pDeviceProgram->SetBuildLogInternal("Compilation failed\n");
-    m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_COMPILE_FAILED);
-    SetComplete(CL_BUILD_SUCCESS);
-    return true;
-  }
 
   if (pElfWriter->ResolveBinary(*pBinary.getOutPtr(), uiBinarySize) !=
       CLElfLib::SUCCESS) {
@@ -382,13 +375,6 @@ bool LinkTask::Execute() {
   }
 
   pBinary.reset(new char[uiBinarySize]);
-  if (NULL == pBinary.get()) {
-    // Build failed
-    m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_LINK_FAILED);
-    m_pDeviceProgram->SetBuildLogInternal("Linking failed\n");
-    SetComplete(CL_BUILD_SUCCESS);
-    return true;
-  }
 
   if (pElfWriter->ResolveBinary(*pBinary.getOutPtr(), uiBinarySize) !=
       CLElfLib::SUCCESS) {
@@ -662,15 +648,7 @@ cl_err_code ProgramService::CompileProgram(
 
   if (0 < num_input_headers) {
     pszHeaders = new const char *[num_input_headers];
-    if (NULL == pszHeaders) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
-
     pszHeadersNames = new char *[num_input_headers];
-    if (!pszHeadersNames) {
-      delete[] pszHeaders;
-      return CL_OUT_OF_HOST_MEMORY;
-    }
   }
 
   // Get the sources for all the headers
@@ -688,31 +666,11 @@ cl_err_code ProgramService::CompileProgram(
 
     size_t len = strlen(header_include_names[i]) + 1;
     pszHeadersNames[i] = new char[len];
-    if (NULL == pszHeadersNames[i]) {
-      for (cl_uint j = 0; j < i; ++j) {
-        delete[] pszHeadersNames[j];
-      }
-      delete[] pszHeaders;
-      delete[] pszHeadersNames;
-
-      return CL_OUT_OF_HOST_MEMORY;
-    }
-
     STRCPY_S(pszHeadersNames[i], len, header_include_names[i]);
   }
 
   // This will be released in PostBuildTask
   DeviceProgram **ppDevicePrograms = new DeviceProgram *[uiNumDevices];
-  if (NULL == ppDevicePrograms) {
-    // Release allocated memory of the headers
-    for (cl_uint j = 0; j < num_input_headers; j++) {
-      delete[] pszHeadersNames[j];
-    }
-    delete[] pszHeaders;
-    delete[] pszHeadersNames;
-
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   if (num_devices > 0) {
     // Retrive device programs for specified devices
@@ -923,9 +881,7 @@ cl_err_code ProgramService::LinkProgram(
 
   // This will be released in PostBuildTask
   DeviceProgram **ppDevicePrograms = new DeviceProgram *[uiNumDevices];
-  if (NULL == ppDevicePrograms) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   if (num_devices > 0) {
     // Retrive device programs for specified devices
     for (cl_uint i = 0; i < uiNumDevices; ++i) {
@@ -1192,9 +1148,7 @@ cl_err_code ProgramService::BuildProgram(SharedPtr<Program> &program,
 
   // this will be released in PostBuildTask
   DeviceProgram **ppDevicePrograms = new DeviceProgram *[uiNumDevices];
-  if (NULL == ppDevicePrograms) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   if (num_devices > 0) {
     // Retrive device programs for specified devices
     for (cl_uint i = 0; i < uiNumDevices; ++i) {

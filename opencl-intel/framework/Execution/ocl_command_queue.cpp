@@ -223,9 +223,6 @@ cl_err_code OclCommandQueue::GPA_InitializeQueue() {
   if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) &&
       (m_pGPAData->bEnableContextTracing)) {
     m_pOclGpaQueue = new ocl_gpa_queue();
-    if (NULL == m_pOclGpaQueue) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
 
     std::stringstream ssQueueTrackName;
     ssQueueTrackName << (m_bOutOfOrderEnabled ? "Out Of Order Queue (CPU)"

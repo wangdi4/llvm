@@ -245,9 +245,6 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size,
   case CL_PROGRAM_DEVICES: {
     szParamValueSize = sizeof(cl_device_id) * m_szNumAssociatedDevices;
     clDevIds = new cl_device_id[m_szNumAssociatedDevices];
-    if (nullptr == clDevIds) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
     for (size_t i = 0; i < m_szNumAssociatedDevices; ++i) {
       clDevIds[i] = m_ppDevicePrograms[i]->GetDeviceId();
     }
@@ -401,12 +398,6 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size,
         for (size_t i = 0; i < uiNumKernels; ++i) {
           total_length += puiKernelNameLengths[i];
           pszKernelNames[i] = new char[puiKernelNameLengths[i]];
-          if (nullptr == pszKernelNames[i]) {
-            for (size_t j = 0; j < i; ++j) {
-              delete[] pszKernelNames[j];
-            }
-            return CL_OUT_OF_HOST_MEMORY;
-          }
         }
 
         // and finaly get the names
@@ -422,12 +413,6 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size,
         // once we have the actual names, we need to concatenate them
         assert(total_length > 0);
         szKernelsNames = new char[total_length];
-        if (nullptr == szKernelsNames) {
-          for (size_t i = 0; i < uiNumKernels; ++i) {
-            delete[] pszKernelNames[i];
-          }
-          return CL_OUT_OF_HOST_MEMORY;
-        }
 
         // There is at least one kernel
         STRCPY_S(szKernelsNames, total_length, pszKernelNames[0]);
@@ -752,9 +737,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels,
   }
 
   size_t *pszKernelNameLengths = new size_t[szNumKernels];
-  if (nullptr == pszKernelNameLengths) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   clErrRet = m_ppDevicePrograms[0]->GetKernelNames(
       nullptr, pszKernelNameLengths, szNumKernels);
   if (CL_FAILED(clErrRet)) {
@@ -762,20 +745,9 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels,
     return clErrRet;
   }
   char **ppKernelNames = new char *[szNumKernels];
-  if (nullptr == ppKernelNames) {
-    delete[] pszKernelNameLengths;
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   for (size_t i = 0; i < szNumKernels; ++i) {
     ppKernelNames[i] = new char[pszKernelNameLengths[i]];
-    if (nullptr == ppKernelNames[i]) {
-      for (size_t j = 0; j < i; ++j) {
-        delete[] ppKernelNames[j];
-      }
-      delete[] ppKernelNames;
-      delete[] pszKernelNameLengths;
-      return CL_OUT_OF_HOST_MEMORY;
-    }
   }
 
   clErrRet = m_ppDevicePrograms[0]->GetKernelNames(

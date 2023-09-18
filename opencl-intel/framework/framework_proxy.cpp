@@ -398,10 +398,6 @@ void FrameworkProxy::Initialize() {
 
   // initialize configuration file
   m_pConfig = new OCLConfig();
-  if (nullptr == m_pConfig) {
-    // Todo: terrible crash imminent
-    return;
-  }
   m_pConfig->Initialize(GetConfigFilePath());
 
   bool bUseLogger = m_pConfig->UseLogger();

@@ -99,10 +99,6 @@ cl_err_code PlatformModule::InitDevices(const vector<string> &devices,
 
   m_uiRootDevicesCount = devicesList.size();
   m_ppRootDevices = new SharedPtr<Device>[m_uiRootDevicesCount];
-  if (nullptr == m_ppRootDevices) {
-    m_uiRootDevicesCount = 0;
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   for (size_t ui = 0; ui < m_uiRootDevicesCount; ++ui) {
     m_ppRootDevices[ui] = devicesList[ui];
@@ -506,22 +502,11 @@ cl_int PlatformModule::GetDeviceIDs(cl_platform_id /*clPlatform*/,
 
   // prepare list for all devices
   ppDevices = new SharedPtr<Device>[uiNumDevices];
-  if (nullptr == ppDevices) {
-    LOG_ERROR(TEXT("%s"),
-              TEXT("can't allocate memory for devices (NULL == ppDevices)"));
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   for (size_t i = 0; i < m_uiRootDevicesCount; i++) {
     ppDevices[i] = m_ppRootDevices[i];
   }
   pDeviceIds = new cl_device_id[uiNumDevices];
-  if (nullptr == pDeviceIds) {
-    LOG_ERROR(
-        TEXT("%s"),
-        TEXT("can't allocate memory for device ids (NULL == pDeviceIds)"));
-    delete[] ppDevices;
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   for (cl_uint ui = 0; ui < uiNumDevices; ++ui) {
     if (0 != ppDevices[ui]) {
@@ -798,14 +783,8 @@ cl_err_code PlatformModule::clCreateSubDevices(
 
   cl_dev_subdevice_id *subdevice_ids =
       new cl_dev_subdevice_id[numSubdevicesToCreate];
-  if (nullptr == subdevice_ids) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   size_t *sizes = new size_t[numSubdevicesToCreate];
-  if (nullptr == sizes) {
-    delete[] subdevice_ids;
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   ret = pParentDevice->FissionDevice(properties, num_entries, subdevice_ids,
                                      &tNumDevices, sizes);
@@ -818,11 +797,7 @@ cl_err_code PlatformModule::clCreateSubDevices(
   // FissionableDevice objects and add them as appropriate
   SharedPtr<FissionableDevice> *pNewDevices =
       new SharedPtr<FissionableDevice>[numSubdevicesToCreate];
-  if (nullptr == pNewDevices) {
-    delete[] subdevice_ids;
-    delete[] sizes;
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   // Get the partitioning mode
   cl_int partitionMode = (cl_int)properties[0];
   if (CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN == partitionMode) {
@@ -831,15 +806,6 @@ cl_err_code PlatformModule::clCreateSubDevices(
   for (cl_uint i = 0; i < numSubdevicesToCreate; ++i) {
     pNewDevices[i] = SubDevice::Allocate(pParentDevice, sizes[i],
                                          subdevice_ids[i], properties);
-    if (0 == pNewDevices[i]) {
-      for (cl_uint j = 0; j < i; ++j) {
-        pNewDevices[j]->Release();
-      }
-      delete[] pNewDevices;
-      delete[] sizes;
-      delete[] subdevice_ids;
-      return CL_OUT_OF_HOST_MEMORY;
-    }
     out_devices[i] = pNewDevices[i]->GetHandle();
   }
   // Can close the device instance as the sub-devices now hold references on the

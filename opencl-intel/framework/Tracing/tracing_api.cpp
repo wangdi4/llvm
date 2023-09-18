@@ -101,9 +101,6 @@ cl_int CL_API_CALL clCreateTracingHandleINTEL(cl_device_id device,
 
   try {
     *handle = new _cl_tracing_handle;
-    if (*handle == nullptr) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
   } catch (...) {
     return CL_OUT_OF_HOST_MEMORY;
   }
@@ -111,10 +108,6 @@ cl_int CL_API_CALL clCreateTracingHandleINTEL(cl_device_id device,
   try {
     (*handle)->device = device;
     (*handle)->handle = new TracingHandle(callback, userData);
-    if ((*handle)->handle == nullptr) {
-      delete *handle;
-      return CL_OUT_OF_HOST_MEMORY;
-    }
   } catch (...) {
     delete *handle;
     return CL_OUT_OF_HOST_MEMORY;

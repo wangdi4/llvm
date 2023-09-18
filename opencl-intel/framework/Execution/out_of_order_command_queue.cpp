@@ -44,9 +44,7 @@ cl_err_code OutOfOrderCommandQueue::Initialize() {
   }
 
   Command *pDepOnAll = new MarkerCommand(this, 0);
-  if (nullptr == pDepOnAll) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   // This floating dependence will be resolved at the completion of
   // clEnqueueMarker/Barrier sequence to this queue (AddDependentOnAll)
   pDepOnAll->GetEvent()->AddFloatingDependence();
@@ -179,9 +177,6 @@ cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command *cmd) {
   assert(nullptr != cmd);
 
   Command *pNewDepOnAll = new MarkerCommand(this, 0);
-  if (nullptr == pNewDepOnAll) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   SharedPtr<QueueEvent> pNewDepnOnAllEvent = pNewDepOnAll->GetEvent();
   SharedPtr<QueueEvent> pCommandEvent = cmd->GetEvent();

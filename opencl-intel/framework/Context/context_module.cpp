@@ -245,14 +245,6 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
 
   SharedPtr<FissionableDevice> *ppDevices =
       new SharedPtr<FissionableDevice>[uiNumDevices];
-  if (nullptr == ppDevices) {
-    LOG_ERROR(TEXT("Failed to allocate memory for devices: new "
-                   "Device[uiNumDevices] = NULL"));
-    if (nullptr != pRrrcodeRet) {
-      *pRrrcodeRet = CL_OUT_OF_HOST_MEMORY;
-    }
-    return CL_INVALID_HANDLE;
-  }
 
   cl_err_code clErrRet = GetDevices(uiNumDevices, pDevices, ppDevices);
   if (CL_FAILED(clErrRet)) {
@@ -331,9 +323,7 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
       *pRrrcodeRet = clErrRet;
     }
     delete[] ppDevices;
-    if (NULL != pContext.GetPtr()) {
-      pContext->Release();
-    }
+    pContext->Release();
     return CL_INVALID_HANDLE;
   }
 
@@ -379,13 +369,6 @@ cl_context ContextModule::CreateContextFromType(
   }
 
   cl_device_id *pDevices = new cl_device_id[uiNumDevices];
-  if (nullptr == pDevices) {
-    LOG_ERROR(TEXT("new cl_device_id[%u] = NULL"), uiNumDevices);
-    if (nullptr != pErrcodeRet) {
-      *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
-    }
-    return CL_INVALID_HANDLE;
-  }
 
   // TODO: Handle new spec
   clErrRet = m_pPlatformModule->GetDeviceIDs(nullptr, clDeviceType,
