@@ -37,6 +37,9 @@ namespace llvm {
 
 namespace vpo {
 
+// Shorthand for SmallVector of VPValues.
+using VPlanSLPValuesTy = SmallVector<const VPValue *, 32>;
+
 bool VPlanSLP::canMoveTo(const VPLoadStoreInst *FromInst,
                          const VPLoadStoreInst *ToInst) const {
   const RegDDRef *FromDDRef = FromInst->getHIRMemoryRef();
@@ -94,18 +97,18 @@ bool VPlanSLP::canMoveTo(const VPLoadStoreInst *FromInst,
 }
 
 void VPlanSLP::collectMemRefDistances(const VPLoadStoreInst *BaseMem,
-                                      ArrayRef<const VPInstruction *> Insts,
+                                      ArrayRef<const VPValue *> Values,
                                       SmallVectorImpl<ssize_t> &Distances) {
 
   const auto *BaseDDRef = BaseMem->getHIRMemoryRef();
   assert(BaseDDRef && "No DDRef for Base memref.");
   unsigned ElSize = BaseDDRef->getDestTypeSizeInBytes();
 
-  for (const auto *Inst : Insts) {
-    const auto *InstMem = dyn_cast<VPLoadStoreInst>(Inst);
+  for (const auto *V : Values) {
+    const auto *InstMem = dyn_cast<VPLoadStoreInst>(V);
     assert(InstMem && "Only memrefs are expected on input.");
     const auto *InstDDRef = InstMem->getHIRMemoryRef();
-    assert(InstDDRef && "No DDRef for Inst memref.");
+    assert(InstDDRef && "No DDRef for memref.");
 
     int64_t Distance = 0;
     if (InstDDRef->getDestTypeSizeInBytes() == ElSize &&
@@ -132,26 +135,6 @@ bool VPlanSLP::isUnitStrideMemRef(SmallVectorImpl<ssize_t> &Distances) const {
       return false;
 
   return true;
-}
-
-bool VPlanSLP::isSplatVector(ArrayRef<const VPValue *> Values) const {
-  assert(!Values.empty() && "Empty array/vector is not expected.");
-
-  if (Values.empty())
-    return false;
-
-  return llvm::all_of(Values,
-                      [&Values](const VPValue *V) { return V == Values[0]; });
-}
-
-bool VPlanSLP::isConstVector(ArrayRef<const VPValue *> Values) const {
-  assert(!Values.empty() && "Empty array/vector is not expected.");
-
-  if (Values.empty())
-    return false;
-
-  return llvm::all_of(Values, [&Values](const VPValue *V) {
-    return isa<VPConstant>(V) && (V->getType() == Values[0]->getType()); });
 }
 
 VPInstructionCost VPlanSLP::getVectorCost(const VPInstruction *Base,
@@ -190,24 +173,78 @@ VPInstructionCost VPlanSLP::getVectorCost(const VPInstruction *Base,
   return CM->getTTICostForVF(Base, VF);
 }
 
-bool VPlanSLP::areVectorizableInsts(
-    ArrayRef<const VPValue *> Values,
-    SmallVectorImpl<const VPInstruction *> &Insts) const {
-  assert(!Values.empty() && "Missed operands.");
-  if (Values.empty())
+bool VPlanSLP::getSplatVector(
+    ArrayRef<const VPValue *> InValues,
+    SmallVectorImpl<const VPValue *> &OutValues) const {
+  // First sort InValues to group equal values in continuous chunks.
+  VPlanSLPValuesTy InValuesSorted;
+  InValuesSorted.assign(InValues.begin(), InValues.end());
+  llvm::sort(InValuesSorted);
+  OutValues.clear();
+
+  // Scan InValues until matching pair is found. When matching pair is found
+  // scan to the end of InValues and copy all values that are the same.
+  const VPValue *BaseV = nullptr;
+  for (const auto *V : InValuesSorted) {
+    // Skip values of non-vectorizable types.
+    if (!isVectorizableTy(V->getType()) || V->getType()->isVoidTy())
+      continue;
+
+    // Continuous chunk of same Values: push them in OutValues and continue
+    // scanning.
+    if (V == BaseV)
+      OutValues.push_back(V);
+    // V != BaseV, which can be either:
+    // *) BaseV is nullptr yet.
+    // *) BaseV is not nullptr and we have not started gathering a group yet
+    //    due to OutValues.empty() check.
+    // In both cases set up BaseV with new value and continue scanning.
+    else if (OutValues.empty())
+      BaseV = V;
+    // V != BaseV and we have some elements in OutValues. It means it is the end
+    // of BaseV group. Stop scanning.
+    else
+      break;
+  }
+  // If OutValues has at least one element we add BaseV to OutValues as we
+  // haven't added it so far. BaseV is expected to be equal to all elements
+  // in OutValues.
+  // When OutValues is empty no repetitive values are detected in InValues.
+  if (!OutValues.empty())
+    OutValues.push_back(BaseV);
+  return OutValues.size() > 1;
+}
+
+bool VPlanSLP::getConstVector(
+    ArrayRef<const VPValue *> InValues,
+    SmallVectorImpl<const VPValue *> &OutValues) const {
+  OutValues.clear();
+  llvm::for_each(InValues, [&OutValues](const VPValue *V) {
+    if (isa<VPConstant>(V))
+      OutValues.push_back(V);
+  });
+  return OutValues.size() > 1;
+}
+
+bool VPlanSLP::getVecInstsVector(
+    ArrayRef<const VPValue *> InValues,
+    SmallVectorImpl<const VPValue *> &OutValues) const {
+  assert(!InValues.empty() && "Missed operands.");
+  if (InValues.empty())
     return false;
 
-  // Determine so-called 'base' instruction in the Values array, which is
-  // essential for memrefs: we move all memrefs to the first inst operand in
-  // Values or to the last Inst in Values for stores.
-  auto *Base = dyn_cast<VPInstruction>(Values.front());
-  if (Base && Base->getOpcode() == Instruction::Store)
-    Base = dyn_cast<VPInstruction>(Values.back());
+  VPlanSLPValuesTy LocalValues;
+  const VPInstruction *BaseI = nullptr;
+  OutValues.clear();
 
-  if (!Base)
-    return false;
-
-  for (const auto *V : Values) {
+  // Loop through InValues to set BaseI in the first VPInstruction which passes
+  // vectorization sanity checks. Also populate OutValues with values that are
+  // possibly vectorizable with BaseI.
+  //
+  // Please note that the algorithm picks the first suitable BaseI, while it is
+  // not always optimal and there can be other vectorization opportunities with
+  // BaseI set to another instruction from InValues.
+  for (const auto *V : InValues) {
     // TODO: We may want to consider multiple users within vectorizable graph.
     if (V->getNumUsers() > 1)
       continue;
@@ -216,11 +253,19 @@ bool VPlanSLP::areVectorizableInsts(
     if (!Inst)
       continue;
 
+    // If BaseI is not set yet assign it to Inst and continue to the next
+    // element from InValues.
+    if (BaseI == nullptr) {
+      LocalValues.push_back(Inst);
+      BaseI = Inst;
+      continue;
+    }
+
     // Check that the types and opcodes match for all operands and they are all
     // in the same BB.
-    if (Inst->getParent() != Base->getParent() ||
-        Inst->getOpcode() != Base->getOpcode() ||
-        Inst->getNumOperands() != Base->getNumOperands())
+    if (Inst->getParent() != BaseI->getParent() ||
+        Inst->getOpcode() != BaseI->getOpcode() ||
+        Inst->getNumOperands() != BaseI->getNumOperands())
       continue;
 
     // Special check for load/store value type as we care only about data
@@ -229,47 +274,152 @@ bool VPlanSLP::areVectorizableInsts(
     // vector.
     if (isa<VPLoadStoreInst>(Inst)) {
       if (CM->DL->getTypeSizeInBits(
-            cast<VPLoadStoreInst>(Inst)->getValueType()) !=
+              cast<VPLoadStoreInst>(Inst)->getValueType()) !=
           CM->DL->getTypeSizeInBits(
-            cast<VPLoadStoreInst>(Base)->getValueType()))
+              cast<VPLoadStoreInst>(BaseI)->getValueType()))
         continue;
-    }
-    else if (Inst->getType() != Base->getType())
+    } else if (Inst->getType() != BaseI->getType())
       continue;
 
-    const auto *InstMem = dyn_cast<VPLoadStoreInst>(Inst);
-    const auto *BaseMem = dyn_cast<VPLoadStoreInst>(Base);
-    if (BaseMem && InstMem) {
-      // Special considerations for load/store instructions: we don't want
-      // conflicting load/stores to be in between instructions we try to
-      // vectorize, and we want to record offsets vs the base memref if it is
-      // constant.
-      // We use HIR utilities thus all these checks are HIR pipeline specific
-      // and loads/stores are not supported for LLVM-IR path.
-      if (!canMoveTo(InstMem, BaseMem))
-        continue;
-    }
-
-    Insts.push_back(Inst);
+    LocalValues.push_back(Inst);
   }
 
-  return Insts.size() > 1;
+  // No vectorizable instructions are detected.
+  if (!BaseI)
+    return false;
+
+  // Special considerations for load/store instructions: we don't want
+  // conflicting load/stores to be in between instructions we try to vectorize.
+  //
+  // NOTE:
+  // We use HIR utilities thus all these checks are HIR pipeline specific and
+  // loads/stores are not supported for LLVM-IR path.
+  //
+  // We move all memrefs to the first instruction we met in InValues for loads
+  // and to the last suitable instruction from Values for stores.
+
+  const VPLoadStoreInst *BaseMem;
+  if (BaseI->getOpcode() == Instruction::Store)
+    BaseMem = dyn_cast<VPLoadStoreInst>(LocalValues.back());
+  else
+    BaseMem = dyn_cast<VPLoadStoreInst>(LocalValues.front());
+
+  if (BaseMem) {
+    for (const auto *V : LocalValues) {
+      const auto *InstMem = dyn_cast<VPLoadStoreInst>(V);
+      if (canMoveTo(InstMem, BaseMem))
+        OutValues.push_back(V);
+    }
+  } else
+    // Vanilla vector copy as nothing else to check to not memrefs.
+    OutValues.assign(LocalValues.begin(), LocalValues.end());
+
+  return OutValues.size() > 1;
 }
 
-VPInstructionCost VPlanSLP::estimateSLPCostDifference(
-    ArrayRef<const VPInstruction *> Insts) const {
-  // Determine so-called 'base' instruction in the Values array, which is
-  // essential for memrefs: we move all memrefs to the first inst operand in
-  // Values or to the last Inst in Values for stores.
-  const auto *Base = Insts.front()->getOpcode() == Instruction::Store ?
-    Insts.back() : Insts.front();
+VPlanSLPNodeTy VPlanSLP::getVectorizableValues(
+    ArrayRef<const VPValue *> InValues,
+    SmallVectorImpl<const VPValue *> &OutValues) const {
+
+  assert(!InValues.empty() && "Missed operands.");
+  if (InValues.empty())
+    return NotVector;
+
+  if (getConstVector(InValues, OutValues))
+    return ConstVector;
+  else if (getSplatVector(InValues, OutValues))
+    return SplatVector;
+  else if (getVecInstsVector(InValues, OutValues))
+    return InstVector;
+
+  return NotVector;
+}
+
+VPInstructionCost
+VPlanSLP::estimateSLPCostDifference(ArrayRef<const VPValue *> Values,
+                                    VPlanSLPNodeTy NType) const {
+  assert(NType != NotVector && "Invalid Node Type");
+
+  if (Values.size() <= 1)
+    return TTI::TCC_Free;
+
+  // TODO:
+  // The code supporting constants implements X86 specific cost modelling.
+  // It needs to be revisited for any other target.
+  //
+  // Support for the vector of constants.
+  // 1) The cost of an integer scalar constant value which fits 32 bits is 0 as
+  // such constant is encoded as a part of instruction.
+  // 2) An integer scalar constant value which does not fit 32 bits burns GPR
+  // and requires a separate instruction to materialize the value.
+  // 3) A float constant (vector or scalar) and vector integer constant are
+  // loaded from memory.
+  //
+  // FP/Vector constants are normally allocated in readonly memory and naturally
+  // aligned. It means that the number of cache lines spoiled due to load of
+  // multiple FP scalar constant depends on their layout in memory which we have
+  // no knowledge about.
+  //
+  // For purposes of SLP cost modelling only we assume the cost of case #1 to
+  // be TCC_Free and cost of all other cases to be TCC_Basic. We also assume
+  // that VL scalar loads spoils VL/2 cache lines so yields TCC_Basic * VL / 2
+  // overall cost.
+  if (NType == ConstVector) {
+    VPInstructionCost ScalCost = TTI::TCC_Free, VecCost = TTI::TCC_Basic;
+
+    // Special case integer constants.
+    // Those which fit 32 bits do not contribute. Other contribute TCC_Basic.
+    for (const auto *V : Values) {
+      const auto *VPConst = cast<VPConstant>(V);
+      if (const auto *IntConst =
+              dyn_cast<ConstantInt>(VPConst->getConstant())) {
+        if (!llvm::isIntN(32, IntConst->getSExtValue()))
+          ScalCost += TTI::TCC_Basic;
+      } else {
+        // Any single non integer constant forces FP-case.
+        ScalCost = TTI::TCC_Basic * Values.size() / 2;
+        break;
+      }
+    }
+
+    if (SLPReportDetailLevel >= 1) {
+      LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # "
+                        << BundleID << '/' << GraphID << " in " << BB->getName()
+                        << ", vector: " << VecCost << ", scalar: " << ScalCost
+                        << '\n');
+    }
+    return VecCost - ScalCost;
+  }
+
+  // Support for a splat vector: the scalar cost is a cost of a single scalar
+  // instruction, the vector cost is the cost of broadcast instruction plus
+  // the cost of a single scalar instruction.
+  if (NType == SplatVector) {
+    auto DiffCost = CM->TTI.getShuffleCost(
+        TTI::SK_Broadcast, getWidenedType(Values[0]->getType(), Values.size()));
+
+    if (SLPReportDetailLevel >= 1) {
+      LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # "
+                        << BundleID << '/' << GraphID << " in " << BB->getName()
+                        << ", vector: X + " << DiffCost << ", scalar: X\n");
+    }
+
+    return DiffCost;
+  }
+
+  if (NType != InstVector)
+    return VPInstructionCost::getUnknown();
+
+  // Only VPInstructions in Values are expected below this point.
+  const auto *BaseI = cast<VPInstruction>(Values.front());
+  assert(BaseI && "Base VPInstruction is missed");
 
   // ScalCost is just a sum of TTI cost of everything in Insts.
-  VPInstructionCost ScalCost =
-    std::accumulate(Insts.begin(), Insts.end(), VPInstructionCost(0),
-                    [this](VPInstructionCost Cost, const VPInstruction *Inst) {
-                      return Cost + CM->getTTICostForVF(Inst, 1);
-                    });
+  VPInstructionCost ScalCost = std::accumulate(
+      Values.begin(), Values.end(), VPInstructionCost(0),
+      [this](VPInstructionCost Cost, const VPValue *V) {
+        return Cost + CM->getTTICostForVF(cast<VPInstruction>(V), 1);
+      });
 
   SmallVector<ssize_t, 8> Distances;
   // IsMasked tells when masked load/store instructions needs to be used.
@@ -278,8 +428,8 @@ VPInstructionCost VPlanSLP::estimateSLPCostDifference(
   bool IsMasked = false;
 
   // Now collect the distances for memrefs.
-  if (const auto *BaseMem = dyn_cast<VPLoadStoreInst>(Base)) {
-    collectMemRefDistances(BaseMem, Insts, Distances);
+  if (const auto *BaseMem = dyn_cast<VPLoadStoreInst>(BaseI)) {
+    collectMemRefDistances(BaseMem, Values, Distances);
 
     if (SLPReportDetailLevel >= 2) {
       LLVM_DEBUG(dbgs() << "VSLP unsorted distances (bundle/graph # "
@@ -296,7 +446,7 @@ VPInstructionCost VPlanSLP::estimateSLPCostDifference(
     // cost of even smaller sizes such as 2 .. 16 and register pumping case with
     // sizes that do not fit available HW.
     unsigned DataElBitSize = CM->DL->getTypeSizeInBits(BaseMem->getValueType());
-    IsMasked = !llvm::isPowerOf2_32(DataElBitSize * Insts.size());
+    IsMasked = !llvm::isPowerOf2_32(DataElBitSize * Values.size());
   }
 
   // Now we have ScalCost calculated, all Values checked and Distances for
@@ -306,15 +456,15 @@ VPInstructionCost VPlanSLP::estimateSLPCostDifference(
   // upwards for non power of two Insts.size(). We assume that SLP can vectorize
   // it with masked loads/stores, although SLP doesn't support non power of two
   // VFs yet.
-  unsigned VF = llvm::PowerOf2Ceil(Insts.size());
+  unsigned VF = llvm::PowerOf2Ceil(Values.size());
 
   // If it is a memory reference. Now see if it is unit by checking
   // that values in Distance make sequence w/o gaps (SLP doesn't support
   // masked loads/stores).
   bool IsUnitMemref =
-      Distances.size() == Insts.size() ? isUnitStrideMemRef(Distances) : false;
+      Distances.size() == Values.size() ? isUnitStrideMemRef(Distances) : false;
 
-  VPInstructionCost VecCost = getVectorCost(Base, VF, IsUnitMemref, IsMasked);
+  VPInstructionCost VecCost = getVectorCost(BaseI, VF, IsUnitMemref, IsMasked);
 
   if (SLPReportDetailLevel >= 1) {
     LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # " << BundleID
@@ -367,48 +517,11 @@ void VPlanSLP::tryReorderOperands(MutableArrayRef<const VPValue *> Op1,
   }
 }
 
-VPInstructionCost
-VPlanSLP::estimateSLPCostDifference(ArrayRef<const VPValue *> Values) const {
-  if (Values.empty())
-    return VPInstructionCost::getUnknown();
-
-  // Support for the vector of constants: the cost of a scalar constant value
-  // and the cost of a vector constant are both assumed to be 0 as constant
-  // is encoded as a part of HW instruction.
-  if (isConstVector(Values)) {
-    if (SLPReportDetailLevel >= 1) {
-      LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # "
-                        << BundleID << '/' << GraphID << " in " << BB->getName()
-                        << ", vector: "  << TTI::TCC_Free << ", scalar: "
-                        << TTI::TCC_Free << '\n');
-    }
-    return TTI::TCC_Free;
-  }
-
-  // Support for a splat vector: the scalar cost is a cost of a single scalar
-  // instruction, the vector cost is the cost of broadcast instruction plus
-  // the cost of a single scalar instruction.
-  if (isSplatVector(Values)) {
-    auto DiffCost = CM->TTI.getShuffleCost(
-        TTI::SK_Broadcast, getWidenedType(Values[0]->getType(), Values.size()));
-
-    if (SLPReportDetailLevel >= 1) {
-      LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # "
-                        << BundleID << '/' << GraphID << " in " << BB->getName()
-                        << ", vector: X + "  << DiffCost << ", scalar: X\n");
-    }
-
-    return DiffCost;
-  }
-
-  return VPInstructionCost::getUnknown();
-}
-
-VPInstructionCost VPlanSLP::buildGraph(ArrayRef<const VPInstruction *> Seed) {
+VPInstructionCost VPlanSLP::buildGraph(ArrayRef<const VPValue *> Seed) {
   unsigned Depth = 0;
   VPInstructionCost Cost = 0;
   // The queue stores the operands yet to be processed.
-  std::queue<SmallVector<const VPValue *, 8>> WorkQueue;
+  std::queue<VPlanSLPValuesTy> WorkQueue;
 
   assert(Seed.size() > 1 && "Too small Seed's size.");
 
@@ -416,67 +529,79 @@ VPInstructionCost VPlanSLP::buildGraph(ArrayRef<const VPInstruction *> Seed) {
   WorkQueue.emplace(Seed);
 
   while (!WorkQueue.empty() && Depth++ < SLPUDDepthLimit) {
-    SmallVector<const VPValue *, 8> Values = WorkQueue.front();
-    SmallVector<const VPInstruction *, 8> Insts;
+    VPlanSLPValuesTy Values = WorkQueue.front();
+    VPlanSLPValuesTy VecValues;
     WorkQueue.pop();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     BundleID++;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    unsigned VL = Values.size();
-    VPInstructionCost VCost = estimateSLPCostDifference(Values);
+    VPlanSLPNodeTy NType = getVectorizableValues(Values, VecValues);
+    VPInstructionCost VCost = VPInstructionCost::getInvalid();
 
-    // If 'VPValue' based estimateSLPCostDifference() fails, try to find
-    // vectoriable VPInstructions by areVectorizableInsts().
-    if (!VCost.isValid() && areVectorizableInsts(Values, Insts)) {
-      VCost = estimateSLPCostDifference(Insts);
-      VL = Insts.size();
-    }
+    if (NType != NotVector)
+      VCost = estimateSLPCostDifference(VecValues, NType);
 
     if (SLPReportDetailLevel >= 1) {
       LLVM_DEBUG(dbgs() << "VSLP: bundle/graph " << BundleID << '/' << GraphID
                         << " in " << BB->getName() << " is"
                         << (VCost.isValid() ? " " : " not ")
-                        << "vectorizable with VL = " << VL << ":\n";
+                        << "vectorizable with VL = "
+                        << (VCost.isValid() ? VecValues.size() : Values.size())
+                        << ":\n";
                  printVector(Values));
     }
 
     if (!VCost.isValid())
+      return VCost;
+
+    // VL can be reduced at this point if VecValues.size() < Values.size().
+    // There are already processed bundles whose cost is estimated for large VL
+    // and there are pending bundles in WorkQueue that are built assuming larger
+    // VL. We need to bail out to rebuild the graph using new seed that excludes
+    // unvectorizable elements (lanes).
+    assert(VecValues.size() <= Values.size() && VecValues.size() > 1 &&
+           "Vectorizable array size is out of expected bounds.");
+    if (VecValues.size() > Values.size() || VecValues.size() <= 1)
       return VPInstructionCost::getInvalid();
+
+    // TODO:
+    // VL reduction is not supported yet.
+    // We need to calculate new seed basing on lane indexes where VecValues are
+    // and communicate this information to the caller to restart buildGraph.
+    if (VecValues.size() < Values.size()) {
+      LLVM_DEBUG(dbgs() << "VSLP: dropping candidate bundle/graph " << BundleID
+                        << '/' << GraphID << " in " << BB->getName() << ": "
+                        << VecValues.size() << " != " << Values.size() << '\n');
+      return VPInstructionCost::getUnknown();
+    }
 
     Cost += VCost;
 
+    // We are done for non VPInstructions in VecValues. And we need to push
+    // operands of VPInstructions onto the work queue yet.
+    if (NType != InstVector && NType != InstShuffleVector)
+      continue;
+
     // Insert vectors of Operands for each instructions in Insts.
     // Example with two instructions with 3 operands each:
-    // Vector 0 <- { Insts[0].Op[0], Insts[1], Op[0] }
-    // Vector 1 <- { Insts[0].Op[1], Insts[1], Op[1] }
-    // Vector 2 <- { Insts[0].Op[2], Insts[1], Op[2] }
+    // Vector 0 <- { VecValues[0].Op[0], VecValues[1], Op[0] }
+    // Vector 1 <- { VecValues[0].Op[1], VecValues[1], Op[1] }
+    // Vector 2 <- { VecValues[0].Op[2], VecValues[1], Op[2] }
     //
     // Don't walk through memref operands for stores & loads.
     // Stop traversing at splat vectors.
-    unsigned NumOperands = 0;
-
-    if (!Insts.empty()) {
-      NumOperands = Insts[0]->getNumOperands();
-      if (Insts[0]->getOpcode() == Instruction::Load || isSplatVector(Values))
-        NumOperands = 0;
-      else if (Insts[0]->getOpcode() == Instruction::Store)
-        NumOperands = 1;
-    }
-
-    // TODO:
-    // Do not support VL reduction yet.
-    if (NumOperands > 0 && VL != Values.size()) {
-      LLVM_DEBUG(dbgs() << "VSLP: dropping candidate bundle/graph " << BundleID
-                        << '/' << GraphID << " in " << BB->getName() << ": "
-                        << Insts.size() << " != " << Values.size() << '\n');
-      return VPInstructionCost::getInvalid();
-    }
+    const auto *Inst0 = cast<VPInstruction>(VecValues[0]);
+    unsigned NumOperands = Inst0->getNumOperands();
+    if (Inst0->getOpcode() == Instruction::Load)
+      NumOperands = 0;
+    else if (Inst0->getOpcode() == Instruction::Store)
+      NumOperands = 1;
 
     for (unsigned I = 0; I < NumOperands; I++)
-      WorkQueue.emplace(map_range(Insts, [I](const auto *Inst) {
-        return Inst->getOperand(I);
+      WorkQueue.emplace(map_range(VecValues, [I](const auto *V) {
+        return cast<VPInstruction>(V)->getOperand(I);
       }));
 
     // If the instruction is binary and commutative we do 1 step
@@ -484,11 +609,11 @@ VPInstructionCost VPlanSLP::buildGraph(ArrayRef<const VPInstruction *> Seed) {
     // to what we already selected we peek the second operand.
     // TODO:
     // Consider deeper look ahead check.
-    if (!Insts.empty() && Instruction::isBinaryOp(Insts[0]->getOpcode()) &&
-        Instruction::isCommutative(Insts[0]->getOpcode())) {
-      SmallVector<const VPValue *, 8> Op2Vec = WorkQueue.front();
+    if (Instruction::isBinaryOp(Inst0->getOpcode()) &&
+        Instruction::isCommutative(Inst0->getOpcode())) {
+      VPlanSLPValuesTy Op2Vec = WorkQueue.front();
       WorkQueue.pop();
-      SmallVector<const VPValue *, 8> Op1Vec = WorkQueue.front();
+      VPlanSLPValuesTy Op1Vec = WorkQueue.front();
       WorkQueue.pop();
 
       tryReorderOperands(Op1Vec, Op2Vec);
@@ -501,9 +626,9 @@ VPInstructionCost VPlanSLP::buildGraph(ArrayRef<const VPInstruction *> Seed) {
 }
 
 VPInstructionCost VPlanSLP::formAndCostBundles(
-    ArrayRef<const VPInstruction *> InSeed,
-    std::function<bool(const VPInstruction *, const VPInstruction *)> Compare,
-    SmallVectorImpl<const VPInstruction *> *OutSeed) {
+    ArrayRef<const VPValue *> InSeed,
+    std::function<bool(const VPValue *, const VPValue *)> Compare,
+    SmallVectorImpl<const VPValue *> *OutSeed) {
   // We consider 2 <= VLs <= 16. SLP does not support non-power-of-2 VLs yet but
   // in many cases the code is SLP'ed with power-of-2 VLs after unroll.
   // TODO: yet to be proven that unroll would be likely to happen and that it
@@ -539,14 +664,10 @@ VPInstructionCost VPlanSLP::formAndCostBundles(
       GraphID++;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
       VPInstructionCost GraphCost = buildGraph(Seed);
-      LLVM_DEBUG(
-        dbgs() << "VSLP Cost " << GraphCost << " for the graph "
-               << GraphID << " in " << BB->getName() << ". Graph seed:\n";
-        for (const auto *Inst : Seed) {
-          dbgs() << '\t';
-          Inst->printWithoutAnalyses(dbgs());
-          dbgs() << '\n';
-        });
+      LLVM_DEBUG(dbgs() << "VSLP Cost " << GraphCost << " for the graph "
+                        << GraphID << " in " << BB->getName()
+                        << ". Graph seed:\n";
+                 printVector(Seed));
       // Update the cost only when it is profitable to vectorize.
       if (GraphCost.isValid() && GraphCost < 0)
         Cost += GraphCost;
@@ -562,8 +683,8 @@ VPInstructionCost VPlanSLP::formAndCostBundles(
   return Cost;
 }
 
-VPInstructionCost VPlanSLP::searchSLPPatterns(
-    SmallVectorImpl<const VPInstruction *> &Seed) {
+VPInstructionCost
+VPlanSLP::searchSLPPatterns(SmallVectorImpl<const VPValue *> &Seed) {
   // Sort input vector so the same symbol memrefs go bundled and sorted by
   // offset from the base.
   // Thereby, if input array is:
@@ -573,9 +694,9 @@ VPInstructionCost VPlanSLP::searchSLPPatterns(
   //
   // Do not change lexical order though. Otherwise there are chances to run
   // into unvectorizable patterns due to memory dependencies.
-  llvm::sort(Seed, [&](const auto *Inst1, const auto *Inst2) {
-    const auto *InstMem1 = dyn_cast<VPLoadStoreInst>(Inst1);
-    const auto *InstMem2 = dyn_cast<VPLoadStoreInst>(Inst2);
+  llvm::sort(Seed, [&](const auto *V1, const auto *V2) {
+    const auto *InstMem1 = dyn_cast<VPLoadStoreInst>(V1);
+    const auto *InstMem2 = dyn_cast<VPLoadStoreInst>(V2);
     if (!InstMem1 || !InstMem2)
       return false;
 
@@ -602,11 +723,7 @@ VPInstructionCost VPlanSLP::searchSLPPatterns(
   });
 
   LLVM_DEBUG(dbgs() << "VSLP: Sorted Seed array in " << BB->getName() << ":\n";
-             for (const auto *I : Seed) {
-               dbgs() << '\t';
-               I->printWithoutAnalyses(dbgs());
-               dbgs() << '\n';
-             });
+             printVector(Seed));
 
   // Further take out some 'similar' stores out of 'Seed' array and try to
   // SLP those.
@@ -620,40 +737,38 @@ VPInstructionCost VPlanSLP::searchSLPPatterns(
   //
   // Rather than deleting vectorized bundles from 'Seed' we keep remaining
   // stores in another local array for effectiveness.
-  auto AreMemoryAdjacent =
-    [](const VPInstruction *I1, const VPInstruction *I2) {
-      const auto *S1 = dyn_cast<VPLoadStoreInst>(I1);
-      const auto *S2 = dyn_cast<VPLoadStoreInst>(I2);
+  auto AreMemoryAdjacent = [](const VPValue *V1, const VPValue *V2) {
+    const auto *S1 = dyn_cast<VPLoadStoreInst>(V1);
+    const auto *S2 = dyn_cast<VPLoadStoreInst>(V2);
 
-      if (!S1 || !S2)
-        return false;
+    if (!S1 || !S2)
+      return false;
 
-      const auto *DDRef1 = S1->getHIRMemoryRef();
-      const auto *DDRef2 = S2->getHIRMemoryRef();
-      int64_t Distance;
+    const auto *DDRef1 = S1->getHIRMemoryRef();
+    const auto *DDRef2 = S2->getHIRMemoryRef();
+    int64_t Distance;
 
-      if (!DDRef1 || !DDRef2)
-        return false;
+    if (!DDRef1 || !DDRef2)
+      return false;
 
-      return DDRefUtils::getConstByteDistance(DDRef1, DDRef2, &Distance);
-    };
+    return DDRefUtils::getConstByteDistance(DDRef1, DDRef2, &Distance);
+  };
 
-  auto AreSame32bit64bitSize =
-    [this](const VPInstruction *I1, const VPInstruction *I2) {
-      const auto *IMem1 = dyn_cast<VPLoadStoreInst>(I1);
-      const auto *IMem2 = dyn_cast<VPLoadStoreInst>(I2);
+  auto AreSame32bit64bitSize = [this](const VPValue *V1, const VPValue *V2) {
+    const auto *IMem1 = dyn_cast<VPLoadStoreInst>(V1);
+    const auto *IMem2 = dyn_cast<VPLoadStoreInst>(V2);
 
-      if (IMem1 && IMem2) {
-        unsigned BW1 = CM->DL->getTypeSizeInBits(IMem1->getValueType());
-        unsigned BW2 = CM->DL->getTypeSizeInBits(IMem2->getValueType());
-        return (BW1 == BW2 && (BW1 == 32 || BW1 == 64));
-      }
+    if (IMem1 && IMem2) {
+      unsigned BW1 = CM->DL->getTypeSizeInBits(IMem1->getValueType());
+      unsigned BW2 = CM->DL->getTypeSizeInBits(IMem2->getValueType());
+      return (BW1 == BW2 && (BW1 == 32 || BW1 == 64));
+    }
 
-      return I1->getType() == I2->getType();
-    };
+    return V1->getType() == V2->getType();
+  };
 
   VPInstructionCost Cost = 0;
-  SmallVector<const VPInstruction *, 32> LocalSeed;
+  VPlanSLPValuesTy LocalSeed;
 
   Cost += formAndCostBundles(Seed, AreMemoryAdjacent, &LocalSeed);
   Cost += formAndCostBundles(LocalSeed, AreSame32bit64bitSize);
@@ -673,7 +788,7 @@ VPInstructionCost VPlanSLP::estimateSLPCostDifference() {
   // TODO: If that appears to be the case consider overlapping search windows.
   constexpr unsigned SearchWindowSize = 64;
   // The storage for stores that are seed instructions.
-  SmallVector<const VPInstruction *, SearchWindowSize> Stores;
+  SmallVector<const VPValue *, SearchWindowSize> Stores;
 
   VPInstructionCost Cost = 0;
 

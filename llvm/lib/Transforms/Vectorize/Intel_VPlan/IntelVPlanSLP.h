@@ -31,6 +31,19 @@ class VPInstructionCost;
 class VPlanTTICostModel;
 class VPLoadStoreInst;
 
+// VPlanSLPNodeTy defines the types of vectors VSLP detects and is able to
+// estimate the cost of vectorization for.
+using VPlanSLPNodeTy = enum {
+  NotVector,        // Not a vector. Not vectorizable.
+  ConstVector,      // Vector of immediate values of the same type.
+  SplatVector,      // Vector of the very same scalar value broadcasted to all
+                    // lanes.
+  InstVector,       // Vector of (vectorizable) VPInstructions of the same
+                    // opcode.
+  InstShuffleVector // Vector of instructions of two different opcodes, so
+                    // an extra shuffle is needed to vectorize it.
+};
+
 class VPlanSLP {
   VPlanTTICostModel *CM;
   // Only instructions belonging BB are subject for SLP.
@@ -44,16 +57,54 @@ class VPlanSLP {
   static void printVector(ArrayRef<const VPValue *> Values);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  // Return true if at least two values from Values array can be represented
+  // TODO:
+  // We might want to introduce a new class to represent SLP Node and move some
+  // methods from below to the new class.
+
+  // Tries to find values in InValues array that are the same and copies those
+  // values in OutValues. Return true if 2 or more same values are found.
+  //
+  // NOTE:
+  // There can be more than one splat vector in InValues. The utility can detect
+  // only one and the caller handles the rest elements.
+  bool getSplatVector(ArrayRef<const VPValue *> InValues,
+                      SmallVectorImpl<const VPValue *> &OutValues) const;
+
+  // Picks all values in InValues array that are constants and copies those
+  // values in OutValues. Return true if 2 or more same values are found.
+  //
+  // NOTE:
+  // The method ignores the type of the constants. Checking the type complicates
+  // the code significantly since several groups of constants of different types
+  // are allowed in InValues. However, we expect those constants to be arguments
+  // to instructions that are vectorizable, i.e. of the same opcode and thereby
+  // the same type of their arguments. The exception here could be vectorizable
+  // scalar instructions that have two or more immediate arguments of different
+  // type.
+  bool getConstVector(ArrayRef<const VPValue *> InValues,
+                      SmallVectorImpl<const VPValue *> &OutValues) const;
+
+  // Return true if at least two values from InValues array can be represented
   // with a vector instruction.
   //
-  // The utility populates Insts with vectoriable Values casted to
-  // VPInstruction type.
-  bool
-  areVectorizableInsts(ArrayRef<const VPValue *> Values,
-                       SmallVectorImpl<const VPInstruction *> &Insts) const;
+  // The utility populates OutValues with vectorizable VPInstructions.
+  bool getVecInstsVector(ArrayRef<const VPValue *> InValues,
+                         SmallVectorImpl<const VPValue *> &OutValues) const;
 
-  // Returns true iff VPInstruction FromInst can be moved to ToInst.
+  // Selects values from InValues array that can be vectorized legally and
+  // copy those values into OutValues array.
+  //
+  // Returns the type of vector detected. OutValues is guaranteed to contain two
+  // elements at least if returned vector type is anything else but NotVector.
+  // OutValues is not valid to read if return value is NotVector.
+  //
+  // It is caller responsibility to handle other elements of InValues that are
+  // not copied into OutValues but may construct another vector yet.
+  VPlanSLPNodeTy
+  getVectorizableValues(ArrayRef<const VPValue *> InValues,
+                        SmallVectorImpl<const VPValue *> &OutValues) const;
+
+  // Returns true iff VPLoadStoreInst FromInst can be moved to ToInst.
   // TODO: It might be duplication of VPVLSClientMemref::canMoveTo().
   // We want these utilities to be merged once VPlanSLP matures.
   bool canMoveTo(const VPLoadStoreInst *FromInst,
@@ -69,24 +120,23 @@ class VPlanSLP {
   // difference (vectorized_graph_cost - scalar_graph_cost). Thereby if the
   // cost is negative, it is profitable to vectorize. If the cost is Invalid,
   // the graph is not vectorizable with SLP.
-  VPInstructionCost buildGraph(ArrayRef<const VPInstruction *> Seed);
+  VPInstructionCost buildGraph(ArrayRef<const VPValue *> Seed);
 
   // Searches for SLP patters that start at 'Seed' as seed instructions.
   // The utility modifies input Seed vector sorting it and it is truncated
   // at function's exit.
   //
   // Return the sum of the gain costs of profitable to SLP subgraphs only.
-  VPInstructionCost searchSLPPatterns(
-      SmallVectorImpl<const VPInstruction *> &Seed);
+  VPInstructionCost searchSLPPatterns(SmallVectorImpl<const VPValue *> &Seed);
 
-  // Utility collects the constant distances between Memrefs in Insts array
+  // Utility collects the constant distances between Memrefs in Values array
   // and 'BaseMem' memory reference.
   //
   // Only constant distances are collected. Only load and stores are expected
   // in Insts array. Every load/store in input array is expected to have
   // DDRef node associated.
   static void collectMemRefDistances(const VPLoadStoreInst *BaseMem,
-                                     ArrayRef<const VPInstruction *> Insts,
+                                     ArrayRef<const VPValue *> Values,
                                      SmallVectorImpl<ssize_t> &Distances);
 
   // The utility sorts 'Distances' array and checks if it is indexes for
@@ -102,14 +152,6 @@ class VPlanSLP {
   // The number of elements is an arbitrary (it is not nessesary power of two).
   bool isUnitStrideMemRef(SmallVectorImpl<ssize_t> &Distances) const;
 
-  // Returns true iff Values vector contains only the very same single
-  // value in every index. It means the vector value can be obtained
-  // by broadcasting the scalar value.
-  bool isSplatVector(ArrayRef<const VPValue *> Values) const;
-
-  // Returns true iff Values vector contains only VPConstants of the same type.
-  bool isConstVector(ArrayRef<const VPValue *> Values) const;
-
   // Calculates the cost of a vector instruction that would be produced from
   // scalar instruction Base extending it for VF elements. If Base is a memory
   // reference 'IsUnitMemref' indicates when the extention of the memory
@@ -124,17 +166,8 @@ class VPlanSLP {
   // Values in input array,
   // vectorized_cost - the cost of vector instruction to represent the vector
   // value that is constructed from the scalar Values.
-  VPInstructionCost
-  estimateSLPCostDifference(ArrayRef<const VPValue *> Values) const;
-
-  // Specialized to VPInstruction input vector version of
-  // estimateSLPCostDifference.
-  // Returns the difference (vectorized_cost - scalar_cost), where
-  // scalar_cost - the sum of all TTI costs of instructions in Insts array,
-  // vectorized_cost - TTI cost of vector instruction that implements
-  // operation equivalent to what all Insts do.
-  VPInstructionCost
-  estimateSLPCostDifference(ArrayRef<const VPInstruction *> Insts) const;
+  VPInstructionCost estimateSLPCostDifference(ArrayRef<const VPValue *> Values,
+                                              VPlanSLPNodeTy NType) const;
 
   // The method tries to bundle 'similar' instructions in groups and see if
   // those groups are profitable to SLP. The group is discarded (not stored
@@ -148,9 +181,9 @@ class VPlanSLP {
   //
   // The costs of profitable to vectorize groups is accumulated and returned.
   VPInstructionCost formAndCostBundles(
-      ArrayRef<const VPInstruction *> InSeed,
-      std::function<bool(const VPInstruction *, const VPInstruction *)> Compare,
-      SmallVectorImpl<const VPInstruction *> *OutSeed = nullptr);
+      ArrayRef<const VPValue *> InSeed,
+      std::function<bool(const VPValue *, const VPValue *)> Compare,
+      SmallVectorImpl<const VPValue *> *OutSeed = nullptr);
 
 public:
   VPlanSLP(VPlanTTICostModel *CM, const VPBasicBlock *BB)

@@ -6,7 +6,7 @@
 ; SSE-able target. These samples target commutativity support within SLP detection code.
 
 ; CHECK: Cost decrease due to SLP breaking heuristic is 8
-; CHECK: Cost decrease due to SLP breaking heuristic is 9
+; CHECK: Cost decrease due to SLP breaking heuristic is 8
 ; CHECK: Cost decrease due to SLP breaking heuristic is 8
 
 target triple = "x86_64-unknown-linux-gnu"
