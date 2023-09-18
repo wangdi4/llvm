@@ -46,6 +46,10 @@ public:
   static bool getVerifyEachPass();
 
   static const llvm::StringSet<> &getVPlanMaskedFuncs(); // INTEL
+
+  void setExceptionMsg(std::string &Msg) { ExceptionMsg = Msg; }
+  const std::string &getExceptionMsg() const { return ExceptionMsg; }
+
 protected:
   /// Register OCLDiagnosticHandler callback to LLVMContext.
   void setDiagnosticHandler(llvm::raw_ostream &LogStream);
@@ -80,6 +84,9 @@ protected:
   bool m_IsFpgaEmulator;
 
   bool m_UseTLSGlobals;
+
+  /// Exception message in case of error diagnose emitted from a pass.
+  std::string ExceptionMsg;
 };
 
 } // namespace DeviceBackend

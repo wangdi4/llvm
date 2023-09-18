@@ -349,6 +349,9 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
 
   optimizer->Optimize(pResult->LogS());
 
+  if (const std::string &Msg = optimizer->getExceptionMsg(); !Msg.empty())
+    throw Exceptions::CompilerException(Msg, CL_DEV_INVALID_BINARY);
+
   //
   // Populate the build results
   //
