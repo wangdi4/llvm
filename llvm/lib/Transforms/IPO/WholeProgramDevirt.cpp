@@ -888,8 +888,7 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
 
 // Enable whole program visibility if enabled by client (e.g. linker) or
 // internal option, and not force disabled.
-<<<<<<< HEAD
-bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
+bool llvm::hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // If the user specifies that we assume whole program then we need to turn
@@ -899,9 +898,6 @@ bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-=======
-bool llvm::hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
->>>>>>> b4d4146db3b9a29773259c8b8a6cb7c98da90e73
   return (WholeProgramVisibilityEnabledInLTO || WholeProgramVisibility) &&
          !DisableWholeProgramVisibility;
 }
