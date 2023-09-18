@@ -1310,9 +1310,6 @@ void TargetPassConfig::addMachinePasses() {
     addPass(&MachineOptReportEmitterID);
 #endif  // INTEL_CUSTOMIZATION
 
-  if (EnableMachineOutliner == RunOutliner::NeverOutline)
-    TM->Options.EnableMachineOutliner = false;
-
   if (TM->Options.EnableMachineOutliner &&
       getOptLevel() != CodeGenOptLevel::None &&
       EnableMachineOutliner != RunOutliner::NeverOutline) {
