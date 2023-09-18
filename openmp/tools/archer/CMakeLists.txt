@@ -31,7 +31,11 @@ if(OPENMP_ENABLE_ARCHER AND LIBOMP_ARCHER_SUPPORT)
   include_directories(${LIBOMP_INCLUDE_DIR})
 
   add_library(archer SHARED ompt-tsan.cpp)
+  if(INTEL_CUSTOMIZATION)
+  target_link_libraries(archer ${CMAKE_DL_LIBS} "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
+  else(INTEL_CUSTOMIZATION)
   target_link_libraries(archer ${CMAKE_DL_LIBS})
+  endif(INTEL_CUSTOMIZATION)
   add_library(archer_static STATIC ompt-tsan.cpp)
 
   install(TARGETS archer archer_static
