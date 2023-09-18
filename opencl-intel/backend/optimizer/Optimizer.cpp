@@ -17,7 +17,6 @@
 
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/Intel_VectorVariant/IndirectCallLowering.h"
 #include "llvm/Transforms/SYCLTransforms/SYCLKernelAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/DiagnosticInfo.h"
@@ -95,7 +94,7 @@ const StringSet<> &Optimizer::getVPlanMaskedFuncs() {
 /// diagnostic.
 class OCLDiagnosticHandler : public DiagnosticHandler {
 public:
-  OCLDiagnosticHandler(raw_ostream &OS) : OS(OS) {}
+  OCLDiagnosticHandler(raw_ostream &OS, Optimizer *Opt) : OS(OS), Opt(Opt) {}
   bool handleDiagnostics(const DiagnosticInfo &DI) override {
     std::string ExceptionMsg;
     if (isa<VFAnalysisDiagInfo>(&DI))
@@ -114,13 +113,14 @@ public:
     OS << "\n";
 
     if (DI.getSeverity() == DS_Error)
-      throw Exceptions::CompilerException(ExceptionMsg, CL_DEV_INVALID_BINARY);
+      Opt->setExceptionMsg(ExceptionMsg);
 
     return true;
   }
 
 private:
   DiagnosticPrinterRawOStream OS;
+  Optimizer *Opt;
 };
 
 Optimizer::Optimizer(Module &M, SmallVectorImpl<Module *> &RtlModules,
@@ -145,7 +145,7 @@ Optimizer::Optimizer(Module &M, SmallVectorImpl<Module *> &RtlModules,
 
 void Optimizer::setDiagnosticHandler(raw_ostream &LogStream) {
   m_M.getContext().setDiagnosticHandler(
-      std::make_unique<OCLDiagnosticHandler>(LogStream));
+      std::make_unique<OCLDiagnosticHandler>(LogStream, this));
 }
 
 void Optimizer::initOptimizerOptions() {
