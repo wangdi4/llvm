@@ -27,6 +27,15 @@ namespace llvm {
 
 class DILocation;
 class OptReportRemark;
+class OptRemark;
+
+// This is a forward declaration to break a cyclical include dependence with
+// OptReportPrintUtils.h.
+#ifndef NDEBUG
+namespace OptReportUtils {
+void validateRemarkFormatArguments(OptRemark Remark);
+} // namespace OptReportUtils
+#endif // NDEBUG
 
 struct OptReportTag {
   static constexpr const char *Root = "intel.optreport.rootnode";
@@ -80,6 +89,9 @@ public:
                             static_cast<unsigned>(ID),
                             std::forward<Args>(args)...);
     MDTuple *Tuple = MDTuple::get(Context, Ops);
+#ifndef NDEBUG
+    OptReportUtils::validateRemarkFormatArguments(Tuple);
+#endif // NDEBUG
     return Tuple;
   }
 

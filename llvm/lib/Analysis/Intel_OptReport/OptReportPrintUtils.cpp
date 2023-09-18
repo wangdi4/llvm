@@ -32,6 +32,83 @@ static unsigned getMDNodeAsUnsigned(const ConstantAsMetadata *CM) {
 
 static const unsigned IntentationStep = 4;
 
+#ifndef NDEBUG
+void validateRemarkFormatArguments(OptRemark Remark) {
+  const OptRemarkID RemarkID = Remark.getRemarkID();
+  const char *const Format = OptReportDiag::getMsg(RemarkID);
+  SmallVector<const char *> ValidSpecifiers;
+  for (const char *Specifier = Format; *Specifier != '\0'; ++Specifier) {
+    if (*Specifier != '%')
+      continue;
+    switch (Specifier[1]) {
+    case '\0':
+      errs() << "Remark #" << RemarkID << ": "
+             << StringRef(Format, Specifier - Format) << raw_ostream::RED << "%"
+             << raw_ostream::RESET << "\n";
+      llvm_unreachable("Unpaired % at end of format string");
+    case '%':
+      ++Specifier;
+      break;
+    case 'd':
+    case 's':
+      ValidSpecifiers.push_back(Specifier);
+      ++Specifier;
+      break;
+    default:
+      errs() << "Remark #" << RemarkID << ": "
+             << StringRef(Format, Specifier - Format) << raw_ostream::RED
+             << StringRef(Specifier, 2) << raw_ostream::RESET << (Specifier + 2)
+             << "\n";
+      llvm_unreachable("Only %d and %s are supported as format specifiers");
+    }
+  }
+  if (Remark.getNumOperands() != ValidSpecifiers.size() + 1) {
+    errs() << ValidSpecifiers.size() << " specifier(s) in format:\n";
+    errs() << "Remark #" << RemarkID << ": ";
+    const char *FormatToPrint = Format;
+    for (const char *const Specifier : ValidSpecifiers) {
+      errs() << StringRef(FormatToPrint, Specifier - FormatToPrint)
+             << raw_ostream::RED << StringRef(Specifier, 2)
+             << raw_ostream::RESET;
+      FormatToPrint = Specifier + 2;
+    }
+    errs() << FormatToPrint << "\n";
+    errs() << (Remark.getNumOperands() - 1) << " argument(s) in metadata:\n";
+    for (unsigned Idx = 1; Idx < Remark.getNumOperands(); ++Idx) {
+      errs() << "  " << *Remark.getOperand(Idx) << "\n";
+    }
+    llvm_unreachable(
+        "Number of arguments doesn't match number of format specifiers");
+  }
+  for (const auto [ArgIdx, Specifier] : enumerate(ValidSpecifiers)) {
+    switch (Specifier[1]) {
+    case 's':
+      if (!isa<MDString>(Remark.getOperand(ArgIdx + 1))) {
+        errs() << "Remark #" << RemarkID << ": "
+               << StringRef(Format, Specifier - Format) << raw_ostream::RED
+               << StringRef(Specifier, 2) << raw_ostream::RESET
+               << (Specifier + 2) << "\n";
+        errs() << "Argument " << (ArgIdx + 1) << ": "
+               << *Remark.getOperand(ArgIdx + 1);
+        llvm_unreachable("Argument for %s is not a string");
+      }
+      break;
+    case 'd':
+      if (!mdconst::hasa<ConstantInt>(Remark.getOperand(ArgIdx + 1))) {
+        errs() << "Remark #" << RemarkID << ": "
+               << StringRef(Format, Specifier - Format) << raw_ostream::RED
+               << StringRef(Specifier, 2) << raw_ostream::RESET
+               << (Specifier + 2) << "\n";
+        errs() << "Argument " << (ArgIdx + 1) << ": "
+               << *Remark.getOperand(ArgIdx + 1);
+        llvm_unreachable("Argument for %d is not an integer");
+      }
+      break;
+    }
+  }
+}
+#endif // NDEBUG
+
 // The purpose of this function is to create a printable remark message.
 // \p OptReportRemark looks like this :
 // !{!"Partially unrolled with %d factor", i32 8}
@@ -42,6 +119,9 @@ static const unsigned IntentationStep = 4;
 //                 Add unit tests for this function.
 std::string formatRemarkMessage(OptRemark Remark, OptRemarkID RemarkID) {
   assert(RemarkID != OptRemarkID::InvalidRemarkID && "Remark ID is invalid!");
+#ifndef NDEBUG
+  validateRemarkFormatArguments(Remark);
+#endif // NDEBUG
   std::string FormatString = std::string(OptReportDiag::getMsg(RemarkID));
 
   std::string Msg;

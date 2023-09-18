@@ -2048,7 +2048,8 @@ bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp, WRNVecLoopNode *WRLp) {
                      OptRemarkID::VecFailUnknownInductionVariable,
                      WRLp && WRLp->isOmpSIMDLoop()
                          ? getAuxMsg(AuxRemarkID::SimdLoop)
-                         : getAuxMsg(AuxRemarkID::Loop));
+                         : getAuxMsg(AuxRemarkID::Loop),
+                     " 5.0");
     return false;
   }
   if (!Lp->isNormalized()) {
