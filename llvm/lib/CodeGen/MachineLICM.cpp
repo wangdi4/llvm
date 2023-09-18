@@ -374,6 +374,19 @@ INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(EarlyMachineLICM, "early-machinelicm",
                     "Early Machine Loop Invariant Code Motion", false, false)
 
+/// Test if the given loop is the outer-most loop that has a unique predecessor.
+static bool LoopIsOuterMostWithPredecessor(MachineLoop *CurLoop) {
+  // Check whether this loop even has a unique predecessor.
+  if (!CurLoop->getLoopPredecessor())
+    return false;
+  // Ok, now check to see if any of its outer loops do.
+  for (MachineLoop *L = CurLoop->getParentLoop(); L; L = L->getParentLoop())
+    if (L->getLoopPredecessor())
+      return false;
+  // None of them did, so this is the outermost with a unique predecessor.
+  return true;
+}
+
 #if INTEL_CUSTOMIZATION
 // To maintain debug information on lines moved out of loops and be able to
 // track profile counts for the line when it is within or outside the loop, we
@@ -406,18 +419,6 @@ void MachineLICMBase::PopulateDiscriminatorTable(MachineFunction& MF) {
   }
 }
 #endif // INTEL_CUSTOMIZATION
-/// Test if the given loop is the outer-most loop that has a unique predecessor.
-static bool LoopIsOuterMostWithPredecessor(MachineLoop *CurLoop) {
-  // Check whether this loop even has a unique predecessor.
-  if (!CurLoop->getLoopPredecessor())
-    return false;
-  // Ok, now check to see if any of its outer loops do.
-  for (MachineLoop *L = CurLoop->getParentLoop(); L; L = L->getParentLoop())
-    if (L->getLoopPredecessor())
-      return false;
-  // None of them did, so this is the outermost with a unique predecessor.
-  return true;
-}
 
 bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
@@ -469,12 +470,15 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
     CurPreheader = nullptr;
     ExitBlocks.clear();
 
-    // If this is done before regalloc, only visit outer-most preheader-sporting
-    // loops.
-    if (PreRegAlloc && !LoopIsOuterMostWithPredecessor(CurLoop)) {
-      Worklist.append(CurLoop->begin(), CurLoop->end());
-      continue;
+#if INTEL_CUSTOMIZATION
+    Worklist.append(CurLoop->begin(), CurLoop->end());
+    if (PreRegAlloc) {
+      // If this is done before regalloc, only visit outer-most
+      // preheader-sporting loops.
+      if (!LoopIsOuterMostWithPredecessor(CurLoop) && !IAOpt)
+        continue;
     }
+#endif
 
     CurLoop->getExitBlocks(ExitBlocks);
 
