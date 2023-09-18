@@ -9,7 +9,7 @@ define i32 @test8(i64 %res) nounwind {
 ; CHECK-LABEL: test8:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    shrq $32, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x20]
-; CHECK-NEXT:    xorl %eax, %eax # EVEX TO LEGACY Compression encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
 ; CHECK-NEXT:    cmpl $3, %ecx # encoding: [0x83,0xf9,0x03]
 ; CHECK-NEXT:    setb %al # encoding: [0x0f,0x92,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -22,7 +22,7 @@ define i32 @test11(i64 %l) nounwind {
 ; CHECK-LABEL: test11:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    shrq $47, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x2f]
-; CHECK-NEXT:    xorl %eax, %eax # EVEX TO LEGACY Compression encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
 ; CHECK-NEXT:    cmpl $1, %ecx # encoding: [0x83,0xf9,0x01]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -86,7 +86,7 @@ declare i32 @f()
 define i32 @lowmask_i64_mask64(i64 %val) {
 ; CHECK-LABEL: lowmask_i64_mask64:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax # EVEX TO LEGACY Compression encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
 ; CHECK-NEXT:    shlq $16, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xe7,0x10]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -99,7 +99,7 @@ define i32 @lowmask_i64_mask64(i64 %val) {
 define i64 @lowmask_i64_mask64_extra_use(i64 %val) nounwind {
 ; CHECK-LABEL: lowmask_i64_mask64_extra_use:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax # EVEX TO LEGACY Compression encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
 ; CHECK-NEXT:    shlq $16, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xe7,0x10]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    imulq %rdi, %rax # EVEX TO LEGACY Compression encoding: [0x48,0x0f,0xaf,0xc7]
@@ -114,7 +114,7 @@ define i64 @lowmask_i64_mask64_extra_use(i64 %val) nounwind {
 define i32 @lowmask_i64_mask32(i64 %val) {
 ; CHECK-LABEL: lowmask_i64_mask32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax # EVEX TO LEGACY Compression encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
 ; CHECK-NEXT:    shlq $44, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xe7,0x2c]
 ; CHECK-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -127,7 +127,7 @@ define i32 @lowmask_i64_mask32(i64 %val) {
 define i32 @test7(i64 %res) nounwind {
 ; CHECK-LABEL: test7:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax # EVEX TO LEGACY Compression encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
 ; CHECK-NEXT:    shrq $32, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x20]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -140,7 +140,7 @@ entry:
 define i32 @test9(i64 %res) nounwind {
 ; CHECK-LABEL: test9:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax # EVEX TO LEGACY Compression encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
 ; CHECK-NEXT:    shrq $33, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x21]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -152,7 +152,7 @@ define i32 @test9(i64 %res) nounwind {
 define i32 @test10(i64 %res) nounwind {
 ; CHECK-LABEL: test10:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax # EVEX TO LEGACY Compression encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
 ; CHECK-NEXT:    shrq $32, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x20]
 ; CHECK-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -176,7 +176,7 @@ define i32 @test14(i32 %mask, i32 %base, i32 %intra) {
 define i64 @highmask_i64_mask64_extra_use(i64 %val) nounwind {
 ; CHECK-LABEL: highmask_i64_mask64_extra_use:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax # EVEX TO LEGACY Compression encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
 ; CHECK-NEXT:    shrq $41, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x29]
 ; CHECK-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
 ; CHECK-NEXT:    imulq %rdi, %rax # EVEX TO LEGACY Compression encoding: [0x48,0x0f,0xaf,0xc7]
@@ -191,7 +191,7 @@ define i64 @highmask_i64_mask64_extra_use(i64 %val) nounwind {
 define i32 @highmask_i64_mask32(i64 %val) {
 ; CHECK-LABEL: highmask_i64_mask32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax # EVEX TO LEGACY Compression encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
 ; CHECK-NEXT:    shrq $20, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x14]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]

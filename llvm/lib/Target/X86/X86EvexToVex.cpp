@@ -369,8 +369,7 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
 
     MI.setDesc(TII->get(NewOpc));
     MI.setAsmPrinterFlag(X86::AC_EVEX_2_LEGACY);
-    if (!MI.getOperand(1).isTied())
-      MI.tieOperands(0, 1);
+    MI.tieOperands(0, 1);
     return true;
   }
 #endif // INTEL_FEATURE_ISA_APX_F

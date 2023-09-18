@@ -5462,15 +5462,8 @@ static bool Expand2AddrKreg(MachineInstrBuilder &MIB, const MCInstrDesc &Desc,
   return true;
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-static bool expandMOV32r1(MachineInstrBuilder &MIB, const TargetInstrInfo &TII,
-                          bool MinusOne, const X86Subtarget &Subtarget) {
-#else  // INTEL_FEATURE_ISA_APX_F
 static bool expandMOV32r1(MachineInstrBuilder &MIB, const TargetInstrInfo &TII,
                           bool MinusOne) {
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   MachineBasicBlock &MBB = *MIB->getParent();
   const DebugLoc &DL = MIB->getDebugLoc();
   Register Reg = MIB.getReg(0);
@@ -5481,15 +5474,7 @@ static bool expandMOV32r1(MachineInstrBuilder &MIB, const TargetInstrInfo &TII,
       .addReg(Reg, RegState::Undef);
 
   // Turn the pseudo into an INC or DEC.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  MIB->setDesc(
-      TII.get(MinusOne ? (Subtarget.hasNDD() ? X86::DEC32r_ND : X86::DEC32r)
-                       : (Subtarget.hasNDD() ? X86::INC32r_ND : X86::INC32r)));
-#else  // INTEL_FEATURE_ISA_APX_F
   MIB->setDesc(TII.get(MinusOne ? X86::DEC32r : X86::INC32r));
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   MIB.addReg(Reg);
 
   return true;
@@ -5653,51 +5638,18 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   MachineInstrBuilder MIB(*MI.getParent()->getParent(), MI);
   switch (MI.getOpcode()) {
   case X86::MOV32r0:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    return Expand2AddrUndef(
-        MIB, get(Subtarget.hasNDD() ? X86::XOR32rr_ND : X86::XOR32rr));
-#else  // INTEL_FEATURE_ISA_APX_F
     return Expand2AddrUndef(MIB, get(X86::XOR32rr));
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   case X86::MOV32r1:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    return expandMOV32r1(MIB, *this, /*MinusOne=*/false, Subtarget);
-#else  // INTEL_FEATURE_ISA_APX_F
     return expandMOV32r1(MIB, *this, /*MinusOne=*/ false);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   case X86::MOV32r_1:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    return expandMOV32r1(MIB, *this, /*MinusOne=*/true, Subtarget);
-#else  // INTEL_FEATURE_ISA_APX_F
     return expandMOV32r1(MIB, *this, /*MinusOne=*/ true);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   case X86::MOV32ImmSExti8:
   case X86::MOV64ImmSExti8:
     return ExpandMOVImmSExti8(MIB, *this, Subtarget);
   case X86::SETB_C32r:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    return Expand2AddrUndef(
-        MIB, get(Subtarget.hasNDD() ? X86::SBB32rr_ND : X86::SBB32rr));
-#else  // INTEL_FEATURE_ISA_APX_F
     return Expand2AddrUndef(MIB, get(X86::SBB32rr));
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   case X86::SETB_C64r:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    return Expand2AddrUndef(
-        MIB, get(Subtarget.hasNDD() ? X86::SBB64rr_ND : X86::SBB64rr));
-#else  // INTEL_FEATURE_ISA_APX_F
     return Expand2AddrUndef(MIB, get(X86::SBB64rr));
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   case X86::MMX_SET0:
     return Expand2AddrUndef(MIB, get(X86::MMX_PXORrr));
   case X86::V_SET0:
@@ -5909,45 +5861,6 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case X86::XOR64_FP:
   case X86::XOR32_FP:
     return expandXorFP(MIB, *this);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  case X86::SHLDROT32ri:
-    return expandSHXDROT(
-        MIB, get(Subtarget.hasNDD() ? X86::SHLD32rri8_ND : X86::SHLD32rri8));
-  case X86::SHLDROT64ri:
-    return expandSHXDROT(
-        MIB, get(Subtarget.hasNDD() ? X86::SHLD64rri8_ND : X86::SHLD64rri8));
-  case X86::SHRDROT32ri:
-    return expandSHXDROT(
-        MIB, get(Subtarget.hasNDD() ? X86::SHRD32rri8_ND : X86::SHRD32rri8));
-  case X86::SHRDROT64ri:
-    return expandSHXDROT(
-        MIB, get(Subtarget.hasNDD() ? X86::SHRD64rri8_ND : X86::SHRD64rri8));
-  case X86::ADD8rr_DB:
-    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR8rr_ND : X86::OR8rr));
-    break;
-  case X86::ADD16rr_DB:
-    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR16rr_ND : X86::OR16rr));
-    break;
-  case X86::ADD32rr_DB:
-    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR32rr_ND : X86::OR32rr));
-    break;
-  case X86::ADD64rr_DB:
-    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR64rr_ND : X86::OR64rr));
-    break;
-  case X86::ADD8ri_DB:
-    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR8ri_ND : X86::OR8ri));
-    break;
-  case X86::ADD16ri_DB:
-    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR16ri_ND : X86::OR16ri));
-    break;
-  case X86::ADD32ri_DB:
-    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR32ri_ND : X86::OR32ri));
-    break;
-  case X86::ADD64ri32_DB:
-    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR64ri32_ND : X86::OR64ri32));
-    break;
-#else  // INTEL_FEATURE_ISA_APX_F
   case X86::SHLDROT32ri: return expandSHXDROT(MIB, get(X86::SHLD32rri8));
   case X86::SHLDROT64ri: return expandSHXDROT(MIB, get(X86::SHLD64rri8));
   case X86::SHRDROT32ri: return expandSHXDROT(MIB, get(X86::SHRD32rri8));
@@ -5960,8 +5873,6 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case X86::ADD16ri_DB:   MIB->setDesc(get(X86::OR16ri));   break;
   case X86::ADD32ri_DB:   MIB->setDesc(get(X86::OR32ri));   break;
   case X86::ADD64ri32_DB: MIB->setDesc(get(X86::OR64ri32)); break;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   }
   return false;
 }

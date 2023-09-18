@@ -18,7 +18,7 @@ define void @foo(i64 %zed, ptr %x) nounwind {
 ; X64-LABEL: foo:
 ; X64:       # %bb.0:
 ; X64-NEXT:    andq $-4, %rdi, %rax # encoding: [0x62,0xf4,0xfc,0x18,0x83,0xe7,0xfc]
-; X64-NEXT:    orq $2, %rax # EVEX TO LEGACY Compression encoding: [0x48,0x83,0xc8,0x02]
+; X64-NEXT:    orq $2, %rax # encoding: [0x48,0x83,0xc8,0x02]
 ; X64-NEXT:    movq %rax, (%rsi) # encoding: [0x48,0x89,0x06]
 ; X64-NEXT:    retq # encoding: [0xc3]
   %t1 = and i64 %zed, -4
