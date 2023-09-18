@@ -226,7 +226,7 @@ struct BitCastBitsEnumerator {
 
 } // namespace
 
-static raw_ostream &operator<<(raw_ostream &os,
+[[maybe_unused]] static raw_ostream &operator<<(raw_ostream &os,
                                const SmallVector<SourceElementRangeList> &vec) {
   for (const auto &l : vec) {
     for (auto it : llvm::enumerate(l)) {
@@ -256,6 +256,7 @@ BitCastBitsEnumerator::BitCastBitsEnumerator(VectorType sourceVectorType,
   LDBG("targetVectorType: " << targetVectorType);
 
   int64_t bitwidth = targetBitWidth * mostMinorTargetDim;
+  (void) mostMinorSourceDim;
   assert(bitwidth == sourceBitWidth * mostMinorSourceDim &&
          "source and target bitwidths must match");
 
