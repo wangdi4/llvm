@@ -2051,12 +2051,9 @@ bool VectorCombine::run() {
     if (Opcode == Instruction::Store)
       MadeChange |= foldSingleElementStore(I);
 
-<<<<<<< HEAD
-=======
     if (isa<VectorType>(I.getType()) && Opcode == Instruction::Load)
       MadeChange |= scalarizeLoadExtract(I);
 
->>>>>>> 068357d9b09cd635b1c2f126d119ce9afecb28f7
     // If this is an early pipeline invocation of this pass, we are done.
     if (TryEarlyFoldsOnly)
       return;
