@@ -51,6 +51,12 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
+// Turn off reductions inside conditions
+static cl::opt<bool> DisableConditionalReductions(
+    "disable-" OPT_SWITCH "-conditional-reductions", cl::init(false),
+    cl::Hidden,
+    cl::desc("Disable " OPT_DESC " for reductions inside conditions"));
+
 namespace {
 
 class HIRMemoryReductionSinkingLegacyPass : public HIRTransformPass {
@@ -105,6 +111,7 @@ class HIRMemoryReductionSinking {
 
   SmallVector<MemoryReductionInfo, 16> MemoryReductions;
   SmallVector<MemoryReductionInfo, 8> InvariantMemoryReductions;
+  SmallVector<MemoryReductionInfo, 8> ConditionalInvariantMemoryReductions;
 
 public:
   HIRMemoryReductionSinking(HIRLoopStatistics &HLS, HIRDDAnalysis &HDDA)
@@ -113,13 +120,19 @@ public:
 
   bool validateReductionTemp(DDGraph DDG, const HLLoop *Lp);
   bool validateMemoryReductions(const HLLoop *Lp);
-
+  bool isValidReductionRef(const DDRef *Ref, unsigned Opcode);
   void sinkInvariantReductions(HLLoop *Lp);
 
 private:
-  void clearReductionVectors() {
+  void clearReductions() {
     MemoryReductions.clear();
     InvariantMemoryReductions.clear();
+    ConditionalInvariantMemoryReductions.clear();
+  }
+
+  bool haveCandidateReductions() {
+    return !InvariantMemoryReductions.empty() ||
+           !ConditionalInvariantMemoryReductions.empty();
   }
 };
 
@@ -129,16 +142,20 @@ class CandidatesCollector final : public HLNodeVisitorBase {
 private:
   SmallVector<MemoryReductionInfo, 16> &MemoryReductions;
   SmallVector<MemoryReductionInfo, 8> &InvariantMemoryReductions;
+  SmallVector<MemoryReductionInfo, 8> &ConditionalInvariantMemoryReductions;
   HLLoop *ParentLoop;
 
 public:
   CandidatesCollector(
       SmallVector<MemoryReductionInfo, 16> &MemoryReductions,
       SmallVector<MemoryReductionInfo, 8> &InvariantMemoryReductions,
+      SmallVector<MemoryReductionInfo, 8> &ConditionalInvariantMemoryReductions,
       HLLoop *Loop)
       : MemoryReductions(MemoryReductions),
-        InvariantMemoryReductions(InvariantMemoryReductions), ParentLoop(Loop) {
-  }
+        InvariantMemoryReductions(InvariantMemoryReductions),
+        ConditionalInvariantMemoryReductions(
+            ConditionalInvariantMemoryReductions),
+        ParentLoop(Loop) {}
 
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
@@ -263,12 +280,13 @@ void CandidatesCollector::visit(HLInst *HInst) {
       return;
   }
 
-  if (!HLNodeUtils::postDominates(StoreInst, FirstChild))
-    return;
-
   if (LoadRef->isStructurallyInvariantAtLevel(Level)) {
-    InvariantMemoryReductions.emplace_back(Opcode, FMF, LoadRef,
-                                           StoreInst->getLvalDDRef());
+    auto &InvariantReductions =
+        HLNodeUtils::postDominates(StoreInst, FirstChild)
+            ? InvariantMemoryReductions
+            : ConditionalInvariantMemoryReductions;
+    InvariantReductions.emplace_back(Opcode, FMF, LoadRef,
+                                     StoreInst->getLvalDDRef());
   } else if (!ParentLoop->isLiveOut(HInst->getLvalDDRef()->getSymbase())) {
     // MemoryReductions tracks the non-invariant reductions that could
     // alias to other invariant reductions, which we are trying to sink.
@@ -320,12 +338,18 @@ bool HIRMemoryReductionSinking::validateReductionTemp(DDGraph DDG,
                      InvariantMemoryReductions.end(), ReductionTempEscapes),
       InvariantMemoryReductions.end());
 
+  ConditionalInvariantMemoryReductions.erase(
+      std::remove_if(ConditionalInvariantMemoryReductions.begin(),
+                     ConditionalInvariantMemoryReductions.end(),
+                     ReductionTempEscapes),
+      ConditionalInvariantMemoryReductions.end());
+
   MemoryReductions.erase(std::remove_if(MemoryReductions.begin(),
                                         MemoryReductions.end(),
                                         ReductionTempEscapes),
                          MemoryReductions.end());
 
-  return !InvariantMemoryReductions.empty();
+  return haveCandidateReductions();
 }
 
 static bool
@@ -348,6 +372,14 @@ isValidReductionRef(const DDRef *Ref, unsigned Opcode,
   }
 
   return false;
+}
+
+bool HIRMemoryReductionSinking::isValidReductionRef(const DDRef *Ref,
+                                                    unsigned Opcode) {
+  return ::isValidReductionRef(Ref, Opcode, MemoryReductions) ||
+         ::isValidReductionRef(Ref, Opcode, InvariantMemoryReductions) ||
+         ::isValidReductionRef(Ref, Opcode,
+                               ConditionalInvariantMemoryReductions);
 }
 
 bool HIRMemoryReductionSinking::validateMemoryReductions(const HLLoop *Lp) {
@@ -389,9 +421,7 @@ bool HIRMemoryReductionSinking::validateMemoryReductions(const HLLoop *Lp) {
         break;
       }
 
-      if (!isValidReductionRef(SinkRef, InvRedn.Opcode, MemoryReductions) &&
-          !isValidReductionRef(SinkRef, InvRedn.Opcode,
-                               InvariantMemoryReductions)) {
+      if (!isValidReductionRef(SinkRef, InvRedn.Opcode)) {
         Escapes = true;
         break;
       }
@@ -405,7 +435,21 @@ bool HIRMemoryReductionSinking::validateMemoryReductions(const HLLoop *Lp) {
                      InvariantMemoryReductions.end(), InvReductionStoreEscapes),
       InvariantMemoryReductions.end());
 
-  return !InvariantMemoryReductions.empty();
+  // If the optimization is disabled then clear the data collected for
+  // invariant memory reductions inside conditions. We don't disable the
+  // collection earlier because the data collected from these reductions can be
+  // useful for the reductions identified outside the conditions
+  // (InvariantMemoryReductions).
+  if (DisableConditionalReductions)
+    ConditionalInvariantMemoryReductions.clear();
+  else
+    ConditionalInvariantMemoryReductions.erase(
+        std::remove_if(ConditionalInvariantMemoryReductions.begin(),
+                       ConditionalInvariantMemoryReductions.end(),
+                       InvReductionStoreEscapes),
+        ConditionalInvariantMemoryReductions.end());
+
+  return haveCandidateReductions();
 }
 
 static RegDDRef *createReductionInitializer(HLLoop *Lp, unsigned Opcode,
@@ -455,19 +499,19 @@ static unsigned getCommutativeOpcode(unsigned Opcode) {
 // This function uses the information in the input MemoryReductionInfo to
 // create a reduction temp and replaces reduction load/store inside the loop
 // with the temp.
-static void createReductionTemp(HLLoop *Lp, MemoryReductionInfo *InvRedn) {
+static HLInst *createReductionTemp(HLLoop *Lp, MemoryReductionInfo &InvRedn) {
   auto &HNU = Lp->getHLNodeUtils();
   unsigned Level = Lp->getNestingLevel();
 
-  auto *LoadRef = InvRedn->LoadRef;
+  auto *LoadRef = InvRedn.LoadRef;
   auto *LoadInst = cast<HLInst>(LoadRef->getHLDDNode());
 
-  auto *StoreRef = InvRedn->StoreRef;
+  auto *StoreRef = InvRedn.StoreRef;
   auto *StoreInst = StoreRef->getHLDDNode();
 
-  unsigned Opcode = getCommutativeOpcode(InvRedn->Opcode);
+  unsigned Opcode = getCommutativeOpcode(InvRedn.Opcode);
 
-  auto *RednTemp = createReductionInitializer(Lp, Opcode, InvRedn->FMF,
+  auto *RednTemp = createReductionInitializer(Lp, Opcode, InvRedn.FMF,
                                               LoadRef->getDestType());
 
   auto *BinOp = dyn_cast<BinaryOperator>(LoadInst->getLLVMInstruction());
@@ -517,14 +561,16 @@ static void createReductionTemp(HLLoop *Lp, MemoryReductionInfo *InvRedn) {
       Opcode, RednTemp->clone(), RednOpRef, "redn", RednTemp->clone(), BinOp);
 
   HLNodeUtils::insertBefore(LoadInst, TmpRednInst);
+
+  return cast<HLInst>(RednTemp->getHLDDNode());
 }
 
 // This function updates the optimization remarks after the transformation.
-static void addOptimizationsRemark(HLLoop *Lp, MemoryReductionInfo *InvRedn) {
+static void addOptimizationsRemark(HLLoop *Lp, MemoryReductionInfo &InvRedn) {
 
   OptReportBuilder &ORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
-  auto *StoreRef = InvRedn->StoreRef;
+  auto *StoreRef = InvRedn.StoreRef;
 
   unsigned StoreLineNum = 0;
 
@@ -537,28 +583,105 @@ static void addOptimizationsRemark(HLLoop *Lp, MemoryReductionInfo *InvRedn) {
                            OptRemarkID::MemoryReductionSinking, StoreLineNum);
 }
 
+// Linear (invariant) memrefs can become non-linear in post-exit as they are
+// now in outer loop scope.
+static void makeLoadAndStoreRefsConsistent(HLLoop *Lp,
+                                           MemoryReductionInfo &InvRedn) {
+  unsigned Level = Lp->getNestingLevel();
+  InvRedn.LoadRef->makeConsistent({}, Level - 1);
+  InvRedn.StoreRef->makeConsistent({}, Level - 1);
+}
+
+// Create a new If condition that will be used to encapsulate the load and
+// store of the reduction. This node will be created if we found that the
+// reduction is inside an If. For example:
+//
+//   BEGIN REGION { }
+//         + DO i1 = 0, 99, 1   <DO_LOOP>
+//         |   if ((%b)[i1] > 10)
+//         |   {
+//         |      %1 = (%a)[5];
+//         |      (%a)[5] = %1 + 2;
+//         |   }
+//         + END LOOP
+//   END REGION
+//
+// Will be converted as follows:
+//
+//   BEGIN REGION { modified }
+//         %tmp = 0;
+//
+//         + DO i1 = 0, 99, 1   <DO_LOOP>
+//         |   if ((%b)[i1] > 10)
+//         |   {
+//         |      %tmp = %tmp  +  2;
+//         |   }
+//         + END LOOP
+//
+//         if (%tmp != 0)
+//         {
+//            %1 = (%a)[5];
+//            (%a)[5] = %1 + %tmp;
+//         }
+//   END REGION
+//
+// This function creates the If used to compare if %tmp is not equal to 0.
+static HLIf *createConditionalReductionIf(RegDDRef *LoadRef, HLInst *InitInst) {
+
+  auto *RednTemp = InitInst->getLvalDDRef();
+  auto *TempInitVal = InitInst->getRvalDDRef();
+
+  auto &HNU = InitInst->getHLNodeUtils();
+
+  // TODO: We need to make sure if the floating point comparison is ordered or
+  // unordered when the LoadRef's type is a floating point (CMPLRLLVM-51654).
+  auto PredTy = LoadRef->getDestType()->isIntegerTy() ? PredicateTy::ICMP_NE
+                                                      : PredicateTy::FCMP_UNE;
+  auto *LHS = RednTemp->clone();
+  auto *RHS = TempInitVal->clone();
+  auto *NewIf = HNU.createHLIf(PredTy, LHS, RHS);
+
+  return NewIf;
+}
+
 void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
+
+  if (!ConditionalInvariantMemoryReductions.empty())
+    Lp->extractZttPreheaderAndPostexit();
+
   // Sink collected reduction in reverse order to keep lexical order same in
   // loop postexit.
   for (auto &InvRedn : make_range(InvariantMemoryReductions.rbegin(),
                                   InvariantMemoryReductions.rend())) {
-    // Create the reduction temp and update the load and store instructions
-    createReductionTemp(Lp, &InvRedn);
+    createReductionTemp(Lp, InvRedn);
     auto *LoadInst = cast<HLInst>(InvRedn.LoadRef->getHLDDNode());
     auto *StoreInst = cast<HLInst>(InvRedn.StoreRef->getHLDDNode());
 
-    // Move them to the post exit
     HLNodeUtils::moveAsFirstPostexitNode(Lp, StoreInst);
     HLNodeUtils::moveAsFirstPostexitNode(Lp, LoadInst);
 
-    // Add optimization remarks
-    addOptimizationsRemark(Lp, &InvRedn);
+    makeLoadAndStoreRefsConsistent(Lp, InvRedn);
+    addOptimizationsRemark(Lp, InvRedn);
+  }
 
-    // Linear (invariant) memrefs can become non-linear in post-exit as they are
-    // now in outer loop scope.
-    unsigned Level = Lp->getNestingLevel();
-    InvRedn.LoadRef->makeConsistent({}, Level - 1);
-    InvRedn.StoreRef->makeConsistent({}, Level - 1);
+  for (auto &InvRedn :
+       make_range(ConditionalInvariantMemoryReductions.rbegin(),
+                  ConditionalInvariantMemoryReductions.rend())) {
+
+    HLInst *InitInst = createReductionTemp(Lp, InvRedn);
+
+    auto *LoadRef = InvRedn.LoadRef;
+    auto *LoadInst = cast<HLInst>(LoadRef->getHLDDNode());
+    auto *StoreInst = cast<HLInst>(InvRedn.StoreRef->getHLDDNode());
+
+    HLIf *RedIf = createConditionalReductionIf(LoadRef, InitInst);
+
+    HLNodeUtils::insertAfter(Lp, RedIf);
+    HLNodeUtils::moveAsFirstThenChild(RedIf, StoreInst);
+    HLNodeUtils::moveAsFirstThenChild(RedIf, LoadInst);
+
+    makeLoadAndStoreRefsConsistent(Lp, InvRedn);
+    addOptimizationsRemark(Lp, InvRedn);
   }
 
   Lp->getParentRegion()->setGenCode();
@@ -580,16 +703,14 @@ bool HIRMemoryReductionSinking::run(HLLoop *Lp) {
     return false;
   }
 
-  clearReductionVectors();
+  clearReductions();
 
-  // Currently, we don't support handling reductions inside If or Switch.
-  // This is a work in progress (CMPLRLLVM-48084).
   CandidatesCollector Candidates(MemoryReductions, InvariantMemoryReductions,
-                                 Lp);
-  HLNodeUtils::visitRange<false /* Recurse */>(Candidates, Lp->child_begin(),
-                                               Lp->child_end());
+                                 ConditionalInvariantMemoryReductions, Lp);
 
-  if (InvariantMemoryReductions.empty())
+  HLNodeUtils::visitRange(Candidates, Lp->child_begin(), Lp->child_end());
+
+  if (!haveCandidateReductions())
     return false;
 
   if (!validateMemoryReductions(Lp)) {
