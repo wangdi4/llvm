@@ -2039,8 +2039,10 @@ bool VectorCombine::run() {
 
     // This transform works with scalable and fixed vectors
     // TODO: Identify and allow other scalable transforms
-    if (isa<VectorType>(I.getType()))
+    if (isa<VectorType>(I.getType())) {
       MadeChange |= scalarizeBinopOrCmp(I);
+      MadeChange |= scalarizeLoadExtract(I);
+    }
 
 #if INTEL_CUSTOMIZATION
     // Need put all the customized functions in front of
@@ -2050,9 +2052,6 @@ bool VectorCombine::run() {
 
     if (Opcode == Instruction::Store)
       MadeChange |= foldSingleElementStore(I);
-
-    if (isa<VectorType>(I.getType()) && Opcode == Instruction::Load)
-      MadeChange |= scalarizeLoadExtract(I);
 
     // If this is an early pipeline invocation of this pass, we are done.
     if (TryEarlyFoldsOnly)

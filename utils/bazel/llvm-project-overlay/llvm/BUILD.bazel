@@ -2689,6 +2689,7 @@ cc_library(
         ":BitReader",
         ":BitWriter",
         ":Core",
+        ":DebugInfoDWARF",
         ":ExecutionEngine",
         ":JITLink",
         ":MC",
