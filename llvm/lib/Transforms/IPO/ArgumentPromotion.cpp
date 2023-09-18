@@ -174,6 +174,9 @@ static Function *doPromotion(
   // that we are *not* promoting. For the ones that we do promote, the parameter
   // attributes are lost
   SmallVector<AttributeSet, 8> ArgAttrVec;
+  // Mapping from old to new argument indices. -1 for promoted or removed
+  // arguments.
+  SmallVector<unsigned> NewArgIndices;
   AttributeList PAL = F->getAttributes();
   const DataLayout &DL = F->getParent()->getDataLayout(); // INTEL
 
@@ -186,16 +189,18 @@ static Function *doPromotion(
 #endif // INTEL_CUSTOMIZATION
 
   // First, determine the new argument list
-  unsigned ArgNo = 0;
+  unsigned ArgNo = 0, NewArgNo = 0;
   for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(); I != E;
        ++I, ++ArgNo) {
     if (!ArgsToPromote.count(&*I)) {
       // Unchanged argument
       Params.push_back(I->getType());
       ArgAttrVec.push_back(PAL.getParamAttrs(ArgNo));
+      NewArgIndices.push_back(NewArgNo++);
     } else if (I->use_empty()) {
       // Dead argument (which are always marked as promotable)
       ++NumArgumentsDead;
+      NewArgIndices.push_back((unsigned)-1);
     } else {
       const auto &ArgParts = ArgsToPromote.find(&*I)->second;
       for (const auto &Pair : ArgParts) {
@@ -216,6 +221,8 @@ static Function *doPromotion(
         ArgAttrVec.push_back(AttributeSet());
       }
       ++NumArgumentsPromoted;
+      NewArgIndices.push_back((unsigned)-1);
+      NewArgNo += ArgParts.size();
     }
   }
 
@@ -248,6 +255,19 @@ static Function *doPromotion(
   // the function.
   NF->setAttributes(AttributeList::get(F->getContext(), PAL.getFnAttrs(),
                                        PAL.getRetAttrs(), ArgAttrVec));
+
+  // Remap argument indices in allocsize attribute.
+  if (auto AllocSize = NF->getAttributes().getFnAttrs().getAllocSizeArgs()) {
+    unsigned Arg1 = NewArgIndices[AllocSize->first];
+    assert(Arg1 != (unsigned)-1 && "allocsize cannot be promoted argument");
+    std::optional<unsigned> Arg2;
+    if (AllocSize->second) {
+      Arg2 = NewArgIndices[*AllocSize->second];
+      assert(Arg2 != (unsigned)-1 && "allocsize cannot be promoted argument");
+    }
+    NF->addFnAttr(Attribute::getWithAllocSizeArgs(F->getContext(), Arg1, Arg2));
+  }
+
   AttributeFuncs::updateMinLegalVectorWidthAttr(*NF, LargestVectorWidth);
   ArgAttrVec.clear();
 
