@@ -284,6 +284,10 @@ Bug Fixes to C++ Support
   a non-template inner-class between the function and the class template.
   (`#65810 <https://github.com/llvm/llvm-project/issues/65810>`_)
 
+- Clang now properly converts static lambda call operator to function
+  pointers on win32.
+  (`#62594 <https://github.com/llvm/llvm-project/issues/62594>`_)
+
 Bug Fixes to AST Handling
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 - Fixed an import failure of recursive friend class template.
