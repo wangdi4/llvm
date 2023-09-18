@@ -2195,8 +2195,6 @@ static llvm::Value *EmitTypeidFromVTable(CodeGenFunction &CGF, const Expr *E,
 
 llvm::Value *CodeGenFunction::EmitCXXTypeidExpr(const CXXTypeidExpr *E) {
   llvm::Type *PtrTy = llvm::PointerType::getUnqual(getLLVMContext());
-<<<<<<< HEAD
-=======
   LangAS GlobAS = CGM.GetGlobalVarAddressSpace(nullptr);
 
   auto MaybeASCast = [=](auto &&TypeInfo) {
@@ -2205,16 +2203,11 @@ llvm::Value *CodeGenFunction::EmitCXXTypeidExpr(const CXXTypeidExpr *E) {
     return getTargetHooks().performAddrSpaceCast(CGM,TypeInfo, GlobAS,
                                                  LangAS::Default, PtrTy);
   };
->>>>>>> d744ed826318affce98eed135854e08f24f97561
 
   if (E->isTypeOperand()) {
     llvm::Constant *TypeInfo =
         CGM.GetAddrOfRTTIDescriptor(E->getTypeOperand(getContext()));
-<<<<<<< HEAD
-    return TypeInfo;
-=======
     return MaybeASCast(TypeInfo);
->>>>>>> d744ed826318affce98eed135854e08f24f97561
   }
 
   // C++ [expr.typeid]p2:
@@ -2227,11 +2220,7 @@ llvm::Value *CodeGenFunction::EmitCXXTypeidExpr(const CXXTypeidExpr *E) {
     return EmitTypeidFromVTable(*this, E->getExprOperand(), PtrTy);
 
   QualType OperandTy = E->getExprOperand()->getType();
-<<<<<<< HEAD
-  return CGM.GetAddrOfRTTIDescriptor(OperandTy);
-=======
   return MaybeASCast(CGM.GetAddrOfRTTIDescriptor(OperandTy));
->>>>>>> d744ed826318affce98eed135854e08f24f97561
 }
 
 static llvm::Value *EmitDynamicCastToNull(CodeGenFunction &CGF,
