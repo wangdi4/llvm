@@ -3955,23 +3955,6 @@ Generic_GCC::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
     return true;
   };
 
-<<<<<<< HEAD
-  // Android never uses the libc++ headers installed alongside the toolchain,
-  // which are generally incompatible with the NDK libraries anyway.
-  if (!getTriple().isAndroid())
-    if (AddIncludePath(getDriver().Dir + "/../include"))
-      return;
-#if INTEL_CUSTOMIZATION
-#if INTEL_DEPLOY_UNIFIED_LAYOUT
-    // If using the new unified/flat layout, the "../include" will only exist
-    // when the driver is invoked from the build directory. If invoked from the
-    // deployment we need to look an additional level up.
-    else if (AddIncludePath(getDriver().Dir + "/../../opt/compiler/include"))
-      return;
-#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
-#endif // INTEL_CUSTOMIZATION
-
-=======
   // Android only uses the libc++ headers installed alongside the toolchain if
   // they contain an Android-specific target include path, otherwise they're
   // incompatible with the NDK libraries.
@@ -3980,7 +3963,15 @@ Generic_GCC::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
   if (AddIncludePath(DriverIncludeDir,
                      /*TargetDirRequired=*/getTriple().isAndroid()))
     return;
->>>>>>> b1e3cd1d79443603dc003441e07cdd8d30bb7f26
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  // If using the new unified/flat layout, the "../include" will only exist
+  // when the driver is invoked from the build directory. If invoked from the
+  // deployment we need to look an additional level up.
+  if (AddIncludePath(getDriver().Dir + "/../../opt/compiler/include"))
+    return;
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // INTEL_CUSTOMIZATION
   // If this is a development, non-installed, clang, libcxx will
   // not be found at ../include/c++ but it likely to be found at
   // one of the following two locations:
