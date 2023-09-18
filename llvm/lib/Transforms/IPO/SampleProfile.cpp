@@ -336,6 +336,22 @@ static cl::opt<bool> AnnotateSampleProfileInlinePhase(
     cl::desc("Annotate LTO phase (prelink / postlink), or main (no LTO) for "
              "sample-profile inline pass name."));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    IntelLoopcountAverage("sample-profile-intel-loopcount-average",
+                          cl::desc("Annotate average loop trip counts based on "
+                                   "SPGO frequency data (enabled by default)."),
+                          cl::init(true), cl::Hidden);
+
+static cl::opt<bool> IntelLoopcountAverageCommon(
+    "sample-profile-intel-loopcount-average-common",
+    cl::desc("Annotate common loop trip counts using averages based on SPGO "
+             "frequency data. May improve optimization in the common case "
+             "where the average trip count is a common (or only) trip count "
+             "for the loop, but may hurt optimization otherwise."),
+    cl::init(false), cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
+
 namespace llvm {
 extern cl::opt<bool> EnableExtTspBlockPlacement;
 }
@@ -535,11 +551,13 @@ public:
       IntrusiveRefCntPtr<vfs::FileSystem> FS,
       std::function<AssumptionCache &(Function &)> GetAssumptionCache,
       std::function<TargetTransformInfo &(Function &)> GetTargetTransformInfo,
-      std::function<const TargetLibraryInfo &(Function &)> GetTLI)
+      std::function<const TargetLibraryInfo &(Function &)> GetTLI, // INTEL
+      std::function<const LoopInfo &(Function &)> GetLoopInfo)     // INTEL
       : SampleProfileLoaderBaseImpl(std::string(Name), std::string(RemapName),
                                     std::move(FS)),
         GetAC(std::move(GetAssumptionCache)),
         GetTTI(std::move(GetTargetTransformInfo)), GetTLI(std::move(GetTLI)),
+        GetLoopInfo(std::move(GetLoopInfo)), // INTEL
         LTOPhase(LTOPhase),
         AnnotatedPassName(AnnotateSampleProfileInlinePhase
                               ? llvm::AnnotateInlinePassName(InlineContext{
@@ -591,6 +609,7 @@ protected:
   std::vector<Function *> buildFunctionOrder(Module &M, LazyCallGraph &CG);
   std::unique_ptr<ProfiledCallGraph> buildProfiledCallGraph(Module &M);
   void generateMDProfMetadata(Function &F);
+  void generateIntelLoopcountMetadata(Function &); // INTEL
 
   /// Map from function name to Function *. Used to find the function from
   /// the function name. If the function name contains suffix, additional
@@ -601,6 +620,7 @@ protected:
   std::function<AssumptionCache &(Function &)> GetAC;
   std::function<TargetTransformInfo &(Function &)> GetTTI;
   std::function<const TargetLibraryInfo &(Function &)> GetTLI;
+  std::function<const LoopInfo &(Function &)> GetLoopInfo; // INTEL
 
   /// Profile tracker for different context.
   std::unique_ptr<SampleContextTracker> ContextTracker;
@@ -1903,6 +1923,109 @@ void SampleProfileLoader::generateMDProfMetadata(Function &F) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+/// Generate llvm.loop.intel.loopcount_average (or llvm.loop.intel.loopcount)
+/// metadata for all loops in \p F based on known edge weights.
+void SampleProfileLoader::generateIntelLoopcountMetadata(Function &F) {
+  LLVMContext &Ctx = F.getContext();
+  MDString *LoopcountAverageKey = nullptr;
+  MDString *LoopcountCommonKey = nullptr;
+  for (Loop *L : GetLoopInfo(F).getLoopsInPreorder()) {
+
+    // If this loop is already marked with an average or common trip count,
+    // leave it alone.
+    const MDNode *const OldMD = L->getLoopID();
+    if (OldMD) {
+      for (const Metadata *const Opnd : OldMD->operands()) {
+        if (const auto *const OpndNode = dyn_cast<MDTuple>(Opnd)) {
+          if (OpndNode->getNumOperands()) {
+            if (OpndNode->getOperand(0) == LoopcountAverageKey)
+              continue;
+            if (OpndNode->getOperand(0) == LoopcountCommonKey)
+              continue;
+            if (auto *const Key =
+                    dyn_cast_if_present<MDString>(OpndNode->getOperand(0))) {
+              if (Key->getString() == "llvm.loop.intel.loopcount_average") {
+                LoopcountAverageKey = Key;
+                continue;
+              }
+              if (Key->getString() == "llvm.loop.intel.loopcount") {
+                LoopcountCommonKey = Key;
+                continue;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Calculate the total weights for backedges and entry edges of the loop.
+    uint64_t BackedgeWeight = 0;
+    uint64_t LoopEntryWeight = 0;
+    for (const BasicBlock *const Pred : predecessors(L->getHeader())) {
+      const bool IsBackedge = L->contains(Pred);
+      if (IsBackedge)
+        BackedgeWeight += EdgeWeights[{Pred, L->getHeader()}];
+      else
+        LoopEntryWeight += EdgeWeights[{Pred, L->getHeader()}];
+    }
+
+    // If the entry weight is 0, the loop doesn't seem to have been entered
+    // during the profile run so that doesn't tell us anything about trip
+    // counts.
+    if (LoopEntryWeight == 0)
+      continue;
+
+    // Divide the backedge weight(s) by the loop entry weight(s) to get the
+    // average backedge taken count. Half of the loop entry weight is added to
+    // make this a round-to-nearest division.
+    const uint64_t BackedgeTakenCount =
+        (BackedgeWeight + LoopEntryWeight / 2) / LoopEntryWeight;
+
+    // The backedge taken count is the same as the loop trip count for
+    // top-tested loops, but bottom-tested loops execute one more iteration
+    // since the test is after the loop body.
+    uint64_t TripCount = BackedgeTakenCount;
+    if (L->isRotatedForm())
+      ++TripCount;
+
+    LLVM_DEBUG({
+      if (L->isRotatedForm())
+        dbgs() << "Bottom-";
+      else
+        dbgs() << "Top-";
+      dbgs() << "tested loop " << L->getHeader()->getNameOrAsOperand()
+             << " has average trip count " << TripCount << " ("
+             << BackedgeWeight << "/" << LoopEntryWeight;
+      if (L->isRotatedForm())
+        dbgs() << "+1";
+      dbgs() << ")\n";
+    });
+
+    // Append the trip count to the loop metadata.
+    if (IntelLoopcountAverage && !LoopcountAverageKey)
+      LoopcountAverageKey =
+          MDString::get(Ctx, "llvm.loop.intel.loopcount_average");
+    if (IntelLoopcountAverageCommon && !LoopcountCommonKey)
+      LoopcountCommonKey = MDString::get(Ctx, "llvm.loop.intel.loopcount");
+    auto *const TripCountMD = ConstantAsMetadata::get(
+        ConstantInt::get(Type::getInt64Ty(Ctx), TripCount));
+    SmallVector<Metadata *> Opnds;
+    if (OldMD)
+      Opnds = SmallVector<Metadata *>(OldMD->operands());
+    else
+      Opnds = {nullptr};
+    if (IntelLoopcountAverage)
+      Opnds.push_back(MDNode::get(Ctx, {LoopcountAverageKey, TripCountMD}));
+    if (IntelLoopcountAverageCommon)
+      Opnds.push_back(MDNode::get(Ctx, {LoopcountCommonKey, TripCountMD}));
+    auto *const NewMD = MDNode::get(Ctx, Opnds);
+    NewMD->replaceOperandWith(0, NewMD);
+    L->setLoopID(NewMD);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Once all the branch weights are computed, we emit the MD_prof
 /// metadata on BB using the computed values for each of its branches.
 ///
@@ -1940,6 +2063,11 @@ bool SampleProfileLoader::emitAnnotations(Function &F) {
 
   if (Changed)
     generateMDProfMetadata(F);
+
+#if INTEL_CUSTOMIZATION
+  if (Changed && (IntelLoopcountAverage || IntelLoopcountAverageCommon))
+    generateIntelLoopcountMetadata(F);
+#endif // INTEL_CUSTOMIZATION
 
   emitCoverageRemarks(F);
   return Changed;
@@ -2785,6 +2913,12 @@ PreservedAnalyses SampleProfileLoaderPass::run(Module &M,
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
 
+#if INTEL_CUSTOMIZATION
+  auto GetLoopInfo = [&](Function &F) -> const LoopInfo & {
+    return FAM.getResult<LoopAnalysis>(F);
+  };
+#endif // INTEL_CUSTOMIZATION
+
   if (!FS)
     FS = vfs::getRealFileSystem();
 
@@ -2792,7 +2926,7 @@ PreservedAnalyses SampleProfileLoaderPass::run(Module &M,
       ProfileFileName.empty() ? SampleProfileFile : ProfileFileName,
       ProfileRemappingFileName.empty() ? SampleProfileRemappingFile
                                        : ProfileRemappingFileName,
-      LTOPhase, FS, GetAssumptionCache, GetTTI, GetTLI);
+      LTOPhase, FS, GetAssumptionCache, GetTTI, GetTLI, GetLoopInfo); // INTEL
 
   if (!SampleLoader.doInitialization(M, &FAM))
     return PreservedAnalyses::all();
