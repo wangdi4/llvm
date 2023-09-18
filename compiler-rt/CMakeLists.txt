@@ -310,12 +310,14 @@ if (CMAKE_CXX_FLAGS MATCHES "-fprofile-arcs" AND CMAKE_CXX_FLAGS MATCHES "-ftest
 endif()
 
 # Libirc is not ready when running lit tests, so we disable using it.
+# And we since we disable the libirc, we might as well disable other intel libs 
+# may rely on libirc and we don't need them in compiler-rt
 # Set flag to variable here, test if flag available in config-ix.cmake, and 
 # apply the flag later in this file.
 if(MSVC)
-  set(INTEL_NO_USE_LIBIRC_FLAG " /Q_no-use-libirc")
+  set(INTEL_NO_INTEL_LIB_FLAG " /Qno-intel-lib")
 else()
-  set(INTEL_NO_USE_LIBIRC_FLAG " -i_no-use-libirc")
+  set(INTEL_NO_INTEL_LIB_FLAG " -no-intel-lib")
 endif()
 # end INTEL_CUSTOMIZATION
 
@@ -378,7 +380,7 @@ include(config-ix)
 
 # INTEL_CUSTOMIZATION
 # Libirc is not ready when running lit tests, so we disable using it.
-append_string_if(COMPILER_RT_HAS_INTEL_NO_USE_LIBIRC_FLAG ${INTEL_NO_USE_LIBIRC_FLAG} CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+append_string_if(COMPILER_RT_HAS_INTEL_NO_INTEL_LIB_FLAG ${INTEL_NO_INTEL_LIB_FLAG} CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 # end INTEL_CUSTOMIZATION
 
 # fcf-protection is a gcc/clang option for CET support on Linux platforms.
