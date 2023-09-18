@@ -3393,23 +3393,13 @@ let Predicates = [UseSSE2] in {
 // Prefetch intrinsic.
 let Predicates = [HasSSEPrefetch], SchedRW = [WriteLoad] in {
 def PREFETCHT0   : I<0x18, MRM1m, (outs), (ins i8mem:$src),
-<<<<<<< HEAD
-    "prefetcht0\t$src", [(prefetch addr:$src, imm, (i32 3), imm)]>, TB; // INTEL
+    "prefetcht0\t$src", [(prefetch addr:$src, timm, (i32 3), timm)]>, TB; // INTEL
 def PREFETCHT1   : I<0x18, MRM2m, (outs), (ins i8mem:$src),
-    "prefetcht1\t$src", [(prefetch addr:$src, imm, (i32 2), imm)]>, TB; // INTEL
+    "prefetcht1\t$src", [(prefetch addr:$src, timm, (i32 2), timm)]>, TB; // INTEL
 def PREFETCHT2   : I<0x18, MRM3m, (outs), (ins i8mem:$src),
-    "prefetcht2\t$src", [(prefetch addr:$src, imm, (i32 1), imm)]>, TB; // INTEL
+    "prefetcht2\t$src", [(prefetch addr:$src, timm, (i32 1), timm)]>, TB; // INTEL
 def PREFETCHNTA  : I<0x18, MRM0m, (outs), (ins i8mem:$src),
-    "prefetchnta\t$src", [(prefetch addr:$src, imm, (i32 0), imm)]>, TB; // INTEL
-=======
-    "prefetcht0\t$src", [(prefetch addr:$src, timm, (i32 3), (i32 1))]>, TB;
-def PREFETCHT1   : I<0x18, MRM2m, (outs), (ins i8mem:$src),
-    "prefetcht1\t$src", [(prefetch addr:$src, timm, (i32 2), (i32 1))]>, TB;
-def PREFETCHT2   : I<0x18, MRM3m, (outs), (ins i8mem:$src),
-    "prefetcht2\t$src", [(prefetch addr:$src, timm, (i32 1), (i32 1))]>, TB;
-def PREFETCHNTA  : I<0x18, MRM0m, (outs), (ins i8mem:$src),
-    "prefetchnta\t$src", [(prefetch addr:$src, timm, (i32 0), (i32 1))]>, TB;
->>>>>>> f71a9e8bb7223f3f739458840ffec8ceacf4526c
+    "prefetchnta\t$src", [(prefetch addr:$src, timm, (i32 0), timm)]>, TB; // INTEL
 }
 
 // FIXME: How should flush instruction be modeled?
