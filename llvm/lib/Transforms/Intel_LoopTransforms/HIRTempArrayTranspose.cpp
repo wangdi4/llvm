@@ -877,12 +877,19 @@ HLLoop *ArrayTransposeAnalyzer::createArrayCopyLoop(HLNode *InsertionNode) {
     OuterLoop = HNU.createHLLoop(nullptr, DDRU.createConstDDRef(Ty, 0),
                                  DDRU.createConstDDRef(Ty, Dim1Size - 1),
                                  DDRU.createConstDDRef(Ty, 1));
+    if (InnerLoop->hasZtt()) {
+      for (auto Ref : make_range(InnerLoop->ztt_ddref_begin(),
+                                 InnerLoop->ztt_ddref_end())) {
+        OuterLoop->addLiveInTemp(Ref);
+      }
+    }
   } else {
     OuterLoop = Uses.front().OrigOuterLoop->cloneEmpty();
   }
 
   HLNodeUtils::insertAfter(InsertionNode, OuterLoop);
   HLNodeUtils::insertAsFirstChild(OuterLoop, InnerLoop);
+
   return InnerLoop;
 }
 
@@ -1013,9 +1020,11 @@ void ArrayTransposeAnalyzer::createTempArrayDims(RegDDRef *ArrayRef,
     OuterCE->replaceIV(InnerLevel, InnerLevel - 1);
   }
 
-  ArrayRef->addDimension(OuterCE, {}, nullptr, OuterStrideCE,
-                         UseRef->getDimensionType(2),
-                         UseRef->getDimensionElementType(2));
+  Type *DestTy = UseRef->getDestType();
+
+  ArrayRef->addDimension(
+      OuterCE, {}, nullptr, OuterStrideCE,
+      PointerType::get(DestTy, UseRef->getPointerAddressSpace()), DestTy);
 
   auto *InnerStrideCE = UseRef->getDimensionStride(1)->clone();
 
@@ -1028,9 +1037,9 @@ void ArrayTransposeAnalyzer::createTempArrayDims(RegDDRef *ArrayRef,
     InnerCE->replaceIV(InnerLevel - 1, InnerLevel);
   }
 
-  ArrayRef->addDimension(InnerCE, {}, nullptr, InnerStrideCE,
-                         UseRef->getDimensionType(1),
-                         UseRef->getDimensionElementType(1));
+  ArrayRef->addDimension(
+      InnerCE, {}, nullptr, InnerStrideCE,
+      PointerType::get(DestTy, UseRef->getPointerAddressSpace()), DestTy);
 }
 
 // Construct the logic that copies the old array contents into our new
