@@ -26,12 +26,7 @@ define i32 @foo(i32 %a, float %b, i32 %c, i32* %d) uwtable {
 ; SPILL-NEXT:    imull %eax, %edi
 ; SPILL-NEXT:    addl %esi, %edi
 ; SPILL-NEXT:    subl (%rdx), %edi
-; SPILL-NEXT:    popq %rax
-; SPILL-NEXT:    .cfi_def_cfa_offset 24
-; SPILL-NEXT:    popq %rax
-; SPILL-NEXT:    .cfi_def_cfa_offset 16
-; SPILL-NEXT:    popq %rax
-; SPILL-NEXT:    .cfi_def_cfa_offset 8
+; SPILL-NEXT:    addq $24, %rsp
 ; SPILL-NEXT:    jmp foo@PLT # TAILCALL
 entry:
   %conv = fptosi float %b to i32
@@ -65,12 +60,7 @@ define i32 @bar(i32 %a, float %b, i32 %c, i32* %d) uwtable {
 ; SPILL-NEXT:    .cfi_offset %rsi, -24
 ; SPILL-NEXT:    .cfi_offset %rdx, -16
 ; SPILL-NEXT:    callq foo@PLT
-; SPILL-NEXT:    popq %rcx
-; SPILL-NEXT:    .cfi_def_cfa_offset 24
-; SPILL-NEXT:    popq %rcx
-; SPILL-NEXT:    .cfi_def_cfa_offset 16
-; SPILL-NEXT:    popq %rcx
-; SPILL-NEXT:    .cfi_def_cfa_offset 8
+; SPILL-NEXT:    addq $24, %rsp
 ; SPILL-NEXT:    retq
 entry:
   %call = call i32 @foo(i32 %a, float %b, i32 %c, i32* %d)
@@ -90,3 +80,51 @@ define i32 @main(i32 %argc, i8** %argv) uwtable {
 entry:
   ret i32 0
 }
+
+define void @baz(ptr %strm) uwtable {
+; NO-SPILL-LABEL: baz:
+; NO-SPILL:       # %bb.0: # %entry
+; NO-SPILL-NEXT:    testq %rdi, %rdi
+; NO-SPILL-NEXT:    je .LBB3_2
+; NO-SPILL-NEXT:  # %bb.1: # %cleanup.cont
+; NO-SPILL-NEXT:    pushq %rax
+; NO-SPILL-NEXT:    .cfi_def_cfa_offset 16
+; NO-SPILL-NEXT:    movl $1024, %edx # imm = 0x400
+; NO-SPILL-NEXT:    xorl %esi, %esi
+; NO-SPILL-NEXT:    callq memset@PLT
+; NO-SPILL-NEXT:    addq $8, %rsp
+; NO-SPILL-NEXT:    .cfi_def_cfa_offset 8
+; NO-SPILL-NEXT:  .LBB3_2: # %return
+; NO-SPILL-NEXT:    retq
+;
+; SPILL-LABEL: baz:
+; SPILL:       # %bb.0: # %entry
+; SPILL-NEXT:    testq %rdi, %rdi
+; SPILL-NEXT:    je .LBB3_2
+; SPILL-NEXT:  # %bb.1: # %cleanup.cont
+; SPILL-NEXT:    pushq %rdi
+; SPILL-NEXT:    .cfi_def_cfa_offset 16
+; SPILL-NEXT:    .cfi_offset %rdi, -16
+; SPILL-NEXT:    movl $1024, %edx # imm = 0x400
+; SPILL-NEXT:    xorl %esi, %esi
+; SPILL-NEXT:    callq memset@PLT
+; SPILL-NEXT:    addq $8, %rsp
+; SPILL-NEXT:    .cfi_restore %rdi
+; SPILL-NEXT:  .LBB3_2: # %return
+; SPILL-NEXT:    retq
+entry:
+  %cmp = icmp eq ptr %strm, null
+  br i1 %cmp, label %cleanup, label %cleanup.cont
+
+cleanup:                                          ; preds = %entry
+  br label %return
+
+cleanup.cont:                                     ; preds = %entry
+  call void @llvm.memset.p0.i64(ptr poison, i8 0, i64 1024, i1 false)
+  br label %return
+
+return:                                           ; preds = %cleanup.cont, %cleanup
+  ret void
+}
+
+declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
