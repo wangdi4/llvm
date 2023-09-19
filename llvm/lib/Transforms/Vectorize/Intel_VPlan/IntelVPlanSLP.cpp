@@ -685,48 +685,20 @@ VPInstructionCost VPlanSLP::formAndCostBundles(
 
 VPInstructionCost
 VPlanSLP::searchSLPPatterns(SmallVectorImpl<const VPValue *> &Seed) {
-  // Sort input vector so the same symbol memrefs go bundled and sorted by
-  // offset from the base.
-  // Thereby, if input array is:
+  // TODO:
+  // Consider sorting Seed input to form more profitable start vectors, such as
+  // if input array for example is:
   // a[2], b[4], a[1], b[3]
-  // after sort it is expected to be:
+  // after sort we would get:
   // a[1], a[2], b[3], b[4]
   //
-  // Do not change lexical order though. Otherwise there are chances to run
-  // into unvectorizable patterns due to memory dependencies.
-  llvm::sort(Seed, [&](const auto *V1, const auto *V2) {
-    const auto *InstMem1 = dyn_cast<VPLoadStoreInst>(V1);
-    const auto *InstMem2 = dyn_cast<VPLoadStoreInst>(V2);
-    if (!InstMem1 || !InstMem2)
-      return false;
-
-    const auto *DDRef1 = InstMem1->getHIRMemoryRef();
-    const auto *DDRef2 = InstMem2->getHIRMemoryRef();
-    if (!DDRef1 || !DDRef2)
-      return false;
-
-    const HLDDNode *DDNode1 = DDRef1->getHLDDNode();
-    const HLDDNode *DDNode2 = DDRef2->getHLDDNode();
-    if (!DDNode1 || !DDNode2 ||
-        DDNode1->getTopSortNum() > DDNode2->getTopSortNum())
-      return false;
-
-    if (DDRef1->getSymbase() != DDRef2->getSymbase())
-      return DDRef1->getSymbase() < DDRef2->getSymbase();
-
-    // Same symbase memrefs Sort by the distance.
-    // If the distance is not a constant, getConstByteDistance() does not
-    // update 'distance' and 0 is returned keeping input order.
-    int64_t Distance = 0;
-    DDRefUtils::getConstByteDistance(DDRef1, DDRef2, &Distance);
-    return static_cast<int>(Distance) < 0;
-  });
-
-  LLVM_DEBUG(dbgs() << "VSLP: Sorted Seed array in " << BB->getName() << ":\n";
-             printVector(Seed));
-
-  // Further take out some 'similar' stores out of 'Seed' array and try to
-  // SLP those.
+  // We would change lexical order though and we would take chances to run into
+  // unvectorizable code due to memory dependencies. So we might want to do that
+  // as an additional run(s) of formAndCostBundles or prove that memory
+  // dependencies allow such sort.
+  //
+  // The base approach is to take out some 'similar' stores out of 'Seed' array
+  // and try to SLP those with help of formAndCostBundles().
   //
   // Two functions of 'similarity' are defined for stores so far.
   // The 1-st function replicates getConstByteDistance semantics, meaning that
