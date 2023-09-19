@@ -1354,6 +1354,38 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
   IfLookup Lookup(Candidates, Level);
   HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
 
+  // Lambda function to return IF nesting level inside loop.
+  auto getIfNestingLevel = [](HLIf *If) {
+    unsigned Level = 1;
+    auto ParentNode = If->getParent();
+    while (!isa<HLLoop>(ParentNode)) {
+      ParentNode = ParentNode->getParent();
+      Level++;
+    }
+    return Level;
+  };
+
+  // Sort candidates giving preference to the innermost loop candidate. Inside
+  // innermost loop, give preference to the outermost IF in the IF nest.
+  auto sortOptVarPredCandidates = [getIfNestingLevel](EqualCandidates C1,
+                                                      EqualCandidates C2) {
+    HLIf *If1 = C1.front();
+    HLIf *If2 = C2.front();
+    if (If1->getNodeLevel() > If2->getNodeLevel())
+      return true;
+
+    unsigned If1NestingLevel = getIfNestingLevel(If1);
+    unsigned If2NestingLevel = getIfNestingLevel(If2);
+    if (If1NestingLevel < If2NestingLevel)
+      return true;
+
+    return If1->getTopSortNum() < If2->getTopSortNum();
+  };
+
+  // IFs are gathered in the depth-first order. Reverse the list to give
+  // preference to the outermost IFs.
+  std::sort(Candidates.begin(), Candidates.end(), sortOptVarPredCandidates);
+
   for (const EqualCandidates &Candidate : Candidates) {
     LLVM_DEBUG(dbgs() << "Processing Ifs:\n");
     LLVM_DEBUG(Candidate.dump());
