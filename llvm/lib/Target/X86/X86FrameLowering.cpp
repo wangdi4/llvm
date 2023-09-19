@@ -3156,6 +3156,7 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(
   MachineInstrBuilder MIB;
   bool IncompletePop2 = false;
 #endif // INTEL_FEATURE_ISA_APX_F
+  int SpillOffset = 0;
 #endif // INTEL_CUSTOMIZATION
 
   // Clear the stack slot for spill base pointer register.
@@ -3181,7 +3182,11 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(
     // for tail call. Always pop to a dead register to make stack balanced.
     if (!I.isRestored()) {
       assert(STI.is64Bit() && "This is used for parameters spill only");
-      Reg = this->TRI->findDeadCallerSavedReg(MBB, MI);
+      SpillOffset += 8;
+      continue;
+    } else if (SpillOffset) {
+      emitSPUpdate(MBB, MI, DL, SpillOffset, /*InEpilogue=*/true);
+      SpillOffset = 0;
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3208,8 +3213,11 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   if (X86FI->padForPush2Pop2())
-    emitSPUpdate(MBB, MI, DL, SlotSize, /*InEpilogue=*/true);
+    emitSPUpdate(MBB, MI, DL, SlotSize + SpillOffset, /*InEpilogue=*/true);
+  else
 #endif // INTEL_FEATURE_ISA_APX_F
+  if (SpillOffset)
+    emitSPUpdate(MBB, MI, DL, SpillOffset, /*InEpilogue=*/true);
 #endif // INTEL_CUSTOMIZATION
   return true;
 }
