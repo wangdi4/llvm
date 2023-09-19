@@ -2765,8 +2765,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   const unsigned BuiltinIDIfNoAsmLabel =
       FD->hasAttr<AsmLabelAttr>() ? 0 : BuiltinID;
 
-<<<<<<< HEAD
-=======
   std::optional<bool> ErrnoOverriden;
   // ErrnoOverriden is true if math-errno is overriden via the
   // '#pragma float_control(precise, on)'. This pragma disables fast-math,
@@ -2787,7 +2785,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
        ErrnoOverriden.has_value() && !ErrnoOverriden.value() && !OptNone &&
        CGM.getCodeGenOpts().OptimizationLevel != 0;
 
->>>>>>> a292e7edf8b2fc51d3e86a96ff5dff45d16bd264
   // There are LLVM math intrinsics/instructions corresponding to math library
   // functions except the LLVM op will never set errno while the math library
   // might. Also, math builtins have the same semantics as their math library
@@ -2823,12 +2820,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       getContext().BuiltinInfo.isConstWithoutErrnoAndExceptions(BuiltinID);
   bool ConstWithoutExceptions =
       getContext().BuiltinInfo.isConstWithoutExceptions(BuiltinID);
-<<<<<<< HEAD
-  if (FD->hasAttr<ConstAttr>() ||
-      ((ConstWithoutErrnoAndExceptions || ConstWithoutExceptions) &&
-       (!ConstWithoutErrnoAndExceptions || (!getLangOpts().MathErrno))) &&
-      !(getLangOpts().SYCLIsDevice && getTarget().getTriple().isNVPTX())) {
-=======
 
   // ConstAttr is enabled in fast-math mode. In fast-math mode, math-errno is
   // disabled.
@@ -2863,8 +2854,8 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       GenerateIntrinsics =
           ConstWithoutErrnoOrExceptions && ErrnoOverridenToFalseWithOpt;
   }
-  if (GenerateIntrinsics) {
->>>>>>> a292e7edf8b2fc51d3e86a96ff5dff45d16bd264
+  if (GenerateIntrinsics &&
+      !(getLangOpts().SYCLIsDevice && getTarget().getTriple().isNVPTX())) {
     switch (BuiltinIDIfNoAsmLabel) {
     case Builtin::BIceil:
     case Builtin::BIceilf:
