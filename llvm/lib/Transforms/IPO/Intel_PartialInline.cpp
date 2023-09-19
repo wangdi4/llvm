@@ -141,7 +141,7 @@
 using namespace llvm;
 using namespace InlineReportTypes;
 
-#define DEBUG_TYPE "intel_partialinline"
+#define DEBUG_TYPE "intel-partialinline"
 
 // Limit the number of functions that will be partially inlined by this pass
 static cl::opt<unsigned> IntelPIMaxFuncs("intel-pi-max-funcs", cl::init(5),
