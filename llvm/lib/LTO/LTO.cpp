@@ -1343,25 +1343,20 @@ Error LTO::runRegularLTO(AddStreamFn AddStream) {
 
   // If allowed, upgrade public vcall visibility metadata to linkage unit
   // visibility before whole program devirtualization in the optimizer.
-<<<<<<< HEAD
-  updateVCallVisibilityInModule(*RegularLTO.CombinedModule,
-                                Conf.HasWholeProgramVisibility,
-                                DynamicExportSymbols);         
+  updateVCallVisibilityInModule(
+      *RegularLTO.CombinedModule, WholeProgramVisibilityEnabledInLTO,
+      DynamicExportSymbols, Conf.ValidateAllVtablesHaveTypeInfos,
+      IsVisibleToRegularObj);
 #if INTEL_CUSTOMIZATION
   // If using Intel WP analysis, this update will occur later in
   // intel-fold-wp-intrinsic pass
   if (!Conf.WPUtils.getWholeProgramRead() || Conf.HasWholeProgramVisibility) 
     updatePublicTypeTestCalls(*RegularLTO.CombinedModule,
                                Conf.HasWholeProgramVisibility);
-#endif    // INTEL_CUSTOMIZATION
-=======
-  updateVCallVisibilityInModule(
-      *RegularLTO.CombinedModule, WholeProgramVisibilityEnabledInLTO,
-      DynamicExportSymbols, Conf.ValidateAllVtablesHaveTypeInfos,
-      IsVisibleToRegularObj);
-  updatePublicTypeTestCalls(*RegularLTO.CombinedModule,
+#else
+   updatePublicTypeTestCalls(*RegularLTO.CombinedModule,
                             WholeProgramVisibilityEnabledInLTO);
->>>>>>> 272bd6f9cc86bf6b4dd6bd51e85c46db10e8b86a
+#endif    // INTEL_CUSTOMIZATION
 
   if (Conf.PreOptModuleHook &&
       !Conf.PreOptModuleHook(0, *RegularLTO.CombinedModule))
