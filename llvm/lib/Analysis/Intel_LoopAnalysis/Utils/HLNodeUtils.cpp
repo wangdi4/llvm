@@ -5181,7 +5181,7 @@ public:
 
   void visit(HLIf *If) {
     bool IsTrue;
-    if (If->isKnownPredicate(&IsTrue)) {
+    if (!If->isUnknownLoopBottomTest() && If->isKnownPredicate(&IsTrue)) {
       Changed = true;
       RedundantPredicates++;
       notifyWillRemoveNode(If);
