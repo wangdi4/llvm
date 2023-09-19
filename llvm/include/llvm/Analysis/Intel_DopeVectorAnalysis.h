@@ -36,6 +36,7 @@ const unsigned RankOpNum = 0;
 const unsigned LBOpNum = 1;
 const unsigned StrideOpNum = 2;
 const unsigned PtrOpNum = 3;
+const unsigned IndexOpNum = 4;
 
 // Enumeration fields related to dope vectors. The first 7 items in this
 // list correspond exactly to the field layout of the corresponding dope
@@ -184,7 +185,27 @@ public:
     }
     return SIV.has_value();
   }
-
+  // Get a single value which is not an initialization value (an assignment
+  // to zero before all other references are made.)
+  // For example, this is an assignment of an initialization value:
+  //     %"var$236_fetch.2590.fca.6.0.0.gep" =
+  //         getelementptr inbounds %"QNCA_a0$float*$rank2$",
+  //             ptr %"evlrnf_$UTRSBT", i64 0, i32 6, i64 0, i32 0
+  //     store i64 0, ptr %"var$236_fetch.2590.fca.6.0.0.gep", align 8
+  Value *getSingleNonInitValue() {
+    StoreInst *RSI = nullptr;
+    for (StoreInst *SI : stores()) {
+      if (auto CI = dyn_cast<ConstantInt>(SI->getValueOperand()))
+        if (CI->isZero())
+          if (numFieldAddrs() == 1)
+            if (SI->getPrevNonDebugInstruction() == getFieldAddr(0))
+              continue;
+      if (RSI)
+        return nullptr;
+      RSI = SI;
+    }
+    return RSI ? RSI->getValueOperand() : nullptr;
+  }
   void addFieldAddr(Value *V, bool IsNotForDVCP = false) {
     // If AllowMultipleFieldAddresses is disabled then only one
     // value should access the current field.
@@ -219,6 +240,28 @@ public:
   // field to Bottom if there are any unsupported uses. Exclude 'CB' from the
   // testing, if not 'nullptr'.
   void analyzeUses(CallBase *CB = nullptr);
+
+  // Similar to analyzeUses() with CB == nullptr, but accounts for cases where
+  // 'this' is FieldVector[0] and used to assign FieldVector[I] where I ranges
+  // from 1 to Rank.
+  //
+  // For example:
+  // %"var$236_fetch.2590.fca.6.0.0.gep" =
+  //     getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"evlrnf_$UTRSBT",
+  //     //         i64 0, i32 6, i64 0, i32 0
+  // ...
+  // %"evlrnf_$UTRSBT.dim_info$.extent$[]" =
+  //     call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24,
+  //         ptr nonnull elementtype(i64) %"var$236_fetch.2590.fca.6.0.0.gep",
+  //         i32 0)
+  //  store i64 %slct.42, ptr %"evlrnf_$UTRSBT.dim_info$.extent$[]", align 1
+  // %"evlrnf_$UTRSBT.dim_info$.extent$[]745" =
+  //     call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24,
+  //         ptr nonnull elementtype(i64) %"var$236_fetch.2590.fca.6.0.0.gep",
+  //         i32 1)
+  //  store i64 %slct.42, ptr %"evlrnf_$UTRSBT.dim_info$.extent$[]745", align 1
+  void analyzeUsesWithDims(SmallVector<DopeVectorFieldUse, 4> &FieldVector,
+                           uint64_t DimIndex);
 
   // Collect the load and store instructions that access the field address
   // through a subscript.
@@ -266,7 +309,16 @@ public:
 
   // Return true if the input value V is a load instruction, or a store
   // instruction where the pointer operand is Pointer.
-  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer, bool IsNotForDVCP);
+  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer,
+                                     bool IsNotForDVCP);
+
+  // Similar to analyzeLoadOrStoreInstruction(), but extended to accomodate
+  // cases where this = FieldVector[DimIndex], but is also used as a base
+  // to assign FieldVector[1], ..., FieldVector[Rank]. See the example under
+  // analyzeUsesWithDims() above.
+  bool analyzeLoadStoreOrSubscriptWithDims(
+      Value *V, Value *Pointer, bool IsNotForDVCP,
+      SmallVector<DopeVectorFieldUse, 4> &FieldVector, uint64_t DimIndex);
   bool isAddrNotForDVCP(Value* Addr) const {
     return NotForDVCPFieldAddr.contains(Addr);
   }
@@ -412,10 +464,28 @@ public:
     return nullptr;
   }
 
+  // Similar to getLowerBound(), but uses getSingleNonInitValue() to exclude
+  // initializations to null.  See getSingleNonInitValue() for an example.
+  Value *getNonInitLowerBound(uint32_t Dim) {
+    assert(LowerBoundAddr.size() > Dim && "Invalid dimension");
+    if (LowerBoundAddr[Dim].hasFieldAddr())
+      return LowerBoundAddr[Dim].getSingleNonInitValue();
+    return nullptr;
+  }
+
   Value *getStride(uint32_t Dim) {
     assert(StrideAddr.size() > Dim && "Invalid dimension");
     if (StrideAddr[Dim].hasFieldAddr())
       return StrideAddr[Dim].getSingleValue();
+    return nullptr;
+  }
+
+  // Similar to getStride(), but uses getSingleNonInitValue() to exclude
+  // initializations to null.  See getSingleNonInitValue() for an example.
+  Value *getNonInitStride(uint32_t Dim) {
+    assert(StrideAddr.size() > Dim && "Invalid dimension");
+    if (StrideAddr[Dim].hasFieldAddr())
+      return StrideAddr[Dim].getSingleNonInitValue();
     return nullptr;
   }
 
@@ -481,6 +551,15 @@ public:
     return nullptr;
   }
 
+  // Similar to getExtent(), but uses getSingleNonInitValue() to exclude
+  // initializations to null.  See getSingleNonInitValue() for an example.
+  Value *getNonInitExtent(uint32_t Dim) {
+    assert(ExtentAddr.size() > Dim && "Invalid dimension");
+    if (ExtentAddr[Dim].hasFieldAddr())
+      return ExtentAddr[Dim].getSingleNonInitValue();
+    return nullptr;
+  }
+
   // Get all the store instructions for the extent field for the specified
   // dimension.
   iterator_range<DopeVectorFieldUse::StoreInstSetIter>
@@ -534,7 +613,14 @@ public:
   // objects holding field addresses. If IsLocal is true, then it means that
   // the analysis process will verify that the dope vector is not used outside
   // of the function.
-  void analyze(bool ForCreation, bool IsLocal = false);
+  //
+  // If 'AfterInstCombine' accomodate collapsed GEP accesses to the dimension
+  // fields of the dope vectors with five operands. For example:
+  //   %"var$236_fetch.2590.fca.6.1.0.gep" =
+  //       getelementptr inbounds %"QNCA_a0$float*$rank2$",
+  //           ptr %"evlrnf_$UTRSBT", i64 0, i32 6, i64 1, i32 0
+  void analyze(bool ForCreation, bool IsLocal = false,
+               bool AfterInstCombine = false);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
@@ -564,6 +650,17 @@ public:
   // The default value is 0.
   static DopeVectorFieldType
   identifyDopeVectorField(const GEPOperator &GEP, uint64_t DopeVectorIndex = 0);
+
+  // Similar to identifyDopeVectorField(), but set the value of 'DimIndex'
+  // to indicate which dimension of the dimension vector is being indexed
+  // by 'GEP'. This is particularly useful in the when GEP collapsing is
+  // performed after InstCombine. For example, if 'GEP' is:
+  //   %"var$236_fetch.2590.fca.6.1.0.gep" =
+  //       getelementptr inbounds %"QNCA_a0$float*$rank2$",
+  //           ptr %"evlrnf_$UTRSBT", i64 0, i32 6, i64 1, i32 0
+  // 'DimIndex" is set to 1.
+  static DopeVectorFieldType identifyDopeVectorFieldWithDimIndex(
+      const GEPOperator &GEP, uint64_t &DimIndex, uint64_t DopeVectorIndex = 0);
 
   // For the per-dimension array, we expect to find a sequence of the following
   // form that gets the address of the per-dimensional fields: (This is the GEP
