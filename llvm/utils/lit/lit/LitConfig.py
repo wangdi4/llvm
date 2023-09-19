@@ -36,11 +36,7 @@ class LitConfig(object):
         config_prefix=None,
         maxIndividualTestTime=0,
         parallelism_groups={},
-<<<<<<< HEAD
         show_final_subst = False, #INTEL
-        echo_all_commands=False,
-=======
->>>>>>> 1495d51ee9e71fa58b523ec1703b3e258283481f
         per_test_coverage=False,
     ):
         # The name of the test runner.
@@ -91,11 +87,7 @@ class LitConfig(object):
 
         self.maxIndividualTestTime = maxIndividualTestTime
         self.parallelism_groups = parallelism_groups
-<<<<<<< HEAD
         self.show_final_subst = show_final_subst #INTEL
-        self.echo_all_commands = echo_all_commands
-=======
->>>>>>> 1495d51ee9e71fa58b523ec1703b3e258283481f
         self.per_test_coverage = per_test_coverage
 
     @property
