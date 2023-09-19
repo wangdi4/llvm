@@ -527,7 +527,8 @@ residency at allocation time.
 ``2``: Make the memory resident on all devices that can access the memory.
 
 For host memory, non-zero value makes the memory resident on all devices, and
-only device memory becomes resident on all devices at allocation time by default.
+only device memory becomes resident on the device that allocates the memory by
+default.
 
 **Default**: ``0x001``
 
