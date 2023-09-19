@@ -102,11 +102,6 @@ bool ShutdownFromChildThread() {
     printf("Iteration %d\n", i);
     fflush(0);
     pThread = new ShutdownThread();
-    if (NULL == pThread) {
-      printf("Failed to allocate thread\n");
-      fflush(0);
-      return false;
-    }
     pThread->Run();
     pThread->WaitForCompletion();
   }

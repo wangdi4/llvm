@@ -94,7 +94,7 @@ define void @test_store(ptr nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB6]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
-; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP7:%.*]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
@@ -150,7 +150,7 @@ define void @test_store(ptr nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB6]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
-; CHECK-NEXT:     [DA: Div] i64 [[VP7]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP7]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK]] = icmp eq i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0]], [[BB0]]
 ; CHECK-EMPTY:

@@ -357,7 +357,9 @@ static void preprocessDopeVectorInstructions(VPlanVector *Plan) {
     auto *AllocateBuffer = Builder.create<VPAllocateDVBuffer>(
         ".array.buffer", DVTypePtr, DVElementType,
         DL->getPrefTypeAlign(DVElementType), ArrayRef<VPValue *>{NumElements});
-    Builder.createStore(AllocateBuffer, VPAllocaPriv);
+    auto *Store = Builder.createStore(AllocateBuffer, VPAllocaPriv);
+    DA->markDivergent(*AllocateBuffer);
+    DA->markDivergent(*Store);
 
     VPBB->eraseInstruction(VPF90DVInitInst);
   }
@@ -740,10 +742,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
 #ifndef NDEBUG
   // Run verifier before code gen
-  // TODO: DA checks are temporarily disabled here since there are some
-  // existing issues with DA not assigning shapes to all instructions
-  // Once those are patched, the SkipDA flag should be removed.
-  VPlanVerifier::verify(Plan, Lp, VPlanVerifier::SkipDA);
+  VPlanVerifier::verify(Plan, Lp);
 #endif
   LVP.executeBestPlan(VCodeGen);
 

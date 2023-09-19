@@ -1,5 +1,4 @@
 // INTEL_COLLAB
-//
 // RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -disable-llvm-passes \
 // RUN:  -fexceptions -fcxx-exceptions \
 // RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
@@ -42,50 +41,51 @@ extern void goo(float*);
 // Optimized and non-optimized IR is different, so test both.
 // Loops and non-loops use a different code path, so test both.
 
-//BOTH: test_loops
+//BOTH: define {{.*}}test_loops
 void test_loops(float *x)
 {
-  //BOTH: call token{{.*}}DIR.OMP.PARALLEL.LOOP
-  //BOTH: invoke void{{.*}}bar
-  //BOTH-NEXT: unwind label %[[TLP:.*lpad[0-9]*]]
+  // Test that there are two terminate.lpad, one for each region.
   #pragma omp parallel for
   for (int i = 0; i < 10; ++i)
     try { bar(x); } catch(...) {}
+  //BOTH: catch{{[0-9]*}}:
+  //BOTH: unwind label %[[TLP:terminate.lpad[0-9]*]]
+  //BOTH: [[TLP]]:
+  //BOTH: call void @__clang_call_terminate
 
-  //BOTH: call token{{.*}}DIR.OMP.PARALLEL.LOOP
-  //BOTH: invoke void{{.*}}goo
-  //BOTH-NEXT: unwind label %[[TLP20:.*lpad[0-9]*]]
   #pragma omp parallel for
   for (int i = 0; i < 10; ++i)
     try { goo(x); } catch(...) {}
-
-  //BOTH: [[TLP]]:
-  //BOTH: call void @__clang_call_terminate
+  //BOTH: catch{{[0-9]*}}:
+  //BOTH: unwind label %[[TLP20:terminate.lpad[0-9]*]]
   //BOTH: [[TLP20]]:
   //BOTH: call void @__clang_call_terminate
 
+  //BOTH: }
 }
 
 
-//BOTH: test_non_loops
+//BOTH: define {{.*}}test_non_loops
 void test_non_loops(float *x)
 {
-  //BOTH: call token{{.*}}DIR.OMP.PARALLEL
-  //BOTH: invoke void{{.*}}bar
-  //BOTH-NEXT: unwind label %[[TLP:.*lpad[0-9]*]]
+  // Test that there are two terminate.lpad, one for each region.
   #pragma omp parallel
   try { bar(x); } catch(...) {}
 
-  //BOTH: call token{{.*}}DIR.OMP.PARALLEL
-  //BOTH: invoke void{{.*}}goo
-  //BOTH-NEXT: unwind label %[[TLP20:.*lpad[0-9]*]]
+  //BOTH: catch{{[0-9]*}}:
+  //BOTH: unwind label %[[TLP:terminate.lpad[0-9]*]]
+  //BOTH: [[TLP]]:
+  //BOTH: call void @__clang_call_terminate
+
   #pragma omp parallel
   try { goo(x); } catch(...) {}
 
-  //BOTH: [[TLP]]:
-  //BOTH: call void @__clang_call_terminate
+  //BOTH: catch{{[0-9]*}}:
+  //BOTH: unwind label %[[TLP20:terminate.lpad[0-9]*]]
   //BOTH: [[TLP20]]:
   //BOTH: call void @__clang_call_terminate
+
+  //BOTH: }
 }
 
 // Since it is not legal to throw out of a OpenMP region,

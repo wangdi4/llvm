@@ -34,7 +34,6 @@ TEST_F(DISABLED_BackEndTests_KernelSubGroupInfo, SubGroupInfoSuccess) {
 
   // load pre created bitcode buffer
   std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
-  ASSERT_TRUE(pBackendWrapper.get());
   std::vector<char> program;
   pBackendWrapper->CreateProgramContainer(get_exe_dir() + BC_FILE, program);
   ASSERT_TRUE(program.size() > 0);

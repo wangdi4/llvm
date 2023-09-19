@@ -9,7 +9,7 @@ define void @foo2(i64 %N) {
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
-; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP0:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

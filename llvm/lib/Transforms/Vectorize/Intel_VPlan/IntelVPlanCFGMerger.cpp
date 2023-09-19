@@ -846,6 +846,7 @@ void VPlanCFGMerger::insertVectorUBInst(VPVectorTripCountCalculation *VectorUB,
     Plan.getVPlanDA()->markUniform(*PushVF);
   }
   BB->addInstruction(VectorUB);
+  Plan.getVPlanDA()->markUniform(*VectorUB);
 
   if (!IsMain) {
     auto *PopVF = Builder.createNaryOp(
@@ -996,6 +997,7 @@ VPlanCFGMerger::emitDynamicPeelCount(VPlanDynamicPeeling &DP, VPValue *BasePtr,
       Builder.createNaryOp(Instruction::URem, Ty,
                            {QuotientTimesMultiplier, Divisor});
   VPValue *Ret = Builder.createIntCast(PeelCnt, OrigUB->getType());
+  Plan.getVPlanDA()->markUniform(*PeelCnt);
   Ret->setName("peel.count");
   Plan.getVPlanDA()->markUniform(*Ret);
   return Ret;
@@ -1173,6 +1175,7 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
       Builder.setInsertPoint(I->getParent(), std::next(I->getIterator()));
       VPConstant *One = Plan.getVPConstant(ConstantInt::get(Ty, 1));
       PeelCnt = Builder.createNaryOp(Instruction::Sub, Ty, {PeelCount, One});
+      Plan.getVPlanDA()->markUniform(*PeelCnt);
     }
   }
   cast<VPlanPeelAdapter>(Adapter)->setUpperBound(PeelCnt);

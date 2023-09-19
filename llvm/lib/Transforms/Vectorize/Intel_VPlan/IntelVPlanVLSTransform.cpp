@@ -147,7 +147,7 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
     return;
   }
 
-  for (OVLSMemref *Memref: *Group) {
+  for (OVLSMemref *Memref : *Group) {
     auto ElementSizeInBits = Memref->getType().getElementSize();
     if (*GroupStride % (ElementSizeInBits / 8)) {
       FailureReason = "Stride not a multiple of element size, skipping.";
@@ -369,10 +369,10 @@ VPValue *VLSTransform::createCast(VPBuilder &Builder, VPValue *From,
 
     Type *IntermediateType =
         Type::getIntNTy(ToTy->getContext(), ToTy->getPrimitiveSizeInBits());
-    return Builder.createNaryOp(
-        Instruction::BitCast, ToTy,
-        {Builder.createNaryOp(Instruction::PtrToInt, IntermediateType,
-                              {From})});
+    auto *IntermediateCast =
+        Builder.createNaryOp(Instruction::PtrToInt, IntermediateType, {From});
+    DA.updateDivergence(*IntermediateCast);
+    return Builder.createNaryOp(Instruction::BitCast, ToTy, {IntermediateCast});
   }
 
   if (isa<IntegerType>(FromTy))
@@ -380,9 +380,10 @@ VPValue *VLSTransform::createCast(VPBuilder &Builder, VPValue *From,
 
   Type *IntermediateType =
       Type::getIntNTy(FromTy->getContext(), FromTy->getPrimitiveSizeInBits());
-  return Builder.createNaryOp(
-      Instruction::IntToPtr, ToTy,
-      {Builder.createNaryOp(Instruction::BitCast, IntermediateType, {From})});
+  auto *IntermediateCast =
+      Builder.createNaryOp(Instruction::BitCast, IntermediateType, {From});
+  DA.updateDivergence(*IntermediateCast);
+  return Builder.createNaryOp(Instruction::IntToPtr, ToTy, {IntermediateCast});
 }
 
 Type *VLSTransform::getExtractInsertEltType(Type *EltType) {
@@ -456,9 +457,11 @@ void VLSTransform::processLoadGroup(DenseSet<VPInstruction *> &InstsToRemove) {
         OrigLoad->getName(), ReverseAdjusted, ExtractTy,
         GroupSizeInGranularityElements, GroupStrideInGranularityElements,
         getExtractInsertEltOffset(Memref));
+    DA.updateDivergence(*Extract);
     auto *ExtractCast =
         cast<VPInstruction>(createCast(Builder, Extract, OrigLoad->getType()));
     ExtractCast->setDebugLocation(OrigLoad->getDebugLocation());
+    DA.updateDivergence(*ExtractCast);
     OrigLoad->replaceAllUsesWith(ExtractCast);
     InstsToRemove.insert(OrigLoad);
   }
@@ -479,6 +482,9 @@ void VLSTransform::processStoreGroup(DenseSet<VPInstruction *> &InstsToRemove) {
     VPValue *V = Store->getOperand(0);
     Type *InsertTy = getExtractInsertEltType(V->getType());
     auto *Casted = createCast(Builder, V, InsertTy);
+    // Update divergence information if a new cast instruction was created.
+    if (Casted != V)
+      DA.updateDivergence(*Casted);
     WideValue = Builder.create<VPVLSInsert>(
         "vls.insert", WideValue, Casted, GroupSizeInGranularityElements,
         GroupStrideInGranularityElements, getExtractInsertEltOffset(Memref));
@@ -496,6 +502,7 @@ void VLSTransform::processStoreGroup(DenseSet<VPInstruction *> &InstsToRemove) {
       GroupStrideInGranularityElements, FirstMemrefInst->getAlignment(),
       Group->size());
   setMemOpProperties(WideStore);
+  DA.markDivergent(*WideStore);
 }
 
 void VLSTransform::run(DenseSet<VPInstruction *> &InstsToRemove) {
@@ -584,6 +591,7 @@ VPValue *VLSTransform::adjustBasePtrForReverse(VPValue *Base,
             64, GroupSizeInGranularityElements * (VF - 1), true /* Signed */))},
         nullptr /* Underlying Instruction */);
     Result->setName(Base->getName() + ".reverse.adjust");
+    DA.updateDivergence(*Result);
     return Result;
   }
 
@@ -598,14 +606,13 @@ VPValue *VLSTransform::adjustBasePtrForReverse(VPValue *Base,
 
   // TODO: API boundaries are wacky here.
   auto *Result = Builder.createGEP(
-      FirstMemrefInst->getValueType(),
-      FirstMemrefInst->getValueType(),
-      Base,
+      FirstMemrefInst->getValueType(), FirstMemrefInst->getValueType(), Base,
       {Plan.getVPConstant(
           -APInt(64, GroupSizeInGranularityElements * (VF - 1) / Scale,
                  true /* Signed */))},
       nullptr /* Underlying Instruction */);
   Result->setName(Base->getName() + ".reverse.adjust");
+  DA.updateDivergence(*Result);
   return Result;
 }
 
