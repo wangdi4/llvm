@@ -114,6 +114,11 @@ ToolChain::ToolChain(const Driver &D, const llvm::Triple &T,
     getLibraryPaths().push_back(*Path);
   if (std::optional<std::string> Path = getStdlibPath())
     getFilePaths().push_back(*Path);
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  addIfExists(getFilePaths(), getUnifiedLayoutV2LibCXXPath());
+#endif // #if INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // #if INTEL_CUSTOMIZATION
   for (const auto &Path : getArchSpecificLibPaths())
     addIfExists(getFilePaths(), Path);
 }
@@ -833,25 +838,23 @@ std::optional<std::string> ToolChain::getRuntimePath() const {
   return getTargetSubDirPath(P);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
+std::string ToolChain::getUnifiedLayoutV2LibCXXPath() const {
   // JIRA: CMPLRLLVM-49229
   // Adding libc++ path for unified layout v2
   SmallString<128> PLibcxx(D.Dir);
   llvm::sys::path::append(PLibcxx, "..", "..", "opt");
   llvm::sys::path::append(PLibcxx, "compiler", "lib", getTripleString());
-  Paths.push_back(std::string(PLibcxx.str()));
+  return std::string(PLibcxx);
+}
 #endif // #if INTEL_DEPLOY_UNIFIED_LAYOUT
 #endif // #if INTEL_CUSTOMIZATION
 
-  return Paths;
-=======
 std::optional<std::string> ToolChain::getStdlibPath() const {
   SmallString<128> P(D.Dir);
   llvm::sys::path::append(P, "..", "lib");
   return getTargetSubDirPath(P);
->>>>>>> 1212d1b511251de69939c8aa380f660373e26419
 }
 
 ToolChain::path_list ToolChain::getArchSpecificLibPaths() const {

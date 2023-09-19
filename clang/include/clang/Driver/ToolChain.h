@@ -545,6 +545,13 @@ public:
   // Returns the target specific runtime path if it exists.
   std::optional<std::string> getRuntimePath() const;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  // Returns the libc++ path for unified layout v2.
+  std::string getUnifiedLayoutV2LibCXXPath() const;
+#endif // #if INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // #if INTEL_CUSTOMIZATION
+
   // Returns target specific standard library path if it exists.
   std::optional<std::string> getStdlibPath() const;
 
