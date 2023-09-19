@@ -113,7 +113,8 @@ static bool foldIntrinsicWholeProgramSafe(Module &M, unsigned OptLevel,
       DynamicExportSymbols.insert(GlobalValue::getGUID(Symbol.getName()));
 
   updateVCallVisibilityInModule(M, WPInfo->isWholeProgramSafe(),
-                                DynamicExportSymbols);
+                                DynamicExportSymbols, false,
+                                [](StringRef) { return true; });
 
   // If whole program is safe, transform llvm.public.test.type intrinsic to 
   // llvm.test.type, otherwise remove llvm.public.test.type from the module
