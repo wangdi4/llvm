@@ -217,12 +217,8 @@
 ; CHECK-O23SZ-NEXT: Running pass: GVNPass
 ; CHECK-O23SZ-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-O1-NEXT: Running pass: MemCpyOptPass
-<<<<<<< HEAD
 ; COM: CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis ;INTEL
-=======
-; COM: CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis ; INTEL
 ; CHECK-O3PRELTO-NEXT: LocalArrayTransposePass on foo ; INTEL
->>>>>>> 8d39e607baddc7cb04d37b06181e8670a8d1ce04
 ; CHECK-O-NEXT: Running pass: SCCPPass
 ; CHECK-O-NEXT: Running pass: BDCEPass
 ; CHECK-O-NEXT: Running analysis: DemandedBitsAnalysis
