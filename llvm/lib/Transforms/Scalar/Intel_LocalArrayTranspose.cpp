@@ -332,7 +332,7 @@ unsigned LocalArrayTransposePass::findValidCandidates(
   return Count;
 }
 
-void LocalArrayTransposePass::printCandidates(Function &F, char Banner[]) {
+void LocalArrayTransposePass::printCandidates(Function &F, StringRef Banner) {
   if (Candidates.empty()) {
     LLVM_DEBUG(dbgs() << "LocalArrayTranspose: No " << Banner << " for "
                       << F.getName() << "\n");

@@ -81,7 +81,7 @@ private:
       Function &F, DominatorTree &DT, PostDominatorTree &PDT,
       std::function<const TargetLibraryInfo &(Function &)> GetTLI);
   // Print the current set of local array transpose candidates for 'F'.
-  void printCandidates(Function &F, char Banner[]);
+  void printCandidates(Function &F, StringRef Banner);
   // Return 'true' if 'AI' is a profitable candidate for local array transpose.
   bool isProfitableCandidate(AllocaInst *AI, LoopInfo &LI);
   // Remove candidates which are not profitable.
