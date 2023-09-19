@@ -1649,7 +1649,7 @@ TwoAddressInstructionPass::processTiedPairs(MachineInstr *MI,
     MachineOperand &MO = MI->getOperand(SrcIdx);
     assert(MO.isReg() && MO.getReg() == RegB && MO.isUse() &&
            "inconsistent operand info for 2-reg pass");
-    if (MO.isKill()) {
+    if (isPlainlyKilled(MO)) {
       MO.setIsKill(false);
       RemovedKillFlag = true;
     }
@@ -1670,7 +1670,7 @@ TwoAddressInstructionPass::processTiedPairs(MachineInstr *MI,
     for (MachineOperand &MO : MI->all_uses()) {
       if (MO.getReg() == RegB) {
         if (MO.getSubReg() == SubRegB && !IsEarlyClobber) {
-          if (MO.isKill()) {
+          if (isPlainlyKilled(MO)) {
             MO.setIsKill(false);
             RemovedKillFlag = true;
           }
