@@ -21,9 +21,7 @@ bool SynchronizedThreadPool::Init(SynchronizedThread **pThreads,
   m_threads = pThreads;
   if (m_numThreads > 0) {
     m_threadStarted = new bool[m_numThreads];
-    if (NULL != m_threadStarted) {
-      memset(m_threadStarted, false, sizeof(bool) * m_numThreads);
-    }
+    memset(m_threadStarted, false, sizeof(bool) * m_numThreads);
   }
   m_init =
       ((m_threads != 0) && (m_numThreads > 0) && (m_threadStarted != NULL));

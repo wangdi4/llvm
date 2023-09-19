@@ -158,7 +158,5 @@ void LogMessage::CreateFormattedMessage() {
              m_psMessage, m_va);
 
   m_psFormattedMsg = new char[MAX_LOG_STRING_LENGTH];
-  if (m_psFormattedMsg) {
-    STRCPY_S(m_psFormattedMsg, MAX_LOG_STRING_LENGTH, szLine);
-  }
+  STRCPY_S(m_psFormattedMsg, MAX_LOG_STRING_LENGTH, szLine);
 }
