@@ -10,8 +10,10 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: peel.checkz{{.*}}
-; CHECK: [[TMP0:%.*]] = urem <4 x i64>
-; CHECK-NEXT: trunc <4 x i64> [[TMP0]] to <4 x i32>
+; CHECK: [[TMP0:%.*]] = urem i64
+; CHECK-NEXT: [[TMP1:%.*]] = insertelement <4 x i64> poison, i64 [[TMP0]], i64 0
+; CHECK-NEXT: [[TMP2:%.*]] = shufflevector <4 x i64> [[TMP1]], <4 x i64> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT: trunc <4 x i64> [[TMP2]] to <4 x i32>
 
 define dso_local void @foo(i32 %n, i32 %x, ptr nocapture %A, ptr nocapture readonly %B) local_unnamed_addr #0 {
 entry:

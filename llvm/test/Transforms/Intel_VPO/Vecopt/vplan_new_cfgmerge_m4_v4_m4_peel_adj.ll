@@ -20,7 +20,7 @@ define void @test_store(ptr nocapture %ary, i32 %c) {
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_QUOTIENT:%.*]] = udiv i64 [[VP_BASEPTR_INT]] i64 8
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_QMULTIPLIER:%.*]] = mul i64 [[VP_QUOTIENT]] i64 3
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_PEEL_COUNT:%.*]] = urem i64 [[VP_QMULTIPLIER]] i64 4
-; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = sub i64 [[VP_PEEL_COUNT]] i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP0:%.*]] = sub i64 [[VP_PEEL_COUNT]] i64 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_PEEL_ZERO_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_PEEL_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_PEEL_ZERO_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[PEEL_CHECKV0:peel.checkv[0-9]+]]
 ; CHECK-EMPTY:

@@ -5708,7 +5708,7 @@ public:
   void computeDA();
 
   VPlanDivergenceAnalysis *getVPlanDA() const {
-    return cast<VPlanDivergenceAnalysis>(VPlanDA.get());
+    return cast_or_null<VPlanDivergenceAnalysis>(VPlanDA.get());
   }
 
   /// Methods for supporting type inquiry through isa, cast, and

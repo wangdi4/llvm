@@ -157,6 +157,7 @@ void VPlanLoopUnroller::run() {
               /*Start=*/nullptr, /*UseStart=*/false, ReducInit->isScalar(),
               ReducInit->isComplex());
           ReducInit = cast<VPReductionInit>(IdInit);
+          Plan.getVPlanDA()->markDivergent(*ReducInit);
         }
         // Record the candidate and the original loop-defined result.
         auto It = PSumCandidates.insert(
@@ -242,6 +243,7 @@ void VPlanLoopUnroller::run() {
         Phi->addIncoming(PSIt->second.Init, PSIt->second.Init->getParent());
         Phi->addIncoming(ClonedReduc,
                          cast<VPBasicBlock>(Clones[UF - 2][Latch]));
+        Plan.getVPlanDA()->markDivergent(*Phi);
 
         // Add the new PHI to the value map.
         ValueMap[OrigInst] = Phi;
@@ -279,7 +281,7 @@ void VPlanLoopUnroller::run() {
 
     // Insert cloned blocks into the loop.
     ClonedLatch->setTerminator(CurrentLatch->getSuccessor(0),
-                                  CurrentLatch->getSuccessor(1), CondBit);
+                               CurrentLatch->getSuccessor(1), CondBit);
     CurrentLatch->setTerminator(ClonedHeader);
 
     CurrentLatch = ClonedLatch;
@@ -313,6 +315,7 @@ void VPlanLoopUnroller::run() {
         if (VPI->hasFastMathFlags())
           VPI->setFastMathFlags(PS.FMF);
         PS.Accum[CurSize++] = VPI;
+        Plan.getVPlanDA()->markDivergent(*VPI);
       }
       // If last accumulator is leftover, add it to be processed
       if (Index < NumAccums)

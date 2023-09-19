@@ -16,7 +16,7 @@ define dso_local void @divControlFlow(ptr nocapture %a, ptr nocapture %b, ptr no
 ; CHECK-NEXT:  VPlan IR for: divControlFlow:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF=2 UF=1 (SVAOpBits )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP0:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT0:%.*]], UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP0:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT0:%.*]], UF = 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP0]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB1:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
@@ -163,7 +163,7 @@ define dso_local void @uniControlFlow(ptr nocapture %a, ptr nocapture %b, ptr no
 ; CHECK-NEXT:  VPlan IR for: uniControlFlow:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF=2 UF=1 (SVAOpBits )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP0:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT0:%.*]], UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP0:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT0:%.*]], UF = 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP0]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB1:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:

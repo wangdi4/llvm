@@ -181,7 +181,7 @@ define void @test_store(ptr nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB19]]: # preds: [[BB10]]
 ; CHECK-NEXT:         [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:         [DA: Div] i64 [[VP15:%.*]] = vector-trip-count i64 1024 i64 1, UF = 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP15:%.*]] = vector-trip-count i64 1024 i64 1, UF = 1
 ; CHECK-NEXT:         [DA: Uni] popvf
 ; CHECK-NEXT:         [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp eq i64 [[VP15]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:         [DA: Uni] br i1 [[VP_REMTC_CHECK]], final.merge, [[MERGE_BLK1]]
@@ -290,7 +290,7 @@ define void @test_store(ptr nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB19]]: # preds: [[BB10]]
 ; CHECK-NEXT:         [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:         [DA: Div] i64 [[VP15]] = vector-trip-count i64 1024 i64 1, UF = 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP15]] = vector-trip-count i64 1024 i64 1, UF = 1
 ; CHECK-NEXT:         [DA: Uni] popvf
 ; CHECK-NEXT:         [DA: Uni] i1 [[VP_REMTC_CHECK]] = icmp eq i64 [[VP15]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:         [DA: Uni] br i1 [[VP_REMTC_CHECK]], final.merge, [[MERGE_BLK1]]

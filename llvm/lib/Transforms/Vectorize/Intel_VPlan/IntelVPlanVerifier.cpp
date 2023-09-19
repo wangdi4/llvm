@@ -187,10 +187,6 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
            "VPlan Post-Dominator Tree failed to verify");
 #endif
 
-  if (!shouldSkipDA()) {
-    verifyDA(Plan);
-  }
-
   // Skipped in cases where the loop info isn't updated to reflect
   // transformations that have been performed
   if (!VPLInfo || shouldSkipLoopInfo())
@@ -811,11 +807,21 @@ void VPlanVerifier::verifyInstruction(const VPInstruction *Inst,
   verifyOperands(Inst);
   verifyUsers(Inst);
   verifySpecificInstruction(Inst);
-  if (auto *Plan = dyn_cast<VPlanVector>(Block->getParent()))
+  if (auto *Plan = dyn_cast<VPlanVector>(Block->getParent())) {
     verifySSA(Inst, Plan->getDT());
 
-  if (!shouldSkipDAShapes() && !shouldSkipDA()) {
-    verifyDAShape(Inst);
+    if (!shouldSkipDA()) {
+      auto *DA = Plan->getVPlanDA();
+      if (!DA)
+        return;
+
+      ASSERT_VPVALUE(!DA->getVectorShape(*Inst).isUndefined(), Inst,
+                     "Shape has not been defined for instruction");
+
+      if (!shouldSkipDAShapes()) {
+        verifyDAShape(Inst);
+      }
+    }
   }
 }
 

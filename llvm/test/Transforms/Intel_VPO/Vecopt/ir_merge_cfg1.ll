@@ -9,7 +9,7 @@ define i32 @foo(ptr nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:  VPlan IR for: foo:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
-; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = vector-trip-count i64 [[N0:%.*]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP0:%.*]] = vector-trip-count i64 [[N0:%.*]], UF = 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:

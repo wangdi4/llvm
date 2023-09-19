@@ -204,7 +204,7 @@ define dso_local void @foo_pumping(ptr nocapture %A, ptr nocapture %B, i32 %N) {
 ; CALLVECDEC-NEXT:  VPlan IR for: foo_pumping:omp.inner.for.body
 ; CALLVECDEC-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CALLVECDEC-NEXT:     [DA: Uni] pushvf VF=128 UF=1
-; CALLVECDEC-NEXT:     [DA: Div] i32 [[VP0:%.*]] = vector-trip-count i32 [[N0:%.*]], UF = 1
+; CALLVECDEC-NEXT:     [DA: Uni] i32 [[VP0:%.*]] = vector-trip-count i32 [[N0:%.*]], UF = 1
 ; CALLVECDEC-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i32 0 i32 [[VP0]]
 ; CALLVECDEC-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB1:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
@@ -269,7 +269,7 @@ define dso_local void @foo_pumping(ptr nocapture %A, ptr nocapture %B, i32 %N) {
 ; SVAPREFIX-NEXT:  VPlan IR for: foo_pumping:omp.inner.for.body
 ; SVAPREFIX-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF=128 UF=1 (SVAOpBits )
-; SVAPREFIX-NEXT:     [DA: Div, SVA: (F  )] i32 [[VP0:%.*]] = vector-trip-count i32 [[N0:%.*]], UF = 1 (SVAOpBits 0->F )
+; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP0:%.*]] = vector-trip-count i32 [[N0:%.*]], UF = 1 (SVAOpBits 0->F )
 ; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i32 0 i32 [[VP0]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB1:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-EMPTY:
