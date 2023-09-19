@@ -112,8 +112,13 @@ ToolChain::ToolChain(const Driver &D, const llvm::Triple &T,
 
   if (std::optional<std::string> Path = getRuntimePath())
     getLibraryPaths().push_back(*Path);
-  for (const auto &Path : getStdlibPaths())
-    addIfExists(getFilePaths(), Path);
+  if (std::optional<std::string> Path = getStdlibPath())
+    getFilePaths().push_back(*Path);
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  addIfExists(getFilePaths(), getUnifiedLayoutV2LibCXXPath());
+#endif // #if INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // #if INTEL_CUSTOMIZATION
   for (const auto &Path : getArchSpecificLibPaths())
     addIfExists(getFilePaths(), Path);
 }
@@ -778,11 +783,12 @@ const char *ToolChain::getCompilerRTArgString(const llvm::opt::ArgList &Args,
   return Args.MakeArgString(getCompilerRT(Args, Component, Type));
 }
 
-std::optional<std::string> ToolChain::getRuntimePath() const {
+std::optional<std::string>
+ToolChain::getTargetSubDirPath(StringRef BaseDir) const {
   auto getPathForTriple =
-      [this](const llvm::Triple &Triple) -> std::optional<std::string> {
-    SmallString<128> P(D.ResourceDir);
-    llvm::sys::path::append(P, "lib", Triple.str());
+      [&](const llvm::Triple &Triple) -> std::optional<std::string> {
+    SmallString<128> P(BaseDir);
+    llvm::sys::path::append(P, Triple.str());
     if (getVFS().exists(P))
       return std::string(P);
     return {};
@@ -826,24 +832,29 @@ std::optional<std::string> ToolChain::getRuntimePath() const {
   return {};
 }
 
-ToolChain::path_list ToolChain::getStdlibPaths() const {
-  path_list Paths;
-  SmallString<128> P(D.Dir);
-  llvm::sys::path::append(P, "..", "lib", getTripleString());
-  Paths.push_back(std::string(P.str()));
+std::optional<std::string> ToolChain::getRuntimePath() const {
+  SmallString<128> P(D.ResourceDir);
+  llvm::sys::path::append(P, "lib");
+  return getTargetSubDirPath(P);
+}
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
+std::string ToolChain::getUnifiedLayoutV2LibCXXPath() const {
   // JIRA: CMPLRLLVM-49229
   // Adding libc++ path for unified layout v2
   SmallString<128> PLibcxx(D.Dir);
   llvm::sys::path::append(PLibcxx, "..", "..", "opt");
   llvm::sys::path::append(PLibcxx, "compiler", "lib", getTripleString());
-  Paths.push_back(std::string(PLibcxx.str()));
+  return std::string(PLibcxx);
+}
 #endif // #if INTEL_DEPLOY_UNIFIED_LAYOUT
 #endif // #if INTEL_CUSTOMIZATION
 
-  return Paths;
+std::optional<std::string> ToolChain::getStdlibPath() const {
+  SmallString<128> P(D.Dir);
+  llvm::sys::path::append(P, "..", "lib");
+  return getTargetSubDirPath(P);
 }
 
 ToolChain::path_list ToolChain::getArchSpecificLibPaths() const {
