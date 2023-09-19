@@ -1604,7 +1604,7 @@ struct RTLOptionTy {
   CommandModeTy CommandMode = CommandModeTy::Async;
 
   /// Make USM memory resident
-  int32_t MakeResident = 0x002;
+  int32_t MakeResident = 0x001;
 
   /// Read environment variables
   RTLOptionTy() {

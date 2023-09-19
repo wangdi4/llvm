@@ -529,7 +529,7 @@ residency at allocation time.
 For host memory, non-zero value makes the memory resident on all devices, and
 only device memory becomes resident on all devices at allocation time by default.
 
-**Default**: ``0x002``
+**Default**: ``0x001``
 
 Plugin OpenCL
 -------------
