@@ -744,26 +744,12 @@ bool MemCpyOptPass::processStoreOfLoad(StoreInst *SI, LoadInst *LI,
     return true;
   }
 
-#if INTEL_CUSTOMIZATION
-  // PLEASE REMOVE IN NEXT PULLDOWN
-  // This disables the optimization below, which was merged in a broken
-  // state. It's already fixed in xmain-web.
-  bool disableSMO = false;
-  if (const NamedMDNode *NMD = SI->getModule()->getNamedMetadata("llvm.ident"))
-    if (const MDNode *N = NMD->getOperand(0))
-      if (const MDString *S = dyn_cast<MDString>(N->getOperand(0)))
-        disableSMO = S->getString().contains("Intel");
-#endif // INTEL_CUSTOMIZATION
-
   // If this is a load-store pair from a stack slot to a stack slot, we
   // might be able to perform the stack-move optimization just as we do for
   // memcpys from an alloca to an alloca.
   if (auto *DestAlloca = dyn_cast<AllocaInst>(SI->getPointerOperand())) {
     if (auto *SrcAlloca = dyn_cast<AllocaInst>(LI->getPointerOperand())) {
-#if INTEL_CUSTOMIZATION
-      // PLEASE REMOVE IN NEXT PULLDOWN
-      if (!disableSMO && performStackMoveOptzn(LI, SI, DestAlloca, SrcAlloca,
-#endif // INTEL_CUSTOMIZATION
+      if (performStackMoveOptzn(LI, SI, DestAlloca, SrcAlloca,
                                 DL.getTypeStoreSize(T), BAA)) {
         // Avoid invalidating the iterator.
         BBI = SI->getNextNonDebugInstruction()->getIterator();
