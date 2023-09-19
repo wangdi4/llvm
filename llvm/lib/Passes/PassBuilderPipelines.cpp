@@ -203,14 +203,15 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Scalar/Intel_FunctionRecognizer.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
 #include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"
 #include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"
+#include "llvm/Transforms/Scalar/Intel_LocalArrayTranspose.h"
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"
 #include "llvm/Transforms/Scalar/Intel_LoopOptMarker.h"
 #include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h"
 #include "llvm/Transforms/Scalar/Intel_StdContainerOpt.h"
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h"
-#include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
 #include "llvm/Transforms/Scalar/NaryReassociate.h"
 #include "llvm/Transforms/Utils/LowerSwitch.h"
 #if INTEL_FEATURE_SW_ADVANCED
@@ -1255,6 +1256,11 @@ if (!SYCLOptimizationMode) {
     FPM.addPass(NewGVNPass());
   else
     FPM.addPass(GVNPass());
+#if INTEL_CUSTOMIZATION
+  if (Phase == ThinOrFullLTOPhase::FullLTOPreLink &&
+      Level == OptimizationLevel::O3)
+    FPM.addPass(LocalArrayTransposePass());
+#endif // INTEL_CUSTOMIZATION
 
   // Sparse conditional constant propagation.
   // FIXME: It isn't clear why we do this *after* loop passes rather than

@@ -252,6 +252,7 @@
 #include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"
 #include "llvm/Transforms/Scalar/Intel_IVSplit.h"
 #include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"
+#include "llvm/Transforms/Scalar/Intel_LocalArrayTranspose.h"
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"
 #include "llvm/Transforms/Scalar/Intel_LoopOptMarker.h"
 #include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h"
