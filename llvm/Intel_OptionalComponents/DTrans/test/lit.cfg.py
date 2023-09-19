@@ -60,9 +60,6 @@ llvm_config.use_default_substitutions()
 # Ask llvm-config about asserts.
 llvm_config.feature_config([('--assertion-mode', {'ON': 'asserts'})])
 
-# Ask llvm-config about opaque pointer mode
-llvm_config.feature_config([('--opaque-ptr-mode', {'ON': 'enable-opaque-pointers'})])
-
 # Add Intel features.
 llvm_config.add_intel_features()
 

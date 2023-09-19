@@ -1145,9 +1145,8 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       ; // qopt-mem-layout-trans >= 1 ignored with -fopenmp-target-loopopt
     else if (MLTVal == "1" || MLTVal == "2" || MLTVal == "3" || MLTVal == "4") {
 #if INTEL_FEATURE_SW_DTRANS
-      // DTrans requires the front-end to generate additional info when opaque
-      // pointers are in use.
-      if (CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL && !IsLink)
+      // DTrans requires the front-end to generate additional info.
+      if (!IsLink)
         CmdArgs.push_back("-emit-dtrans-info");
 
       addllvmOption("-enable-dtrans");

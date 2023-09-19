@@ -75,10 +75,6 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
       -disable-intel-proprietary-opts
     )
     list(PREPEND omp_cpp_flags --intel -DINTEL_CUSTOMIZATION=1)
-    if (NOT SPIRV_ENABLE_OPAQUE_POINTERS)
-      list(APPEND opencl_flags_spirv -no-opaque-pointers)
-      list(PREPEND omp_cpp_flags -Xclang -no-opaque-pointers)
-    endif()
   endif(INTEL_CUSTOMIZATION)
 
   set(opencl_device_rtl_required

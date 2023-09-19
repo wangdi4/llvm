@@ -429,8 +429,6 @@ if config.have_tf_aot:
 # INTEL_CUSTOMIZATION
 llvm_config.add_intel_features()
 
-llvm_config.feature_config([('--opaque-ptr-mode', {'ON': 'enable-opaque-pointers'})])
-
 if config.enable_proto_bor:
     config.available_features.add("proto_bor")
 # end INTEL_CUSTOMIZATION
@@ -647,8 +645,6 @@ config.substitutions.append(('%intel_mllvm', intel_mllvm))
 config.substitutions.append(('%intel_plugin_devirt_options', intel_plugin_devirt_options))
 if config.new_pm_default:
     config.available_features.add('new_pm_default')
-if config.spirv_enable_opaque_pointers:
-    config.available_features.add('spirv_enable_opaque_pointers')
 
 import lit.llvm.util
 config.options_to_revert_to_llorg_behavior = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false" ]

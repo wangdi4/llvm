@@ -1035,18 +1035,6 @@ if(NOT LLVM_ENABLE_NEW_PASS_MANAGER)
 endif()
 endif(INTEL_CUSTOMIZATION)
 
-set(DPCPP_ENABLE_OPAQUE_POINTERS TRUE CACHE BOOL
-   "Enable opaque pointers by default.")
-if (DPCPP_ENABLE_OPAQUE_POINTERS)
-  add_definitions("-DENABLE_OPAQUE_POINTERS=1")
-  add_definitions("-DINTEL_SYCL_OPAQUEPOINTER_READY=1")
-endif(DPCPP_ENABLE_OPAQUE_POINTERS)
-set(SPIRV_ENABLE_OPAQUE_POINTERS TRUE CACHE BOOL
-    "Enable opaque pointers for SPIR-V offload by default.")
-if(SPIRV_ENABLE_OPAQUE_POINTERS)
-  add_definitions("-DSPIRV_ENABLE_OPAQUE_POINTERS=1")
-endif()
-
 include(HandleLLVMOptions)
 
 ######

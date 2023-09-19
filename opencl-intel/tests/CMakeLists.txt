@@ -39,9 +39,6 @@ macro(compile_bitcode SOURCE OUTPUT)
   else()
     set(SPIR_OPTIONS -triple spir-unknown-unknown -D__i386__)
   endif()
-  if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
-    set(SPIR_OPTIONS ${SPIR_OPTIONS} -no-opaque-pointers)
-  endif()
   add_custom_command(
     OUTPUT ${OUTPUT}
     COMMAND
