@@ -434,6 +434,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
   if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
     SimdWidth = 1;
     NFn->setMetadata("omp_simd_kernel", MDNode::get(NFn->getContext(), {}));
+    NFn->setMetadata("sycl_explicit_simd", MDNode::get(NFn->getContext(), {}));
   }
 
   if (SimdWidth > 0) {

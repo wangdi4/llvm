@@ -3829,6 +3829,8 @@ def fopenmp_target_buffers_EQ : Joined<["-"], "fopenmp-target-buffers=">,
 def fopenmp_target_simd : Flag<["-"], "fopenmp-target-simd">, Flags<[NoXarchOption,
   HelpHidden]>, Group<f_Group>, Visibility<[ClangOption, CC1Option]>,
   MarshallingInfoFlag<LangOpts<"OpenMPTargetSimd">>;
+def fopenmp_target_simd_split : Flag<["-"], "fopenmp-target-simd-split">, Flags<[NoXarchOption,
+  HelpHidden]>, Visibility<[ClangOption, CC1Option]>, Group<f_Group>;
 def fopenmp_target_fast_atomics : Flag<["-"], "fopenmp-target-fast-atomics">,
   Flags<[HelpHidden, NoArgumentUnused]>, Group<f_Group>;
 def fopenmp_target_declare_simd_spir : Flag<["-"], "fopenmp-target-declare-simd-spir">,

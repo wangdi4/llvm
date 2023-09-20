@@ -4,7 +4,7 @@
 ;       but that'd disable SIMD lowering. Need to change
 ;       CC to spir_func and add required MD to trigger lowering
 
-define dso_local spir_kernel i32 @foo(float %x) {
+define dso_local spir_kernel i32 @foo(float %x) !omp_simd_kernel !0 {
   %y = fptoui float %x to i32
 ; check that the scalar float to unsigned int conversion is left intact
 ; CHECK: %y = fptoui float %x to i32
@@ -14,3 +14,5 @@ define dso_local spir_kernel i32 @foo(float %x) {
   %res = add i32 %y, %z.ext
   ret i32 %res
 }
+
+!0 = !{}

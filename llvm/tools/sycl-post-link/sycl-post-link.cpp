@@ -1244,13 +1244,9 @@ processInputModule(std::unique_ptr<Module> M) {
   bool DoSortOmpOffloadEntries = SortOmpOffloadEntries.getNumOccurrences() > 0;
   bool DoEnableOmpExplicitSimd = EnableOmpExplicitSimd.getNumOccurrences() > 0;
 
-  if (DoEnableOmpExplicitSimd) {
-    legacy::PassManager Passes;
-    Passes.add(createVPOParoptLowerSimdPass());
-    Passes.add(createGenXSPIRVWriterAdaptorPass());
-    Passes.run(*M);
-  }
   bool DoOmpOffload = (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic);
+  bool DoOmpExplicitSimdSplit = DoEnableOmpExplicitSimd && SplitEsimd;
+
   // Find all global variables that need to be moved to a separate module.
   if (DoOmpOffload)
     module_split::findGlobalsToBeMoved(*M);
@@ -1275,7 +1271,8 @@ processInputModule(std::unique_ptr<Module> M) {
   // Violation of this invariant is user error and must've been reported.
   // However, if split mode is "auto", then entry point filtering is still
   // performed.
-  assert((!IROutputOnly || (SplitMode == module_split::SPLIT_NONE) ||
+  assert((!IROutputOnly ||
+          (SplitMode == module_split::SPLIT_NONE && !DoOmpExplicitSimdSplit) ||
           (SplitMode == module_split::SPLIT_AUTO)) &&
          "invalid split mode for IR-only output");
 
@@ -1283,7 +1280,7 @@ processInputModule(std::unique_ptr<Module> M) {
       module_split::getDeviceCodeSplitter(
           module_split::ModuleDesc{std::move(M)}, SplitMode, IROutputOnly,
 #if INTEL_COLLAB
-          EmitOnlyKernelsAsEntryPoints, DoOmpOffload);
+          EmitOnlyKernelsAsEntryPoints, DoOmpOffload, DoOmpExplicitSimdSplit);
 #else // INTEL_COLLAB
           EmitOnlyKernelsAsEntryPoints);
 #endif // INTEL_COLLAB
@@ -1299,10 +1296,10 @@ processInputModule(std::unique_ptr<Module> M) {
   // Construct the resulting table which will accumulate all the outputs.
   SmallVector<StringRef, MAX_COLUMNS_IN_FILE_TABLE> ColumnTitles{
       StringRef(COL_CODE)};
-  if (!OMPOffloadParallelCompile) {
+  if (!OMPOffloadParallelCompile && !DoEnableOmpExplicitSimd) {
     ColumnTitles.push_back(StringRef(COL_PROPS));
   }
-  if (!OMPOffloadParallelCompile && DoSymGen) {
+  if (!OMPOffloadParallelCompile && !DoEnableOmpExplicitSimd && DoSymGen) {
     ColumnTitles.push_back(StringRef(COL_SYM));
   }
   Expected<std::unique_ptr<util::SimpleTable>> TableE =
@@ -1334,6 +1331,19 @@ processInputModule(std::unique_ptr<Module> M) {
 
       Modified |= processSpecConstants(MMs[I]);
     }
+#if INTEL_COLLAB
+    if (DoEnableOmpExplicitSimd) {
+      for (auto &MM : MMs) {
+        if (MM.isESIMD() || !SplitEsimd) {
+          // TODO: get rid of LegacyPM
+          legacy::PassManager Passes;
+          Passes.add(createVPOParoptLowerSimdPass());
+          Passes.add(createGenXSPIRVWriterAdaptorPass());
+          Passes.run(MM.getModule());
+        }
+      }
+    }
+#endif // INTEL_COLLAB
 
     if (IROutputOnly) {
       if (SplitOccurred) {
@@ -1355,8 +1365,10 @@ processInputModule(std::unique_ptr<Module> M) {
     }
     for (module_split::ModuleDesc &IrMD : MMs) {
 #if INTEL_COLLAB
-      IrPropSymFilenameTriple T =
-          saveModule(IrMD, ID, OMPOffloadParallelCompile, OutIRFileName);
+      IrPropSymFilenameTriple T = saveModule(
+          IrMD, ID,
+          OMPOffloadParallelCompile || (DoEnableOmpExplicitSimd && SplitEsimd),
+          OutIRFileName);
 #else // INTEL_COLLAB
       IrPropSymFilenameTriple T = saveModule(IrMD, ID, OutIRFileName);
 #endif // INTEL_COLLAB
@@ -1477,11 +1489,14 @@ int main(int argc, char **argv) {
   bool DoMakeOmpGlobalsStatic = MakeOmpGlobalsStatic.getNumOccurrences() > 0;
 
   if (DoLinkOmpOffloadEntries && !IROutputOnly &&
-      !(DoSplit && SplitMode == module_split::SPLIT_PER_KERNEL))
+      !(DoSplit && SplitMode == module_split::SPLIT_PER_KERNEL) &&
+      !DoSplitEsimd) {
     // OpenMP offload works with either IR output or per kernel split currently.
     errs() << "error: -" << OmpOffloadEntriesSymbol.ArgStr
            << " can only be used with -" << IROutputOnly.ArgStr << " or -"
-           << SplitMode.ArgStr << "=kernel\n";
+           << SplitMode.ArgStr << "=kernel or -split-esimd\n";
+    return 1;
+  }
   if (SortOmpOffloadEntries && !DoLinkOmpOffloadEntries)
     errs() << "warning: -" << SortOmpOffloadEntries.ArgStr
            << " ignored without -" << OmpOffloadEntriesSymbol.ArgStr << "\n";
