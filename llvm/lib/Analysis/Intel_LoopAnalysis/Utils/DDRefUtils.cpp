@@ -374,19 +374,30 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
   // non-collapsed refs. Which was over conservative.
   unsigned Ref1CollapsedLevels = Ref1->getNumCollapsedLevels();
   unsigned Ref2CollapsedLevels = Ref2->getNumCollapsedLevels();
+  bool SameCollapsedLevels = (Ref1CollapsedLevels == Ref2CollapsedLevels);
+  if (!SameCollapsedLevels && ((Ref1CollapsedLevels > NumIgnorableDims) ||
+                               (Ref2CollapsedLevels > NumIgnorableDims))) {
+    return false;
+  }
+
+  // If both refs are collapsed, we only mark them as having same base and shape
+  // if they are in the same collapsed loop or if they have the same indices on
+  // all levels.
   auto *Ref1Node = Ref1->getHLDDNode();
   auto *Ref2Node = Ref2->getHLDDNode();
   auto *Ref1Loop = Ref1Node ? Ref1Node->getParentLoop() : nullptr;
   auto *Ref2Loop = Ref2Node ? Ref2Node->getParentLoop() : nullptr;
-  if (((Ref1Loop != Ref2Loop) ||
-       (Ref1CollapsedLevels != Ref2CollapsedLevels)) &&
-      ((Ref1CollapsedLevels > NumIgnorableDims) ||
-       (Ref2CollapsedLevels > NumIgnorableDims))) {
-    return false;
-  }
+  bool RequireSameIndices = (Ref1Loop != Ref2Loop) &&
+                            (Ref1CollapsedLevels != 0) && SameCollapsedLevels;
 
   // Check that dimension lowers and strides are the same.
   for (unsigned DimI = 1; DimI <= NumDims; ++DimI) {
+    if (RequireSameIndices &&
+        !CanonExprUtils::areEqual(Ref1->getDimensionIndex(DimI),
+                                  Ref2->getDimensionIndex(DimI), RelaxedMode)) {
+      return false;
+    }
+
     if (!CanonExprUtils::areEqual(Ref1->getDimensionLower(DimI),
                                   Ref2->getDimensionLower(DimI), RelaxedMode)) {
       return false;
