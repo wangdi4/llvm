@@ -1,6 +1,4 @@
 ; Test that multiversioning can be restricted to part of a function.
-; This test currently only checks debug log until the transformation part of
-; scoped multiversioning is implemented.
 ; RUN: opt -S -passes=gvbased-multiversioning -gvbased-multiversion-min-num-branches=3 -debug < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -10,8 +8,57 @@ target triple = "x86_64-unknown-linux-gnu"
 
 declare void @unknown_side_effect() local_unnamed_addr #0
 
-define void @basic_scope(ptr nocapture noundef %num) #0 {
 ; CHECK: GVMV analysis for basic_scope created invariant set: (global1 = 0) Scope: from   %.b1213 = load i1, ptr @global1, align 1 to   tail call void @unknown_side_effect()
+; CHECK: GVMV analysis for not_profitable bails out, unable to build a valid invariant set
+
+define void @basic_scope(ptr nocapture noundef %num) #0 {
+; CHECK-LABEL: define void @basic_scope(ptr nocapture noundef %num) {
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[NUM_1:%.*]] = load i32, ptr %num
+; CHECK-NEXT:    [[NUM_1_INC:%.*]] = add nsw i32 [[NUM_1]], 1
+; CHECK-NEXT:    store i32 [[NUM_1_INC]], ptr %num
+; CHECK-NEXT:    tail call void @unknown_side_effect()
+; CHECK-NEXT:    [[MV_SCOPED_LOAD_GLOBAL1:%.*]] = load i1, ptr @global1
+; CHECK-NEXT:    [[TMP0:%.*]] = xor i1 [[MV_SCOPED_LOAD_GLOBAL1]], true
+; CHECK-NEXT:    br i1 [[TMP0]], label %mv.scope.entry.clone, label %mv.scope.entry
+; CHECK:       mv.scope.entry:
+; CHECK-NEXT:    [[DOTB1213:%.*]] = load i1, ptr @global1
+; CHECK-NEXT:    br i1 [[DOTB1213]], label %if.end, label %if.end.thread
+; CHECK:       if.end.thread:
+; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr %num
+; CHECK-NEXT:    br label %if.end4.thread
+; CHECK:       if.end:
+; CHECK-NEXT:    tail call void @unknown_side_effect()
+; CHECK-NEXT:    [[DOTB1114_PR:%.*]] = load i1, ptr @global1
+; CHECK-NEXT:    [[NUM_2:%.*]] = load i32, ptr %num
+; CHECK-NEXT:    [[NUM_2_INC:%.*]] = add nsw i32 [[NUM_2]], 1
+; CHECK-NEXT:    store i32 [[NUM_2_INC]], ptr %num
+; CHECK-NEXT:    br i1 [[DOTB1114_PR]], label %if.end4, label %if.end4.thread
+; CHECK:       if.end4.thread:
+; CHECK-NEXT:    [[TMP2:%.*]] = phi i32 [ [[TMP1]], %if.end.thread ], [ [[NUM_2_INC]], %if.end ]
+; CHECK-NEXT:    [[INC3:%.*]] = add nsw i32 [[TMP2]], 2
+; CHECK-NEXT:    store i32 [[INC3]], ptr %num
+; CHECK-NEXT:    br label %if.end7
+; CHECK:       if.end4:
+; CHECK-NEXT:    tail call void @unknown_side_effect()
+; CHECK-NEXT:    [[DOTB15_PRE:%.*]] = load i1, ptr @global1
+; CHECK-NEXT:    br i1 [[DOTB15_PRE]], label %if.then6, label %if.end7
+; CHECK:       if.then6:
+; CHECK-NEXT:    tail call void @unknown_side_effect()
+; CHECK-NEXT:    br label %if.end7
+; CHECK:       if.end7:
+; CHECK-NEXT:    br label %mv.scope.exit
+; CHECK:       mv.scope.exit:
+; CHECK-NEXT:    tail call void @unknown_side_effect()
+; CHECK-NEXT:    [[NUM_3:%.*]] = load i32, ptr %num
+; CHECK-NEXT:    [[NUM_3_INC:%.*]] = add nsw i32 [[NUM_3]], 1
+; CHECK-NEXT:    store i32 [[NUM_3_INC]], ptr %num
+; CHECK-NEXT:    ret void
+; CHECK:       mv.scope.entry.clone:
+; CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr %num
+; CHECK-NEXT:    [[INC3_CLONE:%.*]] = add nsw i32 [[TMP3]], 2
+; CHECK-NEXT:    store i32 [[INC3_CLONE]], ptr %num
+; CHECK-NEXT:    br label %mv.scope.exit
 entry:
   %num.1 = load i32, ptr %num, align 4, !tbaa !0
   %num.1.inc = add nsw i32 %num.1, 1
@@ -60,7 +107,13 @@ if.end7:                                          ; preds = %if.end4.thread, %if
 ; Scoped multiversioning will bail out because the target instruction appears
 ; in the middle of multiple loads of global1.
 define void @not_profitable(ptr nocapture noundef %num) {
-; CHECK: GVMV analysis for not_profitable bails out, unable to build a valid invariant set
+; CHECK-LABEL: define void @not_profitable(ptr nocapture noundef %num) {
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[NUM_1:%.*]] = load i32, ptr %num
+; CHECK-NEXT:    [[NUM_1_INC:%.*]] = add nsw i32 [[NUM_1]], 1
+; CHECK-NEXT:    store i32 [[NUM_1_INC]], ptr %num
+; CHECK-NEXT:    [[DOTB1213:%.*]] = load i1, ptr @global1
+; CHECK-NEXT:    br i1 [[DOTB1213]]
 entry:
   %num.1 = load i32, ptr %num, align 4, !tbaa !0
   %num.1.inc = add nsw i32 %num.1, 1

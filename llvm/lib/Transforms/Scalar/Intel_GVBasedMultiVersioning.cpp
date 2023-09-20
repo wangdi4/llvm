@@ -102,7 +102,7 @@ struct InvariantDesc {
 
 // A Scope represents a set of instructions inside a function with single-entry,
 // single-exit control flow.
-// It'd identified by an entry point and exit point. For a scope to be valid,
+// It's identified by an entry point and exit point. For a scope to be valid,
 // the entry must dominate the exit, and the exit must post-dominate the entry.
 // However we don't have a good way to check for validity defined above because
 // the "post-dominate" part have caveats: We allow unreachables in a scope. But
@@ -111,6 +111,10 @@ struct InvariantDesc {
 // they're not executed in runtime, and thus not useful to us. It seems the
 // community have no desire to change this (D12676, D119760). For now,
 // unreachables are handled with some special casing.
+// The trouble with unreachables also means we need to store all blocks
+// contained inside the scope because when doing the cloning transformation, we
+// can't reliably determine whether a basic block or instruction is in the scope
+// with post-dominator queries.
 // The exit point we store here is not contained by the scope. Doing so is
 // useful when the scope ends just before a basic block that has multiple
 // predecessors, but the first instruction of that block has properties that we
@@ -121,9 +125,19 @@ struct ScopeTy {
   Instruction *Entry;
   // If Exit is nullptr, the scope terminates when the function returns.
   Instruction *Exit;
+  // All basic blocks inside the scope, stored to help computing liveouts in
+  // transformation phase.
+  // Note the parent block of Entry and Exit is not in the vector. It's not a
+  // good idea to store them as they can get split during the transformation.
+  DenseSet<BasicBlock *> Blocks;
   // Create a scope covering the entire function F.
-  ScopeTy(Function &F) : Entry(&F.getEntryBlock().front()), Exit(nullptr) {}
-  ScopeTy(Instruction *Entry, Instruction *Exit) : Entry(Entry), Exit(Exit) {}
+  ScopeTy(Function &F) : Entry(&F.getEntryBlock().front()), Exit(nullptr) {
+    for (auto &BB : F)
+      Blocks.insert(&BB);
+  }
+  ScopeTy(Instruction *Entry, Instruction *Exit,
+          const DenseSet<BasicBlock *> &Blocks)
+      : Entry(Entry), Exit(Exit), Blocks(Blocks) {}
   bool coversWholeFunction() const {
     return Entry == &Entry->getFunction()->getEntryBlock().front() &&
            Exit == nullptr;
@@ -431,6 +445,7 @@ GVBasedMultiVersioning::tryShrinkScope(ScopeTy OldScope,
   // former half.
   BasicBlock *UniqueExitBB = SSI.UniqueExit->getParent();
   BasicBlock *SplitBB = InstrToExclude->getParent();
+  DenseSet<BasicBlock *> BBsInScope(OldScope.Blocks);
 
   if (InstrDominatesAllLoads) {
     Instruction *NewEntry = InstrToExclude->getNextNode();
@@ -445,24 +460,26 @@ GVBasedMultiVersioning::tryShrinkScope(ScopeTy OldScope,
 
     if (CheckNewEntryDominatesOldExit() &&
         CheckOldExitPostDominatesNewEntry()) {
-      filterBBsWithPred(
-          [this, SplitBB](BasicBlock *BB) {
-            return !DT->dominates(SplitBB, BB);
-          },
-          BBs);
-      return ScopeTy(NewEntry, OldScope.Exit);
+      auto Pred = [this, SplitBB](BasicBlock *BB) {
+        return !DT->dominates(SplitBB, BB);
+      };
+      filterBBsWithPred(Pred, BBs);
+      filterBBsWithPred(Pred, BBsInScope);
+      BBsInScope.erase(NewEntry->getParent());
+      return ScopeTy(NewEntry, OldScope.Exit, BBsInScope);
     }
   }
 
   if (InstrPostDominatesAllLoads &&
       DT->dominates(OldScope.Entry, InstrToExclude) &&
       GetPDT().dominates(InstrToExclude, OldScope.Entry)) {
-    filterBBsWithPred(
-        [this, SplitBB](BasicBlock *BB) {
-          return !GetPDT().dominates(SplitBB, BB);
-        },
-        BBs);
-    return ScopeTy(OldScope.Entry, InstrToExclude);
+    auto Pred = [this, SplitBB](BasicBlock *BB) {
+      return !GetPDT().dominates(SplitBB, BB);
+    };
+    filterBBsWithPred(Pred, BBs);
+    filterBBsWithPred(Pred, BBsInScope);
+    BBsInScope.erase(InstrToExclude->getParent());
+    return ScopeTy(OldScope.Entry, InstrToExclude, BBsInScope);
   }
 
   return std::nullopt;
@@ -724,19 +741,9 @@ static void cloneBBsWithInvariants(ArrayRef<BasicBlock *> BBs,
   return;
 }
 
-void GVBasedMultiVersioning::doTransformation(
-    ArrayRef<ScopedInvariantSet> BranchInvariantSets) {
-  // Each entry of the input is handled in different ways, depending on whether
-  // its scope is the entire function.
-  SmallVector<InvariantSet, 4> UnscopedInvariantSets;
-  // At most one scoped invariant set is supported.
-  std::optional<ScopedInvariantSet> MaybeScopedInvariantSet;
-  for (auto &ScopedInvariants : BranchInvariantSets)
-    if (ScopedInvariants.Scope.coversWholeFunction())
-      UnscopedInvariantSets.push_back(ScopedInvariants.Invariants);
-    else if (!MaybeScopedInvariantSet.has_value())
-      MaybeScopedInvariantSet = ScopedInvariants;
-
+static void
+cloneForUnscopedInvariantSets(Function *F,
+                              ArrayRef<InvariantSet> UnscopedInvariantSets) {
   BasicBlock *OrigEntryBB = &F->getEntryBlock();
   SmallVector<BasicBlock *, 32> OrigBBs;
   for (auto &BB : *F)
@@ -758,8 +765,7 @@ void GVBasedMultiVersioning::doTransformation(
   // First, do cloning for the unscoped invariant sets.
   // Clone the function body for every InvariantSet and generate dispatch code
   // to each clone. Reuse the original code if possible.
-  const bool ReuseOriginalCode = !MaybeScopedInvariantSet.has_value() &&
-                                 canReuseOriginalCode(UnscopedInvariantSets);
+  const bool ReuseOriginalCode = canReuseOriginalCode(UnscopedInvariantSets);
   for (const auto &Invariants : UnscopedInvariantSets) {
     if (ReuseOriginalCode && &Invariants == &UnscopedInvariantSets.back()) {
       LLVM_DEBUG(dbgs() << "GVMV transformation for " << F->getName() << ": "
@@ -797,8 +803,124 @@ void GVBasedMultiVersioning::doTransformation(
     EntryBr->setSuccessor(0, CondBB);
     BBAfterLoadsBB = CondBB;
   }
+}
 
-  // TODO: Process the scoped invariant set, if any.
+static void cloneForScopedInvariantSet(Function *F, ScopedInvariantSet SIS) {
+  // First, split the parent block of Scope.Entry, the block before Entry will
+  // contain the conditional branch for dispatch, the block after Entry
+  // (including Entry) will be part of the cloned scope.
+  BasicBlock *CondBB = SIS.Scope.Entry->getParent();
+  BasicBlock *ScopeEntryBB =
+      SplitBlock(CondBB, SIS.Scope.Entry, (DomTreeUpdater *)nullptr, nullptr,
+                 nullptr, "mv.scope.entry");
+  // Remove the unconditional branch between CondBB and ScopeEntryBB added by
+  // SplitBlock so we can add the conditional branch later.
+  cast<BranchInst>(CondBB->getTerminator())->eraseFromParent();
+
+  // Do the same split for Scope.Exit. ScopeExitBB doesn't contain Scope.Exit
+  // and will be part of the scope. The two variants of code in scope will
+  // branch to BBAfterScopeExit.
+  // If Scope.Exit is nullptr, there is no need to have these blocks because
+  // the function exits as the control flow leaves the scope.
+  BasicBlock *ScopeExitBB =
+      SIS.Scope.Exit ? SIS.Scope.Exit->getParent() : nullptr;
+  BasicBlock *BBAfterScopeExit =
+      ScopeExitBB
+          ? SplitBlock(ScopeExitBB, SIS.Scope.Exit, (DomTreeUpdater *)nullptr,
+                       nullptr, nullptr, "mv.scope.exit")
+          : nullptr;
+
+  // Build a set of blocks in the scope, that includes Scope.Blocks,
+  // ScopeEntryBB and ScopeExitBB.
+  DenseSet<BasicBlock *> OrigBBsInScopeSet = SIS.Scope.Blocks;
+  OrigBBsInScopeSet.insert(ScopeEntryBB);
+  if (ScopeExitBB)
+    OrigBBsInScopeSet.insert(ScopeExitBB);
+
+  // Build a list of blocks in the scope, by filtering all blocks in the
+  // function with OrigBBsInScopeSet.
+  // This is not mandatory for the transformation, however we'd like to retain
+  // the overall order of BBs in the cloned IR which is usually easier to read
+  // for convenience of debugging.
+  SmallVector<BasicBlock *, 32> OrigBBsInScopeList;
+  for (auto &BB : *F)
+    if (OrigBBsInScopeSet.find(&BB) != OrigBBsInScopeSet.end())
+      OrigBBsInScopeList.push_back(&BB);
+
+  // Compute live-out values for the scope by checking whether there is any
+  // user not in scope for every instruction inside the scope.
+  // Alternatively, we can first do the cloning and check whether every
+  // instruction dominates its uses, saving the work of computing
+  // Scope.Blocks. But that requires updating the dominator tree first, which
+  // is also cumbersome.
+  SmallVector<Value *, 32> LiveOuts;
+  if (ScopeExitBB)
+    for (auto Block : OrigBBsInScopeList)
+      for (auto &Inst : *Block) {
+        auto Users = Inst.users();
+        if (std::any_of(Users.begin(), Users.end(), [&](User *U) {
+              return OrigBBsInScopeSet.find(
+                         cast<Instruction>(U)->getParent()) ==
+                     OrigBBsInScopeSet.end();
+            }))
+          LiveOuts.push_back(&Inst);
+      }
+
+  // Clone code in scope and generate dispatch code
+  ValueToValueMapTy VMap;
+  cloneBBsWithInvariants(OrigBBsInScopeList, SIS.Invariants, VMap);
+
+  IRBuilder<> Builder(CondBB);
+  Type *Int1Ty = IntegerType::getInt1Ty(F->getContext());
+  Value *Condition = buildConditionForInvariantSet(
+      SIS.Invariants, Builder,
+      [Int1Ty](GlobalVariable *GV, IRBuilder<> &Builder) {
+        return Builder.CreateLoad(Int1Ty, GV,
+                                  "mv.scoped.load." + GV->getName());
+      });
+  Builder.CreateCondBr(Condition, cast<BasicBlock>(VMap.lookup(ScopeEntryBB)),
+                       ScopeEntryBB);
+
+  if (ScopeExitBB) {
+    // Wire the clone of ScopeExitBB to BBAfterScopeExit
+    BasicBlock *ScopeExitBBClone = cast<BasicBlock>(VMap.lookup(ScopeExitBB));
+    cast<BranchInst>(ScopeExitBBClone->getTerminator())
+        ->setSuccessor(0, BBAfterScopeExit);
+
+    // Create PHIs for live-outs
+    Builder.SetInsertPoint(&BBAfterScopeExit->front());
+    for (auto LiveOut : LiveOuts) {
+      PHINode *PHI = Builder.CreatePHI(LiveOut->getType(), 2,
+                                       LiveOut->getName() + ".mv.liveout");
+      for (auto U : LiveOut->users())
+        if (OrigBBsInScopeSet.find(cast<Instruction>(U)->getParent()) ==
+            OrigBBsInScopeSet.end())
+          U->replaceUsesOfWith(LiveOut, PHI);
+      PHI->addIncoming(LiveOut, ScopeExitBB);
+      PHI->addIncoming(VMap.lookup(LiveOut), ScopeExitBBClone);
+    }
+  }
+}
+
+void GVBasedMultiVersioning::doTransformation(
+    ArrayRef<ScopedInvariantSet> BranchInvariantSets) {
+  // Each entry of the input is handled in different ways, depending on whether
+  // its scope is the entire function.
+  SmallVector<InvariantSet, 4> UnscopedInvariantSets;
+  // At most one scoped invariant set is supported.
+  std::optional<ScopedInvariantSet> MaybeScopedInvariantSet;
+  for (auto &ScopedInvariants : BranchInvariantSets)
+    if (ScopedInvariants.Scope.coversWholeFunction())
+      UnscopedInvariantSets.push_back(ScopedInvariants.Invariants);
+    else if (!MaybeScopedInvariantSet.has_value())
+      MaybeScopedInvariantSet = ScopedInvariants;
+
+  // There is no need to support both scoped and unscoped invariant sets present
+  // simultaneously yet.
+  if (UnscopedInvariantSets.size())
+    cloneForUnscopedInvariantSets(F, UnscopedInvariantSets);
+  else if (MaybeScopedInvariantSet.has_value())
+    cloneForScopedInvariantSet(F, MaybeScopedInvariantSet.value());
 
   // Run some CFG simplification transformations to constant fold branches on
   // the globals.
