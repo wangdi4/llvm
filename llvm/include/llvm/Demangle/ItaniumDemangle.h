@@ -37,7 +37,6 @@
 #include "DemangleConfig.h"
 #include "StringViewExtras.h"
 #include "Utility.h"
-#include <__cxxabi_config.h>
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -50,16 +49,14 @@
 #include <type_traits>
 #include <utility>
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include <string>
 #endif //INTEL_CUSTOMIZATION
-=======
+
 #ifdef _LIBCXXABI_COMPILER_CLANG
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-template"
 #endif
->>>>>>> 4b163e343cfa54c8d55c9da73c70d58f55ea9df2
 
 DEMANGLE_NAMESPACE_BEGIN
 
