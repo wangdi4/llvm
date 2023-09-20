@@ -2806,8 +2806,13 @@ bool X86DAGToDAGISel::matchVectorAddressRecursively(SDValue N,
     AM.dump(CurDAG);
   });
   // Limit recursion.
+<<<<<<< HEAD
   if (Depth > 5)
     return matchAddressBase(N, AM, true); // INTEL
+=======
+  if (Depth >= SelectionDAG::MaxRecursionDepth)
+    return matchAddressBase(N, AM);
+>>>>>>> 27d4f229ad10449f25168e977ef1dd21aca5687f
 
   // TODO: Support other operations.
   switch (N.getOpcode()) {
