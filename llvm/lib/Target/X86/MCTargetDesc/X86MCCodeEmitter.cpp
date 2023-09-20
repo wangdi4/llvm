@@ -1293,6 +1293,13 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     //  MemAddr, src1(ModR/M), src2(VEX_4V)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
+    Prefix.setRR2(MI, CurOp++);
+#else // INTEL_FEATURE_ISA_APX_F
+    Prefix.setR(MI, CurOp++);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
     Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
 #else // INTEL_FEATURE_ISA_APX_F
@@ -1301,13 +1308,6 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     CurOp += X86::AddrNumOperands;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setRR2(MI, ++CurOp);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setR(MI, ++CurOp);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
     Prefix.set4V(MI, CurOp++);
     break;
   }
