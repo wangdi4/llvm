@@ -281,7 +281,6 @@
 ; end INTEL_FEATURE_SW_ADVANCED
 
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopDistributePass
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; LoopVectorizePass is disabled by default
 ; InjectTLIMappings invocation is in sync with SLPVectorizerPass
@@ -289,12 +288,10 @@
 ; CHECK-POSTLINK-O3-NEXT: Running pass: InjectTLIMappings
 ; CHECK-POSTLINK-Os-NEXT: Running pass: InjectTLIMappings
 ; END INTEL_CUSTOMIZATION
-=======
 ; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAccessAnalysis on foo
 ; CHECK-POSTLINK-O-NEXT: Running pass: InjectTLIMappings
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopVectorizePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: InferAlignmentPass
->>>>>>> 3e992d81afc3925a8685eb15f794dd4a6ba3e97e
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: SimplifyCFGPass
@@ -314,11 +311,8 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopUnrollPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: SROAPass
-<<<<<<< HEAD
 ; CHECK-POSTLINK-O-NEXT: Running pass: WarnMissedTransformationsPass
-=======
 ; CHECK-POSTLINK-O-NEXT: Running pass: InferAlignmentPass
->>>>>>> 3e992d81afc3925a8685eb15f794dd4a6ba3e97e
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LCSSAPass

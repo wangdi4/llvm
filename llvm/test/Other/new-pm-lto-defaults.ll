@@ -366,7 +366,6 @@
 
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: LoopDistributePass on foo
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; These are moved later
 ; COM: CHECK-O23SZ-NEXT: Running pass: LoopVectorizePass on foo
@@ -378,12 +377,10 @@
 ; CHECK-O3-NEXT: Running pass: InjectTLIMappings on foo
 ; CHECK-OS-NEXT: Running pass: InjectTLIMappings on foo
 ; end INTEL_CUSTOMIZATION
-=======
 ; CHECK-O23SZ-NEXT: Running analysis: LoopAccessAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopVectorizePass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: DemandedBitsAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: InferAlignmentPass on foo
->>>>>>> 3e992d81afc3925a8685eb15f794dd4a6ba3e97e
 ; CHECK-O23SZ-NEXT: Running pass: LoopUnrollPass on foo
 ; CHECK-O23SZ-NEXT: WarnMissedTransformationsPass on foo
 ; COM: CHECK-O23SZ-NEXT: Running pass: SROAPass on foo ;INTEL
@@ -405,14 +402,11 @@
 ; CHECK-OS-NEXT: Running pass: SROAPass
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: VectorCombinePass on foo
-<<<<<<< HEAD
-=======
 ; CHECK-O23SZ-NEXT: Running pass: InferAlignmentPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass
 ; CHECK-O23SZ-NEXT: Running pass: LICMPass
->>>>>>> 3e992d81afc3925a8685eb15f794dd4a6ba3e97e
 ; CHECK-O23SZ-NEXT: Running pass: AlignmentFromAssumptionsPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass on foo
