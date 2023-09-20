@@ -157,7 +157,6 @@ void globalVariableSizeQueryTest();
 void enqueueBlockProfilingTest();
 void clGetCommandQueueInfo();
 void passBuildOptionByEnvTest();
-void UniformWorkGroupTest();
 void clKernelLocalMemSizeQueryTest();
 #ifndef _WIN32
 bool TbbSetMaxThreads(int NumThreads);

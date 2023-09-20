@@ -24,15 +24,10 @@ using namespace llvm;
 
 #define DEBUG_TYPE "sycl-kernel-resolve-wi-call"
 
-// Add command line to specify work groups size as uniform.
-static cl::opt<bool> OptUniformWGSize(
-    "sycl-uniform-wg-size", cl::init(false), cl::Hidden,
-    cl::desc("The flag speficies work groups size as uniform"));
-
 PreservedAnalyses ResolveWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
   CallGraph *CG = &AM.getResult<CallGraphAnalysis>(M);
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
-  if (!runImpl(M, IsUniformWG, IAInfo, CG))
+  if (!runImpl(M, IAInfo, CG))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<ImplicitArgsAnalysis>();
@@ -40,15 +35,14 @@ PreservedAnalyses ResolveWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
   return PA;
 }
 
-bool ResolveWICallPass::runImpl(Module &M, bool IsUniformWG,
-                                ImplicitArgsInfo *IAInfo, CallGraph *CG) {
+bool ResolveWICallPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo,
+                                CallGraph *CG) {
   this->M = &M;
   Ctx = &M.getContext();
   this->IAInfo = IAInfo;
   this->CG = CG;
 
   PrefetchDecl = false;
-  this->IsUniformWG = IsUniformWG | OptUniformWGSize;
   HasTLSGlobals = CompilationUtils::hasTLSGlobals(M);
 
   // extended execution flags
@@ -64,6 +58,8 @@ bool ResolveWICallPass::runImpl(Module &M, bool IsUniformWG,
 
     if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&F))
       continue;
+
+    IsUniformWG = F.getFnAttribute("uniform-work-group-size").getValueAsBool();
 
     clearPerFunctionCache();
     runOnFunction(&F);

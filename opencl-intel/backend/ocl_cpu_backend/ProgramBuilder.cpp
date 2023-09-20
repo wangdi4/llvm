@@ -585,11 +585,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
   pProps->SetDeviceMaxWGSize(m_config->GetDeviceMaxWGSize());
 
-  // OpenCL 2.0 related properties
-  if (CompilationUtils::hasOcl20Support(*pModule)) {
-    bool isNonUniformWGSizeSupported = !buildOptions.GetUniformWGSize();
-    pProps->SetIsNonUniformWGSizeSupported(isNonUniformWGSizeSupported);
-  }
+  pProps->SetIsNonUniformWGSizeSupported(
+      !func->getFnAttribute("uniform-work-group-size").getValueAsBool());
 
   // set can unite WG and vectorization dimention
   pProps->SetCanUniteWG(skimd.CanUniteWorkgroups.hasValue() &&
