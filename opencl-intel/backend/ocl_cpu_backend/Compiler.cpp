@@ -131,8 +131,6 @@ CompilerBuildOptions::CompilerBuildOptions(const char *pBuildOpts) {
       m_disableOpt = true;
     else if (opt.equals("-cl-denorms-are-zero"))
       m_denormalsZero = true;
-    else if (opt.equals("-cl-uniform-work-group-size"))
-      m_uniformWGSize = true;
   }
 }
 
@@ -331,9 +329,9 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   intel::OptimizerConfig optimizerConfig(
       m_CpuId, m_transposeSize, targetMachine.get(),
       m_buildOptions.GetProfilingFlag(), m_buildOptions.GetDisableOpt(),
-      m_buildOptions.GetRelaxedMath(), m_buildOptions.GetUniformWGSize(),
-      m_bIsFPGAEmulator, m_dumpHeuristicIR, m_rtLoopUnrollFactor,
-      m_streamingAlways, m_expensiveMemOpts, m_subGroupConstructionMode);
+      m_buildOptions.GetRelaxedMath(), m_bIsFPGAEmulator, m_dumpHeuristicIR,
+      m_rtLoopUnrollFactor, m_streamingAlways, m_expensiveMemOpts,
+      m_subGroupConstructionMode);
   auto &BIModules = GetBuiltinModuleList();
   std::unique_ptr<Optimizer> optimizer;
   switch (m_passManagerType) {

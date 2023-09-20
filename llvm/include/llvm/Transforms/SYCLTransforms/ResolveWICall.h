@@ -25,13 +25,10 @@ enum TInternalCallType : int;
 /// Resolve work item function calls.
 class ResolveWICallPass : public PassInfoMixin<ResolveWICallPass> {
 public:
-  ResolveWICallPass(bool IsUniformWG = false) : IsUniformWG(IsUniformWG) {}
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M, bool IsUniformWG, ImplicitArgsInfo *IAInfo,
-               CallGraph *CG);
+  bool runImpl(Module &M, ImplicitArgsInfo *IAInfo, CallGraph *CG);
 
   static bool isRequired() { return true; }
 
@@ -153,7 +150,7 @@ private:
   bool SupportsOcl20 = false;
   // True if a module is compiled with uniform work-group size,
   // e.g. -cl-uniform-work-group-size.
-  bool IsUniformWG;
+  bool IsUniformWG = false;
   // Has TLS globals instead of implicit arguments.
   bool HasTLSGlobals = false;
 };

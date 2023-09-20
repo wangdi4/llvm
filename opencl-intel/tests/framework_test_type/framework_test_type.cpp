@@ -468,8 +468,6 @@ TEST(FrameworkTestType, Test_passBuildOptionByEnvTest) {
   passBuildOptionByEnvTest();
 }
 
-TEST(FrameworkTestType, Test_UniformWorkGroupTest) { UniformWorkGroupTest(); }
-
 TEST(FrameworkTestType, Test_clKernelLocalMemSizeQueryTest) {
   clKernelLocalMemSizeQueryTest();
 }

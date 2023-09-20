@@ -633,7 +633,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   else
     MPM.addPass(AddImplicitArgsPass());
 
-  MPM.addPass(ResolveWICallPass(Config.GetUniformWGSize()));
+  MPM.addPass(ResolveWICallPass());
   MPM.addPass(LocalBuffersPass());
 
 #ifdef _DEBUG

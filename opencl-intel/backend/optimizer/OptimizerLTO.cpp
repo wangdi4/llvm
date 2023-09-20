@@ -514,7 +514,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       MPM.addPass(AddTLSGlobalsPass());
     else
       MPM.addPass(AddImplicitArgsPass());
-    MPM.addPass(ResolveWICallPass(Config.GetUniformWGSize()));
+    MPM.addPass(ResolveWICallPass());
     MPM.addPass(LocalBuffersPass());
 
 #ifdef _DEBUG
