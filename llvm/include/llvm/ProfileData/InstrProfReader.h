@@ -340,11 +340,14 @@ private:
   // the variant types of the profile.
   uint64_t Version = 0;                                        // INTEL
   uint64_t CountersDelta = 0;                                  // INTEL
+  uint64_t BitmapDelta = 0;                                    // INTEL
   uint64_t NamesDelta = 0;                                     // INTEL
   const RawInstrProf::ProfileData<IntPtrT> *Data = nullptr;    // INTEL
   const RawInstrProf::ProfileData<IntPtrT> *DataEnd = nullptr; // INTEL
   const char *CountersStart = nullptr;                         // INTEL
   const char *CountersEnd = nullptr;                           // INTEL
+  const char *BitmapStart = nullptr;                           // INTEL
+  const char *BitmapEnd = nullptr;                             // INTEL
   const char *NamesStart = nullptr;                            // INTEL
   const char *NamesEnd = nullptr;                              // INTEL
   // After value profile is all read, this pointer points to
@@ -446,6 +449,7 @@ private:
   Error readName(NamedInstrProfRecord &Record);
   Error readFuncHash(NamedInstrProfRecord &Record);
   Error readRawCounts(InstrProfRecord &Record);
+  Error readRawBitmapBytes(InstrProfRecord &Record);
   Error readValueProfilingData(InstrProfRecord &Record);
   bool atEnd() const { return Data == DataEnd; }
 
@@ -458,6 +462,7 @@ private:
       // As we advance to the next record, we maintain the correct CountersDelta
       // with respect to the next record.
       CountersDelta -= sizeof(*Data);
+      BitmapDelta -= sizeof(*Data);
     }
     Data++;
     ValueDataStart += CurValueDataSize;
@@ -748,6 +753,10 @@ public:
   /// Fill Counts with the profile data for the given function name.
   Error getFunctionCounts(StringRef FuncName, uint64_t FuncHash,
                           std::vector<uint64_t> &Counts);
+
+  /// Fill Bitmap Bytes with the profile data for the given function name.
+  Error getFunctionBitmapBytes(StringRef FuncName, uint64_t FuncHash,
+                               std::vector<uint8_t> &BitmapBytes);
 
   /// Return the maximum of all known function counts.
   /// \c UseCS indicates whether to use the context-sensitive count.
