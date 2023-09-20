@@ -14,16 +14,25 @@
 
 ;; Index based WPD
 ; RUN: ld.lld %t1.o -o %t3_index -save-temps --lto-whole-program-visibility \
+; INTEL_CUSTOMIZATON
+; RUN:   %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t1.o.4.opt.bc -o - | FileCheck %s --check-prefixes=CHECK-COMMON-IR-LABEL,CHECK-IR
 
 ;; Hybrid WPD
 ; RUN: ld.lld %t1_hybrid.o -o %t3_hybrid -save-temps --lto-whole-program-visibility \
+; INTEL_CUSTOMIZATON
+; RUN:   %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t1_hybrid.o.4.opt.bc -o - | FileCheck %s --check-prefixes=CHECK-COMMON-IR-LABEL,CHECK-IR
 
 ;; Regular LTO WPD
 ; RUN: ld.lld %t1_regular.o -o %t3_regular -save-temps --lto-whole-program-visibility \
+; INTEL_CUSTOMIZATON
+; RUN:   %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t3_regular.0.4.opt.bc -o - | FileCheck %s --check-prefixes=CHECK-COMMON-IR-LABEL,CHECK-IR
 
@@ -37,16 +46,25 @@
 
 ;; Index based WPD
 ; RUN: ld.lld %t1.o -o %t3_index -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
+; INTEL_CUSTOMIZATON
+; RUN:   %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=VALIDATE
 ; RUN: llvm-dis %t1.o.4.opt.bc -o - | FileCheck %s --check-prefixes=CHECK-COMMON-IR-LABEL,CHECK-VALIDATE-IR
 
 ;; Hybrid WPD
 ; RUN: ld.lld %t1_hybrid.o -o %t3_hybrid -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
+; INTEL_CUSTOMIZATON
+; RUN:   %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=VALIDATE
 ; RUN: llvm-dis %t1_hybrid.o.4.opt.bc -o - | FileCheck %s --check-prefixes=CHECK-COMMON-IR-LABEL,CHECK-VALIDATE-IR
 
 ;; Regular LTO WPD
 ; RUN: ld.lld %t1_regular.o -o %t3_regular -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
+; INTEL_CUSTOMIZATON
+; RUN:   %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=VALIDATE
 ; RUN: llvm-dis %t3_regular.0.4.opt.bc -o - | FileCheck %s --check-prefixes=CHECK-COMMON-IR-LABEL,CHECK-VALIDATE-IR
 

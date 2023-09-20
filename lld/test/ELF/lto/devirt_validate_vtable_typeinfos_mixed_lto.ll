@@ -11,6 +11,9 @@
 ;; --lto-whole-program-visibility when there's split ThinLTO and a RegularLTO with summary optimizes
 ;; using the combined index.
 ; RUN: ld.lld %t1.o %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
+; INTEL_CUSTOMIZATON
+; RUN:   %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t1.o.4.opt.bc -o - | FileCheck %s --check-prefixes=CHECK-IR,CHECK-COMMON-IR
 ; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefixes=CHECK-REGULAR-IR,CHECK-COMMON-REGULAR-IR
@@ -18,6 +21,9 @@
 ;; --lto-validate-all-vtables-have-type-infos when there's split ThinLTO and a RegularLTO with summary behaves the same
 ;; as everything is present in the combined index.
 ; RUN: ld.lld %t1.o %t2.o -o %t3 -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
+; INTEL_CUSTOMIZATON
+; RUN:   %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t1.o.4.opt.bc -o - | FileCheck %s --check-prefixes=CHECK-IR,CHECK-COMMON-IR
 ; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefixes=CHECK-REGULAR-IR,CHECK-COMMON-REGULAR-IR
