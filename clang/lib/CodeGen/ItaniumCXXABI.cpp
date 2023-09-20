@@ -4043,8 +4043,10 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     // Type is either a i8* or an alias of unknown type, so emit it as a void
     // ptr.
     CGM.addDTransInfoToGlobal(
-        CGM.getContext().getPointerType(CGM.getContext().VoidTy), nullptr,
-        GlobVTable, GlobVTable->getValueType());
+        CGM.getContext().getConstantArrayType(
+            CGM.getContext().getPointerType(CGM.getContext().VoidTy),
+            llvm::APInt(64, 0), nullptr, clang::ArrayType::Normal, 0),
+        nullptr, GlobVTable, GlobVTable->getValueType());
   }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
