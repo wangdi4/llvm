@@ -4156,6 +4156,11 @@ void AssemblyWriter::printFunction(const Function *F) {
     Out << " {";
     // Output all of the function's basic blocks.
 #if INTEL_CUSTOMIZATION
+    if (PrintProfCounts) {
+      auto EntryCount = F->getEntryCount(false);
+      if (EntryCount && EntryCount.value().getType() == Function::PCT_Real)
+        Out << "\n; entry_count = " << EntryCount.value().getCount();
+    }
     if (PrintBlocksPreOrder) {
       printFunctionBlocksPreOrder(F);
     } else {
@@ -4739,11 +4744,18 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
 
   if (PrintProfCounts && hasBranchWeightMD(I)) {
     SmallVector<uint32_t, 4> Weights;
+    uint64_t TotalWeight = 0;
+    extractProfTotalWeight(I, TotalWeight);
     extractBranchWeights(getBranchWeightMDNode(I), Weights);
     Out << " ; Weights = ";
     ListSeparator LS(", ");
-    for (auto W : Weights)
+    for (auto W : Weights) {
       Out << LS << W;
+      if (TotalWeight)
+        Out << " ["
+            << format("%3.1f", 100.0f * static_cast<float>(W) / TotalWeight)
+            << "%]";
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 }
