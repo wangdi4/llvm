@@ -1259,6 +1259,7 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   switch (TSFlags & X86II::FormMask) {
   default:
     llvm_unreachable("Unexpected form in emitVEXOpcodePrefix!");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case X86II::MRMDestMem4VOp3:
   case X86II::MRMDestMem4VOp2FSIB: {
@@ -1267,10 +1268,16 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
 #else // INTEL_FEATURE_ISA_APX_F
+=======
+  case X86II::MRMDestMem4VOp3CC: {
+    //  src1(ModR/M), MemAddr, src2(VEX_4V)
+    Prefix.setR(MI, CurOp++);
+>>>>>>> cf1d2e4f94b8257191ee932ded7b27540cfa02df
     Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
 #endif // INTEL_FEATURE_ISA_APX_F
     CurOp += X86::AddrNumOperands;
+<<<<<<< HEAD
     Prefix.setRR2(MI, CurOp++);
     Prefix.set4VV2(MI, CurOp++);
     break;
@@ -1308,6 +1315,8 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     Prefix.setR(MI, ++CurOp);
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> cf1d2e4f94b8257191ee932ded7b27540cfa02df
     Prefix.set4V(MI, CurOp++);
     break;
   }
