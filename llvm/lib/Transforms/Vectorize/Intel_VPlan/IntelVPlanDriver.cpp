@@ -51,6 +51,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/OptBisect.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -1477,6 +1478,10 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   if (!Impl->runImpl(F, LI, SE, DT, AC, AA, DB, LAIs, ORE, Verbosity, WR, TTI,
                      TLI, BFI, nullptr, VecErrorHandler))
     return PreservedAnalyses::all();
+
+  // If the function was modified, verify using the LLVM verifier
+  assert(!verifyFunction(F, &dbgs()) &&
+         "Function IR after VPlan failed verification");
 
   auto PA = PreservedAnalyses::none();
   PA.preserve<AndersensAA>();
