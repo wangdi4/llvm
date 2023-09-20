@@ -107,7 +107,11 @@
 #include "llvm/Transforms/Scalar/Float2Int.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
+<<<<<<< HEAD
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
+=======
+#include "llvm/Transforms/Scalar/InferAlignment.h"
+>>>>>>> 0f152a55d3e4e71f7c795bf555e40c8895b97077
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"
@@ -754,6 +758,11 @@ static cl::opt<AttributorRunOption> AttributorRun(
 cl::opt<bool> EnableMemProfContextDisambiguation(
     "enable-memprof-context-disambiguation", cl::init(false), cl::Hidden,
     cl::ZeroOrMore, cl::desc("Enable MemProf context disambiguation"));
+
+cl::opt<bool> EnableInferAlignmentPass(
+    "enable-infer-alignment-pass", cl::init(false), cl::Hidden, cl::ZeroOrMore,
+    cl::desc("Enable the InferAlignment pass, disabling alignment inference in "
+             "InstCombine"));
 
 PipelineTuningOptions::PipelineTuningOptions() {
   LoopInterleaving = true;
@@ -2018,6 +2027,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   }
 #endif // INTEL_CUSTOMIZATION
 
+  if (EnableInferAlignmentPass)
+    FPM.addPass(InferAlignmentPass());
   if (IsFullLTO) {
     // The vectorizer may have significantly shortened a loop body; unroll
     // again. Unroll small loops to hide loop backedge latency and saturate any
@@ -2178,6 +2189,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     FPM.addPass(SROAPass(SROAPass(SROAOptions::ModifyCFG))); // INTEL
   }
 
+<<<<<<< HEAD
 #if INTEL_FEATURE_SW_ADVANCED
   // Make unaligned nontemporal stores use a wrapper function instead of
   // scalarizing them.
@@ -2206,6 +2218,11 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // if IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (EnableInferAlignmentPass)
+    FPM.addPass(InferAlignmentPass());
+  FPM.addPass(InstCombinePass());
+>>>>>>> 0f152a55d3e4e71f7c795bf555e40c8895b97077
 
   // This is needed for two reasons:
   //   1. It works around problems that instcombine introduces, such as sinking
