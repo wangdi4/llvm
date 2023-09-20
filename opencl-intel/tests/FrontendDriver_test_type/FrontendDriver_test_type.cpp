@@ -204,6 +204,21 @@ TEST_F(ClangCompilerTestType, Test_CTSSPIR12) {
       ASSERT_EQ(I.getMetadata(LLVMContext::MD_tbaa), nullptr);
 }
 
+// Check image call can be processed properly without errors on opaque
+// pointer mode.
+TEST_F(ClangCompilerTestType, Test_ChangeImageCall) {
+  std::string FileName =
+      get_exe_dir() + "opencl.cts.spir.get_image_info_1D.bc64";
+  std::vector<unsigned char> SpirBinary;
+  ASSERT_NO_FATAL_FAILURE(readBinary(FileName, SpirBinary));
+  FESPIRProgramDescriptor SpirDesc{SpirBinary.data(),
+                                   (unsigned)SpirBinary.size()};
+
+  int Err = GetFECompiler()->MaterializeSPIR(&SpirDesc, &m_binary_result);
+  ASSERT_EQ(Err, 0) << "Failed to parse SPIR 1.2 binary:\n"
+                    << m_binary_result->GetErrorLog() << "\n";
+}
+
 TEST_F(ClangCompilerTestType, Test_PlainSpirvConversion)
 // take a simple spirv file and make FE Compiler convert it to Module
 {

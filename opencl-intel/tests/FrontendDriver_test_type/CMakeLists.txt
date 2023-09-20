@@ -63,4 +63,5 @@ add_ocl_unittest(
 add_dependencies(${TARGET} ${TEST_SPV_FILE})
 
 add_ocl_unittest_artifacts(
-  FILES data/opencl.cts.spir.test_atomic_fn.atomic_and_local_int.bc64)
+  FILES data/opencl.cts.spir.test_atomic_fn.atomic_and_local_int.bc64
+        data/opencl.cts.spir.get_image_info_1D.bc64)
