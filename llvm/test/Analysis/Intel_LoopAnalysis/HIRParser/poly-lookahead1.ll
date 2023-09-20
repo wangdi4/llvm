@@ -17,10 +17,10 @@
 ; CHECK: |   %qb.041.out1 = %qb.041;
 ; CHECK: |   %indvars.iv.next43 = %indvars.iv42  +  -6 * i1 + -12;
 ; CHECK: |   %indvars.iv.next45 = %indvars.iv44  +  %indvars.iv42;
+; CHECK: |   %indvars.iv54 = i1;
+; CHECK: |   %indvars.iv52 = -1 * i1 + -1;
 ; CHECK: |   %indvars.iv44 = %indvars.iv.next45;
 ; CHECK: |   %indvars.iv42 = %indvars.iv.next43;
-; CHECK: |   %indvars.iv52 = -1 * i1 + -1;
-; CHECK: |   %indvars.iv54 = i1;
 ; CHECK: + END LOOP
 
 
