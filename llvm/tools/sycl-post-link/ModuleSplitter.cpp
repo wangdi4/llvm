@@ -1009,7 +1009,8 @@ std::string FunctionsCategorizer::computeCategoryFor(Function *F) const {
 std::unique_ptr<ModuleSplitterBase>
 getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
 #if INTEL_COLLAB
-                      bool EmitOnlyKernelsAsEntryPoints, bool IsOMPOffload) {
+                      bool EmitOnlyKernelsAsEntryPoints, bool DoOMPOffload,
+                      bool DoOmpExplicitSIMDSplit) {
 #else
                       bool EmitOnlyKernelsAsEntryPoints) {
 #endif // INTEL_COLLAB
@@ -1074,7 +1075,7 @@ getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
 #if INTEL_COLLAB
     // For OpenMP offloading we may need an extra module with global variable
     // definitions
-    Groups.reserve(EntryPointsMap.size() + IsOMPOffload);
+    Groups.reserve(EntryPointsMap.size() + DoOMPOffload);
 #else
     Groups.reserve(EntryPointsMap.size());
 #endif // INTEL_COLLAB
@@ -1083,7 +1084,8 @@ getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
     for (auto &[Key, EntryPoints] : EntryPointsMap)
       Groups.emplace_back(Key, std::move(EntryPoints), MDProps);
 #if INTEL_COLLAB
-    if (IsOMPOffload && Scope_PerKernel == Scope) {
+    if (DoOMPOffload && (Scope_PerKernel == Scope ||
+                         (Scope_Global == Scope && DoOmpExplicitSIMDSplit))) {
       EntryPointSet IndirectFuncSet;
       for (auto &F : MD.getModule().functions()) {
         if (!F.hasFnAttribute("referenced-indirectly"))
@@ -1095,7 +1097,8 @@ getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
 #endif // INTEL_COLLAB
   }
 #if INTEL_COLLAB
-  if (IsOMPOffload && (Scope_PerKernel == Scope))
+  if (DoOMPOffload && (Scope_PerKernel == Scope ||
+                       (Scope_Global == Scope && DoOmpExplicitSIMDSplit)))
     return std::make_unique<OMPModuleSplitter>(std::move(MD),
                                                std::move(Groups));
 #endif // INTEL_COLLAB

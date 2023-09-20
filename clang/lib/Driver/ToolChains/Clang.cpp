@@ -11411,8 +11411,7 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
   // -fsycl-device-code-split=auto
 
 #if INTEL_CUSTOMIZATION
-  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
-      getToolChain().getTriple().isSPIR()) {
+  if (IsOpenMPSPIRV) {
     addArgs(CmdArgs, TCArgs, {"--ompoffload-link-entries"});
     addArgs(CmdArgs, TCArgs, {"--ompoffload-sort-entries"});
     addArgs(CmdArgs, TCArgs, {"--ompoffload-make-globals-static"});
@@ -11437,17 +11436,30 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
     addArgs(CmdArgs, TCArgs, {"-ir-output-only"});
   } else {
     assert(SYCLPostLink->getTrueType() == types::TY_Tempfiletable);
-    bool SplitEsimdByDefault = getToolChain().getTriple().isSPIR();
-    bool SplitEsimd = TCArgs.hasFlag(
-        options::OPT_fsycl_device_code_split_esimd,
-        options::OPT_fno_sycl_device_code_split_esimd, SplitEsimdByDefault);
+    bool SplitEsimdByDefault = getToolChain().getTriple().isSPIR()
+#if INTEL_CUSTOMIZATION
+                               && !IsOpenMPSPIRV
+#endif // INTEL_CUSTOMIZATION
+        ;
+    bool SplitEsimd =
+        TCArgs.hasFlag(options::OPT_fsycl_device_code_split_esimd,
+                       options::OPT_fno_sycl_device_code_split_esimd,
+                       SplitEsimdByDefault)
+#if INTEL_CUSTOMIZATION
+        || (IsOpenMPSPIRV && TCArgs.hasArg(options::OPT_fopenmp_target_simd) &&
+            TCArgs.hasArg(options::OPT_fopenmp_target_simd_split))
+#endif // INTEL_CUSTOMIZATION
+        ;
     // Symbol file and specialization constant info generation is mandatory -
     // add options unconditionally
     addArgs(CmdArgs, TCArgs, {"-symbols"});
     addArgs(CmdArgs, TCArgs, {"-emit-exported-symbols"});
     if (SplitEsimd)
       addArgs(CmdArgs, TCArgs, {"-split-esimd"});
-    addArgs(CmdArgs, TCArgs, {"-lower-esimd"});
+#if INTEL_CUSTOMIZATION
+    if (!IsOpenMPSPIRV)
+#endif // INTEL_CUSTOMIZATION
+      addArgs(CmdArgs, TCArgs, {"-lower-esimd"});
   }
   addArgs(CmdArgs, TCArgs,
           {StringRef(getSYCLPostLinkOptimizationLevel(TCArgs))});

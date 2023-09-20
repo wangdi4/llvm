@@ -254,7 +254,8 @@ std::unique_ptr<ModuleSplitterBase>
 getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
 #if INTEL_COLLAB
                       bool EmitOnlyKernelsAsEntryPoints,
-                      bool DoOmpOffload = false);
+                      bool DoOmpOffload = false,
+                      bool DoOmpExplicitSIMDSplit = false);
 #else  // INTEL_COLLAB
                       bool EmitOnlyKernelsAsEntryPoints);
 #endif // INTEL_COLLAB

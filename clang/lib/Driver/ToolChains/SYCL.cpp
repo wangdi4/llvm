@@ -1725,6 +1725,7 @@ void SYCLToolChain::AddImpliedTargetArgs(
     }
     // -vc-codegen is the default with -fopenmp-target-simd
     if (Args.hasArg(options::OPT_fopenmp_target_simd) &&
+        !Args.hasArg(options::OPT_fopenmp_target_simd_split) &&
         (Triple.getSubArch() == llvm::Triple::NoSubArch || IsGen))
       BeArgs.push_back("-vc-codegen");
     if (Arg *A = Args.getLastArg(options::OPT_fopenmp_target_buffers_EQ)) {

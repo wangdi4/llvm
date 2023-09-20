@@ -5604,8 +5604,11 @@ class OffloadingActionBuilder final {
         auto *DeviceLinkAction =
             C.MakeAction<LinkJobAction>(ToLinkAction, types::TY_LLVM_BC);
         if (TT.isSPIR()) {
-          // Only use llvm-foreach when we enable -fopenmp-device-code-split.
-          bool DeviceCodeSplit = false;
+          // Only use llvm-foreach when we enable -fopenmp-device-code-split
+          // or -fopenmp-target-simd-split.
+          bool DeviceCodeSplit =
+              Args.hasArg(options::OPT_fopenmp_target_simd) &&
+              Args.hasArg(options::OPT_fopenmp_target_simd_split);
           for (StringRef Val : Args.getAllArgValues(
                    options::OPT_fopenmp_device_code_split_EQ)) {
             // Capture triple from -fopenmp-device-code-split=<triple>=<arg>
