@@ -37,25 +37,27 @@ define void @multiversion_1_var_2_clones(ptr noalias nocapture noundef %num, ptr
 ; CHECK-NEXT:    br i1 [[MV_LOAD_GLOBAL1]], label %entry.clone, label %entry
 ; CHECK:       entry:
 ; CHECK-NEXT:    [[CMP61:%.*]] = icmp sgt i32 %n, 0
-; CHECK-NEXT:    br i1 [[CMP61]], label %for.body.preheader, label %for.cond.cleanup
+; CHECK-NEXT:    br i1 [[CMP61]], label %for.body.preheader, label %if.end40
 ; CHECK:       for.body.preheader:
 ; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 %n to i64
 ; CHECK-NEXT:    br label %for.body
 ; This BB is different in the two clones because we fold the invariant of @global1.
-; CHECK:       for.cond.cleanup:
+; CHECK:       if.end:
 ; CHECK-NEXT:    br i1 [[CMP61]], label [[FOR_BODY9_PREHEADER:%.*]], label [[FOR_COND_CLEANUP8:%.*]]
+; CHECK:       if.end40:
+; CHECK-NEXT:    ret void
 ;
 ; CHECK:       entry.clone:
 ; CHECK-NEXT:    [[CMP61_CLONE:%.*]] = icmp sgt i32 %n, 0
-; CHECK-NEXT:    br i1 [[CMP61_CLONE]], label %for.body.preheader.clone, label %for.cond.cleanup.clone
+; CHECK-NEXT:    br i1 [[CMP61_CLONE]], label %for.body.preheader.clone, label %if.then19.clone.critedge
 ; CHECK:       for.body.preheader.clone:
 ; CHECK-NEXT:    [[WIDE_TRIP_COUNT_CLONE:%.*]] = zext i32 %n to i64
 ; CHECK-NEXT:    br label %for.body.clone
-; CHECK:       for.cond.cleanup.clone:
+; CHECK:       if.then19.clone.critedge:
 ; CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr %num, align 4
 ; CHECK-NEXT:    [[ADD4_CLONE:%.*]] = add nsw i32 [[TMP6]], 1
 ; CHECK-NEXT:    store i32 [[ADD4_CLONE]], ptr %num, align 4
-; CHECK-NEXT:    br i1 [[CMP61_CLONE]], label [[FOR_BODY9_PREHEADER_CLONE:%.*]], label [[FOR_COND_CLEANUP8_CLONE:%.*]]
+; CHECK-NEXT:    br label %if.then19.clone
 entry:
   %cmp61 = icmp sgt i32 %n, 0
   br i1 %cmp61, label %for.body.preheader, label %for.cond.cleanup

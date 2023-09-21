@@ -190,6 +190,7 @@ class GVBasedMultiVersioning {
   AAManager::Result *AAR;
   std::function<LoopInfo &()> GetLI;
   std::function<PostDominatorTree &()> GetPDT;
+  std::function<TargetTransformInfo &()> GetTTI;
   // One-to-many mapping from i1 global variables to every conditional branch in
   // F based on that variable.
   // MapVector is used because we need to deterministically select a branch with
@@ -244,8 +245,9 @@ class GVBasedMultiVersioning {
 public:
   GVBasedMultiVersioning(Function *F, DominatorTree *DT, AAManager::Result *AAR,
                          std::function<LoopInfo &()> GetLI,
-                         std::function<PostDominatorTree &()> GetPDT)
-      : F(F), DT(DT), AAR(AAR), GetLI(GetLI), GetPDT(GetPDT) {}
+                         std::function<PostDominatorTree &()> GetPDT,
+                         std::function<TargetTransformInfo &()> GetTTI)
+      : F(F), DT(DT), AAR(AAR), GetLI(GetLI), GetPDT(GetPDT), GetTTI(GetTTI) {}
   bool run();
 };
 
@@ -927,9 +929,15 @@ void GVBasedMultiVersioning::doTransformation(
   // Currently it's done globally. This is okay because it's rarely triggered.
   // We can limit it to a subset of related BBs but that'll complicate the code
   // significantly.
+  bool Changed = true;
+  while (Changed) {
+    Changed = false;
+    for (Function::iterator It = F->begin(); It != F->end();) {
+      BasicBlock &BB = *It++;
+      Changed |= simplifyCFG(&BB, GetTTI());
+    }
+  }
   removeUnreachableBlocks(*F);
-  for (auto &BB : make_early_inc_range(*F))
-    MergeBlockIntoPredecessor(&BB);
 }
 
 bool GVBasedMultiVersioning::run() {
@@ -959,7 +967,8 @@ PreservedAnalyses GVBasedMultiVersioningPass::run(Function &F,
       &F, &DT, &AAR,
       [&AM, &F ]() -> auto & { return AM.getResult<LoopAnalysis>(F); },
       [&AM, &
-       F ]() -> auto & { return AM.getResult<PostDominatorTreeAnalysis>(F); });
+       F ]() -> auto & { return AM.getResult<PostDominatorTreeAnalysis>(F); },
+      [&AM, &F ]() -> auto & { return AM.getResult<TargetIRAnalysis>(F); });
   if (GVMV.run()) {
     auto PA = PreservedAnalyses();
     PA.preserve<WholeProgramAnalysis>();
