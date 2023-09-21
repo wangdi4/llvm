@@ -765,12 +765,6 @@ bool MemInitTrimDownOPPass::runImpl(Module &M, DTransSafetyInfo &DTInfo,
                                     SOAGetTLITy GetTLI,
                                     WholeProgramInfo &WPInfo,
                                     SOADominatorTreeType &GetDT) {
-  if (!dtrans::shouldRunOpaquePointerPasses(M)) {
-    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWNOP, {
-      dbgs() << "mem-init-trimdown-op inhibited: typed pointer passes in use\n";
-    });
-    return false;
-  }
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
     return false;

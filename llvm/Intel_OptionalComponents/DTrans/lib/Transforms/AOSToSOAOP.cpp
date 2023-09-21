@@ -1176,16 +1176,10 @@ bool AOSToSOAOPTransformImpl::prepareTypes(Module &M) {
     // transformed into that address space. (DTrans does not support code using
     // address spaces, so there will not be a conflict with any existing pointer
     // type.
-    uint32_t AddrSpaceForType = UsingOpaquePtrs ? Elem.index() + 1 : 0;
-    if (!UsingOpaquePtrs)
-      TypeRemapper.addTypeMapping(
-          OrigLLVMTy->getPointerTo(), getIndexLLVMType(),
-          TM.getOrCreatePointerType(DTransStructTy), getIndexDTransType());
-    else
-      TypeRemapper.addTypeMapping(
-          PointerType::get(OrigLLVMTy, AddrSpaceForType), getIndexLLVMType(),
-          TM.getOrCreatePointerType(DTransStructTy), getIndexDTransType());
-
+    uint32_t AddrSpaceForType = Elem.index() + 1;
+    TypeRemapper.addTypeMapping(
+        PointerType::get(OrigLLVMTy, AddrSpaceForType), getIndexLLVMType(),
+        TM.getOrCreatePointerType(DTransStructTy), getIndexDTransType());
     SOATypeInfoTy Info;
     Info.AddrSpaceForType = AddrSpaceForType;
     Info.OrigStructType = OrigLLVMTy;

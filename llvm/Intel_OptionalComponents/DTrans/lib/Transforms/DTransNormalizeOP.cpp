@@ -1051,11 +1051,6 @@ dtransOP::DTransNormalizeOPPass::run(Module &M, ModuleAnalysisManager &AM) {
 bool dtransOP::DTransNormalizeOPPass::runImpl(Module &M,
                                               WholeProgramInfo &WPInfo,
                                               GetTLIFn GetTLI) {
-  // This pass requires opaque pointers because when it updates instructions it
-  // does not insert bitcasts to match differing pointer types.
-  if (M.getContext().supportsTypedPointers())
-    return false;
-
   if (!WPInfo.isWholeProgramSafe())
     return false;
 
