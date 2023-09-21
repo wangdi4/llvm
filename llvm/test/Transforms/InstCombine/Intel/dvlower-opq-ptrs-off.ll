@@ -4,7 +4,7 @@
 ; This test case checks when opaque pointers are enabled.
 
 ; CHECK: define void @foo_
-; CHECK: %phys_prop_mp_physprop__fetch.6 = load %"QNCA_a0$ptr$rank1$", ptr @phys_prop_mp_physprop_, align 8
+; CHECK: %phys_prop_mp_physprop__fetch.6 = load %"QNCA_a0$ptr$rank1$", ptr @phys_prop_mp_physprop_, align 1
 ; CHECK: store %"QNCA_a0$ptr$rank1$" %phys_prop_mp_physprop__fetch.6, ptr %"foo_$MYB", align 1
 
 ; ModuleID = 'intel-dvlower-off.ll'
