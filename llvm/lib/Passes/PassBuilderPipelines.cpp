@@ -2213,7 +2213,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
 
   if (EnableInferAlignmentPass)
     FPM.addPass(InferAlignmentPass());
-  FPM.addPass(InstCombinePass());
 
   // This is needed for two reasons:
   //   1. It works around problems that instcombine introduces, such as sinking
