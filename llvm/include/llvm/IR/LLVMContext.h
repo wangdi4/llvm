@@ -323,8 +323,11 @@ public:
   void setOpaquePointers(bool Enable) const;
 
   /// Whether typed pointers are supported. If false, all pointers are opaque.
+#if !INTEL_CUSTOMIZATION
   [[deprecated("Always returns false")]]
-  bool supportsTypedPointers() const;
+#endif // INTEL_CUSTOMIZATION
+  bool
+  supportsTypedPointers() const;
 
 private:
   // Module needs access to the add/removeModule methods.

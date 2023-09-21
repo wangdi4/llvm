@@ -334,7 +334,6 @@ struct LTOLLVMContext : LLVMContext {
     enableDebugTypeODRUniquing();
     setDiagnosticHandler(
         std::make_unique<LTOLLVMDiagnosticHandler>(&DiagHandler), true);
-    setOpaquePointers(C.OpaquePointers);
   }
   DiagnosticHandlerFunction DiagHandler;
 };

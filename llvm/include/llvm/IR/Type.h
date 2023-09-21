@@ -413,8 +413,11 @@ public:
   /// Only use this method in code that is not reachable with opaque pointers,
   /// or part of deprecated methods that will be removed as part of the opaque
   /// pointers transition.
+#if !INTEL_CUSTOMIZATION
   [[deprecated("Pointers no longer have element types")]]
-  Type *getNonOpaquePointerElementType() const {
+#endif // INTEL_CUSTOMIZATION
+  Type *
+  getNonOpaquePointerElementType() const {
     llvm_unreachable("Pointers no longer have element types");
   }
 
