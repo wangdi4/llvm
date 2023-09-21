@@ -7,9 +7,62 @@
 #include <iostream>
 
 // clang-format on
+namespace sycl {
+namespace ext::oneapi::experimental {
 
-#define CHECK_TYPE(ap, T, PL)                                                  \
-  static_assert(std::is_same_v<decltype(ap), annotated_ptr<T, decltype(PL)>>)
+// Define fake runtime property `foo` to test the malloc support for runtime properties
+enum class foo_enum : std::uint16_t { a, b, c };
+
+struct foo {
+  foo(foo_enum v) : value(v) {}
+  foo_enum value;
+};
+
+using foo_key = foo;
+
+template <>
+struct is_property_key<foo_key>
+    : std::true_type {};
+
+namespace detail {
+template <> struct IsRuntimeProperty<foo_key> : std::true_type {};
+} // namespace detail
+
+} // namespace ext::oneapi::experimental
+} // namespace sycl
+
+// Single test instance
+#define TEST(f, args...) {  \
+  auto ap = f(args);   \
+  APVec.push_back(ap);  \ // type check `APVec.push_back()`
+  free(ap, q);}
+
+// Test all the use cases for single allocation function, including:
+// 1. specify input properties `InP1` as argument. The template parameter `input properties` and `output properties`
+// are automatically inferred. This is the most common use case
+// 2. specify input properties `InP1` in the template parameters
+// The template parameter `output properties` is automatically inferred
+// 3. fully specify all the template parameters: `input properties` and `output properties`
+#define TEST_GROUP_VOID(func_name, args...) \
+  TEST((func_name), args, InP);  \
+  TEST((func_name<decltype(InP)>), args);  \
+  TEST((func_name<decltype(InP)>), args, InP);  \
+  TEST((func_name<decltype(InP), decltype(OutP)>), args, InP); \
+  TEST((func_name<decltype(InP), decltype(OutP)>), args);
+
+// Test all the use cases for single allocation function (with element type T), including:
+// 1. specify allocated data type `T` in template parameter, and property
+// list as argument. The template parameter `input properties` and `output properties`
+// are automatically inferred. This is the most common use case
+// 2. specify allocated data type `T` and input properties `InP1` in the template parameters
+// The template parameter `output properties` is automatically inferred
+// 3. fully specify all the template parameters: `T`, `input properties` and `output properties`
+#define TEST_GROUP_T(func_name, args...) \
+  TEST((func_name<T>), args, InP);  \
+  TEST((func_name<T, decltype(InP)>), args);  \
+  TEST((func_name<T, decltype(InP)>), args, InP);  \
+  TEST((func_name<T, decltype(InP), decltype(OutP)>), args, InP); \
+  TEST((func_name<T, decltype(InP), decltype(OutP)>), args);
 
 using namespace sycl::ext::oneapi::experimental;
 using namespace sycl::ext::intel::experimental;
@@ -17,94 +70,160 @@ using alloc = sycl::usm::alloc;
 
 constexpr int N = 10;
 
-int main() {
+template <typename T>
+void testAlloc() {
   sycl::queue q;
   const sycl::context &Ctx = q.get_context();
   auto Dev = q.get_device();
 
-  // Check alloc functions where usm_kind property is required in the input
-  // property list All compile-time properties in the input properties appear on
-  // the returned annotated_ptr, and runtime properties do not appear on the
-  // returned annotated_ptr (i.e. `cache_config`)
-  properties InP1{conduit, usm_kind<alloc::device>, cache_config{large_slm}};
-  properties OutP1{conduit, usm_kind<alloc::device>};
+  // Test device allocation
+  {
+    // All compile-time properties in the input properties appear on
+    // the returned annotated_ptr, and runtime properties do not appear on the
+    // returned annotated_ptr (e.g. `cache_config`)
+    // properties InP{conduit, buffer_location<5>, foo{foo_enum::a}};
+    properties InP{conduit, buffer_location<5>};
+    properties OutP{conduit, buffer_location<5>, usm_kind<alloc::device>};
 
-  auto APtr1 = malloc_annotated<int>(N, q, InP1);
-  CHECK_TYPE(APtr1 /*annotate_ptr*/, int /*allocated type*/,
-             OutP1 /*returned property list*/);
+    // Test device allocation in bytes
+    {
+      std::vector<annotated_ptr<void, decltype(OutP)>> APVec;
+      TEST_GROUP_VOID(malloc_device_annotated, N, q);
+      TEST_GROUP_VOID(malloc_device_annotated, N, Dev, Ctx);
+      TEST_GROUP_VOID(aligned_alloc_device_annotated, 1, N, q);
+      TEST_GROUP_VOID(aligned_alloc_device_annotated, 1, N, Dev, Ctx);
+    }
 
-  auto APtr11 = malloc_annotated<int, decltype(InP1)>(N, q, InP1);
-  CHECK_TYPE(APtr11, int, OutP1);
+    // Test device allocation in elements of T
+    {
+      std::vector<annotated_ptr<T, decltype(OutP)>> APVec;
+      TEST_GROUP_T(malloc_device_annotated, N, q);
+      TEST_GROUP_T(malloc_device_annotated, N, Dev, Ctx);
+      TEST_GROUP_T(aligned_alloc_device_annotated, 1, N, q);
+      TEST_GROUP_T(aligned_alloc_device_annotated, 1, N, Dev, Ctx);
+    }
+  }
 
-  auto APtr12 =
-      malloc_annotated<int, decltype(InP1), decltype(OutP1)>(N, Dev, Ctx, InP1);
-  CHECK_TYPE(APtr12, int, OutP1);
+  // Test host allocation
+  {
+    properties InP{conduit, buffer_location<5>};
+    properties OutP{conduit, buffer_location<5>, usm_kind<alloc::host>};
+    // subtest: host allocation in bytes
+    {
+      std::vector<annotated_ptr<void, decltype(OutP)>> APVec;
+      TEST_GROUP_VOID(malloc_host_annotated, N, q);
+      TEST_GROUP_VOID(malloc_host_annotated, N, Ctx);
+      TEST_GROUP_VOID(aligned_alloc_host_annotated, 1, N, q);
+      TEST_GROUP_VOID(aligned_alloc_host_annotated, 1, N, Ctx);
+    }
 
-  free(APtr1, q);
-  free(APtr11, q);
-  free(APtr12, q);
+    // subtest: host allocation in elements of T
+    {
+      std::vector<annotated_ptr<T, decltype(OutP)>> APVec;
+      TEST_GROUP_T(malloc_host_annotated, N, q);
+      TEST_GROUP_T(malloc_host_annotated, N, Ctx);
+      TEST_GROUP_T(aligned_alloc_host_annotated, 1, N, q);
+      TEST_GROUP_T(aligned_alloc_host_annotated, 1, N, Ctx);
+    }
+  }
 
-  // For alloc functions with `device` in the function name,
-  // `usm_kind<alloc::device>` must appear on the returned annotated_ptr
-  properties InP2{conduit, buffer_location<5>};
-  properties OutP2{conduit, buffer_location<5>, usm_kind<alloc::device>};
+  // Test shared allocation
+  {
+    properties InP{conduit, buffer_location<5>};
+    properties OutP{conduit, buffer_location<5>, usm_kind<alloc::shared>};
 
-  auto APtr2 = malloc_device_annotated<int>(N, q, InP2);
-  CHECK_TYPE(APtr2, int, OutP2);
+    {
+      std::vector<annotated_ptr<void, decltype(OutP)>> APVec;
+      TEST_GROUP_VOID(malloc_shared_annotated, N, q);
+      TEST_GROUP_VOID(malloc_shared_annotated, N, Dev, Ctx);
+      TEST_GROUP_VOID(aligned_alloc_shared_annotated, 1, N, q);
+      TEST_GROUP_VOID(aligned_alloc_shared_annotated, 1, N, Dev, Ctx);
+    }
 
-  auto APtr21 = aligned_alloc_device_annotated<int>(8, N, Dev, Ctx, InP2);
-  CHECK_TYPE(APtr21, int, OutP2);
+    // Test shared allocation in elements of T
+    {
+      std::vector<annotated_ptr<T, decltype(OutP)>> APVec;
+      TEST_GROUP_T(malloc_shared_annotated, N, q);
+      TEST_GROUP_T(malloc_shared_annotated, N, Dev, Ctx);
+      TEST_GROUP_T(aligned_alloc_shared_annotated, 1, N, q);
+      TEST_GROUP_T(aligned_alloc_shared_annotated, 1, N, Dev, Ctx);
+    }
+  }
 
-  free(APtr2, q);
-  free(APtr21, q);
-
-  // For alloc functions with `host` in the function name,
-  // `usm_kind<alloc::host>` must appear on the returned annotated_ptr
-  properties InP3{conduit, alignment<16>, usm_kind<alloc::host>};
-  properties OutP3{conduit, alignment<16>, usm_kind<alloc::host>};
-
-  auto APtr3 = aligned_alloc_host_annotated(1, N, Ctx, InP3);
-  CHECK_TYPE(APtr3, void, OutP3);
-
-  auto APtr31 = malloc_host_annotated<decltype(InP3)>(N, q);
-  CHECK_TYPE(APtr31, void, OutP3);
-
-  auto APtr32 =
-      aligned_alloc_host_annotated<decltype(InP3), decltype(OutP3)>(0, N, q);
-  CHECK_TYPE(APtr32, void, OutP3);
-
-  free(APtr3, q);
-  free(APtr31, q);
-  free(APtr32, q);
-
-  // For alloc functions with `shared` in the function name,
-  // `usm_kind<alloc::shared>` must appear on the returned annotated_ptr
-  properties OutP4{usm_kind<alloc::shared>};
-  auto APtr4 = malloc_shared_annotated<int>(N, q);
-  CHECK_TYPE(APtr4, int, OutP4);
-
-  auto APtr41 = aligned_alloc_shared_annotated<int>(128, N, Dev, Ctx);
-  CHECK_TYPE(APtr41, int, OutP4);
-
-  auto APtr42 = malloc_shared_annotated(N, q);
-  CHECK_TYPE(APtr42, void, OutP4);
-
-  auto APtr43 = aligned_alloc_shared_annotated(16, N, q);
-  CHECK_TYPE(APtr43, void, OutP4);
-
-  free(APtr4, q);
-  free(APtr41, q);
-  free(APtr42, q);
-  free(APtr43, q);
-
-  // Check alloc functions with usm_kind argument and no usm_kind compile-time
+  // Test alloc functions with usm_kind argument and no usm_kind compile-time
   // property, usm_kind does not appear on the returned annotated_ptr
-  auto APtr5 = malloc_annotated(N, Dev, Ctx, alloc::device);
-  auto APtr51 = aligned_alloc_annotated<int>(1, N, q, alloc::device);
-  static_assert(std::is_same_v<decltype(APtr5), annotated_ptr<void>>);
-  static_assert(std::is_same_v<decltype(APtr51), annotated_ptr<int>>);
-  free(APtr5, q);
-  free(APtr51, q);
+  {
+    properties InP{conduit, buffer_location<5>};
+    properties OutP{conduit, buffer_location<5>};
 
+    // Test allocation in bytes
+    {
+      std::vector<annotated_ptr<void, decltype(OutP)>> APVec;
+      TEST_GROUP_VOID(malloc_annotated, N, q, alloc::device);
+      TEST_GROUP_VOID(malloc_annotated, N, Dev, Ctx, alloc::device);
+      TEST_GROUP_VOID(aligned_alloc_annotated, 1, N, q, alloc::device);
+      TEST_GROUP_VOID(aligned_alloc_annotated, 1, N, Dev, Ctx, alloc::host);
+    }
+
+    // Test allocation in elements of T
+    {
+      std::vector<annotated_ptr<T, decltype(OutP)>> APVec;
+      TEST_GROUP_T(malloc_annotated, N, q, alloc::host);
+      TEST_GROUP_T(malloc_annotated, N, Dev, Ctx, alloc::host);
+      TEST_GROUP_T(aligned_alloc_annotated, 1, N, q, alloc::shared);
+      TEST_GROUP_T(aligned_alloc_annotated, 1, N, Dev, Ctx, alloc::shared);
+    }
+  }
+
+  // Test alloc functions where usm_kind property is required in the input
+  // property list. usm_kind appears on the returned annotated_ptr
+  {
+    properties InP{conduit, buffer_location<5>, usm_kind<alloc::device>};
+    properties OutP{conduit, buffer_location<5>, usm_kind<alloc::device>};
+
+    // Test allocation in bytes
+    {
+      std::vector<annotated_ptr<void, decltype(OutP)>> APVec;
+      TEST((malloc_annotated), N, q, InP);
+      TEST((malloc_annotated), N, Dev, Ctx, InP);
+      TEST((malloc_annotated<decltype(InP)>), N, q, InP);
+      TEST((malloc_annotated<decltype(InP)>), N, Dev, Ctx, InP);
+      TEST((malloc_annotated<decltype(InP), decltype(OutP)>), N, q, InP);
+      TEST((malloc_annotated<decltype(InP), decltype(OutP)>), N, Dev, Ctx, InP);
+    }
+
+    // Test allocation in elements of T
+    {
+      std::vector<annotated_ptr<T, decltype(OutP)>> APVec;
+      TEST((malloc_annotated<T>), N, q, InP);
+      TEST((malloc_annotated<T>), N, Dev, Ctx, InP);
+      TEST((malloc_annotated<T, decltype(InP)>), N, q, InP);
+      TEST((malloc_annotated<T, decltype(InP)>), N, Dev, Ctx, InP);
+      TEST((malloc_annotated<T, decltype(InP), decltype(OutP)>), N, q, InP);
+      TEST((malloc_annotated<T, decltype(InP), decltype(OutP)>), N, Dev, Ctx, InP);
+    }
+  }
+
+  // Test alloc functions with empty property list
+  {
+    // Test allocation in bytes
+    {
+      std::vector<annotated_ptr<void>> APVec;
+      TEST((malloc_annotated), N, q, alloc::device);
+      TEST((malloc_annotated), N, Dev, Ctx, alloc::device);
+    }
+
+    // Test allocation in elements of T
+    {
+      std::vector<annotated_ptr<T>> APVec;
+      TEST((malloc_annotated<T>), N, q, alloc::host);
+      TEST((malloc_annotated<T>), N, Dev, Ctx, alloc::shared);
+    }
+  }
+}
+
+int main() {
+  testAlloc<double>();
+  testAlloc<std::complex<double>>();
   return 0;
 }
