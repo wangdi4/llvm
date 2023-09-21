@@ -57,15 +57,12 @@ define i32 @basic_scope(i32 noundef %in) {
 ; CHECK:       if.then10:
 ; CHECK-NEXT:    [[OR:%.*]] = or i32 %in, 65535
 ; CHECK:         tail call void @unknown_side_effect()
-; CHECK-NEXT:    br label %if.end14
+; CHECK-NEXT:    br label %mv.scope.exit
 ; CHECK:       if.else12:
 ; CHECK-NEXT:    [[AND:%.*]] = and i32 %in, 65535
-; CHECK:         br label %if.end14
-; CHECK:       if.end14:
-; CHECK-NEXT:    [[IN_ADDR_0:%.*]] = phi i32 [ [[OR]], %if.then10 ], [ [[AND]], %if.else12 ]
-; CHECK-NEXT:    br label [[MV_SCOPE_EXIT:%.*]]
+; CHECK:        br label %mv.scope.exit
 ; CHECK:       mv.scope.exit:
-; CHECK-NEXT:    [[IN_ADDR_0_MV_LIVEOUT:%.*]] = phi i32 [ [[IN_ADDR_0]], %if.end14 ], [ [[AND_CLONE:%.*]], %mv.scope.entry.clone ]
+; CHECK-NEXT:    [[IN_ADDR_0_MV_LIVEOUT:%.*]] = phi i32 [ [[AND_CLONE:%.*]], %mv.scope.entry.clone ], [ [[OR]], %if.then10 ], [ [[AND]], %if.else12 ]
 ; CHECK-NEXT:    tail call void @unknown_side_effect()
 ; CHECK-NEXT:    [[LOAD3:%.*]] = load i32, ptr @num, align 4
 ; CHECK-NEXT:    [[ADD3:%.*]] = add nsw i32 [[LOAD3]], 1

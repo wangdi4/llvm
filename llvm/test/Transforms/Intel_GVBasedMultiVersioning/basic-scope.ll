@@ -20,7 +20,7 @@ define void @basic_scope(ptr nocapture noundef %num) #0 {
 ; CHECK-NEXT:    tail call void @unknown_side_effect()
 ; CHECK-NEXT:    [[MV_SCOPED_LOAD_GLOBAL1:%.*]] = load i1, ptr @global1
 ; CHECK-NEXT:    [[TMP0:%.*]] = xor i1 [[MV_SCOPED_LOAD_GLOBAL1]], true
-; CHECK-NEXT:    br i1 [[TMP0]], label %mv.scope.entry.clone, label %mv.scope.entry
+; CHECK-NEXT:    br i1 [[TMP0]], label %if.end.thread.clone, label %mv.scope.entry
 ; CHECK:       mv.scope.entry:
 ; CHECK-NEXT:    [[DOTB1213:%.*]] = load i1, ptr @global1
 ; CHECK-NEXT:    br i1 [[DOTB1213]], label %if.end, label %if.end.thread
@@ -38,15 +38,13 @@ define void @basic_scope(ptr nocapture noundef %num) #0 {
 ; CHECK-NEXT:    [[TMP2:%.*]] = phi i32 [ [[TMP1]], %if.end.thread ], [ [[NUM_2_INC]], %if.end ]
 ; CHECK-NEXT:    [[INC3:%.*]] = add nsw i32 [[TMP2]], 2
 ; CHECK-NEXT:    store i32 [[INC3]], ptr %num
-; CHECK-NEXT:    br label %if.end7
+; CHECK-NEXT:    br label %mv.scope.exit
 ; CHECK:       if.end4:
 ; CHECK-NEXT:    tail call void @unknown_side_effect()
 ; CHECK-NEXT:    [[DOTB15_PRE:%.*]] = load i1, ptr @global1
-; CHECK-NEXT:    br i1 [[DOTB15_PRE]], label %if.then6, label %if.end7
+; CHECK-NEXT:    br i1 [[DOTB15_PRE]], label %if.then6, label %mv.scope.exit
 ; CHECK:       if.then6:
 ; CHECK-NEXT:    tail call void @unknown_side_effect()
-; CHECK-NEXT:    br label %if.end7
-; CHECK:       if.end7:
 ; CHECK-NEXT:    br label %mv.scope.exit
 ; CHECK:       mv.scope.exit:
 ; CHECK-NEXT:    tail call void @unknown_side_effect()
@@ -54,7 +52,7 @@ define void @basic_scope(ptr nocapture noundef %num) #0 {
 ; CHECK-NEXT:    [[NUM_3_INC:%.*]] = add nsw i32 [[NUM_3]], 1
 ; CHECK-NEXT:    store i32 [[NUM_3_INC]], ptr %num
 ; CHECK-NEXT:    ret void
-; CHECK:       mv.scope.entry.clone:
+; CHECK:       if.end.thread.clone:
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr %num
 ; CHECK-NEXT:    [[INC3_CLONE:%.*]] = add nsw i32 [[TMP3]], 2
 ; CHECK-NEXT:    store i32 [[INC3_CLONE]], ptr %num
