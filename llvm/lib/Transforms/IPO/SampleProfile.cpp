@@ -2384,7 +2384,11 @@ void SampleProfileMatcher::findIRAnchors(
           IRAnchors.emplace(FindTopLevelInlinedCallsite(DIL));
         } else {
           LineLocation Callsite = FunctionSamples::getCallSiteIdentifier(DIL);
-          StringRef CalleeName = GetCanonicalCalleeName(dyn_cast<CallBase>(&I));
+#ifdef INTEL_CUSTOMIZATION
+          // Coverity: Change dyn_cast to cast as !isa<CallBase>(&I) is tested
+          // above.
+          StringRef CalleeName = GetCanonicalCalleeName(cast<CallBase>(&I));
+#endif // INTEL_CUSTOMIZATION
           IRAnchors.emplace(Callsite, CalleeName);
         }
       }
