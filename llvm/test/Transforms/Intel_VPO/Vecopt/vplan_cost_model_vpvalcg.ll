@@ -23,7 +23,7 @@
 ; RUN:     -enable-intel-advanced-opts \
 ; RUN:     | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF1
 
-; RUN: opt < %s -S -passes='vplan-vec,instcombine,simplifycfg,print<cost-model>' -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN: opt < %s -S -passes='vplan-vec,instcombine,infer-alignment,simplifycfg,print<cost-model>' -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -vector-library=SVML \
 ; RUN:     -vplan-force-vf=4 2>&1 | FileCheck %s --check-prefix=LLVM-CM-VF4
 
