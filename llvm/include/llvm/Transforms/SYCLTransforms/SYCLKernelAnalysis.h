@@ -32,7 +32,8 @@ class RuntimeService;
 ///      instructions in the kernel.
 class SYCLKernelAnalysisPass : public PassInfoMixin<SYCLKernelAnalysisPass> {
 public:
-  SYCLKernelAnalysisPass(bool IsAMX = false) : IsAMX(IsAMX) {}
+  SYCLKernelAnalysisPass(bool IsAMX = false, bool IsAMXFP16 = false)
+      : IsAMX(IsAMX), IsAMXFP16(IsAMXFP16) {}
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   /// Glue for old PM.
@@ -69,6 +70,8 @@ private:
 
   bool IsAMX;
 
+  bool IsAMXFP16;
+
   /// Kernels.
   FuncSet Kernels;
 
@@ -96,8 +99,8 @@ public:
   static DiagnosticKind Kind;
 
   SYCLKernelAnalysisDiagInfo(const Function &F, const Twine &Msg,
-                              SYCLKernelAnalysisDiagKind DKDiagKind,
-                              DiagnosticSeverity Severity = DS_Error)
+                             SYCLKernelAnalysisDiagKind DKDiagKind,
+                             DiagnosticSeverity Severity = DS_Error)
       : DiagnosticInfoWithLocationBase(Kind, Severity, F, DiagnosticLocation()),
         Msg(Msg), DKDiagKind(DKDiagKind) {}
 
