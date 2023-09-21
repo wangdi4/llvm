@@ -95,10 +95,12 @@ float __imf_j0f(float);
 double __imf_j0(double);
 float __imf_j1f(float);
 double __imf_j1(double);
+float __imf_jnf(int, float);
 float __imf_y0f(float);
 double __imf_y0(double);
 float __imf_y1f(float);
 double __imf_y1(double);
+float __imf_ynf(int, float);
 /* end INTEL_CUSTOMIZATION */
 float __imf_ceilf(float);
 double __imf_ceil(double);
@@ -435,6 +437,11 @@ std::enable_if_t<std::is_same_v<Tp, double>, double> j1(Tp x) {
 }
 
 template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, float>, float> jn(int n, Tp x) {
+  return __imf_jnf(n, x);
+}
+
+template <typename Tp>
 std::enable_if_t<std::is_same_v<Tp, float>, float> y0(Tp x) {
   return __imf_y0f(x);
 }
@@ -452,6 +459,11 @@ std::enable_if_t<std::is_same_v<Tp, float>, float> y1(Tp x) {
 template <typename Tp>
 std::enable_if_t<std::is_same_v<Tp, double>, double> y1(Tp x) {
   return __imf_y1(x);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, float>, float> yn(int n, Tp x) {
+  return __imf_ynf(n, x);
 }
 
 /* end INTEL_CUSTOMIZATION */
