@@ -28,6 +28,10 @@ static cl::opt<bool> SYCLKernelAnalysisAssumeIsAMX(
     "sycl-kernel-analysis-assume-isamx", cl::init(false), cl::Hidden,
     cl::desc("make assumption for sycl kernel analysis's isamx"));
 
+static cl::opt<bool> SYCLKernelAnalysisAssumeIsAMXFP16(
+    "sycl-kernel-analysis-assume-isamxfp16", cl::init(false), cl::Hidden,
+    cl::desc("make assumption for sycl kernel analysis's isamxfp16"));
+
 DiagnosticKind SYCLKernelAnalysisDiagInfo::Kind =
     static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
 
@@ -61,6 +65,19 @@ void SYCLKernelAnalysisPass::fillMatrixCallFuncs() {
             "Sapphire Rapids! DPC++ joint matrix extension requires presence "
             "of AMX on Sapphire Rapids or later)",
             DKDK_Error_MatrixIntrinOnUnsupportedCPU));
+      Type *MatrixElemType =
+          F.getIntrinsicID() != Intrinsic::experimental_matrix_store
+              ? cast<FixedVectorType>(F.getReturnType())->getElementType()
+              : cast<FixedVectorType>(F.getFunctionType()->getParamType(0))
+                    ->getElementType();
+      if (!IsAMXFP16 && MatrixElemType->isHalfTy()) {
+        M->getContext().diagnose(SYCLKernelAnalysisDiagInfo(
+            F,
+            "AMX-FP16 matrix primitives are being used on an arch older than "
+            "Granite Rapids! DPC++ joint matrix extension requires presence "
+            "of AMX on Sapphire Rapids or later)",
+            DKDK_Error_MatrixIntrinOnUnsupportedCPU));
+      }
       MatrixIntrins.insert(&F);
       break;
     }
@@ -232,8 +249,9 @@ void SYCLKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
 }
 
 PreservedAnalyses SYCLKernelAnalysisPass::run(Module &M,
-                                               ModuleAnalysisManager &AM) {
+                                              ModuleAnalysisManager &AM) {
   IsAMX = SYCLKernelAnalysisAssumeIsAMX || IsAMX;
+  IsAMXFP16 = SYCLKernelAnalysisAssumeIsAMXFP16 || IsAMXFP16;
   RuntimeService &RTS =
       AM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();

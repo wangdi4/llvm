@@ -313,7 +313,8 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
     MPM.addPass(DuplicateCalledKernelsPass());
 
     MPM.addPass(SYCLKernelAnalysisPass(
-        Intel::OpenCL::Utils::CPUDetect::GetInstance()->HasSPR()));
+        Intel::OpenCL::Utils::CPUDetect::GetInstance()->HasSPR(),
+        Intel::OpenCL::Utils::CPUDetect::GetInstance()->HasGNR()));
 
     if (Level != OptimizationLevel::O0) {
       MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
