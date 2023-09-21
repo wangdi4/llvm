@@ -717,7 +717,7 @@ private:
                                 ArrayRef<PipelineElement> Pipeline);
 
   void addPGOInstrPasses(ModulePassManager &MPM, OptimizationLevel Level,
-                         bool RunProfileGen, bool IsCS,
+                         PGOOptions::PGOAction PGOAction, bool IsCS, // INTEL
                          bool AtomicCounterUpdate, std::string ProfileFile,
                          std::string ProfileRemappingFile,
                          ThinOrFullLTOPhase LTOPhase,

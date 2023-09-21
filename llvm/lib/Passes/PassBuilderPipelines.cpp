@@ -1355,7 +1355,8 @@ void PassBuilder::addRequiredLTOPreLinkPasses(ModulePassManager &MPM) {
 }
 
 void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
-                                    OptimizationLevel Level, bool RunProfileGen,
+                                    OptimizationLevel Level,         // INTEL
+                                    PGOOptions::PGOAction PGOAction, // INTEL
                                     bool IsCS, bool AtomicCounterUpdate,
                                     std::string ProfileFile,
                                     std::string ProfileRemappingFile,
@@ -1407,7 +1408,12 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
     MPM.addPass(GlobalDCEPass());
   }
 
-  if (!RunProfileGen) {
+#if INTEL_CUSTOMIZATION
+  if (PGOAction == PGOOptions::MLUse) {
+    MPM.addPass(MLPGOInference());
+    return;
+  } else if (PGOAction == PGOOptions::IRUse) {
+#endif // INTEL_CUSTOMIZATION
     assert(!ProfileFile.empty() && "Profile use expecting a profile file!");
     MPM.addPass(
         PGOInstrumentationUse(ProfileFile, ProfileRemappingFile, IsCS, FS));
@@ -1921,20 +1927,13 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-  bool MLPGO = PGOOpt && PGOOpt->Action == PGOOptions::MLUse;
-  if (MLPGO)
-    MPM.addPass(MLPGOInference());
-
-  assert(!(PGOOpt && PGOOpt->Action == PGOOptions::IRUse && MLPGO) &&
-         "Both MLPGO and PGO Use enabled!");
-
   // Add all the requested passes for instrumentation PGO, if requested.
   if (PGOOpt && !PGOOpt->IsCGPGO &&
       Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
       (PGOOpt->Action == PGOOptions::IRInstr ||
-       PGOOpt->Action == PGOOptions::IRUse)) {
-    addPGOInstrPasses(MPM, Level,
-                      /*RunProfileGen=*/PGOOpt->Action == PGOOptions::IRInstr,
+       PGOOpt->Action == PGOOptions::IRUse ||
+       PGOOpt->Action == PGOOptions::MLUse)) {
+    addPGOInstrPasses(MPM, Level, PGOOpt->Action,
                       /*IsCS=*/false, PGOOpt->AtomicCounterUpdate,
                       PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile, Phase,
                       PGOOpt->FS);
@@ -2892,12 +2891,12 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // instrumentation is after all the inlines are done.
   if (!LTOPreLink && PGOOpt) {
     if (PGOOpt->CSAction == PGOOptions::CSIRInstr)
-      addPGOInstrPasses(MPM, Level, /*RunProfileGen=*/true,
+      addPGOInstrPasses(MPM, Level, PGOOptions::IRInstr, // INTEL
                         /*IsCS=*/true, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->CSProfileGenFile, PGOOpt->ProfileRemappingFile,
                         LTOPhase, PGOOpt->FS);
     else if (PGOOpt->CSAction == PGOOptions::CSIRUse)
-      addPGOInstrPasses(MPM, Level, /*RunProfileGen=*/false,
+      addPGOInstrPasses(MPM, Level, PGOOptions::IRUse, // INTEL
                         /*IsCS=*/true, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
                         LTOPhase, PGOOpt->FS);
@@ -3153,11 +3152,10 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
         LTOPhase != ThinOrFullLTOPhase::ThinLTOPostLink &&
         (PGOOpt->Action == PGOOptions::IRInstr ||
          PGOOpt->Action == PGOOptions::IRUse)) {
-      addPGOInstrPasses(
-          MPM, Level,
-          /* RunProfileGen */ PGOOpt->Action == PGOOptions::IRInstr,
-          /* IsCS */ false, PGOOpt->AtomicCounterUpdate, PGOOpt->ProfileFile,
-          PGOOpt->ProfileRemappingFile, LTOPhase, PGOOpt->FS);
+      addPGOInstrPasses(MPM, Level, PGOOpt->Action,
+                        /* IsCS */ false, PGOOpt->AtomicCounterUpdate,
+                        PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
+                        LTOPhase, PGOOpt->FS);
       MPM.addPass(PGOIndirectCallPromotion(false, false));
     }
     if (PGOOpt && PGOOpt->IsCGPGO &&
@@ -3753,12 +3751,12 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // sensitive PGO pass.
   if (PGOOpt) {
     if (PGOOpt->CSAction == PGOOptions::CSIRInstr)
-      addPGOInstrPasses(MPM, Level, /*RunProfileGen=*/true,
+      addPGOInstrPasses(MPM, Level, PGOOptions::IRInstr, // INTEL
                         /*IsCS=*/true, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->CSProfileGenFile, PGOOpt->ProfileRemappingFile,
                         ThinOrFullLTOPhase::FullLTOPostLink, PGOOpt->FS);
     else if (PGOOpt->CSAction == PGOOptions::CSIRUse)
-      addPGOInstrPasses(MPM, Level, /*RunProfileGen=*/false,
+      addPGOInstrPasses(MPM, Level, PGOOptions::IRUse, // INTEL
                         /*IsCS=*/true, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
                         ThinOrFullLTOPhase::FullLTOPostLink, PGOOpt->FS);
@@ -4002,8 +4000,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (PGOOpt && PGOOpt->IsCGPGO &&
       (PGOOpt->Action == PGOOptions::IRInstr ||
        PGOOpt->Action == PGOOptions::IRUse)) {
-    addPGOInstrPasses(MPM, Level,
-                      /* RunProfileGen */ PGOOpt->Action == PGOOptions::IRInstr,
+    addPGOInstrPasses(MPM, Level, PGOOpt->Action, // INTEL
                       /* IsCS */ false, PGOOpt->AtomicCounterUpdate,
                       PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
                       ThinOrFullLTOPhase::FullLTOPostLink, PGOOpt->FS);
