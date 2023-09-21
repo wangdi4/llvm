@@ -489,20 +489,16 @@ BaseReport::Shadow BaseReport::CopyShadow() const {
 }
 
 tag_t BaseReport::GetTagCopy(uptr addr) const {
-  if (addr < shadow.addr)
-    return 0;
+  CHECK_GE(addr, shadow.addr);
   uptr idx = addr - shadow.addr;
-  if (idx >= ARRAY_SIZE(shadow.tags))
-    return 0;
+  CHECK_LT(idx, ARRAY_SIZE(shadow.tags));
   return shadow.tags[idx];
 }
 
 tag_t BaseReport::GetShortTagCopy(uptr addr) const {
-  if (addr < shadow.addr)
-    return 0;
+  CHECK_GE(addr, shadow.addr);
   uptr idx = addr - shadow.addr;
-  if (idx >= ARRAY_SIZE(shadow.short_tags))
-    return 0;
+  CHECK_LT(idx, ARRAY_SIZE(shadow.short_tags));
   return shadow.short_tags[idx];
 }
 
@@ -791,8 +787,10 @@ InvalidFreeReport::~InvalidFreeReport() {
            SanitizerToolName, bug_type, untagged_addr, pc);
   }
   Printf("%s", d.Access());
-  if (shadow.addr)
-    Printf("tags: %02x/%02x (ptr/mem)\n", ptr_tag, GetTagCopy(untagged_addr));
+  if (shadow.addr) {
+    Printf("tags: %02x/%02x (ptr/mem)\n", ptr_tag,
+           GetTagCopy(MemToShadow(untagged_addr)));
+  }
   Printf("%s", d.Default());
 
   stack->Print();
