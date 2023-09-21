@@ -170,7 +170,6 @@ static cl::opt<unsigned> MaxSinkNumUsers(
     "instcombine-max-sink-users", cl::init(32),
     cl::desc("Maximum number of undroppable users for instruction sinking"));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Used for LIT tests to unconditionally suppress type lowering optimizations
 static cl::opt<bool>
@@ -200,16 +199,6 @@ static cl::opt<bool> DisableCanonicalizeSwap(
     cl::ReallyHidden, cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
-// FIXME: Remove this option, it has been superseded by verify-fixpoint.
-// Only keeping it for now to avoid unnecessary test churn in this patch.
-static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
-    "instcombine-infinite-loop-threshold",
-    cl::desc("Number of instruction combining iterations considered an "
-             "infinite loop"),
-    cl::init(InstCombineDefaultInfiniteLoopThreshold), cl::Hidden);
-
-=======
->>>>>>> c00f49cf12ff2916a372176f2154a83eb80f1692
 static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
              cl::desc("Maximum array size considered when doing a combine"));
