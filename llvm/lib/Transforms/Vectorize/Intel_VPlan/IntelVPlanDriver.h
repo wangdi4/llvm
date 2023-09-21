@@ -165,9 +165,6 @@ protected:
                                       std::forward<Args>(BailoutArgs)...);
   }
 
-  /// Convenience function for optimization remark substitution strings.
-  std::string getAuxMsg(AuxRemarkID ID) { return OptReportAuxDiag::getMsg(ID); }
-
 public:
   bool runImpl(Function &F, LoopInfo *LI, ScalarEvolution *SE,
                DominatorTree *DT, AssumptionCache *AC, AliasAnalysis *AA,

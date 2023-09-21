@@ -221,7 +221,7 @@ bool VPlanDriverImpl::hasDedicatedAndUniqueExits(Loop *Lp,
                       << ") is not supported: no dedicated exits.\n");
     setBailoutRemark(OptReportVerbosity::Medium,
                      OptRemarkID::VecFailGenericBailout,
-                     getAuxMsg(AuxRemarkID::NoDedicatedExits));
+                     AuxRemarkID::NoDedicatedExits);
     return false;
   }
 
@@ -231,9 +231,8 @@ bool VPlanDriverImpl::hasDedicatedAndUniqueExits(Loop *Lp,
                       << ") is not supported: multiple exit blocks.\n");
     setBailoutRemark(OptReportVerbosity::Medium,
                      OptRemarkID::VecFailBadlyFormedMultiExitLoop,
-                     WRLp && WRLp->isOmpSIMDLoop()
-                         ? getAuxMsg(AuxRemarkID::SimdLoop)
-                         : getAuxMsg(AuxRemarkID::Loop));
+                     WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                                   : AuxRemarkID::Loop);
     return false;
   }
   return true;
@@ -878,10 +877,10 @@ bool VPlanDriverImpl::isSupported<llvm::Loop>(Loop *Lp, WRNVecLoopNode *WRLp) {
     LLVM_DEBUG(dbgs() << "VD: loop nest "
                       << "(" << Lp->getName()
                       << ") is not supported: irreducible CFG.\n");
-    setBailoutRemark(
-        OptReportVerbosity::Medium, OptRemarkID::VecFailComplexControlFlow,
-        WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                      : getAuxMsg(AuxRemarkID::Loop));
+    setBailoutRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::VecFailComplexControlFlow,
+                     WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                                   : AuxRemarkID::Loop);
     return false;
   }
 
@@ -889,10 +888,10 @@ bool VPlanDriverImpl::isSupported<llvm::Loop>(Loop *Lp, WRNVecLoopNode *WRLp) {
     // We don't support switch statements inside loops.
     if (!isa<BranchInst>(BB->getTerminator())) {
       LLVM_DEBUG(dbgs() << "VD: loop nest contains a switch statement.\n");
-      setBailoutRemark(
-          OptReportVerbosity::Medium, OptRemarkID::VecFailSwitchPresent,
-          WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                        : getAuxMsg(AuxRemarkID::Loop));
+      setBailoutRemark(OptReportVerbosity::Medium,
+                       OptRemarkID::VecFailSwitchPresent,
+                       WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                                     : AuxRemarkID::Loop);
       return false;
     }
   }
@@ -1666,7 +1665,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
                            "multi-exit loops.\n");
       setBailoutRemark(OptReportVerbosity::High,
                        OptRemarkID::VecFailGenericBailout,
-                       getAuxMsg(AuxRemarkID::MultipleMultiExitLoops));
+                       AuxRemarkID::MultipleMultiExitLoops);
       return bailout(VPORBuilder, Lp, WRLp, BR);
     }
   }
@@ -2031,10 +2030,10 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
 
 bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp, WRNVecLoopNode *WRLp) {
   if (HIRLoopStats->getTotalStatistics(Lp).hasSwitches()) {
-    setBailoutRemark(
-        OptReportVerbosity::Medium, OptRemarkID::VecFailSwitchPresent,
-        WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                      : getAuxMsg(AuxRemarkID::Loop));
+    setBailoutRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::VecFailSwitchPresent,
+                     WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                                   : AuxRemarkID::Loop);
     return false;
   }
 
@@ -2042,7 +2041,7 @@ bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp, WRNVecLoopNode *WRLp) {
   if (!EnableOuterLoopHIR && !Lp->isInnermost()) {
     setBailoutRemark(OptReportVerbosity::Medium,
                      OptRemarkID::VecFailGenericBailout,
-                     getAuxMsg(AuxRemarkID::OuterLoopVecUnsupported));
+                     AuxRemarkID::OuterLoopVecUnsupported);
     return false;
   }
 
@@ -2050,16 +2049,15 @@ bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp, WRNVecLoopNode *WRLp) {
   if (!(Lp->isDo() || Lp->isDoMultiExit())) {
     setBailoutRemark(OptReportVerbosity::Medium,
                      OptRemarkID::VecFailUnknownInductionVariable,
-                     WRLp && WRLp->isOmpSIMDLoop()
-                         ? getAuxMsg(AuxRemarkID::SimdLoop)
-                         : getAuxMsg(AuxRemarkID::Loop),
+                     WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                                   : AuxRemarkID::Loop,
                      " 5.0");
     return false;
   }
   if (!Lp->isNormalized()) {
     setBailoutRemark(OptReportVerbosity::Medium,
                      OptRemarkID::VecFailGenericBailout,
-                     getAuxMsg(AuxRemarkID::OuterLoopVecUnsupported));
+                     AuxRemarkID::OuterLoopVecUnsupported);
     return false;
   }
 

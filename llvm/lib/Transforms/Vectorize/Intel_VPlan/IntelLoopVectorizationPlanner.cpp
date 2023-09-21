@@ -516,7 +516,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
   if (ForcedVF && !isPowerOf2_64(ForcedVF)) {
     VFs.push_back(0);
     bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
-            getAuxMsg(AuxRemarkID::VFNotPowerOf2));
+            AuxRemarkID::VFNotPowerOf2);
     return;
   }
 
@@ -529,7 +529,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
   if (ForcedVF == 1 || Safelen == 1) {
     VFs.push_back(0);
     bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
-            getAuxMsg(AuxRemarkID::ForcedVFIs1));
+            AuxRemarkID::ForcedVFIs1);
     return;
   }
 
@@ -538,7 +538,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
       // We are bailing out of vectorization if ForcedVF > safelen
       VFs.push_back(0);
       bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
-              getAuxMsg(AuxRemarkID::ForcedVFExceedsSafeLen));
+              AuxRemarkID::ForcedVFExceedsSafeLen);
       return;
     }
     VFs.push_back(ForcedVF);
@@ -554,7 +554,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
     extractVFsFromMetadata(Safelen);
     if (VFs.size() > 0 && VFs[0] == 0)
       bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
-              getAuxMsg(AuxRemarkID::PragmaVectorLength0));
+              AuxRemarkID::PragmaVectorLength0);
   } else {
     unsigned MinWidthInBits, MaxWidthInBits, MinVF, MaxVF;
     std::tie(MinWidthInBits, MaxWidthInBits) = getTypesWidthRangeInBits();
@@ -630,11 +630,11 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
         return R.isInRange(VPlanOrderNumber);
       })) {
     std::stringstream SS;
-    SS << getAuxMsg(AuxRemarkID::OutOfVPlanVecRange) << " (#"
+    SS << OptReportAuxDiag::getMsg(AuxRemarkID::OutOfVPlanVecRange) << " (#"
        << VPlanOrderNumber << ")";
     bailoutWithDebug(OptReportVerbosity::Medium,
                      OptRemarkID::VecFailUserExcluded, SS.str(),
-                     getAuxMsg(AuxRemarkID::Loop));
+                     AuxRemarkID::Loop);
     DEBUG_WITH_TYPE("LoopVectorizationPlanner_vec_range",
                     for (const auto &R
                          : VecRange) dbgs()
@@ -680,7 +680,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
     if (!EnableMaskedMainLoop && !MainLoop->getTripCountInfo().IsEstimated &&
         MainLoop->getTripCountInfo().TripCount < VFs[0]) {
       bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
-              getAuxMsg(AuxRemarkID::VFExceedsTC));
+              AuxRemarkID::VFExceedsTC);
       return 0;
     }
   }
@@ -800,7 +800,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
     if (auto *Branch = dyn_cast<VPBranchInst>(&VPInst))
       if (!EnableDivergentBranchLoops && DA->isDivergent(*Branch)) {
         bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
-                getAuxMsg(AuxRemarkID::DivergentBranchDisabled));
+                AuxRemarkID::DivergentBranchDisabled);
         return 0;
       }
 
@@ -1383,7 +1383,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
          << ") * U > TripCount(" << TripCount << ") for all unroll factors U";
       bailoutWithDebug(OptReportVerbosity::Medium,
                        OptRemarkID::VecFailGenericBailout, SS.str(),
-                       getAuxMsg(AuxRemarkID::ForcedVFExceedsUnrolledTC));
+                       AuxRemarkID::ForcedVFExceedsUnrolledTC);
       // The scenario was reset just before the check.
       return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
     }
@@ -1395,7 +1395,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                       << ", selecting it.\n");
     if (ForcedVF == 1)
       bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
-              getAuxMsg(AuxRemarkID::UserForcedVF1));
+              AuxRemarkID::UserForcedVF1);
   }
 
   // In light weight and advanced modes select VF basing on Search Loop idioms
@@ -1449,9 +1449,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                          OptRemarkID::VecFailBadlyFormedMultiExitLoop,
                          INTERNAL("Selecting VPlan with search loop preferred "
                                   "VF=1"),
-                         WRLp && WRLp->isOmpSIMDLoop()
-                             ? getAuxMsg(AuxRemarkID::SimdLoop)
-                             : getAuxMsg(AuxRemarkID::Loop));
+                         WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                                       : AuxRemarkID::Loop);
         return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
       }
 
@@ -1923,14 +1922,14 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       bailoutWithDebug(
           OptReportVerbosity::Medium, OptRemarkID::VecFailLowTripCount,
           INTERNAL("The loop trip count is less than enforced vector factor."),
-          WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                        : getAuxMsg(AuxRemarkID::Loop));
+          WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                        : AuxRemarkID::Loop);
     } else {
-      bailoutWithDebug(
-          OptReportVerbosity::Medium, OptRemarkID::VecFailNotProfitable,
-          INTERNAL("Loop is unprofitable to vectorize."),
-          WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                        : getAuxMsg(AuxRemarkID::Loop));
+      bailoutWithDebug(OptReportVerbosity::Medium,
+                       OptRemarkID::VecFailNotProfitable,
+                       INTERNAL("Loop is unprofitable to vectorize."),
+                       WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                                     : AuxRemarkID::Loop);
     }
   }
   if (BestCostSummarySet) {
@@ -2917,7 +2916,7 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       auto *UDS = dyn_cast<VPUserDefinedScanReduction>(Red);
       if (UDS && !UDS->getInitializer()) {
         bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
-                getAuxMsg(AuxRemarkID::UDRWithoutInitializer));
+                AuxRemarkID::UDRWithoutInitializer);
         return false;
       }
     }
@@ -3002,7 +3001,7 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
 
     if (NumLiveOutInsts > 1) {
       bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
-              getAuxMsg(AuxRemarkID::MultipleLiveOutReduction));
+              AuxRemarkID::MultipleLiveOutReduction);
       return false;
     }
   }
@@ -3019,7 +3018,7 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
                        INTERNAL("Loop contains a recurrent computation that "
                                 "could not be identified as an induction or "
                                 "reduction."),
-                       getAuxMsg(AuxRemarkID::Loop));
+                       AuxRemarkID::Loop);
       return false;
     }
   if (!canProcessLoopBody(Plan, *VPLp)) {
@@ -3159,7 +3158,7 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
                              OptRemarkID::VecFailReducingVectorType,
                              INTERNAL("A reduction or induction of a vector "
                                       "type is not supported."),
-                             getAuxMsg(AuxRemarkID::Loop));
+                             AuxRemarkID::Loop);
             LLVM_DEBUG(dbgs() << Inst << "\n");
             return false;
           }
@@ -3171,14 +3170,14 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
                            INTERNAL("Loop contains a live-out value that could "
                                     "not be identified as an induction or "
                                     "reduction."),
-                           getAuxMsg(AuxRemarkID::Loop));
+                           AuxRemarkID::Loop);
           return false;
         }
         if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst)) {
           if (isInvalidOMPConstructInSIMD(VPCall)) {
             bailout(OptReportVerbosity::Medium,
                     OptRemarkID::VecFailGenericBailout,
-                    getAuxMsg(AuxRemarkID::IllegalOpenMPInSIMD));
+                    AuxRemarkID::IllegalOpenMPInSIMD);
             return false;
           }
         }

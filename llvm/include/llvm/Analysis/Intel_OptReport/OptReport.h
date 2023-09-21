@@ -148,6 +148,14 @@ private:
 
     populateMDTupleOperands(V, C, Buf, std::forward<Args>(args)...);
   }
+
+  template <typename... Args>
+  static void populateMDTupleOperands(SmallVectorImpl<Metadata *> &V,
+                                      LLVMContext &C, AuxRemarkID AuxID,
+                                      Args &&...args) {
+    populateMDTupleOperands(V, C, OptReportAuxDiag::getMsg(AuxID),
+                            std::forward<Args>(args)...);
+  }
 };
 
 /// \brief Helper class to simplify processing of OptReport metadata.
