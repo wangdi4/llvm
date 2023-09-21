@@ -520,12 +520,7 @@ public:
 };
 #endif // INTEL_CUSTOMIZATION
 Value *SCEVExpander::visitAddExpr(const SCEVAddExpr *S) {
-<<<<<<< HEAD
   ScopeDbgLoc SDL(*this, S); // INTEL
-  Type *Ty = SE.getEffectiveSCEVType(S->getType());
-
-=======
->>>>>>> 3301fd2147cea8b8c5667b02c4ac4c60e3cdb831
   // Collect all the add operands in a loop, along with their associated loops.
   // Iterate in reverse so that constants are emitted last, all else equal, and
   // so that pointer operands are inserted first, which the code below relies on
@@ -589,12 +584,8 @@ Value *SCEVExpander::visitAddExpr(const SCEVAddExpr *S) {
 }
 
 Value *SCEVExpander::visitMulExpr(const SCEVMulExpr *S) {
-<<<<<<< HEAD
   ScopeDbgLoc SDL(*this, S); // INTEL
-  Type *Ty = SE.getEffectiveSCEVType(S->getType());
-=======
   Type *Ty = S->getType();
->>>>>>> 3301fd2147cea8b8c5667b02c4ac4c60e3cdb831
 
   // Collect all the mul operands in a loop, along with their associated loops.
   // Iterate in reverse so that constants are emitted last, all else equal.
@@ -686,14 +677,8 @@ Value *SCEVExpander::visitMulExpr(const SCEVMulExpr *S) {
 }
 
 Value *SCEVExpander::visitUDivExpr(const SCEVUDivExpr *S) {
-<<<<<<< HEAD
   ScopeDbgLoc SDL(*this, S); // INTEL
-  Type *Ty = SE.getEffectiveSCEVType(S->getType());
-
-  Value *LHS = expandCodeFor(S->getLHS(), Ty);
-=======
   Value *LHS = expand(S->getLHS());
->>>>>>> 3301fd2147cea8b8c5667b02c4ac4c60e3cdb831
   if (const SCEVConstant *SC = dyn_cast<SCEVConstant>(S->getRHS())) {
     const APInt &RHS = SC->getAPInt();
     if (RHS.isPowerOf2())
@@ -1433,53 +1418,28 @@ Value *SCEVExpander::visitAddRecExpr(const SCEVAddRecExpr *S) {
 }
 
 Value *SCEVExpander::visitPtrToIntExpr(const SCEVPtrToIntExpr *S) {
-<<<<<<< HEAD
   ScopeDbgLoc SDL(*this, S); // INTEL
-  Value *V = expandCodeFor(S->getOperand(), S->getOperand()->getType());
-=======
   Value *V = expand(S->getOperand());
->>>>>>> 3301fd2147cea8b8c5667b02c4ac4c60e3cdb831
   return ReuseOrCreateCast(V, S->getType(), CastInst::PtrToInt,
                            GetOptimalInsertionPointForCastOf(V));
 }
 
 Value *SCEVExpander::visitTruncateExpr(const SCEVTruncateExpr *S) {
-<<<<<<< HEAD
   ScopeDbgLoc SDL(*this, S); // INTEL
-  Type *Ty = SE.getEffectiveSCEVType(S->getType());
-  Value *V = expandCodeFor(S->getOperand(),
-                           SE.getEffectiveSCEVType(S->getOperand()->getType()));
-  return Builder.CreateTrunc(V, Ty);
-}
-
-Value *SCEVExpander::visitZeroExtendExpr(const SCEVZeroExtendExpr *S) {
-  ScopeDbgLoc SDL(*this, S); // INTEL
-  Type *Ty = SE.getEffectiveSCEVType(S->getType());
-  Value *V = expandCodeFor(S->getOperand(),
-                           SE.getEffectiveSCEVType(S->getOperand()->getType()));
-  return Builder.CreateZExt(V, Ty);
-}
-
-Value *SCEVExpander::visitSignExtendExpr(const SCEVSignExtendExpr *S) {
-  ScopeDbgLoc SDL(*this, S); // INTEL
-  Type *Ty = SE.getEffectiveSCEVType(S->getType());
-  Value *V = expandCodeFor(S->getOperand(),
-                           SE.getEffectiveSCEVType(S->getOperand()->getType()));
-  return Builder.CreateSExt(V, Ty);
-=======
   Value *V = expand(S->getOperand());
   return Builder.CreateTrunc(V, S->getType());
 }
 
 Value *SCEVExpander::visitZeroExtendExpr(const SCEVZeroExtendExpr *S) {
+  ScopeDbgLoc SDL(*this, S); // INTEL
   Value *V = expand(S->getOperand());
   return Builder.CreateZExt(V, S->getType());
 }
 
 Value *SCEVExpander::visitSignExtendExpr(const SCEVSignExtendExpr *S) {
+  ScopeDbgLoc SDL(*this, S); // INTEL
   Value *V = expand(S->getOperand());
   return Builder.CreateSExt(V, S->getType());
->>>>>>> 3301fd2147cea8b8c5667b02c4ac4c60e3cdb831
 }
 
 
