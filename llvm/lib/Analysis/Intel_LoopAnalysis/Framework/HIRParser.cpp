@@ -1644,9 +1644,9 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
   return Symbase;
 }
 
-unsigned HIRParser::processInstBlob(const Instruction *Inst,
-                                    const Instruction *BaseInst,
-                                    unsigned Symbase) {
+unsigned HIRParser::processInstDefOrUse(const Instruction *Inst,
+                                        const Instruction *BaseInst,
+                                        unsigned Symbase) {
 
   // Inst and BaseInst are different in these cases-
   // 1) Inst is an SCC inst. In this case BaseInst is the outermost loop header
@@ -1816,7 +1816,7 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
   }
 
   if (auto Inst = dyn_cast<Instruction>(Temp)) {
-    DefLevel = processInstBlob(Inst, cast<Instruction>(BaseTemp), Symbase);
+    DefLevel = processInstDefOrUse(Inst, cast<Instruction>(BaseTemp), Symbase);
   } else {
     // Mark non-instruction blobs as livein to region and parent loops.
     CurRegion->addLiveInTemp(Symbase, Temp);
@@ -4537,8 +4537,17 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
     populateBlobDDRefs(Ref, Level);
   }
 
-  if (IsLval && !IsSelfBlob && hasLvalRvalBlobMismatch(LvalInst, Ref)) {
-    Ref->makeSelfBlob(true);
+  if (IsLval && !IsSelfBlob) {
+    // We may never create a blob for a non-selfblob lval. In that case, loop
+    // livein/liveout processing for it will be skipped in the parse() function
+    // above. So we do the processing here.
+    auto *Inst = cast<Instruction>(Val);
+    auto *BaseInst = cast<Instruction>(ScalarSA.getBaseScalar(Symbase));
+    processInstDefOrUse(Inst, BaseInst, Symbase);
+
+    if (hasLvalRvalBlobMismatch(LvalInst, Ref)) {
+      Ref->makeSelfBlob(true);
+    }
   }
 
   populateRequiredSymbases(Ref);
