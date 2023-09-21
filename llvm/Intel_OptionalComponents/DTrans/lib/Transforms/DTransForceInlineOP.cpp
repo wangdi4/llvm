@@ -110,10 +110,6 @@ bool DTransForceInlineOP::run(
         return false;
       };
 
-  // Only run this pass if we have opaque pointers
-  if (M.getContext().supportsTypedPointers())
-    return false;
-
   // Set up DTrans type manager and metdata reader
   DTransTypeManager TM(M.getContext());
   TypeMetadataReader MDReader(TM);

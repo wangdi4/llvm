@@ -38,6 +38,9 @@ const unsigned StrideOpNum = 2;
 const unsigned PtrOpNum = 3;
 const unsigned IndexOpNum = 4;
 
+// Number of fields in the dimension structure (extent, stride, and lower bound)
+const unsigned int PerDimensionCount = 3;
+
 // Enumeration fields related to dope vectors. The first 7 items in this
 // list correspond exactly to the field layout of the corresponding dope
 // vector fields, and correspond to GEP indices. Do not re-order these because

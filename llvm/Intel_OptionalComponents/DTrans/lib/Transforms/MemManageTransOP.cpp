@@ -8450,13 +8450,6 @@ namespace dtransOP {
 
 bool MemManageTransOPPass::runImpl(Module &M, WholeProgramInfo &WPInfo,
                                    MemManageTransOPPass::MemTLITy GetTLI) {
-  if (!dtrans::shouldRunOpaquePointerPasses(M)) {
-    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
-                    dbgs() << "MemManageTransOP inhibited: opaque pointer "
-                              "passes NOT in use\n");
-    return false;
-  }
-
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
     DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,

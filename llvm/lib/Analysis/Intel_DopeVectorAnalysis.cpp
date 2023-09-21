@@ -47,7 +47,6 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
                              uint32_t *ArrayRank,
                              Type **ElementType) {
   const unsigned int DVFieldCount = 7;
-  const unsigned int PerDimensionCount = 3;
   uint32_t ArRank = 0;
 
   // Helper to check that all types contained in the structure in the range
@@ -74,7 +73,7 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
   if (!FirstType->isPointerTy())
     return false;
 
-  // All fields are "long" type?
+  // All fields are pointer-sized type?
   llvm::Type *LongType =
       Type::getIntNTy(Ty->getContext(), DL.getPointerSizeInBits());
   if (!ContainedTypesMatch(StTy, LongType, 1U, ContainedCount - 1))
@@ -1040,7 +1039,9 @@ bool DopeVectorFieldUse::analyzeLoadStoreOrSubscriptWithDims(
   if (!CI1 || !CI1->isZero())
     return false;
   auto CI2 = dyn_cast<ConstantInt>(SBI->getStride());
-  if (!CI2 || CI2->getZExtValue() != 24)
+  const DataLayout &DL = SBI->getModule()->getDataLayout();
+  uint64_t PerDimensionStride = PerDimensionCount * DL.getPointerSize();
+  if (!CI2 || CI2->getZExtValue() != PerDimensionStride)
     return false;
   if (SBI->getPointerOperand() != Pointer)
     return false;

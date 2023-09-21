@@ -1651,9 +1651,3 @@ bool dtrans::compareStructName(const llvm::StructType *Ty1,
   OS2.flush();
   return Lit1 < Lit2;
 }
-
-bool dtrans::shouldRunOpaquePointerPasses(Module &M) {
-  if (!M.getContext().supportsTypedPointers())
-    return true;
-  return DTransForceOpaquePointerPasses;
-}

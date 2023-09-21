@@ -801,9 +801,7 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
   };
 
   ValueToValueMapTy VMap;
-  DTransOPTypeRemapper TypeRemapper(
-      DTInfo.getTypeManager(),
-      !DerivedTy->getContext().supportsTypedPointers());
+  DTransOPTypeRemapper TypeRemapper(DTInfo.getTypeManager());
 
   assert(ReplicatedDTy && ReplicatedBTy && "Unexpected cloned types");
 
