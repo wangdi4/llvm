@@ -16,7 +16,6 @@ RUN: printf '\0\0\0\1\0\4\0\0' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\1\0\0\0\0' >> %t
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // Add 2 bytes of 0 for the number of profiled loops,
 // plus 6 bytes of 0 to pad to a 64-bit aligmnent to
@@ -41,15 +40,6 @@ RUN: printf '\0\0\0\02\0\0\0\0' >> %t
 // plus 6 bytes of 0 to pad to a 64-bit aligmnent.
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 // end INTEL_CUSTOMIZATION
-=======
-
-RUN: printf '\344\023\165\112\031\035\265\067' >> %t
-RUN: printf '\0\0\0\0\0\0\0\02' >> %t
-RUN: printf '\0\0\0\1\0\3\xff\xd8' >> %t
-RUN: printf '\0\0\0\0\0\0\0\0' >> %t
-RUN: printf '\0\0\0\0\0\0\0\0' >> %t
-RUN: printf '\0\0\0\02\0\0\0\0' >> %t
->>>>>>> 53a2923bf67bc164558d489493176630123abf7e
 
 RUN: printf '\0\0\0\0\0\0\0\023' >> %t
 RUN: printf '\0\0\0\0\0\0\0\067' >> %t

@@ -42,6 +42,13 @@ RUN: printf '\11\0\6\0\1\0\0\0' >> %t.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t.profraw
 RUN: printf '\02\0\0\0\0\0\0\0' >> %t.profraw
+// INTEL_CUSTOMIZATION
+// Add 2 bytes of 0 for the number of profiled loops,
+// plus 6 bytes of 0 to pad to a 64-bit aligmnent to
+// support the addition of loop trip count value
+// profiling types done by the xmain compiler.
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t.profraw
+// end INTEL_CUSTOMIZATION
 
 // Counter Section
 
