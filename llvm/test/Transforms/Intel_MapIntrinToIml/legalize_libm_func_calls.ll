@@ -1,6 +1,7 @@
 ; Check that both SVML function and scalar libm function calls are translated to legalized versions when -imf-arch-consistency is enabled.
 
-; RUN: opt -bugpoint-enable-legacy-pm -vector-library=SVML -S -iml-trans < %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vector-library=SVML -S -iml-trans < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,SVML
+; RUN: opt -bugpoint-enable-legacy-pm -S -iml-trans < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,NOSVML
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -15,7 +16,8 @@ define void @f1(double %c) {
   ret void
 }
 ; CHECK-LABEL: @f1
-; CHECK: call fast svml_cc <2 x double> @__svml_exp2_br
+; SVML: call fast svml_cc <2 x double> @__svml_exp2_br
+; NOSVML-NOT: call fast svml_cc <2 x double> @__svml_exp2_br
 ; CHECK: call double @__bwr_exp
 
 ; The calls in this function are either libm functions without imf attributes or non-libm functions.
@@ -31,7 +33,8 @@ define void @f2(double %c) {
 ; CHECK-LABEL: @f2
 ; CHECK-NOT: call fast svml_cc <2 x double> @__svml_exp2_br
 ; CHECK-NOT: call double @__bwr_exp
-; CHECK: call fast svml_cc <2 x double> @__svml_exp2(
+; SVML: call fast svml_cc <2 x double> @__svml_exp2(
+; NOSVML-NOT: call fast svml_cc <2 x double> @__svml_exp2(
 ; CHECK: call double @exp
 ; CHECK: call double @g
 
@@ -63,17 +66,21 @@ define void @f3(double %a, float %b, half %c) {
 ; CHECK-LABEL: @f3
 ; CHECK: call double @exp(
 ; CHECK: call double @__bwr_exp(
-; CHECK: call svml_cc <1 x double> @__svml_exp1(
+; SVML: call svml_cc <1 x double> @__svml_exp1(
+; NOSVML-NOT: call svml_cc <1 x double> @__svml_exp1(
 ; CHECK: call double @llvm.exp.f64(
 ; CHECK: call double @__bwr_exp(
-; CHECK: call svml_cc <1 x double> @__svml_exp1(
+; SVML: call svml_cc <1 x double> @__svml_exp1(
+; NOSVML-NOT: call svml_cc <1 x double> @__svml_exp1(
 
 ; CHECK: call float @expf(
 ; CHECK: call float @__bwr_expf(
-; CHECK: call svml_cc <1 x float> @__svml_expf1(
+; SVML: call svml_cc <1 x float> @__svml_expf1(
+; NOSVML-NOT: call svml_cc <1 x float> @__svml_expf1(
 ; CHECK: call float @llvm.exp.f32(
 ; CHECK: call float @__bwr_expf(
-; CHECK: call svml_cc <1 x float> @__svml_expf1(
+; SVML: call svml_cc <1 x float> @__svml_expf1(
+; NOSVML-NOT: call svml_cc <1 x float> @__svml_expf1(
 
 ; FP16 functions currently have no BWR variant.
 ; TODO: libimf_attr is not working correctly with FP16 + imf-use-svml
