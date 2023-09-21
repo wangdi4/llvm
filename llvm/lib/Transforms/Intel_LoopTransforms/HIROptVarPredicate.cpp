@@ -1371,13 +1371,15 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
                                                       EqualCandidates C2) {
     HLIf *If1 = C1.front();
     HLIf *If2 = C2.front();
-    if (If1->getNodeLevel() > If2->getNodeLevel())
-      return true;
+    unsigned NodeLevel1 = If1->getNodeLevel();
+    unsigned NodeLevel2 = If2->getNodeLevel();
+    if (NodeLevel1 != NodeLevel2)
+      return (NodeLevel1 > NodeLevel2);
 
     unsigned If1NestingLevel = getIfNestingLevel(If1);
     unsigned If2NestingLevel = getIfNestingLevel(If2);
-    if (If1NestingLevel < If2NestingLevel)
-      return true;
+    if (If1NestingLevel != If2NestingLevel)
+      return (If1NestingLevel < If2NestingLevel);
 
     return If1->getTopSortNum() < If2->getTopSortNum();
   };
