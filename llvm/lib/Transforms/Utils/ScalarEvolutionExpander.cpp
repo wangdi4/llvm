@@ -1425,13 +1425,8 @@ Value *SCEVExpander::visitAddRecExpr(const SCEVAddRecExpr *S) {
 }
 
 Value *SCEVExpander::visitPtrToIntExpr(const SCEVPtrToIntExpr *S) {
-<<<<<<< HEAD
   ScopeDbgLoc SDL(*this, S); // INTEL
-  Value *V =
-      expandCodeForImpl(S->getOperand(), S->getOperand()->getType());
-=======
   Value *V = expandCodeFor(S->getOperand(), S->getOperand()->getType());
->>>>>>> 32e15ae6e9cc8d8ef1f0969f2a0df993764f897b
   return ReuseOrCreateCast(V, S->getType(), CastInst::PtrToInt,
                            GetOptimalInsertionPointForCastOf(V));
 }
