@@ -266,8 +266,11 @@ public:
 
     // The input canon-expr needs to be invariant in an inner loop, and must
     // be defined outside of the loop.
-    if (!CE->isInvariantAtLevel(Level + 1) ||
-        CE->getDefinedAtLevel() == Level) {
+    if (Level == MaxLoopNestLevel) {
+      if (CE->isNonLinear())
+        return false;
+    } else if (!CE->isInvariantAtLevel(Level + 1) ||
+               CE->getDefinedAtLevel() == Level) {
       return false;
     }
 
