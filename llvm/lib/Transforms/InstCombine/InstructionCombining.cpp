@@ -162,13 +162,6 @@ STATISTIC(NumReassoc  , "Number of reassociations");
 DEBUG_COUNTER(VisitCounter, "instcombine-visit",
               "Controls which instructions are visited");
 
-// FIXME: these limits eventually should be as low as 2.
-#ifndef NDEBUG
-static constexpr unsigned InstCombineDefaultInfiniteLoopThreshold = 100;
-#else
-static constexpr unsigned InstCombineDefaultInfiniteLoopThreshold = 1000;
-#endif
-
 static cl::opt<bool>
 EnableCodeSinking("instcombine-code-sinking", cl::desc("Enable code sinking"),
                                               cl::init(true));
@@ -177,6 +170,7 @@ static cl::opt<unsigned> MaxSinkNumUsers(
     "instcombine-max-sink-users", cl::init(32),
     cl::desc("Maximum number of undroppable users for instruction sinking"));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Used for LIT tests to unconditionally suppress type lowering optimizations
 static cl::opt<bool>
@@ -214,6 +208,8 @@ static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
              "infinite loop"),
     cl::init(InstCombineDefaultInfiniteLoopThreshold), cl::Hidden);
 
+=======
+>>>>>>> c00f49cf12ff2916a372176f2154a83eb80f1692
 static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
              cl::desc("Maximum array size considered when doing a combine"));
