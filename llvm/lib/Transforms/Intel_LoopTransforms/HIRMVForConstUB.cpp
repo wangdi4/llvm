@@ -62,7 +62,7 @@ public:
 private:
   bool analyzeAndTransformLoop(HLLoop *Loop);
   void transformLoop(HLLoop *Loop, unsigned TempIndex, int64_t Constant);
-  bool transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop, unsigned BlobIndex,
+  void transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop, unsigned BlobIndex,
                           int64_t NewValue);
   void transformLoop(HLLoop *Loop, SmallVectorImpl<unsigned> &TripCounts);
 
@@ -266,7 +266,7 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
 // In most of the cases the loop range would consist of single loop. But if
 // multiple sibling loops are candidates with same BlobIdx and same NewValue,
 // we would like to put all of them under the same condition.
-bool HIRMVForConstUB::transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop,
+void HIRMVForConstUB::transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop,
                                          unsigned BlobIndex, int64_t NewValue) {
   // Since we multiversion those loops under the same condition using the same
   // blob, the blob should be defined no later than in the preheader of the very
@@ -300,6 +300,13 @@ bool HIRMVForConstUB::transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop,
 
     // Propogate new constant value of blob throught loopnest.
     propagateConstant(ThenNode, BlobIndex, NewValue);
+
+    // It is possible that after constant propogation and DCE 'then' branch
+    // would be optimized away. In this case 'if' would only consist of empty
+    // 'then' branch, so 'if' itself would be removed as well. All we need to do
+    // is return.
+    if (!If->getParent())
+      return;
   }
 
   // Move original node range into else branch.
@@ -308,7 +315,7 @@ bool HIRMVForConstUB::transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop,
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(If);
 
-  return true;
+  return;
 }
 
 bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
