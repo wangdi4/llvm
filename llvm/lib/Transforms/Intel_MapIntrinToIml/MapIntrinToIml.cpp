@@ -1459,6 +1459,8 @@ bool MapIntrinToImlImpl::runImpl() {
                       << "\n");
 
     bool IsSVMLFunction = VariantFuncName.startswith("__svml");
+    if (IsSVMLFunction && !TLI->isSVMLEnabled())
+      continue;
     // If the math function is converted to a scalar SVML function (possibly via
     // imf-use-svml), replace scalar type X in the function signature with
     // <1 x X> to ensure consistency with SVML calls from remainder loops of
