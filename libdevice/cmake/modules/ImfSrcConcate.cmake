@@ -104,8 +104,10 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/i1_s_ep.cpp
                                imf/intel/j0_s_ep.cpp
                                imf/intel/j1_s_ep.cpp
+                               imf/intel/jn_s_ep.cpp
                                imf/intel/y0_s_ep.cpp
                                imf/intel/y1_s_ep.cpp
+                               imf/intel/yn_s_ep.cpp
                                imf/intel/pown_s_ep.cpp
                                # end INTEL_CUSTOMIZATION
                                imf/imf_inline_fp32.cpp

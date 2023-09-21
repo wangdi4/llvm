@@ -689,8 +689,10 @@ extern __DPCPP_SYCL_EXTERNAL float __imf_i0f(float x);
 extern __DPCPP_SYCL_EXTERNAL float __imf_i1f(float x);
 extern __DPCPP_SYCL_EXTERNAL float __imf_j0f(float x);
 extern __DPCPP_SYCL_EXTERNAL float __imf_j1f(float x);
+extern __DPCPP_SYCL_EXTERNAL float __imf_jnf(int n, float x);
 extern __DPCPP_SYCL_EXTERNAL float __imf_y0f(float x);
 extern __DPCPP_SYCL_EXTERNAL float __imf_y1f(float x);
+extern __DPCPP_SYCL_EXTERNAL float __imf_ynf(int n, float x);
 extern __DPCPP_SYCL_EXTERNAL float __imf_pownf(float x, int y);
 // float64 imf builtins
 extern __DPCPP_SYCL_EXTERNAL double __imf_erfinv(double x);

@@ -887,9 +887,13 @@ float __devicelib_imf_j0f(float x);
 DEVICE_EXTERN_C_INLINE
 float __devicelib_imf_j1f(float x);
 DEVICE_EXTERN_C_INLINE
+float __devicelib_imf_jnf(int n, float x);
+DEVICE_EXTERN_C_INLINE
 float __devicelib_imf_y0f(float x);
 DEVICE_EXTERN_C_INLINE
 float __devicelib_imf_y1f(float x);
+DEVICE_EXTERN_C_INLINE
+float __devicelib_imf_ynf(int n, float x);
 DEVICE_EXTERN_C_INLINE
 float __devicelib_imf_pownf(float x, int y);
 
@@ -1025,9 +1029,13 @@ float __imf_j0f(float x) { return __devicelib_imf_j0f(x); }
 DEVICE_EXTERN_C_INLINE
 float __imf_j1f(float x) { return __devicelib_imf_j1f(x); }
 DEVICE_EXTERN_C_INLINE
+float __imf_jnf(int n, float x) { return __devicelib_imf_jnf(n, x); }
+DEVICE_EXTERN_C_INLINE
 float __imf_y0f(float x) { return __devicelib_imf_y0f(x); }
 DEVICE_EXTERN_C_INLINE
 float __imf_y1f(float x) { return __devicelib_imf_y1f(x); }
+DEVICE_EXTERN_C_INLINE
+float __imf_ynf(int n, float x) { return __devicelib_imf_ynf(n, x); }
 DEVICE_EXTERN_C_INLINE
 float __imf_pownf(float x, int y) { return __devicelib_imf_pownf(x, y); }
 DEVICE_EXTERN_C_INLINE

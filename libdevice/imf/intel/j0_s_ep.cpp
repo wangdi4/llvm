@@ -1,73 +1,73 @@
 /*******************************************************************************
- * INTEL CONFIDENTIAL
- * Copyright 1996 Intel Corporation.
- *
- * This software and the related documents are Intel copyrighted  materials, and
- * your use of  them is  governed by the  express license  under which  they
- *were provided to you (License).  Unless the License provides otherwise, you
- *may not use, modify, copy, publish, distribute,  disclose or transmit this
- *software or the related documents without Intel's prior written permission.
- *
- * This software and the related documents  are provided as  is,  with no
- *express or implied  warranties,  other  than those  that are  expressly stated
- *in the License.
- *******************************************************************************/
+* INTEL CONFIDENTIAL
+* Copyright 1996-2022 Intel Corporation.
+*
+* This software and the related documents are Intel copyrighted  materials,  and
+* your use of  them is  governed by the  express license  under which  they were
+* provided to you (License).  Unless the License provides otherwise, you may not
+* use, modify, copy, publish, distribute,  disclose or transmit this software or
+* the related documents without Intel's prior written permission.
+*
+* This software and the related documents  are provided as  is,  with no express
+* or implied  warranties,  other  than those  that are  expressly stated  in the
+* License.
+*******************************************************************************/
 #include "_imf_include_fp32.hpp"
 #ifdef __LIBDEVICE_IMF_ENABLED__
 namespace __imf_impl_j0_s_ep {
 namespace {
-static const int32_t __sj0_ep___ip_h = 0x0517CC1B;
-static const int32_t __sj0_ep___ip_m = 0x727220A9;
-static const int32_t __sj0_ep___ip_l = 0x28;
+static const int32_t __sj0_sincosf_ep___ip_h = 0x0517CC1B;
+static const int32_t __sj0_sincosf_ep___ip_m = 0x727220A9;
+static const int32_t __sj0_sincosf_ep___ip_l = 0x28;
 static const union {
   uint32_t w;
   float f;
-} __sj0_ep___cc4 = {0x3e6ce1b2u};
+} __sj0_sincosf_ep___cc4 = {0x3e6ce1b2u};
 static const union {
   uint32_t w;
   float f;
-} __sj0_ep___cc3 = {0xbfaae2beu};
+} __sj0_sincosf_ep___cc3 = {0xbfaae2beu};
 static const union {
   uint32_t w;
   float f;
-} __sj0_ep___cc2 = {0x4081e0eeu};
+} __sj0_sincosf_ep___cc2 = {0x4081e0eeu};
 static const union {
   uint32_t w;
   float f;
-} __sj0_ep___cc1 = {0xc09de9e6u};
+} __sj0_sincosf_ep___cc1 = {0xc09de9e6u};
 static const union {
   uint32_t w;
   float f;
-} __sj0_ep___cc1l = {0xb3e646a5u};
+} __sj0_sincosf_ep___cc1l = {0xb3e646a5u};
 static const union {
   uint32_t w;
   float f;
-} __sj0_ep___cc0 = {0x3f800000u};
+} __sj0_sincosf_ep___cc0 = {0x3f800000u};
 static const union {
   uint32_t w;
   float f;
-} __sj0_ep___cs3 = {0xbf16c981u};
+} __sj0_sincosf_ep___cs3 = {0xbf16c981u};
 static const union {
   uint32_t w;
   float f;
-} __sj0_ep___cs2 = {0x40232f49u};
+} __sj0_sincosf_ep___cs2 = {0x40232f49u};
 static const union {
   uint32_t w;
   float f;
-} __sj0_ep___cs1 = {0xc0a55dddu};
+} __sj0_sincosf_ep___cs1 = {0xc0a55dddu};
 static const union {
   uint32_t w;
   float f;
-} __sj0_ep___cs0 = {0x40490fdbu};
+} __sj0_sincosf_ep___cs0 = {0x40490fdbu};
 static const union {
   uint32_t w;
   float f;
-} __sj0_ep___cs0l = {0xb3d195e9u};
-static const uint32_t __sj0_ep_invpi_tbl[] = {
+} __sj0_sincosf_ep___cs0l = {0xb3d195e9u};
+static const uint32_t __sj0_sincosf_ep_invpi_tbl[] = {
     0,          0x28BE60DB, 0x9391054A, 0x7F09D5F4,
     0x7D4D3770, 0x36D8A566, 0x4F10E410, 0x7F9458EA};
-static int __sj0_ep_sincos_kernel_fp32(float xf, int n, float *psin,
-                                       float *pcos) {
+static inline int __sj0_sincos_ep_kernel_fp32(float xf, int n, float *psin,
+                                              float *pcos) {
   int nRet = 0;
   float xin = xf;
   uint64_t IP, IP2, N64 = (uint64_t)n;
@@ -102,14 +102,14 @@ static int __sj0_ep_sincos_kernel_fp32(float xf, int n, float *psin,
     // expon % 32
     j = ex & 0x1f;
     // x/Pi, scaled by 2^(63-j)
-    ip_low = (((uint32_t)__sj0_ep_invpi_tbl[index]) * ((uint32_t)mx));
-    IP = (((uint64_t)((uint32_t)(__sj0_ep_invpi_tbl[index + 1]))) *
+    ip_low = (((uint32_t)__sj0_sincosf_ep_invpi_tbl[index]) * ((uint32_t)mx));
+    IP = (((uint64_t)((uint32_t)(__sj0_sincosf_ep_invpi_tbl[index + 1]))) *
           ((uint32_t)(mx))) +
          (((uint64_t)ip_low) << 32);
     // scaled by 2^(95-j)
-    IP2 = (((uint64_t)((uint32_t)(__sj0_ep_invpi_tbl[index + 2]))) *
+    IP2 = (((uint64_t)((uint32_t)(__sj0_sincosf_ep_invpi_tbl[index + 2]))) *
            ((uint32_t)(mx))) +
-          ((((uint64_t)((uint32_t)(__sj0_ep_invpi_tbl[index + 3]))) *
+          ((((uint64_t)((uint32_t)(__sj0_sincosf_ep_invpi_tbl[index + 3]))) *
             ((uint32_t)(mx))) >>
            32);
     IP = IP + (IP2 >> 32);
@@ -124,12 +124,12 @@ static int __sj0_ep_sincos_kernel_fp32(float xf, int n, float *psin,
   {
     // products are really unsigned; operands are small enough so that signed
     // MUL works as well x*(23-ex)*(1/Pi)*2^28 p[k] products fit in 31 bits each
-    IP_s = (((int64_t)((int32_t)(mx))) * ((int32_t)(__sj0_ep___ip_h)));
+    IP_s = (((int64_t)((int32_t)(mx))) * ((int32_t)(__sj0_sincosf_ep___ip_h)));
     IP = (uint64_t)IP_s;
-    IP2_s = (((int64_t)((int32_t)(mx))) * ((int32_t)(__sj0_ep___ip_m)));
+    IP2_s = (((int64_t)((int32_t)(mx))) * ((int32_t)(__sj0_sincosf_ep___ip_m)));
     IP2 = (uint64_t)IP2_s;
     // scale (23-ex)*2^(28+32+7)
-    ip_low_s = (((int32_t)mx) * ((int32_t)__sj0_ep___ip_l));
+    ip_low_s = (((int32_t)mx) * ((int32_t)__sj0_sincosf_ep___ip_l));
     ip_low = (uint32_t)ip_low_s;
     IP2 = (IP2 << 7) + ip_low;
     // (x/Pi)*2^63
@@ -160,13 +160,15 @@ static int __sj0_ep_sincos_kernel_fp32(float xf, int n, float *psin,
   Rh.f = __fma(Rh.f, scale.f, 0.0f);
   // (Rh)^2
   R2h = __fma(Rh.f, Rh.f, 0.0f);
-  cpoly.f = __fma(__sj0_ep___cc4.f, R2h, __sj0_ep___cc3.f);
-  spoly.f = __fma(__sj0_ep___cs3.f, R2h, __sj0_ep___cs2.f);
-  cpoly.f = __fma(cpoly.f, R2h, __sj0_ep___cc2.f);
-  spoly.f = __fma(spoly.f, R2h, __sj0_ep___cs1.f);
-  cpoly.f = __fma(cpoly.f, R2h, __sj0_ep___cc1.f);
-  spoly.f = __fma(spoly.f, R2h, __sj0_ep___cs0.f);
-  cpoly.f = __fma(cpoly.f, R2h, __sj0_ep___cc0.f);
+  cpoly.f = __fma(__sj0_sincosf_ep___cc4.f, R2h,
+                                   __sj0_sincosf_ep___cc3.f);
+  spoly.f = __fma(__sj0_sincosf_ep___cs3.f, R2h,
+                                   __sj0_sincosf_ep___cs2.f);
+  cpoly.f = __fma(cpoly.f, R2h, __sj0_sincosf_ep___cc2.f);
+  spoly.f = __fma(spoly.f, R2h, __sj0_sincosf_ep___cs1.f);
+  cpoly.f = __fma(cpoly.f, R2h, __sj0_sincosf_ep___cc1.f);
+  spoly.f = __fma(spoly.f, R2h, __sj0_sincosf_ep___cs0.f);
+  cpoly.f = __fma(cpoly.f, R2h, __sj0_sincosf_ep___cc0.f);
   spoly.f = __fma(spoly.f, Rh.f, 0.0f);
   sgn_p = sgn_xp & 0x80000000;
   // adjust sign
@@ -181,7 +183,7 @@ static int __sj0_ep_sincos_kernel_fp32(float xf, int n, float *psin,
 }
 /* polynomial minimax approximation of J0(x) = 1+y*Q2(y), y=x^2, |x|=[0..2^(-2)]
  */
-static const float __sj0_ep_fQ2[] = {
+static const float __sj0_j0f_ep_fQ2[] = {
     -0x1p-2, //           -0.25 [0xbe800000]  -.24999999999999192312749585e-00
              //           [0xbfcffffffffffedd]
     0x1p-6,  //        0.015625 [0x3c800000]   .15624999995864828628011622e-01
@@ -193,18 +195,18 @@ static const float __sj0_ep_fQ2[] = {
 };
 /* polynomial minimax approximation of J0(x) = 1+y*Q3(y), y=x^2, |x|=[0..2^(-8)]
  */
-static const float __sj0_ep_fQ3[] = {
+static const float __sj0_j0f_ep_fQ3[] = {
     -0x1p-2, //           -0.25 [0xbe800000] -.2499999999999873712130948e-00
              //           [0xbfcffffffffffe39]
     0x1.fffff2p-7, //     0.015624993 [0x3c7ffff9]
                    //     .1562499337726327118536229e-01 [0x3f8fffff1c71caab]
 };
 /* polynomial minimax approximation of J0(x) = Q1(x-z0) on interval (0,s1). */
-static const float __sj0_ep_fZ0[] = {
+static const float __sj0_j0f_ep_fZ0[] = {
     0x1.33d152p+1,  //       2.4048254 [0x4019e8a9]
     0x1.d2e368p-24, //    1.087059e-07 [0x33e971b4] Low part
 };
-static const float __sj0_ep_fQ1[] = {
+static const float __sj0_j0f_ep_fQ1[] = {
     -0x1.19b792p-54, //  -6.1087652e-17 [0xa48cdbc9]
     -0x1.09cdb4p-1,  //     -0.51914752 [0xbf04e6da]
     0x1.ba1deep-4,   //       0.1079387 [0x3ddd0ef7]
@@ -221,11 +223,11 @@ static const float __sj0_ep_fQ1[] = {
     -0x1.1327d2p-35, //  -3.1281564e-11 [0xae0993e9]
 };
 /* polynomial minimax approximation of J0(x) = P1(x-z1) on interval (s1,s2). */
-static const float __sj0_ep_fZ1[] = {
+static const float __sj0_j0f_ep_fZ1[] = {
     0x1.6148f6p+2,   //       5.5200782 [0x40b0a47b]
     -0x1.34f46ep-24, //  -7.1934146e-08 [0xb39a7a37] Low part
 };
-static const float __sj0_ep_fP1[] = {
+static const float __sj0_j0f_ep_fP1[] = {
     -0x1.fbb40ap-56, //   -2.752265e-17 [0xa3fdda05]
     0x1.5c6e6p-2,    //       0.3402648 [0x3eae3730]
     -0x1.f8f72ep-6,  //    -0.030820651 [0xbcfc7b97]
@@ -241,11 +243,11 @@ static const float __sj0_ep_fP1[] = {
     0x1.d368acp-33,  //   2.1255295e-10 [0x2f69b456]
 };
 /* polynomial minimax approximation of J0(x) = P2(x-z2) on interval (s2,s3). */
-static const float __sj0_ep_fZ2[] = {
+static const float __sj0_j0f_ep_fZ2[] = {
     0x1.14eb56p+3,  //       8.6537275 [0x410a75ab]
     0x1.999bdap-22, //   3.8147792e-07 [0x34cccded] Low part
 };
-static const float __sj0_ep_fP2[] = {
+static const float __sj0_j0f_ep_fP2[] = {
     -0x1.6e8eecp-54, //  -7.9484659e-17 [0xa4b74776]
     -0x1.15f798p-2,  //     -0.27145231 [0xbe8afbcc]
     0x1.00f7fcp-6,   //     0.015684124 [0x3c807bfe]
@@ -261,11 +263,11 @@ static const float __sj0_ep_fP2[] = {
     -0x1.85c2dep-33, //  -1.7724287e-10 [0xaf42e16f]
 };
 /* polynomial minimax approximation of J0(x) = P3(x-z3) on interval (s3,s4). */
-static const float __sj0_ep_fZ3[] = {
+static const float __sj0_j0f_ep_fZ3[] = {
     0x1.79544p+3,   //       11.791534 [0x413caa20]
     0x1.04e56cp-26, //   1.5186156e-08 [0x328272b6] Low part
 };
-static const float __sj0_ep_fP3[] = {
+static const float __sj0_j0f_ep_fP3[] = {
     -0x1.2d8ed4p-54, //  -6.5389951e-17 [0xa496c76a]
     0x1.dc13e6p-3,   //      0.23245983 [0x3e6e09f3]
     -0x1.42ff0cp-7,  //   -0.0098570641 [0xbc217f86]
@@ -281,11 +283,11 @@ static const float __sj0_ep_fP3[] = {
     0x1.39fb7p-33,   //   1.4278256e-10 [0x2f1cfdb8]
 };
 /* polynomial minimax approximation of J0(x) = P4(x-z4) on interval (s4,s5). */
-static const float __sj0_ep_fZ4[] = {
+static const float __sj0_j0f_ep_fZ4[] = {
     0x1.ddca14p+3,   //       14.930918 [0x416ee50a]
     -0x1.0d8e2ep-25, //  -3.1380377e-08 [0xb306c717] Low part
 };
-static const float __sj0_ep_fP4[] = {
+static const float __sj0_j0f_ep_fP4[] = {
     -0x1.50be2ep-53, //  -1.4603895e-16 [0xa5285f17]
     -0x1.a701dp-3,   //     -0.20654643 [0xbe5380e8]
     0x1.c54b92p-8,   //    0.0069167358 [0x3be2a5c9]
@@ -301,7 +303,7 @@ static const float __sj0_ep_fP4[] = {
     -0x1.f88bbp-34,  //   -1.147204e-10 [0xaefc45d8]
 };
 /* polynomial pade approximation P0(x) = PP(256/x^2) in point 256/x^2 = 0.5 */
-static const float __sj0_ep_fPP[] = {
+static const float __sj0_j0f_ep_fPP[] = {
     0x1p+0,          //               1 [0x3f800000]
     -0x1.2p-12,      //   -0.0002746582 [0xb9900000]
     0x1.cb5f86p-20,  //   1.7112983e-06 [0x35e5afc3]
@@ -311,7 +313,7 @@ static const float __sj0_ep_fPP[] = {
 };
 /* polynomial pade approximation Q0(x) = QP(256/x^2)*(16/x)) in point 256/x^2 =
  * 0.5 */
-static const float __sj0_ep_fQP[] = {
+static const float __sj0_j0f_ep_fQP[] = {
     -0x1p-7,         //      -0.0078125 [0xbc000000]
     0x1.2cp-16,      //   1.7881393e-05 [0x37960000]
     -0x1.d11ca8p-23, //  -2.1658462e-07 [0xb4688e54]
@@ -319,7 +321,51 @@ static const float __sj0_ep_fQP[] = {
     -0x1.7a8362p-32, //  -3.4425576e-10 [0xafbd41b1]
     0x1.845fecp-36,  //   2.2076545e-11 [0x2dc22ff6]
 };
-inline int __devicelib_imf_internal_sj0(const float *a, float *r) {
+static const float __sj0_j0f_ep_fPP_MP[] = {
+    0x1.fffffep-1,
+    0x1.ffffcp-25, // HI + LO:      0.99999994 +   5.9604531e-08 [0x3f7fffff +
+                   // 0x337fffe0]
+    -0x1.1ffffep-12,
+    -0x1.e81b16p-36, // HI + LO:  -0.00027465817 +  -2.7745603e-11 [0xb98fffff +
+                     // 0xadf40d8b]
+    0x1.cb5f86p-20,
+    0x1.449b0ep-45, // HI + LO:   1.7112983e-06 +    3.603847e-14 [0x35e5afc3 +
+                    // 0x29224d87]
+    -0x1.24f578p-25,
+    -0x1.081276p-50, // HI + LO:    -3.41049e-08 +  -9.1618419e-16 [0xb3127abc +
+                     // 0xa684093b]
+    0x1.7ca5eep-30,
+    0x1.0136f8p-55, // HI + LO:   1.3847899e-09 +   2.7887276e-17 [0x30be52f7 +
+                    // 0x24009b7c]
+    -0x1.47a91p-34,
+    -0x1.1e8214p-59, // HI + LO:   -7.450135e-11 +  -1.9414545e-18 [0xaea3d488 +
+                     // 0xa20f410a]
+};
+static const float __sj0_j0f_ep_fQP_MP[] = {
+    -0x1.fffffep-8,
+    -0x1.fff4e4p-32, // HI + LO:   -0.0078124995 +  -4.6562182e-10 [0xbbffffff +
+                     // 0xaffffa72]
+    0x1.2bfffep-16,
+    0x1.790014p-40, // HI + LO:   1.7881392e-05 +   1.3393741e-12 [0x3795ffff +
+                    // 0x2bbc800a]
+    -0x1.d11ca8p-23,
+    -0x1.2ce594p-49, // HI + LO:  -2.1658462e-07 +  -2.0878909e-15 [0xb4688e54 +
+                     // 0xa71672ca]
+    0x1.b9d68ep-28,
+    0x1.5d6bdcp-54, // HI + LO:   6.4295906e-09 +   7.5768672e-17 [0x31dceb47 +
+                    // 0x24aeb5ee]
+    -0x1.7a8362p-32,
+    -0x1.e14eecp-58, // HI + LO:  -3.4425576e-10 +  -6.5229437e-18 [0xafbd41b1 +
+                     // 0xa2f0a776]
+    0x1.845fecp-36,
+    0x1.b972dap-62, // HI + LO:   2.2076545e-11 +   3.7392154e-19 [0x2dc22ff6 +
+                    // 0x20dcb96d]
+};
+static const float __sj0_j0f_ep_fptonpi_MP[] = {
+    0x1.45f306p-1, 0x1.b9391p-26 // HI + LO:      0.63661975 +   2.5682553e-08
+                                 // [0x3f22f983 + 0x32dc9c88]
+};
+static inline int __sj0_j0_ep_kernel_fp32(const float *a, float *r) {
   int nRet = 0;
   float xf = *a;
   uint32_t ix = ((*(uint32_t *)&xf) & ~0x80000000);
@@ -338,16 +384,19 @@ inline int __devicelib_imf_internal_sj0(const float *a, float *r) {
             {
               if (ix < 0x32000000) /* 0 <= |x| < 2^(-27) */
               {
-                return (1.0f - fax);
+                *r = (1.0f - fax);
+                return nRet;
               } else /* 2^(-27) <= |x| < 2^(-14) */
               {
-                return (1.0f - xf * xf);
+                *r = (1.0f - xf * xf);
+                return nRet;
               }
             } else /* 2^(-14) <= |x| < 2^(-8) */
             {
               float fx, fy, fresult;
               fx = xf, fy = fx * fx;
-              fresult = (__sj0_ep_fQ3[1] * fy + __sj0_ep_fQ3[0]) * fy + 1.0f;
+              fresult =
+                  (__sj0_j0f_ep_fQ3[1] * fy + __sj0_j0f_ep_fQ3[0]) * fy + 1.0f;
               *r = fresult;
               return nRet;
             }
@@ -355,47 +404,48 @@ inline int __devicelib_imf_internal_sj0(const float *a, float *r) {
           {
             float fx, fy, fz, fresult;
             fx = xf, fy = fx * fx, fz = fy * fy;
-            fresult = (__sj0_ep_fQ2[3] * fz + __sj0_ep_fQ2[1]) * fz +
-                      (__sj0_ep_fQ2[2] * fz + __sj0_ep_fQ2[0]) * fy + 1.0f;
+            fresult = (__sj0_j0f_ep_fQ2[3] * fz + __sj0_j0f_ep_fQ2[1]) * fz +
+                      (__sj0_j0f_ep_fQ2[2] * fz + __sj0_j0f_ep_fQ2[0]) * fy +
+                      1.0f;
             *r = fresult;
             return nRet;
           }
         } else /* 2^(-2) <= |x| < 3.8317060470 */
         {
           float pax = fax, px, py, pz, pp, pq, presult;
-          px = pax - __sj0_ep_fZ0[0];
-          px = px - __sj0_ep_fZ0[1];
+          px = pax - __sj0_j0f_ep_fZ0[0];
+          px = px - __sj0_j0f_ep_fZ0[1];
           presult =
-              __sj0_ep_fQ1[0] +
+              __sj0_j0f_ep_fQ1[0] +
               px *
-                  (__sj0_ep_fQ1[1] +
+                  (__sj0_j0f_ep_fQ1[1] +
                    px *
-                       (__sj0_ep_fQ1[2] +
+                       (__sj0_j0f_ep_fQ1[2] +
                         px *
-                            (__sj0_ep_fQ1[3] +
+                            (__sj0_j0f_ep_fQ1[3] +
                              px *
-                                 (__sj0_ep_fQ1[4] +
+                                 (__sj0_j0f_ep_fQ1[4] +
                                   px *
-                                      (__sj0_ep_fQ1[5] +
+                                      (__sj0_j0f_ep_fQ1[5] +
                                        px *
-                                           (__sj0_ep_fQ1[6] +
+                                           (__sj0_j0f_ep_fQ1[6] +
                                             px *
-                                                (__sj0_ep_fQ1[7] +
+                                                (__sj0_j0f_ep_fQ1[7] +
                                                  px *
-                                                     (__sj0_ep_fQ1[8] +
+                                                     (__sj0_j0f_ep_fQ1[8] +
                                                       px *
-                                                          (__sj0_ep_fQ1[9] +
+                                                          (__sj0_j0f_ep_fQ1[9] +
                                                            px *
-                                                               (__sj0_ep_fQ1
+                                                               (__sj0_j0f_ep_fQ1
                                                                     [10] +
                                                                 px *
-                                                                    (__sj0_ep_fQ1
+                                                                    (__sj0_j0f_ep_fQ1
                                                                          [11] +
                                                                      px *
-                                                                         (__sj0_ep_fQ1
+                                                                         (__sj0_j0f_ep_fQ1
                                                                               [12] +
                                                                           px *
-                                                                              __sj0_ep_fQ1
+                                                                              __sj0_j0f_ep_fQ1
                                                                                   [13]))))))))))));
           *r = (float)presult;
           return nRet;
@@ -409,21 +459,21 @@ inline int __devicelib_imf_internal_sj0(const float *a, float *r) {
         {
           if (ix < 0x40e07fb0) /* 7.0155868 */
           {
-            pP = __sj0_ep_fP1;
-            pZ = __sj0_ep_fZ1;
+            pP = __sj0_j0f_ep_fP1;
+            pZ = __sj0_j0f_ep_fZ1;
           } else {
-            pP = __sj0_ep_fP2;
-            pZ = __sj0_ep_fZ2;
+            pP = __sj0_j0f_ep_fP2;
+            pZ = __sj0_j0f_ep_fZ2;
           }
         } else /* 10.173468589782714843750 <= |x| < 16.4706306457519531250 */
         {
           if (ix < 0x41552dd8) /* 13.323692321777343750 */
           {
-            pP = __sj0_ep_fP3;
-            pZ = __sj0_ep_fZ3;
+            pP = __sj0_j0f_ep_fP3;
+            pZ = __sj0_j0f_ep_fZ3;
           } else {
-            pP = __sj0_ep_fP4;
-            pZ = __sj0_ep_fZ4;
+            pP = __sj0_j0f_ep_fP4;
+            pZ = __sj0_j0f_ep_fZ4;
           }
         }
         px = pax - pZ[0];
@@ -462,20 +512,20 @@ inline int __devicelib_imf_internal_sj0(const float *a, float *r) {
       const float ptonpi = 0x1.45f306p-1; // 0.63661975 [0x3f22f983] 2/Pi
       float px = fax, pxi = 1.0f / px, py = 16.0f * pxi, pz = py * py, pp, pq,
             presult, ps, pc, psq = __sqrt(ptonpi * pxi);
-      __sj0_ep_sincos_kernel_fp32(fax, -1, &ps, &pc);
-      pp = __sj0_ep_fPP[0] +
-           pz * (__sj0_ep_fPP[1] +
-                 pz * (__sj0_ep_fPP[2] +
-                       pz * (__sj0_ep_fPP[3] +
-                             pz * (__sj0_ep_fPP[4] + pz * (__sj0_ep_fPP[5])))));
-      pq = py * (__sj0_ep_fQP[0] +
-                 pz * (__sj0_ep_fQP[1] +
-                       pz * (__sj0_ep_fQP[2] +
-                             pz * (__sj0_ep_fQP[3] +
-                                   pz * (__sj0_ep_fQP[4] +
-                                         pz * (__sj0_ep_fQP[5]))))));
-      presult = psq * (pp * pc - pq * ps);
-      *r = (float)presult;
+      __sj0_sincos_ep_kernel_fp32(fax, -1, &ps, &pc);
+      pp = __sj0_j0f_ep_fPP[0] +
+           pz * (__sj0_j0f_ep_fPP[1] +
+                 pz * (__sj0_j0f_ep_fPP[2] +
+                       pz * (__sj0_j0f_ep_fPP[3] +
+                             pz * (__sj0_j0f_ep_fPP[4] +
+                                   pz * (__sj0_j0f_ep_fPP[5])))));
+      pq = py * (__sj0_j0f_ep_fQP[0] +
+                 pz * (__sj0_j0f_ep_fQP[1] +
+                       pz * (__sj0_j0f_ep_fQP[2] +
+                             pz * (__sj0_j0f_ep_fQP[3] +
+                                   pz * (__sj0_j0f_ep_fQP[4] +
+                                         pz * (__sj0_j0f_ep_fQP[5]))))));
+      *r = psq * (pp * pc - pq * ps);
       return nRet;
     }
   } else /* INF or NaN */
@@ -490,6 +540,10 @@ inline int __devicelib_imf_internal_sj0(const float *a, float *r) {
       return nRet;
     }
   }
+}
+
+inline int __devicelib_imf_internal_sj0(const float *a, float *r) {
+  return __sj0_j0_ep_kernel_fp32(a, r);
 }
 } /* namespace */
 } /* namespace __imf_impl_j0_s_ep */
