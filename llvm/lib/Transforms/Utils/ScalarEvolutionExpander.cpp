@@ -336,11 +336,11 @@ Value *SCEVExpander::InsertBinop(Instruction::BinaryOps Opcode,
 /// loop-invariant portions of expressions, after considering what
 /// can be folded using target addressing modes.
 ///
-Value *SCEVExpander::expandAddToGEP(const SCEV *Offset, Type *Ty, Value *V) {
+Value *SCEVExpander::expandAddToGEP(const SCEV *Offset, Value *V) {
   assert(!isa<Instruction>(V) ||
          SE.DT.dominates(cast<Instruction>(V), &*Builder.GetInsertPoint()));
 
-  Value *Idx = expandCodeFor(Offset, Ty);
+  Value *Idx = expand(Offset);
 
   // Fold a GEP with constant operands.
   if (Constant *CLHS = dyn_cast<Constant>(V))
@@ -362,7 +362,7 @@ Value *SCEVExpander::expandAddToGEP(const SCEV *Offset, Type *Ty, Value *V) {
       if (IP->getOpcode() == Instruction::GetElementPtr &&
           IP->getOperand(0) == V && IP->getOperand(1) == Idx &&
           cast<GEPOperator>(&*IP)->getSourceElementType() ==
-              Type::getInt8Ty(Ty->getContext()))
+              Builder.getInt8Ty())
         return &*IP;
       if (IP == BlockBegin)
         break;
@@ -560,8 +560,7 @@ Value *SCEVExpander::visitAddExpr(const SCEVAddExpr *S) {
             X = SE.getSCEV(U->getValue());
         NewOps.push_back(X);
       }
-      Type *Ty = SE.getEffectiveSCEVType(S->getType());
-      Sum = expandAddToGEP(SE.getAddExpr(NewOps), Ty, Sum);
+      Sum = expandAddToGEP(SE.getAddExpr(NewOps), Sum);
     } else if (Op->isNonConstantNegative()) {
       // Instead of doing a negate and add, just do a subtract.
       Value *W = expand(SE.getNegativeSCEV(Op));
@@ -863,12 +862,11 @@ bool SCEVExpander::isExpandedAddRecExprPHI(PHINode *PN, Instruction *IncV,
 /// Typically this is the LatchBlock terminator or IVIncInsertPos, but we may
 /// need to materialize IV increments elsewhere to handle difficult situations.
 Value *SCEVExpander::expandIVInc(PHINode *PN, Value *StepV, const Loop *L,
-                                 Type *ExpandTy, Type *IntTy,
                                  bool useSubtract) {
   Value *IncV;
   // If the PHI is a pointer, use a GEP, otherwise use an add or sub.
-  if (ExpandTy->isPointerTy()) {
-    IncV = expandAddToGEP(SE.getSCEV(StepV), IntTy, PN);
+  if (PN->getType()->isPointerTy()) {
+    IncV = expandAddToGEP(SE.getSCEV(StepV), PN);
   } else {
     IncV = useSubtract ?
       Builder.CreateSub(PN, StepV, Twine(IVName) + ".iv.next") :
@@ -1106,7 +1104,7 @@ SCEVExpander::getAddRecExprPHILiterally(const SCEVAddRecExpr *Normalized,
     Instruction *InsertPos = L == IVIncInsertLoop ?
       IVIncInsertPos : Pred->getTerminator();
     Builder.SetInsertPoint(InsertPos);
-    Value *IncV = expandIVInc(PN, StepV, L, ExpandTy, IntTy, useSubtract);
+    Value *IncV = expandIVInc(PN, StepV, L, useSubtract);
 
     if (isa<OverflowingBinaryOperator>(IncV)) {
       if (IncrementIsNUW)
@@ -1236,7 +1234,7 @@ Value *SCEVExpander::expandAddRecExprLiterally(const SCEVAddRecExpr *S) {
         StepV =
             expandCodeFor(Step, IntTy, L->getHeader()->getFirstInsertionPt());
       }
-      Result = expandIVInc(PN, StepV, L, ExpandTy, IntTy, useSubtract);
+      Result = expandIVInc(PN, StepV, L, useSubtract);
     }
   }
 
@@ -1269,9 +1267,9 @@ Value *SCEVExpander::expandAddRecExprLiterally(const SCEVAddRecExpr *S) {
     if (isa<PointerType>(ExpandTy)) {
       if (Result->getType()->isIntegerTy()) {
         Value *Base = expandCodeFor(PostLoopOffset, ExpandTy);
-        Result = expandAddToGEP(SE.getUnknown(Result), IntTy, Base);
+        Result = expandAddToGEP(SE.getUnknown(Result), Base);
       } else {
-        Result = expandAddToGEP(PostLoopOffset, IntTy, Result);
+        Result = expandAddToGEP(PostLoopOffset, Result);
       }
     } else {
       Result = InsertNoopCastOfTo(Result, IntTy);
@@ -1326,7 +1324,7 @@ Value *SCEVExpander::visitAddRecExpr(const SCEVAddRecExpr *S) {
   if (!S->getStart()->isZero()) {
     if (isa<PointerType>(S->getType())) {
       Value *StartV = expand(SE.getPointerBase(S));
-      return expandAddToGEP(SE.removePointerBase(S), Ty, StartV);
+      return expandAddToGEP(SE.removePointerBase(S), StartV);
     }
 
     SmallVector<const SCEV *, 4> NewOps(S->operands());

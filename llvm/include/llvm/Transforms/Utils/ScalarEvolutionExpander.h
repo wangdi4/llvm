@@ -455,7 +455,7 @@ private:
 
   /// Expand a SCEVAddExpr with a pointer type into a GEP instead of using
   /// ptrtoint+arithmetic+inttoptr.
-  Value *expandAddToGEP(const SCEV *Op, Type *Ty, Value *V);
+  Value *expandAddToGEP(const SCEV *Op, Value *V);
 
   /// Find a previous Value in ExprValueMap for expand.
   /// DropPoisonGeneratingInsts is populated with instructions for which
@@ -516,8 +516,8 @@ private:
   PHINode *getAddRecExprPHILiterally(const SCEVAddRecExpr *Normalized,
                                      const Loop *L, Type *ExpandTy, Type *IntTy,
                                      Type *&TruncTy, bool &InvertStep);
-  Value *expandIVInc(PHINode *PN, Value *StepV, const Loop *L, Type *ExpandTy,
-                     Type *IntTy, bool useSubtract);
+  Value *expandIVInc(PHINode *PN, Value *StepV, const Loop *L,
+                     bool useSubtract);
 
   void fixupInsertPoints(Instruction *I);
 
