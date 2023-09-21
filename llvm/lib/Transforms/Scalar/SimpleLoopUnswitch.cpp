@@ -3462,14 +3462,10 @@ static bool shouldInsertFreeze(Loop &L, Instruction &TI, DominatorTree &DT,
 static bool unswitchBestCondition(
     Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
     AAResults &AA, TargetTransformInfo &TTI,
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     TargetLibraryInfo &TLI,
 #endif // INTEL CUSTOMIZATION
-    function_ref<void(bool, bool, ArrayRef<Loop *>)> UnswitchCB,
-=======
     function_ref<void(bool, bool, bool, ArrayRef<Loop *>)> UnswitchCB,
->>>>>>> 8362cae71b80bc43c8c680cdfb13c495705a622f
     ScalarEvolution *SE, MemorySSAUpdater *MSSAU,
     function_ref<void(Loop &, StringRef)> DestroyLoopCB) {
   // Collect all invariant conditions within this loop (as opposed to an inner
@@ -3575,17 +3571,11 @@ static bool unswitchBestCondition(
 /// done.
 static bool
 unswitchLoop(Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
              AAResults &AA, TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
              bool Trivial, bool NonTrivial,
 #endif // INTEL_CUSTOMIZATION
-             function_ref<void(bool, bool, ArrayRef<Loop *>)> UnswitchCB,
-=======
-             AAResults &AA, TargetTransformInfo &TTI, bool Trivial,
-             bool NonTrivial,
              function_ref<void(bool, bool, bool, ArrayRef<Loop *>)> UnswitchCB,
->>>>>>> 8362cae71b80bc43c8c680cdfb13c495705a622f
              ScalarEvolution *SE, MemorySSAUpdater *MSSAU,
              ProfileSummaryInfo *PSI, BlockFrequencyInfo *BFI,
              function_ref<void(Loop &, StringRef)> DestroyLoopCB) {
