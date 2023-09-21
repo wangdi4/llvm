@@ -183,20 +183,6 @@ set(COMPILER_RT_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
 pythonize_bool(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR)
 
-# INTEL_CUSTOMIZATION
-# Create an alias of the "x86_64-unknown-linux-gnu" per-target runtime
-# directory to a "glibc" vendored version. The purpose of this is to support
-# finding runtimes during self-builds with "--target x86_64-glibc-linux-gnu".
-# Note that end users have no use for this link.
-if (LLVM_ENABLE_PER_TARGET_RUNTIME_DIR)
-  if ("${COMPILER_RT_DEFAULT_TARGET_TRIPLE}" MATCHES "x86_64-unknown-linux-gnu")
-    file(MAKE_DIRECTORY "${COMPILER_RT_OUTPUT_LIBRARY_DIR}")
-    file(CREATE_LINK "x86_64-unknown-linux-gnu" "${COMPILER_RT_OUTPUT_LIBRARY_DIR}/x86_64-glibc-linux-gnu" SYMBOLIC)
-    install(FILES "${COMPILER_RT_OUTPUT_LIBRARY_DIR}/x86_64-glibc-linux-gnu" DESTINATION "${COMPILER_RT_INSTALL_LIBRARY_DIR}" COMPONENT clang_rt_glibc_alias)
-  endif()
-endif()
-# end INTEL_CUSTOMIZATION
-
 # We support running instrumented tests when we're not cross-compiling
 # and target a UNIX-like system or Windows.
 # We can run tests on Android even when we are cross-compiling.
@@ -373,6 +359,35 @@ option(COMPILER_RT_USE_BUILTINS_LIBRARY
   "Use compiler-rt builtins instead of libgcc" ${DEFAULT_COMPILER_RT_USE_BUILTINS_LIBRARY})
 
 include(config-ix)
+
+# INTEL_CUSTOMIZATION
+# Create an alias of the "*-unknown-linux-gnu" per-target runtime directory to
+# a "glibc" vendored version. The purpose of this is to support finding
+# runtimes during self-builds with, e.g., "--target x86_64-glibc-linux-gnu".
+# This must be run after config-ix, which enumerates the
+# COMPILER_RT_SUPPORTED_ARCH list. Note that end users have no use for this
+# link.
+if (LLVM_ENABLE_PER_TARGET_RUNTIME_DIR AND NOT APPLE)
+  # Iterate over the archs to deploy libraries for.
+  foreach(arch ${COMPILER_RT_SUPPORTED_ARCH})
+    # For each arch, determine the target triple.
+    get_compiler_rt_target(${arch} target)
+    # Add a symlink to alias any "unknown" vendored target runtime directory to
+    # a "glibc" one.
+    if ("${target}" MATCHES "^(x86_64|i386)-unknown-(linux-gnu)$")
+      message("COMPILER_RT_SUPPORTED_ARCH: ${arch} -> ${target}")
+      file(MAKE_DIRECTORY "${COMPILER_RT_OUTPUT_LIBRARY_DIR}")
+      file(CREATE_LINK "${CMAKE_MATCH_1}-unknown-${CMAKE_MATCH_2}"
+        "${COMPILER_RT_OUTPUT_LIBRARY_DIR}/${CMAKE_MATCH_1}-glibc-${CMAKE_MATCH_2}"
+        SYMBOLIC)
+      install(FILES
+        "${COMPILER_RT_OUTPUT_LIBRARY_DIR}/${CMAKE_MATCH_1}-glibc-${CMAKE_MATCH_2}"
+        DESTINATION "${COMPILER_RT_INSTALL_LIBRARY_DIR}"
+        COMPONENT clang_rt_glibc_alias)
+    endif()
+  endforeach()
+endif()
+# end INTEL_CUSTOMIZATION
 
 #================================
 # Setup Compiler Flags
