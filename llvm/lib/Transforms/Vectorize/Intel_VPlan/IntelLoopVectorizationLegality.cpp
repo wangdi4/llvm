@@ -705,8 +705,8 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
     return bailoutWithDebug(
         OptReportVerbosity::Medium, OptRemarkID::VecFailComplexControlFlow,
         INTERNAL("Loop control flow is not understood by vectorizer"),
-        WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                      : getAuxMsg(AuxRemarkID::Loop),
+        WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                      : AuxRemarkID::Loop,
         std::string(" 5.0"));
 
   // We only handle bottom-tested loops, i.e. loop in which the condition is
@@ -716,8 +716,8 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
     return bailoutWithDebug(
         OptReportVerbosity::Medium, OptRemarkID::VecFailComplexControlFlow,
         INTERNAL("Loop control flow is not understood by vectorizer"),
-        WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                      : getAuxMsg(AuxRemarkID::Loop),
+        WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                      : AuxRemarkID::Loop,
         std::string(" 5.0"));
 
   // ScalarEvolution needs to be able to find the exit count.
@@ -726,8 +726,8 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
     return bailoutWithDebug(
         OptReportVerbosity::High, OptRemarkID::VecFailUnknownInductionVariable,
         INTERNAL("LV: SCEV could not compute the loop iteration count."),
-        WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                      : getAuxMsg(AuxRemarkID::Loop),
+        WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                      : AuxRemarkID::Loop,
         std::string(" 5.0"));
 
   // Check if aliasing of privates is safe outside of the loop.
@@ -749,8 +749,8 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
         return bailoutWithDebug(
             OptReportVerbosity::Medium, OptRemarkID::VecFailBadType,
             INTERNAL("Instruction contains unsupported data type"),
-            WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                          : getAuxMsg(AuxRemarkID::Loop));
+            WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                          : AuxRemarkID::Loop);
 
       if (auto *Phi = dyn_cast<PHINode>(&I)) {
 
@@ -782,8 +782,8 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
               OptReportVerbosity::Medium, OptRemarkID::VecFailUnknownLiveOut,
               INTERNAL("Loop contains a live-out value that could not be "
                        "identified as an induction or reduction."),
-              WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                            : getAuxMsg(AuxRemarkID::Loop));
+              WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                            : AuxRemarkID::Loop);
         }
 
         // We only allow if-converted PHIs with exactly two incoming values.
@@ -793,8 +793,8 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
               OptRemarkID::VecFailComplexControlFlow,
               INTERNAL("Loop contains a recurrent computation without "
                        "exactly two predecessors."),
-              WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                            : getAuxMsg(AuxRemarkID::Loop),
+              WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                            : AuxRemarkID::Loop,
               std::string(" 5.0"));
 
         if (isExplicitReductionPhi(Phi))
@@ -833,8 +833,8 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
             OptReportVerbosity::Medium, OptRemarkID::VecFailUnknownRecurrence,
             INTERNAL("Loop contains a recurrent computation that could not "
                      "be identified as an induction or reduction."),
-            WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                          : getAuxMsg(AuxRemarkID::Loop));
+            WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                          : AuxRemarkID::Loop);
       } // end of PHI handling
 
       // Bail out if we need to scalarize the read/write pipe OpenCL calls. We
@@ -866,14 +866,15 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
           if (OmpOrd)
             return bailout(OptReportVerbosity::Medium,
                            OptRemarkID::VecFailGenericBailout,
-                           getAuxMsg(AuxRemarkID::OmpSimdOrderedUnsupported));
+                           OptReportAuxDiag::getMsg(
+                               AuxRemarkID::OmpSimdOrderedUnsupported));
           else if (NestedSimdStrategy == NestedSimdStrategies::BailOut)
             return bailoutWithDebug(
                 OptReportVerbosity::Medium,
                 OptRemarkID::VecFailNestedSimdRegion,
                 INTERNAL("Unsupported nested OpenMP (simd) loop or region."),
-                WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                              : getAuxMsg(AuxRemarkID::Loop));
+                WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                              : AuxRemarkID::Loop);
         }
 
         if ((isOpenCLReadChannel(F->getName()) ||
@@ -890,8 +891,8 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
     return bailoutWithDebug(
         OptReportVerbosity::High, OptRemarkID::VecFailUnknownInductionVariable,
         INTERNAL("LV: Did not find one integer induction var."),
-        WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
-                                      : getAuxMsg(AuxRemarkID::Loop),
+        WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                      : AuxRemarkID::Loop,
         std::string(" 5.0"));
 
   return true;

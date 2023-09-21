@@ -692,15 +692,24 @@ protected:
   /// for them and they are created only during CG
   void fillLoopDescrs();
 
-  /// Reports a reason for vectorization bailout. Always returns false.
+  /// Reports a reason for vectorization bailout.
   /// \p Message will appear both in the debug dump and the opt report remark.
   template <typename... Args>
   void bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
                std::string Message, Args &&...BailoutArgs) const {
-#define DEBUG_TYPE "LoopVectorizationPlanner"
-    LLVM_DEBUG(dbgs() << Message << '\n');
-#undef DEBUG_TYPE
+    DEBUG_WITH_TYPE("LoopVectorizationPlanner", dbgs() << Message << '\n');
     setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
+  }
+
+  /// Reports a reason for vectorization bailout.
+  /// The auxiliary remark string for \p MessageID will appear both in the debug
+  /// dump and the opt report remark.
+  template <typename... Args>
+  void bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
+               AuxRemarkID MessageID, Args &&...BailoutArgs) const {
+    DEBUG_WITH_TYPE("LoopVectorizationPlanner",
+                    dbgs() << OptReportAuxDiag::getMsg(MessageID) << '\n');
+    setBailoutRemark(Level, ID, MessageID, std::forward<Args>(BailoutArgs)...);
   }
 
   /// Reports a reason for vectorization bailout. Always returns false.
@@ -708,9 +717,7 @@ protected:
   template <typename... Args>
   void bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
                         std::string Debug, Args &&...BailoutArgs) const {
-#define DEBUG_TYPE "LoopVectorizationPlanner"
-    LLVM_DEBUG(dbgs() << Debug << '\n');
-#undef DEBUG_TYPE
+    DEBUG_WITH_TYPE("LoopVectorizationPlanner", dbgs() << Debug << '\n');
     setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
   }
 
@@ -786,11 +793,6 @@ protected:
 
   // Bail-out reason data.
   mutable VPlanBailoutRemark BR;
-
-  /// Convenience function for optimization remark substitution strings.
-  std::string getAuxMsg(AuxRemarkID ID) const {
-    return OptReportAuxDiag::getMsg(ID);
-  }
 
   struct VPPeelSummary {
     std::string Scenario;
