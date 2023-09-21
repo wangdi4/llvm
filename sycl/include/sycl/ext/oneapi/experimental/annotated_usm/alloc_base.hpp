@@ -11,6 +11,8 @@
 #include <sycl/ext/oneapi/experimental/annotated_ptr/annotated_ptr.hpp>
 #include <sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp>
 
+#define VALIDATE_PROPERTIES(t) static_assert(ValidAllocPropertyList<t, propertyListA>::value, "The input properties of alloc function contain invalid property")
+
 namespace sycl {
 inline namespace _V1 {
 namespace ext {
@@ -21,8 +23,14 @@ namespace experimental {
 //  Parameterized USM allocation functions with properties support
 //  These functions take a USM kind parameter that specifies the type of USM to
 //  allocate
+//
+//  Note: these function group is the base implementation of all the annotated
+//  allocation API, and is eventally called by:
+//  1. "xxx_alloc_annotated" with USM kind in the properties (defined in alloc_base.hpp)
+//  2. "xxx_alloc_device_annotated" (defined in alloc_device.hpp)
+//  3. "xxx_alloc_host_annotated"   (defined in alloc_host.hpp)
+//  4. "xxx_alloc_shared_annotated" (defined in alloc_shared.hpp)
 ////
-
 template <typename propertyListA = detail::empty_properties_t,
           typename propertyListB =
               typename GetCompileTimeProperties<propertyListA>::type>
@@ -32,6 +40,7 @@ aligned_alloc_annotated(size_t alignment, size_t numBytes,
                         const device &syclDevice, const context &syclContext,
                         alloc kind,
                         const propertyListA &propList = properties{}) {
+  VALIDATE_PROPERTIES(void);
   size_t alignFromPropList = GetAlignFromPropList<propertyListA>::value;
   const property_list &usmPropList = get_usm_property_list(propList);
 
@@ -78,9 +87,10 @@ aligned_alloc_annotated(size_t alignment, size_t count,
                         const device &syclDevice, const context &syclContext,
                         alloc kind,
                         const propertyListA &propList = properties{}) {
-  return {static_cast<T *>(aligned_alloc_annotated(alignment, count * sizeof(T),
+  VALIDATE_PROPERTIES(T);
+  return {static_cast<T *>(aligned_alloc_annotated<propertyListA>(alignment, count * sizeof(T),
                                                    syclDevice, syclContext,
-                                                   kind, propList)
+                                                   kind)
                                .get())};
 }
 
@@ -92,8 +102,8 @@ std::enable_if_t<CheckTAndPropLists<void, propertyListA, propertyListB>::value,
 aligned_alloc_annotated(size_t alignment, size_t numBytes,
                         const queue &syclQueue, alloc kind,
                         const propertyListA &propList = properties{}) {
-  return aligned_alloc_annotated(alignment, numBytes, syclQueue.get_device(),
-                                 syclQueue.get_context(), kind, propList);
+  return aligned_alloc_annotated<propertyListA>(alignment, numBytes, syclQueue.get_device(),
+                                 syclQueue.get_context(), kind);
 }
 
 template <typename T, typename propertyListA = detail::empty_properties_t,
@@ -104,8 +114,8 @@ std::enable_if_t<CheckTAndPropLists<T, propertyListA, propertyListB>::value,
 aligned_alloc_annotated(size_t alignment, size_t count, const queue &syclQueue,
                         alloc kind,
                         const propertyListA &propList = properties{}) {
-  return aligned_alloc_annotated<T>(alignment, count, syclQueue.get_device(),
-                                    syclQueue.get_context(), kind, propList);
+  return aligned_alloc_annotated<T, propertyListA>(alignment, count, syclQueue.get_device(),
+                                    syclQueue.get_context(), kind);
 }
 
 template <typename propertyListA = detail::empty_properties_t,
@@ -116,8 +126,8 @@ std::enable_if_t<CheckTAndPropLists<void, propertyListA, propertyListB>::value,
 malloc_annotated(size_t numBytes, const device &syclDevice,
                  const context &syclContext, alloc kind,
                  const propertyListA &propList = properties{}) {
-  return aligned_alloc_annotated(0, numBytes, syclDevice, syclContext, kind,
-                                 propList);
+  VALIDATE_PROPERTIES(void);
+  return aligned_alloc_annotated<propertyListA>(0, numBytes, syclDevice, syclContext, kind);
 }
 
 template <typename T, typename propertyListA = detail::empty_properties_t,
@@ -128,9 +138,9 @@ std::enable_if_t<CheckTAndPropLists<T, propertyListA, propertyListB>::value,
 malloc_annotated(size_t count, const device &syclDevice,
                  const context &syclContext, alloc kind,
                  const propertyListA &propList = properties{}) {
-  return {static_cast<T *>(malloc_annotated(count * sizeof(T), syclDevice,
-                                            syclContext, kind, propList)
-                               .get())};
+  VALIDATE_PROPERTIES(T);
+  return aligned_alloc_annotated<T, propertyListA>(0, count, syclDevice,
+                                            syclContext, kind);
 }
 
 template <typename propertyListA = detail::empty_properties_t,
@@ -140,8 +150,8 @@ std::enable_if_t<CheckTAndPropLists<void, propertyListA, propertyListB>::value,
                  annotated_ptr<void, propertyListB>>
 malloc_annotated(size_t numBytes, const queue &syclQueue, alloc kind,
                  const propertyListA &propList = properties{}) {
-  return malloc_annotated(numBytes, syclQueue.get_device(),
-                          syclQueue.get_context(), kind, propList);
+  return malloc_annotated<propertyListA>(numBytes, syclQueue.get_device(),
+                          syclQueue.get_context(), kind);
 }
 
 template <typename T, typename propertyListA = detail::empty_properties_t,
@@ -151,13 +161,15 @@ std::enable_if_t<CheckTAndPropLists<T, propertyListA, propertyListB>::value,
                  annotated_ptr<T, propertyListB>>
 malloc_annotated(size_t count, const queue &syclQueue, alloc kind,
                  const propertyListA &propList = properties{}) {
-  return malloc_annotated<T>(count, syclQueue.get_device(),
-                             syclQueue.get_context(), kind, propList);
+  return malloc_annotated<T, propertyListA>(count, syclQueue.get_device(),
+                             syclQueue.get_context(), kind);
 }
 
 ////
 //  Additional USM memory allocation functions with properties support that
 //  requires the usm_kind property
+//
+//  These functions are implemented by extracting the usm kind from the property list and calling the usm-kind-as-argument version
 ////
 
 template <typename propertyListA,
@@ -167,12 +179,12 @@ std::enable_if_t<CheckTAndPropLists<void, propertyListA, propertyListB>::value,
                  annotated_ptr<void, propertyListB>>
 malloc_annotated(size_t numBytes, const device &syclDevice,
                  const context &syclContext, const propertyListA &propList) {
-
+  VALIDATE_PROPERTIES(void);
   constexpr alloc usmKind = GetUsmKindFromPropList<propertyListA>::value;
   static_assert(usmKind != alloc::unknown,
-                "USM kind is not specified. Please specify it in the arguments "
+                "USM kind is not specified. Please specify it as an argument "
                 "or in the input property list.");
-  return malloc_annotated(numBytes, syclDevice, syclContext, usmKind, propList);
+  return malloc_annotated<propertyListA>(numBytes, syclDevice, syclContext, usmKind);
 }
 
 template <typename T, typename propertyListA,
@@ -182,9 +194,12 @@ std::enable_if_t<CheckTAndPropLists<T, propertyListA, propertyListB>::value,
                  annotated_ptr<T, propertyListB>>
 malloc_annotated(size_t count, const device &syclDevice,
                  const context &syclContext, const propertyListA &propList) {
-  return {static_cast<T *>(
-      malloc_annotated(count * sizeof(T), syclDevice, syclContext, propList)
-          .get())};
+  VALIDATE_PROPERTIES(T);
+  constexpr alloc usmKind = GetUsmKindFromPropList<propertyListA>::value;
+  static_assert(usmKind != alloc::unknown,
+                "USM kind is not specified. Please specify it as an argument "
+                "or in the input property list.");
+  return malloc_annotated<T, propertyListA>(count, syclDevice, syclContext, usmKind);
 }
 
 template <typename propertyListA,
@@ -194,7 +209,7 @@ std::enable_if_t<CheckTAndPropLists<void, propertyListA, propertyListB>::value,
                  annotated_ptr<void, propertyListB>>
 malloc_annotated(size_t numBytes, const queue &syclQueue,
                  const propertyListA &propList) {
-  return malloc_annotated(numBytes, syclQueue.get_device(),
+  return malloc_annotated<propertyListA>(numBytes, syclQueue.get_device(),
                           syclQueue.get_context(), propList);
 }
 
@@ -205,7 +220,7 @@ std::enable_if_t<CheckTAndPropLists<T, propertyListA, propertyListB>::value,
                  annotated_ptr<T, propertyListB>>
 malloc_annotated(size_t count, const queue &syclQueue,
                  const propertyListA &propList) {
-  return malloc_annotated<T>(count, syclQueue.get_device(),
+  return malloc_annotated<T, propertyListA>(count, syclQueue.get_device(),
                              syclQueue.get_context(), propList);
 }
 
