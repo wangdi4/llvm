@@ -26,7 +26,6 @@ int main() {
     BufferB.set_write_back(false);
     buffer<T> BufferC{DataC.data(), range<1>{DataC.size()}};
     BufferC.set_write_back(false);
-
     // Add commands to graph
     add_nodes(Graph, Queue, Size, BufferA, BufferB, BufferC);
 
@@ -38,18 +37,19 @@ int main() {
         CGH.depends_on(Event);
         CGH.ext_oneapi_graph(GraphExec);
       });
+      Event.wait();
     }
     Queue.wait_and_throw();
+  }
 
-    host_accessor HostAccA(BufferA);
-    host_accessor HostAccB(BufferB);
-    host_accessor HostAccC(BufferC);
+  host_accessor HostAccA(BufferA);
+  host_accessor HostAccB(BufferB);
+  host_accessor HostAccC(BufferC);
 
-    for (size_t i = 0; i < Size; i++) {
-      assert(ReferenceA[i] == HostAccA[i]);
-      assert(ReferenceB[i] == HostAccB[i]);
-      assert(ReferenceC[i] == HostAccC[i]);
-    }
+  for (size_t i = 0; i < Size; i++) {
+    assert(ReferenceA[i] == HostAccA[i]);
+    assert(ReferenceB[i] == HostAccB[i]);
+    assert(ReferenceC[i] == HostAccC[i]);
   }
 
   return 0;

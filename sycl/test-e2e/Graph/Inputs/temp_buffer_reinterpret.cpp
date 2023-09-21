@@ -42,6 +42,7 @@ int main() {
         CGH.depends_on(Event);
         CGH.ext_oneapi_graph(GraphExec);
       });
+      Event.wait();
     }
     // Perform a wait on all graph submissions.
     Queue.wait_and_throw();
