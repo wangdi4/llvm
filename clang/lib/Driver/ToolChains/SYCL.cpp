@@ -1903,33 +1903,26 @@ SYCLToolChain::GetCXXStdlibType(const ArgList &Args) const {
 void SYCLToolChain::AddSYCLIncludeArgs(const clang::driver::Driver &Driver,
                                        const ArgList &DriverArgs,
                                        ArgStringList &CC1Args) {
-<<<<<<< HEAD
-  // Add include/sycl and include (in that order)
-  SmallString<128> P(Driver.getInstalledDir());
-  llvm::sys::path::append(P, "..");
-#if INTEL_CUSTOMIZATION
-#if INTEL_DEPLOY_UNIFIED_LAYOUT
-  // When in the unified layout, the location is in opt/compiler/include/sycl
-  // Use this location when it exists
-  if (!llvm::sys::fs::exists(P + "/include/sycl") &&
-      llvm::sys::fs::exists(P + "/../opt/compiler/include/sycl")) {
-    llvm::sys::path::append(P, "..", "opt", "compiler");
-    llvm::sys::path::append(P, "include", "sycl");
-  } else {
-    llvm::sys::path::append(P, "include");
-  }
-#else
-  llvm::sys::path::append(P, "include");
-#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
-#endif // INTEL_CUSTOMIZATION
-  SmallString<128> SYCLP(P);
-  llvm::sys::path::append(SYCLP, "sycl");
-=======
   // Add ../include/sycl, ../include/sycl/stl_wrappers and ../include (in that
   // order).
   SmallString<128> IncludePath(Driver.getInstalledDir());
   llvm::sys::path::append(IncludePath, "..");
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  // When in the unified layout, the location is in opt/compiler/include/sycl
+  // Use this location when it exists
+  if (!llvm::sys::fs::exists(IncludePath + "/include/sycl") &&
+      llvm::sys::fs::exists(IncludePath + "/../opt/compiler/include/sycl")) {
+    llvm::sys::path::append(IncludePath, "..", "opt", "compiler");
+    llvm::sys::path::append(IncludePath, "include", "sycl");
+  } else {
+    llvm::sys::path::append(IncludePath, "include");
+  }
+#else
   llvm::sys::path::append(IncludePath, "include");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // INTEL_CUSTOMIZATION
   SmallString<128> SYCLPath(IncludePath);
   llvm::sys::path::append(SYCLPath, "sycl");
   // This is used to provide our wrappers around STL headers that provide
@@ -1937,7 +1930,6 @@ void SYCLToolChain::AddSYCLIncludeArgs(const clang::driver::Driver &Driver,
   // STL headers in their programs (e.g., <complex>).
   SmallString<128> STLWrappersPath(SYCLPath);
   llvm::sys::path::append(STLWrappersPath, "stl_wrappers");
->>>>>>> 6ed0ab887d18b18209a7d1c31b8bb8240a820f79
   CC1Args.push_back("-internal-isystem");
   CC1Args.push_back(DriverArgs.MakeArgString(SYCLPath));
   CC1Args.push_back("-internal-isystem");
