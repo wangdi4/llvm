@@ -706,6 +706,13 @@ StringRef getTLSLocalIdsName();
 Value *createGetPtrToLocalId(Value *LocalIdValues, Type *LIdsTy, Value *Dim,
                              IRBuilderBase &Builder);
 
+/// Collect dependent instructions to move.
+/// \param I The instruction which need to be moved.
+/// \param ToBB The destination block.
+/// \param ToMove Instructions on which I depends, and itself.
+void collectDependentInstsToMove(Instruction *I, BasicBlock *ToBB,
+                                 SmallVectorImpl<Instruction *> &ToMove);
+
 /// @brief Moves alloca instructions from FromBB to ToBB
 void moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB);
 
