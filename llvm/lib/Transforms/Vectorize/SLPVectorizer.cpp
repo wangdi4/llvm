@@ -9266,6 +9266,15 @@ public:
     return VecBase;
   }
   void add(const TreeEntry *E1, const TreeEntry *E2, ArrayRef<int> Mask) {
+    if (E1 == E2) {
+      assert(all_of(Mask,
+                    [=](int Idx) {
+                      return Idx < static_cast<int>(E1->getVectorFactor());
+                    }) &&
+             "Expected single vector shuffle mask.");
+      add(E1, Mask);
+      return;
+    }
     CommonMask.assign(Mask.begin(), Mask.end());
     InVectors.assign({E1, E2});
   }
@@ -9464,10 +9473,7 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
       LLVM_DEBUG(dbgs() << "SLP: shuffled " << Entries.size()
                         << " entries for bundle "
                         << shortBundleName(VL) << ".\n");
-      if (Entries.size() == 1)
-        Estimator.add(Entries.front(), Mask);
-      else
-        Estimator.add(Entries.front(), Entries.back(), Mask);
+      Estimator.add(Entries.front(), Entries.back(), Mask);
       if (all_of(GatheredScalars, PoisonValue ::classof))
         return Estimator.finalize(E->ReuseShuffleIndices);
       return Estimator.finalize(
@@ -10949,7 +10955,7 @@ BoUpSLP::isGatherShuffledEntry(const TreeEntry *TE, ArrayRef<Value *> VL,
         // vectorized nodes - make it depend on index.
         if (TE->UserTreeIndices.front().UserTE !=
                 TEPtr->UserTreeIndices.front().UserTE &&
-            TE->Idx > TEPtr->Idx)
+            TE->Idx < TEPtr->Idx)
           continue;
       }
       // Check if the user node of the TE comes after user node of EntryPtr,
