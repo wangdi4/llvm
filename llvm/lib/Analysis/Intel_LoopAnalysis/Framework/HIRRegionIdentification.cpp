@@ -2023,19 +2023,42 @@ void HIRRegionIdentification::createRegion(
                           IntermediateBlocks->end());
   }
 
-  BasicBlock *EntryBB = Loops.front()->getHeader();
+  auto *FirstLp = Loops.front();
+  BasicBlock *EntryBB = FirstLp->getHeader();
   BasicBlock *ExitBB = nullptr;
 
+  bool IsSmallTCInnermostFirstLp = false;
+
+  if (FirstLp->isInnermost()) {
+    auto *ConstBECount =
+        dyn_cast<SCEVConstant>(SE.getBackedgeTakenCount(FirstLp));
+
+    if (ConstBECount &&
+        (ConstBECount->getValue()->getZExtValue() < SmallTripThreshold)) {
+      IsSmallTCInnermostFirstLp = true;
+    }
+  }
+
+  // Include the preheader for small trip count innermost loops to help
+  // complete unroller's cost model find dominating stores.
   // If the first outermost loop is the outer loop for a convolution loop nest,
   // include its preheader block in the region to ensure hoisted kernel base
   // pointer loads are visible.
-  if (isOuterConvolutionLoop(*Loops.front(), nullptr)) {
-    EntryBB = Loops.front()->getLoopPreheader();
-    NonLoopBBlocks.push_back(EntryBB);
+  if (IsSmallTCInnermostFirstLp || isOuterConvolutionLoop(*FirstLp, nullptr)) {
+    auto *PreheaderBB = FirstLp->getLoopPreheader();
+
+    // Skip including function entry block in the region. The entry block can
+    // contain allocas which can get eliminated by SROA after complete unroll.
+    if ((PreheaderBB != &PreheaderBB->getParent()->getEntryBlock()) &&
+        !AllLoopBasedRegionsBBlocks.count(PreheaderBB) &&
+        !isLoopWithDirective(*FirstLp) && isGenerable(PreheaderBB, nullptr)) {
+      EntryBB = PreheaderBB;
+      NonLoopBBlocks.push_back(PreheaderBB);
+    }
   }
 
   for (auto *Lp : Loops) {
-    bool IsFirstLoop = (Lp == Loops.front());
+    bool IsFirstLoop = (Lp == FirstLp);
     bool IsLastLoop = (Lp == Loops.back());
 
     isLoopWithDirective(*Lp, &NonLoopBBlocks, IsFirstLoop ? &EntryBB : nullptr,

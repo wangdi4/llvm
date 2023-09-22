@@ -20,22 +20,22 @@
 ;int foo(int **restrict A, int **restrict B) {
 ;  int i = 0, j = 0;
 ;  //Loop0: (*,*):
-;  for (i = 1; i <= 10; i++) {
-;    for (j = 1; j <= 10; j++) {
+;  for (i = 1; i <= 20; i++) {
+;    for (j = 1; j <= 20; j++) {
 ;      A[i][j] = A[i + R(i)][j + (j % 3 - 1)];
 ;    }
 ;  }
 ;
 ;  //Loop1: (<=,*):
-;  for (i = 1; i <= 10; i++) {
-;    for (j = 1; j <= 10; j++) {
+;  for (i = 1; i <= 20; i++) {
+;    for (j = 1; j <= 20; j++) {
 ;      A[i][j] = A[i - i % 2][j + (j % 3 - 1)];
 ;    }
 ;  }
 ;
 ;  //Loop2: (>=,*):
-;  for (i = 1; i <= 10; i++) {
-;    for (j = 1; j <= 10; j++) {
+;  for (i = 1; i <= 20; i++) {
+;    for (j = 1; j <= 20; j++) {
 ;      A[i][j] = A[i + i % 2][j + (j % 3 - 1)];
 ;    }
 ;  }
@@ -43,8 +43,8 @@
 ;  //Loop3: (<>,*):
 ;  const int ConstT = -1;
 ;  int T = 1;
-;  for (i = 1; i <= 10; i++) {
-;    for (j = 1; j <= 10; j++) {
+;  for (i = 1; i <= 20; i++) {
+;    for (j = 1; j <= 20; j++) {
 ;      A[i][j] = A[i + T * ConstT][j + (j % 3 - 1)];
 ;    }
 ;  }
@@ -62,7 +62,7 @@
 ;
 ; Loop0: (*,*)
 ; AFTER   BEGIN REGION { }
-; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
+; AFTER:     + DO i1 = 0, 19, 1   <DO_LOOP>
 ; AFTER: |   %rem = i1 + 1  %  3;
 ; AFTER: |   %3 = (%A)[sext.i32.i64(%rem) + %indvars.iv175 + -1];
 ; AFTER: |   %4 = (%3)[i1 + %rem];
@@ -72,7 +72,7 @@
 ;
 ; Loop1: (<=, *)
 ; AFTER:  BEGIN REGION { }
-; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
+; AFTER:     + DO i1 = 0, 19, 1   <DO_LOOP>
 ; AFTER: |   %rem22 = i1 + 1  %  3;
 ; AFTER: |   %11 = (%6)[i1 + %rem22];
 ; AFTER: |   (%7)[i1 + 1] = %11;
@@ -81,7 +81,7 @@
 ;
 ; Loop2: (>=, *)
 ; AFTER:  BEGIN REGION { }
-; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
+; AFTER:     + DO i1 = 0, 19, 1   <DO_LOOP>
 ; AFTER: |   %rem47 = i1 + 1  %  3;
 ; AFTER: |   %18 = (%13)[i1 + %rem47];
 ; AFTER: |   (%14)[i1 + 1] = %18;
@@ -90,10 +90,10 @@
 ;
 ; Loop3: (<>, *)
 ; AFTER:  BEGIN REGION { }
-; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
+; AFTER:     + DO i1 = 0, 19, 1   <DO_LOOP>
 ; AFTER: |   %20 = (%A)[i1 + 1];
 ; AFTER: |
-; AFTER: |   + DO i2 = 0, 9, 1   <DO_LOOP>
+; AFTER: |   + DO i2 = 0, 19, 1   <DO_LOOP>
 ; AFTER: |   |   %rem72 = i2 + 1  %  3;
 ; AFTER: |   |   %24 = (%19)[i2 + %rem72];
 ; AFTER: |   |   (%20)[i2 + 1] = %24;
@@ -140,12 +140,12 @@ for.body3:                                        ; preds = %for.body3, %for.con
   %arrayidx12 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv172
   store i32 %4, ptr %arrayidx12, align 4, !tbaa !5
   %indvars.iv.next173 = add nuw nsw i64 %indvars.iv172, 1
-  %exitcond174 = icmp eq i64 %indvars.iv.next173, 11
+  %exitcond174 = icmp eq i64 %indvars.iv.next173, 21
   br i1 %exitcond174, label %for.inc13, label %for.body3
 
 for.inc13:                                        ; preds = %for.body3
   %indvars.iv.next176 = add nuw nsw i64 %indvars.iv175, 1
-  %exitcond177 = icmp eq i64 %indvars.iv.next176, 11
+  %exitcond177 = icmp eq i64 %indvars.iv.next176, 21
   br i1 %exitcond177, label %for.cond19.preheader, label %for.cond1.preheader
 
 for.cond19.preheader:                             ; preds = %for.inc13, %for.inc38
@@ -173,12 +173,12 @@ for.body21:                                       ; preds = %for.body21, %for.co
   %arrayidx34 = getelementptr inbounds i32, ptr %7, i64 %indvars.iv165
   store i32 %11, ptr %arrayidx34, align 4, !tbaa !5
   %indvars.iv.next166 = add nuw nsw i64 %indvars.iv165, 1
-  %exitcond168 = icmp eq i64 %indvars.iv.next166, 11
+  %exitcond168 = icmp eq i64 %indvars.iv.next166, 21
   br i1 %exitcond168, label %for.inc38, label %for.body21
 
 for.inc38:                                        ; preds = %for.body21
   %indvars.iv.next170 = add nuw nsw i64 %indvars.iv169, 1
-  %exitcond171 = icmp eq i64 %indvars.iv.next170, 11
+  %exitcond171 = icmp eq i64 %indvars.iv.next170, 21
   br i1 %exitcond171, label %for.cond44.preheader, label %for.cond19.preheader
 
 for.cond44.preheader:                             ; preds = %for.inc38, %for.inc63
@@ -206,12 +206,12 @@ for.body46:                                       ; preds = %for.body46, %for.co
   %arrayidx59 = getelementptr inbounds i32, ptr %14, i64 %indvars.iv158
   store i32 %18, ptr %arrayidx59, align 4, !tbaa !5
   %indvars.iv.next159 = add nuw nsw i64 %indvars.iv158, 1
-  %exitcond161 = icmp eq i64 %indvars.iv.next159, 11
+  %exitcond161 = icmp eq i64 %indvars.iv.next159, 21
   br i1 %exitcond161, label %for.inc63, label %for.body46
 
 for.inc63:                                        ; preds = %for.body46
   %indvars.iv.next163 = add nuw nsw i64 %indvars.iv162, 1
-  %exitcond164 = icmp eq i64 %indvars.iv.next163, 11
+  %exitcond164 = icmp eq i64 %indvars.iv.next163, 21
   br i1 %exitcond164, label %for.cond69.preheader.preheader, label %for.cond44.preheader
 
 for.cond69.preheader.preheader:                   ; preds = %for.inc63
@@ -238,12 +238,12 @@ for.body71:                                       ; preds = %for.body71, %for.co
   %arrayidx83 = getelementptr inbounds i32, ptr %20, i64 %indvars.iv
   store i32 %24, ptr %arrayidx83, align 4, !tbaa !5
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 11
+  %exitcond = icmp eq i64 %indvars.iv.next, 21
   br i1 %exitcond, label %for.inc87, label %for.body71
 
 for.inc87:                                        ; preds = %for.body71
   %indvars.iv.next155 = add nuw nsw i64 %indvars.iv154, 1
-  %exitcond157 = icmp eq i64 %indvars.iv.next155, 11
+  %exitcond157 = icmp eq i64 %indvars.iv.next155, 21
   br i1 %exitcond157, label %for.end89, label %for.cond69.preheader
 
 for.end89:                                        ; preds = %for.inc87

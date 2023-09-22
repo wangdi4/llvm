@@ -91,17 +91,17 @@
 ; HIR-NEXT:          |   + END LOOP
 ; HIR-NEXT:          + END LOOP
 ; HIR:               + DO i1 = 0, 999, 2   <DO_LOOP> <simd-vectorized> <novectorize>
-; HIR:               |   @_Z3bazP7point2di(%extract.0.,  i1);
-; HIR:               |   @_Z3bazP7point2di(%extract.1.,  %extract.1.2);
+; HIR:               |   @_Z3bazP7point2di(%extract{{.*}},  i1);
+; HIR:               |   @_Z3bazP7point2di(%extract{{.*}},  %extract{{.*}});
 ; HIR:               + END LOOP
 ; HIR:               + DO i1 = 0, 3, 1   <DO_LOOP>
-; HIR-NEXT:          |   @_ZTS7point2d.omp.copy_assign(&((%struct.point2d*)(%myPoint.lpriv)[i1]),  &((%struct.point2d*)(%extract.1.3)[i1]));
+; HIR-NEXT:          |   @_ZTS7point2d.omp.copy_assign(&((%struct.point2d*)(%myPoint.lpriv)[i1]),  &((%struct.point2d*)(%extract{{.*}})[i1]));
 ; HIR-NEXT:          + END LOOP
 ; HIR:               + DO i1 = 0, 1, 1   <DO_LOOP>
-; HIR-NEXT:          |   %priv.extract4 = extractelement &((<2 x ptr>)(%priv.mem.bc)[<i32 0, i32 1>]),  i1;
+; HIR-NEXT:          |   %priv.extract[[NUM:.*]] = extractelement &((<2 x ptr>)(%priv.mem.bc)[<i32 0, i32 1>]),  i1;
 ; HIR-NEXT:          |
 ; HIR-NEXT:          |   + DO i2 = 0, 3, 1   <DO_LOOP>
-; HIR-NEXT:          |   |   @_ZTS7point2d.omp.destr(&((%struct.point2d*)(%priv.extract4)[i2]));
+; HIR-NEXT:          |   |   @_ZTS7point2d.omp.destr(&((%struct.point2d*)(%priv.extract[[NUM]])[i2]));
 ; HIR-NEXT:          |   + END LOOP
 ; HIR-NEXT:          + END LOOP
 ; HIR-NEXT:    END REGION

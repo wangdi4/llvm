@@ -50,7 +50,7 @@ for.body3:                                        ; preds = %for.body3, %for.pre
   %add = add nsw i32 %0, %0
   store i32 %add, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 10
+  %exitcond = icmp eq i64 %indvars.iv.next, 20
   br i1 %exitcond, label %for.inc4, label %for.body3
 
 for.inc4:                                         ; preds = %for.body3
