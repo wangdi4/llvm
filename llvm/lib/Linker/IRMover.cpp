@@ -171,8 +171,7 @@ static bool isSpecialEmptyStructToFuncMapping(PointerType *SrcPtr,
 // Helper class to handle DTrans types and metadata
 class DTransStructsMap {
 public:
-  DTransStructsMap(Module &M, bool AllowsIncompleteMD,
-      std::vector<StructType *> &TypesInModule);
+  DTransStructsMap(Module &M, std::vector<StructType *> &TypesInModule);
   DTransStructsMap(DTransTypeManager *TM,
       std::vector<StructType *> &TypesInModule) : TM(TM),
       MDReadCorrectly(true), isTMSetByConstruct(true) {
@@ -264,13 +263,6 @@ class TypeMapTy : public ValueMapTypeRemapper {
   // True if the conditions for using the DTrans type mapping are met,
   // else false.
   bool EnableDTransTypesMappingScheme = EnableMergeWithDTrans;
-
-  // True if the conditions for using incomplete metadata are met, else false
-  bool AllowsIncompleteMD = false;
-
-  // If true then we are going to use the DTrans metadata to do type merging
-  // even we have types pointers
-  bool AllowsFullDTransTypeCheck = false;
 
 /***************** Begin special functions ***************************/
   // Map the empty structure with the DTrans function type that will be used
@@ -370,10 +362,10 @@ private:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
 // Initialize the DTrans types information using the input Module. If
-// AllowsIncompleteMD and initializing the TypeMetadataReader are false
-// then the map DTransSTMap won't be constructed.
-DTransStructsMap::DTransStructsMap(Module &M, bool AllowsIncompleteMD,
-    std::vector<StructType *> &TypesInModule) {
+// initializing the TypeMetadataReader is false then the map
+//  DTransSTMap won't be constructed.
+DTransStructsMap::DTransStructsMap(Module &M,
+                                   std::vector<StructType *> &TypesInModule) {
   TM = new DTransTypeManager(M.getContext());
   DtransTypeMDReader = new TypeMetadataReader(*TM);
 
@@ -383,8 +375,7 @@ DTransStructsMap::DTransStructsMap(Module &M, bool AllowsIncompleteMD,
   // The result of not generating the map is that the type mapping using
   // the DTrans metadata won't happen and we are going to use the
   // traditional type mapping. Also the type mapping verification can't
-  // be used. Once we ensure that there is no metadata loss during the
-  // compile step then we can replace the 'false' with '!AllowsIncompleteMD'.
+  // be used.
   MDReadCorrectly = DtransTypeMDReader->initialize(M, /*StrictCheck=*/false,
                                                    /*SkipSpecial=*/true);
 
@@ -398,9 +389,8 @@ DTransStructsMap::DTransStructsMap(Module &M, bool AllowsIncompleteMD,
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-  // If incomplete metadata is not allowed then there is no need to collect
-  // the DTrans information
-  if (!MDReadCorrectly && !AllowsIncompleteMD)
+  // There is no need to collect the DTrans Information.
+  if (!MDReadCorrectly)
     return;
 
   populateDtransSTMap(TypesInModule);
@@ -922,8 +912,9 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM,
 
   // Return true if the DTrans metadata was collected and initialized
   // for the input module, else return false.
-  auto BuildDTransStructures = [this](Module &M, DTransStructsMap **DTMap,
-      std::vector<StructType *> &TypesInModule) -> bool {
+  auto BuildDTransStructures =
+      [](Module &M, DTransStructsMap **DTMap,
+         std::vector<StructType *> &TypesInModule) -> bool {
     assert(!(*DTMap) && "DTransStructsMap already allocated");
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -933,8 +924,7 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM,
     }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-    DTransStructsMap *DTNewMap =
-        new DTransStructsMap(M, AllowsIncompleteMD, TypesInModule);
+    DTransStructsMap *DTNewMap = new DTransStructsMap(M, TypesInModule);
 
     // The following checks are only for the source module since we are collecting
     // metadata from it.
@@ -944,20 +934,14 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM,
       // following debug flag to identify which type is broken:
       // -mllvm -debug-only=irmover-dtrans-metadata-loss .
 
-      // If incomplete metadata is not allowed then we aren't going to merge
-      // the types using the mangled names.
-      if (!AllowsIncompleteMD) {
-        delete DTNewMap;
-        DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
-            dbgs() << "  ERROR: DTrans metadata collected incorrectly from "
-                   << "source module, merging with mangled names "
-                   << "disabled\n\n");
-        return false;
-      }
-
-      DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
-          dbgs() << "  WARNING: DTrans metadata collected incorrectly from "
-                 << "source module\n\n");
+      // We aren't going to merge the types using the mangled names.
+      delete DTNewMap;
+      DEBUG_WITH_TYPE(
+          DEBUG_DTRANS_TYPES,
+          dbgs() << "  ERROR: DTrans metadata collected incorrectly from "
+                 << "source module, merging with mangled names "
+                 << "disabled\n\n");
+      return false;
     }
     *DTMap = DTNewMap;
     return true;
@@ -1024,22 +1008,6 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM,
     EnableDTransTypesMappingScheme = false;
     return false;
   }
-
-  assert((SrcM.getContext().supportsTypedPointers() ==
-          DstM.getContext().supportsTypedPointers()) &&
-          "Module mismatch for typed pointers support");
-
-  // Incomplete metadata is only allowed when typed pointers are available
-  // since we can reconstruct the types information in this case. If
-  // opaque pointers are available then we can't restore the types
-  // information.
-  AllowsIncompleteMD = EnableIncompleteDTransMetadata &&
-                       SrcM.getContext().supportsTypedPointers();
-
-  // We are going to use the DTrans metadata for opaque pointers or typed
-  // pointers if requested
-  AllowsFullDTransTypeCheck = !SrcM.getContext().supportsTypedPointers() ||
-                              EnableFullDTransTypesCheck;
 
   DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
       dbgs() << "Merging types from source module: "
@@ -1268,11 +1236,6 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
     if (!EnableDTransTypesMappingScheme)
       return false;
 
-    // If there is no opaque pointers or the use of DTrans metadata is not
-    // allowed for typed pointers then we return.
-    if (!AllowsFullDTransTypeCheck)
-      return false;
-
     if (!SrcST || !DstST)
       return false;
 
@@ -1288,11 +1251,8 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
     // it.
     if (DTStructSrc->getReconstructError() ||
         DTStructDst->getReconstructError()) {
-      if (AllowsIncompleteMD)
-        return false;
-      else
-        llvm_unreachable("Collecting information from incomplete "
-                         "DTrans type");
+      llvm_unreachable("Collecting information from incomplete "
+                       "DTrans type");
     }
 
     PointerType *PtrSrc =
@@ -2829,17 +2789,11 @@ void IRLinker::verifyDestinationModule() {
            << "verification:\n";
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-  // We need to create a new DTrans map since the destination module now
-  // has new types.
-  bool AllowsIncompleteMD = DstM.getContext().supportsTypedPointers() &&
-                            EnableIncompleteDTransMetadata;
-
   std::vector<StructType *> Types = DstM.getIdentifiedStructTypes();
-  DTransStructsMap DTMap(DstM, AllowsIncompleteMD, Types);
+  DTransStructsMap DTMap(DstM, Types);
 
-  // If the incomplete metadata can't be used then we can't do the verification
-  // in case of metadata loss.
-  if (!DTMap.isMDReadCorrectly() && !AllowsIncompleteMD) {
+  // We can't do the verification in case of metadata loss.
+  if (!DTMap.isMDReadCorrectly()) {
     DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
       dbgs() << "Verification couldn't be completed due to metadata loss\n");
     return;
@@ -2859,18 +2813,8 @@ void IRLinker::verifyDestinationModule() {
       continue;
 
     auto *DTinMap = DTMap.getDTransStructure(ST);
-    if (!DTinMap) {
-      assert(AllowsIncompleteMD && "Missing DTransStructType in "
-                                   "destination metadata");
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      if (TraceDTransMetadataLoss)
-        dbgs() << "Warning: Missing DTrans type in metadata for: " << *ST
-               << "\n";
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-      continue;
-    }
+    assert(DTinMap && "Expecting DTinMap");
+    (void)DTinMap;
 
     // We only need to verify the structures that don't have clean names
     // since there is a chance that they are repeated structures. The reason
@@ -2906,17 +2850,8 @@ void IRLinker::verifyDestinationModule() {
       // The structure names should be the same.
       StringRef CleanName = getStructureNameClean(ST);
       auto *DTCleanNameST = DTMap.getDTransStructure(CleanName);
-      if (!DTCleanNameST) {
-        assert(AllowsIncompleteMD && "Missing DTransStructType in "
-                                     "type mapper");
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-       if (TraceDTransMetadataLoss)
-          dbgs() << "Warning: Missing DTrans type in map for: " << *ST << "\n";
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-        continue;
-      }
+      assert(DTCleanNameST && "Expecting DTCleanNameST");
+      (void)DTCleanNameST;
 
       DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES, {
         dbgs() << "Possible type mismatch between:\n";
@@ -2934,22 +2869,12 @@ void IRLinker::verifyDestinationModule() {
     // Check that the DTrans type in the destination type manager matches
     // with the DTrans metadata collected.
     auto *DTinDstTM = DstTM->getStructType(ST->getName());
-    if (!DTinDstTM) {
-      assert(AllowsIncompleteMD && "Missing DTransStructType in destination "
-          "type manager when it is available in DTrans metadata");
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      if (TraceDTransMetadataLoss)
-        dbgs() << "Warning: DTransStructType not generated in type "
-               << "manager for: " << *ST << "\n";
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-      continue;
-    }
+    assert(DTinDstTM && "Expecting DTinDstTM");
     assert(DTinMap->compare(*DTinDstTM) && "Mismatch between DTrans type in "
         "destination type manager and DTrans destination metadata");
+    (void)DTinDstTM;
 
-/***************** Begin special functions ***************************/
+    /***************** Begin special functions ***************************/
     // Make sure that the fields were repaired. This is only when we aren't
     // dealing with opaque pointers
     for (unsigned I = 0, E = ST->getNumElements(); I < E; I++) {
@@ -2979,10 +2904,6 @@ void IRLinker::verifyDestinationModule() {
 // pointers to empty structure when it should be pointers to function type.
 void IRLinker::quickVerifyDestinationModule() {
 
-  bool AllowsIncompleteMD = DstM.getContext().supportsTypedPointers() &&
-                            EnableIncompleteDTransMetadata;
-  (void) AllowsIncompleteMD;
-
   DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
     dbgs() << "Running destination module simple verifier\n");
 
@@ -3006,19 +2927,8 @@ void IRLinker::quickVerifyDestinationModule() {
       // The structure names should be the same.
       StringRef CleanName = getStructureNameClean(ST);
       auto *DTCleanNameST = DstTM->getStructType(CleanName);
-      if (!DTCleanNameST) {
-        assert(AllowsIncompleteMD && "Missing DTransStructType in "
-                                     "type mapper");
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-        if (TraceDTransMetadataLoss)
-          dbgs() << "Warning: Missing DTrans type in map for: " << *ST
-                 << "\n";
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-        continue;
-      }
-
+      assert(DTCleanNameST && "Expecting DTCleanNameST");
+      (void)DTCleanNameST;
       DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES, {
         dbgs() << "Possible type mismatch between:\n";
         dbgs() << "  Structure name: " << ST->getName() << "\n";
