@@ -40,16 +40,16 @@ int main() {
       Event.wait();
     }
     Queue.wait_and_throw();
-  }
 
-  host_accessor HostAccA(BufferA);
-  host_accessor HostAccB(BufferB);
-  host_accessor HostAccC(BufferC);
+    host_accessor HostAccA(BufferA);
+    host_accessor HostAccB(BufferB);
+    host_accessor HostAccC(BufferC);
 
-  for (size_t i = 0; i < Size; i++) {
-    assert(ReferenceA[i] == HostAccA[i]);
-    assert(ReferenceB[i] == HostAccB[i]);
-    assert(ReferenceC[i] == HostAccC[i]);
+    for (size_t i = 0; i < Size; i++) {
+      assert(ReferenceA[i] == HostAccA[i]);
+      assert(ReferenceB[i] == HostAccB[i]);
+      assert(ReferenceC[i] == HostAccC[i]);
+    }
   }
 
   return 0;
