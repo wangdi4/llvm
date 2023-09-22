@@ -187,6 +187,7 @@ check_library_exists(rt shm_open "" COMPILER_RT_HAS_LIBRT)
 
 #INTEL_CUSTOMIZATION
 
+check_cxx_compiler_flag(${INTEL_NO_USE_LIBIRC_FLAG} COMPILER_RT_HAS_INTEL_NO_USE_LIBIRC_FLAG)
 check_cxx_compiler_flag(${INTEL_NO_INTEL_LIB_FLAG} COMPILER_RT_HAS_INTEL_NO_INTEL_LIB_FLAG)
 
 check_library_exists(irc __intel_cpu_features_init_x "" COMPILER_RT_HAS_LIBIRC)
