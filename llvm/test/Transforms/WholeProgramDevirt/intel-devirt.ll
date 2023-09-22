@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
-; RUN: opt -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S -wholeprogramdevirt-downcasting-filter -passes=wholeprogramdevirt -whole-program-assume %s | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S -passes=wholeprogramdevirt -whole-program-assume %s | FileCheck %s
 
 ; This test case checks that multiversioning for virtual functions works with
 ; opaque pointers. The virtual call will be multiversioned into the direct
