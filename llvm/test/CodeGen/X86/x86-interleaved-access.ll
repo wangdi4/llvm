@@ -1756,11 +1756,9 @@ define void @splat4_v8f32_load_store(ptr %s, ptr %d) nounwind {
 ; AVX512-NEXT:    vshufps {{.*#+}} ymm2 = ymm0[0,0,1,1,4,4,5,5]
 ; AVX512-NEXT:    vshufpd {{.*#+}} xmm3 = xmm2[1,1]
 ; AVX512-NEXT:    vshufps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7]
-; AVX512-NEXT:    vmovddup {{.*#+}} xmm4 = xmm0[0,0]
-; AVX512-NEXT:    vshufpd {{.*#+}} xmm5 = xmm0[1,1]
-; AVX512-NEXT:    vinsertf128 $1, %xmm5, %ymm4, %ymm4
 ; AVX512-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1
-; AVX512-NEXT:    vinsertf64x4 $1, %ymm4, %zmm1, %zmm1
+; AVX512-NEXT:    vpermpd {{.*#+}} ymm3 = ymm0[0,0,1,1]
+; AVX512-NEXT:    vinsertf64x4 $1, %ymm3, %zmm1, %zmm1
 ; AVX512-NEXT:    vmovupd %zmm1, (%rsi)
 ; AVX512-NEXT:    vinsertf64x4 $1, %ymm0, %zmm2, %zmm0
 ; AVX512-NEXT:    vpermpd {{.*#+}} zmm0 = zmm0[2,2,3,3,6,6,7,7]
