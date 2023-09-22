@@ -245,6 +245,13 @@ bool VPlanSLP::getVecInstsVector(
   // not always optimal and there can be other vectorization opportunities with
   // BaseI set to another instruction from InValues.
   for (const auto *V : InValues) {
+    // Skip not vectorizable types.
+    if (const auto *InstMem = dyn_cast<VPLoadStoreInst>(V)) {
+      if (!isVectorizableTy(InstMem->getValueType()))
+        continue;
+    } else if (!isVectorizableTy(V->getType()))
+      continue;
+
     // TODO: We may want to consider multiple users within vectorizable graph.
     if (V->getNumUsers() > 1)
       continue;
