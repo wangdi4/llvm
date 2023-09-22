@@ -176,11 +176,12 @@
 #if INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
 #endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/Transforms/IPO/Intel_ForceInline.h"
+#include "llvm/Transforms/IPO/Intel_IPArrayTranspose.h"
+#include "llvm/Transforms/IPO/Intel_IPODeadArgElimination.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
-#include "llvm/Transforms/IPO/Intel_IPArrayTranspose.h"
-#include "llvm/Transforms/IPO/Intel_IPODeadArgElimination.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"
@@ -1376,6 +1377,8 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
     IP.PrepareForLTO = PrepareForLTO; // INTEL
 
 #if INTEL_CUSTOMIZATION
+    // Parse - inline-forceinline option and transforms corresponding attributes
+    MPM.addPass(InlineForceInlinePass());
     // Parse -[no]inline-list option and set corresponding attributes.
     MPM.addPass(InlineListsPass());
 #endif //INTEL_CUSTOMIZATION
@@ -1760,8 +1763,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-    // Parse -[no]inline-list option and set corresponding attributes.
+    // Parse -[no]inline-list and -forceinline options and set corresponding
+    // attributes.
     MPM.addPass(InlineReportSetupPass());
+    MPM.addPass(InlineForceInlinePass());
     MPM.addPass(InlineListsPass());
     if (RunVPOParopt && EnableVPOParoptTargetInline)
       MPM.addPass(VPOParoptTargetInlinePass());
@@ -3621,15 +3626,20 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(IntelArgumentAlignmentPass());
     MPM.addPass(QsortRecognizerPass());
   }
+#endif // INTEL_FEATURE_SW_ADVANCED
 
+  // Parse - inline-forceinline option and transforms corresponding attributes
+  MPM.addPass(InlineForceInlinePass());
+  // Parse -[no]inline-list option and set corresponding attributes.
+  MPM.addPass(InlineListsPass());
+
+#if INTEL_FEATURE_SW_ADVANCED
   bool EnableIntelPartialInlining = EnableIntelPI && DTransEnabled;
   // Partially inline small functions
   if (EnableIntelPartialInlining)
     MPM.addPass(IntelPartialInlinePass());
 #endif // INTEL_FEATURE_SW_ADVANCED
 
-  // Parse -[no]inline-list option and set corresponding attributes.
-  MPM.addPass(InlineListsPass());
   if (EnableAndersen) {
     MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
   }
@@ -4065,6 +4075,7 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
   // which is just that always inlining occurs. Further, disable generating
   // lifetime intrinsics to avoid enabling further optimizations during
   // code generation.
+  MPM.addPass(InlineForceInlinePass()); // INTEL
   MPM.addPass(InlineListsPass()); // INTEL
   MPM.addPass(AlwaysInlinerPass(
       /*InsertLifetimeIntrinsics=*/false));

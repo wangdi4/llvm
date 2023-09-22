@@ -166,11 +166,12 @@
 #if INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
 #endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/Transforms/IPO/Intel_ForceInline.h"
+#include "llvm/Transforms/IPO/Intel_IPArrayTranspose.h"
+#include "llvm/Transforms/IPO/Intel_IPODeadArgElimination.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
-#include "llvm/Transforms/IPO/Intel_IPArrayTranspose.h"
-#include "llvm/Transforms/IPO/Intel_IPODeadArgElimination.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"

@@ -71,7 +71,8 @@
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass on [module]
-; CHECK-O-NEXT:Running pass: InlineListsPass on [module]
+; CHECK-O-NEXT: Running pass: InlineForceInlinePass on [module]
+; CHECK-O-NEXT: Running pass: InlineListsPass on [module]
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: CoroEarlyPass
 ; INTEL_CUSTOMIZATION
