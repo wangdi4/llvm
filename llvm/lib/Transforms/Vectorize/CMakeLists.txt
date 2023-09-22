@@ -83,15 +83,15 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanVectorizeIndirectCalls.cpp
   Intel_VPlan/IntelVPlanVerifier.cpp
   Intel_VPlan/IntelVPSOAAnalysis.cpp
-  Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPOCodeGenHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanDecomposerHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanScalarEvolutionHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanValueTrackingHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanVLSAnalysisHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanVerifierHIR.cpp
+  Intel_VPlan/HIR/IntelLoopVectorizationPlannerHIR.cpp
+  Intel_VPlan/HIR/IntelVPOCodeGenHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanDecomposerHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanHCFGBuilderHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanInstructionDataHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanScalarEvolutionHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanValueTrackingHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanVLSAnalysisHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanVerifierHIR.cpp
 # end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS
