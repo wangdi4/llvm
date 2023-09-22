@@ -1903,6 +1903,7 @@ SYCLToolChain::GetCXXStdlibType(const ArgList &Args) const {
 void SYCLToolChain::AddSYCLIncludeArgs(const clang::driver::Driver &Driver,
                                        const ArgList &DriverArgs,
                                        ArgStringList &CC1Args) {
+<<<<<<< HEAD
   // Add include/sycl and include (in that order)
   SmallString<128> P(Driver.getInstalledDir());
   llvm::sys::path::append(P, "..");
@@ -1923,10 +1924,26 @@ void SYCLToolChain::AddSYCLIncludeArgs(const clang::driver::Driver &Driver,
 #endif // INTEL_CUSTOMIZATION
   SmallString<128> SYCLP(P);
   llvm::sys::path::append(SYCLP, "sycl");
+=======
+  // Add ../include/sycl, ../include/sycl/stl_wrappers and ../include (in that
+  // order).
+  SmallString<128> IncludePath(Driver.getInstalledDir());
+  llvm::sys::path::append(IncludePath, "..");
+  llvm::sys::path::append(IncludePath, "include");
+  SmallString<128> SYCLPath(IncludePath);
+  llvm::sys::path::append(SYCLPath, "sycl");
+  // This is used to provide our wrappers around STL headers that provide
+  // additional functions/template specializations when the user includes those
+  // STL headers in their programs (e.g., <complex>).
+  SmallString<128> STLWrappersPath(SYCLPath);
+  llvm::sys::path::append(STLWrappersPath, "stl_wrappers");
+>>>>>>> 6ed0ab887d18b18209a7d1c31b8bb8240a820f79
   CC1Args.push_back("-internal-isystem");
-  CC1Args.push_back(DriverArgs.MakeArgString(SYCLP));
+  CC1Args.push_back(DriverArgs.MakeArgString(SYCLPath));
   CC1Args.push_back("-internal-isystem");
-  CC1Args.push_back(DriverArgs.MakeArgString(P));
+  CC1Args.push_back(DriverArgs.MakeArgString(STLWrappersPath));
+  CC1Args.push_back("-internal-isystem");
+  CC1Args.push_back(DriverArgs.MakeArgString(IncludePath));
 }
 
 void SYCLToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
