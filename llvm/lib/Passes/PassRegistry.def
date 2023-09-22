@@ -907,6 +907,9 @@ FUNCTION_PASS("vpo-paropt-loop-collapse", VPOParoptLoopCollapsePass())
 FUNCTION_PASS("vpo-paropt-loop-transform", VPOParoptLoopTransformPass())
 FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+FUNCTION_PASS("vpo-paropt-loop-fuse-collapse", VPOParoptLoopFuseCollapsePass())
+#endif // INTEL_CUSTOMIZATION
 FUNCTION_PASS("tsan", ThreadSanitizerPass())
 FUNCTION_PASS("memprof", MemProfilerPass())
 FUNCTION_PASS("LowerWGScope", SYCLLowerWGScopePass())
