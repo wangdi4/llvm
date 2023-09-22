@@ -1493,12 +1493,30 @@ void moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB) {
     I->moveBefore(*ToBB, InsertionPt);
 }
 
+void collectDependentInstsToMove(Instruction *I, BasicBlock *ToBB,
+                                 SmallVectorImpl<Instruction *> &ToMove) {
+  if (I->getNumOperands()) {
+    // Collect dependent instructions to move.
+    Use *TheUse = &*I->op_begin();
+    for (Use *U : make_range(po_begin(TheUse), po_end(TheUse))) {
+      Value *V = U->get();
+      if (auto *Inst = dyn_cast<Instruction>(V)) {
+        assert(!isa<PHINode>(V) && "PHINode is not handled");
+        if (Inst->getParent() != ToBB &&
+            llvm::find(ToMove, Inst) == ToMove.end())
+          ToMove.push_back(Inst);
+      }
+    }
+  }
+  ToMove.push_back(I);
+}
+
 void moveInstructionIf(BasicBlock *FromBB, BasicBlock *ToBB,
                        function_ref<bool(Instruction &)> Predicate) {
-  SmallVector<Instruction *, 8> ToMove;
+  SmallVector<Instruction *, 16> ToMove;
   for (auto &I : *FromBB)
     if (Predicate(I))
-      ToMove.push_back(&I);
+      collectDependentInstsToMove(&I, ToBB, ToMove);
 
   auto MovePos = ToBB->getFirstInsertionPt();
   for (auto *I : ToMove)
