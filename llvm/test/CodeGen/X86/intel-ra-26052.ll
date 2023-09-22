@@ -17,7 +17,7 @@ declare !kernel_arg_addr_space !13 !kernel_arg_access_qual !14 !kernel_arg_type 
 define void @_ZTS28Kernel_L3_SLM_8x8_4x16_vec_1(i8* noalias %0, i64* noalias %1, {}* noalias %2) !kernel_arg_addr_space !13 !kernel_arg_access_qual !14 !kernel_arg_type !15 !kernel_arg_base_type !15 !kernel_arg_type_qual !16 !no_barrier_path !17 !kernel_has_sub_groups !17 !max_wg_dimensions !18 !local_buffer_size !19 !barrier_buffer_size !20 !kernel_execution_length !22 !kernel_has_barrier !23 !kernel_has_global_sync !17 !private_memory_size !20 !opencl.stats.InstCounter.CanVect !24 {
 ; CHECK-LABEL: _ZTS28Kernel_L3_SLM_8x8_4x16_vec_1:
 ; CHECK:       # %bb.0:
-; CHECK-COUNT-172:    vmov
+; CHECK-COUNT-193:    vmov
 ; CHECK-NOT: vmov
   %4 = alloca [3 x i64], align 8
   %5 = alloca %1, align 8
