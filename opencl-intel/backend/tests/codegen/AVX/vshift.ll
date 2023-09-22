@@ -152,9 +152,9 @@ entry:
 }
 
 ; Check for missing codegen patterns #1
-define <8 x i16> @sll_missing_patterns1(<8 x i16>* %Ap) nounwind {
+define <8 x i16> @sll_missing_patterns1(ptr%Ap) nounwind {
 entry: 
-  %A = load <8 x i16>, <8 x i16>* %Ap
+  %A = load <8 x i16>, ptr%Ap
   %B = shl <8 x i16> %A,  < i16 0, i16 2, i16 3, i16 6, i16 2, i16 2, i16 2, i16 2>
   %C = shl <8 x i16> %B,  < i16 9, i16 7, i16 5, i16 1, i16 4, i16 1, i16 1, i16 1>
   %D = shl <8 x i16> %C,  < i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
@@ -167,7 +167,7 @@ define  void @shl_from_sext() nounwind {
   %1 = sext <8 x i16> undef to <8 x i32>
   %2 = shl <8 x i32> zeroinitializer, %1
   %3 = trunc <8 x i32> %2 to <8 x i16>
-  store <8 x i16> %3, <8 x i16> addrspace(1)* undef, align 2
+  store <8 x i16> %3, ptr addrspace(1) undef, align 2
   ret void
 }
 
