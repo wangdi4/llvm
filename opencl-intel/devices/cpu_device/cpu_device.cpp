@@ -441,6 +441,7 @@ void CPUDevice::calculateComputeUnitMap() {
   std::string places = "cores";
   bool hasEnvPlaces = getEnvVar(places, "SYCL_CPU_PLACES") ||
                       getEnvVar(places, "DPCPP_CPU_PLACES");
+  places = StringRef(places).lower();
 
 #ifndef _WIN32
   // For Linux, respect the process affinity mask in determining which cores to
@@ -484,7 +485,7 @@ void CPUDevice::calculateComputeUnitMap() {
   // affinity, similar to OMP_PROC_BIND in OpenMP.
   // By default, the SYCL_CPU_CU_AFFINITY variable is not set.
   if (!hasEnvAffinity) {
-    if (hasEnvPlaces)
+    if (hasEnvPlaces && places != "numa_domains")
       reportWarning("SYCL_CPU_PLACES: Value is ignored since "
                     "SYCL_CPU_CU_AFFINITY is not set.");
     return;
@@ -519,7 +520,6 @@ void CPUDevice::calculateComputeUnitMap() {
                   "SYCL_CPU_PLACES is not set.");
     return;
   }
-  places = StringRef(places).lower();
   if ("sockets" != places && "numa_domains" != places && "cores" != places &&
       "threads" != places) {
     reportWarning("SYCL_CPU_PLACES: Value is invalid; ignored. Valid values "
