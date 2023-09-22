@@ -182,6 +182,13 @@ bool VPlanSlp::areVectorizable(
     return false;
 
   for (const auto *V : Values) {
+    // Skip not vectorizable types.
+    if (const auto *InstMem = dyn_cast<VPLoadStoreInst>(V)) {
+      if (!isVectorizableTy(InstMem->getValueType()))
+        continue;
+    } else if (!isVectorizableTy(V->getType()))
+      continue;
+
     // TODO: We may want to consider multiple users within vectorizable graph.
     if (V->getNumUsers() > 1)
       continue;
