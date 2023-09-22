@@ -53,6 +53,7 @@
 ; INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo
 ; end INTEL_CUSTOMIZATION
+;CHECK-NEXT: Running pass: InlineForceInlinePass on [module]
 ;CHECK-NEXT: Running pass: InlineListsPass on [module]
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]
 ;CHECK-NEXT: Running analysis: ProfileSummaryAnalysis on [module]
