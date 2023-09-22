@@ -6,8 +6,10 @@
 // CHECK-PCH-CREATE: -emit-pch
 // CHECK-PCH-CREATE-NOT: -fmodules-codegen
 // CHECK-PCH-CREATE-NOT: -fmodules-debuginfo
-/// Also test that the default extension name is .pch instead of .gch
-// CHECK-PCH-CREATE: "-o" "{{[^"]+.pch}}"
+// INTEL_CUSTOMIZATION
+/// Also test that the default extension name is .pchi instead of .gch
+// CHECK-PCH-CREATE: "-o" "{{[^"]+.pchi}}"
+// END INTEL_CUSTOMIZATION
 
 // Create PCH with -fpch-codegen.
 // RUN: %clang -x c++-header -fpch-codegen %S/../Modules/Inputs/codegen-flags/foo.h -o %t/foo-cg.pch -### 2>&1 | FileCheck %s -check-prefix=CHECK-PCH-CODEGEN-CREATE
