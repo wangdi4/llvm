@@ -120,6 +120,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callee is always inline"},
     // InlrInlineList,
     {InlPrtSimple, "Callsite on inline list"},
+    // InlrInlineRecursiveList
+    {InlPrtSimple, "Callsite on inline-recursive list"},
     // InlrHotProfile,
     {InlPrtCost, "Callsite has hot profile"},
     // InlrHotCallsite,
