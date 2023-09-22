@@ -642,6 +642,7 @@ public:
                      MachineBasicBlock::iterator &It, MachineFunction &MF,
                      outliner::Candidate &C) const override;
 
+<<<<<<< HEAD
   bool isVecSpillInst(const MachineInstr &MI) const; // INTEL
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
@@ -649,6 +650,12 @@ public:
                                   MachineInstr &MI) const override;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+=======
+  void buildClearRegister(Register Reg, MachineBasicBlock &MBB,
+                          MachineBasicBlock::iterator Iter,
+                          DebugLoc &DL) const override;
+
+>>>>>>> 9e41c284e051618c5a7215694b05844d7e466410
   bool verifyInstruction(const MachineInstr &MI,
                          StringRef &ErrInfo) const override;
 #define GET_INSTRINFO_HELPER_DECLS
