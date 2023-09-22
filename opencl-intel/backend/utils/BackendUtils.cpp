@@ -15,6 +15,7 @@
 #include "BackendUtils.h"
 #include "llvm/ExecutionEngine/Orc/ExecutionUtils.h"
 #include "llvm/IR/CallingConv.h"
+#include "llvm/SYCLLowerIR/SYCLUtils.h"
 
 namespace Intel {
 namespace OpenCL {
@@ -25,11 +26,36 @@ using namespace llvm;
 namespace BackendUtils {
 
 OptimizationLevel getOptLevel(bool HasDisableOptFlag, llvm::Module &M) {
-  bool AllKernelsHasOptNone = llvm::all_of(M, [](Function &F) {
-    return F.getCallingConv() != CallingConv::SPIR_KERNEL || F.hasOptNone();
-  });
-  return (HasDisableOptFlag || AllKernelsHasOptNone) ? OptimizationLevel::O0
-                                                     : OptimizationLevel::O3;
+  if (HasDisableOptFlag)
+    return OptimizationLevel::O0;
+
+  unsigned OptLevel = 0;
+  for (const Function &F : M) {
+    if (F.getCallingConv() != CallingConv::SPIR_KERNEL || F.hasOptNone())
+      continue;
+    if (!F.hasFnAttribute(sycl::utils::ATTR_SYCL_OPTLEVEL)) {
+      OptLevel = 3;
+      break;
+    }
+    unsigned Level;
+    // getAsInteger returns true on error.
+    if (!F.getFnAttribute(sycl::utils::ATTR_SYCL_OPTLEVEL)
+             .getValueAsString()
+             .getAsInteger(10, Level))
+      OptLevel = std::max(OptLevel, Level);
+  }
+  switch (OptLevel) {
+  case 0:
+    return OptimizationLevel::O0;
+  case 1:
+    return OptimizationLevel::O1;
+  case 2:
+    return OptimizationLevel::O2;
+  case 3:
+    return OptimizationLevel::O3;
+  default:
+    llvm_unreachable("invalid optimization level");
+  }
 }
 
 static void recordCtorDtors(iterator_range<orc::CtorDtorIterator> CtorDtors,
