@@ -381,7 +381,11 @@ MODULE_PASS("SPIRITTAnnotations", SPIRITTAnnotationsPass())
 MODULE_PASS("deadargelim-sycl", DeadArgumentEliminationSYCLPass())
 MODULE_PASS("sycllowerwglocalmemory", SYCLLowerWGLocalMemoryPass())
 MODULE_PASS("lower-esimd-kernel-attrs", SYCLFixupESIMDKernelWrapperMDPass())
+<<<<<<< HEAD
 MODULE_PASS("esimd-remove-host-code", ESIMDRemoveHostCodePass());
+=======
+MODULE_PASS("inlineforceinline", InlineForceInlinePass()) // INTEL
+>>>>>>> d4b77f1fa6589d50ddc841dfc184acb9824dd0d1
 MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("inlinereportsetup", InlineReportSetupPass()) // INTEL
 MODULE_PASS("inlinereportemitter", InlineReportEmitterPass()) // INTEL
