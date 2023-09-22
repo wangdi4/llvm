@@ -19,6 +19,7 @@ calculate_target_sources()
 include_directories(include ${OCL_SOURCE_DIR}/tests/framework_test_type)
 
 set(FPGA_TEST_TYPE_LINK_LIBS
+  LLVMDebugInfoBTF
   LLVMSupport
   LLVMTargetParser
   cl_hw_utils
