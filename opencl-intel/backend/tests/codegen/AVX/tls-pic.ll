@@ -5,7 +5,7 @@
 
 define i32 @f1() {
 entry:
-  %tmp1 = load i32, i32* @i
+  %tmp1 = load i32, ptr @i
   ret i32 %tmp1
 }
 
@@ -20,9 +20,9 @@ entry:
 
 @i2 = external thread_local global i32
 
-define i32* @f2() {
+define ptr @f2() {
 entry:
-  ret i32* @i
+  ret ptr @i
 }
 
 ; X32: f2:
@@ -37,7 +37,7 @@ entry:
 
 define i32 @f3() {
 entry:
-  %tmp1 = load i32, i32* @i    ; <i32> [#uses=1]
+  %tmp1 = load i32, ptr @i    ; <i32> [#uses=1]
   ret i32 %tmp1
 }
 
@@ -50,9 +50,9 @@ entry:
 ; X64:   call __tls_get_addr@PLT
 
 
-define i32* @f4() nounwind {
+define ptr @f4() nounwind {
 entry:
-  ret i32* @i
+  ret ptr @i
 }
 
 ; X32: f4:

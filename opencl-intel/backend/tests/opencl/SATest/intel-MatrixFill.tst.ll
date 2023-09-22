@@ -2,13 +2,13 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "spir64-unknown-unknown"
 
 ; Function Attrs: nounwind
-define spir_kernel void @_ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest(i32 addrspace(1)* %add.ptr.i) #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !intel_reqd_sub_group_size !9 {
+define spir_kernel void @_ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest(ptr addrspace(1) %add.ptr.i) #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !intel_reqd_sub_group_size !9 {
 entry:
   %i3 = call spir_func i64 @_Z33__spirv_BuiltInGlobalInvocationIdi(i32 0) #4
   %call.i19.i = call <256 x i32> @llvm.experimental.matrix.fill.v256i32.i32(i32 42, i32 16, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %cmp.i.i = icmp ult i64 %i3, 2147483648
-  %arrayidx.i.i = getelementptr inbounds i32, i32 addrspace(1)* %add.ptr.i, i64 %i3
-  %arrayidx.ascast.i.i = addrspacecast i32 addrspace(1)* %arrayidx.i.i to i32 addrspace(4)*
+  %arrayidx.i.i = getelementptr inbounds i32, ptr addrspace(1) %add.ptr.i, i64 %i3
+  %arrayidx.ascast.i.i = addrspacecast ptr addrspace(1) %arrayidx.i.i to ptr addrspace(4)
   br label %for.cond.i
 
 for.cond.i:                                       ; preds = %for.body.i, %entry
@@ -22,7 +22,7 @@ for.body.i:                                       ; preds = %for.cond.i
   %conv.i = sext i32 %i.0.i to i64
   %call.i.i = call i32 @llvm.experimental.matrix.wi.slice.extractelement.v256i32.i64(<256 x i32> %call.i19.i, i32 16, i32 16, i64 %conv.i, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   call void @llvm.assume(i1 %cmp.i.i)
-  store i32 %call.i.i, i32 addrspace(4)* %arrayidx.ascast.i.i, align 4
+  store i32 %call.i.i, ptr addrspace(4) %arrayidx.ascast.i.i, align 4
   %inc.i = add nuw nsw i32 %i.0.i, 1
   br label %for.cond.i
 

@@ -2,13 +2,13 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64-unknown-unknown"
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local spir_kernel void @test(i32 addrspace(1)* noundef align 4 %dst) #0 !kernel_arg_addr_space !8 !kernel_arg_access_qual !9 !kernel_arg_type !10 !kernel_arg_base_type !10 !kernel_arg_type_qual !3 !kernel_arg_name !11 !kernel_arg_host_accessible !12 !kernel_arg_pipe_depth !13 !kernel_arg_pipe_io !3 !kernel_arg_buffer_location !3 {
+define dso_local spir_kernel void @test(ptr addrspace(1) noundef align 4 %dst) #0 !kernel_arg_addr_space !8 !kernel_arg_access_qual !9 !kernel_arg_type !10 !kernel_arg_base_type !10 !kernel_arg_type_qual !3 !kernel_arg_name !11 !kernel_arg_host_accessible !12 !kernel_arg_pipe_depth !13 !kernel_arg_pipe_io !3 !kernel_arg_buffer_location !3 {
 entry:
-  %dst.addr = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8, !tbaa !14
-  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8, !tbaa !14
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %0, i64 0
-  store i32 2, i32 addrspace(1)* %arrayidx, align 4, !tbaa !18
+  %dst.addr = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8, !tbaa !14
+  %0 = load ptr addrspace(1), ptr %dst.addr, align 8, !tbaa !14
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %0, i64 0
+  store i32 2, ptr addrspace(1) %arrayidx, align 4, !tbaa !18
   ret void
 }
 

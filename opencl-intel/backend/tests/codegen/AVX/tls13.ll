@@ -10,10 +10,10 @@
 
 define void @f() nounwind optsize {
 entry:
-        %0 = load i16, i16* @i, align 2
+        %0 = load i16, ptr @i, align 2
         %1 = sext i16 %0 to i32
         tail call void @g(i32 %1) nounwind
-        %2 = load i16, i16* @j, align 2
+        %2 = load i16, ptr @j, align 2
         %3 = zext i16 %2 to i32
         tail call void @h(i32 %3) nounwind
         ret void
