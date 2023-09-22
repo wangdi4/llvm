@@ -180,16 +180,10 @@ inferPtrElementTypeX(Value *V,
 // types. Return 'nullptr' if no type can be inferred or the types inferred
 // are inconsistent.
 //
-// NOTE: The use of this replaces the use of
-//   Arg.getType()->getPointerElementType()
-// which will be removed when the community moves to opaque pointers.
-//
 Type *inferPtrElementType(Value &V, bool FunctionOnly) {
   llvm::Type *Ty = V.getType();
   if (!Ty->isPointerTy())
     return nullptr;
-  if (Ty->getContext().supportsTypedPointers())
-    return Ty->getNonOpaquePointerElementType();
   auto VMap = DenseMap<const Value *, std::optional<Type *>>();
   auto RT = inferPtrElementTypeX(&V, VMap, FunctionOnly);
   return RT.has_value() ? RT.value() : nullptr;
