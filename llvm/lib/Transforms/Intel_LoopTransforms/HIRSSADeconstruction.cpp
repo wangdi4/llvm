@@ -1364,6 +1364,8 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
   }
 
   IntrinsicInst *RegionEntryIntrin = nullptr;
+  bool EntryIsNonLoopBlock = CurRegIt->isNonLoopBlock(RegionEntryBB);
+
   if (CurRegIt->isLoopMaterializationCandidate()) {
     ModifiedIR = true;
 
@@ -1394,7 +1396,7 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
 
     splitNonLoopRegionExit(SplitPos);
 
-  } else if (CurRegIt->isNonLoopBlock(RegionEntryBB) &&
+  } else if (EntryIsNonLoopBlock &&
              (RegionEntryIntrin =
                   vpo::VPOAnalysisUtils::getBeginDirective(RegionEntryBB))) {
     // Look for region entry intrinsic in the entry bblock and split the bblock
@@ -1420,7 +1422,15 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
     splitNonLoopRegionExit(RegionExitIntrin->getNextNode());
 
   } else {
-    // Region created for fusion.
+    // Region created for fusion and/or preheader of first loop included.
+
+    if (EntryIsNonLoopBlock) {
+      auto *NewEntryBB =
+          SplitBlock(RegionEntryBB, RegionEntryBB->getFirstNonPHI(), DT, LI);
+      CurRegIt->replaceEntryBBlock(NewEntryBB);
+
+      ModifiedIR = true;
+    }
 
     // Exit is from the loop latch so we split the exiting edge instead of
     // splitting the exit block.
