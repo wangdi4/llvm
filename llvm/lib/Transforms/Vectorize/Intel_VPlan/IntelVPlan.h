@@ -39,6 +39,9 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
 
+#include "HIR/IntelVPlanInstructionDataHIR.h"
+#include "HIR/IntelVPlanScalarEvolutionHIR.h"
+#include "HIR/IntelVPlanValueTrackingHIR.h"
 #include "IntelVPAssumptionCache.h"
 #include "IntelVPBasicBlock.h"
 #include "IntelVPLoopAnalysis.h"
@@ -50,9 +53,6 @@
 #include "IntelVPlanScalVecAnalysis.h"
 #include "IntelVPlanValue.h"
 #include "IntelVPlanValueTracking.h"
-#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
-#include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
-#include "VPlanHIR/IntelVPlanValueTrackingHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallSet.h"

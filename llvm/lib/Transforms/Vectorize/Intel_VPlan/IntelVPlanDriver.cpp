@@ -13,6 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "HIR/IntelLoopVectorizationPlannerHIR.h"
+#include "HIR/IntelVPOCodeGenHIR.h"
+#include "HIR/IntelVPlanScalarEvolutionHIR.h"
+#include "HIR/IntelVPlanValueTrackingHIR.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPAlignAssumeCleanup.h"
@@ -29,10 +33,6 @@
 #include "IntelVPlanVConflictTransformation.h"
 #include "IntelVPlanVLSTransform.h"
 #include "IntelVolcanoOpenCL.h"
-#include "VPlanHIR/IntelLoopVectorizationPlannerHIR.h"
-#include "VPlanHIR/IntelVPOCodeGenHIR.h"
-#include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
-#include "VPlanHIR/IntelVPlanValueTrackingHIR.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/DemandedBits.h"
