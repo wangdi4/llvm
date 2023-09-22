@@ -96,6 +96,11 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
+static cl::opt<bool>
+    DeduceRegionLocalAlloca(OPT_SWITCH "-deduce-region-local-alloca",
+                            cl::init(false), cl::Hidden,
+                            cl::desc("Disable " OPT_DESC " pass"));
+
 // Count for dead stores.
 STATISTIC(NumHIRDeadStoreEliminated, "Number of Dead Stores Eliminated");
 
@@ -1203,6 +1208,10 @@ bool HIRDeadStoreElimination::basePtrEscapesAnalysis(
 
 bool HIRDeadStoreElimination::hasAllLoadsWithinRegion(HLRegion &Region,
                                                       const RegDDRef *Ref) {
+
+  if (!DeduceRegionLocalAlloca) {
+    return false;
+  }
 
   auto *BaseVal = Ref->getTempBaseValue();
 
