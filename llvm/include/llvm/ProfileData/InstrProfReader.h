@@ -426,7 +426,7 @@ private:
   Error readHeader(const RawInstrProf::Header &Header);
 
   template <class IntT> IntT swap(IntT Int) const {
-    return ShouldSwapBytes ? sys::getSwappedBytes(Int) : Int;
+    return ShouldSwapBytes ? llvm::byteswap(Int) : Int;
   }
 
   support::endianness getDataEndianness() const {
