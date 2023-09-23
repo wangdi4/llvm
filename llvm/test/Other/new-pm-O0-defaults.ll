@@ -32,11 +32,13 @@
 ; CHECK-DIS: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DIS-NEXT: Running pass: AddDiscriminatorsPass
 ; CHECK-DIS-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
+; CHECK-DIS-NEXT: Running pass: InlineForceInlinePass ;INTEL
 ; CHECK-DIS-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-DIS-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-DIS-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-DEFAULT: Running analysis: InnerAnalysisManagerProxy ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
+; CHECK-DEFAULT-NEXT: Running pass: InlineForceInlinePass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: AlwaysInlinerPass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running analysis: ProfileSummaryAnalysis

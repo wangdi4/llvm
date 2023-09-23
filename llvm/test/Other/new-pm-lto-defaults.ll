@@ -186,6 +186,7 @@
 ; CHECK-O3-NEXT: Running pass: AggressiveInstCombinePass ;INTEL
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: InlineForceInlinePass
 ; CHECK-O23SZ-NEXT: Running pass: InlineListsPass
 ; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA
 ; CHECK-O23SZ-NEXT: Running analysis: AndersensAA

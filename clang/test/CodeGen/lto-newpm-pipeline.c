@@ -42,6 +42,7 @@
 
 // CHECK-FULL-O0: Running analysis: InnerAnalysisManagerProxy ;INTEL
 // CHECK-FULL-O0-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
+// CHECK-FULL-O0-NEXT: Running pass: InlineForceInlinePass ;INTEL
 // CHECK-FULL-O0-NEXT: Running pass: InlineListsPass ;INTEL
 // CHECK-FULL-O0-NEXT: Running pass: AlwaysInlinerPass ;INTEL
 // CHECK-FULL-O0-NEXT: Running analysis: ProfileSummaryAnalysis
@@ -57,6 +58,7 @@
 
 // CHECK-THIN-O0: Running analysis: InnerAnalysisManagerProxy ;INTEL
 // CHECK-THIN-O0-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
+// CHECK-THIN-O0-NEXT: Running pass: InlineForceInlinePass ;INTEL
 // CHECK-THIN-O0-NEXT: Running pass: InlineListsPass ;INTEL
 // CHECK-THIN-O0-NEXT: Running pass: AlwaysInlinerPass ;INTEL
 // CHECK-THIN-O0-NEXT: Running analysis: ProfileSummaryAnalysis
