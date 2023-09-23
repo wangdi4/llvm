@@ -284,9 +284,14 @@ llvm::TargetMachine *Compiler::GetTargetMachine(llvm::Module *pModule) const {
 
   OptimizationLevel OptLevel =
       BackendUtils::getOptLevel(m_buildOptions.GetDisableOpt(), *pModule);
-  llvm::CodeGenOptLevel CGOptLevel = OptLevel == OptimizationLevel::O0
-                                         ? llvm::CodeGenOptLevel::None
-                                         : llvm::CodeGenOptLevel::Default;
+  // Align OpenCL with DPC++ that the default opt-level is O2.
+  bool IsOCL = !CompilationUtils::isGeneratedFromOCLCPP(*pModule);
+  llvm::CodeGenOptLevel CGOptLevel =
+      (OptLevel == OptimizationLevel::O0)   ? llvm::CodeGenOptLevel::None
+      : (OptLevel == OptimizationLevel::O1) ? llvm::CodeGenOptLevel::Less
+      : (OptLevel == OptimizationLevel::O2 || IsOCL)
+          ? llvm::CodeGenOptLevel::Default
+          : llvm::CodeGenOptLevel::Aggressive;
 
   llvm::EngineBuilder Builder;
 

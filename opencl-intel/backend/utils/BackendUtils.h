@@ -27,9 +27,9 @@ namespace DeviceBackend {
 
 namespace BackendUtils {
 
-/// Get optimization level based on compile flag and module.
-/// Return level 0 if either -cl-opt-disable is present in build options or all
-/// kernels have optnone attribute.
+/// Get optimization level based on
+/// * module compile flag.
+/// * kernel function attributes: optnone and sycl-optlevel.
 llvm::OptimizationLevel getOptLevel(bool HasDisableOptFlag, llvm::Module &M);
 
 void recordGlobalCtorDtors(llvm::Module &M, std::vector<std::string> &CtorNames,
