@@ -31,10 +31,9 @@ bool LocalArrayTransposePass::isSquareAllocatableArray(
     AllocaInst *AI,
     std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
   uint32_t ArRank = 0;
-  Type *ElemType = nullptr;
   Type *AIType = AI->getAllocatedType();
   const DataLayout &DL = AI->getFunction()->getParent()->getDataLayout();
-  if (!isDopeVectorType(AIType, DL, &ArRank, &ElemType))
+  if (!isDopeVectorType(AIType, DL, &ArRank))
     return false;
   if (ArRank != 2)
     return false;
