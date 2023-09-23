@@ -148,7 +148,7 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   if (OptLevel == OptimizationLevel::O0)
     MPM = PB.buildO0DefaultPipeline(OptimizationLevel::O0);
   else
-    MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O3);
+    MPM = PB.buildPerModuleDefaultPipeline(OptLevel);
 
   SYCLForceOptnone = (OptLevel == OptimizationLevel::O0);
 
