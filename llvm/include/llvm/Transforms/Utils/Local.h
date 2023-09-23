@@ -32,10 +32,11 @@
 #define LLVM_TRANSFORMS_UTILS_LOCAL_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/Analysis/Intel_Andersens.h" // INTEL
 #include "llvm/IR/Dominators.h"
-#include "llvm/Transforms/IPO/Intel_InlineReport.h"       // INTEL
-#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"     // INTEL
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"   // INTEL
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
 #include <cstdint>
 
@@ -203,7 +204,8 @@ extern cl::opt<bool> RequireAndPreserveDomTree;
 bool simplifyCFG(BasicBlock *BB, const TargetTransformInfo &TTI,
                  DomTreeUpdater *DTU = nullptr,
                  const SimplifyCFGOptions &Options = {},
-                 ArrayRef<WeakVH> LoopHeaders = {});
+                 ArrayRef<WeakVH> LoopHeaders = {},       // INTEL
+                 AndersensAAResult *AndersRes = nullptr); // INTEL
 
 /// This function is used to flatten a CFG. For example, it uses parallel-and
 /// and parallel-or mode to collapse if-conditions and merge if-regions with

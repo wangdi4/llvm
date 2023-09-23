@@ -2095,10 +2095,12 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
   if (IsFullLTO) {
-    // 28038: Avoid excessive hoisting as it increases register pressure and
-    // select conversion without clear gains.
-    // FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true)));
-    FPM.addPass(SimplifyCFGPass());
+    // 28038: Invoking SimplifyCFG with default options except
+    // invalidateAndersResAvoid as aggressive transformations like excessive
+    // hoisting etc increase register pressure and select conversion without
+    // clear gains.
+    FPM.addPass(
+        SimplifyCFGPass(SimplifyCFGOptions().invalidateAndersRes(true)));
   } else {
 #endif // INTEL_CUSTOMIZATION
   // Now that we've formed fast to execute loop structures, we do further
@@ -2116,8 +2118,9 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
                                   .convertSwitchToLookupTable(true)
                                   .needCanonicalLoops(false)
                                   .hoistCommonInsts(true)
-                                  .sinkCommonInsts(true)));
 #if INTEL_CUSTOMIZATION
+                                  .sinkCommonInsts(true)
+                                  .invalidateAndersRes(true)));
   } // IsFullLTO
 #endif // INTEL_CUSTOMIZATION
 

@@ -526,6 +526,8 @@ public:
   ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2,
                            AAQueryInfo &AAQI);
 
+  void invalidateNewPHI(BasicBlock *);
+
   // Return 'true' if the memory location may escape.
   bool mayEscape(const MemoryLocation &LocB);
 
