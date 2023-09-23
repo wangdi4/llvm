@@ -106,11 +106,10 @@ extern std::optional<unsigned int> getArgumentPosition(const CallBase &CI,
 // In the future the FE will provide some metadata to avoid the need to
 // pattern match this.
 //
-// When this function returns 'true', the '*ArrayRank' and '*ElementType'
-// are filled in with the rank and element type of the dope vector.
+// When this function returns 'true', the '*ArrayRank' is filled in with the
+// rank of the dope vector.
 extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
-                             uint32_t *ArrayRank,
-                             Type **ElementType);
+                             uint32_t *ArrayRank);
 // Similar to the above function, but to be used when we don't need to
 // know the array rank and element type.
 extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL);
@@ -402,28 +401,11 @@ public:
   DopeVectorAnalyzer(Value *DVObject, const Type *DVTy,
     std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) :
     DVObject(DVObject), GetTLI(GetTLI) {
-    if (DVObject->getContext().supportsTypedPointers()) {
-      assert(
-          DVObject->getType()->isPointerTy() &&
-          DVObject->getType()->getNonOpaquePointerElementType()->isStructTy() &&
-          DVObject->getType()
-                  ->getNonOpaquePointerElementType()
-                  ->getStructNumElements() == 7 &&
-          DVObject->getType()
-              ->getNonOpaquePointerElementType()
-              ->getContainedType(6)
-              ->isArrayTy() &&
-          "Invalid type for dope vector object");
-      if (!DVTy)
-        DVTy = DVObject->getType()->getNonOpaquePointerElementType();
-    } else {
-      if (!DVTy)
-        DVTy = inferPtrElementType(*DVObject);
-      assert(DVTy && DVTy->isStructTy() && DVTy->getStructNumElements() == 7 &&
-          DVTy->getContainedType(DV_PerDimensionArray)->isArrayTy() && 
-          "Invalid type for dope vector object");
-    }
-
+    if (!DVTy)
+      DVTy = inferPtrElementType(*DVObject);
+    assert(DVTy && DVTy->isStructTy() && DVTy->getStructNumElements() == 7 &&
+           DVTy->getContainedType(DV_PerDimensionArray)->isArrayTy() &&
+           "Invalid type for dope vector object");
     // The rank of the dope vector can be determined by the array length of
     // array that is the last field of the dope vector.
     Rank = DVTy->getContainedType(DV_PerDimensionArray)->getArrayNumElements();
