@@ -128,12 +128,7 @@
 ; CHECK-O-NEXT: Running analysis: BranchProbabilityAnalysis on foo
 ; CHECK-O-NEXT: Running analysis: LoopAnalysis on foo
 ; CHECK-O-NEXT: Running analysis: PostDominatorTreeAnalysis on foo
-<<<<<<< HEAD
 ; CHECK-O3-NEXT: Running pass: AggressiveInstCombinePass ;INTEL
-; CHECK-O23SZ-NEXT: Running pass: ConstraintEliminationPass
-=======
-; CHECK-O23SZ-NEXT: Running pass: AggressiveInstCombinePass
->>>>>>> b78313423d0178525d9fc37bf336660489dad6db
 ; CHECK-O1-NEXT: Running pass: LibCallsShrinkWrapPass
 ; CHECK-O2-NEXT: Running pass: LibCallsShrinkWrapPass
 ; CHECK-O3-NEXT: Running pass: LibCallsShrinkWrapPass
