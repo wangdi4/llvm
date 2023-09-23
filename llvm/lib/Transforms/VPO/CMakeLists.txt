@@ -33,6 +33,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Paropt/Intel_VPOParoptSharedPrivatization.cpp
   Paropt/Intel_VPOParoptTargetInline.cpp
   Paropt/Intel_VPOParoptApplyConfig.cpp
+  Paropt/Intel_VPOParoptLoopFuseCollapse.cpp
   )
 
 # INTEL_FEATURE_CSA

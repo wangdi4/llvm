@@ -480,6 +480,7 @@
 #include "Intel_DTrans/DTransPasses.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptApplyConfig.h"
+#include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptLoopFuseCollapse.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptOptimizeDataSharing.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptSharedPrivatization.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptTargetInline.h"
