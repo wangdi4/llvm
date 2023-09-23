@@ -1087,6 +1087,10 @@ Expected<SimplifyCFGOptions> parseSimplifyCFGOptions(StringRef Params) {
       Result.hoistCommonInsts(Enable);
     } else if (ParamName == "sink-common-insts") {
       Result.sinkCommonInsts(Enable);
+#if INTEL_CUSTOMIZATION
+    } else if (ParamName == "invalidate-anders-res") {
+      Result.invalidateAndersRes(Enable);
+#endif // INTEL_CUSTOMIZATION
     } else if (Enable && ParamName.consume_front("bonus-inst-threshold=")) {
       APInt BonusInstThreshold;
       if (ParamName.getAsInteger(0, BonusInstThreshold))
