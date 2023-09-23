@@ -1166,6 +1166,60 @@ bool AndersensAAResult::invalidate(Module &M, const PreservedAnalyses &PA,
   return !PAC.preservedWhenStateless();
 }
 
+// Invalidate points-to info of all users of newly created PHI nodes
+// in "BB" after Andersens's analysis.
+void AndersensAAResult::invalidateNewPHI(BasicBlock *BB) {
+
+  // Collect all users of "Val" in "AllUses".
+  auto CollectAllUses = [&](Value *Val, std::set<Value *> &AllUses) {
+    SmallVector<Value *, 32> WorkList;
+
+    WorkList.push_back(Val);
+    while (!WorkList.empty()) {
+      Value *V = WorkList.pop_back_val();
+      for (Use &UI : V->uses()) {
+        Value *Ptr = UI.getUser();
+        if (!AllUses.insert(Ptr).second)
+          continue;
+        if (isa<CallBase>(Ptr) || !isPointsToType(Ptr->getType()))
+          continue;
+        WorkList.push_back(Ptr);
+      }
+    }
+  };
+
+  SmallPtrSet<PHINode *, 32> NewPHINodes;
+  // Skip if there are no nodes in ValueNodes.
+  if (ValueNodes.size() == 0)
+    return;
+
+  // Collect all new PHI instructions that are created after Andersens's
+  // analysis pass.
+  for (auto &Inst : *BB) {
+    auto *PHI = dyn_cast<PHINode>(&Inst);
+    if (!PHI || !isPointsToType(PHI->getType()))
+      continue;
+    DenseMap<Value *, unsigned>::const_iterator I = ValueNodes.find(PHI);
+    if (I != ValueNodes.end())
+      continue;
+    NewPHINodes.insert(PHI);
+  }
+
+  // Invalidate points-to info of all uses of PHI.
+  std::set<Value *> AllInvalidUses;
+  for (auto *PI : NewPHINodes)
+    CollectAllUses(PI, AllInvalidUses);
+
+  for (auto *V : AllInvalidUses) {
+    DenseMap<Value *, unsigned>::const_iterator I = ValueNodes.find(V);
+    if (I == ValueNodes.end())
+      continue;
+    if (PrintAndersPointsToUpdates)
+      dbgs() << "Invalidated PHI user: " << *V << "\n";
+    ProcessIRValueDestructed(V);
+  }
+}
+
 AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
                                      const MemoryLocation &LocB,
                                      AAQueryInfo &AAQI, const Instruction *) {

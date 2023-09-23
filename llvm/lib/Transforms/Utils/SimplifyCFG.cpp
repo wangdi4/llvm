@@ -105,6 +105,7 @@
 #include <vector>
 
 #if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
@@ -272,6 +273,7 @@ class SimplifyCFGOpt {
   ArrayRef<WeakVH> LoopHeaders;
   const SimplifyCFGOptions &Options;
   bool Resimplify;
+  AndersensAAResult *AndersRes = nullptr; // INTEL
 
   Value *isValueEqualityComparison(Instruction *TI);
   BasicBlock *GetValueEqualityComparisonCases(
@@ -320,8 +322,12 @@ class SimplifyCFGOpt {
 public:
   SimplifyCFGOpt(const TargetTransformInfo &TTI, DomTreeUpdater *DTU,
                  const DataLayout &DL, ArrayRef<WeakVH> LoopHeaders,
-                 const SimplifyCFGOptions &Opts)
-      : TTI(TTI), DTU(DTU), DL(DL), LoopHeaders(LoopHeaders), Options(Opts) {
+#if INTEL_CUSTOMIZATION
+                 const SimplifyCFGOptions &Opts,
+                 AndersensAAResult *AndersRes = nullptr)
+      : TTI(TTI), DTU(DTU), DL(DL), LoopHeaders(LoopHeaders), Options(Opts),
+        AndersRes(AndersRes) {
+#endif // INTEL_CUSTOMIZATION
     assert((!DTU || !DTU->hasPostDomTree()) &&
            "SimplifyCFG is not yet capable of maintaining validity of a "
            "PostDomTree, so don't ask for it.");
@@ -9183,6 +9189,13 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
       // Let's rerun EliminateDuplicatePHINodes() first,
       // before FoldTwoEntryPHINode() potentially converts them into select's,
       // after which we'd need a whole EarlyCSE pass run to cleanup them.
+#if INTEL_CUSTOMIZATION
+      // Points-to info of newly created PHI-node's users is not valid
+      // as the transformation is combining two different variables
+      // into a single variable.
+      if (AndersRes)
+        AndersRes->invalidateNewPHI(BB);
+#endif // INTEL_CUSTOMIZATION
       return true;
     }
 
@@ -9252,8 +9265,9 @@ bool SimplifyCFGOpt::run(BasicBlock *BB) {
 
 bool llvm::simplifyCFG(BasicBlock *BB, const TargetTransformInfo &TTI,
                        DomTreeUpdater *DTU, const SimplifyCFGOptions &Options,
-                       ArrayRef<WeakVH> LoopHeaders) {
+                       ArrayRef<WeakVH> LoopHeaders,   // INTEL
+                       AndersensAAResult *AndersRes) { // INTEL
   return SimplifyCFGOpt(TTI, DTU, BB->getModule()->getDataLayout(), LoopHeaders,
-                        Options)
+                        Options, AndersRes) // INTEL
       .run(BB);
 }
