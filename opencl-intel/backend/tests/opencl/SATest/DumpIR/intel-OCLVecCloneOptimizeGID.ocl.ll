@@ -3,13 +3,13 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64-unknown-unknown-intelfpga"
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local spir_kernel void @test(i64 addrspace(1)* %dst) #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 {
+define dso_local spir_kernel void @test(ptr addrspace(1) %dst) #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 {
 entry:
   %call = call spir_func i64 @_Z13get_global_idj(i32 0) #1
   %conv = trunc i64 %call to i32
   %idxprom = sext i32 %conv to i64
-  %ptridx = getelementptr inbounds i64, i64 addrspace(1)* %dst, i64 %idxprom
-  store i64 %idxprom, i64 addrspace(1)* %ptridx, align 8, !tbaa !10
+  %ptridx = getelementptr inbounds i64, ptr addrspace(1) %dst, i64 %idxprom
+  store i64 %idxprom, ptr addrspace(1) %ptridx, align 8, !tbaa !10
   ret void
 }
 

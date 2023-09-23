@@ -667,16 +667,6 @@ static void inlineWrappedKernel(CallInst *CI, AssumptionCache *AC) {
   BasicBlock *Entry = &Caller->getEntryBlock();
   BranchInst::Create(FirstNewBlock, Entry);
 
-  // Move alloca to beginning of caller's entry block.
-  auto InsertPoint = Entry->begin();
-  for (auto I = FirstNewBlock->begin(), E = FirstNewBlock->end(); I != E;) {
-    auto *AI = dyn_cast<AllocaInst>(I++);
-    if (!AI)
-      continue;
-    AI->removeFromParent();
-    AI->insertInto(Entry, InsertPoint);
-  }
-
   // Inject byval arguments initialization.
   for (ByValInit &Init : ByValInits)
     HandleByValArgumentInit(Init.Ty, Init.Dst, Init.Src, Caller->getParent(),

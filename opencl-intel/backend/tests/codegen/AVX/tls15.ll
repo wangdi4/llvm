@@ -10,9 +10,9 @@
 @i = thread_local global i32 0
 @j = thread_local global i32 0
 
-define void @f(i32** %a, i32** %b) {
+define void @f(ptr %a, ptr %b) {
 entry:
-  store i32* @i, i32** %a, align 8
-  store i32* @j, i32** %b, align 8
+  store ptr @i, ptr %a, align 8
+  store ptr @j, ptr %b, align 8
   ret void
 }

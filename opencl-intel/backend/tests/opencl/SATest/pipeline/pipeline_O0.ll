@@ -2,14 +2,14 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64_x86_64-unknown-unknown"
 
 ; Function Attrs: convergent norecurse nounwind optnone noinline
-define dso_local spir_kernel void @test(i32 addrspace(1)* noundef align 4 %a, i32 addrspace(1)* noundef align 4 %b) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 !kernel_arg_host_accessible !6 !kernel_arg_pipe_depth !7 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 {
+define dso_local spir_kernel void @test(ptr addrspace(1) noundef align 4 %a, ptr addrspace(1) noundef align 4 %b) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 !kernel_arg_host_accessible !6 !kernel_arg_pipe_depth !7 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 {
 entry:
   %call = call spir_func i64 @_Z13get_global_idj(i32 noundef 0) #2
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %call
-  %0 = load i32, i32 addrspace(1)* %arrayidx, align 4, !tbaa !8
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %a, i64 %call
+  %0 = load i32, ptr addrspace(1) %arrayidx, align 4, !tbaa !8
   %mul = shl nsw i32 %0, 1
-  %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %b, i64 %call
-  store i32 %mul, i32 addrspace(1)* %arrayidx1, align 4, !tbaa !8
+  %arrayidx1 = getelementptr inbounds i32, ptr addrspace(1) %b, i64 %call
+  store i32 %mul, ptr addrspace(1) %arrayidx1, align 4, !tbaa !8
   ret void
 }
 

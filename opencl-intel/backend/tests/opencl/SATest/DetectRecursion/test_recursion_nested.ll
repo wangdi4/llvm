@@ -10,8 +10,8 @@ if.then:
   ret i32 0
 if.else:
   %m.addr = alloca i32, align 4
-  store i32 %m, i32* %m.addr, align 4, !tbaa !9
-  %0 = load i32, i32* %m.addr, align 4, !tbaa !9
+  store i32 %m, ptr %m.addr, align 4, !tbaa !9
+  %0 = load i32, ptr %m.addr, align 4, !tbaa !9
   %sub1 = sub nsw i32 %0, 1
   %call1 = call spir_func i32 @foo_without_barrier(i32 %sub1) #4
   %sub2 = sub nsw i32 %0, 2
@@ -28,8 +28,8 @@ if.then:
   ret i32 0
 if.else:
   %m.addr = alloca i32, align 4
-  store i32 %m, i32* %m.addr, align 4, !tbaa !9
-  %0 = load i32, i32* %m.addr, align 4, !tbaa !9
+  store i32 %m, ptr %m.addr, align 4, !tbaa !9
+  %0 = load i32, ptr %m.addr, align 4, !tbaa !9
   %sub1 = sub nsw i32 %0, 1
   %call1 = call spir_func i32 @foo_without_barrier_2(i32 %sub1) #4
   %sub2 = sub nsw i32 %0, 2
@@ -39,12 +39,12 @@ if.else:
 }
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local spir_kernel void @test(i32 addrspace(1)* %m) #2 !kernel_arg_type !22 !kernel_arg_base_type !22 {
+define dso_local spir_kernel void @test(ptr addrspace(1) %m) #2 !kernel_arg_type !22 !kernel_arg_base_type !22 {
 entry:
   %call = call spir_func i64 @_Z12get_local_idj(i32 0) #5
   %conv = trunc i64 %call to i32
   %call1 = call spir_func i32 @foo_without_barrier(i32 %conv) #4
-  store i32 %call1, i32 addrspace(1)* %m, align 4, !tbaa !9
+  store i32 %call1, ptr addrspace(1) %m, align 4, !tbaa !9
   ret void
 }
 

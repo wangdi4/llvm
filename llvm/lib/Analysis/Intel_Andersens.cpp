@@ -725,16 +725,12 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
 
     Value *V = N->getValue();
 
-    bool IsOpaquePointers =
-        !FP->getType()->getContext().supportsTypedPointers();
     // Set IsComplete to AndersenSetResult::Incomplete if V is unsafe target.
-    if ((IsOpaquePointers && !safeOpaquePointersPossibleTarget(FP, V, Call)) ||
-        (!IsOpaquePointers && !safeTypedPointersPossibleTarget(FP, V, Call))) {
-        if (Trace) {
-            if (Function *Fn = dyn_cast<Function>(V)) {
+    if (!safeOpaquePointersPossibleTarget(FP, V, Call)) {
+      if (Trace) {
+        if (Function *Fn = dyn_cast<Function>(V)) {
           dbgs() << "    Unsafe target: Skipping  " << Fn->getName() << "\n";
-        }
-        else {
+        } else {
           dbgs() << "    Unsafe target: Skipping  " << *V << "\n";
         }
       }
@@ -747,39 +743,8 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
     // to the Target list.
     Type *CallTy = Call->getFunctionType();
     Type *TargetTy = cast<Function>(V)->getFunctionType();
-    if (IsOpaquePointers) {
-      if (CallTy == TargetTy)
-        Targets.push_back(V);
-    } else {
-      if (FP->getType() == V->getType()) {
-        Targets.push_back(V);
-      } else {
-        bool TypeComputed = false;
-        // If there is a chance that the types are similar, then it means
-        // that we don't have a complete set. V can be a possible target
-        // but there is no full proof that it's type match with FP.
-        //
-        // A set will be marked as partially complete only if it is complete.
-        // If the previous checks found that the set is incomplete, then that
-        // result can't be reverted.
-        if (IsComplete == AndersenSetResult::Complete &&
-            areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
-          IsComplete = AndersenSetResult::PartiallyComplete;
-          TypeComputed = true;
-        }
-
-        if (Trace) {
-          if (TypeComputed ||
-              areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
-            dbgs() << "    Types might be similar: Ignoring "
-                   << cast<Function>(V)->getName() << "\n";
-          } else {
-            dbgs() << "    Args mismatch: Ignoring "
-                   << cast<Function>(V)->getName() << "\n";
-          }
-        }
-      }
-    }
+    if (CallTy == TargetTy)
+      Targets.push_back(V);
   }
   return IsComplete;
 }

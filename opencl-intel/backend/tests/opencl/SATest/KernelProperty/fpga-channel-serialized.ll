@@ -1,23 +1,21 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-%opencl.channel_t = type opaque
-
-@ch = addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@ch = addrspace(1) global target("spirv.Channel") zeroinitializer, align 8, !packet_size !0, !packet_align !0
 
 ; Function Attrs: convergent norecurse nounwind
 define dso_local spir_kernel void @test(i32 %data) #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !6 !kernel_arg_name !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !3 !kernel_arg_pipe_io !6 !kernel_arg_buffer_location !6 {
 entry:
   %data.addr = alloca i32, align 4
-  store i32 %data, i32* %data.addr, align 4, !tbaa !9
-  %0 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @ch, align 4, !tbaa !13
-  %1 = load i32, i32* %data.addr, align 4, !tbaa !9
-  call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %0, i32 %1) #2
+  store i32 %data, ptr %data.addr, align 4, !tbaa !9
+  %0 = load target("spirv.Channel"), ptr addrspace(1) @ch, align 4, !tbaa !13
+  %1 = load i32, ptr %data.addr, align 4, !tbaa !9
+  call void @_Z19write_channel_intel11ocl_channelii(target("spirv.Channel") %0, i32 %1) #2
   ret void
 }
 
 ; Function Attrs: convergent
-declare void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)*, i32) #1
+declare void @_Z19write_channel_intel11ocl_channelii(target("spirv.Channel"), i32) #1
 
 attributes #0 = { convergent norecurse nounwind "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" }
 attributes #1 = { convergent "frame-pointer"="none" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" }

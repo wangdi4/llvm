@@ -522,8 +522,7 @@ PreservedAnalyses IndirectCallConvPass::run(Module &M,
                             ? &MAM.getResult<AndersensAA>(M)
                             : nullptr;
 #if INTEL_FEATURE_SW_DTRANS
-  auto *DTransSI = (!M.getContext().supportsTypedPointers() &&
-                    (UseDTrans || IndCallConvForceDTrans))
+  auto *DTransSI = (UseDTrans || IndCallConvForceDTrans)
                        ? &MAM.getResult<dtransOP::DTransSafetyAnalyzer>(M)
                        : nullptr;
   if (!AnderPointsTo && !DTransSI)

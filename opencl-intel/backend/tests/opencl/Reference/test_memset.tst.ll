@@ -8,41 +8,40 @@ define void @test_memset() nounwind uwtable {
 entry:
   %arr = alloca [8 x i32], align 16
   %i = alloca i32, align 4
-  %0 = bitcast [8 x i32]* %arr to i8*
-  call void @llvm.memset.p0i8.i64(i8* %0, i8 3, i64 32, i32 16, i1 false)
-  store i32 0, i32* %i, align 4
+  %0 = bitcast  ptr%arr to ptr
+  call void @llvm.memset.p0i8.i64 ptr%0, i8 3, i64 32, i32 16, i1 false)
+  store i32 0, ptr %i, align 4
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %1 = load i32, i32* %i, align 4
+  %1 = load i32, ptr %i, align 4
   %cmp = icmp slt i32 %1, 8
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %2 = load i32, i32* %i, align 4
+  %2 = load i32, ptr %i, align 4
   %idxprom = sext i32 %2 to i64
-  %arrayidx = getelementptr inbounds [8 x i32], [8 x i32]* %arr, i32 0, i64 %idxprom
-  %3 = load i32* %arrayidx, align 4
-  %call = call i32 (i8 addrspace(2)*, ...) @printf(i8 addrspace(2)* addrspacecast ([4 x i8]* @.str to i8 addrspace(2)*), i32 %3)
+  %arrayidx = getelementptr inbounds [8 x i32],  ptr%arr, i32 0, i64 %idxprom
+  %3 = load ptr %arrayidx, align 4
+  %call = call i32 (ptr addrspace(2), ...) @printf(ptr addrspace(2) addrspacecast  ptr@.str to ptr addrspace(2)), i32 %3)
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %4 = load i32, i32* %i, align 4
+  %4 = load i32, ptr %i, align 4
   %inc = add nsw i32 %4, 1
-  store i32 %inc, i32* %i, align 4
+  store i32 %inc, ptr %i, align 4
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
   ret void
 }
 
-declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1) nounwind
+declare void @llvm.memset.p0i8.i64 ptrnocapture, i8, i64, i32, i1) nounwind
 
-declare i32 @printf(i8 addrspace(2)*, ...)
+declare i32 @printf(ptr addrspace(2), ...)
 
 !sycl.kernels = !{!0}
-!opencl.compiler.options = !{!2}
+!opencl.compiler.options = !{!1}
 
-!0 = !{void ()* @test_memset, !1}
-!1 = !{!"image_access_qualifier"}
-!2 = !{!"-cl-std=CL1.2"}
+!0 = !{ptr @test_memset}
+!1 = !{!"-cl-std=CL1.2"}
