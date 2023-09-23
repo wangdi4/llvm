@@ -1102,9 +1102,6 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
     FPM.addPass(AggressiveInstCombinePass());
 #endif // INTEL_CUSTOMIZATION
 
-  if (EnableConstraintElimination)
-    FPM.addPass(ConstraintEliminationPass());
-
   if (!Level.isOptimizingForSize())
     FPM.addPass(LibCallsShrinkWrapPass());
 
@@ -1143,8 +1140,15 @@ if (!SYCLOptimizationMode) {
     FPM.addPass(ReassociatePass());
 #endif // INTEL_COLLAB
 
+<<<<<<< HEAD
   // Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
   // optimizations rely on TTI, which is not accurate for SPIR target.
+=======
+    // Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
+    // optimizations rely on TTI, which is not accurate for SPIR target.
+    if (EnableConstraintElimination)
+      FPM.addPass(ConstraintEliminationPass());
+>>>>>>> b78313423d0178525d9fc37bf336660489dad6db
 
   // Add the primary loop simplification pipeline.
   // FIXME: Currently this is split into two loop pass pipelines because we run
