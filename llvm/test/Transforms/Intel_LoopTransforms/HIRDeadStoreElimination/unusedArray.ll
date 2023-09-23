@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -hir-create-function-level-region -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -S -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -hir-create-function-level-region -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -S -hir-dead-store-elimination-deduce-region-local-alloca=true -disable-output 2>&1 < %s | FileCheck %s
 ;
 ;
 ; FORTRAN Source Code:
