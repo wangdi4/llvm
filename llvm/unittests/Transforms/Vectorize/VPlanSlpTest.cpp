@@ -686,8 +686,13 @@ TEST_F(VPlanSlpTest, testInstrsInDifferentBBs) {
       "  br label %for.body\n"
       "for.body:                                         ; preds = %for.body, "
       "%entry\n"
+<<<<<<< HEAD
       "  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]\n"
       "  %A0 = getelementptr inbounds %struct.Test, ptr %A, i64 "
+=======
+      "  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %bb2 ]\n"
+      "  %A0 = getelementptr inbounds %struct.Test, %struct.Test* %A, i64 "
+>>>>>>> 4b0df112daa1d967abeca1473c5e81e21d9af36a
       "%indvars.iv, i32 0\n"
       "  %vA0 = load i32, ptr %A0, align 4\n"
       "  %B0 = getelementptr inbounds %struct.Test, ptr %B, i64 "
@@ -749,8 +754,13 @@ TEST_F(VPlanSlpTest, testInstrsInDifferentBBs2) {
       "  br label %for.body\n"
       "for.body:                                         ; preds = %for.body, "
       "%entry\n"
+<<<<<<< HEAD
       "  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]\n"
       "  %A0 = getelementptr inbounds %struct.Test, ptr %A, i64 "
+=======
+      "  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %bb2 ]\n"
+      "  %A0 = getelementptr inbounds %struct.Test, %struct.Test* %A, i64 "
+>>>>>>> 4b0df112daa1d967abeca1473c5e81e21d9af36a
       "%indvars.iv, i32 0\n"
       "  %vA0 = load i32, ptr %A0, align 4\n"
       "  %B0 = getelementptr inbounds %struct.Test, ptr %B, i64 "
