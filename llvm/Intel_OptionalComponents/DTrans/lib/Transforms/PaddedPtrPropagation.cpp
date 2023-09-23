@@ -171,21 +171,6 @@ bool isPaddedMarkUpAnnotation(Value *V, int &Padding) {
   return false;
 }
 
-// Helper function returning true if a type referred to by T is a pointer to an
-// integer or floating-point type.
-bool isSupportedPointerType(Type *T) {
-  auto *PT = dyn_cast<PointerType>(T);
-  if (!PT)
-    return false;
-
-  // Temporarily bailout until the pass is fully ported.
-  if (PT->isOpaque())
-    return false;
-
-  auto *ET = PT->getNonOpaquePointerElementType();
-  return ET->isIntegerTy() || ET->isFloatingPointTy();
-}
-
 // Set of functions merging padded Values passed as function inputs
 // Return values:
 // 1. Minimal padding among arguments
