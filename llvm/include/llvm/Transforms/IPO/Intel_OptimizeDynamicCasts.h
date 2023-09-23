@@ -28,7 +28,7 @@ private:
   typedef std::map<GlobalVariable *, bool> TypeInfoMap;
   TypeInfoMap TypeInfoAnalysis;
 
-  bool isTransformationApplicable(CallInst *, bool IsOpaque);
+  bool isTransformationApplicable(CallInst *);
 
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);

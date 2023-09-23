@@ -2469,12 +2469,6 @@ void AndersensAAResult::visitLoadInst(LoadInst &LI) {
 
 void AndersensAAResult::visitStoreInst(StoreInst &SI) {
 
-  // Returns true if "V" is LoadInst that loads pointer value as
-  // integer.
-  //   Ex:
-  //      %5 = bitcast %struct.p** %0 to i64*
-  //      %6 = load i64, i64* %5
-  //
   auto IsLoadingPtrAsInt = [](Value *V) {
     auto *LI = dyn_cast<LoadInst>(V);
     // Make sure load has single use to simplify the implementation.
@@ -2485,16 +2479,7 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
     auto *GV = dyn_cast<GlobalVariable>(PtrOp->stripPointerCasts());
     if (GV && GV->getValueType()->isPointerTy())
       return true;
-    auto *BC = dyn_cast<BitCastInst>(PtrOp);
-    if (!BC)
-      return false;
-    // Check source type of Bitcast is pointer to pointer to some type.
-    // Check getPointerElementType only when typed pointers are available.
-    if (!BC->getSrcTy()->isPointerTy() ||
-        BC->getSrcTy()->isOpaquePointerTy() ||
-        !BC->getSrcTy()->getNonOpaquePointerElementType()->isPointerTy())
-      return false;
-    return true;
+    return false;
   };
 
   ConstantExpr *CE;

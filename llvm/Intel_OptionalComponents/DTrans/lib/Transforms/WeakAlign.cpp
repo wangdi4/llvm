@@ -719,20 +719,6 @@ bool WeakAlignImpl::willAssumeHold(IntrinsicInst *II) {
   // because the pattern does not currently show up in the case of interest.
   if (AlignedPtr->getType()->isOpaquePointerTy())
     return false;
-
-  // TODO: The code from here to the 'return true' statement should be remvoved
-  // when typed pointers are no longer used.
-  assert(AlignedPtr->getType()->isPointerTy() && "Expected pointer value");
-  auto *StructTy = dyn_cast<llvm::StructType>(
-      AlignedPtr->getType()->getNonOpaquePointerElementType());
-  if (!StructTy || StructTy->isOpaque())
-    return false;
-
-  const DataLayout &DL = II->getFunction()->getParent()->getDataLayout();
-  uint64_t Size = DL.getTypeAllocSize(StructTy);
-  if (Size % 8)
-    return false;
-
   return true;
 }
 
