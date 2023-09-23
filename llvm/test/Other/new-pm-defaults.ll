@@ -107,6 +107,7 @@
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass ;INTEL
+; CHECK-O-NEXT: Running pass: InlineForceInlinePass ;INTEL
 ; CHECK-O-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-O-NEXT: Running pass: CoroEarlyPass
 ; CHECK-O-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
