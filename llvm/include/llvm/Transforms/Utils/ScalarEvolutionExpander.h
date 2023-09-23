@@ -464,10 +464,7 @@ private:
       const SCEV *S, const Instruction *InsertPt,
       SmallVectorImpl<Instruction *> &DropPoisonGeneratingInsts);
 
-<<<<<<< HEAD
   virtual Value *expand(const SCEV *S); // INTEL
-=======
-  Value *expand(const SCEV *S);
   Value *expand(const SCEV *S, BasicBlock::iterator I) {
     setInsertPoint(I);
     return expand(S);
@@ -476,7 +473,6 @@ private:
     setInsertPoint(I);
     return expand(S);
   }
->>>>>>> 45778602f4cff8597c6488fa42200c0010d1e259
 
   /// Determine the most "relevant" loop for the given SCEV.
   const Loop *getRelevantLoop(const SCEV *);
