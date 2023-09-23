@@ -10,9 +10,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanSSADeconstruction.h"
+#include "HIR/IntelVPOCodeGenHIR.h"
+#include "HIR/IntelVPlanBuilderHIR.h"
 #include "IntelVPlanDominatorTree.h"
-#include "VPlanHIR/IntelVPOCodeGenHIR.h"
-#include "VPlanHIR/IntelVPlanBuilderHIR.h"
 #include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "VPlanSSADeconstruction"

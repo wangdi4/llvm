@@ -439,6 +439,8 @@ InlineCost llvm::shouldInline(
 #if INTEL_CUSTOMIZATION
     if (CB.hasFnAttr("inline-list"))
       IC.setInlineReason(InlrInlineList);
+    else if (CB.hasFnAttr("inline-recursive-list"))
+      IC.setInlineReason(InlrInlineRecursiveList);
     IC.setIsRecommended(true);
 #endif // INTEL_CUSTOMIZATION
     return IC;

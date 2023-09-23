@@ -54,7 +54,10 @@ add_opencl_library(
   ${OCL_SOURCE_DIR}/FrontendDriver
   ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export)
 
-target_link_libraries(${TARGET_NAME} hwloc)
+target_link_libraries(${TARGET_NAME}
+  LLVMTargetParser
+  cl_hw_utils
+  hwloc)
 
 if(USE_NUMA AND NOT WIN32)
   add_definitions(-DUSE_NUMA=1)

@@ -14,10 +14,10 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanVLSAnalysis.h"
+#include "HIR/IntelVPlanVLSAnalysisHIR.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSTransform.h"
-#include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/CommandLine.h"
 

@@ -1,4 +1,9 @@
 // RUN: %libomptarget-compile-run-and-check-generic
+// INTEL_CUSTOMIZATION
+// LIT test is using community implementation for indirect target (-fopenmp), so
+// we cannot use Intel runtime.
+// UNSUPPORTED: x86_64-pc-linux-gnu
+// end INTEL_CUSTOMIZATION
 
 #include <assert.h>
 #include <stdio.h>

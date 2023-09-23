@@ -15,13 +15,13 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanCFGMerger.h"
+#include "HIR/IntelVPlanScalarEvolutionHIR.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanExternals.h"
 #include "IntelVPlanScalarEvolution.h"
-#include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
 
 #define DEBUG_TYPE "VPlanCFGMerger"
 

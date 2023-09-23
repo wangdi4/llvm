@@ -153,6 +153,7 @@ typedef enum {
   InlrAlwaysInlineRecursive,
   InlrAlwaysInline,
   InlrInlineList,
+  InlrInlineRecursiveList,
   InlrHotProfile,
   InlrHotCallsite,
   InlrHotCallee,

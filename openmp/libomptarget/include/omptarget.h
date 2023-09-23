@@ -129,7 +129,7 @@ enum OpenMPOffloadingDeclareTargetFlags {
 #if INTEL_COLLAB
   ,
   /// Mark the entry as being a function pointer.
-  OMP_DECLARE_TARGET_FPTR = 0x10
+  OMP_DECLARE_TARGET_FPTR = 0x08
 #endif // INTEL_COLLAB
 };
 
