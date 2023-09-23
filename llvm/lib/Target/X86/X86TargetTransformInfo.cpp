@@ -6266,8 +6266,8 @@ InstructionCost X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy,
   }
 
   InstructionCost AddressUnpackCost = getScalarizationOverhead(
-      FixedVectorType::get(ScalarTy->getPointerTo(), VF), DemandedElts,
-      /*Insert=*/false, /*Extract=*/true, CostKind);
+      FixedVectorType::get(PointerType::getUnqual(ScalarTy->getContext()), VF),
+      DemandedElts, /*Insert=*/false, /*Extract=*/true, CostKind);
 
   // The cost of the scalar loads/stores.
   InstructionCost MemoryOpCost =

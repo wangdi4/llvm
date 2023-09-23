@@ -210,7 +210,8 @@ public:
                OrigBiasInst->getOpcode() == Instruction::BinaryOps::Add);
 #endif // INTEL_CUSTOMIZATION
         Value *BiasInst = Builder.Insert(OrigBiasInst->clone());
-        Addr = Builder.CreateIntToPtr(BiasInst, Ty->getPointerTo());
+        Addr = Builder.CreateIntToPtr(BiasInst,
+                                      PointerType::getUnqual(Ty->getContext()));
       }
       if (AtomicCounterUpdatePromoted)
         // automic update currently can only be promoted across the current
