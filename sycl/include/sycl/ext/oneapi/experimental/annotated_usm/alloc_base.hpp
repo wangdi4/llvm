@@ -88,9 +88,9 @@ aligned_alloc_annotated(size_t alignment, size_t count,
                         alloc kind,
                         const propertyListA &propList = properties{}) {
   VALIDATE_PROPERTIES(T);
-  return {static_cast<T *>(aligned_alloc_annotated<propertyListA>(alignment, count * sizeof(T),
+  return {static_cast<T *>(aligned_alloc_annotated(alignment, count * sizeof(T),
                                                    syclDevice, syclContext,
-                                                   kind)
+                                                   kind, propList)
                                .get())};
 }
 
@@ -102,8 +102,8 @@ std::enable_if_t<CheckTAndPropLists<void, propertyListA, propertyListB>::value,
 aligned_alloc_annotated(size_t alignment, size_t numBytes,
                         const queue &syclQueue, alloc kind,
                         const propertyListA &propList = properties{}) {
-  return aligned_alloc_annotated<propertyListA>(alignment, numBytes, syclQueue.get_device(),
-                                 syclQueue.get_context(), kind);
+  return aligned_alloc_annotated(alignment, numBytes, syclQueue.get_device(),
+                                 syclQueue.get_context(), kind, propList);
 }
 
 template <typename T, typename propertyListA = detail::empty_properties_t,
@@ -114,8 +114,8 @@ std::enable_if_t<CheckTAndPropLists<T, propertyListA, propertyListB>::value,
 aligned_alloc_annotated(size_t alignment, size_t count, const queue &syclQueue,
                         alloc kind,
                         const propertyListA &propList = properties{}) {
-  return aligned_alloc_annotated<T, propertyListA>(alignment, count, syclQueue.get_device(),
-                                    syclQueue.get_context(), kind);
+  return aligned_alloc_annotated<T>(alignment, count, syclQueue.get_device(),
+                                    syclQueue.get_context(), kind, propList);
 }
 
 template <typename propertyListA = detail::empty_properties_t,
@@ -127,7 +127,7 @@ malloc_annotated(size_t numBytes, const device &syclDevice,
                  const context &syclContext, alloc kind,
                  const propertyListA &propList = properties{}) {
   VALIDATE_PROPERTIES(void);
-  return aligned_alloc_annotated<propertyListA>(0, numBytes, syclDevice, syclContext, kind);
+  return aligned_alloc_annotated(0, numBytes, syclDevice, syclContext, kind, propList);
 }
 
 template <typename T, typename propertyListA = detail::empty_properties_t,
@@ -139,8 +139,8 @@ malloc_annotated(size_t count, const device &syclDevice,
                  const context &syclContext, alloc kind,
                  const propertyListA &propList = properties{}) {
   VALIDATE_PROPERTIES(T);
-  return aligned_alloc_annotated<T, propertyListA>(0, count, syclDevice,
-                                            syclContext, kind);
+  return aligned_alloc_annotated<T>(0, count, syclDevice,
+                                            syclContext, kind, propList);
 }
 
 template <typename propertyListA = detail::empty_properties_t,
@@ -150,8 +150,8 @@ std::enable_if_t<CheckTAndPropLists<void, propertyListA, propertyListB>::value,
                  annotated_ptr<void, propertyListB>>
 malloc_annotated(size_t numBytes, const queue &syclQueue, alloc kind,
                  const propertyListA &propList = properties{}) {
-  return malloc_annotated<propertyListA>(numBytes, syclQueue.get_device(),
-                          syclQueue.get_context(), kind);
+  return malloc_annotated(numBytes, syclQueue.get_device(),
+                          syclQueue.get_context(), kind, propList);
 }
 
 template <typename T, typename propertyListA = detail::empty_properties_t,
@@ -161,8 +161,8 @@ std::enable_if_t<CheckTAndPropLists<T, propertyListA, propertyListB>::value,
                  annotated_ptr<T, propertyListB>>
 malloc_annotated(size_t count, const queue &syclQueue, alloc kind,
                  const propertyListA &propList = properties{}) {
-  return malloc_annotated<T, propertyListA>(count, syclQueue.get_device(),
-                             syclQueue.get_context(), kind);
+  return malloc_annotated<T>(count, syclQueue.get_device(),
+                             syclQueue.get_context(), kind, propList);
 }
 
 ////
@@ -184,7 +184,7 @@ malloc_annotated(size_t numBytes, const device &syclDevice,
   static_assert(usmKind != alloc::unknown,
                 "USM kind is not specified. Please specify it as an argument "
                 "or in the input property list.");
-  return malloc_annotated<propertyListA>(numBytes, syclDevice, syclContext, usmKind);
+  return malloc_annotated(numBytes, syclDevice, syclContext, usmKind, propList);
 }
 
 template <typename T, typename propertyListA,
@@ -199,7 +199,7 @@ malloc_annotated(size_t count, const device &syclDevice,
   static_assert(usmKind != alloc::unknown,
                 "USM kind is not specified. Please specify it as an argument "
                 "or in the input property list.");
-  return malloc_annotated<T, propertyListA>(count, syclDevice, syclContext, usmKind);
+  return malloc_annotated<T>(count, syclDevice, syclContext, usmKind, propList);
 }
 
 template <typename propertyListA,
@@ -209,7 +209,7 @@ std::enable_if_t<CheckTAndPropLists<void, propertyListA, propertyListB>::value,
                  annotated_ptr<void, propertyListB>>
 malloc_annotated(size_t numBytes, const queue &syclQueue,
                  const propertyListA &propList) {
-  return malloc_annotated<propertyListA>(numBytes, syclQueue.get_device(),
+  return malloc_annotated(numBytes, syclQueue.get_device(),
                           syclQueue.get_context(), propList);
 }
 
@@ -220,7 +220,7 @@ std::enable_if_t<CheckTAndPropLists<T, propertyListA, propertyListB>::value,
                  annotated_ptr<T, propertyListB>>
 malloc_annotated(size_t count, const queue &syclQueue,
                  const propertyListA &propList) {
-  return malloc_annotated<T, propertyListA>(count, syclQueue.get_device(),
+  return malloc_annotated<T>(count, syclQueue.get_device(),
                              syclQueue.get_context(), propList);
 }
 
