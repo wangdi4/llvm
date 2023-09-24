@@ -300,8 +300,6 @@ public:
   };
 
 #if INTEL_CUSTOMIZATION
-  /// OpenCL compile options to embed in the SPIR metadata
-  std::string SPIRCompileOptions;
   /// Compiler options to embed in .comment section
   std::string Sox;
 #endif // INTEL_CUSTOMIZATION
