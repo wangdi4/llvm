@@ -92,7 +92,6 @@
 
 #if INTEL_CUSTOMIZATION
 #include "CGRecordLayout.h"
-#include "intel/CGSPIRMetadataAdder.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
@@ -1392,9 +1391,6 @@ void CodeGenModule::Release() {
     DI->finalize();
 
 #if INTEL_CUSTOMIZATION
-  if (llvm::StringRef(TheModule.getTargetTriple()).startswith("spir"))
-    addSPIRMetadata(TheModule, getLangOpts().OpenCLVersion,
-                    getCodeGenOpts().SPIRCompileOptions);
 #if INTEL_FEATURE_SW_DTRANS
   if (getCodeGenOpts().EmitDTransInfo)
     EmitIntelDTransMetadata();

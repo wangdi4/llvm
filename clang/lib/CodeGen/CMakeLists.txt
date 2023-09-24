@@ -55,7 +55,6 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 # Add custom Intel files below.  Files listed here will be included in
 # INTEL_CUSTOMIZATION build.
   intel/CGBuiltin_getBuiltinIntelLibFunction.cpp
-  intel/CGSPIRMetadataAdder.cpp
   intel/CGIntelHLS.cpp
   )
 

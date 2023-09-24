@@ -1319,10 +1319,6 @@ def cl_fp32_correctly_rounded_divide_sqrt : Flag<["-"], "cl-fp32-correctly-round
   HelpText<"OpenCL only. Specify that single precision floating-point divide and sqrt used in the program source are correctly rounded.">,
   MarshallingInfoFlag<CodeGenOpts<"OpenCLCorrectlyRoundedDivSqrt">>;
 // if INTEL_CUSTOMIZATION
-def cl_spir_compile_options : Separate<["-"], "cl-spir-compile-options">, Group<opencl_Group>,
-  Visibility<[ClangOption, CC1Option]>,
-  HelpText<"SPIR compilation options to record in metadata">,
-  MarshallingInfoString<CodeGenOpts<"SPIRCompileOptions">>;
 def fhls : Flag<["-"], "fhls">, Group<f_Group>, Flags<[DpcppUnsupported]>,
   Visibility<[ClangOption, CC1Option]>,
   HelpText<"Enable Intel FPGA High Level Synthesis extensions">,
