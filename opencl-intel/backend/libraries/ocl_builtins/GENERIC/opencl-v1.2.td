@@ -719,9 +719,9 @@ def isnormal_mask        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret)
 let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
-def isfinite_v1widen_mask        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isinf_v1widen_mask           : OclBuiltin<"isinf_v1widen",           (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isnormal_v1widen_mask        : OclBuiltin<"isnormal_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isfinite_v1widen_mask        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, i32gentype:$mask), [], [], 0, 1>;
+def isinf_v1widen_mask           : OclBuiltin<"isinf_v1widen",           (outs i32gentype:$ret), (ins gentype:$x, i32gentype:$mask), [], [], 0, 1>;
+def isnormal_v1widen_mask        : OclBuiltin<"isnormal_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, i32gentype:$mask), [], [], 0, 1>;
 }
 
 // VectInfo for OclVecClone

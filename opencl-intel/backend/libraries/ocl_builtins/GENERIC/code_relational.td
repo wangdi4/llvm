@@ -51,7 +51,7 @@ defvar isnormal_v1widen_code = [{
 // Please refer to masked_math.td for naming convention.
 
 defvar masked_impl_code_I32_G_M = [{
-    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg1VarName);
+    $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, ($Arg0igentype)0 != convert_$Arg0igentype($Arg1VarName));
     return $Func(m$Arg0VarName);
   }];
 
