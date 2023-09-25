@@ -449,6 +449,18 @@ public:
                        const TargetRegisterClass *RC,
                        ArrayRef<MachineMemOperand *> MMOs,
                        SmallVectorImpl<MachineInstr *> &NewMIs) const;
+
+  /// isFrameOperand - Return true and the FrameIndex if the specified
+  /// operand and follow operands form a reference to the stack frame.
+  bool isFrameOperand(const MachineInstr &MI, int &FrameIndex) const override;
+
+  /// Return true and the def's index if the target knows it for reload
+  /// instruction.
+  bool getUniqueDefIdxForReload(unsigned *DefOp) const override {
+    if (DefOp)
+      *DefOp = 0;
+    return true;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   void loadStoreTileReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
