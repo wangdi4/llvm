@@ -8,14 +8,14 @@
 ; CHECK-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 2
 ; CHECK-NEXT:     remark #15475: --- begin vector loop cost summary ---
-; IR-NEXT:        remark #15476: scalar cost: 7.000000
-; IR-NEXT:        remark #15477: vector cost: 5.000000
-; IR-NEXT:        remark #15478: estimated potential speedup: 1.390625
-; IR-NEXT:        remark #15309: vectorization support: normalized vectorization overhead 0.187500
-; HIR-NEXT:       remark #15476: scalar cost: 8.000000
-; HIR-NEXT:       remark #15477: vector cost: 6.000000
-; HIR-NEXT:       remark #15478: estimated potential speedup: 1.328125
-; HIR-NEXT:       remark #15309: vectorization support: normalized vectorization overhead 0.328125
+; IR-NEXT:      remark #15476: scalar cost: 108.000000
+; IR-NEXT:      remark #15477: vector cost: 107.000000
+; IR-NEXT:      remark #15478: estimated potential speedup: 1.000000
+; IR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
+; HIR-NEXT:      remark #15476: scalar cost: 109.000000
+; HIR-NEXT:      remark #15477: vector cost: 108.000000
+; HIR-NEXT:      remark #15478: estimated potential speedup: 1.000000
+; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.015625
 ; CHECK-NEXT:     remark #15485: serialized function calls: 1
 ; IR-NEXT:        remark #15558: Call to function 'serial_call_1' was serialized due to no suitable vector variants were found.
 ; CHECK-NEXT:     remark #15488: --- end vector loop cost summary ---

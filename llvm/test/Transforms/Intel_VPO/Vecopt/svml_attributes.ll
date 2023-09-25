@@ -3,17 +3,17 @@
 ; practical sense. LLVM doesn't has an attribute for parameters with
 ; floating-point type. So "inreg" is used instead for the purpose of this test.
 
-; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=8 %s | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=32 %s | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=64 %s | FileCheck -DVL=64 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=128 %s | FileCheck -DVL=64 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=4 -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 %s | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
+; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=8 -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 %s | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=16 -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 %s | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=32 -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 %s | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=64 -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 %s | FileCheck -DVL=64 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=128 -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 %s | FileCheck -DVL=64 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 
-; RUN: opt -vector-library=SVML -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-cg,verify' -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-LT-512 %s
-; RUN: opt -vector-library=SVML -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-cg,verify' -S -vplan-force-vf=8 < %s 2>&1 | FileCheck -DVL=8 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-cg,verify' -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-cg,verify' -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-cg,verify' -S -vplan-force-vf=4 -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0  < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-LT-512 %s
+; RUN: opt -vector-library=SVML -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-cg,verify' -S -vplan-force-vf=8 -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck -DVL=8 --check-prefixes=CHECK,CHECK-HIR,FLOAT-LT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-cg,verify' -S -vplan-force-vf=16 -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vector-library=SVML -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-cg,verify' -S -vplan-force-vf=32 -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,CHECK-HIR,FLOAT-512,DOUBLE-512 %s
 
 ; CHECK-LABEL: @test_sinf(
 ; CHECK: call fast svml_cc <[[VL]] x float> @__svml_sinf[[VL]](<[[VL]] x float> inreg {{%.*}})

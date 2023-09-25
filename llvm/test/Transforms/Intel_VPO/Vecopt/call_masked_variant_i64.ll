@@ -63,6 +63,7 @@ define void @test(ptr nocapture noundef readonly %src, ptr nocapture noundef wri
 ;
 ; HIRVF8-LABEL:  Function: test
 ; HIRVF8:             + DO i1 = 0, [[LOOP_UB0:%.*]], 8   <DO_LOOP>  <MAX_TC_EST = 268435455>  <LEGAL_MAX_TC = 268435455> <simd-vectorized> <nounroll> <novectorize>
+; HIRVF8-NEXT:        |   [[DOTVEC140:%.*]] = undef
 ; HIRVF8-NEXT:        |   [[DOTVEC40:%.*]] = (<8 x i64>*)([[SRC0:%.*]])[i1]
 ; HIRVF8-NEXT:        |   [[SEXT0:%.*]] = sext.<8 x i1>.<8 x i64>(1)
 ; HIRVF8-NEXT:        |   [[TRUNC0:%.*]] = trunc.<8 x i64>.<8 x i1>([[SEXT0]])
