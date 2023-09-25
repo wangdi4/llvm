@@ -25,13 +25,15 @@ using GetAnnotatedHostPtrProperties =
     GetAnnotatedPtrPropertiesWithUsmKind<alloc::host, PropertyListT>;
 
 ////
-//  "aligned_alloc_host_annotated": Aligned host USM allocation functions with properties support
+//  "aligned_alloc_host_annotated": Aligned host USM allocation functions with
+//  properties support
 //
-//  This the base form of all the annotated USM host allocation functions, which are implemented by
-//  calling the more generic "aligned_alloc_annotated" functions with the USM kind as an argument. 
-//  Note that when calling "aligned_alloc_annotated", the template parameter `propertyListA` should
-//  include the `usm_kind<alloc::host>` property to make it appear on the returned annotated_ptr
-//  of "aligned_alloc_annotated"
+//  This the base form of all the annotated USM host allocation functions, which
+//  are implemented by calling the more generic "aligned_alloc_annotated"
+//  functions with the USM kind as an argument. Note that when calling
+//  "aligned_alloc_annotated", the template parameter `propertyListA` should
+//  include the `usm_kind<alloc::host>` property to make it appear on the
+//  returned annotated_ptr of "aligned_alloc_annotated"
 ////
 
 template <typename propertyListA = detail::empty_properties_t,
@@ -43,8 +45,8 @@ std::enable_if_t<
 aligned_alloc_host_annotated(size_t alignment, size_t numBytes,
                              const context &syclContext,
                              const propertyListA &propList = properties{}) {
-  VALIDATE_PROPERTIES(void);
-  auto tmp = aligned_alloc_annotated(alignment, numBytes, {}, syclContext, alloc::host, propList);
+  auto tmp = aligned_alloc_annotated(alignment, numBytes, {}, syclContext,
+                                     alloc::host, propList);
   return {tmp.get()};
 }
 
@@ -57,8 +59,8 @@ std::enable_if_t<
 aligned_alloc_host_annotated(size_t alignment, size_t count,
                              const context &syclContext,
                              const propertyListA &propList = properties{}) {
-  VALIDATE_PROPERTIES(T);
-  auto tmp = aligned_alloc_annotated<T>(alignment, count, {}, syclContext, alloc::host, propList);
+  auto tmp = aligned_alloc_annotated<T>(alignment, count, {}, syclContext,
+                                        alloc::host, propList);
   return {tmp.get()};
 }
 
@@ -103,7 +105,6 @@ std::enable_if_t<
     annotated_ptr<void, propertyListB>>
 malloc_host_annotated(size_t numBytes, const context &syclContext,
                       const propertyListA &propList = properties{}) {
-  VALIDATE_PROPERTIES(void);                        
   return aligned_alloc_host_annotated(0, numBytes, syclContext, propList);
 }
 
@@ -115,8 +116,7 @@ std::enable_if_t<
     annotated_ptr<T, propertyListB>>
 malloc_host_annotated(size_t count, const context &syclContext,
                       const propertyListA &propList = properties{}) {
-  VALIDATE_PROPERTIES(T);
-  return malloc_host_annotated<T>(count, syclContext, propList);
+  return aligned_alloc_host_annotated<T>(0, count, syclContext, propList);
 }
 
 template <typename propertyListA = detail::empty_properties_t,

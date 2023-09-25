@@ -11,7 +11,9 @@
 #include <sycl/ext/oneapi/experimental/annotated_ptr/annotated_ptr.hpp>
 #include <sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp>
 
-#define VALIDATE_PROPERTIES(t) static_assert(ValidAllocPropertyList<t, propertyListA>::value, "The input properties of alloc function contain invalid property")
+#define VALIDATE_PROPERTIES(t)                                                 \
+  static_assert(ValidAllocPropertyList<t, propertyListA>::value,               \
+                "Input property list contains invalid item.")
 
 namespace sycl {
 inline namespace _V1 {
@@ -24,9 +26,10 @@ namespace experimental {
 //  These functions take a USM kind parameter that specifies the type of USM to
 //  allocate
 //
-//  Note: these function group is the base implementation of all the annotated
+//  Note: this function group is the base implementation of the other annotated
 //  allocation API, and is eventally called by:
-//  1. "xxx_alloc_annotated" with USM kind in the properties (defined in alloc_base.hpp)
+//  1. "xxx_alloc_annotated" with USM kind in the properties (defined in
+//  alloc_base.hpp)
 //  2. "xxx_alloc_device_annotated" (defined in alloc_device.hpp)
 //  3. "xxx_alloc_host_annotated"   (defined in alloc_host.hpp)
 //  4. "xxx_alloc_shared_annotated" (defined in alloc_shared.hpp)
@@ -87,7 +90,6 @@ aligned_alloc_annotated(size_t alignment, size_t count,
                         const device &syclDevice, const context &syclContext,
                         alloc kind,
                         const propertyListA &propList = properties{}) {
-  VALIDATE_PROPERTIES(T);
   return {static_cast<T *>(aligned_alloc_annotated(alignment, count * sizeof(T),
                                                    syclDevice, syclContext,
                                                    kind, propList)
@@ -126,8 +128,8 @@ std::enable_if_t<CheckTAndPropLists<void, propertyListA, propertyListB>::value,
 malloc_annotated(size_t numBytes, const device &syclDevice,
                  const context &syclContext, alloc kind,
                  const propertyListA &propList = properties{}) {
-  VALIDATE_PROPERTIES(void);
-  return aligned_alloc_annotated(0, numBytes, syclDevice, syclContext, kind, propList);
+  return aligned_alloc_annotated(0, numBytes, syclDevice, syclContext, kind,
+                                 propList);
 }
 
 template <typename T, typename propertyListA = detail::empty_properties_t,
@@ -138,9 +140,8 @@ std::enable_if_t<CheckTAndPropLists<T, propertyListA, propertyListB>::value,
 malloc_annotated(size_t count, const device &syclDevice,
                  const context &syclContext, alloc kind,
                  const propertyListA &propList = properties{}) {
-  VALIDATE_PROPERTIES(T);
-  return aligned_alloc_annotated<T>(0, count, syclDevice,
-                                            syclContext, kind, propList);
+  return aligned_alloc_annotated<T>(0, count, syclDevice, syclContext, kind,
+                                    propList);
 }
 
 template <typename propertyListA = detail::empty_properties_t,
@@ -169,7 +170,8 @@ malloc_annotated(size_t count, const queue &syclQueue, alloc kind,
 //  Additional USM memory allocation functions with properties support that
 //  requires the usm_kind property
 //
-//  These functions are implemented by extracting the usm kind from the property list and calling the usm-kind-as-argument version
+//  These functions are implemented by extracting the usm kind from the property
+//  list and calling the usm-kind-as-argument version
 ////
 
 template <typename propertyListA,
@@ -179,7 +181,6 @@ std::enable_if_t<CheckTAndPropLists<void, propertyListA, propertyListB>::value,
                  annotated_ptr<void, propertyListB>>
 malloc_annotated(size_t numBytes, const device &syclDevice,
                  const context &syclContext, const propertyListA &propList) {
-  VALIDATE_PROPERTIES(void);
   constexpr alloc usmKind = GetUsmKindFromPropList<propertyListA>::value;
   static_assert(usmKind != alloc::unknown,
                 "USM kind is not specified. Please specify it as an argument "
@@ -194,7 +195,6 @@ std::enable_if_t<CheckTAndPropLists<T, propertyListA, propertyListB>::value,
                  annotated_ptr<T, propertyListB>>
 malloc_annotated(size_t count, const device &syclDevice,
                  const context &syclContext, const propertyListA &propList) {
-  VALIDATE_PROPERTIES(T);
   constexpr alloc usmKind = GetUsmKindFromPropList<propertyListA>::value;
   static_assert(usmKind != alloc::unknown,
                 "USM kind is not specified. Please specify it as an argument "
