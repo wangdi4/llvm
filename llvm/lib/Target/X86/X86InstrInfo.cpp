@@ -39,6 +39,9 @@
 #include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/LiveVariables.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/CodeGen/MachineCombinerPattern.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineDominators.h"
@@ -49,6 +52,9 @@
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/StackMaps.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/CodeGen/TargetSchedule.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -100,6 +106,55 @@ MRNMaxDistance("mrn-max-distance",
                   cl::desc("The max distance for checking if intruction is"
                            "memory renaming-able."),
                   cl::init(50), cl::Hidden);
+
+#if INTEL_FEATURE_CPU_RYL
+// 'RAP' refers to the region auto-predication feature introduced in royal.
+// This option controls whether getTargetRegionOrder attempts to identify
+// candidates for auto-predication during block placement.
+// By default, this is enabled only for -xroyal when enable-rap is true
+// and not explicit. Using -enable-rap=true enables for any CPU, intended for
+// experimental purposes only.
+static cl::opt<bool>
+    EnableRAP("enable-rap",
+              cl::desc("Force preferred target order for RAP regions"),
+              cl::init(true), cl::Hidden);
+
+// Controls whether getTargetRegionOrder will identify if-then-else
+// (hammock) cases for RAP.
+// The royal simulator does not handle these at present, so the
+// default is off.
+static cl::opt<bool> EnableRAPForITE(
+    "enable-rap-ite",
+    cl::desc("Force preferred target order for if-then-else RAP regions"),
+    cl::init(false), cl::Hidden);
+
+// If enabled, only attempt to identify RAP regions when profile data
+// is available.
+static cl::opt<bool> RequireProfileForRAP(
+    "require-profile-for-rap",
+    cl::desc("Require profile data to identify RAP regions"), cl::init(false),
+    cl::Hidden);
+
+// When RAP is enabled without profile data, this delta, expressed
+// as an integer percentage is used to define how near a branch probability
+// need be to 50% to be considered unpredictable.
+// The value will be clamped to 50.
+static cl::opt<unsigned> RAPUnpredictableBranchRange(
+    "rap-unpredictable-branch-range",
+    cl::desc("The value p such that a branch with taken "
+             " probabilty in [(50-p)/100, (50+p)/100] is considered "
+             " unpredictable for RAP"),
+    cl::init(10), cl::Hidden);
+
+// The uop count above which an instruction is considered to be
+// a microcode or nanocode flow, both of which are considered
+// invalid for RAP.
+static cl::opt<unsigned> RAPMicrocodeThreshold(
+    "rap-microcode-threshold",
+    cl::desc("The uop count above which an instruction is considered "
+             "as a microcode flow for RAP"),
+    cl::init(3), cl::Hidden);
+#endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
 
 // Pin the vtable to this file.
@@ -3606,6 +3661,249 @@ bool X86InstrInfo::analyzeBranchPredicate(MachineBasicBlock &MBB,
 
   return true;
 }
+
+#if INTEL_CUSTOMIZATION
+bool X86InstrInfo::getTargetRegionOrder(
+    const MachineBasicBlock &MBB,
+    SmallVectorImpl<MachineBasicBlock *> &BlockSeq, bool &AllowPadding,
+    const MachineBranchProbabilityInfo &MBPI,
+    const TargetSchedModel &SchedModel) const {
+#if INTEL_FEATURE_CPU_RYL
+  // Currently only supported for royal CPU, which enables
+  // region predication. Other supporting CPUs will require
+  // a subtarget query to identify any specific constraints for
+  // predication.
+  // The EnableRAP option will override the CPU check when explicitly
+  // specified.
+  if (!EnableRAP || (MBB.getParent()->getSubtarget().getCPU() != "royal" &&
+                     !EnableRAP.getNumOccurrences()))
+    return false;
+
+  // Optionally limit to cases where profile data is available. In this
+  // mode we rely on the Unpredictable MI flag rather than frequency
+  // to identify flaky branches.
+  if (RequireProfileForRAP && !MBB.getParent()->getFunction().hasProfileData())
+    return false;
+
+  // First ensure that MBB ends in an unpredictable conditional branch.
+  if (MBB.succ_size() != 2)
+    return false;
+  DEBUG_WITH_TYPE("block-placement-rap",
+                  dbgs() << "[rap] checking for RAP region with entry "
+                         << MBB.getName() << "\n");
+
+  // We classify the branch as unpredictable if both probabilities
+  // are near 1/2. It suffices to check one successor arbitrarily.
+  // Ideally, we'd use the unpredictable flag, but this is not
+  // set for branches at present.
+  unsigned PDelta = std::max((unsigned)RAPUnpredictableBranchRange, 50u);
+  auto MinP = BranchProbability::getBranchProbability(50u - PDelta, 100u);
+  auto MaxP = BranchProbability::getBranchProbability(50u + PDelta, 100u);
+  auto P = MBPI.getEdgeProbability(&MBB, *MBB.successors().begin());
+  if (P.isUnknown() || P < MinP || P > MaxP) {
+    DEBUG_WITH_TYPE("block-placement", dbgs() << "\tbranch probability " << P
+                                              << " not in [" << MinP << ", "
+                                              << MaxP << "]\n");
+    return false;
+  }
+
+  // Check that the edges describe a wedge or hammock.
+  // RAP currently supports two layouts:
+  // wedge:
+  //      jcc cond,%L1
+  //      <then block>
+  //      <fallthrough>
+  // L1:  <converge block>
+  //
+  // hammock:
+  //      jcc cond,%L1
+  //      <then block>
+  //      jmp %L2
+  // L1:  <else block>
+  //      <fallthrough>
+  // L2:  <converge block>
+  //
+  // We first collect the successors into a list to simplify
+  // later checks, and prune out obviously invalid cases.
+  SmallVector<MachineBasicBlock *, 2u> Succs;
+  for (auto *SBB : MBB.successors())
+    if (SBB != &MBB && !SBB->isEHPad())
+      Succs.push_back(SBB);
+  if (Succs.size() != 2)
+    return false;
+
+  // Check for wedge/hammock patterns. ConvergeBB is set to
+  // the converge point when a valid pattern is detected.
+  MachineBasicBlock *ConvergeBB = nullptr;
+  for (unsigned i = 0; i < 2; ++i) {
+    auto *SBB = Succs[i];
+    // We have a wedge if one successor has the other as a unique successor,
+    // and the other has no extraneous predecessors.
+    if (SBB->pred_size() != 1)
+      continue;
+    if (SBB->getSingleSuccessor() == Succs[1 - i] &&
+        Succs[1 - i]->pred_size() == 2) {
+      BlockSeq.push_back(Succs[i]);
+      ConvergeBB = Succs[1 - i];
+      break;
+    }
+  }
+  if (!ConvergeBB && EnableRAPForITE) {
+    // Otherwise, check for a hammock, where both successors of MBB share
+    // their single successor.
+    if (Succs[0]->pred_size() == 1 && Succs[1]->pred_size() == 1) {
+      auto *SBB = Succs[0]->getSingleSuccessor();
+      // NB: the check for exactly two predecessors is overly restrictive
+      // for the RAP requirements, but is important to ensure that
+      // ConvergeBB is not a loop header. Since alignment padding is not
+      // permitted, this would prevent any loop alignment.
+      // If there are motivating cases, this could be relaxed for
+      // cold loops.
+      if (SBB && SBB != &MBB && SBB == Succs[1]->getSingleSuccessor() &&
+          SBB->pred_size() == 2) {
+        // The then/else distinction is arbitrary as the branch is assumed
+        // unpredictable.
+        BlockSeq.push_back(Succs[0]);
+        BlockSeq.push_back(Succs[1]);
+        ConvergeBB = SBB;
+      }
+    }
+  }
+
+  if (ConvergeBB) {
+    DEBUG_WITH_TYPE("block-placement-rap", dbgs() << "\tfound converge "
+                                                  << ConvergeBB->getName()
+                                                  << "\n");
+    // Having classified the region blocks, we now check additional
+    // constraints.
+    assert(BlockSeq.size() && BlockSeq.size() <= 2 && "Invalid region");
+    if (!isLegalForRAP(BlockSeq, SchedModel)) {
+      BlockSeq.clear();
+      return false;
+    }
+    // We have a good candidate; finalize the sequence. Padding is
+    // never allowed for royal.
+    BlockSeq.push_back(ConvergeBB);
+    AllowPadding = false;
+    // TODO: should we be setting required alignment here?
+    // For now we assume that the align will be 1 and that the
+    // caller will respect the AllowPadding flag to not increase
+    // the alignment.
+    return true;
+  }
+
+#endif // INTEL_FEATURE_CPU_RYL
+  return false;
+}
+
+#if INTEL_FEATURE_CPU_RYL
+bool X86InstrInfo::isLegalForRAP(const MachineInstr &MI,
+                                 const TargetSchedModel &SM) const {
+  // Implements the constraints for royal auto-predication.
+  // - the instruction may not be a call or otherwise adjust the stack pointer.
+  if (MI.isCall() || getSPAdjust(MI))
+    return false;
+  // - no X87/MMX/SSE/AVX. all but X87 are detected by checking
+  //   for register operand classes and folded into
+  //   the following operand checks.
+  // TODO: remove const_cast, pending const being added to the
+  // isX87Instruction parameter in llorg.
+  if (X86::isX87Instruction(const_cast<MachineInstr&>(MI)))
+    return false;
+  // - all destination operands are GPRs/EGPRs/RFLAGS.
+  //   also check for register operands that indicate
+  //   MMX/SSE/AVX, as this appears to be the only way.
+  if (llvm::any_of(MI.operands(), [&](const MachineOperand &MO) {
+        if (!MO.isReg())
+          return false;
+        auto Reg = MO.getReg();
+        if (Reg == X86::NoRegister)
+          return false;
+        // TODO: we should support physicals or virtuals.
+        // For now we consider virtuals (excluding NoRegister)
+        // as illegal.
+        if (!Register::isPhysicalRegister(Reg))
+          return true;
+        if (MO.isDef()) {
+          if (MO.isImplicit()) {
+            // FIXME: only arithmetic flags are permitted
+            // to be set in EFLAGS/RFLAGS. For now we permit
+            // them wholesale.
+            if (Reg == X86::FPSW || Reg == X86::FPCW || Reg == X86::MXCSR)
+              return true;
+          } else if (!(X86::GR8RegClass.contains(Reg) ||
+                       X86::GR16RegClass.contains(Reg) ||
+                       X86::GR32RegClass.contains(Reg) ||
+                       X86::GR64RegClass.contains(Reg)))
+            return true;
+        }
+        if (X86::VR64RegClass.contains(Reg) ||
+            X86::VR128RegClass.contains(Reg) ||
+            X86::VR256RegClass.contains(Reg) ||
+            X86::VR512RegClass.contains(Reg) ||
+            X86::VR128XRegClass.contains(Reg) ||
+            X86::VR256XRegClass.contains(Reg))
+          return true;
+        return false;
+      }))
+    return false;
+  // - other excluded instructions:
+  //   lock prefix/op, atomics, memory fence, serialize, other
+  //   security ops.
+  // For initial work we use an imprecise but hopefully
+  // conservative check for the hasSideEffects and isBarrier
+  // flags.
+  // FIXME: ensure this is accurate and complete. the criteria
+  // from the royal HAS has several pending choices.
+  if (hasLockPrefix(MI) || MI.getDesc().hasUnmodeledSideEffects() ||
+      MI.getDesc().isBarrier())
+    return false;
+
+  // - the instruction cannot be a microcode flow.
+  // FIXME: It's unclear how to best identify this; the InstrSchedModel includes
+  // a WriteMicrocoded SchedRW type but it's not yet clear if this uniquely
+  // identifies such instructions. For now we use a fairly conservative
+  // limit on NumMicroOps.
+  if (SM.getNumMicroOps(&MI) > (unsigned)RAPMicrocodeThreshold)
+    return false;
+  return true;
+}
+
+bool X86InstrInfo::isLegalForRAP(
+    const SmallVectorImpl<MachineBasicBlock *> &Seq,
+    const TargetSchedModel &SM) const {
+  // Check that all instruction are valid for RAP, and compute
+  // the total instruction size.
+  unsigned Size = 0;
+  for (auto *BB : Seq)
+    for (auto &MI : BB->instrs()) {
+      if (MI.isPHI() || MI.isDebugInstr() || MI.isTerminator())
+        continue;
+      if (!isLegalForRAP(MI, SM)) {
+        DEBUG_WITH_TYPE("block-placement-rap", dbgs() << "\tinvalid MI in "
+                                                      << BB->getName() << ": "
+                                                      << MI << "\n");
+        return false;
+      }
+      // Accumulate the total size, using a conservative
+      // ad-hoc value if the MC desc gives a 0 result.
+      if (auto N = MI.getDesc().getSize())
+        Size += N;
+      else
+        Size += 2;
+    }
+  // The converge block must be in the same or next icache line
+  // as the branch.
+  // FIXME: replace value with e.g. subtarget query
+  if (Size >= 64u) {
+    DEBUG_WITH_TYPE("block-placement-rap",
+                    dbgs() << "\tmaximum size exceeded: " << Size << "\n");
+    return false;
+  }
+  return true;
+}
+#endif // INTEL_FEATURE_CPU_RYL
+#endif // INTEL_CUSTOMIZATION
 
 unsigned X86InstrInfo::removeBranch(MachineBasicBlock &MBB,
                                     int *BytesRemoved) const {

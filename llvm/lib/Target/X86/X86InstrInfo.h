@@ -394,6 +394,26 @@ public:
                               TargetInstrInfo::MachineBranchPredicate &MBP,
                               bool AllowModify = false) const override;
 
+#if INTEL_CUSTOMIZATION
+  bool getTargetRegionOrder(const MachineBasicBlock &MBB,
+                            SmallVectorImpl<MachineBasicBlock *> &BlockSeq,
+                            bool &AllowPadding,
+                            const MachineBranchProbabilityInfo &MBPI,
+                            const TargetSchedModel &SchedModel) const override;
+
+#if INTEL_FEATURE_CPU_RYL
+  // Return true if the given instruction is legal for region auto-predication
+  // on the target.
+  bool isLegalForRAP(const MachineInstr &MI, const TargetSchedModel &SM) const;
+
+  // Return true if the given sequence of blocks is legal for auto-predication.
+  // This does not perform any CFG checks, so it is assumed the sequence of
+  // blocks represents a well-formed region.
+  bool isLegalForRAP(const SmallVectorImpl<MachineBasicBlock *> &Seq,
+                     const TargetSchedModel &SM) const;
+#endif // INTEL_FEATURE_CPU_RYL
+#endif // INTEL_CUSTOMIZATION
+
   unsigned removeBranch(MachineBasicBlock &MBB,
                         int *BytesRemoved = nullptr) const override;
   unsigned insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,

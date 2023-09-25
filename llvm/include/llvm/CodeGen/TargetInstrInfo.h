@@ -79,7 +79,9 @@ class TargetSchedModel;
 class TargetSubtargetInfo;
 enum class MachineCombinerPattern;
 enum class MachineTraceStrategy;
-
+#if INTEL_CUSTOMIZATION
+class MachineBranchProbabilityInfo;
+#endif // INTEL_CUSTOMIZATION
 template <class T> class SmallVectorImpl;
 
 using ParamLoadedValue = std::pair<MachineOperand, DIExpression*>;
@@ -1584,6 +1586,28 @@ public:
   virtual bool isPredicable(const MachineInstr &MI) const {
     return MI.getDesc().isPredicable();
   }
+
+#if INTEL_CUSTOMIZATION
+  /// Return true if the given block is the entry to a control-flow
+  /// region (e.g. a wedge or hammock) for which the target prefers
+  /// a particular contiguous layout, starting from the given MBB.
+  /// If true, BlockSeq is populated with the sequence in the
+  /// required layout order, and AllowPadding is set to indicate
+  /// whether any alignment padding may be inserted. The final
+  /// block in the sequence must only have predecessors within
+  /// the sequence (including MBB).
+  /// This is intended for use by MachineBlockPlacement to allow
+  /// targets to preempt other heuristics when beneficial. The
+  /// preferred layout is not guaranteed to be used by MBP.
+  virtual bool
+  getTargetRegionOrder(const MachineBasicBlock &MBB,
+                       SmallVectorImpl<MachineBasicBlock *> &BlockSeq,
+                       bool &AllowPadding,
+                       const MachineBranchProbabilityInfo &MBPI,
+                       const TargetSchedModel &SchedModel) const {
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Return true if it's safe to move a machine
   /// instruction that defines the specified register class.
