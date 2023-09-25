@@ -270,7 +270,7 @@ static bool checkValueStructuralEqualityAcrossCall(
     if (LGEP->getNumIndices() != RGEP->getNumIndices() ||
         LGEP->isInBounds() != RGEP->isInBounds())
       return false;
-    for (auto It : llvm::zip_equal(LGEP->indices(), RGEP->indices()))
+    for (const auto &It : llvm::zip_equal(LGEP->indices(), RGEP->indices()))
       if (!checkValueStructuralEqualityAcrossCall(
               std::get<0>(It), std::get<1>(It), ArgMapLHS, ArgMapRHS,
               Iterations, Caller))
@@ -330,7 +330,7 @@ static bool checkSCEVStructuralEqualityAcrossCall(
     if (LComm->getNumOperands() != RComm->getNumOperands() ||
         LComm->getNoWrapFlags() != RComm->getNoWrapFlags())
       return false;
-    for (auto It : llvm::zip_equal(LComm->operands(), RComm->operands()))
+    for (const auto &It : llvm::zip_equal(LComm->operands(), RComm->operands()))
       if (!checkSCEVStructuralEqualityAcrossCall(std::get<0>(It),
                                                  std::get<1>(It), ArgMapLHS,
                                                  ArgMapRHS, Iterations, Caller))
@@ -349,7 +349,7 @@ static void populateArgumentMapping(SimpleValueMap &Out, CallInst *CI) {
   assert(Fn->arg_size() == CI->arg_size() &&
          "A call instruction should have the same number of arguments as its "
          "callee");
-  for (auto It : llvm::zip_equal(Fn->args(), CI->args()))
+  for (const auto &It : llvm::zip_equal(Fn->args(), CI->args()))
     Out[&std::get<0>(It)] = std::get<1>(It);
 }
 
