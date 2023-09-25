@@ -978,6 +978,8 @@ Value *llvm::createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
   unsigned VF = VecVariant.getVF();
   // Promote the i1 to an integer type that has the same size as the
   // characteristic type.
+  if (CharacteristicType->isIntegerTy(1))
+    CharacteristicType = CharacteristicType->getWithNewBitWidth(8);
   Type *ScalarToType = IntegerType::get(
       MaskTy->getContext(), CharacteristicType->getPrimitiveSizeInBits());
   Type *VecToType = FixedVectorType::get(ScalarToType, VF);

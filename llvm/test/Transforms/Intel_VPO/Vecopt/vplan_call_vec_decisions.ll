@@ -363,7 +363,7 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 ; Test for DPCPP's unmasked function call.
 declare i1 @some_cond(i64)
 declare i1 @ballot(i1) #5
-declare <2 x i8> @ballot.vec(<2 x i8>, <2 x i1>)
+declare <2 x i8> @ballot.vec(<2 x i8>, <2 x i8>)
 
 ; Exact type for the active mask will depend on the library implementation, but
 ; it doesn't matter for the VPlan implementation as long as the library

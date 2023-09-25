@@ -2998,6 +2998,9 @@ RegDDRef* VPOCodeGenHIR::generateMaskArg(RegDDRef *Mask,
     auto *CharacteristicTy =
         VPlanCallVecDecisions::calcCharacteristicType(
             const_cast<VPCallInstruction*>(VPCall), *MatchedVariant);
+    if (CharacteristicTy->isIntegerTy(1))
+      CharacteristicTy = CharacteristicTy->getWithNewBitWidth(8);
+
     // Promote i1 to an integer with same size as the characteristic type.
     VectorType *MaskTyExt =
         VectorType::get(
@@ -3052,6 +3055,16 @@ void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
     if ((!MatchedVariant || Parms[I].isVector() || Parms[I].isLinearVal()) &&
         !isVectorIntrinsicWithScalarOpAtArg(VectorIntrinID, I)) {
       WideArg = widenRef(VPCall->getOperand(I), VF);
+      // Promoting i1 function arguments to i8
+      VectorType *VecArgTy = cast<VectorType>(WideArg->getDestType());
+      if (VecArgTy->getElementType()->isIntegerTy(1)) {
+        auto *PromotedTy = VecArgTy->getWithNewBitWidth(8);
+        HLInst *ValueExt =
+            HLNodeUtilities.createSExt(PromotedTy, WideArg->clone());
+        addInst(ValueExt, nullptr);
+        WideArg = ValueExt->getLvalDDRef()->clone();
+      }
+
       if (PumpFactor > 1) {
         HLInst *SubVec = extractSubVector(WideArg, PumpPart, PumpFactor);
         addInstUnmasked(SubVec);
