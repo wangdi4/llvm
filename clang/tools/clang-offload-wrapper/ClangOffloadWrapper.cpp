@@ -1650,32 +1650,23 @@ public:
     //   ...
     unsigned AppIdx = 0;
     unsigned SubImageIdx = 0;
+    std::vector<StringRef> Args;
+    std::vector<std::string> Options;
+    Options.resize(ImageIdx);
+    Args.push_back(ObjcopyPath);
+
+    // Number of sections added using one execution of llvm-objcopy
+    const unsigned NumArgs = 1000;
     for (unsigned I = 0; I < ImageIdx; ++I) {
-      auto Name = ImageFiles[I];
-      auto SubImages = SubSections[I];
-      std::vector<StringRef> Args;
-      Args.push_back(ObjcopyPath);
       // If there are any subsections in the image, the section name will be
       // in the format of __openmp_offload_spirv_#_#
-      std::string Option(("--add-section=__openmp_offload_spirv_" +
-                          Twine(AppIdx) +
-                          (SubImages > 0 ? "_" + Twine(SubImageIdx) : "") +
-                          "=" + Name).str());
-      Args.push_back(Option);
-      Args.push_back(*ImageFileName);
-      Args.push_back(*ImageFileName);
-      bool ExecutionFailed = false;
-      std::string ErrMsg;
-      (void)sys::ExecuteAndWait(ObjcopyPath, Args,
-                                /*Env=*/std::nullopt, /*Redirects=*/{},
-                                /*SecondsToWait=*/0,
-                                /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
-
-      if (ExecutionFailed) {
-        warningOS() << ErrMsg << "\n";
-        return;
-      }
-
+      auto Name = ImageFiles[I];
+      auto SubImages = SubSections[I];
+      Options[I].assign(
+          ("--add-section=__openmp_offload_spirv_" + Twine(AppIdx) +
+           (SubImages > 0 ? "_" + Twine(SubImageIdx) : "") + "=" + Name)
+              .str());
+      Args.push_back(Options[I]);
       // Every image contains a number of subsection in its parent application,
       // so we should skip this number of images and increment AppIdx just after
       // all the subsections has been processed.
@@ -1683,8 +1674,23 @@ public:
         SubImageIdx = 0;
         ++AppIdx;
       }
+      if (((I != 0) && ((I % NumArgs) == 0)) || (I == (ImageIdx - 1))) {
+        Args.push_back(*ImageFileName);
+        Args.push_back(*ImageFileName);
+        bool ExecutionFailed = false;
+        std::string ErrMsg;
+        (void)sys::ExecuteAndWait(ObjcopyPath, Args,
+                                  /*Env=*/std::nullopt, /*Redirects=*/{},
+                                  /*SecondsToWait=*/0,
+                                  /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
+        Args.clear();
+        Args.push_back(ObjcopyPath);
+        if (ExecutionFailed) {
+          warningOS() << ErrMsg << "\n";
+          return;
+        }
+      }
     }
-
     // Delete the original Images from the list and replace then
     // with a single combined container ELF.
     for (auto *I = OpenMPPack->begin(); I != OpenMPPack->end();) {
