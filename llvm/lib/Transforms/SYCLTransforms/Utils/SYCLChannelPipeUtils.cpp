@@ -393,18 +393,12 @@ PipeTypesHelper::PipeTypesHelper(Module &M)
 }
 
 bool PipeTypesHelper::isLocalPipeType(Type *Ty) const {
-  return (PipeROTy &&
-          isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeROTy)) ||
-         (PipeWOTy &&
-          isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeWOTy)) ||
-         (OpaquePipeROTy && Ty == OpaquePipeROTy) ||
+  return (PipeROTy) || (PipeWOTy) || (OpaquePipeROTy && Ty == OpaquePipeROTy) ||
          (OpaquePipeWOTy && Ty == OpaquePipeWOTy);
 }
 
 bool PipeTypesHelper::isGlobalPipeType(Type *Ty) const {
-  return (PipeRWTy &&
-          isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeRWTy)) ||
-         (OpaquePipeRWTy && Ty == OpaquePipeRWTy);
+  return (PipeRWTy) || (OpaquePipeRWTy && Ty == OpaquePipeRWTy);
 }
 
 bool PipeTypesHelper::isPipeType(Type *Ty) const {

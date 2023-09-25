@@ -1052,15 +1052,11 @@ bool NEATDataLayout ::IsNEATSupported(const Type *Ty, Value *V) {
   // TODO: implement
   switch (Ty->getTypeID()) {
   case Type::PointerTyID: {
-    if (cast<PointerType>(Ty)->isOpaque()) {
-      std::string ArgTyName;
-      Type *EltTy = findElementType(Ty, V, ArgTyName);
-      if (!ArgTyName.empty())
-        return isNEATArgTypeSupported(StringRef(ArgTyName).drop_back());
-      return IsNEATSupported(EltTy);
-    } else {
-      return IsNEATSupported(Ty->getNonOpaquePointerElementType());
-    }
+    std::string ArgTyName;
+    Type *EltTy = findElementType(Ty, V, ArgTyName);
+    if (!ArgTyName.empty())
+      return isNEATArgTypeSupported(StringRef(ArgTyName).drop_back());
+    return IsNEATSupported(EltTy);
   }
   case Type::ArrayTyID: {
     const ArrayType *ATy = dyn_cast<ArrayType>(Ty);

@@ -134,16 +134,6 @@ static PointerType *getOrCreateOpaquePtrType(Module *M, const std::string &Name,
   return PointerType::get(OpaqueType, AS);
 }
 
-#ifndef NDEBUG
-static bool isPointerToOpaqueStructType(llvm::Type *Ty) {
-  if (auto PT = dyn_cast<PointerType>(Ty))
-    if (auto ST = dyn_cast<StructType>(PT->getNonOpaquePointerElementType()))
-      if (ST->isOpaque())
-        return true;
-  return false;
-}
-#endif // NDEBUG
-
 static reflection::TypePrimitiveEnum
 getPrimitiveType(const std::string &ImageTypeName) {
   assert(ImageTypeName.find("image") != std::string::npos && "Invalid type");

@@ -56,11 +56,6 @@ Instruction *createBroadcast(Value *V, unsigned VectorWidth,
 Instruction *extendValToType(Value *Orig, Type *TargetType,
                              Instruction *InsertPoint);
 
-/// Check if both types are pointer to opaque types.
-/// \param X type 1
-/// \param Y type 2
-bool isOpaquePtrPair(Type *X, Type *Y);
-
 /// Follow thru a function input argument, until finding the root
 //   (where its type matches the "expected" type).
 /// \param Arg The actual argument of the call inst.

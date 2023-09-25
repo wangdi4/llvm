@@ -431,26 +431,6 @@ std::string getWorkGroupIdentityFinalize(StringRef S);
 ///   * getStructByName('__pipe_t', M) will return '__pipe_t_.2' type
 StructType *getStructByName(StringRef Name, const Module *M);
 
-/// Returns struct type with corresponding name if such exists
-/// The main difference from Module::getTypeByName is that this function
-/// doesn't account '.N' suffixes while comparing type names.
-/// For example, if module contains only '__pipe_t.2' type:
-///   * Module::getTypeByName('__pipe_t') will return nullptr
-///   * getStructByName('__pipe_t', M) will return '__pipe_t_.2' type
-StructType *getStructFromTypePtr(Type *Ty);
-
-/// Check if two types actually have the same opaque ptr type.
-/// Such types appear when 2 or more types were created with the same name.
-/// These types differ only in .N name suffix, e.g.: %opencl.image2d_ro_t and
-/// %opencl.image2d_ro_t.0
-bool isSameStructType(StructType *STy1, StructType *STy2);
-
-/// Check if two types points to the same struct type.
-bool isSameStructPtrType(PointerType *PTy1, PointerType *PTy2);
-
-/// Replaces innermost element type from a pointer to a given struct type.
-PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy);
-
 /// Import a declaration of \p Orig into module \p Dst.
 Function *importFunctionDecl(Module *Dst, const Function *Orig,
                              bool DuplicateIfExists = false);

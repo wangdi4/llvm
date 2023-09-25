@@ -384,27 +384,19 @@ static Value *createPipeUserStub(Value *ChannelUser, Value *Pipe) {
 }
 
 static CallInst *createCallInstStub(CallInst *Call, Function *Func,
-                                    Type *ChannelTy, Type *PipeTy) {
+                                    Type *PipeTy) {
   auto *UndefPipe = UndefValue::get(PipeTy);
   SmallVector<Value *, 8> Args;
   KernelInternalMetadataAPI KIMD(Func);
-  if (KIMD.ArgTypeNullValList.hasValue()) {
-    for (const auto &[Idx, Arg] : llvm::enumerate(Call->args())) {
-      auto *TETy = dyn_cast<TargetExtType>(
-          KIMD.ArgTypeNullValList.getItem(Idx)->getType());
-      if (TETy && TETy->getName() == "spirv.Channel")
-        Args.push_back(UndefPipe);
-      else
-        Args.push_back(Arg);
-    }
-  } else {
-    for (auto &Arg : Call->args()) {
-      if (Arg->getType() == ChannelTy) {
-        Args.push_back(UndefPipe);
-      } else {
-        Args.push_back(Arg);
-      }
-    }
+  assert(KIMD.ArgTypeNullValList.hasValue() &&
+         "expect arg_type_null_val metadata");
+  for (const auto &[Idx, Arg] : llvm::enumerate(Call->args())) {
+    auto *TETy = dyn_cast<TargetExtType>(
+        KIMD.ArgTypeNullValList.getItem(Idx)->getType());
+    if (TETy && TETy->getName() == "spirv.Channel")
+      Args.push_back(UndefPipe);
+    else
+      Args.push_back(Arg);
   }
 
   CallInst *Result = CallInst::Create(Func, Args, "", Call);
@@ -495,13 +487,11 @@ static Value *getPacketPtr(Module &M, CallInst *ChannelCall,
   auto *Packet = ChannelCall->getArgOperand(1);
   if (isa<PointerType>(Packet->getType())) {
     // Struct is passed by pointer anyway
-    [[maybe_unused]] Type *EltTy;
+    [[maybe_unused]] Type *EltTy = nullptr;
     if (auto *AI = dyn_cast<AllocaInst>(Packet))
       EltTy = AI->getAllocatedType();
-    else
-      EltTy = cast<PointerType>(Packet->getType())
-                  ->getNonOpaquePointerElementType();
-    assert(EltTy->isStructTy() && "Expected a pointer to a struct type.");
+    assert(EltTy && EltTy->isStructTy() &&
+           "Expected a pointer to a struct type.");
     return Packet;
   }
 
@@ -523,8 +513,7 @@ static void replaceChannelCallResult(CallInst *ChannelCall, ChannelKind CK,
   if (auto *AI = dyn_cast<AllocaInst>(PipePacketPtr))
     PipePacketPtrValueTy = AI->getAllocatedType();
   else
-    PipePacketPtrValueTy =
-        PipePacketPtr->getType()->getNonOpaquePointerElementType();
+    assert(false && "unable to get pipe value type");
 
   if (!CK.Blocking) {
     // Channel and pipe built-ins have different (inverted) meaning for success
@@ -621,17 +610,13 @@ static bool isChannelBuiltinCall(CallInst *Call) {
   return false;
 }
 
-static Function *createUserFunctionStub(CallInst *Call, Type *ChannelTy,
-                                        Type *PipeTy) {
+static Function *createUserFunctionStub(CallInst *Call, Type *PipeTy) {
   Function *ExistingF = Call->getCalledFunction();
   assert(ExistingF && "Indirect function call?");
 
   FunctionType *ExistingFTy = ExistingF->getFunctionType();
   SmallVector<Type *, 4> ArgTys(ExistingFTy->param_begin(),
                                 ExistingFTy->param_end());
-  for (auto &ArgTy : ArgTys)
-    if (ArgTy == ChannelTy)
-      ArgTy = PipeTy;
 
   FunctionType *NewFTy = FunctionType::get(ExistingFTy->getReturnType(), ArgTys,
                                            ExistingFTy->isVarArg());
@@ -747,7 +732,7 @@ static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
   }
 }
 
-static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
+static void replaceGlobalChannelUses(Module &M,
                                      ValueToValueStableMap &GlobalVMap,
                                      RuntimeService &RTS) {
   ::ValueToValueMap VMap;
@@ -793,7 +778,7 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
           Value *FuncReplacement = FuncReplacementIt;
           if (!FuncReplacement)
             FuncReplacement = FuncReplacementIt =
-                createUserFunctionStub(Call, ChannelTy, Pipe->getType());
+                createUserFunctionStub(Call, Pipe->getType());
 
           replaceLocalChannelUses(cast<Function>(FuncReplacement),
                                   Pipe->getType(), OpNo, VMap, ToDelete,
@@ -801,9 +786,8 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
 
           Value *&CallInstReplacement = VMap[Call];
           if (!CallInstReplacement)
-            CallInstReplacement =
-                createCallInstStub(Call, cast<Function>(FuncReplacement),
-                                   ChannelTy, Pipe->getType());
+            CallInstReplacement = createCallInstStub(
+                Call, cast<Function>(FuncReplacement), Pipe->getType());
 
           cast<User>(CallInstReplacement)->setOperand(OpNo, Pipe);
         }
@@ -834,21 +818,12 @@ ChannelPipeTransformationPass::run(Module &M, ModuleAnalysisManager &MAM) {
   if (llvm::none_of(M.globals(), [](auto &GV) { return isGlobalPipe(&GV); }))
     return PreservedAnalyses::all();
 
-  auto *ChannelValueTy = getStructByName("opencl.channel_t", &M);
-  if (!ChannelValueTy)
-    ChannelValueTy = StructType::create(M.getContext(), "opencl.channel_t");
-  // TODO ChannelTy is not needed for opaque pointer.
-  auto *ChannelTy = PointerType::get(ChannelValueTy, ADDRESS_SPACE_GLOBAL);
-  auto *PipeTyName = "opencl.pipe_rw_t";
-  auto *PipeValueTy = StructType::getTypeByName(M.getContext(), PipeTyName);
-  if (!PipeValueTy)
-    PipeValueTy = StructType::create(M.getContext(), PipeTyName);
-  auto *PipeTy = PointerType::get(PipeValueTy, ADDRESS_SPACE_GLOBAL);
+  auto *PipeTy = PointerType::get(M.getContext(), ADDRESS_SPACE_GLOBAL);
 
   ValueToValueStableMap GlobalVMap;
   if (!replaceGlobalChannels(M, PipeTy, GlobalVMap, RTS))
     return PreservedAnalyses::all();
-  replaceGlobalChannelUses(M, ChannelTy, GlobalVMap, RTS);
+  replaceGlobalChannelUses(M, GlobalVMap, RTS);
 
   return PreservedAnalyses::none();
 }

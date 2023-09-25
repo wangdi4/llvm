@@ -106,13 +106,6 @@ static std::pair<bool, Value *> resolveMatrixFillCall(CallInst *CI) {
     IRBuilder<> Builder(CI);
     // Get load type info from intrinsics return type
     auto *ElemType = CI->getType()->getScalarType();
-    auto *PtrArgType = cast<PointerType>(Data->getType());
-    // The arg pointee type may mismatch with the returning element type.
-    // e.g. struct { i16 } vs. i16
-    // Create a bitcast in such case.
-    if (!PtrArgType->isOpaqueOrPointeeTypeMatches(ElemType))
-      Data = Builder.CreateBitCast(
-          Data, ElemType->getPointerTo(PtrArgType->getAddressSpace()));
     Data = Builder.CreateLoad(ElemType, Data, "loaded.fill.data");
   }
 
