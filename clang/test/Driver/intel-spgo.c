@@ -64,3 +64,7 @@
 // RUN: %clang_cl -### --target=x86_64-unknown-windows-msvc -S -fprofile-sample-use=%S/Inputs/file.prof -- %s 2>&1 | FileCheck -check-prefix=CHECK-USE-CL %s
 // CHECK-USE-CL: "-fdebug-info-for-profiling"
 // CHECK-USE-CL: "-funique-internal-linkage-names" {{.*}} "-fprofile-sample-use={{.*}}/file.prof"
+
+// RUN: %clang_cl -### --target=x86_64-unknown-windows-msvc /fprofile-sample-use=%p/Inputs/sample-profile.data -c -flto -o %t.o -- %s
+// RUN: %clang_cl -### --target=x86_64-unknown-windows-msvc /fprofile-sample-use=%p/Inputs/sample-profile.data -o %t.o -- %s 2>&1 | FileCheck --check-prefix=CHECK-CL-LTO-SAMPLE-DATA %s
+// CHECK-CL-LTO-SAMPLE-DATA: "-lto-sample-profile:{{.*}}sample-profile.data"
