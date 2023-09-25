@@ -149,8 +149,25 @@ define i16 @func4(i16 %v) #4 {
   ret i16 %add
 }
 
+define i1 @func5(i1 %v) #5 {
+; CHECK-LABEL: define x86_regcallcc <16 x i8> @_ZGVZM16v_func5
+; CHECK-SAME: (<16 x i8> [[V:%.*]], i32 [[MASK:%.*]]) #[[ATTR0]] {
+; CHECK-NEXT:    [[VEC_V:%.*]] = alloca <16 x i8>, align 16
+; CHECK-NEXT:    [[VEC_MASK:%.*]] = alloca <16 x i8>, align 16
+; CHECK-NEXT:    [[VEC_RETVAL:%.*]] = alloca <16 x i8>, align 16
+; CHECK-NEXT:    store <16 x i8> [[V]], ptr [[VEC_V]], align 16
+; CHECK-NEXT:    [[MASK_TRUNC:%.*]] = trunc i32 [[MASK]] to i16
+; CHECK-NEXT:    [[MASK_VEC:%.*]] = bitcast i16 [[MASK_TRUNC]] to <16 x i1>
+; CHECK-NEXT:    [[MASK_VEC_SEXT:%.*]] = sext <16 x i1> [[MASK_VEC]] to <16 x i8>
+; CHECK-NEXT:    store <16 x i8> [[MASK_VEC_SEXT]], ptr [[VEC_MASK]], align 16
+;
+  %add = and i1 %v, 1
+  ret i1 %add
+}
+
 attributes #0 = { "vector-variants"="_ZGVZM16v_func0,_ZGVZM8v_func0" }
 attributes #1 = { "vector-variants"="_ZGVZM16v_func1,_ZGVZM8v_func1" }
 attributes #2 = { "vector-variants"="_ZGVZM32v_func2" }
 attributes #3 = { "vector-variants"="_ZGVZM64v_func3,_ZGVZM128v_func3" }
 attributes #4 = { "vector-variants"="_ZGVZM32v_func4" }
+attributes #5 = { "vector-variants"="_ZGVZM16v_func5" }

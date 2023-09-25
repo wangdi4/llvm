@@ -1023,7 +1023,7 @@ void buildVectorVariantLogicalSignature(
 
   if (Variant.isMasked()) {
     assert(MaskEltType && "Mask type not provided for masked variant");
-    Type *MaskType = getWidenedType(MaskEltType, VF);
+    Type *MaskType = getWidenedType(MaskEltType, VF, true /*Promote i1*/);
     LogicalArgTypes.push_back(MaskType);
   }
 

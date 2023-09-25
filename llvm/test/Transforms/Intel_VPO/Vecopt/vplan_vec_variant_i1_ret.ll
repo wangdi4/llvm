@@ -26,7 +26,7 @@ define i32 @main(i1 %pred) {
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB10]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = trunc <4 x i64> [[VEC_PHI0]] to <4 x i32>
-; CHECK-NEXT:    [[TMP1:%.*]] = call zeroext <4 x i8> @_ZGVbM4v_foo(<4 x i32> [[TMP0]], <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+; CHECK-NEXT:    [[TMP1:%.*]] = call zeroext <4 x i8> @_ZGVbM4v_foo(<4 x i32> [[TMP0]], <4 x i8> <i8 -1, i8 -1, i8 -1, i8 -1>)
 ; CHECK-NEXT:    [[DOTTRUNC0:%.*]] = trunc <4 x i8> [[TMP1]] to <4 x i1>
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ne <4 x i1> [[BROADCAST_SPLAT0]], [[DOTTRUNC0]]
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
