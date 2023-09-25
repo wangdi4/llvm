@@ -40,7 +40,7 @@ define zeroext i1 @test15(i32 %bf.load, i32 %n) {
 ; CHECK-NEXT:    sete %cl # encoding: [0x0f,0x94,0xc1]
 ; CHECK-NEXT:    cmpl %esi, %eax # encoding: [0x39,0xf0]
 ; CHECK-NEXT:    setae %al # encoding: [0x0f,0x93,0xc0]
-; CHECK-NEXT:    orb %cl, %al # EVEX TO LEGACY Compression encoding: [0x08,0xc8]
+; CHECK-NEXT:    orb %cl, %al # ND TO non-ND Compression encoding: [0x08,0xc8]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %bf.lshr = lshr i32 %bf.load, 16
   %cmp2 = icmp eq i32 %bf.lshr, 0
@@ -102,7 +102,7 @@ define i64 @lowmask_i64_mask64_extra_use(i64 %val) nounwind {
 ; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
 ; CHECK-NEXT:    shlq $16, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xe7,0x10]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
-; CHECK-NEXT:    imulq %rdi, %rax # EVEX TO LEGACY Compression encoding: [0x48,0x0f,0xaf,0xc7]
+; CHECK-NEXT:    imulq %rdi, %rax # ND TO non-ND Compression encoding: [0x48,0x0f,0xaf,0xc7]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %and = and i64 %val, 281474976710655
   %cmp = icmp eq i64 %and, 0
@@ -179,7 +179,7 @@ define i64 @highmask_i64_mask64_extra_use(i64 %val) nounwind {
 ; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
 ; CHECK-NEXT:    shrq $41, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x29]
 ; CHECK-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
-; CHECK-NEXT:    imulq %rdi, %rax # EVEX TO LEGACY Compression encoding: [0x48,0x0f,0xaf,0xc7]
+; CHECK-NEXT:    imulq %rdi, %rax # ND TO non-ND Compression encoding: [0x48,0x0f,0xaf,0xc7]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %and = and i64 %val, -2199023255552
   %cmp = icmp ne i64 %and, 0
@@ -204,7 +204,7 @@ define i32 @highmask_i64_mask32(i64 %val) {
 define void @shl(i32 %x) nounwind {
 ; CHECK-LABEL: shl:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    addl %edi, %edi # EVEX TO LEGACY Compression encoding: [0x01,0xff]
+; CHECK-NEXT:    addl %edi, %edi # ND TO non-ND Compression encoding: [0x01,0xff]
 ; CHECK-NEXT:    jne foo@PLT # TAILCALL
 ; CHECK-NEXT:    # encoding: [0x75,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: foo@PLT-1, kind: FK_PCRel_1
@@ -227,7 +227,7 @@ define zeroext i1 @adc(i128 %x) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movabsq $-9223372036854775808, %rax # encoding: [0x48,0xb8,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x80]
 ; CHECK-NEXT:    # imm = 0x8000000000000000
-; CHECK-NEXT:    addq %rdi, %rax # EVEX TO LEGACY Compression encoding: [0x48,0x01,0xf8]
+; CHECK-NEXT:    addq %rdi, %rax # ND TO non-ND Compression encoding: [0x48,0x01,0xf8]
 ; CHECK-NEXT:    adcq $0, %rsi, %rax # encoding: [0x62,0xf4,0xfc,0x18,0x83,0xd6,0x00]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -255,9 +255,9 @@ define i32 @test4(i32 %a, i32 %b) nounwind  {
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  .LBB16_1: # %bb
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    xorl %esi, %eax # EVEX TO LEGACY Compression encoding: [0x31,0xf0]
+; CHECK-NEXT:    xorl %esi, %eax # ND TO non-ND Compression encoding: [0x31,0xf0]
 ; CHECK-NEXT:    notl %eax, %ecx # encoding: [0x62,0xf4,0x74,0x18,0xf7,0xd0]
-; CHECK-NEXT:    andl %esi, %ecx # EVEX TO LEGACY Compression encoding: [0x21,0xf1]
+; CHECK-NEXT:    andl %esi, %ecx # ND TO non-ND Compression encoding: [0x21,0xf1]
 ; CHECK-NEXT:    addl %ecx, %ecx, %esi # encoding: [0x62,0xf4,0x4c,0x18,0x01,0xc9]
 ; CHECK-NEXT:    jne .LBB16_1 # encoding: [0x75,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB16_1-1, kind: FK_PCRel_1
@@ -285,9 +285,9 @@ define i8 @test6(i8 %a, i8 %b) nounwind  {
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  .LBB17_1: # %bb
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    xorb %sil, %al # EVEX TO LEGACY Compression encoding: [0x40,0x30,0xf0]
+; CHECK-NEXT:    xorb %sil, %al # ND TO non-ND Compression encoding: [0x40,0x30,0xf0]
 ; CHECK-NEXT:    notb %al, %cl # encoding: [0x62,0xf4,0x74,0x18,0xf6,0xd0]
-; CHECK-NEXT:    andb %sil, %cl # EVEX TO LEGACY Compression encoding: [0x40,0x20,0xf1]
+; CHECK-NEXT:    andb %sil, %cl # ND TO non-ND Compression encoding: [0x40,0x20,0xf1]
 ; CHECK-NEXT:    addb %cl, %cl, %sil # encoding: [0x62,0xf4,0x4c,0x18,0x00,0xc9]
 ; CHECK-NEXT:    jne .LBB17_1 # encoding: [0x75,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB17_1-1, kind: FK_PCRel_1
@@ -316,10 +316,10 @@ define i32 @test7_1(i32 %a, i32 %b) nounwind  {
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  .LBB18_1: # %bb
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    xorl %esi, %eax # EVEX TO LEGACY Compression encoding: [0x31,0xf0]
+; CHECK-NEXT:    xorl %esi, %eax # ND TO non-ND Compression encoding: [0x31,0xf0]
 ; CHECK-NEXT:    xorl $2147483646, %eax, %ecx # encoding: [0x62,0xf4,0x74,0x18,0x81,0xf0,0xfe,0xff,0xff,0x7f]
 ; CHECK-NEXT:    # imm = 0x7FFFFFFE
-; CHECK-NEXT:    andl %esi, %ecx # EVEX TO LEGACY Compression encoding: [0x21,0xf1]
+; CHECK-NEXT:    andl %esi, %ecx # ND TO non-ND Compression encoding: [0x21,0xf1]
 ; CHECK-NEXT:    addl %ecx, %ecx, %esi # encoding: [0x62,0xf4,0x4c,0x18,0x01,0xc9]
 ; CHECK-NEXT:    jne .LBB18_1 # encoding: [0x75,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB18_1-1, kind: FK_PCRel_1
