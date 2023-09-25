@@ -9,7 +9,7 @@ declare i64 @llvm.bswap.i64(i64) nounwind readnone
 define void @test1(ptr nocapture %x, i16 %y) nounwind {
 ; CHECK-LABEL: test1:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movbew %si, (%rdi) # encoding: [0x62,0xf4,0x7d,0x08,0x61,0x37]
+; CHECK-NEXT:    movbew %si, (%rdi) # EVEX TO LEGACY Compression encoding: [0x66,0x0f,0x38,0xf1,0x37]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %bswap = call i16 @llvm.bswap.i16(i16 %y)
   store i16 %bswap, ptr %x, align 2
@@ -19,7 +19,7 @@ define void @test1(ptr nocapture %x, i16 %y) nounwind {
 define i16 @test2(ptr %x) nounwind {
 ; CHECK-LABEL: test2:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movbew (%rdi), %ax # encoding: [0x62,0xf4,0x7d,0x08,0x60,0x07]
+; CHECK-NEXT:    movbew (%rdi), %ax # EVEX TO LEGACY Compression encoding: [0x66,0x0f,0x38,0xf0,0x07]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %load = load i16, ptr %x, align 2
   %bswap = call i16 @llvm.bswap.i16(i16 %load)
@@ -29,7 +29,7 @@ define i16 @test2(ptr %x) nounwind {
 define void @test3(ptr nocapture %x, i32 %y) nounwind {
 ; CHECK-LABEL: test3:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movbel %esi, (%rdi) # encoding: [0x62,0xf4,0x7c,0x08,0x61,0x37]
+; CHECK-NEXT:    movbel %esi, (%rdi) # EVEX TO LEGACY Compression encoding: [0x0f,0x38,0xf1,0x37]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %bswap = call i32 @llvm.bswap.i32(i32 %y)
   store i32 %bswap, ptr %x, align 4
@@ -39,7 +39,7 @@ define void @test3(ptr nocapture %x, i32 %y) nounwind {
 define i32 @test4(ptr %x) nounwind {
 ; CHECK-LABEL: test4:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movbel (%rdi), %eax # encoding: [0x62,0xf4,0x7c,0x08,0x60,0x07]
+; CHECK-NEXT:    movbel (%rdi), %eax # EVEX TO LEGACY Compression encoding: [0x0f,0x38,0xf0,0x07]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %load = load i32, ptr %x, align 4
   %bswap = call i32 @llvm.bswap.i32(i32 %load)
@@ -49,7 +49,7 @@ define i32 @test4(ptr %x) nounwind {
 define void @test5(ptr %x, i64 %y) nounwind {
 ; CHECK-LABEL: test5:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movbeq %rsi, (%rdi) # encoding: [0x62,0xf4,0xfc,0x08,0x61,0x37]
+; CHECK-NEXT:    movbeq %rsi, (%rdi) # EVEX TO LEGACY Compression encoding: [0x48,0x0f,0x38,0xf1,0x37]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %bswap = call i64 @llvm.bswap.i64(i64 %y)
   store i64 %bswap, ptr %x, align 8
@@ -59,7 +59,7 @@ define void @test5(ptr %x, i64 %y) nounwind {
 define i64 @test6(ptr %x) nounwind {
 ; CHECK-LABEL: test6:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movbeq (%rdi), %rax # encoding: [0x62,0xf4,0xfc,0x08,0x60,0x07]
+; CHECK-NEXT:    movbeq (%rdi), %rax # EVEX TO LEGACY Compression encoding: [0x48,0x0f,0x38,0xf0,0x07]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %load = load i64, ptr %x, align 8
   %bswap = call i64 @llvm.bswap.i64(i64 %load)
