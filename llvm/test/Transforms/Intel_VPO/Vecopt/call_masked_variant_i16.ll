@@ -29,6 +29,7 @@ define void @test(ptr nocapture noundef readonly %src, ptr nocapture noundef wri
 ;
 ; HIR-LABEL:  Function: test
 ; HIR:             + DO i1 = 0, [[LOOP_UB0:%.*]], 32   <DO_LOOP>  <MAX_TC_EST = 67108863>  <LEGAL_MAX_TC = 67108863> <simd-vectorized> <nounroll> <novectorize>
+; HIR-NEXT:        |   [[DOTVEC140:%.*]] = undef
 ; HIR-NEXT:        |   [[DOTVEC40:%.*]] = (<32 x i16>*)([[SRC0:%.*]])[i1]
 ; HIR-NEXT:        |   [[SEXT0:%.*]] = sext.<32 x i1>.<32 x i16>(1)
 ; HIR-NEXT:        |   [[TRUNC0:%.*]] = trunc.<32 x i16>.<32 x i1>([[SEXT0]])

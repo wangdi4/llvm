@@ -8,9 +8,9 @@
 ; VEC-REM-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
 ; VEC-REM-NEXT:     remark #15305: vectorization support: vector length 4
 ; VEC-REM-NEXT:     remark #15475: --- begin vector loop cost summary ---
-; VEC-REM-NEXT:     remark #15476: scalar cost: 40.000000
-; VEC-REM-NEXT:     remark #15477: vector cost: 23.562500
-; VEC-REM-NEXT:     remark #15478: estimated potential speedup: 1.687500
+; VEC-REM-NEXT:     remark #15476: scalar cost: 141.000000
+; VEC-REM-NEXT:     remark #15477: vector cost: 125.562500
+; VEC-REM-NEXT:     remark #15478: estimated potential speedup: 1.109375
 ; VEC-REM-NEXT:     remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; VEC-REM-NEXT:     remark #15570: using scalar loop trip count: 300
 ; VEC-REM-NEXT:     remark #15591: vectorized intrinsic functions: 1

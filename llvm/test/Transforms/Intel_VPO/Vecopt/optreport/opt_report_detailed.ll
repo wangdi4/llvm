@@ -16,9 +16,9 @@ define void @test_serialized(ptr nocapture %arr) local_unnamed_addr {
 ; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
-; LLVM-NEXT:      remark #15476: scalar cost: 2.000000
-; LLVM-NEXT:      remark #15477: vector cost: 4.500000
-; LLVM-NEXT:      remark #15478: estimated potential speedup: 0.437500
+; LLVM-NEXT:      remark #15476: scalar cost: 204.000000
+; LLVM-NEXT:      remark #15477: vector cost: 212.500000
+; LLVM-NEXT:      remark #15478: estimated potential speedup: 0.953125
 ; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; LLVM-NEXT:      remark #15570: using scalar loop trip count: 300
 ; LLVM-NEXT:      remark #15485: serialized function calls: 2
@@ -50,9 +50,9 @@ define void @test_serialized(ptr nocapture %arr) local_unnamed_addr {
 ; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
-; HIR-NEXT:      remark #15476: scalar cost: 2.000000
-; HIR-NEXT:      remark #15477: vector cost: 4.500000
-; HIR-NEXT:      remark #15478: estimated potential speedup: 0.437500
+; HIR-NEXT:      remark #15476: scalar cost: 204.000000
+; HIR-NEXT:      remark #15477: vector cost: 212.500000
+; HIR-NEXT:      remark #15478: estimated potential speedup: 0.953125
 ; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; HIR-NEXT:      remark #15570: using scalar loop trip count: 300
 ; HIR-NEXT:      remark #15485: serialized function calls: 2
@@ -87,9 +87,9 @@ define void @test_vector_variant(ptr nocapture %arr) local_unnamed_addr {
 ; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
-; LLVM-NEXT:      remark #15476: scalar cost: 2.000000
-; LLVM-NEXT:      remark #15477: vector cost: 4.500000
-; LLVM-NEXT:      remark #15478: estimated potential speedup: 0.437500
+; LLVM-NEXT:      remark #15476: scalar cost: 103.000000
+; LLVM-NEXT:      remark #15477: vector cost: 30.500000
+; LLVM-NEXT:      remark #15478: estimated potential speedup: 3.375000
 ; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; LLVM-NEXT:      remark #15570: using scalar loop trip count: 300
 ; LLVM-NEXT:      remark #15484: vector function calls: 1
@@ -113,9 +113,9 @@ define void @test_vector_variant(ptr nocapture %arr) local_unnamed_addr {
 ; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
-; HIR-NEXT:      remark #15476: scalar cost: 2.000000
-; HIR-NEXT:      remark #15477: vector cost: 4.500000
-; HIR-NEXT:      remark #15478: estimated potential speedup: 0.437500
+; HIR-NEXT:      remark #15476: scalar cost: 103.000000
+; HIR-NEXT:      remark #15477: vector cost: 30.500000
+; HIR-NEXT:      remark #15478: estimated potential speedup: 3.375000
 ; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; HIR-NEXT:      remark #15570: using scalar loop trip count: 300
 ; HIR-NEXT:      remark #15484: vector function calls: 1
@@ -149,9 +149,9 @@ define void @test_sqrt(ptr nocapture %arr) local_unnamed_addr #1 {
 ; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
-; LLVM-NEXT:      remark #15476: scalar cost: 31.000000
-; LLVM-NEXT:      remark #15477: vector cost: 14.250000
-; LLVM-NEXT:      remark #15478: estimated potential speedup: 2.171875
+; LLVM-NEXT:      remark #15476: scalar cost: 132.000000
+; LLVM-NEXT:      remark #15477: vector cost: 40.250000
+; LLVM-NEXT:      remark #15478: estimated potential speedup: 3.265625
 ; LLVM-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; LLVM-NEXT:      remark #15570: using scalar loop trip count: 300
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 2
@@ -178,9 +178,9 @@ define void @test_sqrt(ptr nocapture %arr) local_unnamed_addr #1 {
 ; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
-; HIR-NEXT:      remark #15476: scalar cost: 31.000000
-; HIR-NEXT:      remark #15477: vector cost: 14.250000
-; HIR-NEXT:      remark #15478: estimated potential speedup: 2.171875
+; HIR-NEXT:      remark #15476: scalar cost: 132.000000
+; HIR-NEXT:      remark #15477: vector cost: 40.250000
+; HIR-NEXT:      remark #15478: estimated potential speedup: 3.265625
 ; HIR-NEXT:      remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; HIR-NEXT:      remark #15570: using scalar loop trip count: 300
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 2
