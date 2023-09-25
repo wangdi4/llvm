@@ -209,6 +209,9 @@ struct Configuration {
 
   // Used for /opt:fintel-preserve-value-names
   bool intelShouldDiscardValueNames = true;
+
+  // Used for /lto-sample-profile:name
+  std::string ltoSampleProfileName;
 #endif // INTEL_CUSTOMIZATION
   // Used for /opt:[no]ltodebugpassmanager
   bool ltoDebugPassManager = false;

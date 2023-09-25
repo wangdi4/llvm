@@ -1862,6 +1862,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
 #if INTEL_CUSTOMIZATION
   if (args.hasArg(OPT_profile_sample_generate))
     config->debug = true;
+  if (auto *arg = args.getLastArg(OPT_lto_sample_profile))
+    config->ltoSampleProfileName = arg->getValue();
 #endif // INTEL_CUSTOMIZATION
 
   // Handle /demangle

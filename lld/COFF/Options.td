@@ -161,6 +161,9 @@ def driver_uponly : F<"driver:uponly">,
     HelpText<"Set IMAGE_DLL_CHARACTERISTICS_WDM_DRIVER bit in PE header">;
 def driver_wdm_uponly : F<"driver:wdm,uponly">;
 def driver_uponly_wdm : F<"driver:uponly,wdm">;
+#if INTEL_CUSTOMIZATION
+def lto_sample_profile : P<"lto-sample-profile", "Specify sample profiling data file">;
+#endif // INTEL_CUSTOMIZATION
 def nodefaultlib_all : F<"nodefaultlib">,
     HelpText<"Remove all default libraries">;
 def noentry : F<"noentry">,
