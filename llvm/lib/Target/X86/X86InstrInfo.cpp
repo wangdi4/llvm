@@ -602,6 +602,28 @@ bool X86InstrInfo::isFrameOperand(const MachineInstr &MI, unsigned int Op,
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Return true and the FrameIndex if the specified
+/// operand and follow operands form a reference to the stack frame.
+bool X86InstrInfo::isFrameOperand(const MachineInstr &MI,
+                                  int &FrameIndex) const {
+
+  // Instruction must be load or store.
+  if (!MI.mayLoadOrStore())
+    return false;
+
+  const MCInstrDesc &Desc = MI.getDesc();
+  int Op = X86II::getMemoryOperandNo(Desc.TSFlags);
+
+  if (Op < 0)
+    return false;
+
+  Op += X86II::getOperandBias(Desc);
+
+  return isFrameOperand(MI, Op, FrameIndex);
+}
+#endif // INTEL_CUSTOMIZATION
+
 static bool isFrameLoadOpcode(int Opcode, unsigned &MemBytes) {
   switch (Opcode) {
   default:

@@ -140,6 +140,16 @@ public:
                                        bool DisableGFMAForPrecision) const {
     return false;
   }
+
+  /// Return true and the def's index if the target knows it for reload
+  /// instruction.
+  virtual bool getUniqueDefIdxForReload(unsigned *DefOp) const { return false; }
+
+  /// Return true and the FrameIndex if the specified
+  /// operand and follow operands form a reference to the stack frame.
+  virtual bool isFrameOperand(const MachineInstr &MI, int &FrameIndex) const {
+    return false;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   /// Given a machine instruction descriptor, returns the register
