@@ -39,6 +39,18 @@ using namespace llvm;
 using namespace X86Disassembler;
 
 namespace {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+struct ManualMapEntry {
+  const char *EVEXInstStr;
+  const char *LegacyInstStr;
+};
+const std::map<StringRef, ManualMapEntry> EVEXInstsMap = {
+#define EVEXENTRY(EVEX, LEGACY) {#EVEX, {#EVEX, #LEGACY}},
+#include "Intel_X86ManualEVEXCompressTables.def"
+};
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 class X86EVEX2VEXTablesEmitter {
   RecordKeeper &Records;
@@ -61,18 +73,16 @@ class X86EVEX2VEXTablesEmitter {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-  // Hold all possibly compressed APX instructions, including only ND
+  // Hold all possibly compressed APX instructions, including only ND and EGPR
   // instruction so far
-  std::vector<const CodeGenInstruction *> NDInsts;
+  std::vector<const CodeGenInstruction *> APXInsts;
   // Hold all X86 instructions. Divided into groups with same opcodes
   // to make the search more efficient
-  std::map<uint64_t, std::vector<const CodeGenInstruction *>> NonNDInsts;
-
-  // Represent ND to Non-ND compress tables.
-  std::vector<Entry> ND2NonNDBit8;
-  std::vector<Entry> ND2NonNDBit16;
-  std::vector<Entry> ND2NonNDBit32;
-  std::vector<Entry> ND2NonNDBit64;
+  std::map<uint64_t, std::vector<const CodeGenInstruction *>> LegacyInsts;
+  // Represent ND to non-ND compress tables.
+  std::vector<Entry> ND2NonNDTable;
+  // Represent EVEX to Legacy compress tables.
+  std::vector<Entry> EVEX2LegacyTable;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
@@ -91,8 +101,12 @@ private:
                            raw_ostream &OS);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-  // X86APXToX86CompressTableEntry
+  // X86EVEXToLegacyCompressTableEntry
   void printND2NonNDTable(const std::vector<Entry> &Table, raw_ostream &OS);
+  void printEVEX2LegacyTable(const std::vector<Entry> &Table, raw_ostream &OS);
+  void addManualEntry(const CodeGenInstruction *EVEXInstr,
+                      const CodeGenInstruction *LegacyInstr,
+                      const char *TableName);
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 };
@@ -121,22 +135,28 @@ void X86EVEX2VEXTablesEmitter::printTable(const std::vector<Entry> &Table,
 #if INTEL_FEATURE_ISA_APX_F
 void X86EVEX2VEXTablesEmitter::printND2NonNDTable(
     const std::vector<Entry> &Table, raw_ostream &OS) {
-  StringRef Size;
-  if (&Table == &ND2NonNDBit8)
-    Size = "Bit8";
-  else if (&Table == &ND2NonNDBit16)
-    Size = "Bit16";
-  else if (&Table == &ND2NonNDBit32)
-    Size = "Bit32";
-  else
-    Size = "Bit64";
+  OS << "// ND encoded instructions that have a non-ND encoding\n"
+     << "// (table format: <ND opcode, NonND opcode>).\n"
+     << "static const X86EvexToVexCompressTableEntry "
+     << "ND2NonNDCompressTable[] = {\n"
+     << "  // EVEX scalar with corresponding X86.\n";
 
-  OS << "// NDD encoded instructions that have a Legacy " << Size
-     << " encoding\n"
-     << "// (table format: <NDD opcode, X86-" << Size << " opcode>).\n"
-     << "static const X86EvexToVexCompressTableEntry ND2NonND" << Size
-     << "CompressTable[] = {\n"
-     << "  // NDD scalar with corresponding X86.\n";
+  // Print all entries added to the table
+  for (auto Pair : Table) {
+    OS << "  { X86::" << Pair.first->TheDef->getName()
+       << ", X86::" << Pair.second->TheDef->getName() << " },\n";
+  }
+
+  OS << "};\n\n";
+}
+
+void X86EVEX2VEXTablesEmitter::printEVEX2LegacyTable(
+    const std::vector<Entry> &Table, raw_ostream &OS) {
+  OS << "// EVEX encoded instructions that have a Legacy encoding\n"
+     << "// (table format: <EGPR opcode, Legacy opcode>).\n"
+     << "static const X86EvexToVexCompressTableEntry "
+     << "EVEX2LegacyCompressTable[] = {\n"
+     << "  // EVEX scalar with corresponding X86.\n";
 
   // Print all entries added to the table
   for (auto Pair : Table) {
@@ -243,73 +263,61 @@ public:
 };
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-// Function object - Operator() returns true if the given NonND instruction
-// matches the ND instruction of this object.
-class IsMatchNDD {
-  const CodeGenInstruction *NDInst;
+// TODO: This function could be reused by IsMatch above when upstream.
+static bool checkMatchable(const CodeGenInstruction *EVEXInst,
+                           const CodeGenInstruction *LegacyInst) {
+  for (unsigned I = 0, E = LegacyInst->Operands.size(); I < E; I++) {
+    Record *OpRec1 = EVEXInst->Operands[I].Rec;
+    Record *OpRec2 = LegacyInst->Operands[I].Rec;
+
+    if (OpRec1 == OpRec2)
+      continue;
+
+    if (isRegisterOperand(OpRec1) && isRegisterOperand(OpRec2)) {
+      if (getRegOperandSize(OpRec1) != getRegOperandSize(OpRec2))
+        return false;
+    } else if (isMemoryOperand(OpRec1) && isMemoryOperand(OpRec2)) {
+      if (getMemOperandSize(OpRec1) != getMemOperandSize(OpRec2))
+        return false;
+    } else if (isImmediateOperand(OpRec1) && isImmediateOperand(OpRec2)) {
+      if (OpRec1->getValueAsDef("Type") != OpRec2->getValueAsDef("Type")) {
+        return false;
+      }
+    } else
+      return false;
+  }
+  return true;
+}
+class IsMatchAPX {
+  const CodeGenInstruction *EVEXInst;
 
 public:
-  IsMatchNDD(const CodeGenInstruction *NDInst) : NDInst(NDInst) {}
+  IsMatchAPX(const CodeGenInstruction *EVEXInst) : EVEXInst(EVEXInst) {}
 
-  bool operator()(const CodeGenInstruction *NonNDInst) {
-    Record *RecND = NDInst->TheDef;
-    Record *RecNonND = NonNDInst->TheDef;
-
-    if (RecNonND->getValueAsDef("OpSize")->getName() == "OpSize16" &&
-        RecND->getValueAsDef("OpPrefix")->getName() != "PD")
+  bool operator()(const CodeGenInstruction *LegacyInst) {
+    Record *RecEVEX = EVEXInst->TheDef;
+    Record *RecLegacy = LegacyInst->TheDef;
+    if (RecLegacy->getValueAsDef("OpSize")->getName() == "OpSize16" &&
+        RecEVEX->getValueAsDef("OpPrefix")->getName() != "PD")
       return false;
 
-    if (RecNonND->getValueAsDef("OpSize")->getName() == "OpSize32" &&
-        RecND->getValueAsDef("OpPrefix")->getName() != "PS" &&
-        // ADCX/ADOX has OpSizeFixed for 32/64 bit version.
-        getValueFromBitsInit(RecND->getValueAsBitsInit("Opcode")) != 0x66)
+    if (RecLegacy->getValueAsDef("OpSize")->getName() == "OpSize32" &&
+        RecEVEX->getValueAsDef("OpPrefix")->getName() != "PS")
       return false;
 
-    if (getValueFromBitsInit(RecND->getValueAsBitsInit("Opcode")) == 0x66 &&
-        RecNonND->getValueAsDef("OpPrefix") != RecND->getValueAsDef("OpPrefix"))
+    if (RecLegacy->getValueAsDef("Form") != RecEVEX->getValueAsDef("Form"))
       return false;
 
-    if (RecNonND->getValueAsDef("Form") != RecND->getValueAsDef("Form"))
+    if (RecLegacy->getValueAsBit("isCodeGenOnly") !=
+        RecEVEX->getValueAsBit("isCodeGenOnly"))
       return false;
 
-    if (RecNonND->getValueAsBit("isCodeGenOnly") !=
-        RecND->getValueAsBit("isCodeGenOnly"))
-      return false;
-
-    bool ND_W = RecND->getValueAsBit("hasREX_W");
-    bool NonND_W = RecNonND->getValueAsBit("hasREX_W");
+    bool ND_W = RecEVEX->getValueAsBit("hasREX_W");
+    bool NonND_W = RecLegacy->getValueAsBit("hasREX_W");
     if (ND_W != NonND_W)
       return false;
 
-    Record *NDOp = NDInst->Operands[0].Rec;
-    if (!isRegisterOperand(NDOp))
-      llvm_unreachable("Illegal ND operand type!");
-
-    Record *FirstSrcOp = NDInst->Operands[1].Rec;
-    if (!isRegisterOperand(FirstSrcOp))
-      return false;
-
-    for (unsigned I = 0, E = NonNDInst->Operands.size(); I < E; I++) {
-      Record *OpRec1 = NDInst->Operands[I].Rec;
-      Record *OpRec2 = NonNDInst->Operands[I].Rec;
-
-      if (OpRec1 == OpRec2)
-        continue;
-
-      if (isRegisterOperand(OpRec1) && isRegisterOperand(OpRec2)) {
-        if (getRegOperandSize(OpRec1) != getRegOperandSize(OpRec2))
-          return false;
-      } else if (isMemoryOperand(OpRec1) && isMemoryOperand(OpRec2)) {
-        if (getMemOperandSize(OpRec1) != getMemOperandSize(OpRec2))
-          return false;
-      } else if (isImmediateOperand(OpRec1) && isImmediateOperand(OpRec2)) {
-        if (OpRec1->getValueAsDef("Type") != OpRec2->getValueAsDef("Type")) {
-          return false;
-        }
-      } else
-        return false;
-    }
-    return true;
+    return checkMatchable(EVEXInst, LegacyInst);
   }
 };
 #endif // INTEL_FEATURE_ISA_APX_F
@@ -350,15 +358,15 @@ void X86EVEX2VEXTablesEmitter::run(raw_ostream &OS) {
       EVEXInsts.push_back(Inst);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-    if (RI.Encoding == X86Local::EVEX && RI.HasEVEX_B &&
-        RI.OpMap == X86Local::T_MAP4 && !RI.HasEVEX_NF) {
-      NDInsts.push_back(Inst);
+    if (RI.Encoding == X86Local::EVEX && RI.OpMap == X86Local::T_MAP4 &&
+        !RI.HasEVEX_NF && !Def->getValueAsBit("EmitVEXOrEVEXPrefix")) {
+      APXInsts.push_back(Inst);
     } else if (Inst->TheDef->getValueAsDef("OpEnc")->getName() == "EncNormal") {
-      // Add integer instructions to one of NonNDInsts vectors according to
+      // Add integer instructions to one of LegacyInsts vectors according to
       // it's opcode.
       uint64_t Opcode =
           getValueFromBitsInit(Inst->TheDef->getValueAsBitsInit("Opcode"));
-      NonNDInsts[Opcode].push_back(Inst);
+      LegacyInsts[Opcode].push_back(Inst);
     }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
@@ -405,52 +413,31 @@ void X86EVEX2VEXTablesEmitter::run(raw_ostream &OS) {
   printCheckPredicate(EVEX2VEXPredicates, OS);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-  for (const CodeGenInstruction *NDInst : NDInsts) {
-    uint64_t Opcode =
-        getValueFromBitsInit(NDInst->TheDef->getValueAsBitsInit("Opcode"));
-    const CodeGenInstruction *NonNDInst = nullptr;
-    // SHLD/SHRD/ADCX/ADOX opcode changed in MAP4.
-    uint64_t ChangedOpcode = Opcode;
-    switch (Opcode) {
-    case 0x24: // SHLD
-      ChangedOpcode = 0xA4;
-      break;
-    case 0x2C: // SHRD
-      ChangedOpcode = 0xAC;
-      break;
-    case 0x66: // ADCX/ADOX
-      ChangedOpcode = 0xF6;
-      break;
-    default:
-      break;
-    }
-    auto Match = llvm::find_if(NonNDInsts[ChangedOpcode], IsMatchNDD(NDInst));
-    if (Match != NonNDInsts[ChangedOpcode].end())
-      NonNDInst = *Match;
-
-    if (!NonNDInst)
+  for (const CodeGenInstruction *EVEXInst : APXInsts) {
+    // REV instrs should not appear before encoding optimization.
+    if (EVEXInst->TheDef->getName().endswith("_REV"))
       continue;
-
-    // In case a match is found add new entry to the appropriate table
-    auto OpPrefix = NDInst->TheDef->getValueAsDef("OpPrefix")->getName();
-    if (NDInst->TheDef->getValueAsBit("hasREX_W"))
-      ND2NonNDBit64.push_back(std::make_pair(NDInst, NonNDInst));
-    else if (OpPrefix == "PD" && Opcode != 0x66)
-      ND2NonNDBit16.push_back(std::make_pair(NDInst, NonNDInst));
-    // SHLD/SHRD/ADCX/ADOX's opcode is even for all opsize, CMOV don't have 8bit
-    // version.
-    else if (Opcode % 2 == 0 && Opcode != 0x66 && Opcode != 0x24 &&
-             Opcode != 0x2C && (Opcode & 0xF0) != 0x40)
-      ND2NonNDBit8.push_back(std::make_pair(NDInst, NonNDInst));
-    else
-      ND2NonNDBit32.push_back(std::make_pair(NDInst, NonNDInst));
+    const CodeGenInstruction *LegacyInst = nullptr;
+    if (EVEXInstsMap.count(EVEXInst->TheDef->getName())) {
+      auto Entry = EVEXInstsMap.at(StringRef(EVEXInst->TheDef->getName()));
+      Record *LegacyRec = Records.getDef(Entry.LegacyInstStr);
+      LegacyInst = &(Target.getInstruction(LegacyRec));
+    } else {
+      uint64_t Opcode =
+          getValueFromBitsInit(EVEXInst->TheDef->getValueAsBitsInit("Opcode"));
+      auto Match = llvm::find_if(LegacyInsts[Opcode], IsMatchAPX(EVEXInst));
+      if (Match != LegacyInsts[Opcode].end())
+        LegacyInst = *Match;
+    }
+    if (LegacyInst) {
+      if (EVEXInst->TheDef->getValueAsBit("hasEVEX_B"))
+        ND2NonNDTable.push_back(std::make_pair(EVEXInst, LegacyInst));
+      else
+        EVEX2LegacyTable.push_back(std::make_pair(EVEXInst, LegacyInst));
+    }
   }
-
-  // Print tables
-  printND2NonNDTable(ND2NonNDBit8, OS);
-  printND2NonNDTable(ND2NonNDBit16, OS);
-  printND2NonNDTable(ND2NonNDBit32, OS);
-  printND2NonNDTable(ND2NonNDBit64, OS);
+  printND2NonNDTable(ND2NonNDTable, OS);
+  printEVEX2LegacyTable(EVEX2LegacyTable, OS);
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }
