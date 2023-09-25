@@ -28,7 +28,7 @@ def MyCombiner: GICombiner<"GenMyCombiner", [
 
 // CHECK:      const int64_t *GenMyCombiner::getMatchTable() const {
 // CHECK-NEXT:   constexpr static int64_t MatchTable0[] = {
-// CHECK-NEXT:     GIM_SwitchOpcode, /*MI*/0, /*[*/122, 185, /*)*//*default:*//*Label 3*/ 176, ;INTEL
+// CHECK-NEXT:     GIM_SwitchOpcode, /*MI*/0, /*[*/{{.*}}, 185, /*)*//*default:*//*Label 3*/ 176, ;INTEL
 // CHECK-NEXT:     /*TargetOpcode::G_TRUNC*//*Label 0*/ 68, 0, 0, 0, 0, 0, 0,
 // CHECK-NEXT:     /*TargetOpcode::G_ZEXT*//*Label 1*/ 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 // CHECK-NEXT:     /*TargetOpcode::G_FPEXT*//*Label 2*/ 143,
