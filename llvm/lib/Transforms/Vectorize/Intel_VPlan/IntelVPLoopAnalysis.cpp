@@ -2828,6 +2828,9 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
         VPLoadStoreInst *CompressExpand = Builder.create<VPLoadStoreInst>(
             "", Opcode, LoadStore->getType(),
             ArrayRef<VPValue *>(LoadStore->op_begin(), LoadStore->op_end()));
+        if (MDNode *const Nontemporal =
+                LoadStore->getMetadata(LLVMContext::MD_nontemporal))
+          CompressExpand->setMetadata(LLVMContext::MD_nontemporal, Nontemporal);
         LoadStore->replaceAllUsesWith(CompressExpand);
 
         if (IsPtrInc)

@@ -5582,6 +5582,11 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         "comp.store");
 
     addInstUnmasked(CompressStoreCall);
+    const auto *const VPLSInst = cast<VPLoadStoreInst>(VPInst);
+    if (MDNode *const Nontemporal =
+            VPLSInst->getMetadata(LLVMContext::MD_nontemporal))
+      const_cast<Instruction *>(CompressStoreCall->getLLVMInstruction())
+          ->setMetadata(LLVMContext::MD_nontemporal, Nontemporal);
     return;
   }
 
