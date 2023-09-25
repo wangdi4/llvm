@@ -2789,11 +2789,16 @@ private:
 // prefer scalar calculations in the loop body or extraction from the final
 // vector.
 class VPInductionFinal : public VPInstruction {
+  // Friendship is needed to access private method that sets operands for
+  // extract version.
+  friend class VPTransformEarlyExitLoop;
+
 public:
-  /// Constructor to extract last lane (for */div).
-  VPInductionFinal(VPValue *InducVec)
+  /// Constructor for extract version (for */div and early-exit loops).
+  VPInductionFinal(VPValue *InducVec, unsigned Opcode)
       : VPInstruction(VPInstruction::InductionFinal, InducVec->getType(),
-                      {InducVec}) {}
+                      {InducVec}),
+        BinOpcode(Opcode), IsExtractVersion(true) {}
 
   /// Constructor to calculate using close-form (start+step*rounded_tc). The
   /// rounded trip count is known at code generation.
@@ -2804,24 +2809,33 @@ public:
 
   /// Return operand that corresponds to the reducing value.
   VPValue *getInductionOperand() const {
-    assert(getNumOperands() == 1 && "Incorrect operand request");
+    assert(IsExtractVersion && "Incorrect operand request");
     return getOperand(0);
+  }
+
+  /// Return operand that corresponds to lane to extract from the final vector.
+  /// nullptr if there is no lane operand (assume last lane in such cases).
+  VPValue *getLaneForExtract() const {
+    assert(IsExtractVersion && "Incorrect operand request");
+    return getNumOperands() == 2 ? getOperand(1) : nullptr;
   }
 
   /// Return operand that corresponds to the start value.
   VPValue *getInitOperand() const {
-    assert(getNumOperands() == 2 && "Incorrect operand request");
+    assert(!IsExtractVersion && "Incorrect operand request");
     return getOperand(0);
   }
 
   /// Return operand that corresponds to the step value.
   VPValue *getStepOperand() const {
-    assert(getNumOperands() == 2 && "Incorrect operand request");
+    assert(!IsExtractVersion && "Incorrect operand request");
     return getOperand(1);
   }
 
   bool isLastValPreIncrement() const { return LastValPreIncrement; }
   void setLastValPreIncrement(bool V) { LastValPreIncrement = V; }
+
+  bool isExtractVersion() const { return IsExtractVersion; };
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -2846,19 +2860,35 @@ public:
 protected:
   // Clones VPInductionFinal.
   virtual VPInductionFinal *cloneImpl() const final {
-    if (getNumOperands() == 1)
-      return new VPInductionFinal(getInductionOperand());
-    else if (getNumOperands() == 2)
-      return new VPInductionFinal(getInitOperand(), getStepOperand(),
-                                  getBinOpcode());
-    else
-      llvm_unreachable("Too many operands.");
+    VPInductionFinal *NewFin = nullptr;
+    if (IsExtractVersion) {
+      NewFin = new VPInductionFinal(getInductionOperand(), getBinOpcode());
+      if (getNumOperands() == 2)
+        NewFin->addOperand(getLaneForExtract());
+
+    } else {
+      NewFin = new VPInductionFinal(getInitOperand(), getStepOperand(),
+                                    getBinOpcode());
+    }
+
+    return NewFin;
   }
 
 private:
+  // Convert induction-final to extract version by adding new operands.
+  void setExtractOperands(VPValue *ValToExtract, VPValue *Lane) {
+    assert(!IsExtractVersion && "Incorrect operand request");
+    removeAllOperands();
+    addOperand(ValToExtract);
+    addOperand(Lane);
+    IsExtractVersion = true;
+  }
+
   // Tracks if induction's last value is computed before increment.
   bool LastValPreIncrement = false;
   unsigned BinOpcode = VPInduction::UnknownOpcode;
+  // Tracks if finalization is done by extracting element from final vector.
+  bool IsExtractVersion = false;
 };
 
 // VPInstruction for reduction initialization.

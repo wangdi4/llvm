@@ -49,7 +49,7 @@
 ; CHECK-NEXT:       br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH0]]: # preds: [[BB3]], [[INTERMEDIATE_BB0]]
-; CHECK-NEXT:     i64 [[VP__SSA_PHI]] = phi  [ i64 [[VP6]], [[BB3]] ],  [ i64 undef, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:     i64 [[VP__SSA_PHI]] = phi  [ i64 [[VP6]], [[BB3]] ],  [ i64 [[VP4]], [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB3]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP7]], [[BB3]] ],  [ i1 false, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     br i1 [[VP_TAKE_BACKEDGE_COND]], [[BB2]], [[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]]

@@ -161,9 +161,60 @@ void VPTransformEarlyExitLoop::transform() {
   // Step 4
   // ======
   //
+  // Adjust entity finalization instructions. VPLoopEntity framework assumes
+  // single exit loop and emits finalization in the main exit block. We need to
+  // move it to the new merged exit block and adjust operands to account for
+  // cases where early-exit is taken in loop.
+  unsigned ExitIDConstOperandNum = 1 - ExitIDPhiOperandNum;
+  unsigned ExitIDConst =
+      cast<VPConstantInt>(CascadedIfCond->getOperand(ExitIDConstOperandNum))
+          ->getZExtValue();
+  // Identify the main exit block using the condition used in cascaded if block.
+  // Note that ExitID = 0 is reserved for the main exit BB by mergeLoopExits.
+  VPBasicBlock *MainExitBB = ExitIDConst != 0 ? ExitBranch->getSuccessor(1)
+                                              : ExitBranch->getSuccessor(0);
+  LLVM_DEBUG(dbgs() << "Main exit BB: " << MainExitBB->getName() << "\n\n");
+
+  // List of instructions to move from main exit block to merged exit block.
+  SmallVector<VPInstruction *, 4> InstsToMove;
+
+  // Iterate over instructions in main exit block to process entity
+  // finalization-related instructions.
+  for (auto &I : *MainExitBB) {
+    if (auto *IndFinal = dyn_cast<VPInductionFinal>(&I)) {
+      // Induction finalization -
+      // Convert induction-final to extract version using the value along
+      // backedge and early-exit lane to specify the lane to extract from.
+      VPPHINode *MainIVPhi = EEVPLoop->getInductionPHI();
+      LLVM_DEBUG(dbgs() << "Main IV phi: "; MainIVPhi->dump(); dbgs() << "\n");
+      VPValue *MainIVLatchVal = MainIVPhi->getIncomingValue(EELoopLatch);
+      IndFinal->setExtractOperands(MainIVLatchVal, EELane);
+      InstsToMove.push_back(IndFinal);
+    } else if (I.getOpcode() == VPInstruction::PrivateFinalUncond) {
+      // Unconditional lastprivate finalization -
+      // Add early-exit lane as an extra operand to specify lane to extract
+      // from.
+      auto *PvtFinal = &I;
+      PvtFinal->addOperand(EELane);
+      InstsToMove.push_back(PvtFinal);
+    }
+  }
+
+  // Track the last inserted instruction in current BB.
+  VPInstruction *LastInsertInst = EELane;
+  for (auto *I : InstsToMove) {
+    MainExitBB->removeInstruction(I);
+    EEMergedExit->addInstructionAfter(I, LastInsertInst);
+    LastInsertInst = I;
+  }
+
+  // Step 5
+  // ======
+  //
   // Add instruction to compute the final value of exit ID at the merged exit
   // block. This extra wrapper is needed to account for cases where none of the
   // loop iterations take the early-exit.
+  Builder.setInsertPoint(CascadedIfCond);
   auto *EEID =
       Builder.create<VPEarlyExitID>("early.exit.id", ExitIDPhi, EELane);
   // Use the final value of exit ID to divert control flow in the cascaded-if.
