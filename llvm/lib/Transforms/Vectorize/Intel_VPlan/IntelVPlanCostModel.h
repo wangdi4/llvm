@@ -246,6 +246,14 @@ private:
   VPInstructionCost getIntrinsicInstrCost(
     Intrinsic::ID ID, const VPCallInstruction *VPCall, unsigned VF);
 
+  // Get non-intrinsic call cost.
+  VPInstructionCost getOtherCallCost(const VPCallInstruction *VPCall,
+                                     unsigned VF);
+
+  // Calculate cost of parameters and return value serialization.
+  // Parameters are unpacked, and return value is packed into vector.
+  VPInstructionCost getParamSerializationCost(const CallBase &CB, unsigned VF);
+
   // Determine cost adjustment for a memref with specific Alignment.
   VPInstructionCost getNonMaskedMemOpCostAdj(
     unsigned Opcode, Type *Src, Align Alignment) const;
