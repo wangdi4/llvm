@@ -9220,7 +9220,7 @@ void LoopVectorizationPlanner::adjustRecipesForReductions(
       VPValue *CondOp = nullptr;
       if (CM.blockNeedsPredicationForAnyReason(BB)) {
         VPBuilder::InsertPointGuard Guard(Builder);
-        Builder.setInsertPoint(LinkVPBB, CurrentLink->getIterator());
+        Builder.setInsertPoint(CurrentLink);
         CondOp = RecipeBuilder.createBlockInMask(BB, *Plan);
       }
 
@@ -9240,7 +9240,7 @@ void LoopVectorizationPlanner::adjustRecipesForReductions(
   // and the live-out instruction of each reduction, at the beginning of the
   // dedicated latch block.
   if (CM.foldTailByMasking()) {
-    Builder.setInsertPoint(LatchVPBB, LatchVPBB->begin());
+    Builder.setInsertPoint(&*LatchVPBB->begin());
     for (VPRecipeBase &R :
          Plan->getVectorLoopRegion()->getEntryBasicBlock()->phis()) {
       VPReductionPHIRecipe *PhiR = dyn_cast<VPReductionPHIRecipe>(&R);
