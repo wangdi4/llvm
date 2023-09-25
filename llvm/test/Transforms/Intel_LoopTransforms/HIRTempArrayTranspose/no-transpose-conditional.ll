@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt %s -passes='hir-ssa-deconstruction,hir-temp-array-transpose' -print-after=hir-temp-array-transpose -debug-only=hir-temp-array-transpose -disable-output -hir-details-dims 2>&1 | FileCheck %s
+; RUN: opt %s -passes='hir-ssa-deconstruction,hir-temp-array-transpose' -print-after=hir-temp-array-transpose -debug-only=hir-temp-array-transpose -disable-output -hir-temp-array-transpose-allow-unknown-sizes 2>&1 | FileCheck %s
 
 ; Check that transpose fails due to the loop corresponding to the unknown dim being
 ; inside an IF statement. All potential transpose candidates have i4 as the outer dim
@@ -54,12 +54,12 @@ target triple = "x86_64-unknown-linux-gnu"
 @sizes_mp_nky_ = external global i32
 @sizes_mp_nkx_ = external global i32
 @ens_mp_ensarh_ = external global [1000 x [1000 x double]]
-@nsarh_mp_qyt_ = external global [54 x [54 x double]]
-@nsarh_mp_wty_ = external global [54 x [54 x double]]
+;@nsarh_mp_qyt_ = external global [54 x [54 x double]]
+;@nsarh_mp_wty_ = external global [54 x [54 x double]]
 @nsarh_mp_qxt_ = external global [54 x [54 x double]]
 @nsarh_mp_wtx_ = external global [54 x [54 x double]]
 @parameters_mp_w_ = external global double
-@eht_mp_bt_ = external global [50 x [50 x double]]
+;@eht_mp_bt_ = external global [50 x [50 x double]]
 
 ; Function Attrs: nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none)
 declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
@@ -77,7 +77,7 @@ declare void @llvm.stackrestore(ptr) #1
 declare void @llvm.experimental.noalias.scope.decl(metadata) #3
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define fastcc void @farhim_() #4 {
+define fastcc void @farhim_(ptr nocapture noundef readonly %eht_mp_bt_, ptr nocapture noundef readonly %nsarh_mp_qyt_, ptr nocapture noundef readonly %nsarh_mp_wty_) #4 {
   %1 = load i32, ptr null, align 8
   %2 = load i32, ptr null, align 8
   %3 = sext i32 0 to i64
@@ -179,7 +179,7 @@ define fastcc void @farhim_() #4 {
 
 65:                                               ; preds = %65, %59
   %66 = phi i64 [ 1, %59 ], [ %75, %65 ]
-  %67 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 432, ptr nonnull elementtype(double) @nsarh_mp_wty_, i64 %66)
+  %67 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 432, ptr nonnull elementtype(double) %nsarh_mp_wty_, i64 %66)
   %68 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %67, i64 %52)
   %69 = load double, ptr %68, align 8
   %70 = fmul double 0.000000e+00, 0.000000e+00
@@ -216,10 +216,10 @@ define fastcc void @farhim_() #4 {
 89:                                               ; preds = %89, %85
   %90 = phi i64 [ 1, %85 ], [ %98, %89 ]
   %91 = phi double [ 0.000000e+00, %85 ], [ 0.000000e+00, %89 ]
-  %92 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 0, ptr nonnull elementtype(double) @eht_mp_bt_, i64 %90)
+  %92 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 0, ptr nonnull elementtype(double) %eht_mp_bt_, i64 %90)
   %93 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 0, ptr nonnull elementtype(double) %92, i64 %83)
   %94 = load double, ptr %93, align 8
-  %95 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 432, ptr nonnull elementtype(double) @nsarh_mp_qyt_, i64 %90)
+  %95 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 432, ptr nonnull elementtype(double) %nsarh_mp_qyt_, i64 %90)
   %96 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %95, i64 %52)
   %97 = load double, ptr %96, align 8
   %98 = add nuw nsw i64 %90, 1
