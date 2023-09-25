@@ -5,7 +5,7 @@ target triple = "x86_64-unknown-linux-gnu"
 declare i1 @some_cond(i64)
 
 declare i1 @ballot(i1) #0
-declare <2 x i8> @ballot.vec(<2 x i8>, <2 x i1>)
+declare <2 x i8> @ballot.vec(<2 x i8>, <2 x i8>)
 
 ; Exact type for the active mask will depend on the library implementation, but
 ; it doesn't matter for the VPlan implementation as long as the library
@@ -22,7 +22,8 @@ define void @test() local_unnamed_addr #1 {
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x i1> [[TMP2]], i1 [[TMP3]], i32 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ; CHECK:       VPlannedBB3:
-; CHECK-NEXT:    [[TMP5:%.*]] = call <2 x i8> @ballot.vec(<2 x i8> <i8 1, i8 1>, <2 x i1> [[TMP4]])
+; CHECK-NEXT:    [[MASKEXT:%.*]] = sext <2 x i1> %3 to <2 x i8>
+; CHECK-NEXT:    [[TMP5:%.*]] = call <2 x i8> @ballot.vec(<2 x i8> <i8 1, i8 1>, <2 x i8> [[MASKEXT]])
 ; CHECK-NEXT:    [[TMP6:%.*]] = trunc <2 x i8> [[TMP5]] to <2 x i1>
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast <2 x i1> [[TMP4]] to i2
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp ne i2 [[TMP7]], 0
