@@ -691,29 +691,8 @@ Value *ResolveWICallPass::updateEnqueueKernelFunction(
     // check it is pointer.
     if (!NewParamTy->isPointerTy())
       llvm_unreachable("Unsupported type of argument");
-    if (cast<PointerType>(NewParamTy)->isOpaque()) {
-      NewParam =
-          Builder.CreatePointerBitCastOrAddrSpaceCast(NewParam, ExpectedArgTy);
-      continue;
-    } else {
-      Type *PtrTy =
-          cast<PointerType>(NewParamTy)->getNonOpaquePointerElementType();
-      // pointer type is struct.
-      if (PtrTy->isStructTy()) {
-        *It = CastInst::CreatePointerCast(NewParam, ExpectedArgTy, "", CI);
-        continue;
-      }
-      // check pointer is to pointer.
-      if (!PtrTy->isPointerTy())
-        llvm_unreachable("Unsupported type of argument");
-      // double pointer points to structure.
-      Type *PPtrTy = cast<PointerType>(PtrTy)->getNonOpaquePointerElementType();
-      if (PPtrTy->isStructTy()) {
-        NewParam = CastInst::CreatePointerCast(NewParam, ExpectedArgTy, "", CI);
-        continue;
-      }
-      llvm_unreachable("Unsupported type of argument");
-    }
+    NewParam =
+        Builder.CreatePointerBitCastOrAddrSpaceCast(NewParam, ExpectedArgTy);
   }
   CallInst *NewCI = Builder.CreateCall(M->getFunction(FuncName), NewParams);
 

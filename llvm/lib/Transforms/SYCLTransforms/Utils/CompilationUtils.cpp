@@ -1335,94 +1335,10 @@ std::pair<bool, unsigned> isTIDGenerator(const CallInst *CI) {
   return {true, Dim};
 }
 
-StructType *getStructFromTypePtr(Type *Ty) {
-  auto *PtrTy = dyn_cast<PointerType>(Ty);
-  if (!PtrTy || PtrTy->isOpaque())
-    return nullptr;
-  // Handle also pointer to pointer to ...
-  while (auto *PtrTyNext =
-             dyn_cast<PointerType>(PtrTy->getNonOpaquePointerElementType()))
-    PtrTy = PtrTyNext;
-  return dyn_cast<StructType>(PtrTy->getNonOpaquePointerElementType());
-}
-
-bool isSameStructType(StructType *STy1, StructType *STy2) {
-  if (!STy1 || !STy2)
-    return false;
-  if (!STy1->hasName() || !STy2->hasName())
-    return false;
-  return 0 == stripStructNameTrailingDigits(STy1->getName())
-                  .compare(stripStructNameTrailingDigits(STy2->getName()));
-}
-
-bool isSameStructPtrType(PointerType *PTy1, PointerType *PTy2) {
-  if (!PTy1 || !PTy2)
-    return false;
-  if (PTy1->isOpaque() || PTy2->isOpaque())
-    return false;
-  return isSameStructType(
-      dyn_cast<StructType>(PTy1->getNonOpaquePointerElementType()),
-      dyn_cast<StructType>(PTy2->getNonOpaquePointerElementType()));
-}
-
-PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy) {
-  // The function changes the base type of SrcPTy to DstTy
-  // SrcPTy = %struct.__pipe_t addrspace(1)**
-  // DstTy  = %struct.__pipe_t.1
-  // =>
-  // %struct.__pipe_t.1 addrspace(1)**
-
-  assert(SrcPTy && DstTy && "Invalid types!");
-
-  if (SrcPTy->isOpaque())
-    return PointerType::get(DstTy, SrcPTy->getAddressSpace());
-
-  SmallVector<PointerType *, 2> Types{SrcPTy};
-  while ((SrcPTy =
-              dyn_cast<PointerType>(SrcPTy->getNonOpaquePointerElementType())))
-    Types.push_back(SrcPTy);
-
-  for (auto It = Types.rbegin(), E = Types.rend(); It != E; ++It)
-    DstTy = PointerType::get(DstTy, (*It)->getAddressSpace());
-
-  return cast<PointerType>(DstTy);
-}
-
 Function *importFunctionDecl(Module *Dst, const Function *Orig,
                              bool DuplicateIfExists) {
   assert(Orig && "Invalid types!");
   FunctionType *NewFnType = Orig->getFunctionType();
-
-  if (Dst->getContext().supportsTypedPointers()) {
-    std::vector<StructType *> DstSTys = Dst->getIdentifiedStructTypes();
-
-    SmallVector<Type *, 8> NewArgTypes;
-    bool Changed = false;
-    for (const auto &Arg : Orig->args()) {
-      auto *ArgTy = Arg.getType();
-      NewArgTypes.push_back(ArgTy);
-      StructType *STy = nullptr;
-      if (isa<PointerType>(ArgTy))
-        STy = dyn_cast_or_null<StructType>(Arg.getParamByValType());
-      if (!STy)
-        STy = getStructFromTypePtr(ArgTy);
-      if (!STy)
-        continue;
-
-      for (auto *DstSTy : DstSTys) {
-        if (isSameStructType(DstSTy, STy)) {
-          NewArgTypes.back() =
-              mutatePtrElementType(cast<PointerType>(ArgTy), DstSTy);
-          Changed = true;
-          break;
-        }
-      }
-    }
-
-    if (Changed)
-      NewFnType = FunctionType::get(Orig->getReturnType(), NewArgTypes,
-                                    Orig->isVarArg());
-  }
 
   if (!DuplicateIfExists)
     return cast<Function>(Dst->getOrInsertFunction(Orig->getName(), NewFnType,
@@ -1937,10 +1853,6 @@ void parseKernelArguments(Module *M, Function *F, bool HasTLSGlobals,
       // should be before handling ptrs by addr space
       PointerType *PTy = cast<PointerType>(arg_it->getType());
       if ((i == 0) && KIMD.BlockLiteralSize.hasValue()) {
-        if (!PTy->isOpaque())
-          assert(PTy->getNonOpaquePointerElementType()->isIntegerTy(8) &&
-                 "invalid block_literal pointer type");
-
         CurArg.Ty = KRNL_ARG_PTR_BLOCK_LITERAL;
         CurArg.SizeInBytes = KIMD.BlockLiteralSize.get();
         break;
@@ -1962,17 +1874,10 @@ void parseKernelArguments(Module *M, Function *F, bool HasTLSGlobals,
       // Detect pointer qualifier
       // Test for opaque types: images, queue_t, pipe_t
       std::string ArgTyStr;
-      if (PTy->isOpaque()) {
-        if (generatedFromSPIRV(*M)) {
-          assert(KMD.ArgBaseTypeList.hasValue() &&
-                 "expect kernel_arg_base_type metadata");
-          ArgTyStr = KMD.ArgBaseTypeList.getItem(i);
-        }
-      } else {
-        StructType *ST =
-            dyn_cast<StructType>(PTy->getNonOpaquePointerElementType());
-        if (ST && ST->hasName())
-          ArgTyStr = ST->getName().str();
+      if (generatedFromSPIRV(*M)) {
+        assert(KMD.ArgBaseTypeList.hasValue() &&
+               "expect kernel_arg_base_type metadata");
+        ArgTyStr = KMD.ArgBaseTypeList.getItem(i);
       }
       if (!ArgTyStr.empty()) {
         // TODO: Why default type is INTEGER????
@@ -2780,11 +2685,6 @@ static std::string getMangledTypeStr(Type *Ty, bool &HasUnnamedType) {
   std::string Result;
   if (PointerType *PTyp = dyn_cast<PointerType>(Ty)) {
     Result += "p" + utostr(PTyp->getAddressSpace());
-    // Opaque pointer doesn't have pointee type information, so we just mangle
-    // address space for opaque pointer.
-    if (!PTyp->isOpaque())
-      Result += getMangledTypeStr(PTyp->getNonOpaquePointerElementType(),
-                                  HasUnnamedType);
   } else if (ArrayType *ATyp = dyn_cast<ArrayType>(Ty)) {
     Result += "a" + utostr(ATyp->getNumElements()) +
               getMangledTypeStr(ATyp->getElementType(), HasUnnamedType);

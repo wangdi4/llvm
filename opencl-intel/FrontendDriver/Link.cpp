@@ -206,10 +206,7 @@ static bool isSameType(Type *A, Type *B, std::string &Message) {
     return true;
   auto *PtrTyA = dyn_cast<PointerType>(A);
   auto *PtrTyB = dyn_cast<PointerType>(B);
-  if (PtrTyA && PtrTyB &&
-      (PtrTyA->isOpaque() ||
-       isSameType(PtrTyA->getNonOpaquePointerElementType(),
-                  PtrTyB->getNonOpaquePointerElementType(), Message))) {
+  if (PtrTyA && PtrTyB) {
     if (PtrTyA->getAddressSpace() != PtrTyB->getAddressSpace()) {
       Message = "incompatible address space";
       return false;
