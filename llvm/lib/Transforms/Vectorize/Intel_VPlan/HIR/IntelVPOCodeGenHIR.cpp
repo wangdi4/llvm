@@ -5021,9 +5021,11 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       // CFG merger.
       return;
     }
+    auto *IndFinal = cast<VPInductionFinal>(VPInst);
     RegDDRef *LastValue = nullptr;
-    if (VPInst->getNumOperands() == 1) {
-      // One operand - extract from vector
+    if (IndFinal->isExtractVersion()) {
+      // Extract final value from vector.
+      // TODO: Obtain lane to extract from using the instruction operand.
       RegDDRef *VecVal = widenRef(VPInst->getOperand(0), VF);
       HLInst *LastValueExtract = HLNodeUtilities.createExtractElementInst(
           VecVal, getVF() - 1, "extracted.lval");

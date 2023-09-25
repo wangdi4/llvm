@@ -779,6 +779,9 @@ void singleExitWhileLoopCanonicalization(VPLoop *VPL) {
 static void preserveSSAAfterLoopTransformations(VPLoop *VPL, VPlan *Plan,
                                                 VPDominatorTree &VPDomTree) {
   VPBasicBlock *NewLoopLatch = VPL->getLoopLatch();
+  // Track if we're dealing with an outer early-exit loop that needs to be
+  // processed in VPlan.
+  bool IsOuterEarlyExitLp = cast<VPlanVector>(Plan)->isEarlyExitLoop();
   for (VPBasicBlock *DefBlock : VPL->getBlocks()) {
     if (VPDomTree.dominates(DefBlock, NewLoopLatch))
       continue;
@@ -798,6 +801,43 @@ static void preserveSSAAfterLoopTransformations(VPLoop *VPL, VPlan *Plan,
 
       if (UsesToUpdate.empty())
         continue;
+
+      // For outer early-exit loops we process SSA PHIs generated for loop IV
+      // value specially. For incoming values from the intermediate BBs
+      // (side-exits) we re-use the header PHI to track previous interation
+      // value instead of undef.
+      // ---------------------------------------------------------------------
+      //  BEFORE                                          AFTER
+      // ---------------------------------------------------------------------
+      // +->BB1                         +----------------->BB1
+      // | iv_phi1=[iv_add,BB3],        | iv_phi1=[iv_phi2,NewLoopLatch],
+      // |   |    [0,PreHeader]         |         [0,PreHeader]        |
+      // |   |     \                    |                   |          |
+      // |  BB2   EXIT_BB1              |                  BB2        INTERME-
+      // |   |                          |                   |         DIATEBB
+      // |   |                          |                   |          |
+      // |   |                          |                   |          |
+      // +--BB3                         |                  BB3         |
+      //    iv_add=...                  |                  iv_add=...  |
+      //     |                          |                   |          |
+      //   EXIT_BB2                     +--------------NewLoopLatch----+
+      //                                     iv_phi2=[iv_add, BB3],
+      //                                             [iv_phi1,INTERMEDIATEBB]
+      //                                                    |
+      //                                             CascadedIfBlock
+      //                                                  /    \
+      //                                             EXITBB1  EXITBB2
+      VPValue *ValueForIVSSAPhis = nullptr;
+      if (IsOuterEarlyExitLp) {
+        VPPHINode *IVPhi = VPL->getInductionPHI();
+        VPValue *IVAdd = IVPhi->getIncomingValue(NewLoopLatch);
+        // Check if Def is the IV update operation along loop's backedge.
+        if (&Def == IVAdd) {
+          assert(Def.getType() == IVPhi->getType() &&
+                 "Expected same type for value to use for IV SSA Phis.");
+          ValueForIVSSAPhis = IVPhi;
+        }
+      }
 
       // Create the SSA phi node.
       VPBuilder VPBldr;
@@ -830,10 +870,14 @@ static void preserveSSAAfterLoopTransformations(VPLoop *VPL, VPlan *Plan,
       //                                                  /    \
       //                                             EXITBB1  EXITBB2
       for (VPBasicBlock *Pred : NewLoopLatch->getPredecessors()) {
-        VPValue *ValueToUse = VPDomTree.dominates(DefBlock, Pred)
-                                  ? &Def
-                                  : cast<VPValue>(Plan->getVPConstant(
-                                        UndefValue::get(Def.getType())));
+        VPValue *ValueToUse = nullptr;
+        if (VPDomTree.dominates(DefBlock, Pred))
+          ValueToUse = &Def;
+        else if (ValueForIVSSAPhis)
+          ValueToUse = ValueForIVSSAPhis;
+        else
+          ValueToUse = cast<VPValue>(
+              Plan->getVPConstant(UndefValue::get(Def.getType())));
         PreserveSSAPhi->addIncoming(ValueToUse, Pred);
       }
 

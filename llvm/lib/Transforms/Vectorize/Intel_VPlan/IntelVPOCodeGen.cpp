@@ -5395,8 +5395,9 @@ void VPOCodeGen::vectorizeInductionInitStep(VPInductionInitStep *VPInst) {
 
 void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
   Value *LastValue = nullptr;
-  if (VPInst->getNumOperands() == 1) {
-    // One operand - extract from vector
+  if (VPInst->isExtractVersion()) {
+    // Extract final value from vector.
+    // TODO: Obtain lane to extract from using the instruction operand.
     Value *VecVal = getVectorValue(VPInst->getOperand(0));
     LastValue = Builder.CreateExtractElement(VecVal, Builder.getInt32(VF - 1));
   } else {

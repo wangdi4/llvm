@@ -40,6 +40,10 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
+static cl::opt<bool> DisablePassForMultiExitLoops(
+    "disable-" OPT_SWITCH "-multi-exit-loop", cl::init(false), cl::Hidden,
+    cl::desc("Disable " OPT_DESC " pass for multi-exit loops"));
+
 static cl::opt<unsigned> NumOperationsThreshold(
     OPT_SWITCH "-num-operations-threshold", cl::init(4), cl::Hidden,
     cl::desc("Threshold for number of operations in upper bound above which "
@@ -440,6 +444,12 @@ bool HIRLastValueComputation::run() {
     if (Lp->isUnknown() || !Lp->isNormalized()) {
       continue;
     }
+
+    // For explicit early-exit loops we want to disable this optimization as
+    // liveout instructions get inlined into the exit block which is tricky to
+    // handle in downstream vectorizer.
+    if (DisablePassForMultiExitLoops && Lp->isDoMultiExit())
+      continue;
 
     Result = doLastValueComputation(Lp) || Result;
   }

@@ -2320,7 +2320,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
                         : ExitInstr;
     auto *Final =
         IsExtract && Exit
-            ? Builder.create<VPInductionFinal>(Name + ".ind.final", Exit)
+            ? Builder.create<VPInductionFinal>(Name + ".ind.final", Exit, Opc)
             : Builder.create<VPInductionFinal>(Name + ".ind.final", Start, Step,
                                                Opc);
     // Check if induction's last value is live-out of penultimate loop
