@@ -79,12 +79,11 @@ private:
   ///                      pointer.
   /// @param [OUT] outBuffer Buffer with the copy of input data, which will be
   ///                        passed in reality.
-  /// @param [IN] argType Type of function argument expected to be passed via
+  /// @param [IN] ArgTyStr Type of function argument expected to be passed via
   ///                     pointer.
   /// @return Pointer to the argument value.
   void *GetPointerToTheArgValues(const IMemoryObject *inBuffer,
                                  IMemoryObject *outBuffer,
-                                 const llvm::Type *argType,
                                  llvm::StringRef ArgTyStr);
 
   /// @brief Reads integer value from buffer of vectors, copies it to the

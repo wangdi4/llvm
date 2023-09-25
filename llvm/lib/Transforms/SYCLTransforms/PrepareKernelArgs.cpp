@@ -503,25 +503,6 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
     }
   }
 
-  if (M->getContext().supportsTypedPointers()) {
-    for (User *U : WrappedKernel->users()) {
-      // Replace bitcast operator user, e.g. in global value.
-      if (auto *Op = dyn_cast<BitCastOperator>(U)) {
-        auto *WrapperOp = ConstantExpr::getBitCast(Wrapper, Op->getDestTy());
-        Op->replaceAllUsesWith(WrapperOp);
-      } else if (auto *Op = dyn_cast<SelectInst>(U)) {
-        // WrappedKernel is used as select instruction operand
-        auto *WrapperOp =
-            ConstantExpr::getBitCast(Wrapper, Op->getOperand(1)->getType());
-        if (Op->getOperand(1)->getName() == WrappedKernel->getName())
-          Op->setOperand(1, WrapperOp);
-        else
-          Op->setOperand(2, WrapperOp);
-      }
-    }
-    return;
-  }
-
   ValueToValueMapTy VMap;
   VMap[WrappedKernel] = Wrapper;
   ValueMapper VMapper(VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
@@ -560,8 +541,6 @@ static Value *HandleByValArgument(Type *ByValType, Value *Arg,
                                   Instruction *TheCall,
                                   const Function *CalledFunc,
                                   Align ByValAlignment) {
-  assert(cast<PointerType>(Arg->getType())
-             ->isOpaqueOrPointeeTypeMatches(ByValType));
   Function *Caller = TheCall->getFunction();
   const DataLayout &DL = Caller->getParent()->getDataLayout();
 
