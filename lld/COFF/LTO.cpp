@@ -124,6 +124,7 @@ lto::Config BitcodeCompiler::createConfig() {
   c.RunCSIRInstr = ctx.config.ltoCSProfileGenerate;
   c.PGOWarnMismatch = ctx.config.ltoPGOWarnMismatch;
 #if INTEL_CUSTOMIZATION
+  c.SampleProfile = ctx.config.ltoSampleProfileName;
   c.ShouldDiscardValueNames = ctx.config.intelShouldDiscardValueNames;
   c.PTO.LoopVectorization = c.OptLevel > 1;
   c.PTO.SLPVectorization = c.OptLevel > 1;
