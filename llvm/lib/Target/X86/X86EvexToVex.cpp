@@ -117,7 +117,7 @@ bool EvexToVexInstPass::runOnMachineFunction(MachineFunction &MF) {
   ST = &MF.getSubtarget<X86Subtarget>();
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  if (!ST->hasAVX3() && !ST->hasNDD())
+  if (!ST->hasAVX3() && !ST->hasNDD() && !ST->hasEGPR())
 #else // INTEL_FEATURE_ISA_AVX256P
   if (!ST->hasAVX512())
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -288,14 +288,10 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
            "X86EvexToVex256CompressTable is not sorted!");
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-    assert(llvm::is_sorted(ND2NonNDBit8CompressTable) &&
-           "ND2NonNDBit8CompressTable is not sorted!");
-    assert(llvm::is_sorted(ND2NonNDBit16CompressTable) &&
-           "ND2NonNDBit16CompressTable is not sorted!");
-    assert(llvm::is_sorted(ND2NonNDBit32CompressTable) &&
-           "ND2NonNDBit32CompressTable is not sorted!");
-    assert(llvm::is_sorted(ND2NonNDBit64CompressTable) &&
-           "ND2NonNDBit64CompressTable is not sorted!");
+    assert(llvm::is_sorted(ND2NonNDCompressTable) &&
+           "ND2NonNDCompressTable is not sorted!");
+    assert(llvm::is_sorted(EVEX2LegacyCompressTable) &&
+           "EVEX2LegacyCompressTable is not sorted!");
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     TableChecked.store(true, std::memory_order_relaxed);
@@ -306,22 +302,12 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
 #if INTEL_FEATURE_ISA_APX_F
   // TODO: Update the name of the class when upstream
   ArrayRef<X86EvexToVexCompressTableEntry> Table;
-  if ((Desc.TSFlags & X86II::OpMapMask) == X86II::T_MAP4) {
-    if (Desc.TSFlags & X86II::REX_W)
-      Table = ArrayRef(
-          ND2NonNDBit64CompressTable); // PD is set for 32 bits ADCX/ADOX.
-    else if ((Desc.TSFlags & X86II::OpPrefixMask) == X86II::PD &&
-             X86II::getBaseOpcodeFor(Desc.TSFlags) != 0x66)
-      Table = ArrayRef(ND2NonNDBit16CompressTable);
-    // Opcode is even for SHLD/SHRD/ADCX/ADOX, CMOV don't have 8 bit version.
-    else if (X86II::getBaseOpcodeFor(Desc.TSFlags) % 2 == 0 &&
-             X86II::getBaseOpcodeFor(Desc.TSFlags) != 0x66 &&
-             X86II::getBaseOpcodeFor(Desc.TSFlags) != 0x24 &&
-             X86II::getBaseOpcodeFor(Desc.TSFlags) != 0x2C &&
-             (X86II::getBaseOpcodeFor(Desc.TSFlags) & 0xF0) != 0x40)
-      Table = ArrayRef(ND2NonNDBit8CompressTable);
+  if ((Desc.TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
+      !(Desc.TSFlags & X86II::EVEX_NF)) {
+    if (Desc.TSFlags & X86II::EVEX_B)
+      Table = ArrayRef(ND2NonNDCompressTable);
     else
-      Table = ArrayRef(ND2NonNDBit32CompressTable);
+      Table = ArrayRef(EVEX2LegacyCompressTable);
   } else {
     Table = (Desc.TSFlags & X86II::VEX_L)
                 ? ArrayRef(X86EvexToVex256CompressTable)
@@ -343,7 +329,8 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-  if ((Desc.TSFlags & X86II::OpMapMask) == X86II::T_MAP4) {
+  if ((Desc.TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
+      (Desc.TSFlags & X86II::EVEX_B)) {
     const MachineOperand &Dst = MI.getOperand(0);
     const MachineOperand &Src = MI.getOperand(1);
     assert(Dst.isReg() && Src.isReg() && "Unexpected MachineInstr!");
@@ -368,8 +355,20 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
     assert(MI.getOperand(0).getReg() == MI.getOperand(1).getReg());
 
     MI.setDesc(TII->get(NewOpc));
-    MI.setAsmPrinterFlag(X86::AC_EVEX_2_LEGACY);
+    MI.setAsmPrinterFlag(X86::AC_ND_2_NONND);
     MI.tieOperands(0, 1);
+    return true;
+  } else if ((Desc.TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
+             !(Desc.TSFlags & X86II::EVEX_B) &&
+             !(Desc.TSFlags & X86II::EVEX_NF)) {
+    for (unsigned Index = 0, Size = MI.getNumOperands(); Index < Size;
+         Index++) {
+      const MachineOperand &Op = MI.getOperand(Index);
+      if (Op.isReg() && X86II::isApxExtendedReg(Op.getReg()))
+        return false;
+    }
+    MI.setDesc(TII->get(NewOpc));
+    MI.setAsmPrinterFlag(X86::AC_EVEX_2_LEGACY);
     return true;
   }
 #endif // INTEL_FEATURE_ISA_APX_F

@@ -227,7 +227,7 @@ define zeroext i1 @pr31257(ptr nocapture readonly dereferenceable(8) %s) minsize
 ; CHECK64-NEXT:  .LBB3_8: # %sw.bb14
 ; CHECK64-NEXT:    # in Loop: Header=BB3_1 Depth=1
 ; CHECK64-NEXT:    movzbl (%rdi), %r8d # encoding: [0x44,0x0f,0xb6,0x07]
-; CHECK64-NEXT:    addl $-48, %r8d # EVEX TO LEGACY Compression encoding: [0x41,0x83,0xc0,0xd0]
+; CHECK64-NEXT:    addl $-48, %r8d # ND TO non-ND Compression encoding: [0x41,0x83,0xc0,0xd0]
 ; CHECK64-NEXT:  .LBB3_9: # %if.else
 ; CHECK64-NEXT:    # in Loop: Header=BB3_1 Depth=1
 ; CHECK64-NEXT:    cmpl $10, %r8d # encoding: [0x41,0x83,0xf8,0x0a]
@@ -239,7 +239,7 @@ define zeroext i1 @pr31257(ptr nocapture readonly dereferenceable(8) %s) minsize
 ; CHECK64-NEXT:  .LBB3_10: # %sw.bb22
 ; CHECK64-NEXT:    # in Loop: Header=BB3_1 Depth=1
 ; CHECK64-NEXT:    movzbl (%rdi), %r8d # encoding: [0x44,0x0f,0xb6,0x07]
-; CHECK64-NEXT:    addl $-48, %r8d # EVEX TO LEGACY Compression encoding: [0x41,0x83,0xc0,0xd0]
+; CHECK64-NEXT:    addl $-48, %r8d # ND TO non-ND Compression encoding: [0x41,0x83,0xc0,0xd0]
 ; CHECK64-NEXT:    cmpl $10, %r8d # encoding: [0x41,0x83,0xf8,0x0a]
 ; CHECK64-NEXT:    movl %ecx, %r8d # encoding: [0x41,0x89,0xc8]
 ; CHECK64-NEXT:    jae _Z20isValidIntegerSuffixN9__gnu_cxx17__normal_iteratorIPKcSsEES3_ # TAILCALL
@@ -247,8 +247,8 @@ define zeroext i1 @pr31257(ptr nocapture readonly dereferenceable(8) %s) minsize
 ; CHECK64-NEXT:    # fixup A - offset: 1, value: _Z20isValidIntegerSuffixN9__gnu_cxx17__normal_iteratorIPKcSsEES3_-1, kind: FK_PCRel_1
 ; CHECK64-NEXT:  .LBB3_11: # %for.inc
 ; CHECK64-NEXT:    # in Loop: Header=BB3_1 Depth=1
-; CHECK64-NEXT:    incq %rdi # EVEX TO LEGACY Compression encoding: [0x48,0xff,0xc7]
-; CHECK64-NEXT:    decq %rax # EVEX TO LEGACY Compression encoding: [0x48,0xff,0xc8]
+; CHECK64-NEXT:    incq %rdi # ND TO non-ND Compression encoding: [0x48,0xff,0xc7]
+; CHECK64-NEXT:    decq %rax # ND TO non-ND Compression encoding: [0x48,0xff,0xc8]
 ; CHECK64-NEXT:    jmp .LBB3_1 # encoding: [0xeb,A]
 ; CHECK64-NEXT:    # fixup A - offset: 1, value: .LBB3_1-1, kind: FK_PCRel_1
 ; CHECK64-NEXT:  .LBB3_12:
@@ -301,7 +301,7 @@ define zeroext i1 @pr31257(ptr nocapture readonly dereferenceable(8) %s) minsize
 ; WIN64-NEXT:    # fixup A - offset: 1, value: .LBB3_11-1, kind: FK_PCRel_1
 ; WIN64-NEXT:  # %bb.7: # %if.else
 ; WIN64-NEXT:    # in Loop: Header=BB3_1 Depth=1
-; WIN64-NEXT:    addl $-48, %r9d # EVEX TO LEGACY Compression encoding: [0x41,0x83,0xc1,0xd0]
+; WIN64-NEXT:    addl $-48, %r9d # ND TO non-ND Compression encoding: [0x41,0x83,0xc1,0xd0]
 ; WIN64-NEXT:    jmp .LBB3_9 # encoding: [0xeb,A]
 ; WIN64-NEXT:    # fixup A - offset: 1, value: .LBB3_9-1, kind: FK_PCRel_1
 ; WIN64-NEXT:  .LBB3_8: # %sw.bb14
@@ -327,8 +327,8 @@ define zeroext i1 @pr31257(ptr nocapture readonly dereferenceable(8) %s) minsize
 ; WIN64-NEXT:    # fixup A - offset: 1, value: _Z20isValidIntegerSuffixN9__gnu_cxx17__normal_iteratorIPKcSsEES3_-1, kind: FK_PCRel_1
 ; WIN64-NEXT:  .LBB3_11: # %for.inc
 ; WIN64-NEXT:    # in Loop: Header=BB3_1 Depth=1
-; WIN64-NEXT:    incq %rcx # EVEX TO LEGACY Compression encoding: [0x48,0xff,0xc1]
-; WIN64-NEXT:    decq %rax # EVEX TO LEGACY Compression encoding: [0x48,0xff,0xc8]
+; WIN64-NEXT:    incq %rcx # ND TO non-ND Compression encoding: [0x48,0xff,0xc1]
+; WIN64-NEXT:    decq %rax # ND TO non-ND Compression encoding: [0x48,0xff,0xc8]
 ; WIN64-NEXT:    jmp .LBB3_1 # encoding: [0xeb,A]
 ; WIN64-NEXT:    # fixup A - offset: 1, value: .LBB3_1-1, kind: FK_PCRel_1
 ; WIN64-NEXT:  .LBB3_12:
