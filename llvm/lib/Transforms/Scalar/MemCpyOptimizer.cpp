@@ -1455,6 +1455,18 @@ bool MemCpyOptPass::performStackMoveOptzn(Instruction *Load, Instruction *Store,
                                           AllocaInst *DestAlloca,
                                           AllocaInst *SrcAlloca, uint64_t Size,
                                           BatchAAResults &BAA) {
+#if INTEL_CUSTOMIZATION
+  // PLEASE REMOVE IN NEXT PULLDOWN
+  // This disables the optimization below, which was merged in a broken
+  // state. It's already fixed in xmain-web.
+  if (Load)
+    if (const NamedMDNode *NMD =
+            Load->getModule()->getNamedMetadata("llvm.ident"))
+      if (const MDNode *N = NMD->getOperand(0))
+        if (const MDString *S = dyn_cast<MDString>(N->getOperand(0)))
+          return false;
+#endif // INTEL_CUSTOMIZATION
+
   LLVM_DEBUG(dbgs() << "Stack Move: Attempting to optimize:\n"
                     << *Store << "\n");
 

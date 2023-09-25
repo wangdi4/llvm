@@ -29,6 +29,8 @@
 # owners for individual files can be assigned below.
 /llvm/include/llvm/Transforms/Utils/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Transforms/Utils/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/Scalar/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Transforms/Scalar/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 
 # COMPONENT: CFE
 # CFE: Team owns everything in Clang unless otherwise specified.
@@ -260,6 +262,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/Transforms/Instrumentation/Intel_MLPGO @romanovvlad @smaslov-intel
 /llvm/include/llvm/Transforms/IPO.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Scalar/Intel_AggressiveSpeculation.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer @tcreech-intel @williamweixiao
+/llvm/include/llvm/Transforms/Scalar/Intel_DopeVectorHoist.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Scalar/Intel_ForcedCMOVGeneration.h @asudarsa
 /llvm/include/llvm/Transforms/Scalar/Intel_FunctionRecognizer.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Scalar/Intel_IndirectCallConv.h @robertcox-github @pvbattin
@@ -534,7 +537,6 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Transforms/InstCombine/InstCombine.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Transforms/InstCombine/InstCombiner.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/include/llvm/Transforms/Scalar/* @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/IVDescriptors.h @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/include/llvm/Analysis/IRSimilarityIdentifier.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/LoopIterator.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -656,7 +658,6 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Transforms/InstCombine/InstCombineShifts.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Transforms/InstCombine/InstCombinePHI.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Transforms/InstCombine/InstCombineCasts.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/lib/Transforms/Scalar/* @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/Loads.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/ScalarEvolution.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/MemoryLocation.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
