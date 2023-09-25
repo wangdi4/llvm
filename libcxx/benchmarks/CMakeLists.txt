@@ -76,6 +76,7 @@ set(BENCHMARK_LIBCXX_INSTALL ${CMAKE_CURRENT_BINARY_DIR}/benchmark-libcxx)
 set(BENCHMARK_NATIVE_INSTALL ${CMAKE_CURRENT_BINARY_DIR}/benchmark-native)
 
 add_library(               cxx-benchmarks-flags INTERFACE)
+<<<<<<< HEAD
 #TODO(cmake): remove the `add_compile_options`. Currently we have to explicitly
 # pass the `std:c++latest` flag on Windows to work around an issue where
 # requesting `cxx_std_23` results in an error -- somehow CMake fails to
@@ -97,6 +98,9 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM")
 else()
   target_compile_features( cxx-benchmarks-flags INTERFACE cxx_std_23)
 endif()
+=======
+target_compile_features(   cxx-benchmarks-flags INTERFACE cxx_std_20)
+>>>>>>> 10edd5d9436153ace82009a04900ac67d3adc202
 target_compile_options(    cxx-benchmarks-flags INTERFACE -fsized-deallocation -nostdinc++)
 target_include_directories(cxx-benchmarks-flags INTERFACE "${LIBCXX_GENERATED_INCLUDE_DIR}"
                                                 INTERFACE "${BENCHMARK_LIBCXX_INSTALL}/include"
