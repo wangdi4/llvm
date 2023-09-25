@@ -700,34 +700,6 @@ extern "C" {
 //       APIs used by STL, such as _Cosh, are undocumented, even though
 //       they are open-sourced. Recognizing them as builtins is not
 //       straightforward currently.
-<<<<<<< HEAD
-extern __DPCPP_SYCL_EXTERNAL double _Cosh(double x, double y);
-extern __DPCPP_SYCL_EXTERNAL int _dpcomp(double x, double y);
-extern __DPCPP_SYCL_EXTERNAL int _dsign(double x);
-extern __DPCPP_SYCL_EXTERNAL short _Dtest(double *px);
-extern __DPCPP_SYCL_EXTERNAL short _dtest(double *px);
-extern __DPCPP_SYCL_EXTERNAL short _Exp(double *px, double y, short eoff);
-extern __DPCPP_SYCL_EXTERNAL float _FCosh(float x, float y);
-extern __DPCPP_SYCL_EXTERNAL int _fdpcomp(float x, float y);
-extern __DPCPP_SYCL_EXTERNAL int _fdsign(float x);
-extern __DPCPP_SYCL_EXTERNAL short _FDtest(float *px);
-extern __DPCPP_SYCL_EXTERNAL short _fdtest(float *px);
-extern __DPCPP_SYCL_EXTERNAL short _FExp(float *px, float y, short eoff);
-extern __DPCPP_SYCL_EXTERNAL float _FSinh(float x, float y);
-extern __DPCPP_SYCL_EXTERNAL double _Sinh(double x, double y);
-extern __DPCPP_SYCL_EXTERNAL float _hypotf(float x, float y);
-/* INTEL_CUSTOMIZATION */
-// MSVC math header includes implementation of 'hypotf' which calls a library
-// function '_hypotf'. When icx is used, intel math header overrides MSVC math
-// header and it doesn't include such 'hypotf' implementation. Instead, intel
-// math header treats 'hypotf' as a library function, so we add 'hypotf' here
-// and its implementation is provided by SYCL libdevice.
-#if defined(__INTEL_LLVM_COMPILER)
-extern __DPCPP_SYCL_EXTERNAL float hypotf(float x, float y);
-#endif
-/* end INTEL_CUSTOMIZATION */
-=======
->>>>>>> 9bbbc7782468a82f35ed47681e8d5526c8847753
 extern __DPCPP_SYCL_EXTERNAL void _wassert(const wchar_t *wexpr,
                                            const wchar_t *wfile, unsigned line);
 }
