@@ -93,6 +93,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/CodeGen/TargetSchedule.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -105,6 +106,10 @@ STATISTIC(CondBranchTakenFreq,
           "Potential frequency of taking conditional branches");
 STATISTIC(UncondBranchTakenFreq,
           "Potential frequency of taking unconditional branches");
+#if INTEL_CUSTOMIZATION
+STATISTIC(NumTargetPreferredRegions,
+          "Number of regions with target-preferred layout");
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned> AlignAllBlock(
     "align-all-blocks",
@@ -263,6 +268,13 @@ static cl::opt<bool> RenumberBlocksBeforeView(
         "If true, basic blocks are re-numbered before MBP layout is printed "
         "into a dot graph. Only used when a function is being printed."),
     cl::init(false), cl::Hidden);
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> EnableTargetPreferredRegions(
+    "block-placement-target-regions",
+    cl::desc("Preserve target-preferred regions during placement"),
+    cl::init(true), cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 extern cl::opt<bool> EnableExtTspBlockPlacement;
@@ -488,6 +500,29 @@ class MachineBlockPlacement : public MachineFunctionPass {
   /// blocks and their successors through the pass.
   SmallPtrSet<MachineBasicBlock *, 4> BlocksWithUnanalyzableExits;
 #endif
+
+#if INTEL_CUSTOMIZATION
+  /// Return true if the given block starts a region for which
+  /// the target has a preferred layout.
+  bool getTargetPreferredRegion(const MachineBasicBlock *BB,
+                                const BlockChain &Chain,
+                                const BlockFilterSet *BlockFilter,
+                                SmallVectorImpl<MachineBasicBlock *> &Seq,
+                                bool &AllowPadding);
+
+  /// The target scheduling model for the current function.
+  /// This is required for getTargetPreferredRegion only.
+  TargetSchedModel SchedModel;
+
+  /// Target-preferred regions may indicate that alignment
+  /// padding is not permitted for certain blocks. These
+  /// blocks are recorded in the DoNotAlign set.
+  SmallPtrSet<MachineBasicBlock *, 8> DoNotAlign;
+
+  bool canAlignBlock(const MachineBasicBlock *BB) const {
+    return !DoNotAlign.contains(BB);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Get block profile count or frequency according to UseProfileCount.
   /// The return value is used to model tail duplication cost.
@@ -1903,6 +1938,37 @@ void MachineBlockPlacement::buildChain(
     assert(BlockToChain[BB] == &Chain && "BlockToChainMap mis-match in loop.");
     assert(*std::prev(Chain.end()) == BB && "BB Not found at end of chain.");
 
+#if INTEL_CUSTOMIZATION
+    if (EnableTargetPreferredRegions) {
+      // Allow the target to pre-empt the choice of best successor when
+      // BB is the entry to a region where a particular layout is preferred.
+      SmallVector<MachineBasicBlock *, 4u> Seq;
+      bool AllowPadding = false;
+      if (getTargetPreferredRegion(BB, Chain, BlockFilter, Seq, AllowPadding)) {
+        LLVM_DEBUG(
+            dbgs()
+            << "Target provided preferred ordering for region starting at "
+            << getBlockName(BB) << " with " << Seq.size()
+            << " blocks, padding is " << (AllowPadding ? "" : "not ")
+            << " allowed\n");
+        ++NumTargetPreferredRegions;
+
+        // Place the blocks in the provided order.
+        for (auto *SeqBB : Seq) {
+          BlockChain &SuccChain = *BlockToChain[SeqBB];
+          SuccChain.UnscheduledPredecessors = 0;
+          LLVM_DEBUG(dbgs() << " merging (target-preferred) "
+                            << getBlockName(SeqBB) << "\n");
+          markChainSuccessors(SuccChain, LoopHeaderBB, BlockFilter);
+          Chain.merge(SeqBB, &SuccChain);
+          if (!AllowPadding)
+            DoNotAlign.insert(SeqBB);
+        }
+        BB = *std::prev(Chain.end());
+        continue;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // Look for the best viable successor if there is one to place immediately
     // after this block.
@@ -3246,6 +3312,10 @@ void MachineBlockPlacement::alignBlocks() {
   BlockFrequency EntryFreq = MBFI->getBlockFreq(&F->front());
   BlockFrequency WeightedEntryFreq = EntryFreq * ColdProb;
   for (MachineBasicBlock *ChainBB : FunctionChain) {
+#if INTEL_CUSTOMIZATION
+    if (!canAlignBlock(ChainBB))
+      continue;
+#endif
     if (ChainBB == *FunctionChain.begin())
       continue;
 
@@ -3714,6 +3784,12 @@ bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
   MPDT = nullptr;
   PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
 
+#if INTEL_CUSTOMIZATION
+  if (EnableTargetPreferredRegions)
+    SchedModel.init(&MF.getSubtarget());
+  DoNotAlign.clear();
+#endif // INTEL_CUSTOMIZATION
+
   initDupThreshold();
 
   // Initialize PreferredLoopExit to nullptr here since it may never be set if
@@ -3849,6 +3925,8 @@ bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
       // we usually have more sets (e.g 32) than ways of each set (e.g 8).
       for (auto MBI = std::next(MF.begin()), MBE = MF.end(); MBI != MBE;
            ++MBI) {
+        if (!canAlignBlock(&*MBI))
+          continue;
         auto LayoutPred = std::prev(MBI);
         if (!LayoutPred->isSuccessor(&*MBI))
           MBI->setAlignment(Align(MF.getSubtarget().getDSBWindowSize()));
@@ -4033,6 +4111,33 @@ void MachineBlockPlacement::tryBranchHint() {
         MI.setFlag(MachineInstr::MIFlag::BranchHint);
     }
   }
+}
+
+bool MachineBlockPlacement::getTargetPreferredRegion(
+    const MachineBasicBlock *BB, const BlockChain &Chain,
+    const BlockFilterSet *BlockFilter,
+    SmallVectorImpl<MachineBasicBlock *> &Seq, bool &AllowPadding) {
+
+  // Consult the target to see if BB is the entry to a region
+  // with a preferred layout.
+  if (!TII->getTargetRegionOrder(*BB, Seq, AllowPadding, *MBPI, SchedModel))
+    return false;
+  assert(Seq.size() > 0 && "target region is empty");
+
+  // Ensure all blocks pass the filter, and that all blocks are only
+  // in trivial chains.
+  // TODO: the converge block should be allowed to be the front of
+  // a non-trivial chain.
+  if (BlockFilter && llvm::any_of(Seq, [&](const MachineBasicBlock *MBB) {
+        return !BlockFilter->count(MBB);
+      }))
+    return false;
+  for (unsigned i = 0, n = Seq.size(); i < n; ++i) {
+    auto Chain = BlockToChain[Seq[i]];
+    if (std::next(Chain->begin()) != Chain->end())
+      return false;
+  }
+  return true;
 }
 #endif // INTEL_CUSTOMIZATION
 
