@@ -137,6 +137,9 @@ private:
 
 StringRef resolveGenDevice(StringRef DeviceName);
 SmallString<64> getGenDeviceMacro(StringRef DeviceName);
+#if INTEL_CUSTOMIZATION
+StringRef getGenGRFFlag(StringRef GRFMode);
+#endif // INTEL_CUSTOMIZATION
 
 // // Prefix for GPU specific targets used for -fsycl-targets
 constexpr char IntelGPU[] = "intel_gpu_";
@@ -196,7 +199,7 @@ public:
                             const llvm::Triple &Triple,
                             const llvm::opt::ArgList &Args,
                             llvm::opt::ArgStringList &CmdArgs,
-                            const JobAction &JA) const;
+                            const JobAction &JA, const ToolChain &HostTC) const;
   void TranslateBackendTargetArgs(Action::OffloadKind DeviceOffloadKind,
                                   const llvm::Triple &Triple,
                                   const llvm::opt::ArgList &Args,

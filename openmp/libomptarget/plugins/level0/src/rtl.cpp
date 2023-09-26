@@ -5304,20 +5304,53 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
 static void
 replaceDriverOptsWithBackendOpts(const ze_device_properties_t &DeviceInfo,
                                  std::string &Options) {
+  bool IsIntelGPU =
+      DeviceInfo.vendorId == 0x8086 && DeviceInfo.type == ZE_DEVICE_TYPE_GPU;
   // If the user passed -ftarget-compile-fast at compile time, replace it with
   // the final IGC option for Intel GPUs, and remove it from the options
   // otherwise.
   static const std::string TargetCompileFast = "-ftarget-compile-fast";
   if (auto Pos = Options.find(TargetCompileFast); Pos != std::string::npos) {
     auto OptLen = TargetCompileFast.size();
-    bool IsIntelGPU =
-        DeviceInfo.vendorId == 0x8086 && DeviceInfo.type == ZE_DEVICE_TYPE_GPU;
     if (IsIntelGPU)
       Options.replace(Pos, OptLen,
                       "-igc_opts 'PartitionUnit=1,SubroutineThreshold=50000'");
     else
       Options.erase(Pos, OptLen);
   }
+#ifdef INTEL_CUSTOMIZATION
+  // The driver will pass the argument in the format of
+  // -ftarget-register-alloc-mode=Device:BackendOption. Extract the device,
+  // determine if the current device is the specified device. If so, extract and
+  // add the BackendOption to LinkOpts. If the current device is not the
+  // specified device, remove the entire -ftarget-register-alloc-mode option
+  // from the compile string.
+  static const std::string TargetRegisterAllocMode =
+      "-ftarget-register-alloc-mode=";
+  auto OptPos = Options.find(TargetRegisterAllocMode);
+  while (OptPos != std::string::npos) {
+    auto EndOfOpt = Options.find(" ", OptPos);
+    // Extract everything after the equals until the end of the option
+    auto OptValue =
+        Options.substr(OptPos + TargetRegisterAllocMode.size(),
+                       EndOfOpt - OptPos - TargetRegisterAllocMode.size());
+    auto ColonPos = OptValue.find(":");
+    auto Device = OptValue.substr(0, ColonPos);
+    std::string BackendStrToAdd;
+    bool IsPVC = IsIntelGPU && (DeviceInfo.deviceId & 0xFF00) == 0x0B00;
+    // Currently 'pvc' is the only supported device.
+    if (Device == "pvc" && IsPVC)
+      BackendStrToAdd = " " + OptValue.substr(ColonPos + 1) + " ";
+
+    // Extract everything before this option
+    std::string NewOptions = Options.substr(0, OptPos) + BackendStrToAdd;
+    // Extract everything after this option and add it to the above.
+    if (EndOfOpt != std::string::npos)
+      NewOptions += Options.substr(EndOfOpt);
+    Options = NewOptions;
+    OptPos = Options.find(TargetRegisterAllocMode);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 int32_t MemAllocatorTy::enqueueMemCopy(void *Dst, const void *Src,
