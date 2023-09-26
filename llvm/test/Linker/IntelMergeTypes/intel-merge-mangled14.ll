@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
-; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-quick-module-verify -irmover-type-merging=false -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled02-a.ll %S/Inputs/intel-merge-mangled02-b.ll %S/Inputs/intel-merge-mangled02-c.ll %S/Inputs/intel-merge-mangled02-d.ll | FileCheck %s
+; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-quick-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-mangled02-a.ll %S/Inputs/intel-merge-mangled02-b.ll %S/Inputs/intel-merge-mangled02-c.ll %S/Inputs/intel-merge-mangled02-d.ll | FileCheck %s
 
 ; This test case checks that the types were correctly merged when templates
 ; are used. It is the same test case as intel-merge-mangled02.ll (even uses

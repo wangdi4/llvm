@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_DTRANS
 
 ; REQUIRES: intel_feature_sw_dtrans, asserts
-; RUN: llvm-link -debug-only=irmover-dtrans-types -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-types-03a.ll %S/Inputs/intel-merge-types-03b.ll 2>&1 | FileCheck %s -check-prefix=CHECK-AB
+; RUN: llvm-link -debug-only=irmover-dtrans-types -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-types-03a.ll %S/Inputs/intel-merge-types-03b.ll 2>&1 | FileCheck %s -check-prefix=CHECK-AB
 
 ; This test case checks that the types were merged when there are function
 ; pointers. In the case of non-opaque pointers, the CFE will generate a
@@ -45,7 +45,6 @@
 ; CHECK-AB-SAME:  intel-merge-types-03a.ll
 ; CHECK-AB:   Source type: %struct._ZTS11TestStructA.TestStructA = type { ptr }
 ; CHECK-AB:     Destination type: None
-; CHECK-AB:     Fields that will be repaired:
 ; CHECK-AB: Destination module passed verification
 
 ; CHECK-AB: Merging types from source module:
@@ -77,13 +76,12 @@
 ; This test case checks that the types where merged correctly when the order of
 ; linking changes.
 
-; RUN: llvm-link -debug-only=irmover-dtrans-types -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-types-03b.ll %S/Inputs/intel-merge-types-03a.ll 2>&1 | FileCheck %s -check-prefix=CHECK-BA
+; RUN: llvm-link -debug-only=irmover-dtrans-types -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-types-03b.ll %S/Inputs/intel-merge-types-03a.ll 2>&1 | FileCheck %s -check-prefix=CHECK-BA
 
 ; CHECK-BA: Merging types from source module:
 ; CHECK-BA-SAME:  intel-merge-types-03b.ll
 ; CHECK-BA:   Source type: %struct._ZTS11TestStructA.TestStructA = type { ptr }
 ; CHECK-BA:     Destination type: None
-; CHECK-BA:     Fields that will be repaired:
 ; CHECK-BA: Destination module passed verification
 
 ; CHECK-BA: Merging types from source module:
