@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
-; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled06-a.ll %S/Inputs/intel-merge-mangled06-b.ll %S/Inputs/intel-merge-mangled06-c.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-mangled06-a.ll %S/Inputs/intel-merge-mangled06-b.ll %S/Inputs/intel-merge-mangled06-c.ll 2>&1 | FileCheck %s
 
 ; This test case checks that the types weren't merged even they have the same
 ; mangled typeinfo name. This happens when two structures have the same name,

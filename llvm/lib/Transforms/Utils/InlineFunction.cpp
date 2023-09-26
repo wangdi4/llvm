@@ -1095,7 +1095,7 @@ static void CopyGlobalAnnotations(CallBase &CB, Function *Caller) {
         auto FuncOp = CS->getOperand(0);
         if (FuncOp) {
           Function *AnnFunc = nullptr;
-          if (FuncOp->getType()->isOpaquePointerTy())
+          if (FuncOp->getType()->isPointerTy())
             AnnFunc = dyn_cast<Function>(FuncOp);
           else if (FuncOp->getNumOperands())
             AnnFunc = dyn_cast<Function>(FuncOp->getOperand(0));

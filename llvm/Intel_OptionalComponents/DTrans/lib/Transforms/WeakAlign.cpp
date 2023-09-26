@@ -717,9 +717,7 @@ bool WeakAlignImpl::willAssumeHold(IntrinsicInst *II) {
   // inference to check what type is using used in the alignment check. For
   // now, we can go conservative on any pointer seen when using opaque pointers,
   // because the pattern does not currently show up in the case of interest.
-  if (AlignedPtr->getType()->isOpaquePointerTy())
-    return false;
-  return true;
+  return false;
 }
 
 // Return 'true' if 'V' is recognized as just nullptr check of memory

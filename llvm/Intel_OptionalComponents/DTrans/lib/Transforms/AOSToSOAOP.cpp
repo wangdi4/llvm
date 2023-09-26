@@ -2075,8 +2075,6 @@ void AOSToSOAOPTransformImpl::convertDepByteGEP(GetElementPtrInst *GEP,
 // Note: This is only reachable when opaque pointers are used because the code
 // relies on the TypeRemapper to handle this when typed pointers are in use.
 void AOSToSOAOPTransformImpl::convertAlloca(AllocaInst *AI) {
-  assert(AI->getType()->isOpaquePointerTy() &&
-         "Only opaque pointer uses expected");
   assert(!AI->getAllocatedType()->isArrayTy() && "Unexpected array type");
 
   AI->setAllocatedType(IndexInfo.LLVMType);
@@ -2605,13 +2603,6 @@ void AOSToSOAOPTransformImpl::convertFreeCall(FreeCallInfo *CInfo,
       SOAInfo, ConstantInt::get(Type::getInt32Ty(SOAVar->getContext()), 0),
       InsertionPoint);
   Value *NewFreeArg = SOAAddr;
-  if (!FreeArg->getType()->isOpaquePointerTy()) {
-    CastInst *SOAAddrAsI8Ptr =
-        CastInst::CreateBitOrPointerCast(SOAAddr, FreeArg->getType());
-    SOAAddrAsI8Ptr->insertAfter(SOAAddr);
-    NewFreeArg = SOAAddrAsI8Ptr;
-  }
-
   for (auto *ICmp : ICmpsToFix) {
     // The original 'icmp' instruction may have been collected by the visitICmp
     // instruction to convert to an integer index test, so insert a new ICmp,

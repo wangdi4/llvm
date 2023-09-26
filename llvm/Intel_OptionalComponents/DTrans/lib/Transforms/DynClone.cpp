@@ -3977,13 +3977,7 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
     StructType *OldStTy = cast<StructType>(GEP->getSourceElementType());
     Type *NewStTy = TransformedTypeMap[OldStTy];
     assert(NewStTy && "Expected transformed type");
-    Type *DstTy = NewStTy->getPointerTo();
     Value *Src = GEP->getPointerOperand();
-    if (!Src->getType()->isOpaquePointerTy() || !DstTy->isOpaquePointerTy()) {
-      CastInst *BC = CastInst::CreateBitOrPointerCast(Src, DstTy, "", GEP);
-      Src = BC;
-    }
-
     SmallVector<Value *, 2> Indices;
     Indices.push_back(GEP->getOperand(1));
     if (NumIndices == 2) {
@@ -4080,12 +4074,6 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
     unsigned NewIdx = TransformedIndexes[OldTy][LdElem.second];
     Value *SrcOp = LI->getPointerOperand();
     Type *NewTy = NewSt->getElementType(NewIdx);
-    Type *PNewTy = NewTy->getPointerTo();
-    if (!SrcOp->getType()->isOpaquePointerTy() ||
-        !PNewTy->isOpaquePointerTy()) {
-      Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", LI);
-      SrcOp = NewSrcOp;
-    }
     Instruction *NewLI = new LoadInst(
         NewTy, SrcOp, "", LI->isVolatile(), DL.getABITypeAlign(NewTy),
         LI->getOrdering(), LI->getSyncScopeID(), LI);
@@ -4151,7 +4139,6 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
     StructType *NewSt = TransformedTypeMap[OldTy];
     unsigned NewIdx = TransformedIndexes[OldTy][StElem.second];
     Type *NewTy = NewSt->getElementType(NewIdx);
-    Type *PNewTy = NewTy->getPointerTo();
     Value *ValOp = SI->getValueOperand();
     Value *NewVal = nullptr;
     // (Reencoding) if encoding is not needed, then all values should fit
@@ -4165,11 +4152,6 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
       NewVal = CastInst::CreateIntegerCast(ValOp, NewTy, true, "", SI);
 
     Value *SrcOp = SI->getPointerOperand();
-    if (!SrcOp->getType()->isOpaquePointerTy() ||
-        !PNewTy->isOpaquePointerTy()) {
-      Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", SI);
-      SrcOp = NewSrcOp;
-    }
     LLVM_DEBUG(dbgs() << "Store after convert: \n"
                       << *NewVal << "\n"
                       << *SrcOp << "\n");
