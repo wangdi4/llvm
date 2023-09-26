@@ -1,4 +1,4 @@
-; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -disable-output -hir-dead-store-elimination-deduce-region-local-alloca=true 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that we recognize load/store based on %A0 as alloca based, identify it
 ; as region local alloca and eliminate the store by propagating it into load.

@@ -1,4 +1,4 @@
-; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -hir-dead-store-elimination-deduce-region-local-alloca=true -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that both stores to %A are eliminated by replacing them and the loads
 ; with temp since all uses of %A occur within region. The temps are propagated
