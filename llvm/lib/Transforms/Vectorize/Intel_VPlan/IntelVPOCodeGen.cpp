@@ -14,12 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPOCodeGen.h"
-#include "IntelLoopVectorizationLegality.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "IntelVPlanVectorizeIndirectCalls.h"
+#include "Legality.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -33,7 +34,6 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
-#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include <numeric>
 #include <tuple>
