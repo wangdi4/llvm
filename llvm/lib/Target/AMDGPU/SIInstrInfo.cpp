@@ -733,18 +733,11 @@ void SIInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
   // we remove Fix16BitCopies and this code block?
   if (Fix16BitCopies) {
     if (((Size == 16) != (SrcSize == 16))) {
-      if (ST.hasTrue16BitInsts()) {
-        // Non-VGPR Src and Dst will later be expanded back to 32 bits.
-        MCRegister &RegToFix = (Size == 32) ? DestReg : SrcReg;
-        MCRegister SubReg = RI.getSubReg(RegToFix, AMDGPU::lo16);
-        RegToFix = SubReg;
-      } else {
-        MCRegister &RegToFix = (Size == 16) ? DestReg : SrcReg;
-        MCRegister Super = RI.get32BitRegister(RegToFix);
-        assert(RI.getSubReg(Super, AMDGPU::lo16) == RegToFix ||
-               RI.getSubReg(Super, AMDGPU::hi16) == RegToFix);
-        RegToFix = Super;
-      }
+      // Non-VGPR Src and Dst will later be expanded back to 32 bits.
+      assert(ST.hasTrue16BitInsts());
+      MCRegister &RegToFix = (Size == 32) ? DestReg : SrcReg;
+      MCRegister SubReg = RI.getSubReg(RegToFix, AMDGPU::lo16);
+      RegToFix = SubReg;
 
       if (DestReg == SrcReg) {
         // Identity copy. Insert empty bundle since ExpandPostRA expects an
@@ -5045,11 +5038,11 @@ unsigned SIInstrInfo::getVALUOp(const MachineInstr &MI) const {
   case AMDGPU::S_MIN_F32: return AMDGPU::V_MIN_F32_e64;
   case AMDGPU::S_MAX_F32: return AMDGPU::V_MAX_F32_e64;
   case AMDGPU::S_MUL_F32: return AMDGPU::V_MUL_F32_e64;
-  case AMDGPU::S_ADD_F16: return AMDGPU::V_ADD_F16_t16_e64;
-  case AMDGPU::S_SUB_F16: return AMDGPU::V_SUB_F16_t16_e64;
-  case AMDGPU::S_MIN_F16: return AMDGPU::V_MIN_F16_t16_e64;
-  case AMDGPU::S_MAX_F16: return AMDGPU::V_MAX_F16_t16_e64;
-  case AMDGPU::S_MUL_F16: return AMDGPU::V_MUL_F16_t16_e64;
+  case AMDGPU::S_ADD_F16: return AMDGPU::V_ADD_F16_fake16_e64;
+  case AMDGPU::S_SUB_F16: return AMDGPU::V_SUB_F16_fake16_e64;
+  case AMDGPU::S_MIN_F16: return AMDGPU::V_MIN_F16_fake16_e64;
+  case AMDGPU::S_MAX_F16: return AMDGPU::V_MAX_F16_fake16_e64;
+  case AMDGPU::S_MUL_F16: return AMDGPU::V_MUL_F16_fake16_e64;
   case AMDGPU::S_CVT_PK_RTZ_F16_F32: return AMDGPU::V_CVT_PKRTZ_F16_F32_e64;
   case AMDGPU::S_FMAC_F32: return AMDGPU::V_FMAC_F32_e64;
   case AMDGPU::S_FMAC_F16: return AMDGPU::V_FMAC_F16_t16_e64;
