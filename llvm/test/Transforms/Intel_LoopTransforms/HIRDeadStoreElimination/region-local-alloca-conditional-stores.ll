@@ -1,4 +1,4 @@
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,hir-dead-store-elimination,print<hir>" -hir-dead-store-elimination-deduce-region-local-alloca=true -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,hir-dead-store-elimination,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 ;
 ; Verify that test case compiles successfully and almost all stores to %lc are
 ; eliminated as it is recognized as region local. 

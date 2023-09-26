@@ -1,4 +1,4 @@
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,hir-dead-store-elimination,print<hir>" -hir-dead-store-elimination-deduce-region-local-alloca=true -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,hir-dead-store-elimination,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that the loopnest is completely unrolled and that all stores to
 ; %ax are eliminated because it is regonized as local to region.

@@ -1,4 +1,4 @@
-; RUN: opt -hir-create-function-level-region -hir-details -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -hir-dead-store-elimination-deduce-region-local-alloca=true 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-create-function-level-region -hir-details -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination 2>&1 < %s | FileCheck %s
 
 ; Verify that we are able to eliminate load/store to %bound which is a region
 ; local alloca and the propagate %n to the loop upper via copy propagation

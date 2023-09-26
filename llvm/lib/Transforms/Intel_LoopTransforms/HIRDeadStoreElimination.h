@@ -122,6 +122,12 @@ class HIRDeadStoreElimination {
   // memrefs were found.
   bool doCollection(HLRegion &Region);
 
+  /// Returns true if there is an aliasing load in the region prior to the first
+  /// store ref of \p RefGroup which can reuse the store's value on reentering
+  /// the region.
+  bool foundReuseInAliasingLiveinLoad(const HLRegion &Region,
+                                      const RefGroupTy &RefGroup);
+
   /// Returns true if \p Ref escapes via an AddressOf ref and cannot be proven
   /// to be safe for analysis.
   bool basePtrEscapesAnalysis(const RegDDRef *Ref) const;
