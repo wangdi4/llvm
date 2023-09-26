@@ -87,30 +87,9 @@ static cl::opt<bool> EnableMergeWithDTrans(
     "irmover-enable-merge-with-dtrans", cl::Hidden, cl::init(true),
     cl::desc("enabled types merging by using the DTrans information"));
 
-// Enable mapping the types using the mangled names even if the DTrans metadata
-// is incomplete. An incomplete metadata is when the DTrans metadata is not
-// available for all structures in the source and destination modules. This
-// should be used only for testing purposes since incomplete metadata can lead
-// to incorrect type merging (e.g. mixing fields with opaque pointers, not
-// repairing fields that should be function pointers, etc.).
-//
-// TODO: This option needs to be turned off once we move to opaque pointers
-// and we expect to have complete DTrans medatata (e.g. passes generates new
-// entries, exception handling is correct, etc.).
-static cl::opt<bool> EnableIncompleteDTransMetadata(
-    "irmover-enable-dtrans-incomplete-metadata", cl::Hidden, cl::init(true),
-    cl::desc("enable to use DTrans metadata even if it was generated "
-             "incomplete"));
-
 // Enable to use the DTrans pointer types to check if two LLVM pointer types
 // are isomorphic even they are NOT opaque pointers.
 //
-// TODO: We can turn this off once we move to opaque pointers, unless we want
-// to use the DTrans metadata to do type mapping for the non-opaque pointers.
-static cl::opt<bool> EnableFullDTransTypesCheck(
-    "irmover-enable-full-dtrans-types-check", cl::Hidden, cl::init(true),
-    cl::desc("use the dtrans type check even if the pointers aren't opaque"));
-
 // Enable verifying that there is no repeated types or special empty structures
 // in the destination module. An assertion will be called if one of the
 // previous conditions happen. Also, check that the DTrans types in the
@@ -154,19 +133,6 @@ static bool isBaseStructure(StructType *ST);
 
 // Return true if the structure represents an anonymous structure
 static bool isAnonStructure(StructType *ST);
-
-/***************** Begin special functions ***************************/
-// Return true if the input structure is a special empty structure
-static  bool isSpecialEmptyStruct(StructType *ST);
-
-// Return true if the input DTrans structure is a special empty structure
-static bool isSpecialEmptyDTransStruct(DTransStructType *DTStruct);
-
-// Return true if the input pointer type is a pointer to an empty
-// structure, and the input DTransType represents a pointer to a function type.
-static bool isSpecialEmptyStructToFuncMapping(PointerType *SrcPtr,
-                                              DTransType *SrcField);
-/***************** End special functions ****************************/
 
 // Helper class to handle DTrans types and metadata
 class DTransStructsMap {
@@ -263,12 +229,6 @@ class TypeMapTy : public ValueMapTypeRemapper {
   // True if the conditions for using the DTrans type mapping are met,
   // else false.
   bool EnableDTransTypesMappingScheme = EnableMergeWithDTrans;
-
-/***************** Begin special functions ***************************/
-  // Map the empty structure with the DTrans function type that will be used
-  // for repair the structure.
-  DenseMap<PointerType *, DTransPointerType *> TypesToRepair;
-/***************** End special functions ***************************/
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -342,18 +302,8 @@ private:
 
   /// Copy the DTransType from source DTransTypeManager to
   /// destination DTransTypeManager
-  DTransType *copyDTransType(Type *DstTy, Type *SrcTy,
-      DTransType *DTSrcTy, SetVector<Type *> &VisitedTypes);
-
-/***************** Begin special functions ***************************/
-  /// Return true if the source type is an empty special structure
-  /// that could be mapped to a function pointer, and update the map.
-  bool handleEmptyStrSpecialCase(StructType *SrcStr, StructType *DstStr,
-                                 unsigned FieldNum);
-
-  /// Check if the input type needs to be repaired
-  Type* tryToRepairType(Type *Ty, SmallPtrSet<StructType *, 8> &Visited);
-/***************** End special functions ****************************/
+  DTransType *copyDTransType(Type *DstTy, Type *SrcTy, DTransType *DTSrcTy,
+                             SetVector<Type *> &VisitedTypes);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 };
@@ -469,313 +419,6 @@ void DTransStructsMap::populateDtransSTMap(
   }
 }
 
-/*************************** Begin special functions *******************/
-// These are special functions that allows to use the mangled name type
-// mapping scheme when pointer types aren't opaque. They can to be removed
-// once the CFE can generate opaque pointers. In order to use them we need
-// from the front end to generate named empty structures and the DTrans
-// type metadata (-Xclang -emit-dtrans-info). This is important because the
-// CFE generates incomplete types. For example, assume that you have two
-// modules and both includes the same type. The CFE can generate a module
-// with the type incomplete in some cases:
-//
-//   Module A:
-//     %struct.STRUCTNAME = type { i32(i32)*, i32 }
-//
-//   Module B:
-//     %struct.STRUCTNAME = type { {}*, i32 }
-//
-// The structure %struct.STRUCTNAME in module B represents an incomplete type.
-// If the IR mover is linking module A with module B then the IR mover will
-// try to map the following:
-//
-//   %struct.STRUCTNAME.0 = type { {}*, i32 }
-//   %struct.STRUCTNAME = type { i32(i32)*, i32 }
-//
-// The type mapping will fail because the type IDs aren't the same. If we try
-// to force the mapping between the empty structure with the function pointer
-// then we can potentially damage other types, for example:
-//
-//   %struct.NEWSTRUCT.0 = type { {}*, float }
-//   %struct.NEWSTRUCT = type { float(float)*, float }
-//
-// Assume that we mapped the empty structure in %struct.STRUCTNAME.0 with the
-// function type in %struct.STRUCTNAME, then the mapper will change all the
-// empty structures and the IR will break:
-//
-//    %struct.NEWSTRUCT.0 = type { i32(i32)*, float }
-//
-// As a workaround, the CFE generates an unique name for the empty structures
-// when the DTrans metadata is enabled and types are incomplete.
-//
-// The IR will look as follow:
-//
-//   %"__Intel$Empty$Struct" = {}
-//   %"__Intel$Empty$Struct.0" = {}
-//
-//   %struct.STRUCTNAME.0 = type { __Intel$Empty$Struct*, i32 }
-//   %struct.NEWSTRUCT.0 = type { __Intel$Empty$Struct.0*, float }
-//
-//   %struct.STRUCTNAME = type { i32(i32)*, i32 }
-//   %struct.NEWSTRUCT = type { float(float)*, float }
-//
-// This sets an unique empty structure for each incomplete structure. It can
-// be used to identify which function type will be used for each structure.
-// Then we are going to handle the type merging depending on the linking order:
-//
-//   A) Merging an incomplete structure in source module with a complete
-//      structure in the destination module
-//
-//   B) Adding a new incomplete structure from the source module to the
-//      destination module
-//
-// Solving issue A:
-// ----------------
-//
-// Assume that the IR mover is merging the following types:
-//
-//   Type in source module:
-//       %struct.STRUCTNAME.0 = type { __Intel$Empty$Struct*, i32 }
-//
-//   Type in destination module:
-//       %struct.STRUCTNAME = type { i32(i32)*, i32 }
-//
-// In this case we are going to map the unique structure with the function
-// type, and the pointer to the empty structure with the pointer to the
-// function type (function handleEmptyStrSpecialCase) when checking if
-// two types are isomorphic. The type merging process will automatically
-// merge the types and will update the instructions.
-//
-//
-// Solving issue B:
-// ----------------
-//
-// Assume that a new type is being added into the destination module (type
-// wasn't mapped), and it is incomplete:
-//
-//   Type in source module:
-//       %struct.STRUCTNAME = type { __Intel$Empty$Struct*, i32 }
-//
-// This case we are going to check if there is DTrans metadata for
-// %struct.STRUCTNAME in the source module since it contains the actual
-// information:
-//
-//   !5 = !{!"S", %struct.STRUCTNAME zeroinitializer, i32 2, !6, !8}
-//   !6 = !{!7, i32 1}
-//   !7 = !{!"F", i1 false, i32 1, !8, !8}
-//   !8 = !{i32 0, i32 0}
-//
-// If the metadata exists, then we are going to construct the complete type
-// in the destination module and map the incomplete type with the new
-// type (repairTypes):
-//
-//   New type in destination module:
-//       %struct.STRUCTNAME = type { i32(i32)*, i32 }
-//
-// The type mapper will automatically update the instructions with the new
-// type.
-//
-// We don't handle the case when the IR mover tries to merge a complete type
-// in the source module with an incomplete type in the destination module
-// because it is expected to never happen, unless the DTrans metadata is
-// incomplete. The destination module will always have the complete type since
-// we are creating it or collecting it from a source module.
-//
-// Once the CFE can generate opaque pointers this won't be an issue because the
-// types will be created as follow:
-//
-//   %struct.STRUCTNAME.0 = type { ptr, i32}
-//   %struct.NEWSTRUCT.0 = type { ptr, float }
-//
-//   %struct.STRUCTNAME = type { ptr, i32 }
-//   %struct.NEWSTRUCT = type { ptr, float }
-//
-// These types will be merged because they are just pointers.
-
-// Return true if a special empty structure is being mapped to a function type
-// and update the map.
-// NOTE: It is assumed that SrcStr and DstStr are structures with the same
-// properties (same number of elements, same mangled name, etc.).
-bool TypeMapTy::handleEmptyStrSpecialCase(StructType *SrcStr,
-                                          StructType *DstStr,
-                                          unsigned FieldNum) {
-
-  // Check if the source is a pointer to a special empty structure and
-  // the destination is a pointer to a function type
-  auto MapEmptyStrWithFunc = [this](PointerType *SrcPtr,
-                                    PointerType *DstPtr,
-                                    DTransType *SrcField) -> bool {
-
-    // If the source is mapped then return the result
-    if (MappedTypes[SrcPtr]) {
-      if (MappedTypes[SrcPtr] == DstPtr)
-        return true;
-      return false;
-    }
-
-    StructType *SrcPtrTy =
-        dyn_cast<StructType>(SrcPtr->getNonOpaquePointerElementType());
-    FunctionType *DstPtrTy =
-        dyn_cast<FunctionType>(DstPtr->getNonOpaquePointerElementType());
-
-    // Source and destination aren't the form we want
-    if (!SrcPtrTy || !DstPtrTy)
-      return false;
-
-    // Check if the source is an empty structure
-    if (!isSpecialEmptyStruct(SrcPtrTy) &&
-        !isSpecialEmptyStructToFuncMapping(SrcPtr, SrcField))
-      return false;
-
-    // If the source pointer is mapped then check the value
-    if (MappedTypes[SrcPtrTy]) {
-      if (MappedTypes[SrcPtrTy] == DstPtrTy)
-        return true;
-      return false;
-    }
-
-    // Map the empty structure with the function type
-    MappedTypes[SrcPtrTy] = DstPtrTy;
-    SpeculativeTypes.push_back(SrcPtrTy);
-
-    // Map the pointer to the empty structure with the pointer to the function
-    MappedTypes[SrcPtr] = DstPtr;
-    SpeculativeTypes.push_back(SrcPtr);
-
-    return true;
-  };
-
-  if (!EnableDTransTypesMappingScheme)
-    return false;
-
-  // Look for the following:
-  //
-  //   %"__Intel$Empty$Struct" = {}
-  //   %"struct.MANGLEDNAME.STRUCT.0 = { "__Intel$Empty$Struct"* }"
-  //   %"struct.MANGLEDNAME.STRUCT   = { i32(i32)* }"
-  //
-  //   SrcTy = %"struct.MANGLEDNAME.STRUCT.0
-  //   DstTy = %"struct.MANGLEDNAME.STRUCT
-  //
-  // Source and destination must be structures with the same mangled name, same
-  // properties (base, anonymous, etc.), and field I is a pointer to the
-  // special empty structure in the source module and a pointer to a function
-  // in the destination module.
-  if (!SrcStr || !DstStr)
-    return false;
-
-  if (FieldNum > SrcStr->getNumElements())
-    return false;
-
-  PointerType *PtrSrc =
-      dyn_cast<PointerType>(SrcStr->getElementType(FieldNum));
-  PointerType *PtrDst =
-      dyn_cast<PointerType>(DstStr->getElementType(FieldNum));
-
-  auto DTStructSrc = DTransSrcStructsMap->getDTransStructure(SrcStr);
-  if (!DTStructSrc)
-    return false;
-
-  DTransType *DTField = DTStructSrc->getFieldType(FieldNum);
-
-  // This is only for non-opaque pointers. When the CFE generates opaque
-  // pointers then we will never reach here since opaque pointers will match.
-  if (!PtrSrc || !PtrDst || PtrSrc->isOpaque() || PtrDst->isOpaque() ||
-      !DTField)
-    return false;
-
-  // Check if source and destination types match our pattern.
-  if (MapEmptyStrWithFunc(PtrSrc, PtrDst, DTField))
-    return true;
-
-  return false;
-}
-
-// This function checks if the input type needs to be repaired and returns the
-// new pointer type that was created. A type needs repair when it is a field
-// of a structure that should be a function pointer but the CFE made it as a
-// pointer to an empty structure. For example, assume that the CFE generated
-// this structure:
-//
-//   %"__Intel$Empty$Struct" = type {}
-//   %struct._ZTS11TestStructA.TestStructA =
-//       type { %"__Intel$Empty$Struct"* }
-//
-// But the DTrans metadata says that the field is a function pointer:
-//
-//   !0 = !{!"S", %struct._ZTS11TestStructA.TestStructA zeroinitializer,
-//          i32 1, !1}
-//   !1 = !{!2, i32 1}
-//   !2 = !{!"F", i1 false, i32 1, !3, !4}
-//   !3 = !{i32 0, i32 0}
-//   !4 = !{%struct._ZTS11TestStructA.TestStructA zeroinitializer, i32 1}
-//
-// Then it means that the field 0 in the structure
-// %struct._ZTS11TestStructA.TestStructA.0 is incomplete and should be a
-// function pointer rather than a pointer to an empty structure. To fix this
-// we are going to create a function type representing the function, and a
-// pointer type that points to the new function type.
-//
-//   i32(%struct._ZTS11TestStructA.TestStructA*)
-//   i32(%struct._ZTS11TestStructA.TestStructA*)*
-//
-// Then we are going to map the types as follow
-//
-//   Pointer to empty structure with pointer to new function
-//     (%"__Intel$Empty$Struct"* ->
-//          i32(%struct._ZTS11TestStructA.TestStructA*)*)
-//
-//   Empty structure with new function
-//     (%"__Intel$Empty$Struct" -> i32(%struct._ZTS11TestStructA.TestStructA*))
-//
-// This basically tells to the type mapper that we constructed a new type in
-// the destination module for the incomplete type, therefore map with it.
-//
-// NOTE: The DTrans metadata should be available to use this. Once we move
-// to opaque pointers we don't need to solve this issue. But it is useful to
-// understand this problem.
-Type* TypeMapTy::tryToRepairType(Type *Ty,
-                                 SmallPtrSet<StructType *, 8> &Visited) {
-  auto *PtrField = dyn_cast<PointerType>(Ty);
-  if (!PtrField)
-    return nullptr;
-
-  if (TypesToRepair.count(PtrField) == 0)
-    return nullptr;
-
-  if (typeIsMapped(Ty))
-    return MappedTypes[Ty];
-
-  auto *DTFieldPtr = TypesToRepair[PtrField];
-  StructType *PtrSrc =
-      cast<StructType>(PtrField->getNonOpaquePointerElementType());
-  auto *DTFuncTy =
-      cast<DTransFunctionType>(DTFieldPtr->getPointerElementType());
-
-  // We need to generate the function type with the types in the
-  // destination module.
-  Type *FuncRetTy = get(DTFuncTy->getReturnType()->getLLVMType(), Visited);
-
-  SmallVector<Type *, 8> Arguments;
-  for (auto *Arg : DTFuncTy->args())
-    Arguments.push_back(get(Arg->getLLVMType(), Visited));
-
-  FunctionType *NewFunc =
-      FunctionType::get(FuncRetTy, ArrayRef(Arguments),
-                        DTFuncTy->isVarArg());
-
-  // Map the empty structure with the new function type
-  MappedTypes[PtrSrc] = NewFunc;
-
-  // Map the pointers
-  PointerType *NewPtr =
-      PointerType::get(NewFunc, PtrField->getAddressSpace());
-  MappedTypes[PtrField] = NewPtr;
-
-  return cast<Type>(NewPtr);
-}
-/******************* End special functions **********************************/
-
 // Insert the input StructType, and its nested structures, into the
 // VisitedTypes list.
 void TypeMapTy::insertVisitedType(StructType *ST) {
@@ -795,21 +438,6 @@ void TypeMapTy::insertVisitedType(StructType *ST) {
     assert(CurrPtr && "Null pointer element type from DTransPointerType");
 
     return dyn_cast<StructType>(CurrPtr->getLLVMType());
-  };
-
-  // Return the StructType from a PointerType if it is available
-  auto GetStructFromPtr = [](PointerType *Ptr) -> StructType * {
-    if (!Ptr || Ptr->isOpaque())
-      return nullptr;
-
-    Type *CurrPtr = cast<Type>(Ptr);
-
-    while (CurrPtr && isa<PointerType>(CurrPtr)) {
-      PointerType *TempPtr = cast<PointerType>(CurrPtr);
-      CurrPtr = TempPtr->getNonOpaquePointerElementType();
-    }
-
-    return dyn_cast<StructType>(CurrPtr);
   };
 
   if (!ST)
@@ -834,20 +462,11 @@ void TypeMapTy::insertVisitedType(StructType *ST) {
       // If we have a pointer and it is opaque, or we are using DTrans metadata
       // for non-opaque pointers, then get element type of the pointer from
       // the DTrans metadata
-      if (Ptr->isOpaque() || EnableFullDTransTypesCheck) {
-        if (auto *DTStruct = DTransDstStructsMap->getDTransStructure(ST)) {
-          auto *DTType = DTStruct->getFieldType(I);
-          if (auto *DTFieldPtr = dyn_cast_or_null<DTransPointerType>(DTType))
-            CurrStruct = GetStructFromDTransPtr(DTFieldPtr);
-        }
+      if (auto *DTStruct = DTransDstStructsMap->getDTransStructure(ST)) {
+        auto *DTType = DTStruct->getFieldType(I);
+        if (auto *DTFieldPtr = dyn_cast_or_null<DTransPointerType>(DTType))
+          CurrStruct = GetStructFromDTransPtr(DTFieldPtr);
       }
-
-      // If we couldn't find the element type from the DTrans metadata then
-      // try using llvm::PointerType only if Ptr is not opaque. We need
-      // to check this in case the metadata is incomplete and non-opaque
-      // pointers are enabled.
-      if (!CurrStruct)
-        CurrStruct = GetStructFromPtr(Ptr);
     } else if (auto *StrField = dyn_cast<StructType>(Field)) {
       CurrStruct = StrField;
     }
@@ -947,56 +566,6 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM,
     return true;
   };
 
-/****************************** Begin special function ***********************/
-  // Collect the fields that are pointers to empty structures but in the
-  // DTrans metadata they are pointers to functions.
-  auto CollectFieldsThatNeedRepair = [this](StructType *ST,
-      DTransStructType *DTStruct) -> void {
-
-    DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
-        dbgs() << "    Fields that will be repaired: \n");
-    for (unsigned I = 0, E = ST->getNumElements(); I < E; I++) {
-      PointerType *PtrField = dyn_cast<PointerType>(ST->getElementType(I));
-      if (!PtrField || PtrField->isOpaque())
-        continue;
-
-      StructType *PtrStrc =
-          dyn_cast<StructType>(PtrField->getNonOpaquePointerElementType());
-      if (!PtrStrc)
-        continue;
-
-      if (TypesToRepair.count(PtrField) > 0)
-        continue;
-
-      auto *DTField = dyn_cast<DTransType>(DTStruct->getFieldType(I));
-      // Maybe this should be an assert
-      if (!DTField)
-        continue;
-
-      if (isSpecialEmptyStruct(PtrStrc) ||
-          isSpecialEmptyStructToFuncMapping(PtrField, DTField)) {
-        auto *DTFieldPtr =
-            dyn_cast<DTransPointerType>(DTField);
-        if (!DTFieldPtr)
-          continue;
-
-        auto *DTFuncTy =
-            dyn_cast<DTransFunctionType>(DTFieldPtr->getPointerElementType());
-        if (!DTFuncTy)
-          continue;
-
-        DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES, {
-          dbgs() << "      Field [" << I << "]:\n";
-          dbgs() << "        Original: " << *PtrField << "\n";
-          dbgs() << "        New: ";
-          DTFieldPtr->dump();
-          dbgs() << "\n";
-        });
-        TypesToRepair.insert({PtrField, DTFieldPtr});
-      }
-    }
-  };
-/**************************** End special function ***************************/
   *DoRTTISpecial = false;
   if (!EnableDTransTypesMappingScheme)
     return false;
@@ -1047,11 +616,6 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM,
   for (auto *DTDstTy : DstTM->getIdentifiedStructTypes()) {
     auto *DST = cast<StructType>(DTDstTy->getLLVMType());
 
-    // Perhaps this should be an assert, the destination module
-    // should not have the special empty structures generated by the CFE.
-    if (isSpecialEmptyStruct(DST))
-      continue;
-
     if (!DST->hasName())
       continue;
 
@@ -1080,11 +644,6 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM,
       *DoRTTISpecial = true;
       continue;
     }
-    // Ignore special empty strutures (this will go away once the CFE
-    // generates OP)
-    if (isSpecialEmptyStruct(ST))
-      continue;
-
     // If the current source was mapped already, then continue.
     if (typeIsMapped(ST))
       continue;
@@ -1125,7 +684,9 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM,
 
     // We need to collect the DTrans structure now because there is a chance
     // that the structure name changes when it gets mapped.
-    DTransStructType *DTStruct = DTransSrcStructsMap->getDTransStructure(ST);
+    /*
+ DTransStructType *DTStruct = DTransSrcStructsMap->getDTransStructure(ST);
+     */
 
     DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
         dbgs() << "  Source type: " << *ST << "\n");
@@ -1146,26 +707,16 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM,
     if (!typeIsMapped(ST))
       UpdateMangledTypeFromDst(ST, StructsWithDerivedNames);
 
-/************************ Begin special functions ****************************/
-    // Check if the type needs to be repaired. This can go away once we move
-    // to opaque pointers since this check is for non-opaque pointers.
-    bool TypeMayNeedRepair = false;
     if (typeIsMapped(ST)) {
       auto DstTy = cast<StructType>(MappedTypes[ST]);
       // If the destination type is opaque then we need to fix the types
-      if (DstTy->isOpaque())
-        TypeMayNeedRepair = true;
       DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
           dbgs() << "    Destination type: " << *DstTy << "\n");
+      (void)DstTy;
     } else {
-      TypeMayNeedRepair = true;
       DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
           dbgs() << "    Destination type: None\n");
     }
-
-    if (TypeMayNeedRepair && DTStruct)
-      CollectFieldsThatNeedRepair(ST, DTStruct);
-/************************ End special functions ****************************/
 
     // If the type wasn't mapped then insert it in VisitedTypes. We don't
     // want to revisit or change these types (function TypeMapTy::get).
@@ -1261,10 +812,6 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
         dyn_cast<PointerType>(DstST->getElementType(FieldNum));
     // Fields are pointer types, collect the DTrans type information
     if (PtrSrc && PtrDst) {
-      assert((PtrSrc->isOpaque() == PtrDst->isOpaque()) &&
-             "Mapping between opaque pointers from/to non-opaque pointers "
-             "isn't allowed");
-
       auto *DTFieldPtrSrc =
           dyn_cast<DTransPointerType>(DTStructSrc->getFieldType(FieldNum));
       auto *DTFieldPtrDst =
@@ -1333,10 +880,6 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
       // type is formed incorrectly. Perhaps we should assert here.
       if (!PtrSrc || !PtrDst)
         return false;
-
-      assert((PtrSrc->isOpaque() == PtrDst->isOpaque()) &&
-             "Mapping between opaque pointers from/to non-opaque pointers "
-             "isn't allowed");
 
       // Found that the type of the array or vector is a pointer, return the
       // information.
@@ -1510,16 +1053,6 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
   for (unsigned I = 0, E = SrcTy->getNumContainedTypes(); I != E; ++I) {
 #if INTEL_FEATURE_SW_DTRANS
     if (StructsMatches) {
-/************************* Begin special functions ***************************/
-      // NOTE: Handle the special case when mapping a pointer to an empty
-      // structure with a pointer to a function. This could be removed
-      // once the CFE generates opaque pointers. Read the comments between
-      // the tags "Begin special functions" and "End special functions" for
-      // more details.
-      if (handleEmptyStrSpecialCase(SrcStr, DstStr, I))
-        continue;
-/************************** End special functions ****************************/
-
       DTransPointerType *SrcPtrTy = nullptr;
       DTransPointerType *DstPtrTy = nullptr;
       // Use the DTrans information to identify if field I in SrcTy is a
@@ -1817,21 +1350,6 @@ void TypeMapTy::updateDTransTypeManager() {
     if (!StructPair.second)
       continue;
 
-/***************** Begin special functions ***************************/
-    // We can safely skip the types used for mapping a pointer to an empty
-    // structure with a pointer to a function type. One of the goals
-    // of the IR mover is to fix this mapping and generate the correct
-    // type. This should not be a problem with opaque pointers.
-    if (isSpecialEmptyStruct(StructPair.first))
-      continue;
-
-    // There is a chance that IR mover can modify the name of the LLVM
-    // structure type and we missed catching the special structure name.
-    // Try checking the DTrans type.
-    if (isSpecialEmptyDTransStruct(StructPair.second))
-      continue;
-/***************** End special functions ***************************/
-
     DTransType *DTSrcTy = cast<DTransType>(StructPair.second);
     Type *ST = StructPair.first;
     Type *DstTy = get(ST);
@@ -1853,18 +1371,6 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
   Type **Entry = &MappedTypes[Ty];
   if (*Entry)
     return *Entry;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  // If the type is a pointer to an empty structure, then we need to fix it
-  // by replacing it with a pointer to a function. Read the comments between
-  // the tags "Begin special functions" and "End special functions" for more
-  // details.
-  if (auto *RepairedType = tryToRepairType(Ty, Visited))
-    return RepairedType;
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
-
   // These are types that LLVM itself will unique.
   bool IsUniqued = !isa<StructType>(Ty) || cast<StructType>(Ty)->isLiteral();
 
@@ -2689,76 +2195,6 @@ static bool isAnonStructure(StructType *ST) {
   StringRef AnonTag = StrName.take_back(std::string(".anon").size());
   return AnonTag == StringRef(".anon");
 }
-
-
-/***************** Begin special functions ***************************/
-
-// Return true if the structure name starts with
-// "__Intel$Empty$Struct", and if the structure is opaque or it is empty
-// (no fields).
-static bool isSpecialEmptyStruct(StructType *ST) {
-  if (!ST || !ST->hasName())
-    return false;
-
-  if (!ST->isOpaque() && ST->getNumElements() != 0)
-    return false;
-
-  StringRef StructName = getStructName(ST);
-  std::string PlaceHolderName = "__Intel$Empty$Struct";
-
-  return StructName.startswith(StringRef(PlaceHolderName));
-}
-
-// Return true if the DTrans structure name starts with
-// "__Intel$Empty$Struct", and if the structure is opaque or it is empty
-// (no fields).
-static bool isSpecialEmptyDTransStruct(DTransStructType *DTStruct) {
-  if (!DTStruct || !DTStruct->hasName())
-    return false;
-
-  if (!DTStruct->isOpaque() && DTStruct->getNumFields() != 0)
-    return false;
-
-  StringRef StructName = DTStruct->getName();
-  std::string PlaceHolderName = "__Intel$Empty$Struct";
-
-  return StructName.startswith(StringRef(PlaceHolderName));
-}
-
-// Return true if the input source pointer is a pointer to an empty
-// structure, and the DTransType of the source pointer is a function pointer.
-//
-// NOTE: This is a workaround to find if an empty structure is being
-// mapped to a function pointer. The CFE is not always emitting the
-// right naming. Also, this is only for typed pointers. The issue won't
-// happen with opaque pointers and we can remove this check.
-static bool isSpecialEmptyStructToFuncMapping(PointerType *SrcPtr,
-                                       DTransType *SrcField) {
-
-  if (!SrcPtr || !SrcField)
-    return false;
-
-  if (SrcPtr->isOpaque())
-    return false;
-
-  StructType *EmptyStr =
-      dyn_cast<StructType>(SrcPtr->getNonOpaquePointerElementType());
-  if (!EmptyStr)
-    return false;
-
-  if (EmptyStr->hasName())
-    return false;
-
-  if (EmptyStr->getNumElements() != 0)
-    return false;
-
-  auto *PtrSrcField = dyn_cast<DTransPointerType>(SrcField);
-  if (!PtrSrcField)
-    return false;
-
-  return isa<DTransFunctionType>(SrcField->getPointerElementType());
-}
-/***************** End special functions ***************************/
 #endif // INTEL_FEATURE_SW_DTRANS
 } // namespace
 
@@ -2802,9 +2238,6 @@ void IRLinker::verifyDestinationModule() {
   for (StructType *ST : Types) {
     if (!ST->hasName())
       continue;
-
-    assert(!isSpecialEmptyStruct(ST)
-           && "Found empty structure in the destination module");
 
     // We can safely skip anonymous structures since they are enclosed
     // structures. If an anonymous structure wasn't mapped correctly, then
@@ -2873,22 +2306,6 @@ void IRLinker::verifyDestinationModule() {
     assert(DTinMap->compare(*DTinDstTM) && "Mismatch between DTrans type in "
         "destination type manager and DTrans destination metadata");
     (void)DTinDstTM;
-
-    /***************** Begin special functions ***************************/
-    // Make sure that the fields were repaired. This is only when we aren't
-    // dealing with opaque pointers
-    for (unsigned I = 0, E = ST->getNumElements(); I < E; I++) {
-
-      auto *PtrField = dyn_cast<PointerType>(ST->getElementType(I));
-      if (!PtrField)
-        continue;
-
-      assert(!isSpecialEmptyStructToFuncMapping(PtrField,
-          DTinMap->getFieldType(I)) && "Found special empty field in "
-          "a structure");
-    }
-/***************** End special functions ***************************/
-
   }
 
   DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
@@ -2911,9 +2328,6 @@ void IRLinker::quickVerifyDestinationModule() {
     auto *ST = cast<StructType>(DTinMap->getLLVMType());
     if (!ST->hasName())
       continue;
-
-    assert(!isSpecialEmptyStruct(ST)
-           && "Found empty structure in the destination module");
 
     // We can safely skip anonymous structures since they are enclosed
     // structures. If an anonymous structure wasn't mapped correctly, then
@@ -2941,21 +2355,6 @@ void IRLinker::quickVerifyDestinationModule() {
       DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
           dbgs() << "  Pass assertions, two different structures\n\n");
     }
-
-/***************** Begin special functions ***************************/
-    // Make sure that the fields were repaired. This is only when we aren't
-    // dealing with opaque pointers
-    for (unsigned I = 0, E = ST->getNumElements(); I < E; I++) {
-
-      auto *PtrField = dyn_cast<PointerType>(ST->getElementType(I));
-      if (!PtrField)
-        continue;
-
-      assert(!isSpecialEmptyStructToFuncMapping(PtrField,
-          DTinMap->getFieldType(I)) && "Found special empty field in "
-          "a structure");
-    }
-/***************** End special functions ***************************/
   }
 
   DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
