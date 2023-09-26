@@ -259,43 +259,94 @@ const std::uint32_t SPIRV12Version = 0x00010200;
 const std::uint32_t SPIRVOpCapability = 0x00020000 | spv::OpCapability;
 const std::uint32_t SPIRVOpMemoryModel = 0x00030000 | spv::OpMemoryModel;
 
+static std::uint32_t const spvBCWithCommonSpirvCapabilities[] = {
+    // First 5 mandatory words
+    spv::MagicNumber, SPIRV12Version, 0, 0, 0,
+    // Common capabilities
+    SPIRVOpCapability, spv::CapabilityAddresses, SPIRVOpCapability,
+    spv::CapabilityLinkage, SPIRVOpCapability, spv::CapabilityKernel,
+    SPIRVOpCapability, spv::CapabilityVector16, SPIRVOpCapability,
+    spv::CapabilityFloat16Buffer, SPIRVOpCapability, spv::CapabilityInt64,
+    SPIRVOpCapability, spv::CapabilityPipes, SPIRVOpCapability,
+    spv::CapabilityPipeStorage, SPIRVOpCapability, spv::CapabilityGroups,
+    SPIRVOpCapability, spv::CapabilityDeviceEnqueue, SPIRVOpCapability,
+    spv::CapabilityLiteralSampler, SPIRVOpCapability, spv::CapabilityInt16,
+    SPIRVOpCapability, spv::CapabilityGenericPointer, SPIRVOpCapability,
+    spv::CapabilityInt8, SPIRVOpCapability, spv::CapabilitySubgroupShuffleINTEL,
+    SPIRVOpCapability, spv::CapabilitySubgroupBufferBlockIOINTEL,
+    SPIRVOpCapability, spv::CapabilitySubgroupImageBlockIOINTEL,
+    SPIRVOpCapability, spv::CapabilitySubgroupDispatch, SPIRVOpCapability,
+    spv::CapabilityFunctionPointersINTEL, SPIRVOpCapability,
+    spv::CapabilityIndirectReferencesINTEL, SPIRVOpCapability,
+    spv::CapabilityAsmINTEL, SPIRVOpCapability,
+    spv::CapabilityVariableLengthArrayINTEL, SPIRVOpCapability,
+    spv::internal::CapabilityVectorVariantsINTEL, SPIRVOpCapability, // INTEL
+    spv::CapabilityExpectAssumeKHR, SPIRVOpCapability,
+    spv::CapabilityVectorAnyINTEL, SPIRVOpCapability,
+    spv::CapabilityUnstructuredLoopControlsINTEL, SPIRVOpCapability,
+    spv::CapabilityArbitraryPrecisionIntegersINTEL, SPIRVOpCapability,
+    spv::CapabilityFPFastMathModeINTEL, SPIRVOpCapability,
+    spv::CapabilityAtomicFloat32AddEXT, SPIRVOpCapability,
+    spv::CapabilityAtomicFloat16MinMaxEXT, SPIRVOpCapability,
+    spv::CapabilityAtomicFloat32MinMaxEXT, SPIRVOpCapability,
+    spv::CapabilityAtomicFloat64MinMaxEXT, SPIRVOpCapability,
+    spv::internal::CapabilityOptNoneINTEL, SPIRVOpCapability,
+    spv::CapabilityMemoryAccessAliasingINTEL, SPIRVOpCapability,
+    spv::internal::CapabilityTokenTypeINTEL, SPIRVOpCapability,
+    spv::CapabilityDebugInfoModuleINTEL, SPIRVOpCapability,
+    spv::CapabilityRuntimeAlignedAttributeINTEL, SPIRVOpCapability,
+    spv::CapabilityLongConstantCompositeINTEL, SPIRVOpCapability,
+    spv::internal::CapabilityBfloat16ConversionINTEL, SPIRVOpCapability,
+    spv::internal::CapabilityGlobalVariableDecorationsINTEL, SPIRVOpCapability,
+    spv::CapabilityGroupNonUniformArithmetic, SPIRVOpCapability,
+    spv::CapabilityGroupNonUniformBallot, SPIRVOpCapability,
+    spv::CapabilityGroupNonUniformShuffle, SPIRVOpCapability,
+    spv::CapabilityGroupNonUniformShuffleRelative, SPIRVOpCapability,
+    spv::CapabilityGroupUniformArithmeticKHR, SPIRVOpCapability,
+    spv::internal::CapabilityMaskedGatherScatterINTEL, SPIRVOpCapability,
+    spv::CapabilityAtomicFloat64AddEXT, SPIRVOpCapability,
+    spv::internal::CapabilityJointMatrixINTEL, SPIRVOpCapability,
+    spv::internal::CapabilityJointMatrixWIInstructionsINTEL, SPIRVOpCapability,
+    spv::internal::CapabilityJointMatrixTF32ComponentTypeINTEL,
+    SPIRVOpCapability,
+    spv::internal::CapabilityJointMatrixBF16ComponentTypeINTEL,
+    SPIRVOpCapability, spv::internal::CapabilityTensorFloat32RoundingINTEL,
+
+    // Memory model
+    SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL};
+
+static std::uint32_t const spvBCWithFPGASpirvCapabilities[] = {
+    // First 5 mandatory words
+    spv::MagicNumber, SPIRV12Version, 0, 0, 0,
+    // Common capabilities
+    SPIRVOpCapability, spv::CapabilityFPGAMemoryAttributesINTEL,
+    SPIRVOpCapability, spv::CapabilityFPGALoopControlsINTEL, SPIRVOpCapability,
+    spv::CapabilityFPGARegINTEL, SPIRVOpCapability,
+    spv::CapabilityBlockingPipesINTEL, SPIRVOpCapability,
+    spv::CapabilityKernelAttributesINTEL, SPIRVOpCapability,
+    spv::CapabilityFPGAKernelAttributesINTEL, SPIRVOpCapability,
+    spv::CapabilityArbitraryPrecisionFixedPointINTEL, SPIRVOpCapability,
+    spv::CapabilityArbitraryPrecisionFloatingPointINTEL, SPIRVOpCapability,
+    spv::CapabilityFPGAMemoryAccessesINTEL, SPIRVOpCapability,
+    spv::CapabilityIOPipesINTEL, SPIRVOpCapability,
+    spv::CapabilityUSMStorageClassesINTEL, SPIRVOpCapability,
+    spv::CapabilityFPGABufferLocationINTEL, SPIRVOpCapability,
+    spv::CapabilityFPGAClusterAttributesINTEL, SPIRVOpCapability,
+    spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
+    spv::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
+    spv::CapabilityFPGAInvocationPipeliningAttributesINTEL, SPIRVOpCapability,
+    spv::CapabilityFPGAKernelAttributesv2INTEL, SPIRVOpCapability,
+    spv::internal::CapabilityFPArithmeticFenceINTEL, SPIRVOpCapability,
+    spv::internal::CapabilityTaskSequenceINTEL, // INTEL
+    SPIRVOpCapability, spv::CapabilityFPGAArgumentInterfacesINTEL,
+
+    // Memory model
+    SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL};
+
 // test that a module with device agnostic capabilities is accepted by FE
 TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesLittleEndian) {
-  // Hand made SPIR-V module
-  std::uint32_t const spvBC[] = {
-      // First 5 mandatory words
-      spv::MagicNumber, SPIRV12Version, 0, 0, 0,
-      // Common capabilities
-      SPIRVOpCapability, spv::CapabilityAddresses, SPIRVOpCapability,
-      spv::CapabilityLinkage, SPIRVOpCapability, spv::CapabilityKernel,
-      SPIRVOpCapability, spv::CapabilityVector16, SPIRVOpCapability,
-      spv::CapabilityFloat16Buffer, SPIRVOpCapability, spv::CapabilityInt64,
-      SPIRVOpCapability, spv::CapabilityPipes, SPIRVOpCapability,
-      spv::CapabilityGroups, SPIRVOpCapability, spv::CapabilityDeviceEnqueue,
-      SPIRVOpCapability, spv::CapabilityLiteralSampler, SPIRVOpCapability,
-      spv::CapabilityInt16, SPIRVOpCapability, spv::CapabilityGenericPointer,
-      SPIRVOpCapability, spv::CapabilityInt8, SPIRVOpCapability,
-      spv::CapabilityInt64Atomics, SPIRVOpCapability, spv::CapabilityAsmINTEL,
-      SPIRVOpCapability, spv::CapabilityVariableLengthArrayINTEL,
-      SPIRVOpCapability, spv::internal::CapabilityJointMatrixINTEL,
-      SPIRVOpCapability,
-      spv::internal::CapabilityJointMatrixWIInstructionsINTEL,
-      SPIRVOpCapability,
-      spv::internal::CapabilityJointMatrixTF32ComponentTypeINTEL,
-      SPIRVOpCapability,
-      spv::internal::CapabilityJointMatrixBF16ComponentTypeINTEL,
-      SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
-      SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
-      SPIRVOpCapability,
-      spv::internal::CapabilityGlobalVariableDecorationsINTEL,
-      SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
-      SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
-      SPIRVOpCapability, spv::internal::CapabilityTensorFloat32RoundingINTEL,
-
-      // Memory model
-      SPIRVOpMemoryModel, spv::AddressingModelPhysical32,
-      spv::MemoryModelOpenCL};
-  auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+  auto spirvDesc =
+      GetTestFESPIRVProgramDescriptor(spvBCWithCommonSpirvCapabilities);
 
   int err = GetFECompiler()->ParseSPIRV(&spirvDesc, &m_binary_result);
   ASSERT_EQ(CL_SUCCESS, err)
@@ -344,39 +395,11 @@ TEST_F(ClangCompilerTestType, Test_AcceptSPIRV12) {
 // test that a module with device agnostic capabilities is accepted by FE
 TEST_F(ClangCompilerTestType,
        DISABLED_Test_AcceptCommonSpirvCapabilitiesBigEndian) {
-  // Hand made SPIR-V module
-  std::uint32_t spvBC[] = {
-      // First 5 mandatory words
-      spv::MagicNumber, SPIRV12Version, 0, 0, 0,
-      // Common capabilities
-      SPIRVOpCapability, spv::CapabilityAddresses, SPIRVOpCapability,
-      spv::CapabilityLinkage, SPIRVOpCapability, spv::CapabilityKernel,
-      SPIRVOpCapability, spv::CapabilityVector16, SPIRVOpCapability,
-      spv::CapabilityFloat16Buffer, SPIRVOpCapability, spv::CapabilityInt64,
-      SPIRVOpCapability, spv::CapabilityPipes, SPIRVOpCapability,
-      spv::CapabilityGroups, SPIRVOpCapability, spv::CapabilityDeviceEnqueue,
-      SPIRVOpCapability, spv::CapabilityLiteralSampler, SPIRVOpCapability,
-      spv::CapabilityInt16, SPIRVOpCapability, spv::CapabilityGenericPointer,
-      SPIRVOpCapability, spv::CapabilityInt8, SPIRVOpCapability,
-      spv::CapabilityInt64Atomics, SPIRVOpCapability, spv::CapabilityAsmINTEL,
-      SPIRVOpCapability, spv::CapabilityVariableLengthArrayINTEL,
-      SPIRVOpCapability, spv::internal::CapabilityJointMatrixINTEL,
-      SPIRVOpCapability,
-      spv::internal::CapabilityJointMatrixWIInstructionsINTEL,
-      SPIRVOpCapability,
-      spv::internal::CapabilityJointMatrixTF32ComponentTypeINTEL,
-      SPIRVOpCapability,
-      spv::internal::CapabilityJointMatrixBF16ComponentTypeINTEL,
-      SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
-      SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
-      SPIRVOpCapability,
-      spv::internal::CapabilityGlobalVariableDecorationsINTEL,
-      SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
-      SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
-
-      // Memory model
-      SPIRVOpMemoryModel, spv::AddressingModelPhysical32,
-      spv::MemoryModelOpenCL};
+  constexpr size_t len = sizeof(spvBCWithCommonSpirvCapabilities) /
+                         sizeof(spvBCWithCommonSpirvCapabilities[0]);
+  std::uint32_t spvBC[len];
+  std::copy(std::begin(spvBCWithCommonSpirvCapabilities),
+            std::end(spvBCWithCommonSpirvCapabilities), std::begin(spvBC));
   // Swap byte order of SPIR-V BC
   for (auto &word : spvBC)
     word = byteswap(word);
@@ -614,46 +637,10 @@ TEST_F(ClangCompilerTestType, Test_SPIRV_BIsRepresentation) {
       << "            message: " << pModuleOrError.getError().message() << "\n";
 }
 
-// test that a module with FPGA device agnostic capabilities is accepted by FE
-TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
-  // Hand made SPIR-V module
-  std::uint32_t const spvBC[] = {
-      // First 5 mandatory words
-      spv::MagicNumber, SPIRV12Version, 0, 0, 0,
-      // Common capabilities
-      SPIRVOpCapability, spv::CapabilityFPGAMemoryAttributesINTEL,
-      SPIRVOpCapability, spv::CapabilityFPGALoopControlsINTEL,
-      SPIRVOpCapability, spv::CapabilityFPGARegINTEL, SPIRVOpCapability,
-      spv::CapabilityBlockingPipesINTEL, SPIRVOpCapability,
-      spv::CapabilityKernelAttributesINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAKernelAttributesINTEL, SPIRVOpCapability,
-      spv::CapabilityArbitraryPrecisionFixedPointINTEL, SPIRVOpCapability,
-      spv::CapabilityArbitraryPrecisionFloatingPointINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAMemoryAccessesINTEL, SPIRVOpCapability,
-      spv::CapabilityIOPipesINTEL, SPIRVOpCapability,
-      spv::CapabilityUSMStorageClassesINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGABufferLocationINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAClusterAttributesINTEL, SPIRVOpCapability,
-      spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAInvocationPipeliningAttributesINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAKernelAttributesv2INTEL, SPIRVOpCapability,
-      spv::internal::CapabilityFPArithmeticFenceINTEL, SPIRVOpCapability,
-      spv::CapabilityLongConstantCompositeINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityTaskSequenceINTEL, // INTEL
-      SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
-      SPIRVOpCapability,
-      spv::internal::CapabilityGlobalVariableDecorationsINTEL,
-      SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
-      SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
-      SPIRVOpCapability, spv::CapabilityAtomicFloat64AddEXT, SPIRVOpCapability,
-      spv::CapabilityFPGAArgumentInterfacesINTEL,
-
-      // Memory model
-      SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
-
-  };
-  auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+// Test that a module with FPGA device agnostic capabilities is accepted by FE.
+TEST_F(ClangCompilerTestType, Test_AcceptFPGASpirvCapabilitiesOnFPGA) {
+  auto spirvDesc =
+      GetTestFESPIRVProgramDescriptor(spvBCWithFPGASpirvCapabilities);
 
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
@@ -711,60 +698,8 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnFPGA) {
 
 // test the capability is accepted on both CPU and FPGA device
 TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
-  // Hand made SPIR-V module
-  std::uint32_t const spvBC[] = {
-      // First 5 mandatory words
-      spv::MagicNumber, SPIRV12Version, 0, 0, 0,
-      // Common capabilities
-      SPIRVOpCapability, spv::CapabilityAddresses, SPIRVOpCapability,
-      spv::CapabilityLinkage, SPIRVOpCapability, spv::CapabilityKernel,
-      SPIRVOpCapability, spv::CapabilityVector16, SPIRVOpCapability,
-      spv::CapabilityFloat16Buffer, SPIRVOpCapability, spv::CapabilityInt64,
-      SPIRVOpCapability, spv::CapabilityPipes, SPIRVOpCapability,
-      spv::CapabilityPipeStorage, SPIRVOpCapability, spv::CapabilityGroups,
-      SPIRVOpCapability, spv::CapabilityDeviceEnqueue, SPIRVOpCapability,
-      spv::CapabilityLiteralSampler, SPIRVOpCapability, spv::CapabilityInt16,
-      SPIRVOpCapability, spv::CapabilityGenericPointer, SPIRVOpCapability,
-      spv::CapabilityInt8, SPIRVOpCapability,
-      spv::CapabilitySubgroupShuffleINTEL, SPIRVOpCapability,
-      spv::CapabilitySubgroupBufferBlockIOINTEL, SPIRVOpCapability,
-      spv::CapabilitySubgroupImageBlockIOINTEL, SPIRVOpCapability,
-      spv::CapabilitySubgroupDispatch, SPIRVOpCapability,
-      spv::CapabilityFunctionPointersINTEL, SPIRVOpCapability,
-      spv::CapabilityIndirectReferencesINTEL, SPIRVOpCapability,
-      spv::CapabilityAsmINTEL, SPIRVOpCapability,
-      spv::CapabilityVariableLengthArrayINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityVectorVariantsINTEL, SPIRVOpCapability, // INTEL
-      spv::CapabilityExpectAssumeKHR, SPIRVOpCapability,
-      spv::CapabilityVectorAnyINTEL, SPIRVOpCapability,
-      spv::CapabilityUnstructuredLoopControlsINTEL, SPIRVOpCapability,
-      spv::CapabilityArbitraryPrecisionIntegersINTEL, SPIRVOpCapability,
-      spv::CapabilityFPFastMathModeINTEL, SPIRVOpCapability,
-      spv::CapabilityAtomicFloat32AddEXT, SPIRVOpCapability,
-      spv::CapabilityAtomicFloat16MinMaxEXT, SPIRVOpCapability,
-      spv::CapabilityAtomicFloat32MinMaxEXT, SPIRVOpCapability,
-      spv::CapabilityAtomicFloat64MinMaxEXT, SPIRVOpCapability,
-      spv::internal::CapabilityOptNoneINTEL, SPIRVOpCapability,
-      spv::CapabilityMemoryAccessAliasingINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityTokenTypeINTEL, SPIRVOpCapability,
-      spv::CapabilityDebugInfoModuleINTEL, SPIRVOpCapability,
-      spv::CapabilityRuntimeAlignedAttributeINTEL, SPIRVOpCapability,
-      spv::CapabilityLongConstantCompositeINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityBfloat16ConversionINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityGlobalVariableDecorationsINTEL,
-      SPIRVOpCapability, spv::CapabilityGroupNonUniformArithmetic,
-      SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
-      SPIRVOpCapability, spv::CapabilityGroupNonUniformShuffle,
-      SPIRVOpCapability, spv::CapabilityGroupNonUniformShuffleRelative,
-      SPIRVOpCapability, spv::CapabilityGroupUniformArithmeticKHR,
-      SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
-      SPIRVOpCapability, spv::CapabilityAtomicFloat64AddEXT,
-
-      // Memory model
-      SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
-
-  };
-  auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+  auto spirvDesc =
+      GetTestFESPIRVProgramDescriptor(spvBCWithCommonSpirvCapabilities);
 
   for (int i = 0; i < 2; i++) {
     CLANG_DEV_INFO devInfo = {
@@ -790,38 +725,9 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
   }
 }
 
-// test that a module with FPGA device agnostic capabilities is rejected by FE
-// for CPU device
-TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
-  // Hand made SPIR-V module
-  std::uint32_t const spvBC[] = {
-      // First 5 mandatory words
-      spv::MagicNumber, SPIRV12Version, 0, 0, 0,
-      // Common capabilities
-      SPIRVOpCapability, spv::CapabilityFPGAMemoryAttributesINTEL,
-      SPIRVOpCapability, spv::CapabilityFPGALoopControlsINTEL,
-      SPIRVOpCapability, spv::CapabilityFPGARegINTEL, SPIRVOpCapability,
-      spv::CapabilityBlockingPipesINTEL, SPIRVOpCapability,
-      spv::CapabilityKernelAttributesINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAKernelAttributesINTEL, SPIRVOpCapability,
-      spv::CapabilityArbitraryPrecisionFixedPointINTEL, SPIRVOpCapability,
-      spv::CapabilityArbitraryPrecisionFloatingPointINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAMemoryAccessesINTEL, SPIRVOpCapability,
-      spv::CapabilityIOPipesINTEL, SPIRVOpCapability,
-      spv::CapabilityUSMStorageClassesINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGABufferLocationINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAClusterAttributesINTEL, SPIRVOpCapability,
-      spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAInvocationPipeliningAttributesINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAKernelAttributesv2INTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAArgumentInterfacesINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityFPArithmeticFenceINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityTaskSequenceINTEL, // INTEL
-      // Memory model
-      SPIRVOpMemoryModel, spv::AddressingModelPhysical64,
-      spv::MemoryModelOpenCL};
-
+// Test that a module with FPGA device agnostic capabilities is rejected by FE
+// for CPU device.
+TEST_F(ClangCompilerTestType, Test_RejectFPGASpirvCapabilitiesOnCPU) {
   // This needs to be consistent with the function
   // ClangFECompilerParseSPIRVTask::isSPIRVSupported
   std::vector<std::string> SpvModuleName = {
@@ -846,7 +752,8 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
       "FPArithmeticFence",
       "TaskSequence"};
 
-  auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+  auto spirvDesc =
+      GetTestFESPIRVProgramDescriptor(spvBCWithFPGASpirvCapabilities);
 
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
