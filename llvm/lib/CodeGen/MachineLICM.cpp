@@ -231,7 +231,6 @@ namespace {
         : MI(mi), Def(def), FI(fi) {}
     };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     void PopulateDiscriminatorTable(MachineFunction &MF);
     using LocationDiscriminator = std::tuple<StringRef, unsigned, unsigned>;
@@ -270,11 +269,8 @@ namespace {
     RegisterClassInfo RegClassInfo;
     bool IAOpt = false;
 #endif //INTEL_CUSTOMIZATION
-    void HoistRegionPostRA();
-=======
     void HoistRegionPostRA(MachineLoop *CurLoop,
                            MachineBasicBlock *CurPreheader);
->>>>>>> ff68e43c811e4dfcff7f5a4492e3c5e46248aee6
 
     void HoistPostRA(MachineInstr *MI, unsigned Def, MachineLoop *CurLoop,
                      MachineBasicBlock *CurPreheader);
@@ -393,7 +389,7 @@ INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(EarlyMachineLICM, "early-machinelicm",
                     "Early Machine Loop Invariant Code Motion", false, false)
 
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
 /// Test if the given loop is the outer-most loop that has a unique predecessor.
 static bool LoopIsOuterMostWithPredecessor(MachineLoop *CurLoop) {
   // Check whether this loop even has a unique predecessor.
@@ -407,7 +403,6 @@ static bool LoopIsOuterMostWithPredecessor(MachineLoop *CurLoop) {
   return true;
 }
 
-#if INTEL_CUSTOMIZATION
 // To maintain debug information on lines moved out of loops and be able to
 // track profile counts for the line when it is within or outside the loop, we
 // need to use separate discriminator values. This routine identifies the
@@ -440,8 +435,6 @@ void MachineLICMBase::PopulateDiscriminatorTable(MachineFunction& MF) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> ff68e43c811e4dfcff7f5a4492e3c5e46248aee6
 bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
     return false;
@@ -488,10 +481,8 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
 
   SmallVector<MachineLoop *, 8> Worklist(MLI->begin(), MLI->end());
   while (!Worklist.empty()) {
-<<<<<<< HEAD
-    CurLoop = Worklist.pop_back_val();
-    CurPreheader = nullptr;
-    ExitBlocks.clear();
+    MachineLoop *CurLoop = Worklist.pop_back_val();
+    MachineBasicBlock *CurPreheader = nullptr;
 
 #if INTEL_CUSTOMIZATION
     Worklist.append(CurLoop->begin(), CurLoop->end());
@@ -502,12 +493,6 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
         continue;
     }
 #endif
-
-    CurLoop->getExitBlocks(ExitBlocks);
-=======
-    MachineLoop *CurLoop = Worklist.pop_back_val();
-    MachineBasicBlock *CurPreheader = nullptr;
->>>>>>> ff68e43c811e4dfcff7f5a4492e3c5e46248aee6
 
     if (!PreRegAlloc)
       HoistRegionPostRA(CurLoop, CurPreheader);
@@ -630,16 +615,12 @@ void MachineLICMBase::ProcessMI(MachineInstr *MI, BitVector &PhysRegDefs,
   // operands. FIXME: Consider unfold load folding instructions.
   if (Def && !RuledOut) {
     int FI = std::numeric_limits<int>::min();
-<<<<<<< HEAD
-    if ((!HasNonInvariantUse && IsLICMCandidate(*MI)) ||
-        (TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI))) { // INTEL
-=======
     if ((!HasNonInvariantUse && IsLICMCandidate(*MI, CurLoop)) ||
-        (TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI)))
->>>>>>> ff68e43c811e4dfcff7f5a4492e3c5e46248aee6
+        (TII->isLoadFromStackSlot(*MI, FI) &&
+         MFI->isSpillSlotObjectIndex(FI))) { // INTEL
       Candidates.push_back(CandidateInfo(MI, Def, FI));
       return; // INTEL
-    } // INTEL
+    }         // INTEL
   } // INTEL
 #if INTEL_CUSTOMIZATION
   // Don't unfold simple loads.
@@ -844,7 +825,7 @@ void MachineLICMBase::HoistRegionPostRA(MachineLoop *CurLoop,
       MBB->getParent()->moveCallSiteInfo(HoistableLoad.MI,
                                          HoistableLoad.NewMIs[1]);
     HoistableLoad.MI->eraseFromParent();
-    HoistPostRA(HoistableLoad.NewMIs[0], AllocReg);
+    HoistPostRA(HoistableLoad.NewMIs[0], AllocReg, CurLoop, CurPreheader);
   }
   MRI->clearVirtRegs();
 #endif //INTEL_CUSTOMIZATION
