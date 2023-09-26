@@ -16,7 +16,6 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanHCFGBuilder.h"
-#include "IntelLoopVectorizationLegality.h"
 #include "IntelVPLoopAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
@@ -26,6 +25,7 @@
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVerifier.h"
+#include "Legality.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"

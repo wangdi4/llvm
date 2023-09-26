@@ -31,7 +31,6 @@ add_llvm_component_library(LLVMVectorize
 # INTEL_CUSTOMIZATION
   Intel_LoadCoalescing.cpp
   IntelMFReplacement.cpp
-  Intel_VPlan/IntelLoopVectorizationLegality.cpp
   Intel_VPlan/IntelLoopVectorizationPlanner.cpp
   Intel_VPlan/IntelVPAlignAssumeCleanup.cpp
   Intel_VPlan/IntelVPAssumptionCache.cpp
@@ -92,6 +91,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/HIR/IntelVPlanValueTrackingHIR.cpp
   Intel_VPlan/HIR/IntelVPlanVLSAnalysisHIR.cpp
   Intel_VPlan/HIR/IntelVPlanVerifierHIR.cpp
+  Intel_VPlan/Legality.cpp
 # end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS
