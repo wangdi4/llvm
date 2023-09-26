@@ -2888,7 +2888,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
         getLibcallName(RTLIB::SINCOS_STRET_F64) != nullptr)) ||
       // FIXME: When x86 32 bit calling conventions works return {float, float},
       // remove Subtarget.is64Bit().
-      ((Subtarget.is64Bit() &&
+      // FIXME: Replace IntelLibIRCAllowed with IntelLibMAllowed when the later
+      // is also on by default.
+      ((Subtarget.is64Bit() && TM.Options.IntelLibIRCAllowed &&
         getLibcallName(RTLIB::SINCOS_LIBM_F32) != nullptr &&
         getLibcallName(RTLIB::SINCOS_LIBM_F64) != nullptr))) {
 #endif // INTEL_CUSTOMIZATION
