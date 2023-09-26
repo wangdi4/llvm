@@ -541,7 +541,9 @@ void SYCL::fpga::BackendCompiler::constructOpenCLAOTCommand(
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
   llvm::Triple CPUTriple("spir64_x86_64");
 #if INTEL_CUSTOMIZATION
-  TC.AddImpliedTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs, JA);
+  const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
+  TC.AddImpliedTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs, JA,
+                          *HostTC);
 #endif // INTEL_CUSTOMIZATION
   // Add the target args passed in
 #if INTEL_CUSTOMIZATION
@@ -708,8 +710,9 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
 
 #if INTEL_CUSTOMIZATION
   // Add any implied arguments before user defined arguments.
-  TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA);
+  const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
+  TC.AddImpliedTargetArgs(DeviceOffloadKind, getToolChain().getTriple(), Args,
+                          CmdArgs, JA, *HostTC);
 
   // Add -Xsycl-target* options.
   TC.TranslateBackendTargetArgs(
@@ -1124,6 +1127,15 @@ static std::optional<std::string> getOclocLocation(Compilation &C) {
     return std::string(OclocDir.str());
   return std::nullopt;
 }
+
+StringRef SYCL::gen::getGenGRFFlag(StringRef GRFMode) {
+  return llvm::StringSwitch<StringRef>(GRFMode)
+      .Case("auto", "-ze-intel-enable-auto-large-GRF-mode")
+      .Case("small", "-ze-intel-128-GRF-per-thread")
+      .Case("large", "-ze-opt-large-register-file")
+      .Default("");
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
@@ -1168,8 +1180,8 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
   ArgStringList CmdArgs;
-  TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA);
+  TC.AddImpliedTargetArgs(DeviceOffloadKind, getToolChain().getTriple(), Args,
+                          CmdArgs, JA, *HostTC);
   TC.TranslateBackendTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, Device);
   TC.TranslateLinkerTargetArgs(
@@ -1297,8 +1309,10 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
 #if INTEL_CUSTOMIZATION
-  TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA);
+  const ToolChain *HostTC =
+      C.getSingleOffloadToolChain<Action::OFK_Host>()
+          TC.AddImpliedTargetArgs(DeviceOffloadKind, getToolChain().getTriple(),
+                                  Args, CmdArgs, JA, *HostTC);
   TC.TranslateBackendTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, Device);
   TC.TranslateLinkerTargetArgs(
@@ -1491,8 +1505,9 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
 
 #if INTEL_CUSTOMIZATION
-  TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs, JA);
+  const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
+  TC.AddImpliedTargetArgs(DeviceOffloadKind, getToolChain().getTriple(), Args,
+                          CmdArgs, JA, *HostTC);
   TC.TranslateBackendTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
   TC.TranslateLinkerTargetArgs(
@@ -1685,16 +1700,21 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
   }
 }
 
-void SYCLToolChain::AddImpliedTargetArgs(
-    Action::OffloadKind DeviceOffloadKind, const llvm::Triple &Triple,
-    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs,
-    const JobAction &JA) const {
+void SYCLToolChain::AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
+                                         const llvm::Triple &Triple,
+                                         const llvm::opt::ArgList &Args,
+                                         llvm::opt::ArgStringList &CmdArgs,
+                                         const JobAction &JA,
+                                         const ToolChain &HostTC) const {
   // Current implied args are for debug information and disabling of
   // optimizations.  They are passed along to the respective areas as follows:
   //  FPGA and default device:  -g -cl-opt-disable
   //  GEN:  -options "-g -O0"
   //  CPU:  "--bo=-g -cl-opt-disable"
   llvm::opt::ArgStringList BeArgs;
+  // Per-device argument vector storing the device name and the backend argument
+  // string
+  llvm::SmallVector<std::pair<StringRef, StringRef>, 16> PerDeviceArgs;
   bool IsGen = Triple.getSubArch() == llvm::Triple::SPIRSubArch_gen;
   if (Arg *A = Args.getLastArg(options::OPT_g_Group, options::OPT__SLASH_Z7))
     if (!A->getOption().matches(options::OPT_g0))
@@ -1736,6 +1756,53 @@ void SYCLToolChain::AddImpliedTargetArgs(
       } else if (BufArg != "default")
         getDriver().Diag(diag::err_drv_unsupported_option_argument)
             << A->getSpelling() << BufArg;
+    }
+    StringRef RegAllocModeOptName = "-ftarget-register-alloc-mode=";
+    if (Arg *A = Args.getLastArg(options::OPT_ftarget_register_alloc_mode_EQ)) {
+      StringRef RegAllocModeVal = A->getValue(0);
+      auto ProcessElement = [&](StringRef Ele) {
+        auto [DeviceName, RegAllocMode] = Ele.split(':');
+        StringRef BackendOptName = SYCL::gen::getGenGRFFlag(RegAllocMode);
+        bool IsDefault = RegAllocMode.equals("default");
+        if (RegAllocMode.empty() || !DeviceName.equals("pvc") ||
+            (BackendOptName.empty() && !IsDefault)) {
+          getDriver().Diag(diag::err_drv_unsupported_option_argument)
+              << A->getSpelling() << Ele;
+        }
+        // "default" means "provide no specification to the backend", so
+        // we don't need to do anything here.
+        if (IsDefault)
+          return;
+        if (IsGen) {
+          // For AOT, Use ocloc's per-device options flag with the correct ocloc
+          // option to honor the user's specification.
+          PerDeviceArgs.push_back(
+              {DeviceName, Args.MakeArgString("-options " + BackendOptName)});
+        } else if (Triple.isSPIR() &&
+                   Triple.getSubArch() == llvm::Triple::NoSubArch) {
+          // For JIT, pass -ftarget-register-alloc-mode=Device:BackendOpt to
+          // clang-offload-wrapper to be processed by the runtime.
+          BeArgs.push_back(Args.MakeArgString(RegAllocModeOptName + DeviceName +
+                                              ":" + BackendOptName));
+        }
+      };
+      llvm::SmallVector<StringRef, 16> RegAllocModeArgs;
+      RegAllocModeVal.split(RegAllocModeArgs, ',');
+      for (StringRef Elem : RegAllocModeArgs)
+        ProcessElement(Elem);
+    } else if (!HostTC.getTriple().isWindowsMSVCEnvironment()) {
+      // If -ftarget-register-alloc-mode is not specified, the default is
+      // pvc:default on Windows and and pvc:auto otherwise.
+      StringRef DeviceName = "pvc";
+      StringRef BackendOptName = SYCL::gen::getGenGRFFlag("auto");
+      if (IsGen)
+        PerDeviceArgs.push_back(
+            {DeviceName, Args.MakeArgString("-options " + BackendOptName)});
+      else if (Triple.isSPIR() &&
+               Triple.getSubArch() == llvm::Triple::NoSubArch) {
+        BeArgs.push_back(Args.MakeArgString(RegAllocModeOptName + DeviceName +
+                                            ":" + BackendOptName));
+      }
     }
   }
   Arg *A = Args.getLastArg(options::OPT_O_Group);
@@ -1780,6 +1847,13 @@ void SYCLToolChain::AddImpliedTargetArgs(
              Triple.isSPIR()) {
     // -ftarget-compile-fast JIT
     Args.AddLastArg(BeArgs, options::OPT_ftarget_compile_fast);
+  }
+  if (IsGen) {
+    for (auto [DeviceName, BackendArgStr] : PerDeviceArgs) {
+      CmdArgs.push_back("-device_options");
+      CmdArgs.push_back(Args.MakeArgString(DeviceName));
+      CmdArgs.push_back(Args.MakeArgString(BackendArgStr));
+    }
   }
   if (BeArgs.empty())
     return;

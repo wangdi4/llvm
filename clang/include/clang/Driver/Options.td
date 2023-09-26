@@ -4362,6 +4362,11 @@ def fsycl_pstl_offload : Flag<["-"], "fsycl-pstl-offload">,
 def fno_sycl_pstl_offload : Flag<["-"], "fno-sycl-pstl-offload">,
   Alias<fsycl_pstl_offload_EQ>, AliasArgs<["off"]>, HelpText<"Disable "
   "offloading of C++ standard parallel algorithms.">;
+def ftarget_register_alloc_mode_EQ : Joined<["-"], "ftarget-register-alloc-mode=">,
+Visibility<[ClangOption, CLOption, DXCOption]>,
+HelpText<"Specify a register allocation mode for specific hardware for use by supported "
+"target backends. The default is -ftarget-register-alloc-mode=pvc:auto on Linux and "
+"-ftarget-register-alloc-mode=pvc:default on Windows.">;
 #endif // INTEL_CUSTOMIZATION
 def fsycl_preserve_device_nonsemantic_metadata : Flag<["-"], "fsycl-preserve-device-nonsemantic-metadata">,
   Visibility<[ClangOption, CLOption, DXCOption]>, Flags<[HelpHidden]>, HelpText<"Preserve non-semantic "
@@ -10647,6 +10652,10 @@ def _SLASH_Qsox : CLFlag<"Qsox">, Alias<sox>,
   HelpText<"Enable saving of compiler options in the executable">;
 def _SLASH_Qsox_ : CLFlag<"Qsox-">, Alias<no_sox>,
   HelpText<"disable saving of compiler options in the executable">;
+def _SLASH_Qtarget_register_alloc_mode_EQ : CLJoined<"Qtarget-register-alloc-mode=">,
+  Alias<ftarget_register_alloc_mode_EQ>;
+  def _SLASH_Qtarget_register_alloc_mode_COL : CLJoined<"Qtarget-register-alloc-mode:">,
+  Alias<ftarget_register_alloc_mode_EQ>;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_showIncludes : CLFlag<"showIncludes">,
   HelpText<"Print info about included files to stderr">;

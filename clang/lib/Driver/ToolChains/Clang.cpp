@@ -10769,7 +10769,9 @@ static void addRunTimeWrapperOpts(Compilation &C,
     // target; AOT compilation has already been performed otherwise.
     const ArgList &Args = C.getArgsForToolChain(nullptr, StringRef(),
                                                 DeviceOffloadKind);
-    SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs, JA);
+    const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
+    SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs, JA,
+                                *HostTC);
     SYCLTC.TranslateBackendTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs);
     createArgString("-compile-opts=");
     BuildArgs.clear();
