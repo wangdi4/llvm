@@ -2759,17 +2759,54 @@ static void
 replaceDriverOptsWithBackendOpts(const DevicePropertiesTy &DeviceInfo,
                                  bool IsGPU, std::string &CompOpts,
                                  std::string &LinkOpts) {
+  bool IsIntelGPU = DeviceInfo.VendorId == 0x8086 && IsGPU;
   // If the user passed -ftarget-compile-fast at compile time, universally
   // remove it from CompOpts as the runtime needs it in LinkOpts even if it is
   // an Intel GPU, but only add it to LinkOpts for Intel GPUs
   static const std::string TargetCompileFast = "-ftarget-compile-fast";
   if (auto Pos = CompOpts.find(TargetCompileFast); Pos != std::string::npos) {
     auto OptLen = TargetCompileFast.size();
-    bool IsIntelGPU = DeviceInfo.VendorId == 0x8086 && IsGPU;
     if (IsIntelGPU)
       LinkOpts += "-igc_opts 'PartitionUnit=1,SubroutineThreshold=50000'";
     CompOpts.erase(Pos, OptLen);
   }
+#ifdef INTEL_CUSTOMIZATION
+  // The driver will pass the argument in the format of
+  // -ftarget-register-alloc-mode=Device:BackendOption. Extract the device,
+  // determine if the current device is the specified device. If so, extract and
+  // add the BackendOption to LinkOpts. If the current device is not the
+  // specified device, remove the entire -ftarget-register-alloc-mode option
+  // from the compile string.
+  static const std::string TargetRegisterAllocMode =
+      "-ftarget-register-alloc-mode=";
+  auto OptPos = CompOpts.find(TargetRegisterAllocMode);
+  while (OptPos != std::string::npos) {
+    auto EndOfOpt = CompOpts.find(" ", OptPos);
+    // Extract everything after the equals until the end of the option
+    auto OptValue =
+        CompOpts.substr(OptPos + TargetRegisterAllocMode.size(),
+                        EndOfOpt - OptPos - TargetRegisterAllocMode.size());
+    auto ColonPos = OptValue.find(":");
+    auto Device = OptValue.substr(0, ColonPos);
+    std::string BackendStrToAdd;
+    bool IsPVC = IsIntelGPU && (DeviceInfo.DeviceId & 0xFF00) == 0x0B00;
+    // Currently 'pvc' is the only supported device.
+    if (Device == "pvc" && IsPVC)
+      BackendStrToAdd = " " + OptValue.substr(ColonPos + 1) + " ";
+
+    // Extract everything before this option
+    std::string NewCompOpts = CompOpts.substr(0, OptPos);
+    // Extract everything after this option and add it to the above.
+    if (EndOfOpt != std::string::npos)
+      NewCompOpts += CompOpts.substr(EndOfOpt);
+    CompOpts = NewCompOpts;
+    // Put backend arg in LinkOpts as backend options
+    // are only honored there, and universally remove the option from
+    // CompOpts.
+    LinkOpts += BackendStrToAdd;
+    OptPos = CompOpts.find(TargetRegisterAllocMode);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION

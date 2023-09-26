@@ -139,6 +139,12 @@ public:
   /// Returns list of outermost loops of the region.
   ArrayRef<const Loop *> getOutermostLoops() const { return OutermostLps; }
 
+  /// Returns the first outermost loop of the region. Returns null if no such
+  /// loop exists.
+  const Loop *getFirstOutermostLoop() const {
+    return OutermostLps.empty() ? nullptr : OutermostLps.front();
+  }
+
   /// Returns true if region was formed for loop materialization.
   bool isLoopMaterializationCandidate() const {
     return IsLoopMaterializationCandidate;

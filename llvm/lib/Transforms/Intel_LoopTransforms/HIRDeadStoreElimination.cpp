@@ -98,7 +98,7 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 
 static cl::opt<bool>
     DeduceRegionLocalAlloca(OPT_SWITCH "-deduce-region-local-alloca",
-                            cl::init(false), cl::Hidden,
+                            cl::init(true), cl::Hidden,
                             cl::desc("Disable " OPT_DESC " pass"));
 
 // Count for dead stores.
@@ -393,9 +393,9 @@ void calculateLexicalRange(unsigned &MinTopSortNumber,
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void dumpPostDomStoreNode(const HLDDNode *PostDomStoreNode) {
-  if (PostDomStoreNode) {
-    PostDomStoreNode->dump();
+void dumpNode(const HLDDNode *StoreNode) {
+  if (StoreNode) {
+    StoreNode->dump();
   } else {
     dbgs() << "nullptr\n";
   }
@@ -409,10 +409,10 @@ void dumpInterveningRefInfo(const RegDDRef *AliasingMemRef,
   AliasingMemRef->getHLDDNode()->dump();
 
   dbgs() << "for StoreRef: ";
-  StoreNode->dump();
+  dumpNode(StoreNode);
   dbgs() << "and PostDomStoreRef: ";
 
-  dumpPostDomStoreNode(PostDomStoreNode);
+  dumpNode(PostDomStoreNode);
 }
 #endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -497,22 +497,36 @@ static bool areDistinctLocations(const RegDDRef *MemRef1,
 // A[i] =
 //
 // Intervening stores matter when we have loads which need to be substituted.
+// If StoreRef is null, we are checking for intervening memrefs between region
+// entry and PostDomStoreRef. If PostDomStoreRef is null, we are checking for
+// intervening memrefs between StoreRef and region exit. At least, one of them
+// has to be non-null.
 static bool foundInterveningLoadOrStore(
     HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
     const RegDDRef *PostDomStoreRef,
     SmallVectorImpl<const RegDDRef *> &SubstitutableMemRefs,
     HIRLoopLocality::RefGroupVecTy &EqualityGroups) {
 
-  assert((!PostDomStoreRef || PostDomStoreRef->isFake() ||
+  assert((StoreRef || PostDomStoreRef) &&
+         "Atleast one of StoreRef/PostDomStoreRef should be non-null!");
+
+  assert((!PostDomStoreRef || PostDomStoreRef->isFake() || !StoreRef ||
           (PostDomStoreRef->getDestTypeSizeInBytes() >=
            StoreRef->getDestTypeSizeInBytes())) &&
          "Post-dominating ref's size cannot be smaller than the other ref!");
-  const HLDDNode *StoreNode = StoreRef->getHLDDNode();
+
+  const HLDDNode *StoreNode = StoreRef ? StoreRef->getHLDDNode() : nullptr;
   const HLDDNode *PostDomStoreNode =
       PostDomStoreRef ? PostDomStoreRef->getHLDDNode() : nullptr;
-  unsigned StoreSymbase = StoreRef->getSymbase();
-  unsigned StoreTopSortNum = StoreNode->getTopSortNum();
+
+  unsigned StoreSymbase =
+      StoreRef ? StoreRef->getSymbase() : PostDomStoreRef->getSymbase();
+
+  // If StoreNode is null, we want to find intervening memrefs between region
+  // entry and PostDomStoreRef.
+  unsigned StoreTopSortNum = StoreNode ? StoreNode->getTopSortNum() : 0;
   unsigned MinTopSortNum = StoreTopSortNum;
+
   // Null PostDomStoreNode means we are trying to remove a store of base ptr
   // which is only used in current region. For this case we check aliasing loads
   // in the rest of the region.
@@ -524,7 +538,8 @@ static bool foundInterveningLoadOrStore(
           ? SubstitutableMemRefs[0]->getHLDDNode()->getTopSortNum()
           : 0;
 
-  const HLLoop *StoreLoop = StoreNode->getLexicalParentLoop();
+  const HLLoop *StoreLoop =
+      StoreNode ? StoreNode->getLexicalParentLoop() : nullptr;
   const HLLoop *PostDomStoreLoop =
       PostDomStoreNode ? PostDomStoreNode->getLexicalParentLoop() : nullptr;
   bool InDifferentLoops = (StoreLoop != PostDomStoreLoop);
@@ -534,6 +549,11 @@ static bool foundInterveningLoadOrStore(
   if (InDifferentLoops)
     calculateLexicalRange(MinTopSortNum, MaxTopSortNum, StoreLoop,
                           PostDomStoreLoop);
+
+  // Overwrite StoreRef to make it non-null as it is used in DD query and
+  // distance calculation in the for loop below. This is somewhat hacky.
+  if (!StoreRef)
+    StoreRef = PostDomStoreRef;
 
   for (auto &AliasingMemRefGroup : EqualityGroups) {
 
@@ -1455,6 +1475,41 @@ bool HIRDeadStoreElimination::hasSingleDominatingNonLinearTempAtLevel(
   return FoundSingleDef;
 }
 
+// Returns the first ref in the group which needs to be analyzed for
+// correctness.
+static const RegDDRef *getFirstNonIgnorableRef(const RefGroupTy &RefGroup) {
+
+  // We iterate group in reverse which is the lexical order.
+  for (auto *Ref : make_range(RefGroup.rbegin(), RefGroup.rend())) {
+    if (Ref->isFake()) {
+      // Return fake refs not coming from lifetime intrinsics.
+      // We can ignore lifetime intrinsic refs.
+      if (!cast<HLInst>(Ref->getHLDDNode())->isLifetimeIntrinsic())
+        return Ref;
+
+    } else {
+      return Ref;
+    }
+  }
+
+  return nullptr;
+}
+
+bool HIRDeadStoreElimination::foundReuseInAliasingLiveinLoad(
+    const HLRegion &Region, const RefGroupTy &RefGroup) {
+  if (!Region.canBeReentered())
+    return false;
+
+  const RegDDRef *FirstStoreRef = getFirstNonIgnorableRef(RefGroup);
+
+  if (!FirstStoreRef || !FirstStoreRef->isLval() || FirstStoreRef->isFake())
+    return true;
+
+  SmallVector<const RegDDRef *, 1> SubstitutableMemRefs;
+  return foundInterveningLoadOrStore(HDDA, nullptr, FirstStoreRef,
+                                     SubstitutableMemRefs, EqualityGroups);
+}
+
 bool HIRDeadStoreElimination::run(HLRegion &Region) {
   // It isn't worth optimizing incoming single bblock regions.
   if (Region.isLoopMaterializationCandidate()) {
@@ -1475,14 +1530,20 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
 
     insertFakeLifetimeRefs(RefGroup);
 
-    // Add a null ref at the end which will act as a dummy post-dominating store
-    // ref for the entire group. This approach fits nicely with the existing
-    // setup below which analyzes the group.
-    if (hasAllLoadsWithinRegion(Region, RefGroup.front())) {
-      RefGroup.push_back(nullptr);
-    }
-
     std::reverse(RefGroup.begin(), RefGroup.end());
+  }
+
+  // Add a null ref at the beginning of the group if the base ptr is a region
+  // local alloca. It will act as a dummy post-dominating store ref for the
+  // entire group. This approach fits nicely with the existing setup below which
+  // analyzes the group. We do this after all groups have been reversed because
+  // we are using foundInterveningLoadOrStore() for legality checks which relies
+  // on reverse lexical order.
+  for (auto &RefGroup : EqualityGroups) {
+    if (hasAllLoadsWithinRegion(Region, RefGroup.front()) &&
+        !foundReuseInAliasingLiveinLoad(Region, RefGroup)) {
+      RefGroup.insert(RefGroup.begin(), nullptr);
+    }
   }
 
   bool Result = false;
@@ -1591,7 +1652,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
 
           LLVM_DEBUG(dbgs() << "Cannot substitute loads in between StoreRef: ";
                      PrevDDNode->dump(); dbgs() << " and PostDomStoreRef: ");
-          LLVM_DEBUG(dumpPostDomStoreNode(PostDomDDNode));
+          LLVM_DEBUG(dumpNode(PostDomDDNode));
 
           // This may be a conditional store which cannot be eliminated due to
           // an intermediate load but it might be possible to eliminate both of
@@ -1612,7 +1673,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
           // Yes, remove the store instruction on PrevRef.
           if (!HLNodeUtils::postDominates(PostDomDDNode, PrevDDNode)) {
             LLVM_DEBUG(dbgs() << "PostDomStoreRef: ");
-            LLVM_DEBUG(dumpPostDomStoreNode(PostDomDDNode));
+            LLVM_DEBUG(dumpNode(PostDomDDNode));
             LLVM_DEBUG(dbgs() << " does not post dominate StoreRef: ";
                        PrevDDNode->dump());
 
@@ -1622,7 +1683,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
           if (!isValidParentChain(PostDomDDNode, PrevDDNode, PostDomRef)) {
             LLVM_DEBUG(dbgs() << "Invalid parent chain for StoreRef: ";
                        PrevDDNode->dump(); dbgs() << "and PostDomStoreRef: ");
-            LLVM_DEBUG(dumpPostDomStoreNode(PostDomDDNode));
+            LLVM_DEBUG(dumpNode(PostDomDDNode));
 
             break;
           }

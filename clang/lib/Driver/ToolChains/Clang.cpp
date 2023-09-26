@@ -1335,24 +1335,6 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
     getToolChain().AddHIPIncludeArgs(Args, CmdArgs);
 
 #if INTEL_CUSTOMIZATION
-  // Add the PSTL header search directory before the standard search
-  // directories.  This will be done for both host and device compilations
-  // in the presence of -fsycl -fsycl-pstl-offload.
-  if (JA.isOffloading(Action::OFK_SYCL) &&
-      Args.hasArg(options::OPT_fsycl_pstl_offload_EQ)) {
-    Arg *A = Args.getLastArg(options::OPT_fsycl_pstl_offload_EQ);
-    StringRef Value(A->getValue());
-    if (Value != "off") {
-      SmallString<128> HeaderBase(getToolChain().GetDPLIncludePath());
-      SmallString<128> OffloadBase(HeaderBase);
-      llvm::sys::path::append(OffloadBase, "pstl_offload");
-      CmdArgs.push_back("-internal-isystem");
-      CmdArgs.push_back(Args.MakeArgString(OffloadBase));
-      CmdArgs.push_back("-internal-isystem");
-      CmdArgs.push_back(Args.MakeArgString(HeaderBase));
-    }
-  }
-
   // Add the AC Types header directories before the SYCL headers
   if (Args.hasArg(options::OPT_qactypes)) {
     CmdArgs.push_back("-internal-isystem");
@@ -1577,6 +1559,27 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(C.getArgs().MakeArgString(sysroot));
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // Add the PSTL header search directory before the standard search
+  // directories and after the user specified -I directories.  This will be
+  // done for both host and device compilations in the presence of -fsycl
+  // -fsycl-pstl-offload.
+  if (JA.isOffloading(Action::OFK_SYCL) &&
+      Args.hasArg(options::OPT_fsycl_pstl_offload_EQ)) {
+    Arg *A = Args.getLastArg(options::OPT_fsycl_pstl_offload_EQ);
+    StringRef Value(A->getValue());
+    if (Value != "off") {
+      SmallString<128> HeaderBase(getToolChain().GetDPLIncludePath());
+      SmallString<128> OffloadBase(HeaderBase);
+      llvm::sys::path::append(OffloadBase, "pstl_offload");
+      CmdArgs.push_back("-I");
+      CmdArgs.push_back(Args.MakeArgString(OffloadBase));
+      CmdArgs.push_back("-I");
+      CmdArgs.push_back(Args.MakeArgString(HeaderBase));
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Parse additional include paths from environment variables.
   // FIXME: We should probably sink the logic for handling these from the
@@ -10772,7 +10775,9 @@ static void addRunTimeWrapperOpts(Compilation &C,
     // target; AOT compilation has already been performed otherwise.
     const ArgList &Args = C.getArgsForToolChain(nullptr, StringRef(),
                                                 DeviceOffloadKind);
-    SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs, JA);
+    const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
+    SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs, JA,
+                                *HostTC);
     SYCLTC.TranslateBackendTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs);
     createArgString("-compile-opts=");
     BuildArgs.clear();

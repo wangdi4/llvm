@@ -88,7 +88,7 @@ private:
 } // namespace
 
 static void propagateConstant(HLNode *Node, unsigned TempIndex,
-                              int64_t Constant) {
+                              int64_t Constant, bool RemoveEmptyParentNodes) {
   bool LoopChanged = false;
   HLLoop *Loop = dyn_cast<HLLoop>(Node);
 
@@ -127,7 +127,7 @@ static void propagateConstant(HLNode *Node, unsigned TempIndex,
     Loop->setMaxTripCountEstimate(0);
     Loop->setLegalMaxTripCount(0);
 
-    HLNodeUtils::removeRedundantNodes(Node);
+    HLNodeUtils::removeRedundantNodes(Node, RemoveEmptyParentNodes);
   }
 }
 
@@ -227,7 +227,7 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
   SmallVector<const RegDDRef *, 1> Aux = {Loop->getUpperDDRef()};
   LHS->makeConsistent(Aux, Level - 1);
 
-  propagateConstant(Loop, TempIndex, Constant);
+  propagateConstant(Loop, TempIndex, Constant, true /*Remove parent*/);
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(If);
 
@@ -299,14 +299,17 @@ void HIRMVForConstUB::transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop,
     HLNodeUtils::insertAsLastThenChild(If, ThenNode);
 
     // Propogate new constant value of blob throught loopnest.
-    propagateConstant(ThenNode, BlobIndex, NewValue);
+    propagateConstant(ThenNode, BlobIndex, NewValue,
+                      false /*Do not remove parent*/);
+  }
 
-    // It is possible that after constant propogation and DCE 'then' branch
-    // would be optimized away. In this case 'if' would only consist of empty
-    // 'then' branch, so 'if' itself would be removed as well. All we need to do
-    // is return.
-    if (!If->getParent())
-      return;
+  // It is possible that after constant propogation and DCE 'then' branch
+  // would be optimized away. In this case 'if' would only consist of empty
+  // 'then' branch. All we need to do is remove 'if' and return.
+  if (!If->hasThenChildren()) {
+    HLNodeUtils::remove(If);
+    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(FromLoop);
+    return;
   }
 
   // Move original node range into else branch.

@@ -122,6 +122,12 @@ public:
     return IRReg.containsBBlock(BB);
   }
 
+  /// Returns the first outermost LLVM loop of the region. Returns null if no
+  /// such loop exists.
+  const Loop *getFirstOutermostLLVMLoop() const {
+    return IRReg.getFirstOutermostLoop();
+  }
+
   /// Adds a live-in temp (represented using Symbase) with initial value
   /// InitVal to the region.
   void addLiveInTemp(unsigned Symbase, const Value *InitVal) {
@@ -244,6 +250,10 @@ public:
   /// IgnoreStores is true, any store to alloca outside the region is ignored.
   bool containsAllDereferences(const AllocaInst *Alloca,
                                bool IgnoreStores = false) const;
+
+  /// Returns true if we can re-enter \p Region due to an outer LLVM loop or due
+  /// to presence of irreducible CFG.
+  bool canBeReentered() const;
 };
 
 } // End namespace loopopt
