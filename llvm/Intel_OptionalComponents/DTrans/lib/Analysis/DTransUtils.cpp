@@ -1360,10 +1360,8 @@ bool dtrans::hasOpaquePointerFields(llvm::StructType *StTy) {
     if (!Visited.insert(Ty))
       return false;
 
-    // If the input type is a pointer then return true if it is opaque, else
-    // return false.
     if (Ty->isPointerTy())
-      return Ty->isOpaquePointerTy();
+      return true;
 
     // If the input type is an array or a vector, then check the element
     else if (Ty->isArrayTy())
