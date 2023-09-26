@@ -396,6 +396,7 @@ static bool shouldPinPassToLegacyPM(StringRef Pass) {
       "nvvm-reflect",
       "nvvm-intr-range",
       "amdgpu-simplifylib",
+      "amdgpu-image-intrinsic-opt",
       "amdgpu-usenative",
       "amdgpu-promote-alloca",
       "amdgpu-promote-alloca-to-vector",
