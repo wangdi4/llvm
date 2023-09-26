@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "IntelLoopVectorizationLegality.h"
+#include "Legality.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"

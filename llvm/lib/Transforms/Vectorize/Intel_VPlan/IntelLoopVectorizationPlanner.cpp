@@ -17,7 +17,6 @@
 
 #include "IntelLoopVectorizationPlanner.h"
 #include "HIR/IntelVPlanHCFGBuilderHIR.h"
-#include "IntelLoopVectorizationLegality.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCFGMerger.h"
@@ -37,6 +36,7 @@
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVConflictTransformation.h"
 #include "Intel_VPlan/IntelVPTransformLibraryCalls.h"
+#include "Legality.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CommandLine.h"
