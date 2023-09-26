@@ -11501,7 +11501,7 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
 
   // Handle -Xdevice-post-link
-  TC.TranslateTargetOpt(TCArgs, CmdArgs, options::OPT_Xdevice_post_link,
+  TC.TranslateTargetOpt(JA.getOffloadingDeviceKind(), TCArgs, CmdArgs, options::OPT_Xdevice_post_link,
                         options::OPT_Xdevice_post_link_EQ,
                         JA.getOffloadingArch());
 
