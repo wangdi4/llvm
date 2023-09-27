@@ -1,4 +1,21 @@
 //===- OpenMPIRBuilder.cpp - Builder for LLVM-IR for OpenMP directives ----===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -611,11 +628,7 @@ Function *OpenMPIRBuilder::getOrCreateRuntimeFunctionPtr(RuntimeFunction FnID) {
 
 void OpenMPIRBuilder::initialize() { initializeTypes(M); }
 
-void OpenMPIRBuilder::finalize(
-#if INTEL_COLLAB
-    bool IsLateOutline,
-#endif // INTEL_COLLAB
-    Function *Fn) {
+void OpenMPIRBuilder::finalize(Function *Fn) {
   SmallPtrSet<BasicBlock *, 32> ParallelRegionBlockSet;
   SmallVector<BasicBlock *, 32> Blocks;
   SmallVector<OutlineInfo, 16> DeferredOutlines;
@@ -712,11 +725,7 @@ void OpenMPIRBuilder::finalize(
   };
 
   if (!OffloadInfoManager.empty())
-#if INTEL_COLLAB
-    createOffloadEntriesAndInfoMetadata(IsLateOutline, ErrorReportFn);
-#else  // INTEL_COLLAB
     createOffloadEntriesAndInfoMetadata(ErrorReportFn);
-#endif // INTEL_COLLAB
 }
 
 OpenMPIRBuilder::~OpenMPIRBuilder() {
@@ -5886,9 +5895,6 @@ void OpenMPIRBuilder::createOffloadEntry(Constant *ID, Constant *Addr,
 
 // We only generate metadata for function that contain target regions.
 void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
-#if INTEL_COLLAB
-    bool IsLateOutline,
-#endif // INTEL_COLLAB
     EmitMetadataErrorReportFunctionTy &ErrorFn) {
 
   // If there are no entries, we don't need to do anything.
@@ -5907,6 +5913,10 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
   };
 
   auto &&GetMDString = [&C](StringRef V) { return MDString::get(C, V); };
+
+#if INTEL_COLLAB
+  bool IsLateOutline = Config.isLateOutline();
+#endif // INTEL_COLLAB
 
   // Create the offloading info metadata node.
   NamedMDNode *MD = M.getOrInsertNamedMetadata("omp_offload.info");
@@ -6166,7 +6176,7 @@ Constant *OpenMPIRBuilder::getAddrOfDeclareTargetVar(
     OffloadEntriesInfoManager::OMPTargetDeviceClauseKind DeviceClause,
     bool IsDeclaration, bool IsExternallyVisible,
 #if INTEL_COLLAB
-    bool IsOpenMPLateOutline, unsigned AS,
+    unsigned AS,
 #endif // INTEL_COLLAB
     TargetRegionEntryInfo EntryInfo, StringRef MangledName,
     std::vector<GlobalVariable *> &GeneratedRefs, bool OpenMPSIMD,
@@ -6197,7 +6207,7 @@ Constant *OpenMPIRBuilder::getAddrOfDeclareTargetVar(
     if (!Ptr) {
       GlobalValue *GlobalValue = M.getNamedValue(MangledName);
 #if INTEL_COLLAB
-      if (IsOpenMPLateOutline && AS)
+      if (Config.isLateOutline() && AS)
         Ptr = getOrCreateInternalVariable(LlvmPtrTy, PtrName, AS);
       else
 #endif // INTEL_COLLAB
@@ -6207,7 +6217,7 @@ Constant *OpenMPIRBuilder::getAddrOfDeclareTargetVar(
       GV->setLinkage(GlobalValue::WeakAnyLinkage);
 
 #if INTEL_COLLAB
-      if (IsOpenMPLateOutline)
+      if (Config.isLateOutline())
         GV->setTargetDeclare(true);
 #endif // INTEL_COLLAB
 
@@ -6221,7 +6231,7 @@ Constant *OpenMPIRBuilder::getAddrOfDeclareTargetVar(
       registerTargetGlobalVariable(
           CaptureClause, DeviceClause, IsDeclaration, IsExternallyVisible,
 #if INTEL_COLLAB
-          IsOpenMPLateOutline, /*VarSize=*/0,
+          /*VarSize=*/0,
 #endif // INTEL_COLLAB
           EntryInfo, MangledName, GeneratedRefs, OpenMPSIMD, TargetTriple,
           GlobalInitializer, VariableLinkage, LlvmPtrTy, cast<Constant>(Ptr));
@@ -6238,7 +6248,7 @@ void OpenMPIRBuilder::registerTargetGlobalVariable(
     OffloadEntriesInfoManager::OMPTargetDeviceClauseKind DeviceClause,
     bool IsDeclaration, bool IsExternallyVisible,
 #if INTEL_COLLAB
-    bool IsOpenMPLateOutline, int64_t VarSize,
+    int64_t VarSize,
 #endif // INTEL_COLLAB
     TargetRegionEntryInfo EntryInfo, StringRef MangledName,
     std::vector<GlobalVariable *> &GeneratedRefs, bool OpenMPSIMD,
@@ -6302,12 +6312,11 @@ void OpenMPIRBuilder::registerTargetGlobalVariable(
     if (Config.isTargetDevice()) {
       VarName = (Addr) ? Addr->getName() : "";
 #if INTEL_COLLAB
-      if (IsOpenMPLateOutline)
+      if (Config.isLateOutline())
         Addr = getAddrOfDeclareTargetVar(
-            CaptureClause, DeviceClause, IsDeclaration, IsExternallyVisible,
-            IsOpenMPLateOutline, 0, EntryInfo, MangledName, GeneratedRefs,
-            OpenMPSIMD, TargetTriple, LlvmPtrTy, GlobalInitializer,
-            VariableLinkage);
+            CaptureClause, DeviceClause, IsDeclaration, IsExternallyVisible, 0,
+            EntryInfo, MangledName, GeneratedRefs, OpenMPSIMD, TargetTriple,
+            LlvmPtrTy, GlobalInitializer, VariableLinkage);
       else
 #endif // INTEL_COLLAB
         Addr = nullptr;
@@ -6315,7 +6324,7 @@ void OpenMPIRBuilder::registerTargetGlobalVariable(
       Addr = getAddrOfDeclareTargetVar(
           CaptureClause, DeviceClause, IsDeclaration, IsExternallyVisible,
 #if INTEL_COLLAB
-          IsOpenMPLateOutline, 0,
+          0,
 #endif // INTEL_COLLAB
           EntryInfo, MangledName, GeneratedRefs, OpenMPSIMD, TargetTriple,
           LlvmPtrTy, GlobalInitializer, VariableLinkage);
