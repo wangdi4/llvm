@@ -1060,7 +1060,6 @@ static FieldDecl *addFieldToRecordDecl(ASTContext &C, DeclContext *DC,
 CGOpenMPRuntime::CGOpenMPRuntime(CodeGenModule &CGM)
     : CGM(CGM), OMPBuilder(CGM.getModule()) {
   KmpCriticalNameTy = llvm::ArrayType::get(CGM.Int32Ty, /*NumElements*/ 8);
-<<<<<<< HEAD
   llvm::OpenMPIRBuilderConfig Config(
       CGM.getLangOpts().OpenMPIsTargetDevice, isGPU(),
       CGM.getLangOpts().OpenMPOffloadMandatory,
@@ -1070,19 +1069,11 @@ CGOpenMPRuntime::CGOpenMPRuntime(CodeGenModule &CGM)
   OMPBuilder.loadOffloadInfoMetadata(CGM.getLangOpts().OpenMPIsTargetDevice
                                          ? CGM.getLangOpts().OMPHostIRFile
                                          : StringRef{});
-=======
-  llvm::OpenMPIRBuilderConfig Config(CGM.getLangOpts().OpenMPIsTargetDevice,
-                                     isGPU(), hasRequiresUnifiedSharedMemory(),
-                                     CGM.getLangOpts().OpenMPOffloadMandatory);
 #if INTEL_COLLAB
   if (CGM.getLangOpts().OpenMPLateOutlineTarget &&
       CGM.getLangOpts().OpenMPLateOutline)
     Config.setIsLateOutline();
 #endif // INTEL_COLLAB
-  OMPBuilder.initialize(CGM.getLangOpts().OpenMPIsTargetDevice
-                            ? CGM.getLangOpts().OMPHostIRFile
-                            : StringRef{});
->>>>>>> 3d3dd5fea7263a811719884503beb0ad5d5cdf7d
   OMPBuilder.setConfig(Config);
 }
 
