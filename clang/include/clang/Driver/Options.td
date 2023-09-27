@@ -5134,6 +5134,9 @@ def mcmodel_EQ : Joined<["-"], "mcmodel=">, Group<m_Group>,
 #if INTEL_CUSTOMIZATION
 def mcmodel_Separate : Separate<["-"], "mcmodel">, Alias<mcmodel_EQ>;
 #endif // INTEL_CUSTOMIZATION
+def mlarge_data_threshold_EQ : Joined<["-"], "mlarge-data-threshold=">, Group<m_Group>,
+  Visibility<[ClangOption, CC1Option]>,
+  MarshallingInfoInt<TargetOpts<"LargeDataThreshold">>;
 def mtls_size_EQ : Joined<["-"], "mtls-size=">, Group<m_Group>,
   Flags<[NoXarchOption]>, Visibility<[ClangOption, CC1Option]>,
   HelpText<"Specify bit size of immediate TLS offsets (AArch64 ELF only): "
