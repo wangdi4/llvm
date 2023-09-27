@@ -238,8 +238,6 @@
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: HandlePragmaVectorAlignedPass on foo ;INTEL
-; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo ;INTEL
-; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis on foo ;INTEL
@@ -266,10 +264,6 @@
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: AAManager on foo
-<<<<<<< HEAD
-; COM: CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo ;INTEL
-=======
->>>>>>> e6a1657fa30c747f4412fc47f567660ebe861a9e
 ; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT: Running pass: LICMPass on loop
 ; CHECK-O23SZ-NEXT: Running pass: GVNPass on foo
