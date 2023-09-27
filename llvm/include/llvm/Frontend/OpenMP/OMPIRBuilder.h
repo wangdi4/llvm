@@ -1,4 +1,21 @@
 //===- IR/OpenMPIRBuilder.h - OpenMP encoding builder for LLVM IR - C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -108,6 +125,12 @@ public:
       : IsTargetDevice(IsTargetDevice), IsGPU(IsGPU),
         HasRequiresUnifiedSharedMemory(HasRequiresUnifiedSharedMemory),
         OpenMPOffloadMandatory(OpenMPOffloadMandatory) {}
+
+#if INTEL_COLLAB
+  bool IsLateOutline = false;
+  void setIsLateOutline() { IsLateOutline = true; }
+  bool isLateOutline() { return IsLateOutline; }
+#endif // INTEL_COLLAB
 
   // Getters functions that assert if the required values are not present.
   bool isTargetDevice() const {
@@ -527,11 +550,7 @@ public:
   /// Finalize the underlying module, e.g., by outlining regions.
   /// \param Fn                    The function to be finalized. If not used,
   ///                              all functions are finalized.
-  void finalize(
-#if INTEL_COLLAB
-      bool IsLateOutline,
-#endif // INTEL_COLLAB
-      Function *Fn = nullptr);
+  void finalize(Function *Fn = nullptr);
 
   /// Add attributes known for \p FnID to \p Fn.
   void addAttributes(omp::RuntimeFunction FnID, Function &Fn);
@@ -899,7 +918,7 @@ public:
       OffloadEntriesInfoManager::OMPTargetDeviceClauseKind DeviceClause,
       bool IsDeclaration, bool IsExternallyVisible,
 #if INTEL_COLLAB
-      bool IsOpenMPLateOutline, unsigned AS,
+      unsigned AS,
 #endif // INTEL_COLLAB
       TargetRegionEntryInfo EntryInfo, StringRef MangledName,
       std::vector<GlobalVariable *> &GeneratedRefs, bool OpenMPSIMD,
@@ -946,7 +965,7 @@ public:
       OffloadEntriesInfoManager::OMPTargetDeviceClauseKind DeviceClause,
       bool IsDeclaration, bool IsExternallyVisible,
 #if INTEL_COLLAB
-      bool IsOpenMPLateOutline, int64_t VarSize,
+      int64_t VarSize,
 #endif // INTEL_COLLAB
       TargetRegionEntryInfo EntryInfo, StringRef MangledName,
       std::vector<GlobalVariable *> &GeneratedRefs, bool OpenMPSIMD,
@@ -1847,9 +1866,6 @@ public:
   //
   // We only generate metadata for function that contain target regions.
   void createOffloadEntriesAndInfoMetadata(
-#if INTEL_COLLAB
-      bool IsLateOutline,
-#endif // INTEL_COLLAB
       EmitMetadataErrorReportFunctionTy &ErrorReportFunction);
 
 public:
