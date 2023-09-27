@@ -2038,8 +2038,8 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     Value *GEP = IRB.CreateInBoundsGEP(NewLLVMElemTy, ThisPtr, Indices, "");
     auto Align =
         MaybeAlign(M.getDataLayout().getABITypeAlign(Elem->getType()));
-    LoadInst *Load =
-        IRB.CreateAlignedLoad(Elem->getType()->getPointerTo(0), GEP, Align, "");
+    LoadInst *Load = IRB.CreateAlignedLoad(
+        PointerType::getUnqual(M.getContext()), GEP, Align, "");
     Value *NewIdx = IRB.CreateZExtOrTrunc(Idx, IRB.getInt64Ty());
     // Store Elem into base array at Idx.
     Indices.clear();
@@ -2482,7 +2482,8 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
   Params.push_back(AppendFunc->getArg(0)->getType());
   DTParams.push_back(DTFuncTy->getArgType(0));
   // Make 2nd argument as pointer to the original arg type.
-  Params.push_back(AppendFunc->getArg(1)->getType()->getPointerTo());
+  LLVMContext &Ctx = AppendFunc->getParent()->getContext();
+  Params.push_back(PointerType::getUnqual(Ctx));
   DTParams.push_back(TM.getOrCreatePointerType(DTFuncTy->getArgType(1)));
   FunctionType *NFTy =
       FunctionType::get(FTy->getReturnType(), Params, FTy->isVarArg());

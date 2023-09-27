@@ -513,7 +513,8 @@ void CandidateInfo::fixQsortCallsites() {
   });
   Value *AArg = FirstCall->getArgOperand(0);
   Type *FirstArgTy = AArg->getType();
-  Type *ArrayElemAddrType = ArrayElemTy->getPointerTo(0);
+  LLVMContext &Ctx = NewSortFn->getParent()->getContext();
+  Type *ArrayElemAddrType = PointerType::getUnqual(Ctx);
   Value *GEPPtrOp = AArg;
   DEBUG_WITH_TYPE(DEAD_ARRAY_OPS_ELIMI,
                   { dbgs() << "    FirstCall after:\n"; });
