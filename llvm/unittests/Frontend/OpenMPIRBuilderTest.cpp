@@ -4044,11 +4044,7 @@ TEST_F(OpenMPIRBuilderTest, CreateTeams) {
   OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP(), DL});
   Builder.restoreIP(OMPBuilder.createTeams(Builder, BodyGenCB));
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   Builder.CreateRetVoid();
 
   EXPECT_FALSE(verifyModule(*M, &errs()));
