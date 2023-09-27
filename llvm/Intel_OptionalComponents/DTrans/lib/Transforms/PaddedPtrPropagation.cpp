@@ -924,21 +924,11 @@ bool PaddedPtrPropImpl<InfoClass>::run(Module &M, WholeProgramInfo &WPInfo) {
   // Find all the functions which have pointer annotations inside and
   // include them into initial work set
 
-<<<<<<< HEAD
-  Function *Annotations[] = {
-=======
   Function *Annotation =
->>>>>>> c7f772a94f1a7a6c6a76384eb02729435ab74194
       Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
                                 {PointerType::getUnqual(M.getContext()),
                                  PointerType::getUnqual(M.getContext())});
 
-<<<<<<< HEAD
-  for (auto AFunc : Annotations) {
-    for (auto U : AFunc->users()) {
-      CallInst *Call = cast<CallInst>(U);
-      Function *Caller = Call->getParent()->getParent();
-=======
   for (auto U : Annotation->users()) {
     CallInst *Call = cast<CallInst>(U);
     Function *Caller = Call->getParent()->getParent();
@@ -946,7 +936,6 @@ bool PaddedPtrPropImpl<InfoClass>::run(Module &M, WholeProgramInfo &WPInfo) {
     int Padding;
     if (!isPaddedMarkUpAnnotation(U, Padding))
       continue;
->>>>>>> c7f772a94f1a7a6c6a76384eb02729435ab74194
 
     auto &FPInfo = getFuncPadInfo(Caller);
     FPInfo.setPaddingForValue(U, Padding);
