@@ -201,6 +201,8 @@ FunctionPass *createX86InstCombinePass();
 
 extern char &X86InstCombineID;
 
+FunctionPass *createX86TransformToLibmSinCosCallPass();
+
 /// Return a pass that generate amx intrinsics for matrix intrinsics.
 FunctionPass *createX86LowerMatrixIntrinsicsPass();
 
@@ -278,6 +280,7 @@ void initializeX86TileConfigPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
 void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
+void initializeX86TransformToLibmSinCosCallPassPass(PassRegistry &);
 void initializeX86LowerMatrixIntrinsicsPassPass(PassRegistry &);
 void initializeX86AvoidMRNBPassPass(PassRegistry &);
 void initializeX86InstCombinePass(PassRegistry &);
