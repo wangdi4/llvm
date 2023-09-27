@@ -152,7 +152,7 @@ public:
     // For testing purposes assume that the second element type is simply
     // float*.
     auto *DTFPType = TM.getOrCreateAtomicType(Type::getFloatTy(Context));
-    PLLVMFloat = Type::getFloatTy(Context)->getPointerTo(0);
+    PLLVMFloat = PointerType::getUnqual(Context);
     PFloat = TM.getOrCreatePointerType(DTFPType);
 
     return true;
@@ -177,7 +177,7 @@ public:
       if (auto *PT = dyn_cast<DTransPointerType>(T))
         if (PT->getPointerElementType() == S.ElementType) {
           // Replace base pointer
-          DataTypes.push_back(NewLLVMElement->getPointerTo(0));
+          DataTypes.push_back(PointerType::getUnqual(M.getContext()));
           DTElemDataTypes.push_back(TM.getOrCreatePointerType(NewDTElement));
           continue;
         }

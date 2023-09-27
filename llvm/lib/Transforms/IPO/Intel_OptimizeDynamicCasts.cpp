@@ -233,7 +233,7 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(
         // Cast pointer to object to i8***, because it is a pointer to pointer
         // to vtable that contains pointer to type_info object.
         LoadInst *Vptr = nullptr;
-        auto Int8PtrTy = Type::getInt8PtrTy(Call->getContext());
+        auto Int8PtrTy = PointerType::getUnqual(Call->getContext());
         // Load pointer to vtable.
         Vptr = Builder.CreateLoad(Int8PtrTy, ObjPointer);
         // Calculate address of pointer to type_info.

@@ -4884,11 +4884,7 @@ void Splitter::splitFunction() {
   retargetReturns();
   LLVMContext &C = F->getContext();
   Type *NewTy1 = llvm::Type::getInt32Ty(C);
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *NewPTy1 = llvm::Type::getInt32PtrTy(C);
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
   Type *NewPTy1 = llvm::PointerType::getUnqual(C);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   Argument *ArgLast1 = nullptr;
   PHINode *SplitValue1 = nullptr;
   BasicBlock *BBSplit1 = nullptr;

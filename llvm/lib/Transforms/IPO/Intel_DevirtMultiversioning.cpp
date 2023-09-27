@@ -523,10 +523,7 @@ void IntelDevirtMultiversion::generateBranching(
 
   Builder.SetInsertPoint(MainBB);
 
-  // NOTE: For now we are going to use getInt8PtrTy to create an i8* pointer.
-  // It also supports opaque pointers. If the community decides to remove its
-  // support then we need to update it.
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(M.getContext());
+  PointerType *Int8PtrTy = PointerType::getUnqual(M.getContext());
 
   BitCastInst *DefaultAddress =
       new BitCastInst(DefaultTarget->TargetFunc, Int8PtrTy);
