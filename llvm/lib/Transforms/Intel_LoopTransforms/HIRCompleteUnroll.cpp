@@ -202,6 +202,11 @@ static cl::opt<unsigned> PerfectLoopDepthThreshold(
     "hir-complete-unroll-perfect-loop-depth-threshold", cl::init(7), cl::Hidden,
     cl::desc("Threshold for perfect loop depth"));
 
+static cl::opt<unsigned> ExtraFPOpsCostRatio(
+    "hir-complete-unroll-extra-fp-ops-cost-ratio", cl::init(4), cl::Hidden,
+    cl::desc("Specifies how many non-simplifyiable fp operations are "
+             "equivalent to 1 extra cost in the cost model."));
+
 // External interface
 namespace llvm {
 namespace loopopt {
@@ -460,6 +465,11 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   // Number of memrefs which can be eliminated by unrolling.
   unsigned NumSimplifiedMemRefs;
 
+  // Number of FP operations which cannot be simplified with unrolling but can
+  // be profitable for vectorization. Used to add extra cost to vectorizable
+  // loops.
+  unsigned NumVectorizableFPOps;
+
   // Keeps track of non-linear blobs that we encounter during our traversal so
   // they aren't penalized multiple times. Blobs are removed from the set when
   // we encounter a redefinition of a contained temp. The mapped value is the
@@ -508,9 +518,10 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 #endif // INTEL_FEATURE_SW_DTRANS
       SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents)
       : HCU(HCU), CurLoop(CurLp), OuterLoop(OuterLp),
+        CurLoopIsVectorizationCandidate(false),
         CurLevel(CurLp->getNestingLevel()), Cost(0), ScaledCost(0), Savings(0),
         ScaledSavings(0), GEPCost(0), GEPSavings(0), NumMemRefs(0),
-        NumDDRefs(0), NumSimplifiedMemRefs(0),
+        NumDDRefs(0), NumSimplifiedMemRefs(0), NumVectorizableFPOps(0),
         SimplifiedTempBlobs(SimplifiedBlobs), OuterLoopMemRefMap(MemRefMap),
         SimplifiableStores(SimplifiableStores),
 #if INTEL_FEATURE_SW_DTRANS
@@ -518,13 +529,14 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 #endif // INTEL_FEATURE_SW_DTRANS
         SimplifiedNonLoopParents(SimplifiedNonLoopParents) {
 
-    CurLoopIsVectorizationCandidate =
-        (HCU.IsPreVec && CurLoop->isInnermost() && CurLoop->isDo());
-
     auto Iter = HCU.AvgTripCount.find(CurLp);
     assert((Iter != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
     LoopNestTripCount = (ParentLoopNestTripCount * Iter->second);
   }
+
+  // Sets the data member CurLoopIsVectorizationCandidate if this loop looks
+  // like a profitable vectorization candidate.
+  void analyzeAndSetVectorizationCandidate();
 
   /// Inserts a simplified temp blob with \p Index. It overwrite the previous
   /// entry for the same blob.
@@ -863,7 +875,35 @@ void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
 
 ///// ProfitabilityAnalyzer Visitor Start
 
+void HIRCompleteUnroll::ProfitabilityAnalyzer::
+    analyzeAndSetVectorizationCandidate() {
+  if (!HCU.IsPreVec || !CurLoop->isInnermost() || !CurLoop->isDo())
+    return;
+
+  // Only when the loop is outermost do all the refs in OuterLoopMemRefMap
+  // belong to the current loop, otherwsie they belong to an outer loop.
+  bool IsOutermostLoop = (CurLoop->getNestingLevel() == 1);
+
+  // Check if all memrefs inside the loop are unit stride refs. This doesn't
+  // check if there is possiblity of G2S/VLS but we can relax/extend the check
+  // later.
+  for (auto &Entry : OuterLoopMemRefMap) {
+    for (auto *MemRef : Entry.second) {
+      if (!IsOutermostLoop && (MemRef->getLexicalParentLoop() != CurLoop))
+        continue;
+
+      bool IsNegStride;
+      if (!MemRef->isUnitStride(CurLevel, IsNegStride))
+        return;
+    }
+  }
+
+  CurLoopIsVectorizationCandidate = true;
+}
+
 void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
+
+  analyzeAndSetVectorizationCandidate();
 
   if (CurLoopIsVectorizationCandidate) {
     // compute safe reduction chain for innermost do loops if we are executing
@@ -877,6 +917,10 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
   // parsed as blob.
   CurLoop->getHLNodeUtils().visitRange<true, false>(
       *this, CurLoop->child_begin(), CurLoop->child_end());
+
+  // Adds some extra cost to vectorizable loops for every few non-simplifyiable
+  // FP operations.
+  Cost += (NumVectorizableFPOps / ExtraFPOpsCostRatio);
 
   // Scale results by loop's average trip count.
   auto Iter = HCU.AvgTripCount.find(CurLoop);
@@ -940,6 +984,16 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
   LLVM_DEBUG(dbgs() << "Number of ddrefs: " << NumDDRefs << "\n");
   LLVM_DEBUG(dbgs() << "Number of memrefs which can be eliminated: "
                     << NumSimplifiedMemRefs << "\n");
+  LLVM_DEBUG(dbgs() << "Number of FP operations which cannot be eliminated: "
+                    << NumVectorizableFPOps << "\n");
+  LLVM_DEBUG(dbgs() << "Is vectorization candidate : ");
+
+  if (CurLoopIsVectorizationCandidate) {
+    LLVM_DEBUG(dbgs() << "yes\n");
+  } else {
+    LLVM_DEBUG(dbgs() << "no\n");
+  }
+
   LLVM_DEBUG(dbgs() << "Loop: \n"; CurLoop->dump(); dbgs() << "\n");
 
   if (SavingsPercentage < HCU.Limits.SavingsThreshold) {
@@ -1163,6 +1217,11 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
   if (!CanSimplifyRvals || !CanSimplifyLval) {
 
     if (HInst && !IsSelect) {
+
+      if (CurLoopIsVectorizationCandidate && isa<FPMathOperator>(Inst)) {
+        ++NumVectorizableFPOps;
+      }
+
       // Add extra cost if instruction is a non-simplifiable reduction or
       // vectorizable call and we are executing before vectorizer. We should
       // prefer vectorizing reductions/calls rather than unrolling them.
