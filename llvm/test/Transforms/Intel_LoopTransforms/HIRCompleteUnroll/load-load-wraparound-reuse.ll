@@ -2,6 +2,8 @@
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -aa-pipeline="basic-aa,tbaa" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s --check-prefix=CHECK-DEBUG
+
 ; Verify that we have GEP savings of 42 composed of the following-
 ; Savings of 4 (1 * 4) due to address simplification in parameter load (%arg)[i1][%tmp211].
 ; Savings of 4 (1 * 4) due to address simplification in parameter load (%arg)[i1 + 1][%tmp211].
@@ -34,6 +36,9 @@
 ; + END LOOP
 
 ; CHECK: GEPSavings: 42
+
+; Verify that the loop is not marked as vectorization candidate due to non-linear refs.
+; CHECK-DEBUG: Is vectorization candidate : no
 
 @Logtable = external dso_local hidden unnamed_addr constant [256 x i8], align 16
 @Alogtable = external dso_local hidden unnamed_addr constant [256 x i8], align 16

@@ -383,8 +383,6 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   // check there is no recursion, if there is fail compilation
   MPM.addPass(DetectRecursionPass());
 
-  // PipeSupport can fail if dynamic pipe access is discovered after LLVM
-  // optimizations
   if (m_IsFpgaEmulator)
     MPM.addPass(PipeSupportPass());
 }
