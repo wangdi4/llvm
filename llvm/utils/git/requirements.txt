@@ -4,7 +4,6 @@
 #
 # Modifications, Copyright (C) Intel Corporation
 #
-<<<<<<< HEAD
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
 # provided to you ("License"). Unless the License provides otherwise, you may not
@@ -21,7 +20,6 @@
 # comment.
 #
 # end INTEL_CUSTOMIZATION
-=======
 certifi==2023.7.22
     # via
     #   -r requirements.txt.in
@@ -60,4 +58,3 @@ urllib3==1.26.12
     # via requests
 wrapt==1.14.1
     # via deprecated
->>>>>>> 655e0e4c7dfe6ed5be4098452ab4f7d487a94bc3
