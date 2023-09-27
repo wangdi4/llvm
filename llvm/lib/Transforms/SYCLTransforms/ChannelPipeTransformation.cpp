@@ -19,6 +19,7 @@
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/DiagnosticInfo.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/SYCLChannelPipeUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -721,14 +722,31 @@ static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
     F->eraseFromParent();
 
   // remove channel built-ins declarations
-  SmallVector<Function *, 8> FToDelete;
-  for (auto &F : M)
-    if (F.isDeclaration() && getChannelKind(F.getName()))
-      FToDelete.push_back(&F);
-
-  for (auto &F : FToDelete) {
-    assert(F->use_empty() && "Users of channel built-in are still exists");
-    F->eraseFromParent();
+  for (auto &F : make_early_inc_range(M)) {
+    if (!F.isDeclaration())
+      continue;
+    ChannelKind Kind = getChannelKind(F.getName());
+    if (!Kind)
+      continue;
+    if (!F.use_empty()) {
+      // Remove users of channel built-in in non-kernel function that isn't used
+      // by any kernel.
+      FuncSet Root;
+      Root.insert(&F);
+      FuncSet UserFuncs;
+      LoopUtils::fillFuncUsersSet(Root, UserFuncs);
+      for ([[maybe_unused]] auto *K : getKernels(M))
+        assert(!UserFuncs.contains(K) &&
+               "Channel built-in is still used by kernel");
+      for (User *U : make_early_inc_range(F.users())) {
+        auto *UI = cast<Instruction>(U);
+        if (Kind.Access == ChannelKind::READ)
+          UI->replaceAllUsesWith(UndefValue::get(UI->getType()));
+        UI->eraseFromParent();
+      }
+      assert(F.use_empty() && "Channel built-in still has use");
+    }
+    F.eraseFromParent();
   }
 }
 

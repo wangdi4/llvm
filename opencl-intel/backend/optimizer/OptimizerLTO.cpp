@@ -253,8 +253,6 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
                                           OptimizationLevel Level) {
     MPM.addPass(DetectRecursionPass());
 
-    // PipeSupport can fail if dynamic pipe access is discovered after LLVM
-    // optimizations.
     if (m_IsFpgaEmulator)
       MPM.addPass(PipeSupportPass());
 
