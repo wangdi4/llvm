@@ -480,12 +480,8 @@ NontemporalStore::getStaticStrideInLoop(StoreInst &SI) {
     return {};
   }
 
-  // Is the instruction executed every loop iteration? The header dominates all
-  // nodes in the loop by definition, and a single exiting block postdominates
-  // the loop by definition. Dominating this postdominator means we postdominate
-  // the loop header, and that puts us into the same control-dependence region.
-  // The extra check for the exiting block dominating the latch block guarantees
-  // that the exit of a loop is not hidden inside an if statement.
+  // Is the instruction executed every loop iteration? To simplify this check,
+  // avoid loops with multiple exits/latches.
   BasicBlock *StoreBlock = SI.getParent();
   BasicBlock *ExitingBlock = ContainingLoop->getExitingBlock();
   BasicBlock *LatchBlock = ContainingLoop->getLoopLatch();
@@ -494,14 +490,27 @@ NontemporalStore::getStaticStrideInLoop(StoreInst &SI) {
     return {};
   }
 
-  if (!DT.dominates(StoreBlock, ExitingBlock) &&
-      !DT.dominates(ExitingBlock, StoreBlock)) {
-    LLVM_DEBUG(dbgs() << "Store is in an if statement, not contiguous\n");
+  // For the store to execute every loop iteration, it needs to be executed on
+  // every path from the header to the latch block. This is true if the store
+  // dominates the latch: because the header also dominates the latch by
+  // definition, if there was a path from the header to the latch that
+  // didn't include the store, the store would have to strictly dominate the
+  // header which is impossible because the store is also dominated by the
+  // header by definition. If the store doesn't dominate the latch, the path to
+  // the latch that doesn't include the store must still include the header
+  // since the header does dominate it, so there's a path from the header to the
+  // latch that doesn't include the store. Therefore, the store dominating the
+  // latch is equivalent to the store executing every loop iteration.
+  if (!DT.dominates(StoreBlock, LatchBlock)) {
+    LLVM_DEBUG(dbgs() << "Store does not dominate the latch, not contiguous\n");
     return {};
   }
 
-  if (!DT.dominates(ExitingBlock, LatchBlock) &&
-      !DT.dominates(LatchBlock, ExitingBlock)) {
+  // We also avoid loops where the exiting block does not dominate the latch,
+  // since the behavior on the last iteration of those is more difficult to
+  // handle. Note that the latch cannot strictly dominate the exiting block
+  // because of the requirement that the loop only has one latch.
+  if (!DT.dominates(ExitingBlock, LatchBlock)) {
     LLVM_DEBUG(dbgs() << "Exiting block is in an if statement, not handling\n");
     return {};
   }
