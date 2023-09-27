@@ -924,39 +924,22 @@ bool PaddedPtrPropImpl<InfoClass>::run(Module &M, WholeProgramInfo &WPInfo) {
   // Find all the functions which have pointer annotations inside and
   // include them into initial work set
 
-  Function *Annotations[] = {
+  Function *Annotation =
       Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {PointerType::get(M.getContext(), 0),
-                                 PointerType::get(M.getContext(), 0)}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {PointerType::get(M.getContext(), 0),
-                                 PointerType::get(M.getContext(), 0)}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {PointerType::get(M.getContext(), 0),
-                                 PointerType::get(M.getContext(), 0)}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {PointerType::get(M.getContext(), 0),
-                                 PointerType::get(M.getContext(), 0)}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {PointerType::get(M.getContext(), 0),
-                                 PointerType::get(M.getContext(), 0)}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {PointerType::get(M.getContext(), 0),
-                                 PointerType::get(M.getContext(), 0)})};
+                                {PointerType::getUnqual(M.getContext()),
+                                 PointerType::getUnqual(M.getContext())});
 
-  for (auto AFunc : Annotations) {
-    for (auto U : AFunc->users()) {
-      CallInst *Call = cast<CallInst>(U);
-      Function *Caller = Call->getParent()->getParent();
+  for (auto U : Annotation->users()) {
+    CallInst *Call = cast<CallInst>(U);
+    Function *Caller = Call->getParent()->getParent();
 
-      int Padding;
-      if (!isPaddedMarkUpAnnotation(U, Padding))
-        continue;
+    int Padding;
+    if (!isPaddedMarkUpAnnotation(U, Padding))
+      continue;
 
-      auto &FPInfo = getFuncPadInfo(Caller);
-      FPInfo.setPaddingForValue(U, Padding);
-      WorkSet.insert(Caller);
-    }
+    auto &FPInfo = getFuncPadInfo(Caller);
+    FPInfo.setPaddingForValue(U, Padding);
+    WorkSet.insert(Caller);
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
