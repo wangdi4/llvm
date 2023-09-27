@@ -168,13 +168,7 @@ Scheduler &GlobalHandler::getScheduler() {
   return *MScheduler.Inst;
 }
 
-<<<<<<< HEAD
-bool GlobalHandler::isSchedulerAlive() const {
-  return MScheduler.Inst.get();
-}
-=======
 bool GlobalHandler::isSchedulerAlive() const { return MScheduler.Inst.get(); }
->>>>>>> afb619ab00779a4ddfaefd28ea97a8823a6be9cf
 
 void GlobalHandler::registerSchedulerUsage(bool ModifyCounter) {
   thread_local ObjectUsageCounter SchedulerCounter(ModifyCounter);
