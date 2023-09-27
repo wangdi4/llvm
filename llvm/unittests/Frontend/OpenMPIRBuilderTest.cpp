@@ -673,11 +673,7 @@ TEST_F(OpenMPIRBuilderTest, ParallelSimple) {
   Builder.restoreIP(AfterIP);
   Builder.CreateRetVoid();
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
 
   EXPECT_NE(PrivAI, nullptr);
   Function *OutlinedFn = PrivAI->getFunction();
@@ -773,11 +769,7 @@ TEST_F(OpenMPIRBuilderTest, ParallelNested) {
   Builder.restoreIP(AfterIP);
   Builder.CreateRetVoid();
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
 
   EXPECT_EQ(M->size(), 5U);
   for (Function &OutlinedFn : *M) {
@@ -881,11 +873,7 @@ TEST_F(OpenMPIRBuilderTest, ParallelNested2Inner) {
   Builder.restoreIP(AfterIP);
   Builder.CreateRetVoid();
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
 
   EXPECT_EQ(M->size(), 6U);
   for (Function &OutlinedFn : *M) {
@@ -997,11 +985,7 @@ TEST_F(OpenMPIRBuilderTest, ParallelIfCond) {
 
   Builder.restoreIP(AfterIP);
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
 
   EXPECT_NE(PrivAI, nullptr);
   Function *OutlinedFn = PrivAI->getFunction();
@@ -1118,11 +1102,7 @@ TEST_F(OpenMPIRBuilderTest, ParallelCancelBarrier) {
 
   Builder.restoreIP(AfterIP);
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
 
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
@@ -1200,11 +1180,7 @@ TEST_F(OpenMPIRBuilderTest, ParallelForwardAsPointers) {
   Builder.restoreIP(AfterIP);
   Builder.CreateRetVoid();
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
 
   EXPECT_FALSE(verifyModule(*M, &errs()));
   Function *OutlinedFn = Internal->getFunction();
@@ -1238,11 +1214,7 @@ TEST_F(OpenMPIRBuilderTest, CanonicalLoopSimple) {
 
   Builder.restoreIP(Loop->getAfterIP());
   ReturnInst *RetInst = Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
 
   Loop->assertOK();
   EXPECT_FALSE(verifyModule(*M, &errs()));
@@ -1343,11 +1315,7 @@ TEST_F(OpenMPIRBuilderTest, CanonicalLoopBounds) {
 
   // Finalize the function and verify it.
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
 
@@ -1408,11 +1376,7 @@ TEST_F(OpenMPIRBuilderTest, CollapseNestedLoops) {
   CanonicalLoopInfo *Collapsed =
       OMPBuilder.collapseLoops(DL, {OuterLoop, InnerLoop}, ComputeIP);
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   // Verify control flow and BB order.
@@ -1463,11 +1427,7 @@ TEST_F(OpenMPIRBuilderTest, TileSingleLoop) {
   std::vector<CanonicalLoopInfo *> GenLoops =
       OMPBuilder.tileLoops(DL, {Loop}, {TileSize});
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   EXPECT_EQ(GenLoops.size(), 2u);
@@ -1534,11 +1494,7 @@ TEST_F(OpenMPIRBuilderTest, TileNestedLoops) {
   std::vector<CanonicalLoopInfo *> GenLoops = OMPBuilder.tileLoops(
       DL, {OuterLoop, InnerLoop}, {OuterTileSize, InnerTileSize});
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   EXPECT_EQ(GenLoops.size(), 4u);
@@ -1640,11 +1596,7 @@ TEST_F(OpenMPIRBuilderTest, TileNestedLoopsWithBounds) {
   std::vector<CanonicalLoopInfo *> GenLoops =
       OMPBuilder.tileLoops(DL, {OuterLoop, InnerLoop}, {TileSize0, TileSize1});
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   EXPECT_EQ(GenLoops.size(), 4u);
@@ -1797,11 +1749,7 @@ TEST_F(OpenMPIRBuilderTest, TileSingleLoopCounts) {
 
   // Finalize the function.
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
 
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
@@ -1817,11 +1765,7 @@ TEST_F(OpenMPIRBuilderTest, ApplySimd) {
                        /* Simdlen */ nullptr,
                        /* Safelen */ nullptr);
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   PassBuilder PB;
@@ -1862,11 +1806,7 @@ TEST_F(OpenMPIRBuilderTest, ApplySimdCustomAligned) {
                        /* Simdlen */ nullptr,
                        /* Safelen */ nullptr);
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   PassBuilder PB;
@@ -1921,11 +1861,7 @@ TEST_F(OpenMPIRBuilderTest, ApplySimdlen) {
                        ConstantInt::get(Type::getInt32Ty(Ctx), 3),
                        /* Safelen */ nullptr);
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   PassBuilder PB;
@@ -1960,11 +1896,7 @@ TEST_F(OpenMPIRBuilderTest, ApplySafelenOrderConcurrent) {
       CLI, AlignedVars, /* IfCond */ nullptr, OrderKind::OMP_ORDER_concurrent,
       /* Simdlen */ nullptr, ConstantInt::get(Type::getInt32Ty(Ctx), 3));
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   PassBuilder PB;
@@ -2000,11 +1932,7 @@ TEST_F(OpenMPIRBuilderTest, ApplySafelen) {
       CLI, AlignedVars, /* IfCond */ nullptr, OrderKind::OMP_ORDER_unknown,
       /* Simdlen */ nullptr, ConstantInt::get(Type::getInt32Ty(Ctx), 3));
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   PassBuilder PB;
@@ -2039,11 +1967,7 @@ TEST_F(OpenMPIRBuilderTest, ApplySimdlenSafelen) {
                        ConstantInt::get(Type::getInt32Ty(Ctx), 2),
                        ConstantInt::get(Type::getInt32Ty(Ctx), 3));
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   PassBuilder PB;
@@ -2089,11 +2013,7 @@ TEST_F(OpenMPIRBuilderTest, ApplySimdLoopIf) {
                        ConstantInt::get(Type::getInt32Ty(Ctx), 3),
                        /* Safelen */ nullptr);
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   PassBuilder PB;
@@ -2130,11 +2050,7 @@ TEST_F(OpenMPIRBuilderTest, UnrollLoopFull) {
   // Unroll the loop.
   OMPBuilder.unrollLoopFull(DL, CLI);
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   PassBuilder PB;
@@ -2159,11 +2075,7 @@ TEST_F(OpenMPIRBuilderTest, UnrollLoopPartial) {
   OMPBuilder.unrollLoopPartial(DL, CLI, 5, &UnrolledLoop);
   ASSERT_NE(UnrolledLoop, nullptr);
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
   UnrolledLoop->assertOK();
 
@@ -2195,11 +2107,7 @@ TEST_F(OpenMPIRBuilderTest, UnrollLoopHeuristic) {
   // Unroll the loop.
   OMPBuilder.unrollLoopHeuristic(DL, CLI);
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   PassBuilder PB;
@@ -2333,11 +2241,7 @@ TEST_P(OpenMPIRBuilderTestWithIVBits, StaticChunkedWorkshareLoop) {
   OMPBuilder.applyWorkshareLoop(DL, CLI, AllocaIP, /*NeedsBarrier=*/true,
                                 OMP_SCHEDULE_Static, ChunkSize);
 
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   BasicBlock *Entry = &F->getEntryBlock();
@@ -2526,11 +2430,7 @@ TEST_P(OpenMPIRBuilderTestWithParams, DynamicWorkShareLoop) {
   // Add a termination to our block and check that it is internally consistent.
   Builder.restoreIP(EndIP);
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
 
@@ -2591,11 +2491,7 @@ TEST_F(OpenMPIRBuilderTest, DynamicWorkShareLoopOrdered) {
   // Add a termination to our block and check that it is internally consistent.
   Builder.restoreIP(EndIP);
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   CallInst *InitCall = nullptr;
@@ -2893,11 +2789,7 @@ TEST_F(OpenMPIRBuilderTest, OrderedDirectiveDependSource) {
                                                    /*IsDependSource=*/true));
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   AllocaInst *AllocInst = dyn_cast<AllocaInst>(&BB->front());
@@ -2982,11 +2874,7 @@ TEST_F(OpenMPIRBuilderTest, OrderedDirectiveDependSink) {
                                                    /*IsDependSource=*/false));
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   AllocaInst *AllocInst = dyn_cast<AllocaInst>(&BB->front());
@@ -3081,11 +2969,7 @@ TEST_F(OpenMPIRBuilderTest, OrderedDirectiveThreads) {
       OMPBuilder.createOrderedThreadsSimd(Builder, BodyGenCB, FiniCB, true));
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   EXPECT_NE(EntryBB->getTerminator(), nullptr);
@@ -3156,11 +3040,7 @@ TEST_F(OpenMPIRBuilderTest, OrderedDirectiveSimd) {
       OMPBuilder.createOrderedThreadsSimd(Builder, BodyGenCB, FiniCB, false));
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 
   EXPECT_NE(EntryBB->getTerminator(), nullptr);
@@ -3443,11 +3323,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicReadFlt) {
   EXPECT_EQ(StoreofAtomic->getPointerOperand(), VVal);
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
 
@@ -3495,11 +3371,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicReadInt) {
   EXPECT_EQ(StoreofAtomic->getValueOperand(), AtomicLoad);
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
 
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
@@ -3533,11 +3405,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicWriteFlt) {
   EXPECT_TRUE(StoreofAtomic->isAtomic());
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
 
@@ -3577,11 +3445,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicWriteInt) {
   EXPECT_EQ(StoreofAtomic->getValueOperand(), ValToWrite);
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
 
@@ -3648,11 +3512,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdate) {
   EXPECT_EQ(UpdateTemp, Ld->getPointerOperand());
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
 
@@ -3718,11 +3578,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdateFloat) {
   EXPECT_NE(Ld, nullptr);
   EXPECT_EQ(UpdateTemp, Ld->getPointerOperand());
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
 
@@ -3789,11 +3645,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdateIntr) {
   EXPECT_EQ(UpdateTemp, Ld->getPointerOperand());
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
 
@@ -3843,11 +3695,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicCapture) {
   EXPECT_EQ(St->getPointerOperand(), VVal);
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
 
@@ -3907,11 +3755,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicCompare) {
   EXPECT_EQ(AXCHG->getNewValOperand(), D);
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
 
@@ -4162,11 +4006,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicCompareCapture) {
   EXPECT_EQ(Store8->getValueOperand(), Sel2);
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   EXPECT_FALSE(verifyModule(*M, &errs()));
 }
 
@@ -5336,11 +5176,7 @@ TEST_F(OpenMPIRBuilderTest, TargetRegion) {
   Builder.restoreIP(OMPBuilder.createTarget(OmpLoc, Builder.saveIP(),
                                             Builder.saveIP(), EntryInfo, -1, 0,
                                             Inputs, GenMapInfoCB, BodyGenCB));
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   Builder.CreateRetVoid();
 
   // Check the kernel launch sequence
@@ -5419,11 +5255,7 @@ TEST_F(OpenMPIRBuilderTest, TargetRegionDevice) {
       /*NumThreads=*/0, CapturedArgs, GenMapInfoCB, BodyGenCB));
 
   Builder.CreateRetVoid();
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
 
   // Check outlined function
   EXPECT_FALSE(verifyModule(*M, &errs()));
@@ -5537,11 +5369,7 @@ TEST_F(OpenMPIRBuilderTest, CreateTask) {
   Builder.restoreIP(OMPBuilder.createTask(
       Loc, InsertPointTy(AllocaBB, AllocaBB->getFirstInsertionPt()),
       BodyGenCB));
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   Builder.CreateRetVoid();
 
   EXPECT_FALSE(verifyModule(*M, &errs()));
@@ -5643,11 +5471,7 @@ TEST_F(OpenMPIRBuilderTest, CreateTaskNoArgs) {
   Builder.restoreIP(OMPBuilder.createTask(
       Loc, InsertPointTy(AllocaBB, AllocaBB->getFirstInsertionPt()),
       BodyGenCB));
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   Builder.CreateRetVoid();
 
   EXPECT_FALSE(verifyModule(*M, &errs()));
@@ -5667,11 +5491,7 @@ TEST_F(OpenMPIRBuilderTest, CreateTaskUntied) {
   Builder.restoreIP(OMPBuilder.createTask(
       Loc, InsertPointTy(AllocaBB, AllocaBB->getFirstInsertionPt()), BodyGenCB,
       /*Tied=*/false));
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   Builder.CreateRetVoid();
 
   // Check for the `Tied` argument
@@ -5707,11 +5527,7 @@ TEST_F(OpenMPIRBuilderTest, CreateTaskDepend) {
   Builder.restoreIP(OMPBuilder.createTask(
       Loc, InsertPointTy(AllocaBB, AllocaBB->getFirstInsertionPt()), BodyGenCB,
       /*Tied=*/false, /*Final*/ nullptr, /*IfCondition*/ nullptr, DDS));
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   Builder.CreateRetVoid();
 
   // Check for the `NumDeps` argument
@@ -5779,11 +5595,7 @@ TEST_F(OpenMPIRBuilderTest, CreateTaskFinal) {
   OpenMPIRBuilder::LocationDescription Loc(Builder.saveIP(), DL);
   Builder.restoreIP(OMPBuilder.createTask(Loc, AllocaIP, BodyGenCB,
                                           /*Tied=*/false, Final));
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   Builder.CreateRetVoid();
 
   // Check for the `Tied` argument
@@ -5837,11 +5649,7 @@ TEST_F(OpenMPIRBuilderTest, CreateTaskIfCondition) {
   Builder.restoreIP(OMPBuilder.createTask(Loc, AllocaIP, BodyGenCB,
                                           /*Tied=*/false, /*Final=*/nullptr,
                                           IfCondition));
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   Builder.CreateRetVoid();
 
   EXPECT_FALSE(verifyModule(*M, &errs()));
@@ -5932,11 +5740,7 @@ TEST_F(OpenMPIRBuilderTest, CreateTaskgroup) {
   Builder.restoreIP(OMPBuilder.createTaskgroup(
       Loc, InsertPointTy(AllocaBB, AllocaBB->getFirstInsertionPt()),
       BodyGenCB));
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   Builder.CreateRetVoid();
 
   EXPECT_FALSE(verifyModule(*M, &errs()));
@@ -6029,11 +5833,7 @@ TEST_F(OpenMPIRBuilderTest, CreateTaskgroupWithTasks) {
   Builder.restoreIP(OMPBuilder.createTaskgroup(
       Loc, InsertPointTy(AllocaBB, AllocaBB->getFirstInsertionPt()),
       BodyGenCB));
-#if INTEL_COLLAB
-  OMPBuilder.finalize(false /* IsLateOutline */);
-#else
   OMPBuilder.finalize();
-#endif
   Builder.CreateRetVoid();
 
   EXPECT_FALSE(verifyModule(*M, &errs()));
@@ -6163,7 +5963,7 @@ TEST_F(OpenMPIRBuilderTest, registerTargetGlobalVariable) {
       OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo,
       OffloadEntriesInfoManager::OMPTargetDeviceClauseAny, false, true,
 #if INTEL_COLLAB
-      false, 0,
+      0,
 #endif // INTEL_COLLAB
       EntryInfo, Globals[0]->getName(), RefsGathered, false, TargetTriple,
       nullptr, nullptr, Globals[0]->getType(), Globals[0]);
@@ -6172,7 +5972,7 @@ TEST_F(OpenMPIRBuilderTest, registerTargetGlobalVariable) {
       OffloadEntriesInfoManager::OMPTargetGlobalVarEntryLink,
       OffloadEntriesInfoManager::OMPTargetDeviceClauseAny, false, true,
 #if INTEL_COLLAB
-      false, 0,
+      0,
 #endif // INTEL_COLLAB
       EntryInfo, Globals[1]->getName(), RefsGathered, false, TargetTriple,
       nullptr, nullptr, Globals[1]->getType(), Globals[1]);
@@ -6186,11 +5986,7 @@ TEST_F(OpenMPIRBuilderTest, registerTargetGlobalVariable) {
     ASSERT_EQ(Kind, Kind);
   };
 
-#if INTEL_COLLAB
-  OMPBuilder.createOffloadEntriesAndInfoMetadata(false, ErrorReportfn);
-#else  // INTEL_COLLAB
   OMPBuilder.createOffloadEntriesAndInfoMetadata(ErrorReportfn);
-#endif // INTEL_COLLAB
 
   // Clauses for data_int_0 with To + Any clauses for the host
   std::vector<GlobalVariable *> OffloadEntries;
