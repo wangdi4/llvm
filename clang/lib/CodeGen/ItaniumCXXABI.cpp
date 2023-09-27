@@ -2720,14 +2720,11 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
 #endif // INTEL_CUSTOMIZATION
     }
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   ClangGuardTy = CGF.CGM.getContext().getPointerType(ClangGuardTy);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 03e80a0b70837fd7f0116b1deb303547d91bca1c
   llvm::PointerType *guardPtrTy = llvm::PointerType::get(
       CGF.CGM.getLLVMContext(),
       CGF.CGM.getDataLayout().getDefaultGlobalsAddressSpace());
@@ -4113,14 +4110,11 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(QualType Ty) {
     assert(!OldGV->hasAvailableExternallyLinkage() &&
            "available_externally typeinfos not yet implemented");
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
     if (CGM.getTriple().isSPIR())
       return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
           OldGV, CGM.DefaultInt8PtrTy);
 #endif // INTEL_COLLAB
-=======
->>>>>>> 03e80a0b70837fd7f0116b1deb303547d91bca1c
     return OldGV;
   }
 
@@ -4183,15 +4177,12 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
     TypeNameField =
         llvm::ConstantExpr::getIntToPtr(TypeNameField, CGM.GlobalsInt8PtrTy);
   } else {
-<<<<<<< HEAD
 #if INTEL_COLLAB
     if (CGM.getTriple().isSPIR())
       TypeNameField = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
           TypeName, CGM.DefaultInt8PtrTy);
     else
 #endif // INTEL_COLLAB
-=======
->>>>>>> 03e80a0b70837fd7f0116b1deb303547d91bca1c
     TypeNameField = TypeName;
   }
   Fields.push_back(TypeNameField);
@@ -4364,14 +4355,11 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   if (CGM.getTriple().isSPIR())
     return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
         GV, CGM.DefaultInt8PtrTy);
 #endif // INTEL_COLLAB
-=======
->>>>>>> 03e80a0b70837fd7f0116b1deb303547d91bca1c
   return GV;
 }
 
