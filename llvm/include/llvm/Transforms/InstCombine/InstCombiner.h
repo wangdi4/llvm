@@ -142,6 +142,9 @@ protected:
   /// Edges that are known to never be taken.
   SmallDenseSet<std::pair<BasicBlock *, BasicBlock *>, 8> DeadEdges;
 
+  /// Order of predecessors to canonicalize phi nodes towards.
+  SmallDenseMap<BasicBlock *, SmallVector<BasicBlock *>, 8> PredOrder;
+
 public:
   InstCombiner(InstructionWorklist &Worklist, BuilderTy &Builder,
 #if INTEL_CUSTOMIZATION
