@@ -632,13 +632,44 @@ VPlanTTICostModel::getOtherCallCost(const VPCallInstruction *VPCall,
 
   case VPCallInstruction::CallVecScenariosTy::LibraryFunc:
   case VPCallInstruction::CallVecScenariosTy::VectorVariant:
-  case VPCallInstruction::CallVecScenariosTy::UnmaskedWiden:
+  case VPCallInstruction::CallVecScenariosTy::UnmaskedWiden: {
     // Assuming the same cost as a call of scalar function, just that vector
     // variant contains the same number of intsructions.
     // TODO: in case PumpFactor is > 1 we need to account extract/insert
     // of vector parameters and return value.
-    return DefCost * VPCall->getPumpFactor();
+    unsigned PumpFactor = VPCall->getPumpFactor();
 
+    if (isOpenCLSinCos(CB.getCalledFunction()->getName())) {
+      assert(PumpFactor == 1 &&
+             "Pumping feature is not supported for OpenCL sincos.");
+      return DefCost;
+    }
+    if (PumpFactor == 1 &&
+        VS == VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
+        isSVMLFunction(TLI, CB.getCalledFunction()->getName(),
+                       VPCall->getVectorLibraryFunc())) {
+      auto DefTy = CB.getType();
+      LibFunc CallF;
+      if (TLI->getLibFunc(*CB.getCalledFunction(), CallF) &&
+          (CallF == LibFunc_sincos || CallF == LibFunc_sincosf)) {
+        Type *ElementType = CB.getArgOperand(0)->getType();
+        DefTy = StructType::get(ElementType, ElementType);
+      }
+      assert(!DefTy->isVoidTy() && "Expecting non-void type");
+
+      unsigned MultVF = 1;
+      if (auto StructTy = dyn_cast<StructType>(DefTy)) {
+        assert(StructTy->getNumElements() == 2 && "Expect 2-field struct");
+        DefTy = StructTy->getElementType(0);
+        assert(StructTy->getElementType(1) == DefTy &&
+               "Expect equal types in struct");
+        MultVF = 2;
+      }
+      PumpFactor = TTI.getNumberOfParts(getWidenedType(DefTy, MultVF * VF));
+    }
+
+    return DefCost * PumpFactor;
+  }
   case VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic:
     assert(false && "Unexpected call scenario");
     return VPInstructionCost::getInvalid(); // in product compiler return
