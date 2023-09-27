@@ -134,10 +134,17 @@ struct ScopeTy {
   ScopeTy(Function &F) : Entry(&F.getEntryBlock().front()), Exit(nullptr) {
     for (auto &BB : F)
       Blocks.insert(&BB);
+    // Remove entry block because it's the parent block of entry.
+    Blocks.erase(&F.getEntryBlock());
   }
   ScopeTy(Instruction *Entry, Instruction *Exit,
           const DenseSet<BasicBlock *> &Blocks)
-      : Entry(Entry), Exit(Exit), Blocks(Blocks) {}
+      : Entry(Entry), Exit(Exit), Blocks(Blocks) {
+    assert(Entry && "Entry can't be nullptr");
+    assert(Blocks.find(Entry->getParent()) == Blocks.end() &&
+           (!Exit || Blocks.find(Exit->getParent()) == Blocks.end()) &&
+           "Parent block of Entry and Exit shouldn't be in Blocks.");
+  }
   bool coversWholeFunction() const {
     return Entry == &Entry->getFunction()->getEntryBlock().front() &&
            Exit == nullptr;
