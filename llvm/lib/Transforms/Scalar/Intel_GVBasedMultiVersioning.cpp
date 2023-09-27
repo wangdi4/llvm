@@ -368,7 +368,7 @@ static Instruction *getFunctionUniqueExit(Function *F, PostDominatorTree &PDT) {
     Instruction *Term = BB.getTerminator();
     // Only handle the most common terminators for simplicity
     if (!(isa<BranchInst>(Term) || isa<SwitchInst>(Term) ||
-          isa<ReturnInst>(Term)))
+          isa<ReturnInst>(Term) || isa<UnreachableInst>(Term)))
       return nullptr;
     if (isa<ReturnInst>(Term)) {
       NumReturnInst += 1;
@@ -463,8 +463,24 @@ GVBasedMultiVersioning::tryShrinkScope(ScopeTy OldScope,
       return OldScope.Exit ? DT->dominates(NewEntry, OldScope.Exit)
                            : DT->dominates(SplitBB, UniqueExitBB);
     };
-    auto CheckOldExitPostDominatesNewEntry = [this, &OldScope, NewEntry]() {
-      return OldScope.Exit ? GetPDT().dominates(OldScope.Exit, NewEntry) : true;
+    auto CheckOldExitPostDominatesNewEntry = [this, &OldScope, NewEntry,
+                                              UniqueExitBB]() {
+      // A nullptr value of Exit points to the exit of the function, which
+      // certainly post-dominates everything inside the function.
+      if (!OldScope.Exit)
+        return true;
+      // Check with PDT
+      if (GetPDT().dominates(OldScope.Exit, NewEntry))
+        return true;
+      // If the PDT check failed, maybe the function has unreachables and PDT is
+      // unreliable. But the DT is still good. We can utilize the function exit
+      // point (UniqueExitBB) as a proxy to check for a special case, where such
+      // A chain of domination relationship exists: NewEntry => OldScope.Exit
+      // => Function exit. And given we already know the function exit always
+      // post-dominates NewEntry, we can infer OldScope.Exit also post-dominates
+      // NewEntry.
+      return DT->dominates(NewEntry, OldScope.Exit) &&
+             DT->dominates(OldScope.Exit->getParent(), UniqueExitBB);
     };
 
     if (CheckNewEntryDominatesOldExit() &&
@@ -488,6 +504,22 @@ GVBasedMultiVersioning::tryShrinkScope(ScopeTy OldScope,
     filterBBsWithPred(Pred, BBs);
     filterBBsWithPred(Pred, BBsInScope);
     BBsInScope.erase(InstrToExclude->getParent());
+    return ScopeTy(OldScope.Entry, InstrToExclude, BBsInScope);
+  }
+
+  // Another special case to deal with the PDT issues with unreachables, but
+  // tries to set the Exit to InstrToExclude.
+  // Unlike the one in CheckOldExitPostDominatesNewEntry, we need the value of
+  // InstrPostDominatesAllLoads, which is not correct. But if InstrToExclude is
+  // in UniqueExitBB, we can safely say it post-dominates all instructions (sans
+  // the ones after it in UniqueExitBB), and post-dominates all relevant loads
+  // (as UniqueExitBB is guaranteed to have a "return" as terminator).
+  if (InstrToExclude->getParent() == UniqueExitBB &&
+      DT->dominates(OldScope.Entry, InstrToExclude)) {
+    assert((!OldScope.Exit || (OldScope.Exit->getParent() == UniqueExitBB &&
+                               DT->dominates(InstrToExclude, OldScope.Exit))) &&
+           "Old exit should be after InstrToExclude");
+    BBsInScope.erase(UniqueExitBB);
     return ScopeTy(OldScope.Entry, InstrToExclude, BBsInScope);
   }
 
