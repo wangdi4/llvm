@@ -657,6 +657,7 @@
 // RUN: %clang -### -fsycl  %s 2>&1 | FileCheck -check-prefix FSYCL-CHECK %s
 // RUN: %clang_cl -### -fsycl  %s 2>&1 | FileCheck -check-prefix FSYCL-CHECK %s
 // FSYCL-CHECK: warning: treating 'c' input as 'c++' when -fsycl is used [-Wexpected-file-type]
+<<<<<<< HEAD
 
 // INTEL_CUSTOMIZATION
 // -fsycl-targets=<triple>=<opts> usage should be supported
@@ -691,3 +692,5 @@
 // OFFLOAD-NEW-DRIVER: 18: backend, {17}, assembler, (host-sycl)
 // OFFLOAD-NEW-DRIVER: 19: assembler, {18}, object, (host-sycl)
 // OFFLOAD-NEW-DRIVER: 20: clang-linker-wrapper, {19}, image, (host-sycl)
+=======
+>>>>>>> d7a1a4146eb2f35ac9d40db9db671e22291f4320
