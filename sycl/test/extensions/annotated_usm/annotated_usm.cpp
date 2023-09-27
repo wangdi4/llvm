@@ -3,8 +3,10 @@
 
 // Compile-time tests for annotated USM allocation functions
 
-#include "fake_properties.hpp"
+// clang-format off
+
 #include "sycl/sycl.hpp"
+#include "fake_properties.hpp"
 
 // clang-format on
 
@@ -15,7 +17,7 @@ using alloc = sycl::usm::alloc;
 namespace sycl {
 namespace ext::oneapi::experimental {
 
-// Make runtime property `foo` and `foz` valid for annotated USM allocation
+// Make runtime property `foo` and `foz` valid for this test
 template <> struct IsRuntimePropertyValid<foo_key> : std::true_type {};
 template <> struct IsRuntimePropertyValid<foz_key> : std::true_type {};
 
@@ -88,7 +90,7 @@ template <typename T> void testAlloc() {
     // returned annotated_ptr (e.g. `foo`, `foz`)
     properties InP1{conduit, buffer_location<5>};
     properties InP2{conduit, buffer_location<5>, foo{foo_enum::a}, foz{1}};
-    properties OutP{conduit, buffer_location<5>, usm_kind<alloc::device>};
+    properties OutP{conduit, buffer_location<5>, usm_kind_device};
 
     TEST_GROUP(malloc_device_annotated, N, q);
     TEST_GROUP(malloc_device_annotated, N, Dev, Ctx);
@@ -106,7 +108,7 @@ template <typename T> void testAlloc() {
   {
     properties InP1{};
     properties InP2{foo{foo_enum::a}, foz{1.0, 1}};
-    properties OutP{usm_kind<alloc::host>};
+    properties OutP{usm_kind_host};
 
     TEST_GROUP(malloc_host_annotated, N, q);
     TEST_GROUP(malloc_host_annotated, N, Ctx);
@@ -123,7 +125,7 @@ template <typename T> void testAlloc() {
   {
     properties InP1{conduit, buffer_location<5>};
     properties InP2{conduit, buffer_location<5>, foo{foo_enum::a}, foz{0.1, 0}};
-    properties OutP{conduit, buffer_location<5>, usm_kind<alloc::shared>};
+    properties OutP{conduit, buffer_location<5>, usm_kind_shared};
 
     TEST_GROUP(malloc_shared_annotated, N, q);
     TEST_GROUP(malloc_shared_annotated, N, Dev, Ctx);
@@ -174,8 +176,8 @@ template <typename T> void testAlloc() {
   // Test alloc functions where usm_kind property is required in the input
   // property list. usm_kind appears on the returned annotated_ptr
   {
-    properties InP2{usm_kind<alloc::device>, foo{foo_enum::a}, foz{0, 0}};
-    properties OutP{usm_kind<alloc::device>};
+    properties InP2{usm_kind_device, foo{foo_enum::a}, foz{0, 0}};
+    properties OutP{usm_kind_device};
 
     TEST_GROUP_WITH_RUNTIME_PROPERTY(malloc_annotated, N, q);
     TEST_GROUP_WITH_RUNTIME_PROPERTY(malloc_annotated, N, Dev, Ctx);
