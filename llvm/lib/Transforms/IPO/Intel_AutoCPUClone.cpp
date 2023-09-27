@@ -141,7 +141,7 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
   }
 
   std::string DispatchPtrName = OrigName + ".ptr";
-  Type *DispatchPtrType = Fn.getFunctionType()->getPointerTo();
+  Type *DispatchPtrType = PointerType::getUnqual(M->getContext());
   DispatchPtr =
       new GlobalVariable(*M, DispatchPtrType, false, GlobalValue::InternalLinkage,
                          Constant::getNullValue(DispatchPtrType), DispatchPtrName);
@@ -615,9 +615,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
         // the generic, i.e. the .A clone, from the module later in the
         // pass pipeline.
         if (GenerateVectorVariants && VFInfo::isVectorVariant(Fn->getName())) {
-          if (isa<ReturnInst>(Inst))
-            IFUse.set(Constant::getNullValue(Fn->getType()->getPointerTo()));
-          else if (auto *Store = dyn_cast<StoreInst>(Inst))
+          if (isa<ReturnInst>(Inst)) {
+            auto PTy = PointerType::getUnqual(M.getContext());
+            IFUse.set(Constant::getNullValue(PTy));
+          } else if (auto *Store = dyn_cast<StoreInst>(Inst))
             Store->eraseFromParent();
         }
         continue;

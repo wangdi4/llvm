@@ -293,10 +293,8 @@ public:
 
   DTransType *getPointerElementType() const { return PointeeType; }
 
-  // TODO: When the opaque pointers are enabled, this will need to be changed to
-  // just return an opaque pointer.
   llvm::Type *getLLVMType() const {
-    return getPointerElementType()->getLLVMType()->getPointerTo();
+    return PointerType::getUnqual(getContext());
   }
 
   // Return a metadata node that describes the type.

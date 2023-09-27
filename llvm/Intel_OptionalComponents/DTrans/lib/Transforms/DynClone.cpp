@@ -2870,11 +2870,12 @@ void DynCloneImpl<InfoClass>::transformInitRoutine(void) {
                                             InitRoutine, PostLoopBB);
 
     IRBuilder<> PLB(PreLoopBB->getTerminator());
-
+    LLVMContext &Ctx = CI->getModule()->getContext();
     Value *LCount = AllocCallSizes[CI];
     Value *SrcPtr =
-        PLB.CreateBitCast(AllocCallRets[CI], OrigTy->getPointerTo());
-    Value *DstPtr = PLB.CreateBitCast(AllocCallRets[CI], NewTy->getPointerTo());
+        PLB.CreateBitCast(AllocCallRets[CI], PointerType::getUnqual(Ctx));
+    Value *DstPtr =
+        PLB.CreateBitCast(AllocCallRets[CI], PointerType::getUnqual(Ctx));
 
     PLB.CreateBr(LoopBB);
     PreLoopBB->getTerminator()->eraseFromParent();
@@ -2982,9 +2983,10 @@ void DynCloneImpl<InfoClass>::transformInitRoutine(void) {
     Value *Index = IRB.CreateSDiv(PtrDiff, SSize);
     // Use Index to get position of the pointer in new layout.
     Type *NewTy = TransformedTypeMap[cast<StructType>(StTy)];
-    Value *BC = IRB.CreateBitCast(RetPtr, NewTy->getPointerTo());
+    LLVMContext &Ctx = RetPtr->getModule()->getContext();
+    Value *BC = IRB.CreateBitCast(RetPtr, PointerType::getUnqual(Ctx));
     Value *NewPtr = IRB.CreateInBoundsGEP(NewTy, BC, ArrayRef(Index));
-    Value *NewBCPtr = IRB.CreateBitCast(NewPtr, StTy->getPointerTo());
+    Value *NewBCPtr = IRB.CreateBitCast(NewPtr, PointerType::getUnqual(Ctx));
     auto *UBI = IRB.CreateBr(MergeBB);
     (void)UBI;
 
@@ -3089,7 +3091,8 @@ void DynCloneImpl<InfoClass>::transformInitRoutine(void) {
           IRBuilder<> LBody(AddInst);
           Indices.clear();
           Indices.push_back(LoopIdx);
-          Type *PTy = Ty->getPointerTo();
+          LLVMContext &Ctx = CI->getModule()->getContext();
+          Type *PTy = PointerType::getUnqual(Ctx);
           Value *GEP = LBody.CreateInBoundsGEP(PTy, LPair.first, Indices);
           LLVM_DEBUG(dbgs() << "  " << *GEP << "\n");
 
