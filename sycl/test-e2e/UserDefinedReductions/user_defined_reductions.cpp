@@ -3,7 +3,6 @@
 //
 // UNSUPPORTED: cuda || hip
 
-#include <complex>
 #include <numeric>
 
 #include <sycl/ext/oneapi/experimental/user_defined_reductions.hpp>

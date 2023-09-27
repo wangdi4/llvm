@@ -1,10 +1,8 @@
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
 
-#include <cmath>
 #include <iomanip>
 #include <iostream>
-
 #include <sycl.hpp>
 
 template <typename T> T get_ulp_std(T x) {

@@ -15,6 +15,7 @@
 #include <sycl/marray.hpp>                     // for marray
 #include <sycl/types.hpp>                      // for vec
 
+#include <complex>     // for complex
 #include <cstddef>     // for byte, size_t
 #include <functional>  // for logical_and, logical_or
 #include <limits>      // for numeric_limits
@@ -74,11 +75,9 @@ using IsLogicalOR =
                        std::is_same_v<BinaryOperation, sycl::logical_or<T>> ||
                        std::is_same_v<BinaryOperation, sycl::logical_or<void>>>;
 
-// Use SFINAE so that the "true" branch could be implemented in
-// include/sycl/stl_wrappers/complex that would only be available if STL's
-// <complex> is included by users.
-template <typename T, typename = void>
-struct isComplex : public std::false_type {};
+template <typename T>
+using isComplex = std::bool_constant<std::is_same_v<T, std::complex<float>> ||
+                                     std::is_same_v<T, std::complex<double>>>;
 
 // Identity = 0
 template <typename T, class BinaryOperation>
