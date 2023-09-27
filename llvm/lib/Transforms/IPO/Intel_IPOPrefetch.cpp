@@ -2244,7 +2244,7 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
 
     Builder.SetInsertPoint(&*It);
     Value *PrefetchAddr = Builder.CreateBitCast(
-        DLInst->getPointerOperand(), Type::getInt8PtrTy(M.getContext()),
+        DLInst->getPointerOperand(), PointerType::getUnqual(M.getContext()),
         "bitcast-for-prefetch0");
 
     // insert a prefetch(addr,3) intrinsic: prefetch into L3 cache
@@ -2294,7 +2294,8 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
           Ptr2Int, ConstantInt::get(I64, Offset), "intplusoffset");
 
       Value *PrefetchAddr2 = Builder.CreateIntToPtr(
-          IntPlusOffset, Type::getInt8PtrTy(M.getContext()), "prefetch2-addr");
+          IntPlusOffset, PointerType::getUnqual(M.getContext()),
+          "prefetch2-addr");
 
       // insert the 2nd prefetch(addr2,3) intrinsic:
       CallInst *PrefetchInst2 = Builder.CreateCall(
