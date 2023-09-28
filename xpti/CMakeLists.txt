@@ -113,19 +113,8 @@ if (LLVM_BINARY_DIR)
   add_dependencies(xpti xpti-headers)
 endif()
 
-# INTEL_CUSTOMIZATION
-# The product compiler places sycl-related headers specifically in the
-# component-private area.
-if(INTEL_DEPLOY_UNIFIED_LAYOUT)
-  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/xpti
-    DESTINATION "opt/${INTEL_DEPLOY_PKGCOMP_NAME}/include/sycl/xpti"
-    COMPONENT xpti
-  )
-else()
-  include(GNUInstallDirs)
-  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/xpti
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-    COMPONENT xpti
-  )
-endif()
-# end INTEL_CUSTOMIZATION
+include(GNUInstallDirs)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/xpti
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  COMPONENT xpti
+)
