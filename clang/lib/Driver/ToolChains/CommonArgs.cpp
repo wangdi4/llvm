@@ -1056,7 +1056,6 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                          /*IsLTO=*/true, PluginOptPrefix);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
                                    const llvm::opt::ArgList &Args,
@@ -1505,7 +1504,6 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
 /// Adds the '-lcgpu' and '-lmgpu' libraries to the compilation to include the
 /// LLVM C library for GPUs.
 static void addOpenMPDeviceLibC(const ToolChain &TC, const ArgList &Args,
@@ -1526,7 +1524,6 @@ static void addOpenMPDeviceLibC(const ToolChain &TC, const ArgList &Args,
   }
 }
 
->>>>>>> 7b5e20d643f0906ddef6e0dfa24dc651e72049b7
 void tools::addOpenMPRuntimeLibraryPath(const ToolChain &TC,
                                         const ArgList &Args,
                                         ArgStringList &CmdArgs) {
