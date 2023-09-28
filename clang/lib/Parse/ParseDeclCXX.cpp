@@ -4336,7 +4336,7 @@ Parser::TryParseCXX11AttributeIdentifier(SourceLocation &Loc,
   }
 }
 
-void Parser::ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
+void Parser::ParseOpenMPAttributeArgs(const IdentifierInfo *AttrName,
 #if INTEL_COLLAB
                                       bool IsExtension,
 #endif // INTEL_COLLAB
@@ -4382,7 +4382,7 @@ void Parser::ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
       //  * An identifier (omp) for the attribute namespace followed by ::
       //  * An identifier (directive) or an identifier (sequence).
       SourceLocation IdentLoc;
-      IdentifierInfo *Ident = TryParseCXX11AttributeIdentifier(IdentLoc);
+      const IdentifierInfo *Ident = TryParseCXX11AttributeIdentifier(IdentLoc);
 
 #if INTEL_COLLAB
       // If there is an identifier and it is 'omp' or 'ompx', a double colon is
