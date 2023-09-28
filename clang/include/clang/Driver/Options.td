@@ -3819,6 +3819,13 @@ def fopenmp_max_parallel_jobs_EQ
                "images or AOT compilation of each device image.">;
 def fiopenmp_offload : Flag<["-"], "fiopenmp-offload">, Flags<[NoXarchOption]>, Group<f_Group>;
 def fno_iopenmp_offload : Flag<["-"], "fno-iopenmp-offload">, Flags<[NoXarchOption]>, Group<f_Group>;
+
+def fopenmp_loop_rotation_control : Joined<["-"], "fopenmp-loop-rotation-control=">,
+   Group<f_Group>, Visibility<[ClangOption, CC1Option]>,
+   MarshallingInfoInt<CodeGenOpts<"OpenMPRotateLoops">, "1">,
+   HelpText<"Specify which OpenMP loops are rotated when late-outlining ("
+   "0:none, 1:collapsed, 2:uncollapsed, 7:all). Default is 1.">;
+
 def fopenmp_declare_target_scalar_defaultmap_EQ : Joined<["-"], "fopenmp-declare-target-scalar-defaultmap=">,
   Flags<[NoXarchOption]>, Values<"firstprivate, default">, HelpText<"Assume that a scalar "
   "declare target variable with implicit data-mapping referenced in a 'target' construct has the "
