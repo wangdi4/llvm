@@ -1371,17 +1371,18 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
 /// errors in the condition.
 /// Additionally, it will assign the location of the outer-most '(' and ')',
 /// to LParenLoc and RParenLoc, respectively.
-bool Parser::ParseParenExprOrCondition(
-    StmtResult *InitStmt, Sema::ConditionResult &Cond, SourceLocation Loc,
-    Sema::ConditionKind CK, SourceLocation &LParenLoc,
-    SourceLocation &RParenLoc, SourceLocation ConstexprLoc) {
+bool Parser::ParseParenExprOrCondition(StmtResult *InitStmt,
+                                       Sema::ConditionResult &Cond,
+                                       SourceLocation Loc,
+                                       Sema::ConditionKind CK,
+                                       SourceLocation &LParenLoc,
+                                       SourceLocation &RParenLoc) {
   BalancedDelimiterTracker T(*this, tok::l_paren);
   T.consumeOpen();
   SourceLocation Start = Tok.getLocation();
 
   if (getLangOpts().CPlusPlus) {
-    Cond = ParseCXXCondition(InitStmt, Loc, CK, false, nullptr, false,
-                             ConstexprLoc);
+    Cond = ParseCXXCondition(InitStmt, Loc, CK, false);
   } else {
     ExprResult CondExpr = ParseExpression();
 
@@ -1541,13 +1542,12 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   bool IsConsteval = false;
   SourceLocation NotLocation;
   SourceLocation ConstevalLoc;
-  SourceLocation ConstexprLoc;
 
   if (Tok.is(tok::kw_constexpr)) {
     Diag(Tok, getLangOpts().CPlusPlus17 ? diag::warn_cxx14_compat_constexpr_if
                                         : diag::ext_constexpr_if);
     IsConstexpr = true;
-    ConstexprLoc = ConsumeToken();
+    ConsumeToken();
   } else {
     if (Tok.is(tok::exclaim)) {
       NotLocation = ConsumeToken();
@@ -1593,7 +1593,7 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
     if (ParseParenExprOrCondition(&InitStmt, Cond, IfLoc,
                                   IsConstexpr ? Sema::ConditionKind::ConstexprIf
                                               : Sema::ConditionKind::Boolean,
-                                  LParen, RParen, ConstexprLoc))
+                                  LParen, RParen))
       return StmtError();
 
     if (IsConstexpr)
@@ -1636,16 +1636,11 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
     if (NotLocation.isInvalid() && IsConsteval) {
       Context = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
       ShouldEnter = true;
-    } else if (NotLocation.isValid() && IsConsteval) {
-      Context = Actions.ExprEvalContexts.back().Context;
-      ShouldEnter = true;
     }
 
     EnterExpressionEvaluationContext PotentiallyDiscarded(
         Actions, Context, nullptr,
         Sema::ExpressionEvaluationContextRecord::EK_Other, ShouldEnter);
-    if (NotLocation.isValid() && IsConsteval)
-      Actions.ExprEvalContexts.back().IsRuntimeEvaluated = true;
     ThenStmt = ParseStatement(&InnerStatementTrailingElseLoc);
   }
 
@@ -1686,16 +1681,11 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
     if (NotLocation.isValid() && IsConsteval) {
       Context = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
       ShouldEnter = true;
-    } else if (NotLocation.isInvalid() && IsConsteval) {
-      Context = Actions.ExprEvalContexts.back().Context;
-      ShouldEnter = true;
     }
 
     EnterExpressionEvaluationContext PotentiallyDiscarded(
         Actions, Context, nullptr,
         Sema::ExpressionEvaluationContextRecord::EK_Other, ShouldEnter);
-    if (NotLocation.isInvalid() && IsConsteval)
-      Actions.ExprEvalContexts.back().IsRuntimeEvaluated = true;
     ElseStmt = ParseStatement();
 
     if (ElseStmt.isUsable())
