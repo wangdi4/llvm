@@ -357,7 +357,8 @@ class DDTest {
 
   void splitDVForForwardBackwardEdge(DirectionVector &ForwardDV,
                                      DirectionVector &BackwardDV,
-                                     unsigned MaxLevel) const;
+                                     unsigned MaxLevel,
+                                     bool SplittingForBiDirection) const;
 
   /// \brief Query LLVM Alias Analysis to check if there is no aliasing between
   /// \p SrcDDRef and \p DstDDref (ex. due to TBAA or AliasScopes). A \p
@@ -376,8 +377,7 @@ class DDTest {
   ///  BiDirectional
   void setDVForBiDirection(DirectionVector &ForwardDV,
                            DirectionVector &BackwardDV,
-                           const Dependences &Result, unsigned Levels,
-                           unsigned LTGTLevel);
+                           const Dependences &Result, unsigned Levels);
   ///  LoopIndependent (= =)
   void setDVForLoopIndependent(DirectionVector &ForwardDV,
                                DirectionVector &BackwardDV,
