@@ -191,11 +191,14 @@ bool VFAnalysisInfo::hasUnsupportedPatterns(Function *Kernel) {
   // - Either the called function contains subgroups.
   // - Or the called function is flaged as "kernel-call-once" (VPlan can't
   //   serialize in this situation).
+  // - Or the called function is an intel indirect call.
   if (!SYCLEnableVectorizationOfByvalByrefFunctions) {
     if (hasFunctionCallInCGNodeIf(Node, [](const Function *CalledFunc) {
           return hasByvalByrefArgs(CalledFunc) &&
                  (CalledFunc->hasFnAttribute(KernelAttribute::HasSubGroups) ||
-                  CalledFunc->hasFnAttribute(KernelAttribute::CallOnce));
+                  CalledFunc->hasFnAttribute(KernelAttribute::CallOnce) ||
+                  (CalledFunc &&
+                   CalledFunc->getName().startswith("__intel_indirect_call")));
         })) {
       LLVM_DEBUG(dbgs() << "Can't be vectorized<byval/byref>\n");
       // Users have no control over byval/byref attributes, so we don't report
