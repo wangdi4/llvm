@@ -1984,19 +1984,14 @@ void SYCLToolChain::AddSYCLIncludeArgs(const clang::driver::Driver &Driver,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
-  // When in the unified layout, the location is in opt/compiler/include/sycl
-  // Use this location when it exists
-  if (!llvm::sys::fs::exists(IncludePath + "/include/sycl") &&
-      llvm::sys::fs::exists(IncludePath + "/../opt/compiler/include/sycl")) {
-    llvm::sys::path::append(IncludePath, "..", "opt", "compiler");
-    llvm::sys::path::append(IncludePath, "include", "sycl");
-  } else {
-    llvm::sys::path::append(IncludePath, "include");
+  if (!llvm::sys::fs::exists(IncludePath + "/include/sycl")) {
+    // Location of SYCL specific headers is <install>/include/sycl, which is
+    // two levels up from the clang binary (Driver installed dir).
+    llvm::sys::path::append(IncludePath, "..");
   }
-#else
-  llvm::sys::path::append(IncludePath, "include");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 #endif // INTEL_CUSTOMIZATION
+  llvm::sys::path::append(IncludePath, "include");
   SmallString<128> SYCLPath(IncludePath);
   llvm::sys::path::append(SYCLPath, "sycl");
   // This is used to provide our wrappers around STL headers that provide
