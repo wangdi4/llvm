@@ -110,7 +110,7 @@ endif()
 # INTEL_CUSTOMIZATION
 # Add c_status.html and cxx_status.html to deploy list
 install(FILES ${CLANG_SOURCE_DIR}/www/c_status.html ${CLANG_SOURCE_DIR}/www/cxx_status.html
-  DESTINATION doc/html
+  DESTINATION "share/doc/${INTEL_DEPLOY_PKGCOMP_NAME}"
   COMPONENT clang-docs
 )
 # end INTEL_CUSTOMIZATION
