@@ -1056,6 +1056,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                          /*IsLTO=*/true, PluginOptPrefix);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
                                    const llvm::opt::ArgList &Args,
@@ -1504,6 +1505,28 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+/// Adds the '-lcgpu' and '-lmgpu' libraries to the compilation to include the
+/// LLVM C library for GPUs.
+static void addOpenMPDeviceLibC(const ToolChain &TC, const ArgList &Args,
+                                ArgStringList &CmdArgs) {
+  if (Args.hasArg(options::OPT_nogpulib) || Args.hasArg(options::OPT_nolibc))
+    return;
+
+  // Check the resource directory for the LLVM libc GPU declarations. If it's
+  // found we can assume that LLVM was built with support for the GPU libc.
+  SmallString<256> LibCDecls(TC.getDriver().ResourceDir);
+  llvm::sys::path::append(LibCDecls, "include", "llvm_libc_wrappers",
+                          "llvm-libc-decls");
+  bool HasLibC = llvm::sys::fs::exists(LibCDecls) &&
+                 llvm::sys::fs::is_directory(LibCDecls);
+  if (Args.hasFlag(options::OPT_gpulibc, options::OPT_nogpulibc, HasLibC)) {
+    CmdArgs.push_back("-lcgpu");
+    CmdArgs.push_back("-lmgpu");
+  }
+}
+
+>>>>>>> 7b5e20d643f0906ddef6e0dfa24dc651e72049b7
 void tools::addOpenMPRuntimeLibraryPath(const ToolChain &TC,
                                         const ArgList &Args,
                                         ArgStringList &CmdArgs) {
@@ -1607,6 +1630,9 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
                    options::OPT_no_offload_new_driver, false))
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lomptarget.devicertl");
+
+  if (IsOffloadingHost)
+    addOpenMPDeviceLibC(TC, Args, CmdArgs);
 
   addArchSpecificRPath(TC, Args, CmdArgs);
   addOpenMPRuntimeLibraryPath(TC, Args, CmdArgs);
