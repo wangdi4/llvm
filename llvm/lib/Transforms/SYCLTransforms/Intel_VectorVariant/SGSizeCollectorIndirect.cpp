@@ -29,6 +29,17 @@ static bool hasVecLength(Function *F, int &VecLength) {
   return false;
 }
 
+// Used to temporarily disable updating vector_function_ptrs and vector-variants
+// attributes for indirect calls with byval args. Kernels calling these types of
+// calls cannot be vectorized yet.
+static bool hasByValArg(Function &Fn) {
+  for (auto &Arg : Fn.args()) {
+    if (Arg.hasByValAttr() || Fn.hasFnAttribute("ByValRemoved"))
+      return true;
+  }
+  return false;
+}
+
 // This pass collects vector lengths from all existing functions and then
 // updates vector_function_ptrs attributes and adds vector-variants attribute
 // for indirect call instructions.
@@ -85,6 +96,8 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
   for (auto &Fn : M) {
     Attribute Attr = Fn.getFnAttribute(Attribute::VectorFunctionPtrsStrAttr);
     if (Attr.isValid()) {
+      if (hasByValArg(Fn))
+        continue;
       SmallVector<StringRef, 4> Ptrs;
       Attr.getValueAsString().split(Ptrs, ",");
 
@@ -142,6 +155,9 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
 
       // We are interested in indirect calls only.
       if (!F || !F->getName().startswith("__intel_indirect_call"))
+        continue;
+
+      if (hasByValArg(*F))
         continue;
 
       AttributeList Attrs = Call.getAttributes();
