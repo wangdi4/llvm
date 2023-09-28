@@ -120,8 +120,8 @@ define void @sub4(ptr nocapture %p, ptr nocapture %q, i32 %n) #0 {
 
 ; CHECK: DD graph for function sub4
 
-; CHECK-DAG:  --> (i32*)(%p)[100 * i1 + i2 + 100] FLOW (<= <)
-; CHECK-DAG:  --> (%p)[100 * i1 + i2 + 101] ANTI (<= <)
+; CHECK-DAG:  --> (i32*)(%p)[100 * i1 + i2 + 100] FLOW (<= <>)
+; CHECK-DAG:  --> (%p)[100 * i1 + i2 + 101] ANTI (= <)
 
 entry:
   br label %for.cond.1.preheader
@@ -166,8 +166,8 @@ define void @sub5(ptr nocapture %p, ptr nocapture %q, i32 %n) #0 {
 ;;            q[i] =  p[100*i - j +11] ; } }
 
 ; CHECK: DD graph for function sub5
-; CHECK-DAG: --> (i32*)(%p)[100 * i1 + -1 * i2 + 110] FLOW (<= <)
-; CHECK-DAG: --> (%p)[100 * i1 + i2 + 101] ANTI (<= <)
+; CHECK-DAG: --> (i32*)(%p)[100 * i1 + -1 * i2 + 110] FLOW (<= <>)
+; CHECK-DAG: --> (%p)[100 * i1 + i2 + 101] ANTI (= <)
 
 entry:
   br label %for.cond.1.preheader
@@ -216,7 +216,7 @@ define void @sub6(ptr nocapture %p, ptr nocapture %q, i64 %n) #0 {
 
 ; CHECK: DD graph for function sub6
 ; CHECK-DAG: (%p)[2 * i1 + -4 * i2] --> (i32*)(%p)[6 * i1 + 8 * i2] FLOW (<= *)
-; CHECK-DAG: (i32*)(%p)[6 * i1 + 8 * i2] --> (%p)[2 * i1 + -4 * i2] ANTI (<= *)
+; CHECK-DAG: (i32*)(%p)[6 * i1 + 8 * i2] --> (%p)[2 * i1 + -4 * i2] ANTI (= <=)
 
 entry:
   br label %for.cond.1.preheader
