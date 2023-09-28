@@ -1238,7 +1238,7 @@ bool VectorCombine::foldSingleElementStore(Instruction &I) {
     // Don't optimize for atomic/volatile load or store. Ensure memory is not
     // modified between, vector type matches store size, and index is inbounds.
     if (!Load->isSimple() || Load->getParent() != SI->getParent() ||
-        !DL.typeSizeEqualsStoreSize(Load->getType()) ||
+        !DL.typeSizeEqualsStoreSize(Load->getType()->getScalarType()) ||
         SrcAddr != SI->getPointerOperand()->stripPointerCasts())
       return false;
 
@@ -1276,7 +1276,7 @@ bool VectorCombine::scalarizeLoadExtract(Instruction &I) {
   auto *VecTy = cast<VectorType>(I.getType());
   auto *LI = cast<LoadInst>(&I);
   const DataLayout &DL = I.getModule()->getDataLayout();
-  if (LI->isVolatile() || !DL.typeSizeEqualsStoreSize(VecTy))
+  if (LI->isVolatile() || !DL.typeSizeEqualsStoreSize(VecTy->getScalarType()))
     return false;
 
   InstructionCost OriginalCost =
