@@ -5711,6 +5711,7 @@ llvm::Error ASTReader::ReadSubmoduleBlock(ModuleFile &F,
       bool InferExportWildcard = Record[Idx++];
       bool ConfigMacrosExhaustive = Record[Idx++];
       bool ModuleMapIsPrivate = Record[Idx++];
+      bool NamedModuleHasNoInit = Record[Idx++];
 
       Module *ParentModule = nullptr;
       if (Parent)
@@ -5761,6 +5762,7 @@ llvm::Error ASTReader::ReadSubmoduleBlock(ModuleFile &F,
       CurrentModule->InferExportWildcard = InferExportWildcard;
       CurrentModule->ConfigMacrosExhaustive = ConfigMacrosExhaustive;
       CurrentModule->ModuleMapIsPrivate = ModuleMapIsPrivate;
+      CurrentModule->NamedModuleHasNoInit = NamedModuleHasNoInit;
       if (DeserializationListener)
         DeserializationListener->ModuleRead(GlobalID, CurrentModule);
 
