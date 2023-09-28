@@ -1128,7 +1128,6 @@ bool MemCpyOptPass::performCallSlotOptzn(Instruction *cpyLoad,
                       MSSA->getMemoryAccess(C));
   }
 
-<<<<<<< HEAD
   // Update AA metadata
   // FIXME: MD_tbaa_struct and MD_mem_parallel_loop_access should also be
   // handled here, but combineMetadata doesn't support them yet
@@ -1140,10 +1139,7 @@ bool MemCpyOptPass::performCallSlotOptzn(Instruction *cpyLoad,
                          LLVMContext::MD_std_container_ptr,
                          LLVMContext::MD_std_container_ptr_iter};
 #endif // INTEL_CUSTOMIZATION
-  combineMetadata(C, cpyLoad, KnownIDs, true);
-=======
   combineAAMetadata(C, cpyLoad);
->>>>>>> 4e6e476329a8359cb381517864ed6f88a152e37b
   if (cpyLoad != cpyStore)
     combineAAMetadata(C, cpyStore);
 
