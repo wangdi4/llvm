@@ -4153,6 +4153,14 @@ public:
       const llvm::function_ref<void(CodeGenFunction &)> BodyGen,
       const llvm::function_ref<void(CodeGenFunction &)> PostIncGen);
 
+#if INTEL_CUSTOMIZATION
+  void EmitOMPInnerLoopRotated(
+      const OMPExecutableDirective &S, const Expr *LoopCond,
+      const Expr *IncExpr,
+      const llvm::function_ref<void(CodeGenFunction &)> BodyGen,
+      const llvm::function_ref<void(CodeGenFunction &)> PostIncGen);
+#endif // INTEL_CUSTOMIZATION
+
   JumpDest getOMPCancelDestination(OpenMPDirectiveKind Kind);
   /// Emit initial code for loop counters of loop-based directives.
   void EmitOMPPrivateLoopCounters(const OMPLoopDirective &S,

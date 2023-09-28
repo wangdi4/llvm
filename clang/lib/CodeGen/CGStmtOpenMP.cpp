@@ -2186,11 +2186,79 @@ void CodeGenFunction::EmitOMPCanonicalLoop(const OMPCanonicalLoop *S) {
   OMPLoopNestStack.push_back(CL);
 }
 
+#if INTEL_CUSTOMIZATION
+void CodeGenFunction::EmitOMPInnerLoopRotated(
+    const OMPExecutableDirective &S, const Expr *LoopCond, const Expr *IncExpr,
+    const llvm::function_ref<void(CodeGenFunction &)> BodyGen,
+    const llvm::function_ref<void(CodeGenFunction &)> PostIncGen) {
+
+  JumpDest LoopExit = getJumpDestInCurrentScope("omp.inner.for.end");
+  llvm::BasicBlock *ExitBlock = LoopExit.getBlock();
+  llvm::BasicBlock *LoopBodyPH = createBasicBlock("omp.inner.for.body.lh");
+
+  // Emit condition.
+  EmitBranchOnBoolExpr(LoopCond, LoopBodyPH, ExitBlock, getProfileCount(&S));
+
+  llvm::BasicBlock *LoopBody = createBasicBlock("omp.inner.for.body");
+  EmitBlock(LoopBodyPH);
+  EmitBranch(LoopBody);
+
+  // If attributes are attached, push to the basic block with them.
+  const auto &OMPED = cast<OMPExecutableDirective>(S);
+  const CapturedStmt *ICS = OMPED.getInnermostCapturedStmt();
+  const Stmt *SS = ICS->getCapturedStmt();
+  const auto *AS = dyn_cast_or_null<AttributedStmt>(SS);
+  OMPLoopNestStack.clear();
+
+  SourceRange R = S.getSourceRange();
+  if (AS)
+    LoopStack.push(LoopBody, CGM.getContext(), CGM.getCodeGenOpts(),
+                   AS->getAttrs(), SourceLocToDebugLoc(R.getBegin()),
+                   SourceLocToDebugLoc(R.getEnd()));
+  else
+    LoopStack.push(LoopBody, SourceLocToDebugLoc(R.getBegin()),
+                   SourceLocToDebugLoc(R.getEnd()));
+
+  EmitBlock(LoopBody);
+  incrementProfileCounter(&S);
+
+  // Create a block for the increment.
+  JumpDest Continue = getJumpDestInCurrentScope("omp.inner.for.inc");
+  BreakContinueStack.push_back(BreakContinue(LoopExit, Continue));
+
+  BodyGen(*this);
+
+  // Emit "IV = IV + 1" and a back-edge to the condition block.
+  EmitBlock(Continue.getBlock());
+
+  GenerateOMPIncrement(IncExpr);
+  PostIncGen(*this);
+  BreakContinueStack.pop_back();
+
+  llvm::BasicBlock *LoopECE = createBasicBlock("omp.inner.for.end_crit_edge");
+  EmitBranchOnBoolExpr(LoopCond, LoopBody, LoopECE, getProfileCount(&S));
+
+  EmitBlock(LoopECE);
+  EmitBranch(LoopExit.getBlock());
+
+  LoopStack.pop();
+  // Emit the fall-through block.
+  EmitBlock(LoopExit.getBlock());
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CodeGenFunction::EmitOMPInnerLoop(
     const OMPExecutableDirective &S, bool RequiresCleanup, const Expr *LoopCond,
     const Expr *IncExpr,
     const llvm::function_ref<void(CodeGenFunction &)> BodyGen,
     const llvm::function_ref<void(CodeGenFunction &)> PostIncGen) {
+
+#if INTEL_CUSTOMIZATION
+  if (CGM.getLangOpts().OpenMPLateOutline &&
+      CGM.getCodeGenOpts().OpenMPRotateLoops & 0x1)
+    return EmitOMPInnerLoopRotated(S, LoopCond, IncExpr, BodyGen, PostIncGen);
+#endif // INTEL_CUSTOMIZATION
+
   auto LoopExit = getJumpDestInCurrentScope("omp.inner.for.end");
 
   // Start the loop with a block that tests the condition.
