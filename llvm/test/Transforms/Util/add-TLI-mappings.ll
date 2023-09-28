@@ -53,23 +53,14 @@ declare double @sin(double) #0
 
 define float @call_llvm.log10.f32(float %in) {
 ; COMMON-LABEL: @call_llvm.log10.f32(
-<<<<<<< HEAD
 ; SVML:         call float @llvm.log10.f32(float %{{.*}}) #[[LOG10:[0-9]+]] ;INTEL
-; LIBMVEC-X86:      call float @llvm.log10.f32(float %{{.*}})
-; MASSV:        call float @llvm.log10.f32(float %{{.*}}) #[[LOG10:[0-9]+]]
-; ACCELERATE:   call float @llvm.log10.f32(float %{{.*}}) #[[LOG10:[0-9]+]]
-; SVML is mapped ;INTEL
-; S;VML-NOT:     _ZGV_LLVM_{{.*}}_llvm.log10.f32({{.*}}) ;INTEL
-=======
-; SVML:         call float @llvm.log10.f32(float %{{.*}})
 ; LIBMVEC-X86:  call float @llvm.log10.f32(float %{{.*}})
 ; MASSV:        call float @llvm.log10.f32(float %{{.*}}) #[[LOG10:[0-9]+]]
 ; ACCELERATE:   call float @llvm.log10.f32(float %{{.*}}) #[[LOG10:[0-9]+]]
 ; SLEEFGNUABI:  call float @llvm.log10.f32(float %{{.*}}) #[[LOG10:[0-9]+]]
 ; ARMPL:        call float @llvm.log10.f32(float %{{.*}}) #[[LOG10:[0-9]+]]
-; No mapping of "llvm.log10.f32" to a vector function for SVML.
-; SVML-NOT:        _ZGV_LLVM_{{.*}}_llvm.log10.f32({{.*}})
->>>>>>> 6a34b12727280cfdd75be66c34a1235136c62e43
+; SVML is mapped ;INTEL
+; S;VML-NOT:       _ZGV_LLVM_{{.*}}_llvm.log10.f32({{.*}}) ;INTEL
 ; LIBMVEC-X86-NOT: _ZGV_LLVM_{{.*}}_llvm.log10.f32({{.*}})
   %call = tail call float @llvm.log10.f32(float %in)
   ret float %call
