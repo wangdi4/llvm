@@ -42,6 +42,7 @@
 #include "clang/Basic/Builtins.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
@@ -1786,8 +1787,15 @@ llvm::Constant *ConstantEmitter::emitForMemory(CodeGenModule &CGM,
   // Zero-extend bool.
   if (C->getType()->isIntegerTy(1) && !destType->isBitIntType()) {
     llvm::Type *boolTy = CGM.getTypes().ConvertTypeForMem(destType);
+<<<<<<< HEAD
     if (!boolTy->isIntegerTy(1)) // INTEL
     return llvm::ConstantExpr::getZExt(C, boolTy);
+=======
+    llvm::Constant *Res = llvm::ConstantFoldCastOperand(
+        llvm::Instruction::ZExt, C, boolTy, CGM.getDataLayout());
+    assert(Res && "Constant folding must succeed");
+    return Res;
+>>>>>>> fb2bdbb83d3913d9d32b28c1de3f3d8b4e6dfc8a
   }
 
   return C;
