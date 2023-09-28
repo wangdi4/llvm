@@ -281,6 +281,10 @@ private:
   Value *getTokenVal(unsigned Symbase) const;
   void addTokenEntry(unsigned Symbase, Value *TokenVal);
 
+  // Performs CG for all the dimensions in the GEP ref, effectively creating a
+  // GEP chain. Returns pointer to the last GEP in the chain.
+  Value *codeGenGEPRefDims(RegDDRef *Ref);
+
   // Handles special casing for SCEVUnknowns possibly representing blobs
   // within HIR framework
   // We don't want to replicate logic for handling add exprs and the like
@@ -923,23 +927,13 @@ Value *CGVisitor::visitScalar(RegDDRef *Ref) {
   return getLvalTerminalAlloca(Ref);
 }
 
-Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
-  assert(Ref && " Reference is null.");
-  LLVM_DEBUG(dbgs() << "cg for RegRef ");
-  LLVM_DEBUG(Ref->dump());
-  LLVM_DEBUG(dbgs() << " Symbase: " << Ref->getSymbase() << " \n");
-
-  if (Ref->isTerminalRef()) {
-    return visitScalar(Ref);
-  }
+Value *CGVisitor::codeGenGEPRefDims(RegDDRef *Ref) {
 
   ScopeDbgLoc GepDbgLoc(*this, Ref->getGepDebugLoc());
 
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
   bool HasVectorIndices = Ref->hasAnyVectorIndices();
-  bool IsAddressOf = Ref->isAddressOf();
-  auto BitCastDestVecOrElemTy = Ref->getBitCastDestVecOrElemType();
 
   // A GEP instruction is allowed to have a mix of scalar and vector operands.
   // However, not all optimizations(especially LLVM loop unroller) are handling
@@ -1063,6 +1057,9 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     }
   }
 
+  bool IsAddressOf = Ref->isAddressOf();
+  auto *BitCastDestVecOrElemTy = Ref->getBitCastDestVecOrElemType();
+
   if (GEPVal->getType()->isVectorTy() && !IsAddressOf &&
       isa<VectorType>(BitCastDestVecOrElemTy)) {
     // When we have a vector of pointers and base src and dest types do not
@@ -1100,7 +1097,22 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     GEPVal = Builder.CreateBitCast(GEPVal, BitCastTy);
   }
 
-  if (IsAddressOf) {
+  return GEPVal;
+}
+
+Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
+  assert(Ref && " Reference is null.");
+  LLVM_DEBUG(dbgs() << "cg for RegRef ");
+  LLVM_DEBUG(Ref->dump());
+  LLVM_DEBUG(dbgs() << " Symbase: " << Ref->getSymbase() << " \n");
+
+  if (Ref->isTerminalRef()) {
+    return visitScalar(Ref);
+  }
+
+  auto *GEPVal = codeGenGEPRefDims(Ref);
+
+  if (Ref->isAddressOf()) {
     return GEPVal;
   }
 
