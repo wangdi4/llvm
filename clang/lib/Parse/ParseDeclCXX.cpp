@@ -4336,14 +4336,10 @@ Parser::TryParseCXX11AttributeIdentifier(SourceLocation &Loc,
   }
 }
 
-<<<<<<< HEAD
-void Parser::ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
+void Parser::ParseOpenMPAttributeArgs(const IdentifierInfo *AttrName,
 #if INTEL_COLLAB
                                       bool IsExtension,
 #endif // INTEL_COLLAB
-=======
-void Parser::ParseOpenMPAttributeArgs(const IdentifierInfo *AttrName,
->>>>>>> 5db790f96c67f6b610e3d436d6d150f8748fda65
                                       CachedTokens &OpenMPTokens) {
   // Both 'sequence' and 'directive' attributes require arguments, so parse the
   // open paren for the argument list.

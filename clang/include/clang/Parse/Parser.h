@@ -3039,14 +3039,10 @@ private:
     return false;
   }
 
-<<<<<<< HEAD
-  void ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
+  void ParseOpenMPAttributeArgs(const IdentifierInfo *AttrName,
 #if INTEL_COLLAB
                                 bool IsExtension,
 #endif // INTEL_COLLAB
-=======
-  void ParseOpenMPAttributeArgs(const IdentifierInfo *AttrName,
->>>>>>> 5db790f96c67f6b610e3d436d6d150f8748fda65
                                 CachedTokens &OpenMPTokens);
 
   void ParseCXX11AttributeSpecifierInternal(ParsedAttributes &Attrs,
