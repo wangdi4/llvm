@@ -243,8 +243,10 @@ private:
   bool findDepInst(const RegDDRef *RVal, const HLInst *&DepInst);
 
   // Check if \p TmpDef is safe to recompute in loop with \p ChunkIdx rather
-  // than use a temp.
-  bool isSafeToRecompute(const RegDDRef *TmpDef, unsigned ChunkIdx,
+  // than use a temp. \p AllowLoads is used to disable recomputing loads
+  // in presence of unsafe calls.
+  bool isSafeToRecompute(const RegDDRef *TmpDef, bool AllowLoads,
+                         unsigned UseChunkIdx,
                          const SymbaseLoopSetTy &SymbaseLoopSet,
                          const HLInst *&DepInst);
 

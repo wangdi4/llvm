@@ -544,8 +544,8 @@ bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
   return false;
 }
 
-bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef,
-                                        unsigned ChunkIdx,
+bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef, bool AllowLoads,
+                                        unsigned UseChunkIdx,
                                         const SymbaseLoopSetTy &RecomputableSBs,
                                         const HLInst *&DepInst) {
   assert(TmpDef->isLval() && "TmpDef is expected to be LVal");
@@ -555,7 +555,8 @@ bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef,
   auto CheckRVal = [&](const RegDDRef *RVal) -> bool {
     unsigned SB = RVal->getSymbase();
 
-    if (RVal->isMemRef() && ModifiedBases.test(RVal->getBasePtrBlobIndex())) {
+    if (RVal->isMemRef() &&
+        (!AllowLoads || ModifiedBases.test(RVal->getBasePtrBlobIndex()))) {
       return false;
     }
 
@@ -567,18 +568,18 @@ bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef,
       // If SB relies on previous SCEX candidate, then check that it exists in
       // RecomputableSBs
       if (SymbaseToCandidatesMap.count(SB)) {
-        return RecomputableSBs.count({SB, ChunkIdx});
+        return RecomputableSBs.count({SB, UseChunkIdx});
       }
 
       return (findDepInst(RVal, DepInst) &&
-              isSafeToRecompute(DepInst->getLvalDDRef(), ChunkIdx,
-                                RecomputableSBs, DepInst));
+              isSafeToRecompute(DepInst->getLvalDDRef(), AllowLoads,
+                                UseChunkIdx, RecomputableSBs, DepInst));
     }
 
     for (auto &Blob : make_range(RVal->blob_begin(), RVal->blob_end())) {
       unsigned BlobSB = Blob->getSymbase();
       if (SymbaseToCandidatesMap.count(BlobSB) &&
-          RecomputableSBs.count({BlobSB, ChunkIdx})) {
+          RecomputableSBs.count({BlobSB, UseChunkIdx})) {
         continue;
       }
 
@@ -775,8 +776,8 @@ void ScalarExpansion::computeInsertNodes() {
       }
 
       const HLInst *DepInst = nullptr;
-      Cand.SafeToRecompute &=
-          isSafeToRecompute(TmpDef, UseChunkID, RecomputableSBs, DepInst);
+      Cand.SafeToRecompute &= isSafeToRecompute(
+          TmpDef, true /*AllowLoads*/, UseChunkID, RecomputableSBs, DepInst);
 
       // If Use is conditional, don't save for recompute set
       if (!ConditionalUse) {
@@ -863,11 +864,24 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
   SmallVector<Gatherer::VectorTy, 8> RefGroups;
   RefGroups.reserve(Chunks.size());
 
-  for (auto &HLNodeList : Chunks) {
+  // Set for tracking Chunk with Unsafe Call
+  SmallSet<unsigned, 4> UnsafeChunks;
+
+  for (const auto &HLNodeList : enumerate(Chunks)) {
     RefGroups.emplace_back();
     auto &CurGroup = RefGroups.back();
+    unsigned ChunkNum = HLNodeList.index();
 
-    for (HLDDNode *Node : HLNodeList) {
+    for (const HLDDNode *Node : HLNodeList.value()) {
+      // Mark chunks with unsafe calls
+      if (!UnsafeChunks.count(ChunkNum)) {
+        if (const auto *Inst = dyn_cast<HLInst>(Node)) {
+          if (Inst->isUnsafeSideEffectsCallInst()) {
+            UnsafeChunks.insert(ChunkNum);
+          }
+        }
+      }
+
       Gatherer::gather(Node, CurGroup);
     }
 
@@ -881,7 +895,6 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
   for (unsigned I = 0, E = RefGroups.size(); I < E - 1; ++I) {
     SymbaseLoopSetTy RecomputableSBs;
     for (DDRef *TmpDefDDRef : RefGroups[I]) {
-
       if (TmpDefDDRef->isRval()) {
         continue;
       }
@@ -901,6 +914,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
 
       unsigned SB = TmpDefDDRef->getSymbase();
       RegDDRef *TmpDef = cast<RegDDRef>(TmpDefDDRef);
+      bool DefChunkUnsafe = !UnsafeChunks.count(I);
 
       for (unsigned J = I + 1; J < E; ++J) {
         bool TempRedefined = false;
@@ -935,14 +949,14 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
           }
 
           // Tentatively check if recomputation is possible, assuming that
-          // previously scalar expanded temps are also available. We want to
-          // bail out for loopnest formation if stripmine is required, which
-          // recomputation avoids. Later we will check if the temp loads are
-          // conditional, in which we will not allow recomputation, but that
-          // logic requires modifying HIR.
+          // previously scalar expanded temps are also available. Bail out here
+          // for loopnest formation if stripmine is required, which
+          // recomputation avoids. Otherwise bail out in presence of any unsafe
+          // calls in previous chunk. Later check for conditional defs which we
+          // cannot legally recompute
           const HLInst *DepInst = nullptr;
-          Cand.SafeToRecompute &=
-              isSafeToRecompute(TmpDef, J, RecomputableSBs, DepInst);
+          Cand.SafeToRecompute &= isSafeToRecompute(TmpDef, DefChunkUnsafe, J,
+                                                    RecomputableSBs, DepInst);
 
           RecomputableSBs.insert({SB, J});
 
@@ -1657,6 +1671,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
       // recurrence
     }
   }
+
   if (!CurLoopPiBlkList.empty()) {
     DistPoints.push_back(CurLoopPiBlkList);
   }
