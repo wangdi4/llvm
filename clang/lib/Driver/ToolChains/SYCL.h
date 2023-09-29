@@ -223,6 +223,11 @@ public:
       return this->HostTC.isPICDefault();
     return false;
   }
+  llvm::codegenoptions::DebugInfoFormat getDefaultDebugFormat() const override {
+    if (this->IsSYCLNativeCPU)
+      return this->HostTC.getDefaultDebugFormat();
+    return ToolChain::getDefaultDebugFormat();
+  }
   bool isPIEDefault(const llvm::opt::ArgList &Args) const override {
     return false;
   }
