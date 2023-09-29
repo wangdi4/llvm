@@ -894,16 +894,10 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
   // Handle Cast instructions.
   if (CastInst *CI = dyn_cast<CastInst>(I)) {
     Value *Source = CI->getOperand(0);
-<<<<<<< HEAD
-    computeValueKnownInPredecessorsImpl(Source, BB, Result, RegionInfo, // INTEL
-                                        Preference, RecursionSet, CxtI);// INTEL
-    if (Result.empty())
-=======
     PredValueInfoTy Vals;
-    computeValueKnownInPredecessorsImpl(Source, BB, Vals, Preference,
-                                        RecursionSet, CxtI);
+    computeValueKnownInPredecessorsImpl(Source, BB, Vals, RegionInfo, // INTEL
+                                        Preference, RecursionSet, CxtI);// INTEL
     if (Vals.empty())
->>>>>>> 5cacf4e688aafbc59f101f0ba190b31fa2234928
       return false;
 
     // Convert the known values.
