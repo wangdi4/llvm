@@ -779,6 +779,8 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
     ThreadRegionInfo &RegionInfo,       // INTEL
     ConstantPreference Preference, DenseSet<Value *> &RecursionSet,
     Instruction *CxtI) {
+  const DataLayout &DL = BB->getModule()->getDataLayout();
+
   // This method walks up use-def chains recursively.  Because of this, we could
   // get into an infinite loop going around loops in the use-def chain.  To
   // prevent this, keep track of what (value, block) pairs we've already visited
@@ -892,16 +894,25 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
   // Handle Cast instructions.
   if (CastInst *CI = dyn_cast<CastInst>(I)) {
     Value *Source = CI->getOperand(0);
+<<<<<<< HEAD
     computeValueKnownInPredecessorsImpl(Source, BB, Result, RegionInfo, // INTEL
                                         Preference, RecursionSet, CxtI);// INTEL
     if (Result.empty())
+=======
+    PredValueInfoTy Vals;
+    computeValueKnownInPredecessorsImpl(Source, BB, Vals, Preference,
+                                        RecursionSet, CxtI);
+    if (Vals.empty())
+>>>>>>> 5cacf4e688aafbc59f101f0ba190b31fa2234928
       return false;
 
     // Convert the known values.
-    for (auto &R : Result)
-      R.first = ConstantExpr::getCast(CI->getOpcode(), R.first, CI->getType());
+    for (auto &Val : Vals)
+      if (Constant *Folded = ConstantFoldCastOperand(CI->getOpcode(), Val.first,
+                                                     CI->getType(), DL))
+        Result.emplace_back(Folded, Val.second);
 
-    return true;
+    return !Result.empty();
   }
 
   if (FreezeInst *FI = dyn_cast<FreezeInst>(I)) {
@@ -1007,7 +1018,6 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
     ThreadRegionInfoTy RegionInfoOp0;                                   // INTEL
     if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(1))) {
-      const DataLayout &DL = BO->getModule()->getDataLayout();
       PredValueInfoTy LHSVals;
       computeValueKnownInPredecessorsImpl(BO->getOperand(0), BB, LHSVals,
                                           RegionInfoOp0,                    // INTEL
