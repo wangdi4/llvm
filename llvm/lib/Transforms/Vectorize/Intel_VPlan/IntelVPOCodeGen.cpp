@@ -19,7 +19,7 @@
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "IntelVPlanVectorizeIndirectCalls.h"
-#include "Legality.h"
+#include "LLVM/LegalityLLVM.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"

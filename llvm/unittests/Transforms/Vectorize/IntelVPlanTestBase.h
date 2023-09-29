@@ -20,7 +20,7 @@
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCFGBuilder.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanHCFGBuilder.h"
-#include "../lib/Transforms/Vectorize/Intel_VPlan/Legality.h"
+#include "../lib/Transforms/Vectorize/Intel_VPlan/LLVM/LegalityLLVM.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"

@@ -36,7 +36,7 @@
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVConflictTransformation.h"
 #include "Intel_VPlan/IntelVPTransformLibraryCalls.h"
-#include "Legality.h"
+#include "LLVM/LegalityLLVM.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CommandLine.h"
