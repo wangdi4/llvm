@@ -1296,8 +1296,7 @@ static bool EvaluateHasIncludeCommon(Token &Tok, IdentifierInfo *II,
   if (PPCallbacks *Callbacks = PP.getPPCallbacks()) {
     SrcMgr::CharacteristicKind FileType = SrcMgr::C_User;
     if (File)
-      FileType =
-          PP.getHeaderSearchInfo().getFileDirFlavor(&File->getFileEntry());
+      FileType = PP.getHeaderSearchInfo().getFileDirFlavor(*File);
     Callbacks->HasInclude(FilenameLoc, Filename, isAngled, File, FileType);
   }
 
