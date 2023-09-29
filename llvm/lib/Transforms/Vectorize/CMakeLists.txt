@@ -92,6 +92,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/HIR/IntelVPlanVLSAnalysisHIR.cpp
   Intel_VPlan/HIR/IntelVPlanVerifierHIR.cpp
   Intel_VPlan/Legality.cpp
+  Intel_VPlan/LLVM/LegalityLLVM.cpp
 # end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS

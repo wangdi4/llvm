@@ -25,7 +25,7 @@
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVerifier.h"
-#include "Legality.h"
+#include "LLVM/LegalityLLVM.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"

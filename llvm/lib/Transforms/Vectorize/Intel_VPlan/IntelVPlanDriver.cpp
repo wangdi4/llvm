@@ -32,7 +32,7 @@
 #include "IntelVPlanVConflictTransformation.h"
 #include "IntelVPlanVLSTransform.h"
 #include "IntelVolcanoOpenCL.h"
-#include "Legality.h"
+#include "LLVM/LegalityLLVM.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/DemandedBits.h"
