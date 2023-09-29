@@ -1129,10 +1129,14 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   auto addllvmOption = [&](const char *Opt) {
     AddllvmOption(TC, Opt, IsLink, Args, CmdArgs);
   };
-  auto SPIRVLoopOptEnabled = [&]() -> bool {
+  auto SPIRVOpenMPLoopOptEnabled = [&]() -> bool {
     return Args.hasArg(options::OPT_fopenmp_target_loopopt) &&
            Args.hasArg(options::OPT_fopenmp_target_simd) &&
-           TC.getTriple().isSPIR();
+           JA.isDeviceOffloading(Action::OFK_OpenMP) && TC.getTriple().isSPIR();
+  };
+  auto SYCLLoopOptEnabled = [&]() -> bool {
+    return Args.hasArg(options::OPT_fsycl_target_loopopt) &&
+           JA.isDeviceOffloading(Action::OFK_SYCL);
   };
 #if INTEL_FEATURE_MARKERCOUNT
   addMarkerCountArgs(TC, Args, CmdArgs, IsLink);
@@ -1140,7 +1144,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   StringRef MLTVal;
   if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
     MLTVal = A->getValue();
-    if (SPIRVLoopOptEnabled() &&
+    if (SPIRVOpenMPLoopOptEnabled() &&
         (MLTVal == "1" || MLTVal == "2" || MLTVal == "3" || MLTVal == "4"))
       ; // qopt-mem-layout-trans >= 1 ignored with -fopenmp-target-loopopt
     else if (MLTVal == "1" || MLTVal == "2" || MLTVal == "3" || MLTVal == "4") {
@@ -1439,7 +1443,8 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
     }
   }
 
-  if (TC.getDriver().IsIntelMode() && SPIRVLoopOptEnabled()) {
+  if (TC.getDriver().IsIntelMode() &&
+      (SPIRVOpenMPLoopOptEnabled() || SYCLLoopOptEnabled())) {
     addllvmOption("-loopopt=1");
     AddLoopOptPipeline("-floopopt-pipeline=light");
   }
@@ -1461,15 +1466,20 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
     addllvmOption("-enable-o0-vectorization=true");
   }
 
+  bool DisableVec = false;
   // -fno-vectorize
   if (Arg *A = Args.getLastArg(options::OPT_fvectorize,
                                options::OPT_fno_vectorize)) {
-    if (A->getOption().matches(options::OPT_fno_vectorize)) {
-      addllvmOption("-disable-hir-vec-dir-insert");
-      addllvmOption("-enable-o0-vectorization=false");
-      addllvmOption("-vplan-driver=false");
-      addllvmOption("-vplan-driver-hir=false");
-    }
+    if (A->getOption().matches(options::OPT_fno_vectorize))
+      DisableVec = true;
+  }
+  DisableVec |= SYCLLoopOptEnabled();
+
+  if (DisableVec) {
+    addllvmOption("-disable-hir-vec-dir-insert");
+    addllvmOption("-enable-o0-vectorization=false");
+    addllvmOption("-vplan-driver=false");
+    addllvmOption("-vplan-driver-hir=false");
   }
 
   // no-global-hoist

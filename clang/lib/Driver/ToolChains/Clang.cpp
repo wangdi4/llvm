@@ -8795,10 +8795,18 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // option to simplify the hasFlag logic.
   bool EnableVec = shouldEnableVectorizerAtOLevel(Args, false);
 #if INTEL_CUSTOMIZATION
-  // Do not enable vectorization for OpenMP
-  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
-      getToolChain().getTriple().isSPIR())
-    EnableVec = false;
+  auto EnableVecForOffload = [&](bool &EnableVec) {
+    // Do not enable vectorization for OpenMP
+    if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
+        getToolChain().getTriple().isSPIR())
+      EnableVec = false;
+
+    // Do not enable vectorization for SYCL when using -fsycl-target-loopopt
+    if (JA.isDeviceOffloading(Action::OFK_SYCL) &&
+        Args.hasArg(options::OPT_fsycl_target_loopopt))
+      EnableVec = false;
+  };
+  EnableVecForOffload(EnableVec);
 #endif // INTEL_CUSTOMIZATION
   OptSpecifier VectorizeAliasOption =
       EnableVec ? options::OPT_O_Group : options::OPT_fvectorize;
@@ -8809,10 +8817,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // -fslp-vectorize is enabled based on the optimization level selected.
   bool EnableSLPVec = shouldEnableVectorizerAtOLevel(Args, true);
 #if INTEL_CUSTOMIZATION
-  // Do not enable vectorization for OpenMP
-  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
-      getToolChain().getTriple().isSPIR())
-    EnableSLPVec = false;
+  EnableVecForOffload(EnableSLPVec);
 #endif // INTEL_CUSTOMIZATION
   OptSpecifier SLPVectAliasOption =
       EnableSLPVec ? options::OPT_O_Group : options::OPT_fslp_vectorize;
