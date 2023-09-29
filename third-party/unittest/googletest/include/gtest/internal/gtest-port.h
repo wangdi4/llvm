@@ -2029,8 +2029,6 @@ inline const char* StrNCpy(char* dest, const char* src, size_t n) {
 inline int ChDir(const char* dir) { return chdir(dir); }
 #endif
 inline FILE* FOpen(const char* path, const char* mode) {
-<<<<<<< HEAD
-=======
 // FIXME: This doesn't work when building with rpmalloc, see
 // https://github.com/llvm/llvm-project/pull/65823#issuecomment-1739820534
 // so hacking it out for now.
@@ -2041,8 +2039,9 @@ inline FILE* FOpen(const char* path, const char* mode) {
   std::wstring wide_mode = converter.from_bytes(mode);
   return _wfopen(wide_path.c_str(), wide_mode.c_str());
 #else   // GTEST_OS_WINDOWS && !GTEST_OS_WINDOWS_MINGW
->>>>>>> 9625b74cdbc7576abd072dc8dbd94e07d5ea33b9
   return fopen(path, mode);
+#endif  // GTEST_OS_WINDOWS && !GTEST_OS_WINDOWS_MINGW
+
 }
 #if !GTEST_OS_WINDOWS_MOBILE
 inline FILE *FReopen(const char* path, const char* mode, FILE* stream) {
