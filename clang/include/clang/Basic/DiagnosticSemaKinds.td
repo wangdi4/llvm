@@ -12120,7 +12120,6 @@ def err_sycl_special_type_num_init_method : Error<
   "types with 'sycl_special_class' attribute must have one and only one '__init' "
   "method defined">;
 
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 def warn_sycl_unmasked_num_of_function_params : Warning<
   "function with 'unmasked' attribute must have at least one parameter">,
@@ -12129,11 +12128,10 @@ def warn_sycl_unmasked_improper_caller : Warning<"function with 'unmasked' attri
   "can be called only by 'non_uniform_sub_group::invoke_unmasked()'">,
   InGroup<AcceptedAttributes>;
 // endif // INTEL_CUSTOMIZATION
-=======
+
 def warn_cuda_maxclusterrank_sm_90 : Warning<
   "maxclusterrank requires sm_90 or higher, CUDA arch provided: %0, ignoring "
   "%1 attribute">, InGroup<IgnoredAttributes>;
->>>>>>> 3f8d4a8ef21dce88de0f79140556771d37944d19
 
 def err_bit_int_bad_size : Error<"%select{signed|unsigned}0 _BitInt must "
                                  "have a bit size of at least %select{2|1}0">;
