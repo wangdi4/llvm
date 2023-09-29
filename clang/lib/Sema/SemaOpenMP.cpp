@@ -5551,7 +5551,8 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
       if (Stack->hasDirective(
               [&OffendingRegion](OpenMPDirectiveKind K,
                                  const DeclarationNameInfo &, SourceLocation) {
-                if (K == OMPD_target) {
+                if (isOpenMPTargetExecutionDirective(K) ||
+                    isOpenMPTeamsDirective(K)) {
                   OffendingRegion = K;
                   return true;
                 }
