@@ -103,7 +103,8 @@ public:
 bool CheckDefaultArgumentVisitor::VisitExpr(const Expr *Node) {
   bool IsInvalid = false;
   for (const Stmt *SubStmt : Node->children())
-    IsInvalid |= Visit(SubStmt);
+    if (SubStmt)
+      IsInvalid |= Visit(SubStmt);
   return IsInvalid;
 }
 
