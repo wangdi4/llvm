@@ -251,6 +251,7 @@ MODULE_PASS("dtrans-annotator-cleaner", dtrans::AnnotatorCleanerPass()) // INTEL
 MODULE_PASS("set-intel-prop", dtrans::SetIntelPropPass()) // INTEL
 #endif // INTEL_FEATURE_SW_DTRANS
 MODULE_PASS("dot-callgraph", CallGraphDOTPrinterPass())
+MODULE_PASS("dxil-upgrade", DXILUpgradePass())
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("extract-blocks", BlockExtractorPass({}, false))
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
@@ -380,6 +381,7 @@ MODULE_PASS("SPIRITTAnnotations", SPIRITTAnnotationsPass())
 MODULE_PASS("deadargelim-sycl", DeadArgumentEliminationSYCLPass())
 MODULE_PASS("sycllowerwglocalmemory", SYCLLowerWGLocalMemoryPass())
 MODULE_PASS("lower-esimd-kernel-attrs", SYCLFixupESIMDKernelWrapperMDPass())
+MODULE_PASS("esimd-remove-host-code", ESIMDRemoveHostCodePass());
 MODULE_PASS("inlineforceinline", InlineForceInlinePass()) // INTEL
 MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("inlinereportsetup", InlineReportSetupPass()) // INTEL
@@ -652,6 +654,7 @@ FUNCTION_PASS("gvn-sink", GVNSinkPass())
 FUNCTION_PASS("helloworld", HelloWorldPass())
 FUNCTION_PASS("infer-address-spaces", InferAddressSpacesPass())
 FUNCTION_PASS("inlinereportmakecurrent", InlineReportMakeCurrentPass()) // INTEL
+FUNCTION_PASS("infer-alignment", InferAlignmentPass())
 FUNCTION_PASS("instcount", InstCountPass())
 FUNCTION_PASS("instsimplify", InstSimplifyPass())
 FUNCTION_PASS("intel-loop-attrs", IntelLoopAttrsPass())  // INTEL

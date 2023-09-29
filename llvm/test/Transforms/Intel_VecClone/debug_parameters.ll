@@ -67,8 +67,8 @@ entry:
 ; CHECK:        call void @llvm.dbg.value(metadata i32 %b
 ; CHECK-SAME:                             metadata [[B:![0-9]+]]
 ; CHECK-SAME:                             metadata !DIExpression()
-; CHECK:        %alloca.b = alloca i32, align 4, !dbg !33
-; CHECK:        store i32 %b, ptr %alloca.b, align 4, !dbg !33
+; CHECK:        %alloca.b = alloca i32, align 4
+; CHECK:        store i32 %b, ptr %alloca.b, align 4
 ; CHECK:        call void @llvm.dbg.value(metadata ptr %a
 ; CHECK-SAME:                             metadata [[A:![0-9]+]]
 ; CHECK-SAME:                             metadata !DIExpression(DW_OP_deref)

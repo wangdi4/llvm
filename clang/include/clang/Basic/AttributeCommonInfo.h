@@ -30,12 +30,14 @@
 
 #ifndef LLVM_CLANG_BASIC_ATTRIBUTECOMMONINFO_H
 #define LLVM_CLANG_BASIC_ATTRIBUTECOMMONINFO_H
+
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TokenKinds.h"
 
 namespace clang {
-class IdentifierInfo;
+
 class ASTRecordWriter;
+class IdentifierInfo;
 
 class AttributeCommonInfo {
 public:

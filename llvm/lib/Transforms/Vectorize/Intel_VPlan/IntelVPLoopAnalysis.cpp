@@ -2697,12 +2697,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       auto *I64 = Type::getInt64Ty(*Plan.getLLVMContext());
       auto *ptrI8 = Type::getInt8PtrTy(*Plan.getLLVMContext());
       auto *StackSavePtrTy =
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-          Plan.getLLVMContext()->supportsTypedPointers()
-              ? ptrI8
-              :
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-              Plan.getDataLayout()->getAllocaPtrType(*Plan.getLLVMContext());
+          Plan.getDataLayout()->getAllocaPtrType(*Plan.getLLVMContext());
       FunctionType *NewFnTy = FunctionType::get(I64, {ptrI8, ptrI8}, false);
       FunctionCallee FnC = Plan.getModule()->getOrInsertFunction(
           "_f90_dope_vector_init2", NewFnTy);

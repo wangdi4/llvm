@@ -372,12 +372,13 @@ bool ISD::isFreezeUndef(const SDNode *N) {
   return N->getOpcode() == ISD::FREEZE && N->getOperand(0).isUndef();
 }
 
-bool ISD::matchUnaryPredicate(SDValue Op,
-                              std::function<bool(ConstantSDNode *)> Match,
-                              bool AllowUndefs) {
+template <typename ConstNodeType>
+bool ISD::matchUnaryPredicateImpl(SDValue Op,
+                                  std::function<bool(ConstNodeType *)> Match,
+                                  bool AllowUndefs) {
   // FIXME: Add support for scalar UNDEF cases?
-  if (auto *Cst = dyn_cast<ConstantSDNode>(Op))
-    return Match(Cst);
+  if (auto *C = dyn_cast<ConstNodeType>(Op))
+    return Match(C);
 
   // FIXME: Add support for vector UNDEF cases?
   if (ISD::BUILD_VECTOR != Op.getOpcode() &&
@@ -392,12 +393,17 @@ bool ISD::matchUnaryPredicate(SDValue Op,
       continue;
     }
 
-    auto *Cst = dyn_cast<ConstantSDNode>(Op.getOperand(i));
+    auto *Cst = dyn_cast<ConstNodeType>(Op.getOperand(i));
     if (!Cst || Cst->getValueType(0) != SVT || !Match(Cst))
       return false;
   }
   return true;
 }
+// Build used template types.
+template bool ISD::matchUnaryPredicateImpl<ConstantSDNode>(
+    SDValue, std::function<bool(ConstantSDNode *)>, bool);
+template bool ISD::matchUnaryPredicateImpl<ConstantFPSDNode>(
+    SDValue, std::function<bool(ConstantFPSDNode *)>, bool);
 
 bool ISD::matchBinaryPredicate(
     SDValue LHS, SDValue RHS,
@@ -1324,22 +1330,16 @@ SDNode *SelectionDAG::FindModifiedNodeSlot(SDNode *N, ArrayRef<SDValue> Ops,
 }
 
 Align SelectionDAG::getEVTAlign(EVT VT) const {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *Ty = VT == MVT::iPTR ? PointerType::get(*getContext(), 0)
                              : VT.getTypeForEVT(*getContext());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *Ty = VT == MVT::iPTR ?
-                   PointerType::get(Type::getInt8Ty(*getContext()), 0) :
-                   VT.getTypeForEVT(*getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   return getDataLayout().getABITypeAlign(Ty);
 }
 
 // EntryNode could meaningfully have debug info if we can find it...
-SelectionDAG::SelectionDAG(const TargetMachine &tm, CodeGenOpt::Level OL)
-    : TM(tm), OptLevel(OL),
-      EntryNode(ISD::EntryToken, 0, DebugLoc(), getVTList(MVT::Other, MVT::Glue)),
+SelectionDAG::SelectionDAG(const TargetMachine &tm, CodeGenOptLevel OL)
+    : TM(tm), OptLevel(OL), EntryNode(ISD::EntryToken, 0, DebugLoc(),
+                                      getVTList(MVT::Other, MVT::Glue)),
       Root(getEntryNode()) {
   InsertNode(&EntryNode);
   DbgInfo = new SDDbgInfo();
@@ -2574,7 +2574,7 @@ SDValue SelectionDAG::FoldSetCC(EVT VT, SDValue N1, SDValue N2,
 
     // icmp X, X -> true/false
     // icmp X, undef -> true/false because undef could be X.
-    if (N1 == N2)
+    if (N1.isUndef() || N2.isUndef() || N1 == N2)
       return getBoolConstant(ISD::isTrueWhenEqual(Cond), dl, VT, OpVT);
   }
 
@@ -4154,6 +4154,49 @@ SelectionDAG::computeOverflowForUnsignedSub(SDValue N0, SDValue N1) const {
   return OFK_Sometime;
 }
 
+SelectionDAG::OverflowKind
+SelectionDAG::computeOverflowForUnsignedMul(SDValue N0, SDValue N1) const {
+  // X * 0 and X * 1 never overflow.
+  if (isNullConstant(N1) || isOneConstant(N1))
+    return OFK_Never;
+
+  KnownBits N0Known = computeKnownBits(N0);
+  KnownBits N1Known = computeKnownBits(N1);
+  ConstantRange N0Range = ConstantRange::fromKnownBits(N0Known, false);
+  ConstantRange N1Range = ConstantRange::fromKnownBits(N1Known, false);
+  return mapOverflowResult(N0Range.unsignedMulMayOverflow(N1Range));
+}
+
+SelectionDAG::OverflowKind
+SelectionDAG::computeOverflowForSignedMul(SDValue N0, SDValue N1) const {
+  // X * 0 and X * 1 never overflow.
+  if (isNullConstant(N1) || isOneConstant(N1))
+    return OFK_Never;
+
+  // Get the size of the result.
+  unsigned BitWidth = N0.getScalarValueSizeInBits();
+
+  // Sum of the sign bits.
+  unsigned SignBits = ComputeNumSignBits(N0) + ComputeNumSignBits(N1);
+
+  // If we have enough sign bits, then there's no overflow.
+  if (SignBits > BitWidth + 1)
+    return OFK_Never;
+
+  if (SignBits == BitWidth + 1) {
+    // The overflow occurs when the true multiplication of the
+    // the operands is the minimum negative number.
+    KnownBits N0Known = computeKnownBits(N0);
+    KnownBits N1Known = computeKnownBits(N1);
+    // If one of the operands is non-negative, then there's no
+    // overflow.
+    if (N0Known.isNonNegative() || N1Known.isNonNegative())
+      return OFK_Never;
+  }
+
+  return OFK_Sometime;
+}
+
 bool SelectionDAG::isKnownToBeAPowerOfTwo(SDValue Val, unsigned Depth) const {
   if (Depth >= MaxRecursionDepth)
     return false; // Limit search depth.
@@ -5062,6 +5105,15 @@ bool SelectionDAG::canCreateUndefOrPoison(SDValue Op, const APInt &DemandedElts,
   return true;
 }
 
+bool SelectionDAG::isADDLike(SDValue Op) const {
+  unsigned Opcode = Op.getOpcode();
+  if (Opcode == ISD::OR)
+    return haveNoCommonBitsSet(Op.getOperand(0), Op.getOperand(1));
+  if (Opcode == ISD::XOR)
+    return isMinSignedConstant(Op.getOperand(1));
+  return false;
+}
+
 bool SelectionDAG::isBaseWithConstantOffset(SDValue Op) const {
   if ((Op.getOpcode() != ISD::ADD && Op.getOpcode() != ISD::OR) ||
       !isa<ConstantSDNode>(Op.getOperand(1)))
@@ -5707,9 +5759,10 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     if (OpOpcode == ISD::TRUNCATE) {
       SDValue OpOp = N1.getOperand(0);
       if (OpOp.getValueType() == VT) {
-        if (OpOp.getOpcode() == ISD::AssertZext && N1->hasOneUse()) {
-          EVT ExtVT = cast<VTSDNode>(OpOp.getOperand(1))->getVT();
-          if (N1.getScalarValueSizeInBits() >= ExtVT.getSizeInBits()) {
+        if (OpOp.getOpcode() == ISD::AssertZext) {
+          APInt HiBits = APInt::getBitsSetFrom(VT.getScalarSizeInBits(),
+                                               N1.getScalarValueSizeInBits());
+          if (MaskedValueIsZero(OpOp, HiBits)) {
             transferDbgValues(N1, OpOp);
             return OpOp;
           }
@@ -7923,11 +7976,7 @@ SDValue SelectionDAG::getMemcpy(SDValue Chain, const SDLoc &dl, SDValue Dst,
   // Emit a library call.
   TargetLowering::ArgListTy Args;
   TargetLowering::ArgListEntry Entry;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Entry.Ty = PointerType::getUnqual(*getContext());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Entry.Ty = Type::getInt8PtrTy(*getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Entry.Node = Dst; Args.push_back(Entry);
   Entry.Node = Src; Args.push_back(Entry);
 
@@ -7943,7 +7992,7 @@ SDValue SelectionDAG::getMemcpy(SDValue Chain, const SDLoc &dl, SDValue Dst,
   RTLIB::Libcall libcall = RTLIB::MEMCPY;
 #if INTEL_FEATURE_SW_ADVANCED
   if (LibInfo->has(LibFunc_memcpy) &&
-      OptLevel > CodeGenOpt::Less &&
+      OptLevel > CodeGenOptLevel::Less &&
       MF->getTarget().Options.IntelLibIRCAllowed) {
     libcall = RTLIB::INTEL_MEMCPY;
   }
@@ -8045,11 +8094,7 @@ SDValue SelectionDAG::getMemmove(SDValue Chain, const SDLoc &dl, SDValue Dst,
   // Emit a library call.
   TargetLowering::ArgListTy Args;
   TargetLowering::ArgListEntry Entry;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Entry.Ty = PointerType::getUnqual(*getContext());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Entry.Ty = Type::getInt8PtrTy(*getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Entry.Node = Dst; Args.push_back(Entry);
   Entry.Node = Src; Args.push_back(Entry);
 
@@ -8176,11 +8221,7 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
   // If zeroing out and bzero is present, use it.
   if (isNullConstant(Src) && BzeroName) {
     TargetLowering::ArgListTy Args;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Args.push_back(CreateEntry(Dst, PointerType::getUnqual(Ctx)));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    Args.push_back(CreateEntry(Dst, Type::getInt8PtrTy(Ctx)));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     Args.push_back(CreateEntry(Size, DL.getIntPtrType(Ctx)));
     CLI.setLibCallee(
         TLI->getLibcallCallingConv(RTLIB::BZERO), Type::getVoidTy(Ctx),
@@ -8193,18 +8234,14 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
     // level is higher than O1.
     RTLIB::Libcall libcall = RTLIB::MEMSET;
 #if INTEL_FEATURE_SW_ADVANCED
-    if (LibInfo->has(LibFunc_memset) && OptLevel > CodeGenOpt::Less &&
+    if (LibInfo->has(LibFunc_memset) && OptLevel > CodeGenOptLevel::Less &&
         MF->getTarget().Options.IntelLibIRCAllowed) {
       libcall = RTLIB::INTEL_MEMSET;
     }
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     TargetLowering::ArgListTy Args;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Args.push_back(CreateEntry(Dst, PointerType::getUnqual(Ctx)));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    Args.push_back(CreateEntry(Dst, Type::getInt8PtrTy(Ctx)));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     Args.push_back(CreateEntry(Src, Src.getValueType().getTypeForEVT(Ctx)));
     Args.push_back(CreateEntry(Size, DL.getIntPtrType(Ctx)));
     CLI.setLibCallee(TLI->getLibcallCallingConv(libcall), // INTEL
@@ -10349,7 +10386,7 @@ SDNode *SelectionDAG::SelectNodeTo(SDNode *N, unsigned MachineOpc,
 /// For IROrder, we keep the smaller of the two
 SDNode *SelectionDAG::UpdateSDLocOnMergeSDNode(SDNode *N, const SDLoc &OLoc) {
   DebugLoc NLoc = N->getDebugLoc();
-  if (NLoc && OptLevel == CodeGenOpt::None && OLoc.getDebugLoc() != NLoc) {
+  if (NLoc && OptLevel == CodeGenOptLevel::None && OLoc.getDebugLoc() != NLoc) {
     N->setDebugLoc(DebugLoc());
   }
   unsigned Order = std::min(N->getIROrder(), OLoc.getIROrder());

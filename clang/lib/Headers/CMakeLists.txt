@@ -560,9 +560,6 @@ set(ppc_htm_files
 
 set(riscv_files
   riscv_ntlh.h
-  )
-
-set(sifive_files
   sifive_vector.h
   )
 
@@ -717,7 +714,6 @@ set(files
   ${ppc_files}
   ${ppc_htm_files}
   ${riscv_files}
-  ${sifive_files}
   ${systemz_files}
   ${ve_files}
   ${x86_files}
@@ -735,6 +731,8 @@ set(cuda_wrapper_files
 
 set(cuda_wrapper_bits_files
   cuda_wrappers/bits/shared_ptr_base.h
+  cuda_wrappers/bits/basic_string.h
+  cuda_wrappers/bits/basic_string.tcc
 )
 
 set(ppc_wrapper_files

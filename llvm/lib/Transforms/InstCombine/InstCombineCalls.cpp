@@ -560,17 +560,7 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
       return nullptr;
 
   // Use an integer load+store unless we can find something better.
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  unsigned SrcAddrSp =
-    cast<PointerType>(MI->getArgOperand(1)->getType())->getAddressSpace();
-  unsigned DstAddrSp =
-    cast<PointerType>(MI->getArgOperand(0)->getType())->getAddressSpace();
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-  IntegerType* IntType = IntegerType::get(MI->getContext(), Size<<3);
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *NewSrcPtrTy = PointerType::get(IntType, SrcAddrSp);
-  Type *NewDstPtrTy = PointerType::get(IntType, DstAddrSp);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+  IntegerType *IntType = IntegerType::get(MI->getContext(), Size << 3);
 
   // If the memcpy has metadata describing the members, see if we can get the
   // TBAA tag describing our copy.
@@ -589,13 +579,8 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
       CopyMD = cast<MDNode>(M->getOperand(2));
   }
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Value *Src = MI->getArgOperand(1);
   Value *Dest = MI->getArgOperand(0);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *Src = Builder.CreateBitCast(MI->getArgOperand(1), NewSrcPtrTy);
-  Value *Dest = Builder.CreateBitCast(MI->getArgOperand(0), NewDstPtrTy);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   LoadInst *L = Builder.CreateLoad(IntType, Src);
   // Alignment from the mem intrinsic will be better, so use it.
   L->setAlignment(*CopySrcAlign);
@@ -701,11 +686,6 @@ Instruction *InstCombinerImpl::SimplifyAnyMemSet(AnyMemSetInst *MI) {
     Type *ITy = IntegerType::get(MI->getContext(), Len*8);  // n=1 -> i8.
 
     Value *Dest = MI->getDest();
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    unsigned DstAddrSp = cast<PointerType>(Dest->getType())->getAddressSpace();
-    Type *NewDstPtrTy = PointerType::get(ITy, DstAddrSp);
-    Dest = Builder.CreateBitCast(Dest, NewDstPtrTy);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
     // Extract the fill value and store.
     const uint64_t Fill = FillC->getZExtValue()*0x0101010101010101ULL;
@@ -994,10 +974,6 @@ static Instruction *simplifyInvariantGroupIntrinsic(IntrinsicInst &II,
   if (Result->getType()->getPointerAddressSpace() !=
       II.getType()->getPointerAddressSpace())
     Result = IC.Builder.CreateAddrSpaceCast(Result, II.getType());
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  if (Result->getType() != II.getType())
-    Result = IC.Builder.CreateBitCast(Result, II.getType());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   return cast<Instruction>(Result);
 }
@@ -1407,7 +1383,7 @@ Instruction *InstCombinerImpl::foldIntrinsicIsFPClass(IntrinsicInst &II) {
 
   Value *FAbsSrc;
   if (match(Src0, m_FAbs(m_Value(FAbsSrc)))) {
-    II.setArgOperand(1, ConstantInt::get(Src1->getType(), fabs(Mask)));
+    II.setArgOperand(1, ConstantInt::get(Src1->getType(), inverse_fabs(Mask)));
     return replaceOperand(II, 0, FAbsSrc);
   }
 
@@ -2275,6 +2251,20 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
         Value *NarrowMaxMin = Builder.CreateBinaryIntrinsic(IID, X, NarrowC);
         return CastInst::Create(Instruction::SExt, NarrowMaxMin, II->getType());
       }
+    }
+
+    // umin(i1 X, i1 Y) -> and i1 X, Y
+    // smax(i1 X, i1 Y) -> and i1 X, Y
+    if ((IID == Intrinsic::umin || IID == Intrinsic::smax) &&
+        II->getType()->isIntOrIntVectorTy(1)) {
+      return BinaryOperator::CreateAnd(I0, I1);
+    }
+
+    // umax(i1 X, i1 Y) -> or i1 X, Y
+    // smin(i1 X, i1 Y) -> or i1 X, Y
+    if ((IID == Intrinsic::umax || IID == Intrinsic::smin) &&
+        II->getType()->isIntOrIntVectorTy(1)) {
+      return BinaryOperator::CreateOr(I0, I1);
     }
 
     if (IID == Intrinsic::smax || IID == Intrinsic::smin) {
@@ -4512,26 +4502,6 @@ bool InstCombinerImpl::transformConstExprCastCall(CallBase &Call) {
     if (CallerPAL.hasParamAttr(i, Attribute::ByVal) !=
         Callee->getAttributes().hasParamAttr(i, Attribute::ByVal))
       return false; // Cannot transform to or from byval.
-
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    // If the parameter is passed as a byval argument, then we have to have a
-    // sized type and the sized type has to have the same size as the old type.
-    if (ParamTy != ActTy && CallerPAL.hasParamAttr(i, Attribute::ByVal)) {
-      PointerType *ParamPTy = dyn_cast<PointerType>(ParamTy);
-      if (!ParamPTy)
-        return false;
-
-      if (!ParamPTy->isOpaque()) {
-        Type *ParamElTy = ParamPTy->getNonOpaquePointerElementType();
-        if (!ParamElTy->isSized())
-          return false;
-
-        Type *CurElTy = Call.getParamByValType(i);
-        if (DL.getTypeAllocSize(CurElTy) != DL.getTypeAllocSize(ParamElTy))
-          return false;
-      }
-    }
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   if (Callee->isDeclaration()) {
@@ -4592,21 +4562,8 @@ bool InstCombinerImpl::transformConstExprCastCall(CallBase &Call) {
     // type. Note that we made sure all incompatible ones are safe to drop.
     AttributeMask IncompatibleAttrs = AttributeFuncs::typeIncompatible(
         ParamTy, AttributeFuncs::ASK_SAFE_TO_DROP);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     ArgAttrs.push_back(
         CallerPAL.getParamAttrs(i).removeAttributes(Ctx, IncompatibleAttrs));
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    if (CallerPAL.hasParamAttr(i, Attribute::ByVal) &&
-        !ParamTy->isOpaquePointerTy()) {
-      AttrBuilder AB(Ctx, CallerPAL.getParamAttrs(i).removeAttributes(
-                              Ctx, IncompatibleAttrs));
-      AB.addByValAttr(ParamTy->getNonOpaquePointerElementType());
-      ArgAttrs.push_back(AttributeSet::get(Ctx, AB));
-    } else {
-      ArgAttrs.push_back(
-          CallerPAL.getParamAttrs(i).removeAttributes(Ctx, IncompatibleAttrs));
-    }
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   // If the function takes more arguments than the call was taking, add them
@@ -4684,7 +4641,7 @@ bool InstCombinerImpl::transformConstExprCastCall(CallBase &Call) {
 
       Instruction *InsertPt = NewCall->getInsertionPointAfterDef();
       assert(InsertPt && "No place to insert cast");
-      InsertNewInstBefore(NC, *InsertPt);
+      InsertNewInstBefore(NC, InsertPt->getIterator());
       Worklist.pushUsersToWorkList(*Caller);
     } else {
       NV = PoisonValue::get(Caller->getType());
@@ -4711,10 +4668,6 @@ bool InstCombinerImpl::transformConstExprCastCall(CallBase &Call) {
 Instruction *
 InstCombinerImpl::transformCallThroughTrampoline(CallBase &Call,
                                                  IntrinsicInst &Tramp) {
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *Callee = Call.getCalledOperand();
-  Type *CalleeTy = Callee->getType();
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   FunctionType *FTy = Call.getFunctionType();
   AttributeList Attrs = Call.getAttributes();
 
@@ -4811,17 +4764,8 @@ InstCombinerImpl::transformCallThroughTrampoline(CallBase &Call,
 
       // Replace the trampoline call with a direct call.  Let the generic
       // code sort out any function type mismatches.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       FunctionType *NewFTy =
           FunctionType::get(FTy->getReturnType(), NewTypes, FTy->isVarArg());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      FunctionType *NewFTy = FunctionType::get(FTy->getReturnType(), NewTypes,
-                                                FTy->isVarArg());
-      Constant *NewCallee =
-        NestF->getType() == PointerType::getUnqual(NewFTy) ?
-        NestF : ConstantExpr::getBitCast(NestF,
-                                         PointerType::getUnqual(NewFTy));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       AttributeList NewPAL =
           AttributeList::get(FTy->getContext(), Attrs.getFnAttrs(),
                              Attrs.getRetAttrs(), NewArgAttrs);
@@ -4831,32 +4775,18 @@ InstCombinerImpl::transformCallThroughTrampoline(CallBase &Call,
 
       Instruction *NewCaller;
       if (InvokeInst *II = dyn_cast<InvokeInst>(&Call)) {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         NewCaller = InvokeInst::Create(NewFTy, NestF, II->getNormalDest(),
                                        II->getUnwindDest(), NewArgs, OpBundles);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-        NewCaller = InvokeInst::Create(NewFTy, NewCallee,
-                                       II->getNormalDest(), II->getUnwindDest(),
-                                       NewArgs, OpBundles);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
         cast<InvokeInst>(NewCaller)->setCallingConv(II->getCallingConv());
         cast<InvokeInst>(NewCaller)->setAttributes(NewPAL);
       } else if (CallBrInst *CBI = dyn_cast<CallBrInst>(&Call)) {
         NewCaller =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
             CallBrInst::Create(NewFTy, NestF, CBI->getDefaultDest(),
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-            CallBrInst::Create(NewFTy, NewCallee, CBI->getDefaultDest(),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
                                CBI->getIndirectDests(), NewArgs, OpBundles);
         cast<CallBrInst>(NewCaller)->setCallingConv(CBI->getCallingConv());
         cast<CallBrInst>(NewCaller)->setAttributes(NewPAL);
       } else {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         NewCaller = CallInst::Create(NewFTy, NestF, NewArgs, OpBundles);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-        NewCaller = CallInst::Create(NewFTy, NewCallee, NewArgs, OpBundles);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
         cast<CallInst>(NewCaller)->setTailCallKind(
             cast<CallInst>(Call).getTailCallKind());
         cast<CallInst>(NewCaller)->setCallingConv(
@@ -4872,11 +4802,6 @@ InstCombinerImpl::transformCallThroughTrampoline(CallBase &Call,
   // Replace the trampoline call with a direct call.  Since there is no 'nest'
   // parameter, there is no need to adjust the argument list.  Let the generic
   // code sort out any function type mismatches.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Call.setCalledFunction(FTy, NestF);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Constant *NewCallee = ConstantExpr::getBitCast(NestF, CalleeTy);
-  Call.setCalledFunction(FTy, NewCallee);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   return &Call;
 }

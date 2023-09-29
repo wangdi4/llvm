@@ -894,25 +894,6 @@ Constant *CastGEPIndices(Type *SrcElemTy, ArrayRef<Constant *> Ops,
   return ConstantFoldConstant(C, DL, TLI);
 }
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-/// Strip the pointer casts, but preserve the address space information.
-// TODO: This probably doesn't make sense with opaque pointers.
-static Constant *StripPtrCastKeepAS(Constant *Ptr) {
-  assert(Ptr->getType()->isPointerTy() && "Not a pointer type");
-  auto *OldPtrTy = cast<PointerType>(Ptr->getType());
-  Ptr = cast<Constant>(Ptr->stripPointerCasts());
-  auto *NewPtrTy = cast<PointerType>(Ptr->getType());
-
-  // Preserve the address space number of the pointer.
-  if (NewPtrTy->getAddressSpace() != OldPtrTy->getAddressSpace()) {
-    Ptr = ConstantExpr::getPointerCast(
-        Ptr, PointerType::getWithSamePointeeType(NewPtrTy,
-                                                 OldPtrTy->getAddressSpace()));
-  }
-  return Ptr;
-}
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-
 /// If we can symbolically evaluate the GEP constant expression, do so.
 Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
                                   ArrayRef<Constant *> Ops,
@@ -947,9 +928,6 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
       BitWidth,
       DL.getIndexedOffsetInType(
           SrcElemTy, ArrayRef((Value *const *)Ops.data() + 1, Ops.size() - 1)));
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Ptr = StripPtrCastKeepAS(Ptr);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // If this is a GEP of a GEP, fold it all into a single GEP.
   while (auto *GEP = dyn_cast<GEPOperator>(Ptr)) {
@@ -971,9 +949,6 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
     Ptr = cast<Constant>(GEP->getOperand(0));
     SrcElemTy = GEP->getSourceElementType();
     Offset += APInt(BitWidth, DL.getIndexedOffsetInType(SrcElemTy, NestedOps));
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    Ptr = StripPtrCastKeepAS(Ptr);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   // If the base value for this address is a literal integer value, fold the
@@ -1000,10 +975,6 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
   // For GEPs of GlobalValues, use the value type, otherwise use an i8 GEP.
   if (auto *GV = dyn_cast<GlobalValue>(Ptr))
     SrcElemTy = GV->getValueType();
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  else if (!PTy->isOpaque())
-    SrcElemTy = PTy->getNonOpaquePointerElementType();
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   else
     SrcElemTy = Type::getInt8Ty(Ptr->getContext());
 
@@ -1046,23 +1017,8 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
     }
 
   // Create a GEP.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   return ConstantExpr::getGetElementPtr(SrcElemTy, Ptr, NewIdxs, InBounds,
                                         InRangeIndex);
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-  Constant *C = ConstantExpr::getGetElementPtr(SrcElemTy, Ptr, NewIdxs,
-                                               InBounds, InRangeIndex);
-  assert(
-      cast<PointerType>(C->getType())->isOpaqueOrPointeeTypeMatches(ElemTy) &&
-      "Computed GetElementPtr has unexpected type!");
-
-  // If we ended up indexing a member with a type that doesn't match
-  // the type of what the original indices indexed, add a cast.
-  if (C->getType() != ResTy)
-    C = FoldBitCast(C, ResTy, DL);
-
-  return C;
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 /// Attempt to constant fold an instruction with the
@@ -1696,6 +1652,7 @@ bool llvm::canConstantFoldCallTo(const CallBase *Call, const Function *F) {
   case Intrinsic::cos:
   case Intrinsic::pow:
   case Intrinsic::powi:
+  case Intrinsic::ldexp:
   case Intrinsic::fma:
   case Intrinsic::fmuladd:
   case Intrinsic::frexp:
@@ -1711,7 +1668,6 @@ bool llvm::canConstantFoldCallTo(const CallBase *Call, const Function *F) {
   case Intrinsic::amdgcn_fmul_legacy:
   case Intrinsic::amdgcn_fma_legacy:
   case Intrinsic::amdgcn_fract:
-  case Intrinsic::amdgcn_ldexp:
   case Intrinsic::amdgcn_sin:
   // The intrinsics below depend on rounding mode in MXCSR.
   case Intrinsic::x86_sse_cvtss2si:
@@ -2785,6 +2741,11 @@ static Constant *ConstantFoldScalarCall2(StringRef Name,
       }
     } else if (auto *Op2C = dyn_cast<ConstantInt>(Operands[1])) {
       switch (IntrinsicID) {
+      case Intrinsic::ldexp: {
+        return ConstantFP::get(
+            Ty->getContext(),
+            scalbn(Op1V, Op2C->getSExtValue(), APFloat::rmNearestTiesToEven));
+      }
       case Intrinsic::is_fpclass: {
         FPClassTest Mask = static_cast<FPClassTest>(Op2C->getZExtValue());
         bool Result =
@@ -2821,16 +2782,6 @@ static Constant *ConstantFoldScalarCall2(StringRef Name,
             Ty->getContext(),
             APFloat((double)std::pow(Op1V.convertToDouble(),
                                      (int)Op2C->getZExtValue())));
-
-      if (IntrinsicID == Intrinsic::amdgcn_ldexp) {
-        // FIXME: Should flush denorms depending on FP mode, but that's ignored
-        // everywhere else.
-
-        // scalbn is equivalent to ldexp with float radix 2
-        APFloat Result = scalbn(Op1->getValueAPF(), Op2C->getSExtValue(),
-                                APFloat::rmNearestTiesToEven);
-        return ConstantFP::get(Ty->getContext(), Result);
-      }
     }
     return nullptr;
   }

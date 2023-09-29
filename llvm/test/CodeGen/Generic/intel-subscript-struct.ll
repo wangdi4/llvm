@@ -30,8 +30,8 @@ define void @_Z4testPK7ArrDescI1AEii(ptr noalias nocapture readonly %inout, i32 
 ; CHECK-LOWER-NEXT:    [[LB_I_I:%.*]] = getelementptr inbounds [[STRUCT_ARRDESC]], ptr [[INOUT]], i64 0, i32 6, i64 0, i32 2
 ; CHECK-LOWER-NEXT:    [[TMP2:%.*]] = load i64, ptr [[LB_I_I]], align 8
 
-; Compute offset in bytes, (index-ptrstride.
-; Apply byte offset to ptr casted base pointer.
+; Compute offset in bytes, (index-lb)*stride.
+; Apply byte offset to base pointer.
 ; CHECK-LOWER-NEXT:    [[CONV5_I_I:%.*]] = trunc i64 [[TMP2]] to i32
 ; CHECK-LOWER-NEXT:    [[TMP3:%.*]] = sub nsw i32 1, [[CONV5_I_I]]
 ; CHECK-LOWER-NEXT:    [[TMP4:%.*]] = sext i32 [[CONV_I_I]] to i64

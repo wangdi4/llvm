@@ -669,31 +669,32 @@ HexagonTargetLowering::LowerINLINEASM(SDValue Op, SelectionDAG &DAG) const {
     --NumOps;  // Ignore the flag operand.
 
   for (unsigned i = InlineAsm::Op_FirstOperand; i != NumOps;) {
-    unsigned Flags = cast<ConstantSDNode>(Op.getOperand(i))->getZExtValue();
-    unsigned NumVals = InlineAsm::getNumOperandRegisters(Flags);
+    const InlineAsm::Flag Flags(
+        cast<ConstantSDNode>(Op.getOperand(i))->getZExtValue());
+    unsigned NumVals = Flags.getNumOperandRegisters();
     ++i;  // Skip the ID value.
 
-    switch (InlineAsm::getKind(Flags)) {
-      default:
-        llvm_unreachable("Bad flags!");
-      case InlineAsm::Kind::RegUse:
-      case InlineAsm::Kind::Imm:
-      case InlineAsm::Kind::Mem:
-        i += NumVals;
-        break;
-      case InlineAsm::Kind::Clobber:
-      case InlineAsm::Kind::RegDef:
-      case InlineAsm::Kind::RegDefEarlyClobber: {
-        for (; NumVals; --NumVals, ++i) {
-          Register Reg = cast<RegisterSDNode>(Op.getOperand(i))->getReg();
-          if (Reg != LR)
-            continue;
-          HMFI.setHasClobberLR(true);
-          return Op;
-        }
-        break;
+    switch (Flags.getKind()) {
+    default:
+      llvm_unreachable("Bad flags!");
+    case InlineAsm::Kind::RegUse:
+    case InlineAsm::Kind::Imm:
+    case InlineAsm::Kind::Mem:
+      i += NumVals;
+      break;
+    case InlineAsm::Kind::Clobber:
+    case InlineAsm::Kind::RegDef:
+    case InlineAsm::Kind::RegDefEarlyClobber: {
+      for (; NumVals; --NumVals, ++i) {
+        Register Reg = cast<RegisterSDNode>(Op.getOperand(i))->getReg();
+        if (Reg != LR)
+          continue;
+        HMFI.setHasClobberLR(true);
+        return Op;
       }
-    }
+      break;
+      }
+      }
   }
 
   return Op;
@@ -3846,13 +3847,6 @@ Value *HexagonTargetLowering::emitLoadLinked(IRBuilderBase &Builder,
                                    : Intrinsic::hexagon_L4_loadd_locked;
   Function *Fn = Intrinsic::getDeclaration(M, IntID);
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  auto PtrTy = cast<PointerType>(Addr->getType());
-  PointerType *NewPtrTy =
-      Builder.getIntNTy(SZ)->getPointerTo(PtrTy->getAddressSpace());
-  Addr = Builder.CreateBitCast(Addr, NewPtrTy);
-
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Value *Call = Builder.CreateCall(Fn, Addr, "larx");
 
   return Builder.CreateBitCast(Call, ValueTy);
@@ -3874,10 +3868,6 @@ Value *HexagonTargetLowering::emitStoreConditional(IRBuilderBase &Builder,
                                    : Intrinsic::hexagon_S4_stored_locked;
   Function *Fn = Intrinsic::getDeclaration(M, IntID);
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  unsigned AS = Addr->getType()->getPointerAddressSpace();
-  Addr = Builder.CreateBitCast(Addr, CastTy->getPointerTo(AS));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Val = Builder.CreateBitCast(Val, CastTy);
 
   Value *Call = Builder.CreateCall(Fn, {Addr, Val}, "stcx");

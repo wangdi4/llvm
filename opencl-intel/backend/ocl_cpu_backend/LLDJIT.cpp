@@ -272,7 +272,8 @@ std::string LLDJIT::emitObject(Module *M) {
   raw_svector_ostream ObjStream(ObjBufferSV);
 
   TM->addPassesToEmitFile(PM, ObjStream,
-                          /*raw_pwrite_stream*/ nullptr, CGFT_ObjectFile,
+                          /*raw_pwrite_stream*/ nullptr,
+                          CodeGenFileType::ObjectFile,
                           /*DisableVerify*/ true);
 
   // Initialize passes.

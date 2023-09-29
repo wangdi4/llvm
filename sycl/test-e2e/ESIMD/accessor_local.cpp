@@ -1,14 +1,5 @@
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
-
-// UNSUPPORTED: esimd_emulator
-
-// TODO: GPU driver on Windows requires a fix/update.
-// XFAIL: windows && gpu-intel-gen12
-
-// Failure on Linux: https://github.com/intel/llvm/issues/10138
-// UNSUPPORTED: linux
-
 // This test verifies usage of local_accessor methods operator[]
 // and get_pointer().
 
@@ -120,6 +111,12 @@ int main() {
   auto DeviceSLMSize = Dev.get_info<sycl::info::device::local_mem_size>();
   std::cout << "Running on " << Dev.get_info<sycl::info::device::name>()
             << ", Local memory size available : " << DeviceSLMSize << std::endl;
+
+  if (!isGPUDriverGE(Q, esimd_test::GPUDriverOS::LinuxAndWindows, "27202",
+                     "101.4677")) {
+    std::cout << "Skipped. The test requires GPU driver 1.3.27202 or newer.\n";
+    return 0;
+  }
 
   uint32_t LocalRange = 16;
   uint32_t GlobalRange = LocalRange * 2; // 2 groups.

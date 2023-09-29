@@ -253,22 +253,11 @@ CodeGenFunction::GetAddressOfDirectBaseInCompleteClass(Address This,
   // TODO: for complete types, this should be possible with a GEP.
   Address V = This;
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   if (!Offset.isZero()) {
     V = V.withElementType(Int8Ty);
     V = Builder.CreateConstInBoundsByteGEP(V, Offset);
   }
   return V.withElementType(ConvertType(Base));
-
-#else
-  if (!Offset.isZero()) {
-    V = Builder.CreateElementBitCast(V, Int8Ty);
-    V = Builder.CreateConstInBoundsByteGEP(V, Offset);
-  }
-  V = Builder.CreateElementBitCast(V, ConvertType(Base));
-
-  return V;
-#endif
 }
 
 static Address
@@ -371,11 +360,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
       EmitTypeCheck(TCK_Upcast, Loc, Value.getPointer(),
                     DerivedTy, DerivedAlign, SkippedChecks);
     }
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return Value.withElementType(BaseValueTy);
-#else
-    return Builder.CreateElementBitCast(Value, BaseValueTy);
-#endif
   }
 
   llvm::BasicBlock *origBB = nullptr;
@@ -412,11 +397,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
                                           VirtualOffset, Derived, VBase);
 
   // Cast to the destination type.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Value = Value.withElementType(BaseValueTy);
-#else
-  Value = Builder.CreateElementBitCast(Value, BaseValueTy);
-#endif
 
   // Build a phi if we needed a null check.
   if (NullCheckValue) {
@@ -444,21 +425,13 @@ CodeGenFunction::GetAddressOfDerivedClass(Address BaseAddr,
   QualType DerivedTy =
       getContext().getCanonicalType(getContext().getTagDeclType(Derived));
   llvm::Type *DerivedValueTy = ConvertType(DerivedTy);
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  llvm::Type *DerivedPtrTy =
-      DerivedValueTy->getPointerTo(BaseAddr.getAddressSpace());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   llvm::Value *NonVirtualOffset =
     CGM.GetNonVirtualBaseClassOffset(Derived, PathBegin, PathEnd);
 
   if (!NonVirtualOffset) {
     // No offset, we can just cast back.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return BaseAddr.withElementType(DerivedValueTy);
-#else
-    return Builder.CreateElementBitCast(BaseAddr, DerivedValueTy);
-#endif
   }
 
   llvm::BasicBlock *CastNull = nullptr;
@@ -476,18 +449,9 @@ CodeGenFunction::GetAddressOfDerivedClass(Address BaseAddr,
   }
 
   // Apply the offset.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Value *Value = BaseAddr.getPointer();
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  llvm::Value *Value = Builder.CreateBitCast(BaseAddr.getPointer(), Int8PtrTy);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   Value = Builder.CreateInBoundsGEP(
       Int8Ty, Value, Builder.CreateNeg(NonVirtualOffset), "sub.ptr");
-
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  // Just cast.
-  Value = Builder.CreateBitCast(Value, DerivedPtrTy);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // Produce a PHI if we had a null-check.
   if (NullCheckValue) {
@@ -1045,13 +1009,8 @@ namespace {
 
   private:
     void emitMemcpyIR(Address DestPtr, Address SrcPtr, CharUnits Size) {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       DestPtr = DestPtr.withElementType(CGF.Int8Ty);
       SrcPtr = SrcPtr.withElementType(CGF.Int8Ty);
-#else
-      DestPtr = CGF.Builder.CreateElementBitCast(DestPtr, CGF.Int8Ty);
-      SrcPtr = CGF.Builder.CreateElementBitCast(SrcPtr, CGF.Int8Ty);
-#endif
       CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, Size.getQuantity());
     }
 
@@ -1731,12 +1690,7 @@ namespace {
     CodeGenFunction::SanitizerScope SanScope(&CGF);
     // Pass in void pointer and size of region as arguments to runtime
     // function
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     SmallVector<llvm::Value *, 2> Args = {Ptr};
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    SmallVector<llvm::Value *, 2> Args = {
-        CGF.Builder.CreateBitCast(Ptr, CGF.VoidPtrTy)};
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     SmallVector<llvm::Type *, 2> ArgTypes = {CGF.VoidPtrTy};
 
     if (PoisonSize.has_value()) {
@@ -1815,15 +1769,8 @@ namespace {
       llvm::ConstantInt *OffsetSizePtr =
           llvm::ConstantInt::get(CGF.SizeTy, PoisonStart.getQuantity());
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::Value *OffsetPtr =
           CGF.Builder.CreateGEP(CGF.Int8Ty, CGF.LoadCXXThis(), OffsetSizePtr);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      llvm::Value *OffsetPtr = CGF.Builder.CreateGEP(
-          CGF.Int8Ty,
-          CGF.Builder.CreateBitCast(CGF.LoadCXXThis(), CGF.Int8PtrTy),
-          OffsetSizePtr);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
       CharUnits PoisonEnd;
       if (EndIndex >= Layout.getFieldCount()) {
@@ -2192,13 +2139,8 @@ void CodeGenFunction::EmitCXXConstructorCall(const CXXConstructorDecl *D,
 
   if (SlotAS != ThisAS) {
     unsigned TargetThisAS = getContext().getTargetAddressSpace(ThisAS);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Type *NewType =
         llvm::PointerType::get(getLLVMContext(), TargetThisAS);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    llvm::Type *NewType = llvm::PointerType::getWithSamePointeeType(
-        This.getType(), TargetThisAS);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     ThisPtr = getTargetHooks().performAddrSpaceCast(*this, This.getPointer(),
                                                     ThisAS, SlotAS, NewType);
   }
@@ -2681,10 +2623,6 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   // vtable field is derived from `this` pointer, therefore they should be in
   // the same addr space. Note that this might not be LLVM address space 0.
   VTableField = VTableField.withElementType(PtrTy);
-#if INTEL_COLLAB
-  VTableAddressPoint = Builder.CreatePointerBitCastOrAddrSpaceCast(
-      VTableAddressPoint, VTablePtrTy);
-#endif // INTEL_COLLAB
 
   llvm::StoreInst *Store = Builder.CreateStore(VTableAddressPoint, VTableField);
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTablePtrTy);
@@ -2777,8 +2715,7 @@ void CodeGenFunction::InitializeVTablePointers(const CXXRecordDecl *RD) {
     CGM.getCXXABI().initializeHiddenVirtualInheritanceMembers(*this, RD);
 }
 
-llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
-                                           llvm::Type *VTableTy,
+llvm::Value *CodeGenFunction::GetVTablePtr(Address This, llvm::Type *VTableTy,
                                            const CXXRecordDecl *RD) {
 #if INTEL_COLLAB
   unsigned AS = CGM.getContext().getTargetAddressSpace(LangAS::Default);
@@ -2877,9 +2814,6 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
     llvm::Value *TypeId =
         llvm::MetadataAsValue::get(CGM.getLLVMContext(), MD);
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    llvm::Value *CastedVTable = Builder.CreateBitCast(VTable, Int8PtrTy);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     // If we already know that the call has hidden LTO visibility, emit
     // @llvm.type.test(). Otherwise emit @llvm.public.type.test(), which WPD
     // will convert to @llvm.type.test() if we assert at link time that we have
@@ -2888,11 +2822,7 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
                                   ? llvm::Intrinsic::type_test
                                   : llvm::Intrinsic::public_type_test;
     llvm::Value *TypeTest =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         Builder.CreateCall(CGM.getIntrinsic(IID), {VTable, TypeId});
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-        Builder.CreateCall(CGM.getIntrinsic(IID), {CastedVTable, TypeId});
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::assume), TypeTest);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -3002,14 +2932,8 @@ void CodeGenFunction::EmitVTablePtrCheck(const CXXRecordDecl *RD,
       CGM.CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
   llvm::Value *TypeId = llvm::MetadataAsValue::get(getLLVMContext(), MD);
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Value *TypeTest = Builder.CreateCall(
       CGM.getIntrinsic(llvm::Intrinsic::type_test), {VTable, TypeId});
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  llvm::Value *CastedVTable = Builder.CreateBitCast(VTable, Int8PtrTy);
-  llvm::Value *TypeTest = Builder.CreateCall(
-      CGM.getIntrinsic(llvm::Intrinsic::type_test), {CastedVTable, TypeId});
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   llvm::Constant *StaticData[] = {
       llvm::ConstantInt::get(Int8Ty, TCK),
@@ -3019,11 +2943,7 @@ void CodeGenFunction::EmitVTablePtrCheck(const CXXRecordDecl *RD,
 
   auto CrossDsoTypeId = CGM.CreateCrossDsoCfiTypeId(MD);
   if (CGM.getCodeGenOpts().SanitizeCfiCrossDso && CrossDsoTypeId) {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     EmitCfiSlowPathCheck(M, TypeTest, CrossDsoTypeId, VTable, StaticData);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    EmitCfiSlowPathCheck(M, TypeTest, CrossDsoTypeId, CastedVTable, StaticData);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     return;
   }
 
@@ -3038,11 +2958,7 @@ void CodeGenFunction::EmitVTablePtrCheck(const CXXRecordDecl *RD,
   llvm::Value *ValidVtable = Builder.CreateCall(
       CGM.getIntrinsic(llvm::Intrinsic::type_test), {VTable, AllVtables});
   EmitCheck(std::make_pair(TypeTest, M), SanitizerHandler::CFICheckFail,
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
             StaticData, {VTable, ValidVtable});
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-            StaticData, {CastedVTable, ValidVtable});
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 bool CodeGenFunction::ShouldEmitVTableTypeCheckedLoad(const CXXRecordDecl *RD) {
@@ -3073,17 +2989,9 @@ llvm::Value *CodeGenFunction::EmitVTableTypeCheckedLoad(
       CGM.CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
   llvm::Value *TypeId = llvm::MetadataAsValue::get(CGM.getLLVMContext(), MD);
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Value *CheckedLoad = Builder.CreateCall(
       CGM.getIntrinsic(llvm::Intrinsic::type_checked_load),
       {VTable, llvm::ConstantInt::get(Int32Ty, VTableByteOffset), TypeId});
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  llvm::Value *CastedVTable = Builder.CreateBitCast(VTable, Int8PtrTy);
-  llvm::Value *CheckedLoad = Builder.CreateCall(
-      CGM.getIntrinsic(llvm::Intrinsic::type_checked_load),
-      {CastedVTable, llvm::ConstantInt::get(Int32Ty, VTableByteOffset),
-       TypeId});
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Value *CheckResult = Builder.CreateExtractValue(CheckedLoad, 1);
 
   std::string TypeName = RD->getQualifiedNameAsString();

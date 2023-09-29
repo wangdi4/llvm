@@ -4168,8 +4168,8 @@ static SDValue simplifySetCCWithCTPOP(const TargetLowering &TLI, EVT VT,
   // (ctpop x) u< 2 -> (x & x-1) == 0
   // (ctpop x) u> 1 -> (x & x-1) != 0
   if (Cond == ISD::SETULT || Cond == ISD::SETUGT) {
-    // Keep the CTPOP if it is a legal vector op.
-    if (CTVT.isVector() && TLI.isOperationLegal(ISD::CTPOP, CTVT))
+    // Keep the CTPOP if it is a cheap vector op.
+    if (CTVT.isVector() && TLI.isCtpopFast(CTVT))
       return SDValue();
 
     unsigned CostLimit = TLI.getCustomCtpopCost(CTVT, Cond);
@@ -4194,8 +4194,8 @@ static SDValue simplifySetCCWithCTPOP(const TargetLowering &TLI, EVT VT,
   // (ctpop x) == 1 --> (x != 0) && ((x & x-1) == 0)
   // (ctpop x) != 1 --> (x == 0) || ((x & x-1) != 0)
   if ((Cond == ISD::SETEQ || Cond == ISD::SETNE) && C1 == 1) {
-    // Keep the CTPOP if it is legal.
-    if (TLI.isOperationLegal(ISD::CTPOP, CTVT))
+    // Keep the CTPOP if it is cheap.
+    if (TLI.isCtpopFast(CTVT))
       return SDValue();
 
     SDValue Zero = DAG.getConstant(0, dl, CTVT);
@@ -9558,6 +9558,14 @@ SDValue TargetLowering::expandUnalignedStore(StoreSDNode *ST,
   SDValue ShiftAmount = DAG.getConstant(
       NumBits, dl, getShiftAmountTy(Val.getValueType(), DAG.getDataLayout()));
   SDValue Lo = Val;
+  // If Val is a constant, replace the upper bits with 0. The SRL will constant
+  // fold and not use the upper bits. A smaller constant may be easier to
+  // materialize.
+  if (auto *C = dyn_cast<ConstantSDNode>(Lo); C && !C->isOpaque())
+    Lo = DAG.getNode(
+        ISD::AND, dl, VT, Lo,
+        DAG.getConstant(APInt::getLowBitsSet(VT.getSizeInBits(), NumBits), dl,
+                        VT));
   SDValue Hi = DAG.getNode(ISD::SRL, dl, VT, Val, ShiftAmount);
 
   // Store the two parts
@@ -9699,11 +9707,7 @@ SDValue TargetLowering::LowerToTLSEmulatedModel(const GlobalAddressSDNode *GA,
   // Access to address of TLS varialbe xyz is lowered to a function call:
   //   __emutls_get_address( address of global variable named "__emutls_v.xyz" )
   EVT PtrVT = getPointerTy(DAG.getDataLayout());
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *VoidPtrType = PointerType::get(*DAG.getContext(), 0);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  PointerType *VoidPtrType = Type::getInt8PtrTy(*DAG.getContext());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   SDLoc dl(GA);
 
   ArgListTy Args;

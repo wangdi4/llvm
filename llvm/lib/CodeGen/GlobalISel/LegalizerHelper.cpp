@@ -691,11 +691,7 @@ llvm::createMemLibcall(MachineIRBuilder &MIRBuilder, MachineRegisterInfo &MRI,
     LLT OpLLT = MRI.getType(Reg);
     Type *OpTy = nullptr;
     if (OpLLT.isPointer())
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       OpTy = PointerType::get(Ctx, OpLLT.getAddressSpace());
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-      OpTy = Type::getInt8PtrTy(Ctx, OpLLT.getAddressSpace());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     else
       OpTy = IntegerType::get(Ctx, OpLLT.getSizeInBits());
     Args.push_back({Reg, OpTy, 0});
@@ -2500,6 +2496,17 @@ LegalizerHelper::widenScalar(MachineInstr &MI, unsigned TypeIdx, LLT WideTy) {
     return Legalized;
   }
   case TargetOpcode::G_INSERT_VECTOR_ELT: {
+    if (TypeIdx == 0) {
+      Observer.changingInstr(MI);
+      const LLT WideEltTy = WideTy.getElementType();
+
+      widenScalarSrc(MI, WideTy, 1, TargetOpcode::G_ANYEXT);
+      widenScalarSrc(MI, WideEltTy, 2, TargetOpcode::G_ANYEXT);
+      widenScalarDst(MI, WideTy, 0);
+      Observer.changedInstr(MI);
+      return Legalized;
+    }
+
     if (TypeIdx == 1) {
       Observer.changingInstr(MI);
 
@@ -6579,23 +6586,25 @@ LegalizerHelper::lowerIntrinsicRound(MachineInstr &MI) {
   // round(x) =>
   //  t = trunc(x);
   //  d = fabs(x - t);
-  //  o = copysign(1.0f, x);
-  //  return t + (d >= 0.5 ? o : 0.0);
+  //  o = copysign(d >= 0.5 ? 1.0 : 0.0, x);
+  //  return t + o;
 
   auto T = MIRBuilder.buildIntrinsicTrunc(Ty, X, Flags);
 
   auto Diff = MIRBuilder.buildFSub(Ty, X, T, Flags);
   auto AbsDiff = MIRBuilder.buildFAbs(Ty, Diff, Flags);
-  auto Zero = MIRBuilder.buildFConstant(Ty, 0.0);
-  auto One = MIRBuilder.buildFConstant(Ty, 1.0);
+
   auto Half = MIRBuilder.buildFConstant(Ty, 0.5);
-  auto SignOne = MIRBuilder.buildFCopysign(Ty, One, X);
+  auto Cmp =
+      MIRBuilder.buildFCmp(CmpInst::FCMP_OGE, CondTy, AbsDiff, Half, Flags);
 
-  auto Cmp = MIRBuilder.buildFCmp(CmpInst::FCMP_OGE, CondTy, AbsDiff, Half,
-                                  Flags);
-  auto Sel = MIRBuilder.buildSelect(Ty, Cmp, SignOne, Zero, Flags);
+  // Could emit G_UITOFP instead
+  auto One = MIRBuilder.buildFConstant(Ty, 1.0);
+  auto Zero = MIRBuilder.buildFConstant(Ty, 0.0);
+  auto BoolFP = MIRBuilder.buildSelect(Ty, Cmp, One, Zero);
+  auto SignedOffset = MIRBuilder.buildFCopysign(Ty, BoolFP, X);
 
-  MIRBuilder.buildFAdd(DstReg, T, Sel, Flags);
+  MIRBuilder.buildFAdd(DstReg, T, SignedOffset, Flags);
 
   MI.eraseFromParent();
   return Legalized;

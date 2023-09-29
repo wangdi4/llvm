@@ -145,6 +145,14 @@ static cl::opt<bool> SROAStrictInbounds("sroa-strict-inbounds", cl::init(false),
 /// Disable running mem2reg during SROA in order to test or debug SROA.
 static cl::opt<bool> SROASkipMem2Reg("sroa-skip-mem2reg", cl::init(false),
                                      cl::Hidden);
+
+/// The maximum number of alloca slices allowed when splitting.
+static cl::opt<int>
+    SROAMaxAllocaSlices("sroa-max-alloca-slices", cl::init(1024),
+                        cl::desc("Maximum number of alloca slices allowed "
+                                 "after which splitting is not attempted"),
+                        cl::Hidden);
+
 namespace {
 
 /// Calculate the fragment of a variable to use when slicing a store
@@ -1805,13 +1813,6 @@ static void speculateSelectInstLoads(SelectInst &SI, LoadInst &LI,
   assert(LI.isSimple() && "We only speculate simple loads");
 
   IRB.SetInsertPoint(&LI);
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  if (auto *TypedPtrTy = LI.getPointerOperandType();
-      !TypedPtrTy->isOpaquePointerTy() && SI.getType() != TypedPtrTy) {
-    TV = IRB.CreateBitOrPointerCast(TV, TypedPtrTy, "");
-    FV = IRB.CreateBitOrPointerCast(FV, TypedPtrTy, "");
-  }
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   // Fix for typed pointers
   auto *LoadPtrType = LI.getPointerOperandType();
   if (LoadPtrType != TV->getType())
@@ -1887,13 +1888,6 @@ static void rewriteMemOpOfSelect(SelectInst &SI, T &I,
     }
     CondMemOp.insertBefore(NewMemOpBB->getTerminator());
     Value *Ptr = SI.getOperand(1 + SuccIdx);
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    if (auto *PtrTy = Ptr->getType();
-        !PtrTy->isOpaquePointerTy() &&
-        PtrTy != CondMemOp.getPointerOperandType())
-      Ptr = BitCastInst::CreatePointerBitCastOrAddrSpaceCast(
-          Ptr, CondMemOp.getPointerOperandType(), "", &CondMemOp);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     CondMemOp.setOperand(I.getPointerOperandIndex(), Ptr);
     if (isa<LoadInst>(I)) {
       CondMemOp.setName(I.getName() + (IsThen ? ".then" : ".else") + ".val");
@@ -2909,11 +2903,7 @@ class llvm::sroa::AllocaSliceRewriter
     if (!IsVolatile || AddrSpace == NewAI.getType()->getPointerAddressSpace())
       return &NewAI;
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Type *AccessTy = IRB.getPtrTy(AddrSpace);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    Type *AccessTy = NewAI.getAllocatedType()->getPointerTo(AddrSpace);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     return IRB.CreateAddrSpaceCast(&NewAI, AccessTy);
   }
 public:
@@ -3120,7 +3110,7 @@ private:
                NewEndOffset == NewAllocaEndOffset &&
                (canConvertValue(DL, NewAllocaTy, TargetTy) ||
                 (IsLoadPastEnd && NewAllocaTy->isIntegerTy() &&
-                 TargetTy->isIntegerTy()))) {
+                 TargetTy->isIntegerTy() && !LI.isVolatile()))) {
       Value *NewPtr =
           getPtrToNewAI(LI.getPointerAddressSpace(), LI.isVolatile());
       LoadInst *NewLI = IRB.CreateAlignedLoad(NewAI.getAllocatedType(), NewPtr,
@@ -3298,26 +3288,10 @@ private:
     if (IntTy && V->getType()->isIntegerTy())
       return rewriteIntegerStore(V, SI, AATags);
 
-    const bool IsStorePastEnd =
-        DL.getTypeStoreSize(V->getType()).getFixedValue() > SliceSize;
     StoreInst *NewSI;
     if (NewBeginOffset == NewAllocaBeginOffset &&
         NewEndOffset == NewAllocaEndOffset &&
-        (canConvertValue(DL, V->getType(), NewAllocaTy) ||
-         (IsStorePastEnd && NewAllocaTy->isIntegerTy() &&
-          V->getType()->isIntegerTy()))) {
-      // If this is an integer store past the end of slice (and thus the bytes
-      // past that point are irrelevant or this is unreachable), truncate the
-      // value prior to storing.
-      if (auto *VITy = dyn_cast<IntegerType>(V->getType()))
-        if (auto *AITy = dyn_cast<IntegerType>(NewAllocaTy))
-          if (VITy->getBitWidth() > AITy->getBitWidth()) {
-            if (DL.isBigEndian())
-              V = IRB.CreateLShr(V, VITy->getBitWidth() - AITy->getBitWidth(),
-                                 "endian_shift");
-            V = IRB.CreateTrunc(V, AITy, "load.trunc");
-          }
-
+        canConvertValue(DL, V->getType(), NewAllocaTy)) {
       V = convertValue(DL, IRB, V, NewAllocaTy);
       Value *NewPtr =
           getPtrToNewAI(SI.getPointerAddressSpace(), SI.isVolatile());
@@ -3880,7 +3854,8 @@ private:
     // dominate the PHI.
     IRBuilderBase::InsertPointGuard Guard(IRB);
     if (isa<PHINode>(OldPtr))
-      IRB.SetInsertPoint(&*OldPtr->getParent()->getFirstInsertionPt());
+      IRB.SetInsertPoint(OldPtr->getParent(),
+                         OldPtr->getParent()->getFirstInsertionPt());
     else
       IRB.SetInsertPoint(OldPtr);
     IRB.SetCurrentDebugLocation(OldPtr->getDebugLoc());
@@ -4269,7 +4244,7 @@ private:
 
     SmallVector<Value *, 4> Index(GEPI.indices());
     bool IsInBounds = GEPI.isInBounds();
-    IRB.SetInsertPoint(GEPI.getParent()->getFirstNonPHI());
+    IRB.SetInsertPoint(GEPI.getParent(), GEPI.getParent()->getFirstNonPHIIt());
     PHINode *NewPN = IRB.CreatePHI(GEPI.getType(), PHI->getNumIncomingValues(),
                                    PHI->getName() + ".sroa.phi");
     for (unsigned I = 0, E = PHI->getNumIncomingValues(); I != E; ++I) {
@@ -4726,11 +4701,7 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
     for (;;) {
       auto *PartTy = Type::getIntNTy(LI->getContext(), PartSize * 8);
       auto AS = LI->getPointerAddressSpace();
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       auto *PartPtrTy = LI->getPointerOperandType();
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      auto *PartPtrTy = PartTy->getPointerTo(AS);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       LoadInst *PLoad = IRB.CreateAlignedLoad(
           PartTy,
           getAdjustedPtr(IRB, DL, BasePtr,
@@ -4785,12 +4756,7 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
       for (int Idx = 0, Size = SplitLoads.size(); Idx < Size; ++Idx) {
         LoadInst *PLoad = SplitLoads[Idx];
         uint64_t PartOffset = Idx == 0 ? 0 : Offsets.Splits[Idx - 1];
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         auto *PartPtrTy = SI->getPointerOperandType();
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-        auto *PartPtrTy =
-            PLoad->getType()->getPointerTo(SI->getPointerAddressSpace());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
         auto AS = SI->getPointerAddressSpace();
         StoreInst *PStore = IRB.CreateAlignedStore(
@@ -4870,13 +4836,8 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
     int Idx = 0, Size = Offsets.Splits.size();
     for (;;) {
       auto *PartTy = Type::getIntNTy(Ty->getContext(), PartSize * 8);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       auto *LoadPartPtrTy = LI->getPointerOperandType();
       auto *StorePartPtrTy = SI->getPointerOperandType();
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      auto *LoadPartPtrTy = PartTy->getPointerTo(LI->getPointerAddressSpace());
-      auto *StorePartPtrTy = PartTy->getPointerTo(SI->getPointerAddressSpace());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
       // Either lookup a split load or create one.
       LoadInst *PLoad;
@@ -5441,6 +5402,9 @@ SROAPass::runOnAlloca(AllocaInst &AI) {
   AllocaSlices AS(DL, AI);
   LLVM_DEBUG(AS.print(dbgs()));
   if (AS.isEscaped())
+    return {Changed, CFGChanged};
+
+  if (std::distance(AS.begin(), AS.end()) > SROAMaxAllocaSlices)
     return {Changed, CFGChanged};
 
   // Delete all the dead users of this alloca before splitting and rewriting it.

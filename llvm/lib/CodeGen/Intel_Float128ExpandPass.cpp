@@ -202,11 +202,7 @@ static bool isUsedbyPHI(Value *Val) {
 bool Float128Expand::TransformFP128PHI(Instruction *I) {
   IRBuilder<> Builder(I->getParent()->getFirstNonPHI());
   LLVMContext &Ctx = Builder.getContext();
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *FP128PtrTy = Type::getFP128PtrTy(Ctx);
-#else
   Type *FP128PtrTy = PointerType::get(Ctx, 0);
-#endif
   PHINode *Phi = cast<PHINode>(I);
   PHINode *NewPhi = Builder.CreatePHI(FP128PtrTy, Phi->getNumIncomingValues());
   NewPHI2OldPHI.insert({NewPhi, Phi});

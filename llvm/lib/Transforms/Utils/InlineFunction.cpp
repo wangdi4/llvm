@@ -243,20 +243,21 @@ BasicBlock *LandingPadInliningInfo::getInnerResumeDest() {
   const unsigned PHICapacity = 2;
 
   // Create corresponding new PHIs for all the PHIs in the outer landing pad.
-  Instruction *InsertPoint = &InnerResumeDest->front();
+  BasicBlock::iterator InsertPoint = InnerResumeDest->begin();
   BasicBlock::iterator I = OuterResumeDest->begin();
   for (unsigned i = 0, e = UnwindDestPHIValues.size(); i != e; ++i, ++I) {
     PHINode *OuterPHI = cast<PHINode>(I);
     PHINode *InnerPHI = PHINode::Create(OuterPHI->getType(), PHICapacity,
-                                        OuterPHI->getName() + ".lpad-body",
-                                        InsertPoint);
+                                        OuterPHI->getName() + ".lpad-body");
+    InnerPHI->insertBefore(InsertPoint);
     OuterPHI->replaceAllUsesWith(InnerPHI);
     InnerPHI->addIncoming(OuterPHI, OuterResumeDest);
   }
 
   // Create a PHI for the exception values.
-  InnerEHValuesPHI = PHINode::Create(CallerLPad->getType(), PHICapacity,
-                                     "eh.lpad-body", InsertPoint);
+  InnerEHValuesPHI =
+      PHINode::Create(CallerLPad->getType(), PHICapacity, "eh.lpad-body");
+  InnerEHValuesPHI->insertBefore(InsertPoint);
   CallerLPad->replaceAllUsesWith(InnerEHValuesPHI);
   InnerEHValuesPHI->addIncoming(CallerLPad, OuterResumeDest);
 
@@ -1902,12 +1903,13 @@ static Value *HandleByValArgument(Type *ByValType, Value *Arg,
       ByValType, DL.getAllocaAddrSpace(), nullptr, Alignment, Arg->getName(),
       VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) ? TheCall :
                                                &*Caller->begin()->begin());
-#else //INTEL_COLLAB
-  Value *NewAlloca =
-      new AllocaInst(ByValType, DL.getAllocaAddrSpace(), nullptr, Alignment,
-                     Arg->getName(), &*Caller->begin()->begin());
-#endif // INTEL_COLLAB
   IFI.StaticAllocas.push_back(cast<AllocaInst>(NewAlloca));
+#else //INTEL_COLLAB
+  AllocaInst *NewAlloca = new AllocaInst(ByValType, DL.getAllocaAddrSpace(),
+                                         nullptr, Alignment, Arg->getName());
+  NewAlloca->insertBefore(Caller->begin()->begin());
+  IFI.StaticAllocas.push_back(NewAlloca);
+#endif // INTEL_COLLAB
 
 #if INTEL_COLLAB
   // If the byval was in a different address space, add a cast.
@@ -3131,7 +3133,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   // `Caller->isPresplitCoroutine()` would affect AlwaysInliner at O0 only.
   if ((InsertLifetime || Caller->isPresplitCoroutine()) &&
       !IFI.StaticAllocas.empty()) {
-    IRBuilder<> builder(&FirstNewBlock->front());
+    IRBuilder<> builder(&*FirstNewBlock, FirstNewBlock->begin());
     for (unsigned ai = 0, ae = IFI.StaticAllocas.size(); ai != ae; ++ai) {
       AllocaInst *AI = IFI.StaticAllocas[ai];
       // Don't mark swifterror allocas. They can't have bitcast uses.
@@ -3479,8 +3481,8 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     // The PHI node should go at the front of the new basic block to merge all
     // possible incoming values.
     if (!CB.use_empty()) {
-      PHI = PHINode::Create(RTy, Returns.size(), CB.getName(),
-                            &AfterCallBB->front());
+      PHI = PHINode::Create(RTy, Returns.size(), CB.getName());
+      PHI->insertBefore(AfterCallBB->begin());
       // Anything that used the result of the function call should now use the
       // PHI node as their operand.
       CB.replaceAllUsesWith(PHI);

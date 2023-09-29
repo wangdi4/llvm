@@ -297,14 +297,14 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     case 4:
       Row = II->getArgOperand(2);
       Col = II->getArgOperand(0);
-      if (TM->getOptLevel() == CodeGenOpt::None) {
+      if (TM->getOptLevel() == CodeGenOptLevel::None) {
         Row = getRowFromCol(II, Row, 4);
         Col = getColFromRow(II, Col, 4);
       }
       break;
     case 5:
       Row = II->getArgOperand(2);
-      if (TM->getOptLevel() == CodeGenOpt::None)
+      if (TM->getOptLevel() == CodeGenOptLevel::None)
         Row = getRowFromCol(II, Row, 4);
       Col = II->getArgOperand(1);
       break;
@@ -323,7 +323,7 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     case 4:
       Row = II->getArgOperand(1);
       Col = II->getArgOperand(0);
-      if (TM->getOptLevel() == CodeGenOpt::None) {
+      if (TM->getOptLevel() == CodeGenOptLevel::None) {
         Row = getRowFromCol(II, Row, 4);
         Col = getColFromRow(II, Col, 4);
       }
@@ -419,12 +419,7 @@ void X86LowerAMXType::combineLoadBitcast(LoadInst *LD, BitCastInst *Bitcast) {
   IRBuilder<> Builder(Bitcast);
   // Use the maximun column as stride.
   Value *Stride = Builder.getInt64(64);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Value *I8Ptr = LD->getOperand(0);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *I8Ptr =
-      Builder.CreateBitCast(LD->getOperand(0), Builder.getInt8PtrTy());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   std::array<Value *, 4> Args = {Row, Col, I8Ptr, Stride};
 
   Value *NewInst = Builder.CreateIntrinsic(Intrinsic::x86_tileloadd64_internal,
@@ -451,12 +446,7 @@ void X86LowerAMXType::combineBitcastStore(BitCastInst *Bitcast, StoreInst *ST) {
   // Use the maximum column as stride. It must be the same with load
   // stride.
   Value *Stride = Builder.getInt64(64);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Value *I8Ptr = ST->getOperand(1);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  Value *I8Ptr =
-      Builder.CreateBitCast(ST->getOperand(1), Builder.getInt8PtrTy());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   std::array<Value *, 5> Args = {Row, Col, I8Ptr, Stride, Tile};
   Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, std::nullopt,
                           Args);
@@ -484,11 +474,7 @@ bool X86LowerAMXType::transformBitcast(BitCastInst *Bitcast) {
 
   auto Prepare = [&](Type *MemTy) {
     AllocaAddr = createAllocaInstAtEntry(Builder, Bitcast->getParent(), MemTy);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     I8Ptr = AllocaAddr;
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    I8Ptr = Builder.CreateBitCast(AllocaAddr, Builder.getInt8PtrTy());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     Stride = Builder.getInt64(64);
   };
   if (Bitcast->getType()->isX86_AMXTy()) {
@@ -1508,8 +1494,8 @@ public:
 
     // Prepare for fast register allocation at O0.
     // Todo: May better check the volatile model of AMX code, not just
-    // by checking Attribute::OptimizeNone and CodeGenOpt::None.
-    if (TM->getOptLevel() == CodeGenOpt::None) {
+    // by checking Attribute::OptimizeNone and CodeGenOptLevel::None.
+    if (TM->getOptLevel() == CodeGenOptLevel::None) {
       // If Front End not use O0 but the Mid/Back end use O0, (e.g.
       // "Clang -O2 -S -emit-llvm t.c" + "llc t.ll") we should make
       // sure the amx data is volatile, that is nessary for AMX fast

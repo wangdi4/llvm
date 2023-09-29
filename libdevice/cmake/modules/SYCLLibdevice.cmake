@@ -54,18 +54,10 @@ set(compile_opts
   -sycl-std=2020
   )
 
-if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
-  list(APPEND compile_opts "-Xclang" "-no-opaque-pointers")
-endif()
-
 set(SYCL_LIBDEVICE_GCC_TOOLCHAIN "" CACHE PATH "Path to GCC installation")
 
 if (NOT SYCL_LIBDEVICE_GCC_TOOLCHAIN STREQUAL "")
   list(APPEND compile_opts "--gcc-toolchain=${SYCL_LIBDEVICE_GCC_TOOLCHAIN}")
-endif()
-
-if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
-  list(APPEND compile_opts "-Xclang" "-no-opaque-pointers")
 endif()
 
 if ("NVPTX" IN_LIST LLVM_TARGETS_TO_BUILD)

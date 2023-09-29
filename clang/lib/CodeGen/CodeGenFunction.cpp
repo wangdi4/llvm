@@ -2588,12 +2588,7 @@ static void emitNonZeroVLAInit(CodeGenFunction &CGF, QualType baseType,
   llvm::Value *baseSizeInChars
     = llvm::ConstantInt::get(CGF.IntPtrTy, baseSize.getQuantity());
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Address begin = dest.withElementType(CGF.Int8Ty);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  Address begin =
-    Builder.CreateElementBitCast(dest, CGF.Int8Ty, "vla.begin");
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Value *end = Builder.CreateInBoundsGEP(
       begin.getElementType(), begin.getPointer(), sizeInChars, "vla.end");
 
@@ -2638,12 +2633,7 @@ CodeGenFunction::EmitNullInitialization(Address DestPtr, QualType Ty) {
   }
 
   if (DestPtr.getElementType() != Int8Ty)
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     DestPtr = DestPtr.withElementType(Int8Ty);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    // Cast the dest ptr to the appropriate i8 pointer type.
-    DestPtr = Builder.CreateElementBitCast(DestPtr, Int8Ty);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // Get size and alignment info for this aggregate.
   CharUnits size = getContext().getTypeSizeInChars(Ty);
@@ -2688,12 +2678,7 @@ CodeGenFunction::EmitNullInitialization(Address DestPtr, QualType Ty) {
                                NullConstant, Twine());
     CharUnits NullAlign = DestPtr.getAlignment();
     NullVariable->setAlignment(NullAlign.getAsAlign());
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Address SrcPtr(NullVariable, Builder.getInt8Ty(), NullAlign);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    Address SrcPtr(Builder.CreateBitCast(NullVariable, Builder.getInt8PtrTy()),
-                   Builder.getInt8Ty(), NullAlign);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
     if (vla) return emitNonZeroVLAInit(*this, Ty, DestPtr, SrcPtr, SizeVal);
 
@@ -2807,11 +2792,7 @@ llvm::Value *CodeGenFunction::emitArrayLength(const ArrayType *origArrayType,
     }
 
     llvm::Type *baseType = ConvertType(eltType);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     addr = addr.withElementType(baseType);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    addr = Builder.CreateElementBitCast(addr, baseType, "array.begin");
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   } else {
     // Create the actual GEP.
     addr = Address(Builder.CreateInBoundsGEP(
@@ -3166,11 +3147,7 @@ void CodeGenFunction::EmitVarAnnotations(const VarDecl *D, llvm::Value *V) {
   // FIXME We create a new bitcast for every annotation because that's what
   // llvm-gcc was doing.
   unsigned AS = V->getType()->getPointerAddressSpace();
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Type *I8PtrTy = Builder.getPtrTy(AS);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  llvm::Type *I8PtrTy = Builder.getInt8PtrTy(AS);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   for (const auto *I : D->specific_attrs<AnnotateAttr>())
     EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation,
                                         {I8PtrTy, CGM.ConstGlobalsPtrTy}),
@@ -3185,12 +3162,7 @@ Address CodeGenFunction::EmitFieldAnnotations(const FieldDecl *D,
   auto *PTy = dyn_cast<llvm::PointerType>(VTy);
   unsigned AS = PTy ? PTy->getAddressSpace() : 0;
   llvm::PointerType *IntrinTy =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::PointerType::get(CGM.getLLVMContext(), AS);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      llvm::PointerType::getWithSamePointeeType(CGM.Int8PtrTy, AS);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-
   // llvm.ptr.annotation intrinsic accepts a pointer to integer of any width -
   // don't perform bitcasts if value is integer
   if (Addr.getElementType()->isIntegerTy()) {
@@ -3264,11 +3236,7 @@ Address CodeGenFunction::EmitFieldSYCLAnnotations(const FieldDecl *D,
   unsigned AS = PTy ? PTy->getAddressSpace() : 0;
   llvm::Type *IntrType = VTy;
   if (!Addr.getElementType()->isIntegerTy())
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     IntrType = llvm::PointerType::get(CGM.getLLVMContext(), AS);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    IntrType = llvm::PointerType::getWithSamePointeeType(CGM.Int8PtrTy, AS);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation,
                                        {IntrType, CGM.ConstGlobalsPtrTy});
 

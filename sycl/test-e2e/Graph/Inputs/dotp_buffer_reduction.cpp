@@ -6,8 +6,6 @@ int main() {
 
   queue Queue{{sycl::ext::intel::property::queue::no_immediate_command_list{}}};
 
-  exp_ext::command_graph Graph{Queue.get_context(), Queue.get_device()};
-
   int DotpData = 0;
 
   const size_t N = 10;

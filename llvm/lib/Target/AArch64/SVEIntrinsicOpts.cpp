@@ -325,14 +325,7 @@ bool SVEIntrinsicOpts::optimizePredicateStore(Instruction *I) {
   IRBuilder<> Builder(I->getContext());
   Builder.SetInsertPoint(I);
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Builder.CreateStore(BitCast->getOperand(0), Store->getPointerOperand());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *PtrBitCast = Builder.CreateBitCast(
-      Store->getPointerOperand(),
-      PredType->getPointerTo(Store->getPointerAddressSpace()));
-  Builder.CreateStore(BitCast->getOperand(0), PtrBitCast);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   Store->eraseFromParent();
   if (IntrI->getNumUses() == 0)
@@ -389,14 +382,7 @@ bool SVEIntrinsicOpts::optimizePredicateLoad(Instruction *I) {
   IRBuilder<> Builder(I->getContext());
   Builder.SetInsertPoint(Load);
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   auto *LoadPred = Builder.CreateLoad(PredType, Load->getPointerOperand());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *PtrBitCast = Builder.CreateBitCast(
-      Load->getPointerOperand(),
-      PredType->getPointerTo(Load->getPointerAddressSpace()));
-  auto *LoadPred = Builder.CreateLoad(PredType, PtrBitCast);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   BitCast->replaceAllUsesWith(LoadPred);
   BitCast->eraseFromParent();

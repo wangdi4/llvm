@@ -6012,6 +6012,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     else {
       for (auto &Macro : D.getSYCLTargetMacroArgs())
         CmdArgs.push_back(Args.MakeArgString(Macro));
+      if (!Args.hasFlag(options::OPT_fsycl_esimd_build_host_code,
+                        options::OPT_fno_sycl_esimd_build_host_code, true))
+        CmdArgs.push_back("-fno-sycl-esimd-build-host-code");
     }
     if (Args.hasFlag(options::OPT_fsycl_esimd_force_stateless_mem,
                      options::OPT_fno_sycl_esimd_force_stateless_mem, false))
@@ -6785,6 +6788,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     A->render(Args, CmdArgs);
   }
 
+  if (Arg *A = Args.getLastArg(options::OPT_faltmathlib_EQ)) {
+    A->render(Args, CmdArgs);
+  }
+
   if (Args.hasFlag(options::OPT_fmerge_all_constants,
                    options::OPT_fno_merge_all_constants, false))
     CmdArgs.push_back("-fmerge-all-constants");
@@ -6921,6 +6928,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddLastArg(CmdArgs, options::OPT_fexperimental_relative_cxx_abi_vtables,
                   options::OPT_fno_experimental_relative_cxx_abi_vtables);
+
+  Args.AddLastArg(CmdArgs, options::OPT_fexperimental_omit_vtable_rtti,
+                  options::OPT_fno_experimental_omit_vtable_rtti);
 
   // Handle segmented stacks.
   Args.addOptInFlag(CmdArgs, options::OPT_fsplit_stack,
@@ -7388,8 +7398,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Arg *A = Args.getLastArg(options::OPT_fsplit_machine_functions,
                                options::OPT_fno_split_machine_functions)) {
     if (!A->getOption().matches(options::OPT_fno_split_machine_functions)) {
-      // This codegen pass is only available on x86-elf targets.
-      if (Triple.isX86() && Triple.isOSBinFormatELF())
+      // This codegen pass is only available on x86 and AArch64 ELF targets.
+      if ((Triple.isX86() || Triple.isAArch64()) && Triple.isOSBinFormatELF())
         A->render(Args, CmdArgs);
       else
         D.Diag(diag::err_drv_unsupported_opt_for_target)
@@ -7524,6 +7534,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddLastArg(CmdArgs, options::OPT_fexperimental_relative_cxx_abi_vtables,
                   options::OPT_fno_experimental_relative_cxx_abi_vtables);
+
+  Args.AddLastArg(CmdArgs, options::OPT_fexperimental_omit_vtable_rtti,
+                  options::OPT_fno_experimental_omit_vtable_rtti);
 
   if (Arg *A = Args.getLastArg(options::OPT_ffuchsia_api_level_EQ))
     A->render(Args, CmdArgs);
@@ -8569,14 +8582,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                   options::OPT_fno_legacy_pass_manager);
 #endif // INTEL_CUSTOMIZATION
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  if (!CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL)
-    CmdArgs.push_back("-no-opaque-pointers");
-  else if ((Triple.isSPIRV() || Triple.isSPIR()) &&
-           !SPIRV_ENABLE_OPAQUE_POINTERS)
-    CmdArgs.push_back("-no-opaque-pointers");
-#endif
-
   ObjCRuntime Runtime = AddObjCRuntimeArgs(Args, Inputs, CmdArgs, rewriteKind);
   RenderObjCOptions(TC, D, RawTriple, Args, Runtime, rewriteKind != RK_None,
                     Input, CmdArgs);
@@ -9197,8 +9202,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-mllvm");
       CmdArgs.push_back(Args.MakeArgString("-paropt=" + Twine(paroptVal)));
     }
-    if (CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL)
-      CmdArgs.push_back("-fopenmp-typed-clauses");
+    CmdArgs.push_back("-fopenmp-typed-clauses");
   }
 
   if (IsOpenMPDevice && Triple.isSPIR()) {
@@ -11239,6 +11243,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
                 ",+SPV_INTEL_masked_gather_scatter"
                 ",+SPV_INTEL_tensor_float32_conversion"
                 ",+SPV_KHR_non_semantic_info"; // INTEL_COLLAB
+
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
 
     const toolchains::SYCLToolChain &TC =

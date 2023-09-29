@@ -265,7 +265,7 @@ bool InstCombinerImpl::foldIntegerTypedPHI(PHINode &PN) {
   PHINode *NewPtrPHI = PHINode::Create(
       IntToPtr->getType(), PN.getNumIncomingValues(), PN.getName() + ".ptr");
 
-  InsertNewInstBefore(NewPtrPHI, PN);
+  InsertNewInstBefore(NewPtrPHI, PN.getIterator());
   SmallDenseMap<Value *, Instruction *> Casts;
   for (auto Incoming : zip(PN.blocks(), AvailablePtrVals)) {
     auto *IncomingBB = std::get<0>(Incoming);
@@ -302,10 +302,10 @@ bool InstCombinerImpl::foldIntegerTypedPHI(PHINode &PN) {
         if (isa<PHINode>(IncomingI))
           InsertPos = BB->getFirstInsertionPt();
         assert(InsertPos != BB->end() && "should have checked above");
-        InsertNewInstBefore(CI, *InsertPos);
+        InsertNewInstBefore(CI, InsertPos);
       } else {
         auto *InsertBB = &IncomingBB->getParent()->getEntryBlock();
-        InsertNewInstBefore(CI, *InsertBB->getFirstInsertionPt());
+        InsertNewInstBefore(CI, InsertBB->getFirstInsertionPt());
       }
     }
     NewPtrPHI->addIncoming(CI, IncomingBB);
@@ -370,7 +370,7 @@ InstCombinerImpl::foldPHIArgInsertValueInstructionIntoPHI(PHINode &PN) {
       NewOperand->addIncoming(
           cast<InsertValueInst>(std::get<1>(Incoming))->getOperand(OpIdx),
           std::get<0>(Incoming));
-    InsertNewInstBefore(NewOperand, PN);
+    InsertNewInstBefore(NewOperand, PN.getIterator());
   }
 
   // And finally, create `insertvalue` over the newly-formed PHI nodes.
@@ -408,7 +408,7 @@ InstCombinerImpl::foldPHIArgExtractValueInstructionIntoPHI(PHINode &PN) {
     NewAggregateOperand->addIncoming(
         cast<ExtractValueInst>(std::get<1>(Incoming))->getAggregateOperand(),
         std::get<0>(Incoming));
-  InsertNewInstBefore(NewAggregateOperand, PN);
+  InsertNewInstBefore(NewAggregateOperand, PN.getIterator());
 
   // And finally, create `extractvalue` over the newly-formed PHI nodes.
   auto *NewEVI = ExtractValueInst::Create(NewAggregateOperand,
@@ -467,7 +467,7 @@ Instruction *InstCombinerImpl::foldPHIArgBinOpIntoPHI(PHINode &PN) {
     NewLHS = PHINode::Create(LHSType, PN.getNumIncomingValues(),
                              FirstInst->getOperand(0)->getName() + ".pn");
     NewLHS->addIncoming(InLHS, PN.getIncomingBlock(0));
-    InsertNewInstBefore(NewLHS, PN);
+    InsertNewInstBefore(NewLHS, PN.getIterator());
     LHSVal = NewLHS;
   }
 
@@ -475,7 +475,7 @@ Instruction *InstCombinerImpl::foldPHIArgBinOpIntoPHI(PHINode &PN) {
     NewRHS = PHINode::Create(RHSType, PN.getNumIncomingValues(),
                              FirstInst->getOperand(1)->getName() + ".pn");
     NewRHS->addIncoming(InRHS, PN.getIncomingBlock(0));
-    InsertNewInstBefore(NewRHS, PN);
+    InsertNewInstBefore(NewRHS, PN.getIterator());
     RHSVal = NewRHS;
   }
 
@@ -598,7 +598,7 @@ Instruction *InstCombinerImpl::foldPHIArgGEPIntoPHI(PHINode &PN) {
     Value *FirstOp = FirstInst->getOperand(I);
     PHINode *NewPN =
         PHINode::Create(FirstOp->getType(), E, FirstOp->getName() + ".pn");
-    InsertNewInstBefore(NewPN, PN);
+    InsertNewInstBefore(NewPN, PN.getIterator());
 
     NewPN->addIncoming(FirstOp, PN.getIncomingBlock(0));
     OperandPhis[I] = NewPN;
@@ -786,7 +786,7 @@ Instruction *InstCombinerImpl::foldPHIArgLoadIntoPHI(PHINode &PN) {
     NewLI->setOperand(0, InVal);
     delete NewPN;
   } else {
-    InsertNewInstBefore(NewPN, PN);
+    InsertNewInstBefore(NewPN, PN.getIterator());
   }
 
   // If this was a volatile load that we are merging, make sure to loop through
@@ -870,7 +870,7 @@ Instruction *InstCombinerImpl::foldPHIArgZextsIntoPHI(PHINode &Phi) {
   for (unsigned I = 0; I != NumIncomingValues; ++I)
     NewPhi->addIncoming(NewIncoming[I], Phi.getIncomingBlock(I));
 
-  InsertNewInstBefore(NewPhi, Phi);
+  InsertNewInstBefore(NewPhi, Phi.getIterator());
   return CastInst::CreateZExtOrBitCast(NewPhi, Phi.getType());
 }
 
@@ -960,7 +960,7 @@ Instruction *InstCombinerImpl::foldPHIArgOpIntoPHI(PHINode &PN) {
     PhiVal = InVal;
     delete NewPN;
   } else {
-    InsertNewInstBefore(NewPN, PN);
+    InsertNewInstBefore(NewPN, PN.getIterator());
     PhiVal = NewPN;
   }
 
@@ -1385,7 +1385,7 @@ static Value *simplifyUsingControlFlow(InstCombiner &Self, PHINode &PN,
   // sinking.
   auto InsertPt = BB->getFirstInsertionPt();
   if (InsertPt != BB->end()) {
-    Self.Builder.SetInsertPoint(&*InsertPt);
+    Self.Builder.SetInsertPoint(&*BB, InsertPt);
     return Self.Builder.CreateNot(Cond);
   }
 

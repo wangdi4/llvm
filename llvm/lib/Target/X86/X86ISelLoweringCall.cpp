@@ -669,11 +669,7 @@ static Constant* SegmentOffset(IRBuilderBase &IRB,
                                int Offset, unsigned AddressSpace) {
   return ConstantExpr::getIntToPtr(
       ConstantInt::get(Type::getInt32Ty(IRB.getContext()), Offset),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       IRB.getPtrTy(AddressSpace));
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Type::getInt8PtrTy(IRB.getContext())->getPointerTo(AddressSpace));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 Value *X86TargetLowering::getIRStackGuard(IRBuilderBase &IRB) const {
@@ -2803,7 +2799,8 @@ bool MatchingStackOffset(SDValue Arg, unsigned Offset, ISD::ArgFlagsTy Flags,
   for (;;) {
     // Look through nodes that don't alter the bits of the incoming value.
     unsigned Op = Arg.getOpcode();
-    if (Op == ISD::ZERO_EXTEND || Op == ISD::ANY_EXTEND || Op == ISD::BITCAST) {
+    if (Op == ISD::ZERO_EXTEND || Op == ISD::ANY_EXTEND || Op == ISD::BITCAST ||
+        Op == ISD::AssertZext) {
       Arg = Arg.getOperand(0);
       continue;
     }

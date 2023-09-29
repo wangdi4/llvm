@@ -836,10 +836,6 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     CmdArgs.push_back(
         Args.MakeArgString(Twine(PluginOptPrefix) + "jobs=" + Parallelism));
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  if (!CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL)
-    CmdArgs.push_back(Args.MakeArgString("-plugin-opt=no-opaque-pointers"));
-#endif
   // If an explicit debugger tuning argument appeared, pass it along.
   if (Arg *A =
           Args.getLastArg(options::OPT_gTune_Group, options::OPT_ggdbN_Group)) {
@@ -1149,9 +1145,8 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       ; // qopt-mem-layout-trans >= 1 ignored with -fopenmp-target-loopopt
     else if (MLTVal == "1" || MLTVal == "2" || MLTVal == "3" || MLTVal == "4") {
 #if INTEL_FEATURE_SW_DTRANS
-      // DTrans requires the front-end to generate additional info when opaque
-      // pointers are in use.
-      if (CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL && !IsLink)
+      // DTrans requires the front-end to generate additional info.
+      if (!IsLink)
         CmdArgs.push_back("-emit-dtrans-info");
 
       addllvmOption("-enable-dtrans");
@@ -3024,7 +3019,7 @@ getAMDGPUCodeObjectArgument(const Driver &D, const llvm::opt::ArgList &Args) {
 
 void tools::checkAMDGPUCodeObjectVersion(const Driver &D,
                                          const llvm::opt::ArgList &Args) {
-  const unsigned MinCodeObjVer = 2;
+  const unsigned MinCodeObjVer = 3;
   const unsigned MaxCodeObjVer = 5;
 
   if (auto *CodeObjArg = getAMDGPUCodeObjectArgument(D, Args)) {

@@ -89,7 +89,7 @@ constexpr FeatureBitset FeaturesX86_64_V2 = FeaturesX86_64 | FeatureSAHF |
 constexpr FeatureBitset FeaturesX86_64_V3 =
     FeaturesX86_64_V2 | FeatureAVX2 | FeatureBMI | FeatureBMI2 | FeatureF16C |
     FeatureFMA | FeatureLZCNT | FeatureMOVBE | FeatureXSAVE;
-constexpr FeatureBitset FeaturesX86_64_V4 = FeaturesX86_64_V3 |
+constexpr FeatureBitset FeaturesX86_64_V4 = FeaturesX86_64_V3 | FeatureEVEX512 |
                                             FeatureAVX512BW | FeatureAVX512CD |
                                             FeatureAVX512DQ | FeatureAVX512VL;
 
@@ -113,8 +113,8 @@ constexpr FeatureBitset FeaturesBroadwell =
 // Intel Knights Landing and Knights Mill
 // Knights Landing has feature parity with Broadwell.
 constexpr FeatureBitset FeaturesKNL =
-    FeaturesBroadwell | FeatureAES | FeatureAVX512F | FeatureAVX512CD |
-    FeatureAVX512ER | FeatureAVX512PF | FeaturePREFETCHWT1;
+    FeaturesBroadwell | FeatureAES | FeatureAVX512F | FeatureEVEX512 |
+    FeatureAVX512CD | FeatureAVX512ER | FeatureAVX512PF | FeaturePREFETCHWT1;
 constexpr FeatureBitset FeaturesKNM = FeaturesKNL | FeatureAVX512VPOPCNTDQ;
 
 #if INTEL_CUSTOMIZATION
@@ -129,9 +129,9 @@ constexpr FeatureBitset FeaturesSkylakeClient =
 // SkylakeServer inherits all SkylakeClient features except SGX.
 // FIXME: That doesn't match gcc.
 constexpr FeatureBitset FeaturesSkylakeServer =
-    (FeaturesSkylakeClient & ~FeatureSGX) | FeatureAVX512F | FeatureAVX512CD |
-    FeatureAVX512DQ | FeatureAVX512BW | FeatureAVX512VL | FeatureCLWB |
-    FeaturePKU;
+    (FeaturesSkylakeClient & ~FeatureSGX) | FeatureAVX512F | FeatureEVEX512 |
+    FeatureAVX512CD | FeatureAVX512DQ | FeatureAVX512BW | FeatureAVX512VL |
+    FeatureCLWB | FeaturePKU;
 constexpr FeatureBitset FeaturesCascadeLake =
     FeaturesSkylakeServer | FeatureAVX512VNNI;
 constexpr FeatureBitset FeaturesCooperLake =
@@ -139,9 +139,9 @@ constexpr FeatureBitset FeaturesCooperLake =
 
 // Intel 10nm processors.
 constexpr FeatureBitset FeaturesCannonlake =
-    FeaturesSkylakeClient | FeatureAVX512F | FeatureAVX512CD | FeatureAVX512DQ |
-    FeatureAVX512BW | FeatureAVX512VL | FeatureAVX512IFMA | FeatureAVX512VBMI |
-    FeaturePKU | FeatureSHA;
+    FeaturesSkylakeClient | FeatureAVX512F | FeatureEVEX512 | FeatureAVX512CD |
+    FeatureAVX512DQ | FeatureAVX512BW | FeatureAVX512VL | FeatureAVX512IFMA |
+    FeatureAVX512VBMI | FeaturePKU | FeatureSHA;
 constexpr FeatureBitset FeaturesICLClient =
     FeaturesCannonlake | FeatureAVX512BITALG | FeatureAVX512VBMI2 |
     FeatureAVX512VNNI | FeatureAVX512VPOPCNTDQ | FeatureGFNI | FeatureRDPID |
@@ -353,11 +353,11 @@ static constexpr FeatureBitset FeaturesZNVER3 = FeaturesZNVER2 |
                                                 FeatureINVPCID | FeaturePKU |
                                                 FeatureVAES | FeatureVPCLMULQDQ;
 static constexpr FeatureBitset FeaturesZNVER4 =
-    FeaturesZNVER3 | FeatureAVX512F | FeatureAVX512CD | FeatureAVX512DQ |
-    FeatureAVX512BW | FeatureAVX512VL | FeatureAVX512IFMA | FeatureAVX512VBMI |
-    FeatureAVX512VBMI2 | FeatureAVX512VNNI | FeatureAVX512BITALG |
-    FeatureAVX512VPOPCNTDQ | FeatureAVX512BF16 | FeatureGFNI |
-    FeatureSHSTK;
+    FeaturesZNVER3 | FeatureAVX512F | FeatureEVEX512 | FeatureAVX512CD |
+    FeatureAVX512DQ | FeatureAVX512BW | FeatureAVX512VL | FeatureAVX512IFMA |
+    FeatureAVX512VBMI | FeatureAVX512VBMI2 | FeatureAVX512VNNI |
+    FeatureAVX512BITALG | FeatureAVX512VPOPCNTDQ | FeatureAVX512BF16 |
+    FeatureGFNI | FeatureSHSTK;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RYL
@@ -698,6 +698,7 @@ constexpr FeatureBitset ImpliedFeaturesSSE4_1 = FeatureSSSE3;
 constexpr FeatureBitset ImpliedFeaturesSSE4_2 = FeatureSSE4_1;
 constexpr FeatureBitset ImpliedFeaturesAVX = FeatureSSE4_2;
 constexpr FeatureBitset ImpliedFeaturesAVX2 = FeatureAVX;
+constexpr FeatureBitset ImpliedFeaturesEVEX512 = {};
 constexpr FeatureBitset ImpliedFeaturesAVX512F =
     FeatureAVX2 | FeatureF16C | FeatureFMA;
 

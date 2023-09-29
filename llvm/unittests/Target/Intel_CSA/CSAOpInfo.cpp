@@ -32,7 +32,7 @@ std::unique_ptr<TargetMachine> createTargetMachine() {
 
   return std::unique_ptr<TargetMachine>(
       TheTarget->createTargetMachine(TT, "", "", TargetOptions(), None,
-                                     CodeModel::Large, CodeGenOpt::Default));
+                                     CodeModel::Large, CodeGenOptLevel::Default));
 }
 
 std::unique_ptr<CSAInstrInfo> createInstrInfo(TargetMachine *TM) {

@@ -358,8 +358,6 @@ namespace options {
       RemarksFormat = std::string(opt);
     } else if (opt.consume_front("stats-file=")) {
       stats_file = std::string(opt);
-    } else if (opt == "opaque-pointers") {
-      // We always use opaque pointers.
     } else {
       // Save this option to pass to the code generator.
       // ParseCommandLineOptions() expects argv[0] to be program name. Lazily
@@ -935,7 +933,7 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
   Conf.MAttrs = codegen::getMAttrs();
   Conf.RelocModel = RelocationModel;
   Conf.CodeModel = codegen::getExplicitCodeModel();
-  std::optional<CodeGenOpt::Level> CGOptLevelOrNone =
+  std::optional<CodeGenOptLevel> CGOptLevelOrNone =
       CodeGenOpt::getLevel(options::OptLevel);
   assert(CGOptLevelOrNone && "Invalid optimization level");
   Conf.CGOptLevel = *CGOptLevelOrNone;
@@ -991,7 +989,7 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
                             /* UseInputModulePath */ true));
     break;
   case options::OT_ASM_ONLY:
-    Conf.CGFileType = CGFT_AssemblyFile;
+    Conf.CGFileType = CodeGenFileType::AssemblyFile;
     break;
   }
 

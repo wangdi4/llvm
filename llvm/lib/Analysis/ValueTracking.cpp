@@ -4309,11 +4309,15 @@ std::pair<Value *, FPClassTest> llvm::fcmpToClassTest(FCmpInst::Predicate Pred,
                                                       Value *LHS, Value *RHS,
                                                       bool LookThroughSrc) {
   const APFloat *ConstRHS;
-#if INTEL_CUSTOMIZATION
-  if (!match(RHS, m_APFloat(ConstRHS)))
-#endif // INTEL_CUSTOMIZATION
+  if (!match(RHS, m_APFloatAllowUndef(ConstRHS)))
     return {nullptr, fcNone};
 
+  return fcmpToClassTest(Pred, F, LHS, ConstRHS, LookThroughSrc);
+}
+
+std::pair<Value *, FPClassTest>
+llvm::fcmpToClassTest(FCmpInst::Predicate Pred, const Function &F, Value *LHS,
+                      const APFloat *ConstRHS, bool LookThroughSrc) {
   // fcmp ord x, zero|normal|subnormal|inf -> ~fcNan
   if (Pred == FCmpInst::FCMP_ORD && !ConstRHS->isNaN())
     return {LHS, ~fcNan};
@@ -5613,7 +5617,7 @@ Value *llvm::isBytewiseValue(Value *V, const DataLayout &DL) {
     return UndefInt8;
 
   // Return Undef for zero-sized type.
-  if (!DL.getTypeStoreSize(V->getType()).isNonZero())
+  if (DL.getTypeStoreSize(V->getType()).isZero())
     return UndefInt8;
 
   Constant *C = dyn_cast<Constant>(V);
@@ -6645,10 +6649,11 @@ static OverflowResult mapOverflowResult(ConstantRange::OverflowResult OR) {
 
 /// Combine constant ranges from computeConstantRange() and computeKnownBits().
 static ConstantRange computeConstantRangeIncludingKnownBits(
-    const Value *V, bool ForSigned, const DataLayout &DL, unsigned Depth,
-    AssumptionCache *AC, const Instruction *CxtI, const DominatorTree *DT,
+    const Value *V, bool ForSigned, const DataLayout &DL, AssumptionCache *AC,
+    const Instruction *CxtI, const DominatorTree *DT,
     bool UseInstrInfo = true) {
-  KnownBits Known = computeKnownBits(V, DL, Depth, AC, CxtI, DT, UseInstrInfo);
+  KnownBits Known =
+      computeKnownBits(V, DL, /*Depth=*/0, AC, CxtI, DT, UseInstrInfo);
   ConstantRange CR1 = ConstantRange::fromKnownBits(Known, ForSigned);
   ConstantRange CR2 = computeConstantRange(V, ForSigned, UseInstrInfo);
   ConstantRange::PreferredRangeType RangeType =
@@ -6717,9 +6722,9 @@ OverflowResult llvm::computeOverflowForUnsignedAdd(
     AssumptionCache *AC, const Instruction *CxtI, const DominatorTree *DT,
     bool UseInstrInfo) {
   ConstantRange LHSRange = computeConstantRangeIncludingKnownBits(
-      LHS, /*ForSigned=*/false, DL, /*Depth=*/0, AC, CxtI, DT, UseInstrInfo);
+      LHS, /*ForSigned=*/false, DL, AC, CxtI, DT, UseInstrInfo);
   ConstantRange RHSRange = computeConstantRangeIncludingKnownBits(
-      RHS, /*ForSigned=*/false, DL, /*Depth=*/0, AC, CxtI, DT, UseInstrInfo);
+      RHS, /*ForSigned=*/false, DL, AC, CxtI, DT, UseInstrInfo);
   return mapOverflowResult(LHSRange.unsignedAddMayOverflow(RHSRange));
 }
 
@@ -6753,9 +6758,9 @@ static OverflowResult computeOverflowForSignedAdd(const Value *LHS,
     return OverflowResult::NeverOverflows;
 
   ConstantRange LHSRange = computeConstantRangeIncludingKnownBits(
-      LHS, /*ForSigned=*/true, DL, /*Depth=*/0, AC, CxtI, DT);
+      LHS, /*ForSigned=*/true, DL, AC, CxtI, DT);
   ConstantRange RHSRange = computeConstantRangeIncludingKnownBits(
-      RHS, /*ForSigned=*/true, DL, /*Depth=*/0, AC, CxtI, DT);
+      RHS, /*ForSigned=*/true, DL, AC, CxtI, DT);
   OverflowResult OR =
       mapOverflowResult(LHSRange.signedAddMayOverflow(RHSRange));
   if (OR != OverflowResult::MayOverflow)
@@ -6820,9 +6825,9 @@ OverflowResult llvm::computeOverflowForUnsignedSub(const Value *LHS,
       return OverflowResult::AlwaysOverflowsLow;
     }
   ConstantRange LHSRange = computeConstantRangeIncludingKnownBits(
-      LHS, /*ForSigned=*/false, DL, /*Depth=*/0, AC, CxtI, DT);
+      LHS, /*ForSigned=*/false, DL, AC, CxtI, DT);
   ConstantRange RHSRange = computeConstantRangeIncludingKnownBits(
-      RHS, /*ForSigned=*/false, DL, /*Depth=*/0, AC, CxtI, DT);
+      RHS, /*ForSigned=*/false, DL, AC, CxtI, DT);
   return mapOverflowResult(LHSRange.unsignedSubMayOverflow(RHSRange));
 }
 
@@ -6852,9 +6857,9 @@ OverflowResult llvm::computeOverflowForSignedSub(const Value *LHS,
     return OverflowResult::NeverOverflows;
 
   ConstantRange LHSRange = computeConstantRangeIncludingKnownBits(
-      LHS, /*ForSigned=*/true, DL, /*Depth=*/0, AC, CxtI, DT);
+      LHS, /*ForSigned=*/true, DL, AC, CxtI, DT);
   ConstantRange RHSRange = computeConstantRangeIncludingKnownBits(
-      RHS, /*ForSigned=*/true, DL, /*Depth=*/0, AC, CxtI, DT);
+      RHS, /*ForSigned=*/true, DL, AC, CxtI, DT);
   return mapOverflowResult(LHSRange.signedSubMayOverflow(RHSRange));
 }
 

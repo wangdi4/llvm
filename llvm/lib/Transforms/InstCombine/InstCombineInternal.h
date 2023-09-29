@@ -208,9 +208,6 @@ public:
   Instruction *visitPHINode(PHINode &PN);
   Instruction *visitGetElementPtrInst(GetElementPtrInst &GEP);
   Instruction *visitGEPOfGEP(GetElementPtrInst &GEP, GEPOperator *Src);
-  #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Instruction *visitGEPOfBitcast(BitCastInst *BCI, GetElementPtrInst &GEP);
-  #endif // INTEL_SYCL_OPAQUEPOINTER_READY
   Instruction *visitAllocaInst(AllocaInst &AI);
   Instruction *visitAllocSite(Instruction &FI);
   Instruction *visitFree(CallInst &FI, Value *FreedOp);
@@ -499,13 +496,9 @@ public:
   void CreateNonTerminatorUnreachable(Instruction *InsertAt) {
     auto &Ctx = InsertAt->getContext();
     auto *SI = new StoreInst(ConstantInt::getTrue(Ctx),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                              PoisonValue::get(PointerType::getUnqual(Ctx)),
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-                             PoisonValue::get(Type::getInt1PtrTy(Ctx)),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
                              /*isVolatile*/ false, Align(1));
-    InsertNewInstBefore(SI, *InsertAt);
+    InsertNewInstBefore(SI, InsertAt->getIterator());
   }
 
   /// Combiner aware instruction erasure.
@@ -721,6 +714,9 @@ public:
   Instruction *foldICmpInstWithConstantAllowUndef(ICmpInst &Cmp,
                                                   const APInt &C);
   Instruction *foldICmpBinOp(ICmpInst &Cmp, const SimplifyQuery &SQ);
+  Instruction *foldICmpWithMinMaxImpl(Instruction &I, MinMaxIntrinsic *MinMax,
+                                      Value *Z, ICmpInst::Predicate Pred);
+  Instruction *foldICmpWithMinMax(ICmpInst &Cmp);
   Instruction *foldICmpEquality(ICmpInst &Cmp);
   Instruction *foldIRemByPowerOfTwoToBitTest(ICmpInst &I);
   Instruction *foldSignBitTest(ICmpInst &I);
@@ -795,9 +791,6 @@ public:
 
   Value *insertRangeTest(Value *V, const APInt &Lo, const APInt &Hi,
                          bool isSigned, bool Inside);
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Instruction *PromoteCastOfAllocation(BitCastInst &CI, AllocaInst &AI);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   bool mergeStoreIntoSuccessor(StoreInst &SI);
 
   /// Given an initial instruction, check to see if it is the root of a
@@ -820,10 +813,10 @@ public:
 
   Value *EvaluateInDifferentType(Value *V, Type *Ty, bool isSigned);
 
+#if INTEL_CUSTOMIZATION
   /// Returns a value X such that Val = X * Scale, or null if none.
   ///
   /// If the multiplication is known not to overflow then NoSignedWrap is set.
-#if INTEL_CUSTOMIZATION
   // If "TestOnly" is true, then Descale makes no modifications and only tests
   // whether or not a value can be descaled.
   Value *Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
@@ -874,13 +867,13 @@ class Negator final {
 
   std::array<Value *, 2> getSortedOperandsOfBinOp(Instruction *I);
 
-  [[nodiscard]] Value *visitImpl(Value *V, unsigned Depth);
+  [[nodiscard]] Value *visitImpl(Value *V, bool IsNSW, unsigned Depth);
 
-  [[nodiscard]] Value *negate(Value *V, unsigned Depth);
+  [[nodiscard]] Value *negate(Value *V, bool IsNSW, unsigned Depth);
 
   /// Recurse depth-first and attempt to sink the negation.
   /// FIXME: use worklist?
-  [[nodiscard]] std::optional<Result> run(Value *Root);
+  [[nodiscard]] std::optional<Result> run(Value *Root, bool IsNSW);
 
   Negator(const Negator &) = delete;
   Negator(Negator &&) = delete;
@@ -890,7 +883,7 @@ class Negator final {
 public:
   /// Attempt to negate \p Root. Retuns nullptr if negation can't be performed,
   /// otherwise returns negated value.
-  [[nodiscard]] static Value *Negate(bool LHSIsZero, Value *Root,
+  [[nodiscard]] static Value *Negate(bool LHSIsZero, bool IsNSW, Value *Root,
                                      InstCombinerImpl &IC);
 };
 

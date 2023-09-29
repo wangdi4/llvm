@@ -64,7 +64,7 @@ bool initTargetMachine() {
 
   TM = static_cast<LLVMTargetMachine *>(
       TheTarget->createTargetMachine(TT, CPU, FS, TargetOptions(), std::nullopt,
-                                     CodeModel::Large, CodeGenOpt::Default));
+                                     CodeModel::Large, CodeGenOptLevel::Default));
   if (! TM) return false;
 
   IRModule = new Module("TestModule", context);

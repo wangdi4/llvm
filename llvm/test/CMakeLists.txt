@@ -24,7 +24,6 @@ llvm_canonicalize_cmake_booleans(
   LLVM_ENABLE_EXPENSIVE_CHECKS
 # INTEL_CUSTOMIZATION
   LLVM_ENABLE_NEW_PASS_MANAGER
-  SPIRV_ENABLE_OPAQUE_POINTERS
   INTEL_ENABLE_PROTO_BIN_OPTRPT
 # INTEL_FEATURE_SW_DTRANS
   INTEL_DTRANS_EXTRA_OPTS
@@ -239,6 +238,7 @@ if(TARGET ocaml_llvm)
           ocaml_llvm_executionengine
           ocaml_llvm_irreader
           ocaml_llvm_linker
+          ocaml_llvm_passbuilder
           ocaml_llvm_target
           ocaml_llvm_transform_utils
         )

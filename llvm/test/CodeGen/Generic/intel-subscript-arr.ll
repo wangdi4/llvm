@@ -37,8 +37,7 @@ define void @_Z4testPK7ArrDescIdEii(ptr noalias nocapture readonly %inout, i32 %
 ; CHECK-LOWER-NEXT:    [[TMP5:%.*]] = sext i32 [[TMP3]] to i64
 ; CHECK-LOWER-NEXT:    [[TMP6:%.*]] = mul nsw i64 [[TMP4]], [[TMP5]]
 
-; Apply byte offset to ptr casted base pointer.
-; Then convert back to ptr.
+; Apply byte offset to base pointer.
 ; CHECK-LOWER-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i8, ptr [[TMP0]], i64 [[TMP6]]
 
 ; 2nd subscript. Load stride and LB. The base is the previous computed

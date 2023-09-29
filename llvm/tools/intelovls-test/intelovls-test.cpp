@@ -227,7 +227,7 @@ std::unique_ptr<TargetMachine> createTargetMachine() {
   TargetOptions Options;
   return std::unique_ptr<TargetMachine>(T->createTargetMachine(
       TargetTriple.getTriple(), "core-avx-i", "", Options, std::nullopt,
-      std::nullopt, CodeGenOpt::Aggressive));
+      std::nullopt, CodeGenOptLevel::Aggressive));
 }
 
 Function *createFunctionDecl(FunctionType *FTy, StringRef Name, Module *M) {

@@ -218,7 +218,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: GVNPass
 ; CHECK-O23SZ-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-O1-NEXT: Running pass: MemCpyOptPass
-; COM: CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis ; INTEL
+; COM: CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis ;INTEL
 ; CHECK-O3PRELTO-NEXT: LocalArrayTransposePass on foo ; INTEL
 ; CHECK-O-NEXT: Running pass: SCCPPass
 ; CHECK-O-NEXT: Running pass: BDCEPass
@@ -231,7 +231,7 @@
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O1-NEXT: Running pass: CoroElidePass
 ; CHECK-O-NEXT: Running pass: ADCEPass
-; COM: CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis ; INTEL
+; COM: CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass
 ; CHECK-O23SZ-NEXT: Running pass: MoveAutoInitPass on foo
@@ -369,6 +369,7 @@
 ; CHECK-Os-NEXT: Running pass: InjectTLIMappings
 ; Removed LoopVectorizePass pass as it is disabled by default
 ; END INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: InferAlignmentPass
 ; CHECK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
@@ -387,9 +388,12 @@
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: LoopUnrollPass
-; CHECK-O-NEXT: Running pass: SROAPass ;INTEL
-; CHECK-DEFAULT: Running pass: WarnMissedTransformationsPass ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: SROAPass
+; CHECK-DEFAULT: Running pass: WarnMissedTransformationsPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
+; end INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: InferAlignmentPass
 ; CHECK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O-NEXT: Running pass: LCSSAPass
 ; CHECK-DEFAULT-NEXT: Running analysis: MemorySSAAnalysis on foo ;INTEL

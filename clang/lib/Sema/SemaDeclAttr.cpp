@@ -7552,7 +7552,8 @@ static void handleCallConvAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   // Diagnostic is emitted elsewhere: here we store the (valid) AL
   // in the Decl node for syntactic reasoning, e.g., pretty-printing.
   CallingConv CC;
-  if (S.CheckCallingConvAttr(AL, CC, /*FD*/nullptr))
+  if (S.CheckCallingConvAttr(AL, CC, /*FD*/ nullptr,
+                             S.IdentifyCUDATarget(dyn_cast<FunctionDecl>(D))))
     return;
 
   if (!isa<ObjCMethodDecl>(D)) {
@@ -7745,7 +7746,8 @@ static void handleNoRandomizeLayoutAttr(Sema &S, Decl *D,
 }
 
 bool Sema::CheckCallingConvAttr(const ParsedAttr &Attrs, CallingConv &CC,
-                                const FunctionDecl *FD) {
+                                const FunctionDecl *FD,
+                                CUDAFunctionTarget CFT) {
   if (Attrs.isInvalid())
     return true;
 
@@ -7852,7 +7854,8 @@ bool Sema::CheckCallingConvAttr(const ParsedAttr &Attrs, CallingConv &CC,
   // on their host/device attributes.
   if (LangOpts.CUDA) {
     auto *Aux = Context.getAuxTargetInfo();
-    auto CudaTarget = IdentifyCUDATarget(FD);
+    assert(FD || CFT != CFT_InvalidTarget);
+    auto CudaTarget = FD ? IdentifyCUDATarget(FD) : CFT;
     bool CheckHost = false, CheckDevice = false;
     switch (CudaTarget) {
     case CFT_HostDevice:
@@ -9274,11 +9277,11 @@ void Sema::AddSYCLAddIRAttributesFunctionAttr(Decl *D,
                                               MutableArrayRef<Expr *> Args) {
   if (const auto *FuncD = dyn_cast<FunctionDecl>(D)) {
     if (FuncD->isDefaulted()) {
-      Diag(CI.getLoc(), diag::err_disallow_attribute_on_func) << CI << 1;
+      Diag(CI.getLoc(), diag::err_disallow_attribute_on_func) << CI << 0;
       return;
     }
     if (FuncD->isDeleted()) {
-      Diag(CI.getLoc(), diag::err_disallow_attribute_on_func) << CI << 2;
+      Diag(CI.getLoc(), diag::err_disallow_attribute_on_func) << CI << 1;
       return;
     }
   }

@@ -180,6 +180,9 @@ static lto::Config createConfig() {
   c.DwoDir = std::string(config->dwoDir);
 
   c.HasWholeProgramVisibility = config->ltoWholeProgramVisibility;
+  c.ValidateAllVtablesHaveTypeInfos =
+      config->ltoValidateAllVtablesHaveTypeInfos;
+  c.AllVtablesHaveTypeInfos = ctx.ltoAllVtablesHaveTypeInfos;
   c.AlwaysEmitRegularLTOObj = !config->ltoObjPath.empty();
 
   for (const llvm::StringRef &name : config->thinLTOModulesToCompile)
@@ -192,8 +195,6 @@ static lto::Config createConfig() {
   c.RunCSIRInstr = config->ltoCSProfileGenerate;
   c.PGOWarnMismatch = config->ltoPGOWarnMismatch;
 
-  c.OpaquePointers = config->opaquePointers;
-
   if (config->emitLLVM) {
     c.PostInternalizeModuleHook = [](size_t task, const Module &m) {
       if (std::unique_ptr<raw_fd_ostream> os =
@@ -204,7 +205,7 @@ static lto::Config createConfig() {
   }
 
   if (config->ltoEmitAsm) {
-    c.CGFileType = CGFT_AssemblyFile;
+    c.CGFileType = CodeGenFileType::AssemblyFile;
     c.Options.MCOptions.AsmVerbose = true;
   }
 

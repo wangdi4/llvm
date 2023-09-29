@@ -2709,6 +2709,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
     }
   }
 
+  Sema::CUDATargetContextRAII X(Actions, Sema::CTCK_InitGlobalVar, ThisDecl);
   switch (TheInitKind) {
   // Parse declarator '=' initializer.
   case InitKind::Equal: {
@@ -6931,7 +6932,7 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
       // Objective-C++: Detect C++ keywords and try to prevent further errors by
       // treating these keyword as valid member names.
       if (getLangOpts().ObjC && getLangOpts().CPlusPlus &&
-          Tok.getIdentifierInfo() &&
+          !Tok.isAnnotation() && Tok.getIdentifierInfo() &&
           Tok.getIdentifierInfo()->isCPlusPlusKeyword(getLangOpts())) {
         Diag(getMissingDeclaratorIdLoc(D, Tok.getLocation()),
              diag::err_expected_member_name_or_semi_objcxx_keyword)

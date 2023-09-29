@@ -3130,6 +3130,12 @@ def fno_experimental_relative_cxx_abi_vtables :
   Group<f_clang_Group>, Visibility<[ClangOption, CC1Option]>,
   HelpText<"Do not use the experimental C++ class ABI for classes with virtual tables">;
 
+defm experimental_omit_vtable_rtti : BoolFOption<"experimental-omit-vtable-rtti",
+  LangOpts<"OmitVTableRTTI">, DefaultFalse,
+  PosFlag<SetTrue, [], [CC1Option], "Omit">,
+  NegFlag<SetFalse, [], [CC1Option], "Do not omit">,
+  BothFlags<[], [CC1Option], " the RTTI component from virtual tables">>;
+
 def fcxx_abi_EQ : Joined<["-"], "fc++-abi=">,
                   Group<f_clang_Group>, Visibility<[ClangOption, CC1Option]>,
                   HelpText<"C++ ABI to use. This will override the target C++ ABI.">;
@@ -3377,6 +3383,11 @@ def fvalidate_ast_input_files_content:
            " Files with mismatching mtime's are considered valid"
            " if both contents is identical">,
   MarshallingInfoFlag<HeaderSearchOpts<"ValidateASTInputFilesContent">>;
+def fforce_check_cxx20_modules_input_files:
+  Flag <["-"], "fforce-check-cxx20-modules-input-files">,
+  Group<f_Group>, Visibility<[ClangOption, CC1Option]>,
+  HelpText<"Check the input source files from C++20 modules explicitly">,
+  MarshallingInfoFlag<HeaderSearchOpts<"ForceCheckCXX20ModulesInputFiles">>;
 def fmodules_validate_input_files_content:
   Flag <["-"], "fmodules-validate-input-files-content">,
   Group<f_Group>, Flags<[NoXarchOption]>,
@@ -3522,6 +3533,12 @@ def fno_global_isel : Flag<["-"], "fno-global-isel">, Group<f_clang_Group>,
   HelpText<"Disables the global instruction selector">;
 def fno_experimental_isel : Flag<["-"], "fno-experimental-isel">, Group<f_clang_Group>,
   Alias<fno_global_isel>;
+def faltmathlib_EQ : Joined<["-"], "faltmathlib=">, Group<f_Group>,
+  Visibility<[ClangOption, CC1Option]>,
+    Values<"SVMLAltMathLibrary,TestAltMathLibrary,none">,
+    NormalizedValuesScope<"CodeGenOptions">,
+    NormalizedValues<["SVMLAltMathLibrary", "TestAltMathLibrary","NoAltMathLibrary"]>,
+    MarshallingInfoEnum<CodeGenOpts<"AltMathLib">, "NoAltMathLibrary">;
 def fveclib : Joined<["-"], "fveclib=">, Group<f_Group>,
   Visibility<[ClangOption, CC1Option]>,
     HelpText<"Use the given vector functions library">,
@@ -4204,6 +4221,14 @@ defm sycl_esimd_force_stateless_mem : BoolFOption<"sycl-esimd-force-stateless-me
             "Disabled by default. (experimental)">,
     NegFlag<SetFalse, [], [ClangOption], "Do not enforce using stateless memory accesses. (experimental)">,
     BothFlags<[], [ClangOption, CLOption, DXCOption, CC1Option], "">>;
+// TODO: Remove this option once ESIMD headers are updated to
+// guard vectors to be device only.
+defm sycl_esimd_build_host_code : BoolFOption<"sycl-esimd-build-host-code",
+    LangOpts<"SYCLESIMDBuildHostCode">, DefaultTrue,
+    PosFlag<SetTrue, [], [ClangOption], "Build the host implementation of ESIMD functions."
+            "Enabled by default.">,
+    NegFlag<SetFalse, [], [ClangOption], "Don't build the host implementation of ESIMD functions.">,
+    BothFlags<[HelpHidden], [ClangOption, CLOption, DXCOption, CC1Option], "">>;    
 
 def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[NoXarchOption, DpcppOption]>,
   Visibility<[ClangOption, CLOption, DXCOption, CC1Option]>,
@@ -4330,9 +4355,6 @@ def fsycl_max_parallel_jobs_EQ : Joined<["-"], "fsycl-max-parallel-link-jobs=">,
   HelpText<"Experimental feature: Controls the maximum parallelism of actions performed "
   "on SYCL device code post-link, i.e. the generation of SPIR-V device images "
   "or AOT compilation of each device image.">;
-def fsycl_preserve_device_nonsemantic_metadata : Flag<["-"], "fsycl-preserve-device-nonsemantic-metadata">,
-  Flags<[DpcppOption, HelpHidden]>, Visibility<[ClangOption, CLOption, DXCOption]>, HelpText<"Preserve non-semantic "
-  "metadata in SPIR-V device images.">;
 // TODO: remove this option before release
 def fsycl_nonsemantic_debuginfo : Flag<["-"], "fsycl-nonsemantic-debuginfo">, Flags<[HelpHidden, DpcppOption]>,
   Visibility<[ClangOption, CLOption, DXCOption]>,
@@ -4353,6 +4375,9 @@ HelpText<"Specify a register allocation mode for specific hardware for use by su
 "target backends. The default is -ftarget-register-alloc-mode=pvc:auto on Linux and "
 "-ftarget-register-alloc-mode=pvc:default on Windows.">;
 #endif // INTEL_CUSTOMIZATION
+def fsycl_preserve_device_nonsemantic_metadata : Flag<["-"], "fsycl-preserve-device-nonsemantic-metadata">,
+  Visibility<[ClangOption, CLOption, DXCOption]>, Flags<[HelpHidden]>, HelpText<"Preserve non-semantic "
+  "metadata in SPIR-V device images.">;
 def ftarget_compile_fast : Flag<["-"], "ftarget-compile-fast">,
   Visibility<[ClangOption, CLOption, DXCOption]>, HelpText<"Experimental feature: Reduce target "
   "compilation time, with potential runtime performance trade-off.">;
@@ -5505,9 +5530,9 @@ defm amdgpu_ieee : BoolOption<"m", "amdgpu-ieee",
 def mcode_object_version_EQ : Joined<["-"], "mcode-object-version=">, Group<m_Group>,
   HelpText<"Specify code object ABI version. Defaults to 4. (AMDGPU only)">,
   Visibility<[ClangOption, CC1Option]>,
-  Values<"none,2,3,4,5">,
+  Values<"none,3,4,5">,
   NormalizedValuesScope<"TargetOptions">,
-  NormalizedValues<["COV_None", "COV_2", "COV_3", "COV_4", "COV_5"]>,
+  NormalizedValues<["COV_None", "COV_3", "COV_4", "COV_5"]>,
   MarshallingInfoEnum<TargetOpts<"CodeObjectVersion">, "COV_4">;
 
 defm cumode : SimpleMFlag<"cumode",
@@ -5615,6 +5640,12 @@ def mrop_protect : Flag<["-"], "mrop-protect">,
 def mprivileged : Flag<["-"], "mprivileged">,
     Group<m_ppc_Features_Group>;
 } // let Flags = [TargetSpecific]
+def maix_small_local_exec_tls : Flag<["-"], "maix-small-local-exec-tls">,
+  Group<m_ppc_Features_Group>,
+  HelpText<"Produce a faster access sequence for local-exec TLS variables "
+           "where the offset from the TLS base is encoded as an "
+           "immediate operand (AIX 64-bit only). "
+           "This access sequence is not used for variables larger than 32KB.">;
 def maix_struct_return : Flag<["-"], "maix-struct-return">,
   Group<m_Group>, Visibility<[ClangOption, CC1Option]>,
   HelpText<"Return all structs in memory (PPC32 only)">,
@@ -6193,7 +6224,7 @@ def print_supported_cpus : Flag<["-", "--"], "print-supported-cpus">,
   MarshallingInfoFlag<FrontendOpts<"PrintSupportedCPUs">>;
 def print_supported_extensions : Flag<["-", "--"], "print-supported-extensions">,
   Visibility<[ClangOption, CC1Option, CLOption]>,
-  HelpText<"Print supported extensions for RISC-V">,
+  HelpText<"Print supported -march extensions (RISC-V, AArch64 and ARM only)">,
   MarshallingInfoFlag<FrontendOpts<"PrintSupportedExtensions">>;
 def : Flag<["-"], "mcpu=help">, Alias<print_supported_cpus>;
 def : Flag<["-"], "mtune=help">, Alias<print_supported_cpus>;
@@ -6959,6 +6990,8 @@ def mno_dspv1 : Flag<["-"], "mno-dspv1">, Group<m_x86_Features_Group>;
 #endif // INTEL_CUSTOMIZATION
 def menqcmd : Flag<["-"], "menqcmd">, Group<m_x86_Features_Group>;
 def mno_enqcmd : Flag<["-"], "mno-enqcmd">, Group<m_x86_Features_Group>;
+def mevex512 : Flag<["-"], "mevex512">, Group<m_x86_Features_Group>;
+def mno_evex512 : Flag<["-"], "mno-evex512">, Group<m_x86_Features_Group>;
 def mf16c : Flag<["-"], "mf16c">, Group<m_x86_Features_Group>;
 def mno_f16c : Flag<["-"], "mno-f16c">, Group<m_x86_Features_Group>;
 def mfma : Flag<["-"], "mfma">, Group<m_x86_Features_Group>;
@@ -8439,15 +8472,6 @@ defm enable_noundef_analysis : BoolOption<"",
   PosFlag<SetTrue, [], [ClangOption], "Enable">,
   NegFlag<SetFalse, [], [ClangOption], "Disable">,
   BothFlags<[], [ClangOption], " analyzing function argument and return types for mandatory definedness">>;
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-defm opaque_pointers : BoolOption<"",
-  "opaque-pointers",
-  CodeGenOpts<"OpaquePointers">,
-  DefaultTrue,
-  PosFlag<SetTrue, [], [ClangOption], "Enable">,
-  NegFlag<SetFalse, [], [ClangOption], "Disable">,
-  BothFlags<[], [ClangOption], " opaque pointers">>;
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 def discard_value_names : Flag<["-"], "discard-value-names">,
   HelpText<"Discard value names in LLVM IR">,
   MarshallingInfoFlag<CodeGenOpts<"DiscardValueNames">>;

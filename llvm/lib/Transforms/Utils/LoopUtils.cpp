@@ -1890,11 +1890,7 @@ static PointerBounds expandBounds(const RuntimeCheckingPtrGroup *CG,
                                   Loop *TheLoop, Instruction *Loc,
                                   SCEVExpander &Exp, bool HoistRuntimeChecks) {
   LLVMContext &Ctx = Loc->getContext();
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *PtrArithTy = PointerType::get(Ctx, CG->AddressSpace);
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *PtrArithTy = Type::getInt8PtrTy(Ctx, CG->AddressSpace);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   Value *Start = nullptr, *End = nullptr;
   LLVM_DEBUG(dbgs() << "LAA: Adding RT check for range:\n");
@@ -1997,33 +1993,13 @@ Value *llvm::addRuntimeChecks(
     const PointerBounds &A = Check.first, &B = Check.second;
     // Check if two pointers (A and B) conflict where conflict is computed as:
     // start(A) <= end(B) && start(B) <= end(A)
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    unsigned AS0 = A.Start->getType()->getPointerAddressSpace();
-    unsigned AS1 = B.Start->getType()->getPointerAddressSpace();
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     assert((A.Start->getType()->getPointerAddressSpace() ==
             B.End->getType()->getPointerAddressSpace()) &&
            (B.Start->getType()->getPointerAddressSpace() ==
             A.End->getType()->getPointerAddressSpace()) &&
            "Trying to bounds check pointers with different address spaces");
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-    assert((AS0 == B.End->getType()->getPointerAddressSpace()) &&
-           (AS1 == A.End->getType()->getPointerAddressSpace()) &&
-           "Trying to bounds check pointers with different address spaces");
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    Type *PtrArithTy0 = Type::getInt8PtrTy(Ctx, AS0);
-    Type *PtrArithTy1 = Type::getInt8PtrTy(Ctx, AS1);
-
-    Value *Start0 = ChkBuilder.CreateBitCast(A.Start, PtrArithTy0, "bc");
-    Value *Start1 = ChkBuilder.CreateBitCast(B.Start, PtrArithTy1, "bc");
-    Value *End0 = ChkBuilder.CreateBitCast(A.End, PtrArithTy1, "bc");
-    Value *End1 = ChkBuilder.CreateBitCast(B.End, PtrArithTy0, "bc");
-
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     // [A|B].Start points to the first accessed byte under base [A|B].
     // [A|B].End points to the last accessed byte, plus one.
     // There is no conflict when the intervals are disjoint:
@@ -2032,13 +2008,8 @@ Value *llvm::addRuntimeChecks(
     // bound0 = (B.Start < A.End)
     // bound1 = (A.Start < B.End)
     //  IsConflict = bound0 & bound1
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Value *Cmp0 = ChkBuilder.CreateICmpULT(A.Start, B.End, "bound0");
     Value *Cmp1 = ChkBuilder.CreateICmpULT(B.Start, A.End, "bound1");
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-    Value *Cmp0 = ChkBuilder.CreateICmpULT(Start0, End1, "bound0");
-    Value *Cmp1 = ChkBuilder.CreateICmpULT(Start1, End0, "bound1");
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     Value *IsConflict = ChkBuilder.CreateAnd(Cmp0, Cmp1, "found.conflict");
     if (A.StrideToCheck) {
       Value *IsNegativeStride = ChkBuilder.CreateICmpSLT(

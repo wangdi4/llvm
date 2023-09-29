@@ -400,8 +400,6 @@ template <> struct DenseMapInfo<VTableSlotSummary> {
 
 } // end namespace llvm
 
-namespace {
-
 // Returns true if the function must be unreachable based on ValueInfo.
 //
 // In particular, identifies a function as unreachable in the following
@@ -409,7 +407,7 @@ namespace {
 //   1) All summaries are live.
 //   2) All function summaries indicate it's unreachable
 //   3) There is no non-function with the same GUID (which is rare)
-bool mustBeUnreachableFunction(ValueInfo TheFnVI) {
+static bool mustBeUnreachableFunction(ValueInfo TheFnVI) {
   if ((!TheFnVI) || TheFnVI.getSummaryList().empty()) {
     // Returns false if ValueInfo is absent, or the summary list is empty
     // (e.g., function declarations).
@@ -434,6 +432,7 @@ bool mustBeUnreachableFunction(ValueInfo TheFnVI) {
   return true;
 }
 
+namespace {
 // A virtual call site. VTable is the loaded virtual table pointer, and CS is
 // the indirect virtual call.
 struct VirtualCallSite {
@@ -624,11 +623,7 @@ struct DevirtModule {
       : M(M), AARGetter(AARGetter), LookupDomTree(LookupDomTree),
         ExportSummary(ExportSummary), ImportSummary(ImportSummary),
         Int8Ty(Type::getInt8Ty(M.getContext())),
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-        Int8PtrTy(Type::getInt8PtrTy(M.getContext())),
-#else
         Int8PtrTy(PointerType::getUnqual(M.getContext())),
-#endif
         Int32Ty(Type::getInt32Ty(M.getContext())),
         Int64Ty(Type::getInt64Ty(M.getContext())),
         IntPtrTy(M.getDataLayout().getIntPtrType(M.getContext(), 0)),
@@ -647,11 +642,7 @@ struct DevirtModule {
       : M(M), AARGetter(AARGetter), LookupDomTree(LookupDomTree),
         ExportSummary(ExportSummary), ImportSummary(ImportSummary),
         Int8Ty(Type::getInt8Ty(M.getContext())),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         Int8PtrTy(PointerType::getUnqual(M.getContext())),
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-        Int8PtrTy(Type::getInt8PtrTy(M.getContext())),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
         Int32Ty(Type::getInt32Ty(M.getContext())),
         Int64Ty(Type::getInt64Ty(M.getContext())),
         IntPtrTy(M.getDataLayout().getIntPtrType(M.getContext(), 0)),
@@ -895,10 +886,9 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
 #endif // INTEL_CUSTOMIZATION
 }
 
-namespace llvm {
 // Enable whole program visibility if enabled by client (e.g. linker) or
 // internal option, and not force disabled.
-bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
+bool llvm::hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // If the user specifies that we assume whole program then we need to turn
@@ -912,12 +902,52 @@ bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
          !DisableWholeProgramVisibility;
 }
 
+static bool
+typeIDVisibleToRegularObj(StringRef TypeID,
+                          function_ref<bool(StringRef)> IsVisibleToRegularObj) {
+  // TypeID for member function pointer type is an internal construct
+  // and won't exist in IsVisibleToRegularObj. The full TypeID
+  // will be present and participate in invalidation.
+  if (TypeID.ends_with(".virtual"))
+    return false;
+
+  // TypeID that doesn't start with Itanium mangling (_ZTS) will be
+  // non-externally visible types which cannot interact with
+  // external native files. See CodeGenModule::CreateMetadataIdentifierImpl.
+  if (!TypeID.consume_front("_ZTS"))
+    return false;
+
+  // TypeID is keyed off the type name symbol (_ZTS). However, the native
+  // object may not contain this symbol if it does not contain a key
+  // function for the base type and thus only contains a reference to the
+  // type info (_ZTI). To catch this case we query using the type info
+  // symbol corresponding to the TypeID.
+  std::string typeInfo = ("_ZTI" + TypeID).str();
+  return IsVisibleToRegularObj(typeInfo);
+}
+
+static bool
+skipUpdateDueToValidation(GlobalVariable &GV,
+                          function_ref<bool(StringRef)> IsVisibleToRegularObj) {
+  SmallVector<MDNode *, 2> Types;
+  GV.getMetadata(LLVMContext::MD_type, Types);
+
+  for (auto Type : Types)
+    if (auto *TypeID = dyn_cast<MDString>(Type->getOperand(1).get()))
+      return typeIDVisibleToRegularObj(TypeID->getString(),
+                                       IsVisibleToRegularObj);
+
+  return false;
+}
+
 /// If whole program visibility asserted, then upgrade all public vcall
 /// visibility metadata on vtable definitions to linkage unit visibility in
 /// Module IR (for regular or hybrid LTO).
-void updateVCallVisibilityInModule(
+void llvm::updateVCallVisibilityInModule(
     Module &M, bool WholeProgramVisibilityEnabledInLTO,
-    const DenseSet<GlobalValue::GUID> &DynamicExportSymbols) {
+    const DenseSet<GlobalValue::GUID> &DynamicExportSymbols,
+    bool ValidateAllVtablesHaveTypeInfos,
+    function_ref<bool(StringRef)> IsVisibleToRegularObj) {
   if (!hasWholeProgramVisibility(WholeProgramVisibilityEnabledInLTO))
     return;
   for (GlobalVariable &GV : M.globals()) {
@@ -928,13 +958,19 @@ void updateVCallVisibilityInModule(
         GV.getVCallVisibility() == GlobalObject::VCallVisibilityPublic &&
         // Don't upgrade the visibility for symbols exported to the dynamic
         // linker, as we have no information on their eventual use.
-        !DynamicExportSymbols.count(GV.getGUID()))
+        !DynamicExportSymbols.count(GV.getGUID()) &&
+        // With validation enabled, we want to exclude symbols visible to
+        // regular objects. Local symbols will be in this group due to the
+        // current implementation but those with VCallVisibilityTranslationUnit
+        // will have already been marked in clang so are unaffected.
+        !(ValidateAllVtablesHaveTypeInfos &&
+          skipUpdateDueToValidation(GV, IsVisibleToRegularObj)))
       GV.setVCallVisibilityMetadata(GlobalObject::VCallVisibilityLinkageUnit);
   }
 }
 
-void updatePublicTypeTestCalls(Module &M,
-                               bool WholeProgramVisibilityEnabledInLTO) {
+void llvm::updatePublicTypeTestCalls(Module &M,
+                                     bool WholeProgramVisibilityEnabledInLTO) {
   Function *PublicTypeTestFunc =
       M.getFunction(Intrinsic::getName(Intrinsic::public_type_test));
   if (!PublicTypeTestFunc)
@@ -960,12 +996,26 @@ void updatePublicTypeTestCalls(Module &M,
   }
 }
 
+/// Based on typeID string, get all associated vtable GUIDS that are
+/// visible to regular objects.
+void llvm::getVisibleToRegularObjVtableGUIDs(
+    ModuleSummaryIndex &Index,
+    DenseSet<GlobalValue::GUID> &VisibleToRegularObjSymbols,
+    function_ref<bool(StringRef)> IsVisibleToRegularObj) {
+  for (const auto &typeID : Index.typeIdCompatibleVtableMap()) {
+    if (typeIDVisibleToRegularObj(typeID.first, IsVisibleToRegularObj))
+      for (const TypeIdOffsetVtableInfo &P : typeID.second)
+        VisibleToRegularObjSymbols.insert(P.VTableVI.getGUID());
+  }
+}
+
 /// If whole program visibility asserted, then upgrade all public vcall
 /// visibility metadata on vtable definition summaries to linkage unit
 /// visibility in Module summary index (for ThinLTO).
-void updateVCallVisibilityInIndex(
+void llvm::updateVCallVisibilityInIndex(
     ModuleSummaryIndex &Index, bool WholeProgramVisibilityEnabledInLTO,
-    const DenseSet<GlobalValue::GUID> &DynamicExportSymbols) {
+    const DenseSet<GlobalValue::GUID> &DynamicExportSymbols,
+    const DenseSet<GlobalValue::GUID> &VisibleToRegularObjSymbols) {
   if (!hasWholeProgramVisibility(WholeProgramVisibilityEnabledInLTO))
     return;
   for (auto &P : Index) {
@@ -978,18 +1028,24 @@ void updateVCallVisibilityInIndex(
       if (!GVar ||
           GVar->getVCallVisibility() != GlobalObject::VCallVisibilityPublic)
         continue;
+      // With validation enabled, we want to exclude symbols visible to regular
+      // objects. Local symbols will be in this group due to the current
+      // implementation but those with VCallVisibilityTranslationUnit will have
+      // already been marked in clang so are unaffected.
+      if (VisibleToRegularObjSymbols.count(P.first))
+        continue;
       GVar->setVCallVisibility(GlobalObject::VCallVisibilityLinkageUnit);
     }
   }
 }
 
-void runWholeProgramDevirtOnIndex(
+void llvm::runWholeProgramDevirtOnIndex(
     ModuleSummaryIndex &Summary, std::set<GlobalValue::GUID> &ExportedGUIDs,
     std::map<ValueInfo, std::vector<VTableSlotSummary>> &LocalWPDTargetsMap) {
   DevirtIndex(Summary, ExportedGUIDs, LocalWPDTargetsMap).run();
 }
 
-void updateIndexWPDForExports(
+void llvm::updateIndexWPDForExports(
     ModuleSummaryIndex &Summary,
     function_ref<bool(StringRef, ValueInfo)> isExported,
     std::map<ValueInfo, std::vector<VTableSlotSummary>> &LocalWPDTargetsMap) {
@@ -1014,8 +1070,6 @@ void updateIndexWPDForExports(
     }
   }
 }
-
-} // end namespace llvm
 
 static Error checkCombinedSummaryForTesting(ModuleSummaryIndex *Summary) {
   // Check that summary index contains regular LTO module when performing
@@ -1242,8 +1296,8 @@ bool DevirtModule::tryFindVirtualCallTargets(
 }
 
 bool DevirtIndex::tryFindVirtualCallTargets(
-    std::vector<ValueInfo> &TargetsForSlot, const TypeIdCompatibleVtableInfo TIdInfo,
-    uint64_t ByteOffset) {
+    std::vector<ValueInfo> &TargetsForSlot,
+    const TypeIdCompatibleVtableInfo TIdInfo, uint64_t ByteOffset) {
   for (const TypeIdOffsetVtableInfo &P : TIdInfo) {
     // Find a representative copy of the vtable initializer.
     // We can have multiple available_externally, linkonce_odr and weak_odr
@@ -1658,11 +1712,7 @@ void DevirtModule::applyICallBranchFunnel(VTableSlotInfo &SlotInfo,
 
       IRBuilder<> IRB(&CB);
       std::vector<Value *> Args;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Args.push_back(VCallSite.VTable);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Args.push_back(IRB.CreateBitCast(VCallSite.VTable, Int8PtrTy));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::append_range(Args, CB.args());
 
       CallBase *NewCS = nullptr;
@@ -1988,12 +2038,7 @@ void DevirtModule::applyVirtualConstProp(CallSiteInfo &CSInfo, StringRef FnName,
       continue;
     auto *RetType = cast<IntegerType>(Call.CB.getType());
     IRBuilder<> B(&Call.CB);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Value *Addr = B.CreateGEP(Int8Ty, Call.VTable, Byte);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-    Value *Addr =
-        B.CreateGEP(Int8Ty, B.CreateBitCast(Call.VTable, Int8PtrTy), Byte);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     if (RetType->getBitWidth() == 1) {
       Value *Bits = B.CreateLoad(Int8Ty, Addr);
       Value *BitsAndBit = B.CreateAnd(Bits, Bit);
@@ -2002,12 +2047,7 @@ void DevirtModule::applyVirtualConstProp(CallSiteInfo &CSInfo, StringRef FnName,
       Call.replaceAndErase("virtual-const-prop-1-bit", FnName, RemarksEnabled,
                            OREGetter, IsBitSet);
     } else {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Value *Val = B.CreateLoad(RetType, Addr);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      Value *ValAddr = B.CreateBitCast(Addr, RetType->getPointerTo());
-      Value *Val = B.CreateLoad(RetType, ValAddr);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       NumVirtConstProp++;
       Call.replaceAndErase("virtual-const-prop", FnName, RemarksEnabled,
                            OREGetter, Val);
@@ -2330,25 +2370,14 @@ void DevirtModule::scanTypeCheckedLoadUsers(Function *TypeCheckedLoadFunc) {
     if (TypeCheckedLoadFunc->getIntrinsicID() ==
         Intrinsic::type_checked_load_relative) {
       Value *GEP = LoadB.CreateGEP(Int8Ty, Ptr, Offset);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       LoadedValue = LoadB.CreateLoad(Int32Ty, GEP);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Value *GEPPtr = LoadB.CreateBitCast(GEP, PointerType::getUnqual(Int32Ty));
-      LoadedValue = LoadB.CreateLoad(Int32Ty, GEPPtr);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       LoadedValue = LoadB.CreateSExt(LoadedValue, IntPtrTy);
       GEP = LoadB.CreatePtrToInt(GEP, IntPtrTy);
       LoadedValue = LoadB.CreateAdd(GEP, LoadedValue);
       LoadedValue = LoadB.CreateIntToPtr(LoadedValue, Int8PtrTy);
     } else {
       Value *GEP = LoadB.CreateGEP(Int8Ty, Ptr, Offset);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       LoadedValue = LoadB.CreateLoad(Int8PtrTy, GEP);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      Value *GEPPtr =
-          LoadB.CreateBitCast(GEP, PointerType::getUnqual(Int8PtrTy));
-      LoadedValue = LoadB.CreateLoad(Int8PtrTy, GEPPtr);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     }
 
     for (Instruction *LoadedPtr : LoadedPtrs) {

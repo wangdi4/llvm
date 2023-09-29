@@ -1156,13 +1156,7 @@ HLInst *HLNodeUtils::createCall(FunctionType *FTy, Value *Callee,
 
 HLInst *HLNodeUtils::createStacksave(const DebugLoc &DLoc) {
 
-  Type *PtrTy =
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-      getContext().supportsTypedPointers()
-          ? Type::getInt8PtrTy(getContext(), 0)
-          :
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-          getDataLayout().getAllocaPtrType(getContext());
+  Type *PtrTy = getDataLayout().getAllocaPtrType(getContext());
   Function *StacksaveFunc =
       Intrinsic::getDeclaration(&getModule(), Intrinsic::stacksave, {PtrTy});
 

@@ -337,9 +337,6 @@ static Value *constructPointer(Type *ResTy, Type *PtrElemTy, Value *Ptr,
 
     // If an offset is left we use byte-wise adjustment.
     if (IntOffset != 0) {
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-      Ptr = IRB.CreateBitCast(Ptr, IRB.getInt8PtrTy());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       Ptr = IRB.CreateGEP(IRB.getInt8Ty(), Ptr, IRB.getInt(IntOffset),
                           GEPName + ".b" + Twine(IntOffset.getZExtValue()));
     }
@@ -624,36 +621,42 @@ struct AACalleeToCallSite : public BaseType {
            "returned positions!");
     auto &S = this->getState();
 
-    const Function *AssociatedFunction =
-        this->getIRPosition().getAssociatedFunction();
-    if (!AssociatedFunction)
-      return S.indicatePessimisticFixpoint();
-
     CallBase &CB = cast<CallBase>(this->getAnchorValue());
     if (IntroduceCallBaseContext)
       LLVM_DEBUG(dbgs() << "[Attributor] Introducing call base context:" << CB
                         << "\n");
 
-    IRPosition FnPos =
-        IRPKind == llvm::IRPosition::IRP_CALL_SITE_RETURNED
-            ? IRPosition::returned(*AssociatedFunction,
-                                   IntroduceCallBaseContext ? &CB : nullptr)
-            : IRPosition::function(*AssociatedFunction,
-                                   IntroduceCallBaseContext ? &CB : nullptr);
+    ChangeStatus Changed = ChangeStatus::UNCHANGED;
+    auto CalleePred = [&](ArrayRef<const Function *> Callees) {
+      for (const Function *Callee : Callees) {
+        IRPosition FnPos =
+            IRPKind == llvm::IRPosition::IRP_CALL_SITE_RETURNED
+                ? IRPosition::returned(*Callee,
+                                       IntroduceCallBaseContext ? &CB : nullptr)
+                : IRPosition::function(
+                      *Callee, IntroduceCallBaseContext ? &CB : nullptr);
+        // If possible, use the hasAssumedIRAttr interface.
+        if (Attribute::isEnumAttrKind(IRAttributeKind)) {
+          bool IsKnown;
+          if (!AA::hasAssumedIRAttr<IRAttributeKind>(
+                  A, this, FnPos, DepClassTy::REQUIRED, IsKnown))
+            return false;
+          continue;
+        }
 
-    // If possible, use the hasAssumedIRAttr interface.
-    if (Attribute::isEnumAttrKind(IRAttributeKind)) {
-      bool IsKnown;
-      if (!AA::hasAssumedIRAttr<IRAttributeKind>(A, this, FnPos,
-                                                 DepClassTy::REQUIRED, IsKnown))
-        return S.indicatePessimisticFixpoint();
-      return ChangeStatus::UNCHANGED;
-    }
-
-    const AAType *AA = A.getAAFor<AAType>(*this, FnPos, DepClassTy::REQUIRED);
-    if (!AA)
+        const AAType *AA =
+            A.getAAFor<AAType>(*this, FnPos, DepClassTy::REQUIRED);
+        if (!AA)
+          return false;
+        Changed |= clampStateAndIndicateChange(S, AA->getState());
+        if (S.isAtFixpoint())
+          return S.isValidState();
+      }
+      return true;
+    };
+    if (!A.checkForAllCallees(CalleePred, *this, CB))
       return S.indicatePessimisticFixpoint();
-    return clampStateAndIndicateChange(S, AA->getState());
+    return Changed;
   }
 };
 
@@ -12584,14 +12587,8 @@ struct AAAddressSpaceImpl : public AAAddressSpace {
             getAssociatedType()->getPointerAddressSpace())
       return ChangeStatus::UNCHANGED;
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Type *NewPtrTy = PointerType::get(getAssociatedType()->getContext(),
                                       static_cast<uint32_t>(getAddressSpace()));
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-    Type *NewPtrTy = PointerType::getWithSamePointeeType(
-        cast<PointerType>(getAssociatedType()),
-        static_cast<uint32_t>(getAddressSpace()));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     bool UseOriginalValue =
         OriginalValue->getType()->getPointerAddressSpace() ==
         static_cast<uint32_t>(getAddressSpace());
@@ -12619,8 +12616,13 @@ struct AAAddressSpaceImpl : public AAAddressSpace {
       // CGSCC if the AA is run on CGSCC instead of the entire module.
       if (!A.isRunOn(Inst->getFunction()))
         return true;
-      if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst))
+      if (isa<LoadInst>(Inst))
         MakeChange(Inst, const_cast<Use &>(U));
+      if (auto *SI = dyn_cast<StoreInst>(Inst)) {
+        // We only make changes if the use is the pointer operand.
+        if (U.getOperandNo() == 1)
+          MakeChange(Inst, const_cast<Use &>(U));
+      }
       return true;
     };
 

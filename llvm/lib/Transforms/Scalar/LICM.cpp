@@ -1108,7 +1108,7 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
 // invariant.start has no uses.
 static bool isLoadInvariantInLoop(LoadInst *LI, DominatorTree *DT,
                                   Loop *CurLoop) {
-  Value *Addr = LI->getOperand(0);
+  Value *Addr = LI->getPointerOperand();
   const DataLayout &DL = LI->getModule()->getDataLayout();
   const TypeSize LocSizeInBits = DL.getTypeSizeInBits(LI->getType());
 
@@ -1124,36 +1124,6 @@ static bool isLoadInvariantInLoop(LoadInst *LI, DominatorTree *DT,
   if (LocSizeInBits.isScalable())
     return false;
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  // if the type is ptr addrspace(x), we know this is the type of
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  // if the type is i8 addrspace(x)*, we know this is the type of
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-  // llvm.invariant.start operand
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *PtrASXTy = PointerType::get(LI->getContext(),
-                                    LI->getPointerAddressSpace());
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  auto *PtrInt8Ty = PointerType::get(Type::getInt8Ty(LI->getContext()),
-                                     LI->getPointerAddressSpace());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-  unsigned BitcastsVisited = 0;
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-  // Look through bitcasts until we reach the PtrASXTy type (this is
-  // invariant.start operand type).
-  // FIXME: We shouldn't really find such bitcasts with opaque pointers.
-  while (Addr->getType() != PtrASXTy) {
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-  // Look through bitcasts until we reach the i8* type (this is invariant.start
-  // operand type).
-  while (Addr->getType() != PtrInt8Ty) {
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
-    auto *BC = dyn_cast<BitCastInst>(Addr);
-    // Avoid traversing high number of bitcast uses.
-    if (++BitcastsVisited > MaxNumUsesTraversed || !BC)
-      return false;
-    Addr = BC->getOperand(0);
-  }
   // If we've ended up at a global/constant, bail. We shouldn't be looking at
   // uselists for non-local Values in a loop pass.
   if (isa<Constant>(Addr))
@@ -1573,8 +1543,9 @@ static Instruction *cloneInstructionInExitBlock(
     if (LI->wouldBeOutOfLoopUseRequiringLCSSA(Op.get(), PN.getParent())) {
       auto *OInst = cast<Instruction>(Op.get());
       PHINode *OpPN =
-        PHINode::Create(OInst->getType(), PN.getNumIncomingValues(),
-                        OInst->getName() + ".lcssa", &ExitBlock.front());
+          PHINode::Create(OInst->getType(), PN.getNumIncomingValues(),
+                          OInst->getName() + ".lcssa");
+      OpPN->insertBefore(ExitBlock.begin());
       for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i)
         OpPN->addIncoming(OInst, PN.getIncomingBlock(i));
       Op = OpPN;
@@ -2036,7 +2007,8 @@ class LoopPromoter : public LoadAndStorePromoter {
     // We need to create an LCSSA PHI node for the incoming value and
     // store that.
     PHINode *PN = PHINode::Create(I->getType(), PredCache.size(BB),
-                                  I->getName() + ".lcssa", &BB->front());
+                                  I->getName() + ".lcssa");
+    PN->insertBefore(BB->begin());
     for (BasicBlock *Pred : PredCache.get(BB))
       PN->addIncoming(I, Pred);
     return PN;

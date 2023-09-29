@@ -47,10 +47,8 @@ static cl::opt<TargetLibraryInfoImpl::AltMathLibrary> ClAltMathLibrary(
     cl::init(TargetLibraryInfoImpl::NoAltMathLibrary),
     cl::values(clEnumValN(TargetLibraryInfoImpl::NoAltMathLibrary, "none",
                           "No alternate math library"),
-#if INTEL_CUSTOMIZATION
                clEnumValN(TargetLibraryInfoImpl::SVMLAltMathLibrary, "svml",
                           "Intel SVML library"),
-#endif // INTEL_CUSTOMIZATION
                clEnumValN(TargetLibraryInfoImpl::TestAltMathLibrary, "test",
                           "Fake library used for testing")));
 
@@ -6008,7 +6006,6 @@ void TargetLibraryInfoImpl::addAltMathFunctionsFromLib(
     addAltMathFunctions(AltMathFuncs);
     break;
   }
-#if INTEL_CUSTOMIZATION
   case SVMLAltMathLibrary: {
     const AltMathDesc AltMathFuncs[] = {
 #define TLI_DEFINE_SVML_ALTMATHFUNCS
@@ -6017,7 +6014,6 @@ void TargetLibraryInfoImpl::addAltMathFunctionsFromLib(
     addAltMathFunctions(AltMathFuncs);
     break;
   }
-#endif // INTEL_CUSTOMIZATION
   case NoAltMathLibrary:
     break;
   }

@@ -506,27 +506,6 @@ enum OpenMPLocationFlags : unsigned {
   LLVM_MARK_AS_BITMASK_ENUM(/*LargestValue=*/OMP_IDENT_WORK_DISTRIBUTE)
 };
 
-namespace {
-LLVM_ENABLE_BITMASK_ENUMS_IN_NAMESPACE();
-/// Values for bit flags for marking which requires clauses have been used.
-enum OpenMPOffloadingRequiresDirFlags : int64_t {
-  /// flag undefined.
-  OMP_REQ_UNDEFINED               = 0x000,
-  /// no requires clause present.
-  OMP_REQ_NONE                    = 0x001,
-  /// reverse_offload clause.
-  OMP_REQ_REVERSE_OFFLOAD         = 0x002,
-  /// unified_address clause.
-  OMP_REQ_UNIFIED_ADDRESS         = 0x004,
-  /// unified_shared_memory clause.
-  OMP_REQ_UNIFIED_SHARED_MEMORY   = 0x008,
-  /// dynamic_allocators clause.
-  OMP_REQ_DYNAMIC_ALLOCATORS      = 0x010,
-  LLVM_MARK_AS_BITMASK_ENUM(/*LargestValue=*/OMP_REQ_DYNAMIC_ALLOCATORS)
-};
-
-} // anonymous namespace
-
 /// Describes ident structure that describes a source location.
 /// All descriptions are taken from
 /// https://github.com/llvm/llvm-project/blob/main/openmp/runtime/src/kmp.h
@@ -711,12 +690,7 @@ static void EmitOMPAggregateInit(CodeGenFunction &CGF, Address DestAddr,
   const ArrayType *ArrayTy = Type->getAsArrayTypeUnsafe();
   llvm::Value *NumElements = CGF.emitArrayLength(ArrayTy, ElementTy, DestAddr);
   if (DRD)
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     SrcAddr = SrcAddr.withElementType(DestAddr.getElementType());
-#else
-    SrcAddr =
-        CGF.Builder.CreateElementBitCast(SrcAddr, DestAddr.getElementType());
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   llvm::Value *SrcBegin = nullptr;
   if (DRD)
@@ -937,13 +911,8 @@ void ReductionCodeGen::emitCleanups(CodeGenFunction &CGF, unsigned N,
   QualType PrivateType = getPrivateType(N);
   QualType::DestructionKind DTorKind = PrivateType.isDestructedType();
   if (needCleanups(N)) {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     PrivateAddr =
         PrivateAddr.withElementType(CGF.ConvertTypeForMem(PrivateType));
-#else
-    PrivateAddr = CGF.Builder.CreateElementBitCast(
-        PrivateAddr, CGF.ConvertTypeForMem(PrivateType));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     CGF.pushDestroy(DTorKind, PrivateAddr, PrivateType);
   }
 }
@@ -962,12 +931,7 @@ static LValue loadToBegin(CodeGenFunction &CGF, QualType BaseTy, QualType ElTy,
     BaseTy = BaseTy->getPointeeType();
   }
   return CGF.MakeAddrLValue(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       BaseLV.getAddress(CGF).withElementType(CGF.ConvertTypeForMem(ElTy)),
-#else
-      CGF.Builder.CreateElementBitCast(BaseLV.getAddress(CGF),
-                                       CGF.ConvertTypeForMem(ElTy)),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       BaseLV.getType(), BaseLV.getBaseInfo(),
       CGF.CGM.getTBAAInfoForSubobject(BaseLV, BaseLV.getType()));
 }
@@ -1096,17 +1060,20 @@ static FieldDecl *addFieldToRecordDecl(ASTContext &C, DeclContext *DC,
 CGOpenMPRuntime::CGOpenMPRuntime(CodeGenModule &CGM)
     : CGM(CGM), OMPBuilder(CGM.getModule()) {
   KmpCriticalNameTy = llvm::ArrayType::get(CGM.Int32Ty, /*NumElements*/ 8);
-  llvm::OpenMPIRBuilderConfig Config(CGM.getLangOpts().OpenMPIsTargetDevice,
-                                     isGPU(), hasRequiresUnifiedSharedMemory(),
-                                     CGM.getLangOpts().OpenMPOffloadMandatory);
+  llvm::OpenMPIRBuilderConfig Config(
+      CGM.getLangOpts().OpenMPIsTargetDevice, isGPU(),
+      CGM.getLangOpts().OpenMPOffloadMandatory,
+      /*HasRequiresReverseOffload*/ false, /*HasRequiresUnifiedAddress*/ false,
+      hasRequiresUnifiedSharedMemory(), /*HasRequiresDynamicAllocators*/ false);
+  OMPBuilder.initialize();
+  OMPBuilder.loadOffloadInfoMetadata(CGM.getLangOpts().OpenMPIsTargetDevice
+                                         ? CGM.getLangOpts().OMPHostIRFile
+                                         : StringRef{});
 #if INTEL_COLLAB
   if (CGM.getLangOpts().OpenMPLateOutlineTarget &&
       CGM.getLangOpts().OpenMPLateOutline)
     Config.setIsLateOutline();
 #endif // INTEL_COLLAB
-  OMPBuilder.initialize(CGM.getLangOpts().OpenMPIsTargetDevice
-                            ? CGM.getLangOpts().OMPHostIRFile
-                            : StringRef{});
   OMPBuilder.setConfig(Config);
 }
 
@@ -1456,14 +1423,8 @@ llvm::Value *CGOpenMPRuntime::emitUpdateLocation(CodeGenFunction &CGF,
   return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
       OMPBuilder.getOrCreateIdent(SrcLocStr, SrcLocStrSize,
                                   llvm::omp::IdentFlag(Flags), Reserved2Flags),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-            llvm::PointerType::get(CGM.getLLVMContext(),
-            CGM.getEffectiveAllocaAddrSpace()));
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      llvm::PointerType::getWithSamePointeeType(
-          cast<llvm::PointerType>(getIdentTyPointerTy()),
-          CGM.getEffectiveAllocaAddrSpace()));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+      llvm::PointerType::get(CGM.getLLVMContext(),
+                             CGM.getEffectiveAllocaAddrSpace()));
 #else // INTEL_COLLAB
   return OMPBuilder.getOrCreateIdent(
       SrcLocStr, SrcLocStrSize, llvm::omp::IdentFlag(Flags), Reserved2Flags);
@@ -1788,14 +1749,8 @@ llvm::Function *CGOpenMPRuntime::emitThreadPrivateVarDefinition(
       llvm::Value *ArgVal = CtorCGF.EmitLoadOfScalar(
           CtorCGF.GetAddrOfLocalVar(&Dst), /*Volatile=*/false,
           CGM.getContext().VoidPtrTy, Dst.getLocation());
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Address Arg(ArgVal, CtorCGF.ConvertTypeForMem(ASTTy),
                   VDAddr.getAlignment());
-#else
-      Address Arg(ArgVal, CtorCGF.Int8Ty, VDAddr.getAlignment());
-      Arg = CtorCGF.Builder.CreateElementBitCast(
-          Arg, CtorCGF.ConvertTypeForMem(ASTTy));
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
       CtorCGF.EmitAnyExprToMem(Init, Arg, Init->getType().getQualifiers(),
                                /*IsInitializer=*/true);
       ArgVal = CtorCGF.EmitLoadOfScalar(
@@ -1946,24 +1901,14 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       if (Addr->getAddressSpace() != 0)
 #if INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
-            Addr,
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-            llvm::PointerType::get(CGM.getLLVMContext(),
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-            llvm::PointerType::getWithSamePointeeType(
-                cast<llvm::PointerType>(Addr->getType()),
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-                CGM.getLangOpts().OpenMPLateOutline
-                    ? CGM.getTypes().getTargetAddressSpace(VD->getType())
-                    : 0));
+            Addr, llvm::PointerType::get(
+                      CGM.getLLVMContext(),
+                      CGM.getLangOpts().OpenMPLateOutline
+                          ? CGM.getTypes().getTargetAddressSpace(VD->getType())
+                          : 0));
 #else // INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
             Addr, llvm::PointerType::get(CGM.getLLVMContext(), 0));
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-            Addr, llvm::PointerType::getWithSamePointeeType(
-                      cast<llvm::PointerType>(Addr->getType()), 0));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #endif // INTEL_COLLAB
       CtorCGF.EmitAnyExprToMem(Init,
                                Address(AddrInAS0, Addr->getValueType(),
@@ -2029,13 +1974,8 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       if (Addr->getAddressSpace() != 0)
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
             Addr,
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
             llvm::PointerType::get(
                 CGM.getLLVMContext(),
-#else  // INTEL_SYCL_OPAQUEPOINTER_READY
-            llvm::PointerType::getWithSamePointeeType(
-                cast<llvm::PointerType>(Addr->getType()),
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_COLLAB
                 CGM.getLangOpts().OpenMPLateOutline
                     ? CGM.getTypes().getTargetAddressSpace(VD->getType())
@@ -4376,12 +4316,7 @@ CGOpenMPRuntime::getDepobjElements(CodeGenFunction &CGF, LValue DepobjLVal,
       cast<RecordDecl>(KmpDependInfoTy->getAsTagDecl());
   QualType KmpDependInfoPtrTy = C.getPointerType(KmpDependInfoTy);
   LValue Base = CGF.EmitLoadOfPointerLValue(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       DepobjLVal.getAddress(CGF).withElementType(
-#else
-      CGF.Builder.CreateElementBitCast(
-          DepobjLVal.getAddress(CGF),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
           CGF.ConvertTypeForMem(KmpDependInfoPtrTy)),
       KmpDependInfoPtrTy->castAs<PointerType>());
   Address DepObjAddr = CGF.Builder.CreateGEP(
@@ -5627,12 +5562,7 @@ static llvm::Value *emitReduceInitFunction(CodeGenModule &CGM,
   CGF.StartFunction(GlobalDecl(), C.VoidTy, Fn, FnInfo, Args, Loc, Loc);
   QualType PrivateType = RCG.getPrivateType(N);
   Address PrivateAddr = CGF.EmitLoadOfPointer(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       CGF.GetAddrOfLocalVar(&Param).withElementType(
-#else
-      CGF.Builder.CreateElementBitCast(
-          CGF.GetAddrOfLocalVar(&Param),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
           CGF.ConvertTypeForMem(PrivateType)->getPointerTo()),
       C.getPointerType(PrivateType)->castAs<PointerType>());
   llvm::Value *Size = nullptr;
@@ -5720,28 +5650,16 @@ static llvm::Value *emitReduceCombFunction(CodeGenModule &CGM,
       LHSVD,
       // Pull out the pointer to the variable.
       CGF.EmitLoadOfPointer(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
           CGF.GetAddrOfLocalVar(&ParamInOut)
               .withElementType(
                   CGF.ConvertTypeForMem(LHSVD->getType())->getPointerTo()),
-#else
-          CGF.Builder.CreateElementBitCast(
-              CGF.GetAddrOfLocalVar(&ParamInOut),
-              CGF.ConvertTypeForMem(LHSVD->getType())->getPointerTo()),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
           C.getPointerType(LHSVD->getType())->castAs<PointerType>()));
   PrivateScope.addPrivate(
       RHSVD,
       // Pull out the pointer to the variable.
       CGF.EmitLoadOfPointer(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
           CGF.GetAddrOfLocalVar(&ParamIn).withElementType(
               CGF.ConvertTypeForMem(RHSVD->getType())->getPointerTo()),
-#else
-          CGF.Builder.CreateElementBitCast(
-            CGF.GetAddrOfLocalVar(&ParamIn),
-            CGF.ConvertTypeForMem(RHSVD->getType())->getPointerTo()),
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
           C.getPointerType(RHSVD->getType())->castAs<PointerType>()));
   PrivateScope.Privatize();
   // Emit the combiner body:
@@ -5851,7 +5769,6 @@ llvm::Value *CGOpenMPRuntime::emitTaskReductionInit(
     // ElemLVal.reduce_shar = &Shareds[Cnt];
     LValue SharedLVal = CGF.EmitLValueForField(ElemLVal, SharedFD);
     RCG.emitSharedOrigLValue(CGF, Cnt);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Value *Shared = RCG.getSharedLValue(Cnt).getPointer(CGF);
     CGF.EmitStoreOfScalar(Shared, SharedLVal);
     // ElemLVal.reduce_orig = &Origs[Cnt];
@@ -5859,16 +5776,6 @@ llvm::Value *CGOpenMPRuntime::emitTaskReductionInit(
     llvm::Value *Orig = RCG.getOrigLValue(Cnt).getPointer(CGF);
     CGF.EmitStoreOfScalar(Orig, OrigLVal);
 
-#else
-    llvm::Value *CastedShared =
-        CGF.EmitCastToVoidPtr(RCG.getSharedLValue(Cnt).getPointer(CGF));
-    CGF.EmitStoreOfScalar(CastedShared, SharedLVal);
-    // ElemLVal.reduce_orig = &Origs[Cnt];
-    LValue OrigLVal = CGF.EmitLValueForField(ElemLVal, OrigFD);
-    llvm::Value *CastedOrig =
-        CGF.EmitCastToVoidPtr(RCG.getOrigLValue(Cnt).getPointer(CGF));
-    CGF.EmitStoreOfScalar(CastedOrig, OrigLVal);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     RCG.emitAggregateType(CGF, Cnt);
     llvm::Value *SizeValInChars;
     llvm::Value *SizeVal;
@@ -5885,37 +5792,20 @@ llvm::Value *CGOpenMPRuntime::emitTaskReductionInit(
     CGF.EmitStoreOfScalar(SizeValInChars, SizeLVal);
     // ElemLVal.reduce_init = init;
     LValue InitLVal = CGF.EmitLValueForField(ElemLVal, InitFD);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Value *InitAddr = emitReduceInitFunction(CGM, Loc, RCG, Cnt);
-#else
-    llvm::Value *InitAddr =
-        CGF.EmitCastToVoidPtr(emitReduceInitFunction(CGM, Loc, RCG, Cnt));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     CGF.EmitStoreOfScalar(InitAddr, InitLVal);
     // ElemLVal.reduce_fini = fini;
     LValue FiniLVal = CGF.EmitLValueForField(ElemLVal, FiniFD);
     llvm::Value *Fini = emitReduceFiniFunction(CGM, Loc, RCG, Cnt);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Value *FiniAddr =
         Fini ? Fini : llvm::ConstantPointerNull::get(CGM.VoidPtrTy);
-#else
-    llvm::Value *FiniAddr = Fini
-                                ? CGF.EmitCastToVoidPtr(Fini)
-                                : llvm::ConstantPointerNull::get(CGM.VoidPtrTy);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     CGF.EmitStoreOfScalar(FiniAddr, FiniLVal);
     // ElemLVal.reduce_comb = comb;
     LValue CombLVal = CGF.EmitLValueForField(ElemLVal, CombFD);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Value *CombAddr = emitReduceCombFunction(
         CGM, Loc, RCG, Cnt, Data.ReductionOps[Cnt], LHSExprs[Cnt],
         RHSExprs[Cnt], Data.ReductionCopies[Cnt]);
 
-#else
-    llvm::Value *CombAddr = CGF.EmitCastToVoidPtr(emitReduceCombFunction(
-        CGM, Loc, RCG, Cnt, Data.ReductionOps[Cnt], LHSExprs[Cnt],
-        RHSExprs[Cnt], Data.ReductionCopies[Cnt]));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     CGF.EmitStoreOfScalar(CombAddr, CombLVal);
     // ElemLVal.flags = 0;
     LValue FlagsLVal = CGF.EmitLValueForField(ElemLVal, FlagsFD);
@@ -7795,12 +7685,7 @@ public:
                           .getAddress(CGF);
                 }
                 Size = CGF.Builder.CreatePtrDiff(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
                     CGF.Int8Ty, ComponentLB.getPointer(), LB.getPointer());
-#else
-                    CGF.Int8Ty, CGF.EmitCastToVoidPtr(ComponentLB.getPointer()),
-                    CGF.EmitCastToVoidPtr(LB.getPointer()));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                 break;
               }
             }
@@ -7825,11 +7710,7 @@ public:
           CombinedInfo.Pointers.push_back(LB.getPointer());
           Size = CGF.Builder.CreatePtrDiff(
               CGF.Int8Ty, CGF.Builder.CreateConstGEP(HB, 1).getPointer(),
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
               LB.getPointer());
-#else
-              CGF.EmitCastToVoidPtr(LB.getPointer()));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
           CombinedInfo.Sizes.push_back(
               CGF.Builder.CreateIntCast(Size, CGF.Int64Ty, /*isSigned=*/true));
           CombinedInfo.Types.push_back(Flags);
@@ -11260,7 +11141,6 @@ llvm::Function *CGOpenMPRuntime::emitRequiresDirectiveRegFun() {
     std::string ReqName = getName({"omp_offloading", "requires_reg"});
     RequiresRegFn = CGM.CreateGlobalInitOrCleanUpFunction(FTy, ReqName, FI);
     CGF.StartFunction(GlobalDecl(), C.VoidTy, RequiresRegFn, FI, {});
-    OpenMPOffloadingRequiresDirFlags Flags = OMP_REQ_NONE;
     // TODO: check for other requires clauses.
     // The requires directive takes effect only when a target region is
     // present in the compilation unit. Otherwise it is ignored and not
@@ -11270,11 +11150,10 @@ llvm::Function *CGOpenMPRuntime::emitRequiresDirectiveRegFun() {
     assert((HasEmittedTargetRegion || HasEmittedDeclareTargetRegion ||
             !OMPBuilder.OffloadInfoManager.empty()) &&
            "Target or declare target region expected.");
-    if (HasRequiresUnifiedSharedMemory)
-      Flags = OMP_REQ_UNIFIED_SHARED_MEMORY;
     CGF.EmitRuntimeCall(OMPBuilder.getOrCreateRuntimeFunction(
                             CGM.getModule(), OMPRTL___tgt_register_requires),
-                        llvm::ConstantInt::get(CGM.Int64Ty, Flags));
+                        llvm::ConstantInt::get(
+                            CGM.Int64Ty, OMPBuilder.Config.getRequiresFlags()));
     CGF.FinishFunction();
   }
   return RequiresRegFn;

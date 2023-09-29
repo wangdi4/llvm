@@ -153,6 +153,12 @@ double scalbn(double x, int exp) { return __devicelib_scalbn(x, exp); }
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 
+#ifdef __NVPTX__
+extern "C" SYCL_EXTERNAL double __nv_nearbyint(double);
+DEVICE_EXTERN_C_INLINE
+double nearbyint(double x) { return __nv_nearbyint(x); }
+#endif // __NVPTX__
+
 #if defined(_MSC_VER)
 #include <math.h>
 // FLOAT PROPERTIES

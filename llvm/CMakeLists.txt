@@ -968,16 +968,19 @@ include(config-ix)
 # invocation time. Except on 64-bit AIX, where the system toolchain
 # expect 32-bit objects by default.
 if("${LLVM_HOST_TRIPLE}" MATCHES "^powerpc64-ibm-aix")
-  string(REGEX REPLACE "^powerpc64" "powerpc" LLVM_DEFAULT_TARGET_TRIPLE_default "${LLVM_HOST_TRIPLE}")
+  string(REGEX REPLACE "^powerpc64" "powerpc" LLVM_DEFAULT_TARGET_TRIPLE_DEFAULT "${LLVM_HOST_TRIPLE}")
 else()
   # Only set default triple when native target is enabled.
   if (LLVM_NATIVE_TARGET)
-    set(LLVM_DEFAULT_TARGET_TRIPLE_default "${LLVM_HOST_TRIPLE}")
+    set(LLVM_DEFAULT_TARGET_TRIPLE_DEFAULT "${LLVM_HOST_TRIPLE}")
   endif()
 endif()
 
-include(SetTargetTriple)
-set_llvm_target_triple()
+set(LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE_DEFAULT}" CACHE STRING
+    "Default target for which LLVM will generate code." )
+message(STATUS "LLVM default target triple: ${LLVM_DEFAULT_TARGET_TRIPLE}")
+
+set(LLVM_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
 
 # INTEL_CUSTOMIZATION
 if (UWD_BUILD)
@@ -1031,18 +1034,6 @@ if(NOT LLVM_ENABLE_NEW_PASS_MANAGER)
                   " be removed in a future release.")
 endif()
 endif(INTEL_CUSTOMIZATION)
-
-set(DPCPP_ENABLE_OPAQUE_POINTERS TRUE CACHE BOOL
-   "Enable opaque pointers by default.")
-if (DPCPP_ENABLE_OPAQUE_POINTERS)
-  add_definitions("-DENABLE_OPAQUE_POINTERS=1")
-  add_definitions("-DINTEL_SYCL_OPAQUEPOINTER_READY=1")
-endif(DPCPP_ENABLE_OPAQUE_POINTERS)
-set(SPIRV_ENABLE_OPAQUE_POINTERS TRUE CACHE BOOL
-    "Enable opaque pointers for SPIR-V offload by default.")
-if(SPIRV_ENABLE_OPAQUE_POINTERS)
-  add_definitions("-DSPIRV_ENABLE_OPAQUE_POINTERS=1")
-endif()
 
 include(HandleLLVMOptions)
 

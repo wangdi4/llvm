@@ -33,8 +33,6 @@ if(INTEL_COLLAB)
   list(APPEND LLVM_TABLEGEN_FLAGS -DINTEL_COLLAB)
 endif()
 
-list(APPEND LLVM_TABLEGEN_FLAGS "-DINTEL_SYCL_OPAQUEPOINTER_READY")
-
 function(tablegen project ofn)
   cmake_parse_arguments(ARG "" "" "DEPENDS;EXTRA_INCLUDES" ${ARGN})
 

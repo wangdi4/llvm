@@ -177,12 +177,7 @@ void CFGuard::insertCFGuardCheck(CallBase *CB) {
   // Create new call instruction. The CFGuard check should always be a call,
   // even if the original CallBase is an Invoke or CallBr instruction.
   CallInst *GuardCheck =
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       B.CreateCall(GuardFnType, GuardCheckLoad, {CalledOperand}, Bundles);
-#else //INTEL_SYCL_OPAQUEPOINTER_READY
-      B.CreateCall(GuardFnType, GuardCheckLoad,
-                   {B.CreateBitCast(CalledOperand, B.getInt8PtrTy())}, Bundles);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   // Ensure that the first argument is passed in the correct register
   // (e.g. ECX on 32-bit X86 targets).

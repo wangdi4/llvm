@@ -462,7 +462,7 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
   DT  = &getAnalysis<MachineDominatorTree>();
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   IAOpt = MF.getTarget().Options.IntelAdvancedOptim && // INTEL
-          MF.getTarget().getOptLevel() >= CodeGenOpt::Aggressive; // INTEL
+          MF.getTarget().getOptLevel() >= CodeGenOptLevel::Aggressive; // INTEL
 
   SmallVector<MachineLoop *, 8> Worklist(MLI->begin(), MLI->end());
   while (!Worklist.empty()) {

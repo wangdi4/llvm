@@ -125,10 +125,6 @@ set(CLANG_C_COMPILER_PARAMS
     # bytecode for C/C++ files w/o LTO flag.
     -flto)
 
-if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
-  set(CLANG_C_COMPILER_PARAMS ${CLANG_C_COMPILER_PARAMS} -no-opaque-pointers)
-endif()
-
 # options for clang to compile OpenCL 2.0 image callbacks
 
 # -stack-protector is enabled only on Linux since it is no possible to do so on
