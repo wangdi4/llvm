@@ -7,12 +7,12 @@
 // RUN:   | FileCheck %s --check-prefix=PSTL_DEFAULT
 // PSTL_DEFAULT: clang{{.*}} "-fsycl-is-device"
 // PSTL_DEFAULT-SAME: "-D__SYCL_PSTL_OFFLOAD__=1"
-// PSTL_DEFAULT-SAME: "-I" "order_check_dir"
 // PSTL_DEFAULT-SAME: "-I" "{{.*}}..{{(/|\\\\)}}..{{(/|\\\\)}}include{{(/|\\\\)}}pstl_offload"
+// PSTL_DEFAULT-SAME: "-I" "order_check_dir"
 // PSTL_DEFAULT: clang{{.*}} "-fsycl-is-host"
 // PSTL_DEFAULT-SAME: "-D__SYCL_PSTL_OFFLOAD__=1"
-// PSTL_DEFAULT-SAME: "-I" "order_check_dir"
 // PSTL_DEFAULT-SAME: "-I" "{{.*}}..{{(/|\\\\)}}..{{(/|\\\\)}}include{{(/|\\\\)}}pstl_offload"
+// PSTL_DEFAULT-SAME: "-I" "order_check_dir"
 // PSTL_DEFAULT_LINUX: ld{{.*}} "-L{{.*}}..{{(/|\\\\)}}..{{(/|\\\\)}}lib"
 // PSTL_DEFAULT_LINUX-SAME: "-lpstloffload"
 
