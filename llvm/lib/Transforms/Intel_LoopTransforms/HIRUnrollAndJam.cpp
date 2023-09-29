@@ -115,6 +115,10 @@ static cl::opt<unsigned> MaxOuterLoopCost(
     "hir-unroll-and-jam-max-outer-loop-cost", cl::init(36), cl::Hidden,
     cl::desc("Max allowed cost of an outer loop in the loopnest"));
 
+static cl::opt<unsigned> MaxLoopMemRefsThreshold(
+    "hir-unroll-and-jam-max-unrolled-loop-memrefs", cl::init(26), cl::Hidden,
+    cl::desc("Max allowed number of memrefs in the unrolled loopnest"));
+
 typedef SmallVector<std::pair<HLLoop *, HLLoop *>, 16> LoopMapTy;
 
 // Implements unroll/unroll & jam for \p Loop.
@@ -1142,9 +1146,22 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
   if (!HasEnablingPragma) {
     // TODO: refine unroll factor using extra cache lines accessed by
     // unrolling?
-    if (!HIRLoopLocality::hasTemporalLocality(Lp, UnrollFactor - 1, true, true)) {
+    unsigned NumMemRefs = 0;
+    if (!HIRLoopLocality::hasTemporalLocality(Lp, UnrollFactor - 1, true, true,
+                                              nullptr, &NumMemRefs)) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop does not have "
                            "temporal locality!\n");
+      HUAJ.throttle(Lp);
+      return;
+    }
+
+    LLVM_DEBUG(dbgs() << "Number of memrefs in loop: " << NumMemRefs << "\n");
+
+    // Unrolling loop with too many memrefs can result in memory stalls by
+    // increasing presure on memory banks.
+    if (NumMemRefs > MaxLoopMemRefsThreshold) {
+      LLVM_DEBUG(dbgs() << "Skipping unroll & jam for loop as the number of "
+                           "memrefs exceeds threshold!\n");
       HUAJ.throttle(Lp);
       return;
     }

@@ -180,7 +180,8 @@ private:
                                           TemporalLocalityType LocalityType,
                                           bool IgnoreConditionalRefs,
                                           bool IgnoreEqualRefs,
-                                          bool CheckPresence);
+                                          bool CheckPresence,
+                                          unsigned *TotalNumMemRefs = nullptr);
 
 public:
   HIRLoopLocality(HIRFramework &HIRF) : HIRAnalysis(HIRF) {}
@@ -207,13 +208,16 @@ public:
   /// executed will be ignored.
   /// If \p HDDA is not null, will also take aliasing into account to compute
   /// locality.
+  /// if \p TotalNumMemRefs is not null, the function will return the total
+  /// number of memrefs encountered in Lp.
   static bool hasTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold,
                                   bool IgnoreConditionalRefs,
                                   bool IgnoreEqualRefs,
-                                  HIRDDAnalysis *HDDA = nullptr) {
+                                  HIRDDAnalysis *HDDA = nullptr,
+                                  unsigned *TotalNumMemRefs = nullptr) {
     return getTemporalLocalityImpl(
         Lp, HDDA, ReuseThreshold, TemporalLocalityType::Both,
-        IgnoreConditionalRefs, IgnoreEqualRefs, true);
+        IgnoreConditionalRefs, IgnoreEqualRefs, true, TotalNumMemRefs);
   }
 
   /// Returns a number which represents the instances of temporal (invariant +

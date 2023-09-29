@@ -925,7 +925,7 @@ static bool aliasesWithAnotherGroup(const HIRLoopLocality::RefGroupTy &CurGroup,
 unsigned HIRLoopLocality::getTemporalLocalityImpl(
     const HLLoop *Lp, HIRDDAnalysis *HDDA, unsigned ReuseThreshold,
     TemporalLocalityType LocalityType, bool IgnoreConditionalRefs,
-    bool IgnoreEqualRefs, bool CheckPresence) {
+    bool IgnoreEqualRefs, bool CheckPresence, unsigned *TotalNumMemRefs) {
   assert(Lp && " Loop parameter is null!");
 
   unsigned Level = Lp->getNestingLevel();
@@ -941,6 +941,16 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(
                           std::bind(isTemporalMatch, std::placeholders::_1,
                                     std::placeholders::_2, Level,
                                     CheckPresence ? ReuseThreshold : ~0U));
+
+  if (TotalNumMemRefs) {
+    unsigned NumMemRefs = 0;
+
+    for (auto &RefVec : RefGroups) {
+      NumMemRefs += RefVec.size();
+    }
+
+    *TotalNumMemRefs = NumMemRefs;
+  }
 
   unsigned NumTemporal = 0;
   bool NeedInvariant = (LocalityType & TemporalLocalityType::Invariant);
