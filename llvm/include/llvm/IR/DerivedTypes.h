@@ -722,8 +722,11 @@ public:
   /// given address space. This is only useful during the opaque pointer
   /// transition.
   /// TODO: remove after opaque pointer transition is complete.
+#if !INTEL_CUSTOMIZATION
   [[deprecated("Use PointerType::get() with LLVMContext argument "
-               "instead")]] static PointerType *
+               "instead")]]
+#endif // INTEL_CUSTOMIZATION
+  static PointerType *
   getWithSamePointeeType(PointerType *PT, unsigned AddressSpace) {
     return get(PT->getContext(), AddressSpace);
   }
@@ -743,8 +746,11 @@ public:
   /// type matches Ty. Primarily used for checking if an instruction's pointer
   /// operands are valid types. Will be useless after non-opaque pointers are
   /// removed.
+#if !INTEL_CUSTOMIZATION
   [[deprecated("Always returns true")]]
-  bool isOpaqueOrPointeeTypeMatches(Type *) {
+#endif // INTEL_CUSTOMIZATION
+  bool
+  isOpaqueOrPointeeTypeMatches(Type *) {
     return true;
   }
 

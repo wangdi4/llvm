@@ -292,6 +292,7 @@ llvm::TargetMachine *Compiler::GetTargetMachine(llvm::Module *pModule) const {
       : (OptLevel == OptimizationLevel::O2 || IsOCL)
           ? llvm::CodeGenOptLevel::Default
           : llvm::CodeGenOptLevel::Aggressive;
+
   llvm::EngineBuilder Builder;
 
   Builder.setErrorStr(&ErrorString);
