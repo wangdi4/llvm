@@ -57,6 +57,7 @@ __ESIMD_INTRIN void __esimd_wait(uint16_t value)
 }
 #endif // __SYCL_DEVICE_ONLY__
 
+<<<<<<< HEAD
 // \brief Raw sends.
 //
 // @param modifier	the send message flags (Bit-0: isSendc, Bit-1: isEOT).
@@ -1087,6 +1088,8 @@ __esimd_raw_sendg_noresult(__ESIMD_DNS::simd_mask_storage_t<exec_size> pred,
 /* end INTEL_CUSTOMIZATION */
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 
+=======
+>>>>>>> a72409ee097a0871b1522813e92348a74177c69b
 /// Represents named barrier synchronization for a subgroup of threads.
 /// Available only on PVC
 ///
