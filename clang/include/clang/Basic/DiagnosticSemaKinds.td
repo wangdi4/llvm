@@ -12129,6 +12129,10 @@ def warn_sycl_unmasked_improper_caller : Warning<"function with 'unmasked' attri
   InGroup<AcceptedAttributes>;
 // endif // INTEL_CUSTOMIZATION
 
+def warn_cuda_maxclusterrank_sm_90 : Warning<
+  "maxclusterrank requires sm_90 or higher, CUDA arch provided: %0, ignoring "
+  "%1 attribute">, InGroup<IgnoredAttributes>;
+
 def err_bit_int_bad_size : Error<"%select{signed|unsigned}0 _BitInt must "
                                  "have a bit size of at least %select{2|1}0">;
 def err_bit_int_max_size : Error<"%select{signed|unsigned}0 _BitInt of bit "
