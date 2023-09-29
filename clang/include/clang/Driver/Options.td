@@ -4374,6 +4374,10 @@ Visibility<[ClangOption, CLOption, DXCOption]>,
 HelpText<"Specify a register allocation mode for specific hardware for use by supported "
 "target backends. The default is -ftarget-register-alloc-mode=pvc:auto on Linux and "
 "-ftarget-register-alloc-mode=pvc:default on Windows.">;
+def fsycl_target_loopopt : Flag<["-"], "fsycl-target-loopopt">,
+  Flags<[HelpHidden]>, Group<f_Group>,
+  HelpText<"Enable loop optimizer and auto-vectorization for SYCL based target "
+           "device compilation">;
 #endif // INTEL_CUSTOMIZATION
 def fsycl_preserve_device_nonsemantic_metadata : Flag<["-"], "fsycl-preserve-device-nonsemantic-metadata">,
   Visibility<[ClangOption, CLOption, DXCOption]>, Flags<[HelpHidden]>, HelpText<"Preserve non-semantic "
