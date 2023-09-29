@@ -731,24 +731,7 @@ public:
     return get(PT->getContext(), AddressSpace);
   }
 
-<<<<<<< HEAD
   [[deprecated("Always returns true")]] bool isOpaque() const { return true; }
-=======
-  [[deprecated("Pointer element types are deprecated. You can *temporarily* "
-               "use Type::getPointerElementType() instead")]]
-  Type *getElementType() const {
-    assert(!isOpaque() && "Attempting to get element type of opaque pointer");
-    return PointeeTy;
-  }
-
-#if !INTEL_CUSTOMIZATION
-  [[deprecated("Always returns true")]]
-#endif // !INTEL_CUSTOMIZATION
-  bool
-  isOpaque() const {
-    return true;
-  }
->>>>>>> b3bae66bec9c388e6090a50c04c7a3142bbffcf3
 
   /// Return true if the specified type is valid as a element type.
   static bool isValidElementType(Type *ElemTy);
