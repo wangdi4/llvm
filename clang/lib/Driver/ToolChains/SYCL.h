@@ -223,15 +223,15 @@ public:
       return this->HostTC.isPICDefault();
     return false;
   }
+  llvm::codegenoptions::DebugInfoFormat getDefaultDebugFormat() const override {
+    if (this->IsSYCLNativeCPU)
+      return this->HostTC.getDefaultDebugFormat();
+    return ToolChain::getDefaultDebugFormat();
+  }
   bool isPIEDefault(const llvm::opt::ArgList &Args) const override {
     return false;
   }
   bool isPICDefaultForced() const override { return false; }
-
-  virtual llvm::codegenoptions::DebugInfoFormat
-  getDefaultDebugFormat() const override {
-    return HostTC.getDefaultDebugFormat();
-  }
 
   void addClangWarningOptions(llvm::opt::ArgStringList &CC1Args) const override;
   CXXStdlibType GetCXXStdlibType(const llvm::opt::ArgList &Args) const override;
