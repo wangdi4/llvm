@@ -163,6 +163,32 @@ public:
   void visit(HLInst *HInst);
 };
 
+// Helper class used for handling the ORing process of a reduction If.
+class ReductionIfInfo {
+private:
+  // HLIf that will be placed outside the loop to finalize the reduction
+  HLIf *ReductionIf;
+
+  // True if the reduction If is ready for combine multiple reductions inside
+  // the same condition.
+  bool ReductionIfCanBeORed;
+
+public:
+  ReductionIfInfo() : ReductionIf(nullptr), ReductionIfCanBeORed(false) {}
+
+  void resetReductionIfInfo(HLIf *NewReductionIf) {
+    ReductionIf = NewReductionIf;
+    ReductionIfCanBeORed = false;
+  }
+
+  HLIf *getReductionIf() const { return ReductionIf; }
+
+  void updateReductionIf(RegDDRef *LoadRef, HLInst *InitInst);
+
+private:
+  void prepareReductionIfForORing();
+};
+
 } // namespace
 
 char HIRMemoryReductionSinkingLegacyPass::ID = 0;
@@ -644,6 +670,203 @@ static HLIf *createConditionalReductionIf(RegDDRef *LoadRef, HLInst *InitInst) {
   return NewIf;
 }
 
+// Helper function that will be used to preprare the reduction If to be ORed.
+// For example, assume the following case:
+//
+//   BEGIN REGION { }
+//         + DO i1 = 0, 99, 1   <DO_LOOP>
+//         |   if ((%b)[i1] > 10)
+//         |   {
+//         |      %1 = (%a)[5];
+//         |      (%a)[5] = %1 + 2;
+//         |      %2 = (%c)[7];
+//         |      (%c)[7] = %2 + 4;
+//         |      %3 = (%d)[10];
+//         |      (%d)[10] = %3 + 8;
+//         |   }
+//         + END LOOP
+//   END REGION
+//
+// The first reduction that will be handled is the reduction between %3 and
+// (%d)[10]. The loop will look as follows after the first transformation:
+//
+//   BEGIN REGION { }
+//         %tmp = 0;
+//         + DO i1 = 0, 99, 1   <DO_LOOP>
+//         |   if ((%b)[i1] > 10)
+//         |   {
+//         |      %1 = (%a)[5];
+//         |      (%a)[5] = %1 + 2;
+//         |      %2 = (%c)[7];
+//         |      (%c)[7] = %2 + 4;
+//         |      %tmp = %tmp  +  8;
+//         |   }
+//         + END LOOP
+//
+//         if (%tmp != 0)
+//         {
+//            %3 = (%d)[10];
+//            (%d)[10] = %3 + %tmp;
+//         }
+//   END REGION
+//
+// We need to change the predicate of the reduction If in order to include the
+// reduction between %2 and (%c)[7] in it. This function will cleanup the
+// reduction If as follows:
+//
+//         %cmp = %tmp != 0;
+//         if (%cmp != 0)
+//         {
+//            %3 = (%d)[10];
+//            (%d)[10] = %3 + %tmp;
+//         }
+//
+// The new compare (%cmp) will be used now for ORing the condition inside the
+// reduction If (see updateReductionIf comments for more details).
+void ReductionIfInfo::prepareReductionIfForORing() {
+  assert(!ReductionIfCanBeORed &&
+         "Reduction If has been prepared for ORing already");
+
+  auto &HNU = ReductionIf->getHLNodeUtils();
+  auto PredBegin = ReductionIf->pred_begin();
+  auto &Pred = *PredBegin;
+
+  auto *CmpLHS = ReductionIf->removeLHSPredicateOperandDDRef(PredBegin);
+  auto *CmpRHS = ReductionIf->removeRHSPredicateOperandDDRef(PredBegin);
+  auto *Cmp = HNU.createCmp(Pred, CmpLHS, CmpRHS);
+  HLNodeUtils::insertBefore(ReductionIf, Cmp);
+
+  // The predicate inside the If condition will be the result of a compare
+  // now, therefore it should be compared against an integer 0.
+  auto *LHS = Cmp->getLvalDDRef()->clone();
+  auto *RHSZero = Cmp->getDDRefUtils().createNullDDRef(LHS->getDestType());
+  ReductionIf->replacePredicate(PredBegin, PredicateTy::ICMP_NE);
+
+  ReductionIf->setLHSPredicateOperandDDRef(LHS, PredBegin);
+  ReductionIf->setRHSPredicateOperandDDRef(RHSZero, PredBegin);
+
+  ReductionIfCanBeORed = true;
+}
+
+// Update the reduction If to include more that one reduction inside the
+// condition. For example, assume the following loop
+//
+//   BEGIN REGION { }
+//         + DO i1 = 0, 99, 1   <DO_LOOP>
+//         |   if ((%b)[i1] > 10)
+//         |   {
+//         |      %1 = (%a)[5];
+//         |      (%a)[5] = %1 + 2;
+//         |      %2 = (%c)[7];
+//         |      (%c)[7] = %2 + 4;
+//         |      %3 = (%d)[10];
+//         |      (%d)[10] = %3 + 8;
+//         |   }
+//         + END LOOP
+//   END REGION
+//
+// The reduction between %3 and (%d)[10] will create a new reduction If, but
+// it needs to be updated to include the reduction between %2 and (%c)[7]. This
+// reduction If needs be prepared for ORing (see prepareReductionIfForORing for
+// more details) first, which results in the following:
+//
+//     %cmp = %tmp != 0;
+//     if (%cmp != 0)
+//     {
+//        %3 = (%d)[10];
+//        (%d)[10] = %3 + %tmp;
+//     }
+//
+// Then, a new compare instruction will be created that checks if the temp for
+// storing the result for %2 is not 0. An OR will be created to check if the
+// previous left DDRef of the compare inside the reduction If (%cmp) is true
+// or if the new compare instruction is true. The new OR will replace this
+// DDRef in the reduction If. The new condition will look as follows:
+//
+//     %cmp = %tmp != 0;
+//     %cmp8 = %tmp6 != 0;
+//     %or = %cmp  |  %cmp8;
+//     if (%or != 0)
+//     {
+//        %2 = (%c)[7];
+//        (%c)[7] = %2 + %tmp6;
+//        %3 = (%d)[10];
+//        (%d)[10] = %3 + %tmp;
+//     }
+//
+// The final result will look as follows at the end of the transformation:
+//
+//   BEGIN REGION { modified }
+//            %tmp = 0;
+//            %tmp6 = 0;
+//            %tmp9 = 0;
+//         + DO i1 = 0, 99, 1   <DO_LOOP>
+//         |   if ((%b)[i1] > 10)
+//         |   {
+//         |      %tmp9 = %tmp9  +  2;
+//         |      %tmp6 = %tmp6  +  4;
+//         |      %tmp = %tmp  +  8;
+//         |   }
+//         + END LOOP
+//         %cmp = %tmp != 0;
+//         %cmp8 = %tmp6 != 0;
+//         %or = %cmp  |  %cmp8;
+//         %cmp11 = %tmp9 != 0;
+//         %or12 = %or  |  %cmp11;
+//         if (%or12 != 0)
+//         {
+//            %1 = (%a)[5];
+//            (%a)[5] = %1 + %tmp9;
+//            %2 = (%c)[7];
+//            (%c)[7] = %2 + %tmp6;
+//            %3 = (%d)[10];
+//            (%d)[10] = %3 + %tmp;
+//         }
+//   END REGION
+//
+void ReductionIfInfo::updateReductionIf(RegDDRef *LoadRef, HLInst *InitInst) {
+
+  // Prepare the condition for ORing if it is the first time that is going to
+  // be ORed
+  if (!ReductionIfCanBeORed)
+    prepareReductionIfForORing();
+
+  auto &HNU = ReductionIf->getHLNodeUtils();
+
+  // Create the new compare instruction (%tmp2 != 0)
+  auto PredTy = LoadRef->getDestType()->isIntegerTy() ? PredicateTy::ICMP_NE
+                                                      : PredicateTy::FCMP_UNE;
+
+  auto *RednTemp = InitInst->getLvalDDRef();
+  auto *TempInitVal = InitInst->getRvalDDRef();
+
+  // Create the new compare and insert it
+  auto *LHS = RednTemp->clone();
+  auto *RHS = TempInitVal->clone();
+  auto *NewCmp = HNU.createCmp(PredTy, LHS, RHS);
+  HLNodeUtils::insertBefore(ReductionIf, NewCmp);
+
+  // Create the new OR with the new operands
+  auto PredBegin = ReductionIf->pred_begin();
+  RegDDRef *ORLHS = ReductionIf->removeLHSPredicateOperandDDRef(PredBegin);
+  RegDDRef *ORRHS = NewCmp->getLvalDDRef()->clone();
+  auto *ORInst = HNU.createOr(ORLHS, ORRHS);
+  HLNodeUtils::insertBefore(ReductionIf, ORInst);
+
+  // Replace the LHS of the predicate with the new OR created
+  ReductionIf->setLHSPredicateOperandDDRef(ORInst->getLvalDDRef()->clone(),
+                                           PredBegin);
+}
+
+// Return true if the current reduction If can be reused. This condition can be
+// reused if the two input reductions are always executed together inside the
+// same condition branch/case.
+static bool reductionIfCanBeReused(HLDDNode *PrevLoadInst,
+                                   HLDDNode *CurrLoadInst) {
+  return HLNodeUtils::dominates(PrevLoadInst, CurrLoadInst) &&
+         HLNodeUtils::postDominates(CurrLoadInst, PrevLoadInst);
+}
+
 void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
 
   if (!ConditionalInvariantMemoryReductions.empty())
@@ -664,24 +887,48 @@ void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
     addOptimizationsRemark(Lp, InvRedn);
   }
 
-  for (auto &InvRedn :
-       make_range(ConditionalInvariantMemoryReductions.rbegin(),
-                  ConditionalInvariantMemoryReductions.rend())) {
+  ReductionIfInfo RedIfInfo;
+  bool ReductionCanBeReused = false;
+  for (auto RedIt = ConditionalInvariantMemoryReductions.rbegin(),
+            E = ConditionalInvariantMemoryReductions.rend();
+       RedIt != E; ++RedIt) {
 
-    HLInst *InitInst = createReductionTemp(Lp, InvRedn);
+    HLInst *InitInst = createReductionTemp(Lp, *RedIt);
 
-    auto *LoadRef = InvRedn.LoadRef;
-    auto *LoadInst = cast<HLInst>(LoadRef->getHLDDNode());
-    auto *StoreInst = cast<HLInst>(InvRedn.StoreRef->getHLDDNode());
+    auto *LoadRef = RedIt->LoadRef;
+    auto *LoadInst = LoadRef->getHLDDNode();
+    auto *StoreInst = RedIt->StoreRef->getHLDDNode();
 
-    HLIf *RedIf = createConditionalReductionIf(LoadRef, InitInst);
+    // Add the current reduction under the same reduction If, or create a new
+    // one, using the result precomputed.
+    if (!ReductionCanBeReused) {
+      HLIf *NewRedIf = createConditionalReductionIf(LoadRef, InitInst);
+      RedIfInfo.resetReductionIfInfo(NewRedIf);
+      HLNodeUtils::insertAfter(Lp, NewRedIf);
+    } else {
+      RedIfInfo.updateReductionIf(LoadRef, InitInst);
+    }
 
-    HLNodeUtils::insertAfter(Lp, RedIf);
+    // Precompute if the previous reduction can be added in the reduction if
+    // used by the current reduction. We consider the next entry in the
+    // traversal as the previous instruction since InvariantMemoryReductions is
+    // being traversed in reverse. This needs to be done before moving the
+    // current load outside of the loop since the check depends on the
+    // HLNodeUtils domination analyses.
+    ReductionCanBeReused = false;
+    if ((RedIt + 1) != ConditionalInvariantMemoryReductions.rend()) {
+      auto *PrevLoadRef = (RedIt + 1)->LoadRef;
+      auto *PrevLoadInst = PrevLoadRef->getHLDDNode();
+      ReductionCanBeReused = reductionIfCanBeReused(PrevLoadInst, LoadInst);
+    }
+
+    HLIf *RedIf = RedIfInfo.getReductionIf();
+
     HLNodeUtils::moveAsFirstThenChild(RedIf, StoreInst);
     HLNodeUtils::moveAsFirstThenChild(RedIf, LoadInst);
 
-    makeLoadAndStoreRefsConsistent(Lp, InvRedn);
-    addOptimizationsRemark(Lp, InvRedn);
+    makeLoadAndStoreRefsConsistent(Lp, *RedIt);
+    addOptimizationsRemark(Lp, *RedIt);
   }
 
   Lp->getParentRegion()->setGenCode();
@@ -717,10 +964,13 @@ bool HIRMemoryReductionSinking::run(HLLoop *Lp) {
     return false;
   }
 
-  HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
-  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(Lp);
-
   sinkInvariantReductions(Lp);
+
+  // We don't invalidate the loop statistics analysis if new conditions weren't
+  // generated.
+  HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Lp);
+
   return true;
 }
 

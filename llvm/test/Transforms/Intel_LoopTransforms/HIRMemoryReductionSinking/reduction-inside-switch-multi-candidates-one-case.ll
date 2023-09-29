@@ -1,7 +1,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-memory-reduction-sinking,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; This test case checks that the multiple reductions inside one case are
-; identified, and the temporary is created inside a new If.
+; identified, and the temps are created inside a new If.
 
 ; HIR before transformation:
 
@@ -27,18 +27,17 @@
 ;       + END LOOP
 ; END REGION
 
-
 ; HIR after transformation
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK:          %tmp = 0;
 ; CHECK:          %tmp6 = 0;
-; CHECK:          %tmp8 = 0;
+; CHECK:          %tmp9 = 0;
 ; CHECK:       + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK:       |   switch((%b)[i1])
 ; CHECK:       |   {
 ; CHECK:       |   case 10:
-; CHECK:       |      %tmp8 = %tmp8  +  2;
+; CHECK:       |      %tmp9 = %tmp9  +  2;
 ; CHECK:       |      %tmp6 = %tmp6  +  4;
 ; CHECK:       |      %tmp = %tmp  +  8;
 ; CHECK:       |      break;
@@ -50,18 +49,17 @@
 ; CHECK:       |      break;
 ; CHECK:       |   }
 ; CHECK:       + END LOOP
-; CHECK:       if (%tmp8 != 0)
+; CHECK:       %cmp = %tmp != 0;
+; CHECK:       %cmp8 = %tmp6 != 0;
+; CHECK:       %or = %cmp  |  %cmp8;
+; CHECK:       %cmp11 = %tmp9 != 0;
+; CHECK:       %or12 = %or  |  %cmp11;
+; CHECK:       if (%or12 != 0)
 ; CHECK:       {
 ; CHECK:          %1 = (%a)[5];
-; CHECK:          (%a)[5] = %1 + %tmp8;
-; CHECK:       }
-; CHECK:       if (%tmp6 != 0)
-; CHECK:       {
+; CHECK:          (%a)[5] = %1 + %tmp9;
 ; CHECK:          %2 = (%a)[7];
 ; CHECK:          (%a)[7] = %2 + %tmp6;
-; CHECK:       }
-; CHECK:       if (%tmp != 0)
-; CHECK:       {
 ; CHECK:          %3 = (%a)[9];
 ; CHECK:          (%a)[9] = %3 + %tmp;
 ; CHECK:       }
