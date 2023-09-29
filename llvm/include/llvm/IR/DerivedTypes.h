@@ -722,13 +722,33 @@ public:
   /// given address space. This is only useful during the opaque pointer
   /// transition.
   /// TODO: remove after opaque pointer transition is complete.
+#if !INTEL_CUSTOMIZATION
   [[deprecated("Use PointerType::get() with LLVMContext argument "
-               "instead")]] static PointerType *
+               "instead")]]
+#endif // INTEL_CUSTOMIZATION
+  static PointerType *
   getWithSamePointeeType(PointerType *PT, unsigned AddressSpace) {
     return get(PT->getContext(), AddressSpace);
   }
 
+<<<<<<< HEAD
   [[deprecated("Always returns true")]] bool isOpaque() const { return true; }
+=======
+  [[deprecated("Pointer element types are deprecated. You can *temporarily* "
+               "use Type::getPointerElementType() instead")]]
+  Type *getElementType() const {
+    assert(!isOpaque() && "Attempting to get element type of opaque pointer");
+    return PointeeTy;
+  }
+
+#if !INTEL_CUSTOMIZATION
+  [[deprecated("Always returns true")]]
+#endif // !INTEL_CUSTOMIZATION
+  bool
+  isOpaque() const {
+    return true;
+  }
+>>>>>>> b3bae66bec9c388e6090a50c04c7a3142bbffcf3
 
   /// Return true if the specified type is valid as a element type.
   static bool isValidElementType(Type *ElemTy);
@@ -743,8 +763,11 @@ public:
   /// type matches Ty. Primarily used for checking if an instruction's pointer
   /// operands are valid types. Will be useless after non-opaque pointers are
   /// removed.
+#if !INTEL_CUSTOMIZATION
   [[deprecated("Always returns true")]]
-  bool isOpaqueOrPointeeTypeMatches(Type *) {
+#endif // INTEL_CUSTOMIZATION
+  bool
+  isOpaqueOrPointeeTypeMatches(Type *) {
     return true;
   }
 

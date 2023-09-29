@@ -6796,7 +6796,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   if (Arg *A = Args.getLastArg(options::OPT_faltmathlib_EQ)) {
-    StringRef Name = A->getValue();
     A->render(Args, CmdArgs);
   }
 

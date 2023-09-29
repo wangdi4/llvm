@@ -570,7 +570,11 @@ void X86PassConfig::addIRPasses() {
     addPass(createX86Gather2LoadPermutePass()); // INTEL
   } // INTEL
 
+<<<<<<< HEAD
   if (TM->getOptLevel() > CodeGenOptLevel::Less) // INTEL
+=======
+  if (TM->getOptLevel() > CodeGenOptLevel::Less)            // INTEL
+>>>>>>> b3bae66bec9c388e6090a50c04c7a3142bbffcf3
     addPass(createX86TransformToLibmSinCosCallPass()); // INTEL
 
   addPass(createX86LowerMatrixIntrinsicsPass()); // INTEL
