@@ -233,11 +233,6 @@ public:
   }
   bool isPICDefaultForced() const override { return false; }
 
-  virtual llvm::codegenoptions::DebugInfoFormat
-  getDefaultDebugFormat() const override {
-    return HostTC.getDefaultDebugFormat();
-  }
-
   void addClangWarningOptions(llvm::opt::ArgStringList &CC1Args) const override;
   CXXStdlibType GetCXXStdlibType(const llvm::opt::ArgList &Args) const override;
   static void AddSYCLIncludeArgs(const clang::driver::Driver &Driver,
