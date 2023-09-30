@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-var-predicate" -hir-opt-var-predicate-bypass-simd=0 -disable-hir-opt-var-predicate-cost-model -disable-output -print-before=hir-opt-var-predicate -print-after=hir-opt-var-predicate %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-var-predicate" -hir-opt-var-predicate-bypass-simd=0 -disable-output -print-before=hir-opt-var-predicate -print-after=hir-opt-var-predicate %s 2>&1 | FileCheck %s
 
 ; Verify that reduction-related insts are cloned together with simd intrinsics when opt-var-predicate hanppened.
 

@@ -126,7 +126,6 @@ STATISTIC(LoopsSplit, "Loops split during optimization of predicates.");
 namespace {
 
 struct EqualCandidates : public SmallSetVector<HLIf *, 8> {
-  bool HasUnsafeCall = false;
   bool BothSidesIV = false;
 
   EqualCandidates(HLIf *If) { insert(If); }
@@ -141,20 +140,14 @@ struct EqualCandidates : public SmallSetVector<HLIf *, 8> {
     });
   }
 
-  bool isProfitable(const HLLoop *Lp) const {
+  bool shouldGenCode() const {
     if (DisableCostModel) {
       return true;
     }
 
-    return Lp->isInnermost() || HasUnsafeCall;
-  }
-
-  bool shouldGenCode(const HLLoop *Lp) const {
-    if (DisableCostModel) {
-      return true;
-    }
-
-    return Lp->isInnermost();
+    return std::any_of(begin(), end(), [&](const HLIf *If) {
+      return If->getLexicalParentLoop()->isInnermost();
+    });
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -232,7 +225,6 @@ class IfLookup final : public HLNodeVisitorBase {
   const HLNode *SkipNode;
 
   bool HasLabel;
-  bool HasUnsafeCall;
 
   void mergeCandidates(const IfLookup Src) {
     for (auto SrcEqualCandidates : Src.getCandidates()) {
@@ -242,7 +234,6 @@ class IfLookup final : public HLNodeVisitorBase {
           [If](const EqualCandidates &EC) { return EC.isEqual(If); });
       if (ExistingI != Candidates.end()) {
         ExistingI->insert(SrcEqualCandidates.begin(), SrcEqualCandidates.end());
-        ExistingI->HasUnsafeCall |= SrcEqualCandidates.HasUnsafeCall;
       } else {
         Candidates.push_back(SrcEqualCandidates);
       }
@@ -252,7 +243,7 @@ class IfLookup final : public HLNodeVisitorBase {
 public:
   IfLookup(SmallVectorImpl<EqualCandidates> &Candidates, unsigned Level)
       : Candidates(Candidates), Level(Level), SkipNode(nullptr),
-        HasLabel(false), HasUnsafeCall(false) {}
+        HasLabel(false) {}
 
   ArrayRef<EqualCandidates> getCandidates() const { return Candidates; }
 
@@ -335,7 +326,6 @@ public:
         Candidates.begin(), Candidates.end(),
         [If](const EqualCandidates &EC) { return EC.isEqual(If); });
     if (ExistingI != Candidates.end()) {
-      ExistingI->HasUnsafeCall |= Lookup.HasUnsafeCall;
       ExistingI->insert(If);
       return;
     }
@@ -379,7 +369,6 @@ public:
     }
 
     Candidates.emplace_back(If);
-    Candidates.back().HasUnsafeCall = Lookup.HasUnsafeCall;
     Candidates.back().BothSidesIV = BothSidesIV;
   }
 
@@ -389,10 +378,6 @@ public:
     SkipNode = Loop;
     IfLookup Lookup(Candidates, Level);
     HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
-  }
-
-  void visit(const HLInst *Inst) {
-    HasUnsafeCall = HasUnsafeCall || Inst->isUnsafeSideEffectsCallInst();
   }
 
   void visit(const HLNode *) {}
@@ -1396,11 +1381,6 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
     LLVM_DEBUG(Candidate.dump());
     LLVM_DEBUG(dbgs() << "\n");
 
-    if (!Candidate.isProfitable(Loop)) {
-      LLVM_DEBUG(dbgs() << "Skipping candidate is non-profitable.\n");
-      continue;
-    }
-
     if (!TransformNodes.empty()) {
       if (std::any_of(TransformNodes.begin(), TransformNodes.end(),
                       [&](unsigned Number) {
@@ -1494,6 +1474,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
 
     HLLoop *ParentLoop = Loop->getParentLoop();
     HLRegion *Region = Loop->getParentRegion();
+    bool IsAnyInnermostLoopTransformed = Candidate.shouldGenCode();
 
     SmallVector<HLLoop *, 4> OutLoopsVec;
     if (DirSIMD && !OutLoops)
@@ -1504,7 +1485,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
     if (DirSIMD)
       cloneSIMDDirs(*OutLoops, SIC);
 
-    if (SetRegionModified && Candidate.shouldGenCode(Loop)) {
+    if (SetRegionModified && IsAnyInnermostLoopTransformed) {
       Region->setGenCode();
     }
 

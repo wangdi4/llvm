@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-var-predicate,print<hir>" -hir-opt-var-predicate-bypass-simd=0 -disable-hir-opt-var-predicate-cost-model -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-var-predicate,print<hir>" -hir-opt-var-predicate-bypass-simd=0 -disable-output %s 2>&1 | FileCheck %s
 
 ; This test case checks that the opt-var-predicate transformation works with
 ; opaque pointers, and with SIMD directives that are used in opaque pointers.
