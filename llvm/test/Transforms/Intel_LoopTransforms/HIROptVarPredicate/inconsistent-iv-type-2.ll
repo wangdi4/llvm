@@ -30,25 +30,20 @@
 ;  END REGION
 
 ; CHECK:      BEGIN REGION { modified }
-; CHECK-NEXT:      + DO i1 = 0, 67, 1   <DO_LOOP>
-; CHECK-NEXT:      |   if (-1 * i1 + 69 == 9)
-; CHECK-NEXT:      |   {
-; CHECK-NEXT:      |      (%jh6)[0] = 9;
-; CHECK-NEXT:      |
-; CHECK-NEXT:      |      + DO i2 = 0, -1 * smax(0, (1 + (-1 * %0))) + 7, 1   <DO_LOOP>
-; CHECK-NEXT:      |      |   %1 = (%arrayidx)[0];
-; CHECK-NEXT:      |      |   %2 = (%b)[0];
-; CHECK-NEXT:      |      |   (%b)[0] = -1 * %1 + %2;
-; CHECK-NEXT:      |      |   %3 = (%ia)[0];
-; CHECK-NEXT:      |      |   (%ia)[0] = ((%0 + %3) * %3);
-; CHECK-NEXT:      |      |   %4 = (%arrayidx19)[0];
-; CHECK-NEXT:      |      |   %5 = (%arrayidx21)[0];
-; CHECK-NEXT:      |      |   (%arrayidx21)[0] = -1 * %4 + %5;
-; CHECK-NEXT:      |      + END LOOP
-; CHECK-NEXT:      |
-; CHECK-NEXT:      |      (%jh6)[0] = 1;
-; CHECK-NEXT:      |   }
-; CHECK-NEXT:      + END LOOP
+; CHECK-NEXT:       (%jh6)[0] = 9;
+;
+; CHECK:            + DO i1 = 0, -1 * smax(0, (1 + (-1 * %0))) + 7, 1   <DO_LOOP>
+; CHECK-NEXT:       |   %1 = (%arrayidx)[0];
+; CHECK-NEXT:       |   %2 = (%b)[0];
+; CHECK-NEXT:       |   (%b)[0] = -1 * %1 + %2;
+; CHECK-NEXT:       |   %3 = (%ia)[0];
+; CHECK-NEXT:       |   (%ia)[0] = ((%0 + %3) * %3);
+; CHECK-NEXT:       |   %4 = (%arrayidx19)[0];
+; CHECK-NEXT:       |   %5 = (%arrayidx21)[0];
+; CHECK-NEXT:       |   (%arrayidx21)[0] = -1 * %4 + %5;
+; CHECK-NEXT:       + END LOOP
+;
+; CHECK:            (%jh6)[0] = 1;
 ; CHECK-NEXT: END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

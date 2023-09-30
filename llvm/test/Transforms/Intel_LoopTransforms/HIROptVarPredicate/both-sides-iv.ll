@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -S -disable-output -disable-hir-opt-var-predicate-cost-model < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -S -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test checks that HIROptVarPredicate doesn't consider 'if (i1 + 1 != i2 + 1)' as
 ; a candidate for hoisting out of i1 loop.

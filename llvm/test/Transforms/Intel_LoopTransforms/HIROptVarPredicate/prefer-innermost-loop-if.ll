@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -disable-hir-opt-var-predicate-cost-model -disable-output <%s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -disable-output <%s 2>&1 | FileCheck %s
 
 ; Test checks that the condition number <30> is chosen over condition number <3>
 ; since it is in the innermost loop.
