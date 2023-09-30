@@ -25,6 +25,7 @@ foreach(entry ${entries})
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/opencl) AND #INTEL - exclude opencl from the build by default
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/cclang) AND #INTEL - exclude cclang from the build by default
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/dragonegg) AND
+       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/flang-rt) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxx) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxxabi) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libunwind) AND
@@ -56,6 +57,8 @@ if(${LLVM_BUILD_RUNTIME})
   if(NOT LLVM_BUILD_EXTERNAL_COMPILER_RT)
     add_llvm_external_project(compiler-rt)
   endif()
+
+  add_llvm_external_project(flang-rt)
 endif()
 
 if(INTEL_CUSTOMIZATION)
