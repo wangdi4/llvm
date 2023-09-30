@@ -65,7 +65,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp
   Intel_VPlan/IntelVPlanPragmaOmpSimdIf.cpp
   Intel_VPlan/IntelVPlanPredicator.cpp
-  Intel_VPlan/IntelVPlanScalarEvolution.cpp
+  Intel_VPlan/ScalarEvolution.cpp
   Intel_VPlan/IntelVPlanScalVecAnalysis.cpp
   Intel_VPlan/IntelVPlanSLP.cpp
   Intel_VPlan/IntelVPlanSSADeconstruction.cpp
@@ -87,7 +87,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/HIR/IntelVPlanDecomposerHIR.cpp
   Intel_VPlan/HIR/IntelVPlanHCFGBuilderHIR.cpp
   Intel_VPlan/HIR/IntelVPlanInstructionDataHIR.cpp
-  Intel_VPlan/HIR/IntelVPlanScalarEvolutionHIR.cpp
+  Intel_VPlan/HIR/ScalarEvolutionHIR.cpp
   Intel_VPlan/HIR/IntelVPlanValueTrackingHIR.cpp
   Intel_VPlan/HIR/IntelVPlanVLSAnalysisHIR.cpp
   Intel_VPlan/HIR/IntelVPlanVerifierHIR.cpp

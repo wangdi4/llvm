@@ -12,7 +12,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTEL_VPLAN_ALIGNMENT_ANALYSIS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTEL_VPLAN_ALIGNMENT_ANALYSIS_H
 
-#include "IntelVPlanScalarEvolution.h"
+#include "ScalarEvolution.h"
 
 #include <llvm/IR/DataLayout.h>
 #include <llvm/Support/InstructionCost.h>

@@ -1,4 +1,4 @@
-//===- IntelVPlanScalarEvolutionHIR.cpp -------------------------*- C++ -*-===//
+//===- ScalarEvolutionHIR.cpp -----------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
@@ -9,10 +9,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "IntelVPlanScalarEvolutionHIR.h"
+#include "ScalarEvolutionHIR.h"
 
-#include "Intel_VPlan/IntelVPlan.h"
-#include "Intel_VPlan/IntelVPlanValue.h"
+#include "../IntelVPlan.h"
+#include "../IntelVPlanValue.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include <optional>
 

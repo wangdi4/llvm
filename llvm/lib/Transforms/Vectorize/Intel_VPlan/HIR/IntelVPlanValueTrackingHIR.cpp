@@ -13,7 +13,7 @@
 
 #include "../IntelVPlan.h"
 #include "../IntelVPlanDominatorTree.h"
-#include "IntelVPlanScalarEvolutionHIR.h"
+#include "ScalarEvolutionHIR.h"
 
 #include <llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h>
 #include <llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h>

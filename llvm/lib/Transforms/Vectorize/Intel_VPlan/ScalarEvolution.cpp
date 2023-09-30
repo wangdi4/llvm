@@ -1,4 +1,4 @@
-//===- IntelVPlanScalarEvolution.cpp ----------------------------*- C++ -*-===//
+//===-- ScalarEvolution.cpp -------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
@@ -9,8 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "IntelVPlanScalarEvolution.h"
-
+#include "ScalarEvolution.h"
 #include "IntelVPlan.h"
 
 #include <llvm/Analysis/ScalarEvolutionExpressions.h>
