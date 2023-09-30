@@ -1,4 +1,4 @@
-//===- IntelVPlanScalarEvolution.h ------------------------------*- C++ -*-===//
+//===- ScalarEvolution.h ----------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
@@ -9,8 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTEL_VPLAN_SCALAR_EVOLUTION_H
-#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTEL_VPLAN_SCALAR_EVOLUTION_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_SCALAR_EVOLUTION_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_SCALAR_EVOLUTION_H
 
 #include <llvm/Analysis/ScalarEvolution.h>
 
@@ -111,4 +111,4 @@ private:
 } // namespace vpo
 } // namespace llvm
 
-#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTEL_VPLAN_SCALAR_EVOLUTION_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_SCALAR_EVOLUTION_H

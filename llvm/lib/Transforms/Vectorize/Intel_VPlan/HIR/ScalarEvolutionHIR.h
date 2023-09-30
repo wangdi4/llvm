@@ -1,4 +1,4 @@
-//===- IntelVPlanScalarEvolutionHIR.h ---------------------------*- C++ -*-===//
+//===- ScalarEvolutionHIR.h -------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
@@ -9,10 +9,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTEL_VPLAN_SCALAR_EVOLUTION_HIR_H
-#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTEL_VPLAN_SCALAR_EVOLUTION_HIR_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_HIR_SCALAR_EVOLUTION_HIR_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_HIR_SCALAR_EVOLUTION_HIR_H
 
-#include "../IntelVPlanScalarEvolution.h"
+#include "../ScalarEvolution.h"
 
 namespace llvm {
 
@@ -88,5 +88,4 @@ raw_ostream &operator<<(raw_ostream &OS, const VPlanAddRecHIR &E);
 } // namespace vpo
 } // namespace llvm
 
-#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTEL_VPLAN_SCALAR_EVOLUTION_HIR_H
-
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_HIR_SCALAR_EVOLUTION_HIR_H
