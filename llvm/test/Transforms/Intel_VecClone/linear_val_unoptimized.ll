@@ -2,7 +2,8 @@
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; Check code generated from VecClone for val vector variant for unoptimized LLVM
-; Stride should be applied to value loaded from lane 0 of the vector of pointers
+; Stride should be initially stored to the arg memory so that subsequent users will
+; use the updated value.
 
 ; Function Attrs: mustprogress noinline nounwind optnone uwtable
 define dso_local noundef i64 @_Z3fooRl(ptr noundef nonnull align 8 dereferenceable(8) %x) #0 {
@@ -24,19 +25,23 @@ define dso_local noundef i64 @_Z3fooRl(ptr noundef nonnull align 8 dereferenceab
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    [[LOAD_ALLOCA_X_SCALAR0:%.*]] = load ptr, ptr [[ALLOCA_X_SCALAR0]], align 8
+; CHECK-NEXT:    [[INIT_VAL_LOAD_ALLOCA_X_SCALAR0:%.*]] = load i64, ptr [[LOAD_ALLOCA_X_SCALAR0]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.header:
 ; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
+; CHECK-NEXT:    store i64 [[INIT_VAL_LOAD_ALLOCA_X_SCALAR0]], ptr [[LOAD_ALLOCA_X_SCALAR0]], align 4
+; CHECK-NEXT:    [[LOAD_LOAD_ALLOCA_X_SCALAR0:%.*]] = load i64, ptr [[LOAD_ALLOCA_X_SCALAR0]], align 4
+; CHECK-NEXT:    [[PHI_CAST0:%.*]] = zext i32 [[INDEX0]] to i64
+; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i64 2, [[PHI_CAST0]]
+; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i64 [[LOAD_LOAD_ALLOCA_X_SCALAR0]], [[STRIDE_MUL0]]
+; CHECK-NEXT:    store i64 [[STRIDE_ADD0]], ptr [[LOAD_ALLOCA_X_SCALAR0]], align 4
 ; CHECK-NEXT:    store ptr [[LOAD_ALLOCA_X_SCALAR0]], ptr [[X_ADDR0]], align 8
 ; CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[X_ADDR0]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i64, ptr [[TMP0]], align 8
-; CHECK-NEXT:    [[PHI_CAST0:%.*]] = zext i32 [[INDEX0]] to i64
-; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i64 2, [[PHI_CAST0]]
-; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i64 [[TMP1]], [[STRIDE_MUL0]]
-; CHECK-NEXT:    [[ADD0:%.*]] = add nsw i64 [[STRIDE_ADD0]], 1
-; CHECK-NEXT:    [[RET_CAST_GEP0:%.*]] = getelementptr i64, ptr [[VEC_RETVAL0]], i32 [[INDEX0]]
-; CHECK-NEXT:    store i64 [[ADD0]], ptr [[RET_CAST_GEP0]], align 4
+; CHECK-NEXT:    [[ADD0:%.*]] = add nsw i64 [[TMP1]], 1
+; CHECK-NEXT:    [[VEC_RETVAL_GEP0:%.*]] = getelementptr i64, ptr [[VEC_RETVAL0]], i32 [[INDEX0]]
+; CHECK-NEXT:    store i64 [[ADD0]], ptr [[VEC_RETVAL_GEP0]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.latch:
