@@ -3128,9 +3128,11 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   }
   HeaderFilename += TypelibHeaderName;
 
-  llvm::ErrorOr<const FileEntry *> FE = HeaderInfo.getFileMgr().getFile(HeaderFilename,
-                                                        /*OpenFile=*/true);
-  if (FE) {
+  llvm::Expected<FileEntryRef> ExpectedFileRef =
+      HeaderInfo.getFileMgr().getFileRef(HeaderFilename,
+                                         /*OpenFile=*/true);
+  if (ExpectedFileRef) {
+    FileEntryRef FE = ExpectedFileRef.get();
     CharSourceRange FilenameRange =
         CharSourceRange::getCharRange(FilenameTok.getLocation(), CharEnd);
 
@@ -3141,14 +3143,15 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
       SrcMgr::CharacteristicKind FileCharacter =
         SourceMgr.getFileCharacteristic(FilenameTok.getLocation());
 
-      FileCharacter = std::max(HeaderInfo.getFileDirFlavor(*FE), FileCharacter);
+      FileCharacter = std::max(HeaderInfo.getFileDirFlavor(FE), FileCharacter);
 
       // Notify the callback object that we've seen an inclusion directive.
       Callbacks->InclusionDirective(HashLoc, ImportTok, HeaderFilename.c_str(),
-                                    false, FilenameRange, (*FE)->getLastRef(),
-                                    "", "", nullptr, FileCharacter);
+                                    false, FilenameRange, FE, "", "", nullptr,
+                                    FileCharacter);
     }
-    FileID FID = SourceMgr.createFileID(*FE, FilenameTok.getLocation(), SrcMgr::C_System);
+    FileID FID =
+        SourceMgr.createFileID(FE, FilenameTok.getLocation(), SrcMgr::C_System);
     EnterSourceFile(FID, /*Dir=*/nullptr, FilenameTok.getLocation());
   }
 }
