@@ -706,9 +706,9 @@ void CGRecordLowering::accumulateVPtrs() {
 #endif // INTEL_COLLAB
   if (Layout.hasOwnVFPtr())
 #if INTEL_COLLAB
-    Members.push_back(MemberInfo(CharUnits::Zero(), MemberInfo::VFPtr,
-        llvm::FunctionType::get(getIntNType(32), /*isVarArg=*/true)->
-            getPointerTo()->getPointerTo(VTableAS)));
+    Members.push_back(
+        MemberInfo(CharUnits::Zero(), MemberInfo::VFPtr,
+                   llvm::PointerType::get(Types.getLLVMContext(), VTableAS)));
 #else // INTEL_COLLAB
     Members.push_back(
         MemberInfo(CharUnits::Zero(), MemberInfo::VFPtr,
