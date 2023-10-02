@@ -2,15 +2,24 @@
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; Check code generated from VecClone for uval vector variant for optimized LLVM
-; Stride should be applied to value loaded from the linear arg.
+; Stride should be stored to the "fake" memory created for the uval arg as an
+; initial value inside the loop. Subsequent loads/stores will then use/update
+; the value properly.
 
 ; Function Attrs: argmemonly mustprogress nofree noinline norecurse nosync nounwind readonly willreturn uwtable
 define dso_local noundef i64 @_Z3fooRl(ptr nocapture noundef nonnull readonly align 8 dereferenceable(8) %x) local_unnamed_addr #0 {
+;
 ; CHECK:  define dso_local noundef <8 x i64> @_ZGVbN8U2__Z3fooRl(ptr nocapture noundef nonnull readonly align 8 dereferenceable(8) [[X0:%.*]]) local_unnamed_addr #1 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ALLOCA_X0:%.*]] = alloca ptr, align 8
 ; CHECK-NEXT:    store ptr [[X0]], ptr [[ALLOCA_X0]], align 8
 ; CHECK-NEXT:    [[VEC_RETVAL0:%.*]] = alloca <8 x i64>, align 64
+; CHECK-NEXT:    [[ALLOCA_FAKE_X0:%.*]] = alloca <8 x i64>, align 64
+; CHECK-NEXT:    [[LOAD_X10:%.*]] = load ptr, ptr [[ALLOCA_X0]], align 8
+; CHECK-NEXT:    [[LOAD_ELEM_X0:%.*]] = load i64, ptr [[LOAD_X10]], align 4
+; CHECK-NEXT:    [[DOTSPLATINSERT0:%.*]] = insertelement <8 x i64> poison, i64 [[LOAD_ELEM_X0]], i64 0
+; CHECK-NEXT:    [[DOTSPLAT0:%.*]] = shufflevector <8 x i64> [[DOTSPLATINSERT0]], <8 x i64> poison, <8 x i32> zeroinitializer
+; CHECK-NEXT:    store <8 x i64> [[DOTSPLAT0]], ptr [[ALLOCA_FAKE_X0]], align 64
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
@@ -23,13 +32,16 @@ define dso_local noundef i64 @_Z3fooRl(ptr nocapture noundef nonnull readonly al
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.header:
 ; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = load i64, ptr [[LOAD_X0]], align 8
+; CHECK-NEXT:    [[ALLOCA_FAKE_X_GEP0:%.*]] = getelementptr i64, ptr [[ALLOCA_FAKE_X0]], i32 [[INDEX0]]
+; CHECK-NEXT:    [[LOAD_ALLOCA_FAKE_X_GEP0:%.*]] = load i64, ptr [[ALLOCA_FAKE_X_GEP0]], align 4
 ; CHECK-NEXT:    [[PHI_CAST0:%.*]] = zext i32 [[INDEX0]] to i64
 ; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i64 2, [[PHI_CAST0]]
-; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i64 [[TMP0]], [[STRIDE_MUL0]]
-; CHECK-NEXT:    [[ADD0:%.*]] = add nsw i64 [[STRIDE_ADD0]], 1
-; CHECK-NEXT:    [[RET_CAST_GEP0:%.*]] = getelementptr i64, ptr [[VEC_RETVAL0]], i32 [[INDEX0]]
-; CHECK-NEXT:    store i64 [[ADD0]], ptr [[RET_CAST_GEP0]], align 4
+; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i64 [[LOAD_ALLOCA_FAKE_X_GEP0]], [[STRIDE_MUL0]]
+; CHECK-NEXT:    store i64 [[STRIDE_ADD0]], ptr [[ALLOCA_FAKE_X_GEP0]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load i64, ptr [[ALLOCA_FAKE_X_GEP0]], align 8
+; CHECK-NEXT:    [[ADD0:%.*]] = add nsw i64 [[TMP0]], 1
+; CHECK-NEXT:    [[VEC_RETVAL_GEP0:%.*]] = getelementptr i64, ptr [[VEC_RETVAL0]], i32 [[INDEX0]]
+; CHECK-NEXT:    store i64 [[ADD0]], ptr [[VEC_RETVAL_GEP0]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.latch:

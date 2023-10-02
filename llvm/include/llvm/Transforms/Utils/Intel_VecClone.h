@@ -126,6 +126,9 @@ class VecCloneImpl {
     /// Mark memory as uniform for SIMD directives.
     void processUniformArgs();
 
+    /// Returns the pointer element type of a pointer argument.
+    Type* getArgPointerElementType(Argument *Arg, Value *ScalarArg);
+
     /// Update the values of linear arguments by adding the stride before the
     /// use and mark memory and linear for SIMD directives.
     void processLinearArgs(PHINode *Phi);
