@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanScalVecAnalysis.h"
+#include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -94,6 +95,106 @@ bool VPlanScalVecAnalysis::instNeedsExtractFromLastActiveLane(
     return operandNeedsLastScalarCode(I, OpIdx);
   };
   return checkSVAForInstUseSites(Inst, NeedLScalCode);
+}
+
+bool VPlanScalVecAnalysis::instNeedsExtractFromAllLanes(
+    const VPInstruction *Inst) const {
+  return llvm::any_of(Inst->users(), [this](VPUser *U) {
+    auto *UserInst = dyn_cast<VPInstruction>(U);
+    if (!UserInst)
+      return false;
+    return instWillBeSerialized(UserInst);
+  });
+}
+
+void VPlanScalVecAnalysis::checkIfInstWillBeSerialized(
+    const VPInstruction *Inst) {
+  auto *DA = Plan->getVPlanDA();
+
+  switch (Inst->getOpcode()) {
+  // Opcodes that are simply always serialized by VPlan.
+  case Instruction::Alloca:
+  case Instruction::AtomicCmpXchg:
+  case Instruction::AtomicRMW:
+  case Instruction::InsertValue:
+  case Instruction::ExtractValue:
+  case VPInstruction::AllocateDVBuffer: {
+    setInstWillBeSerialized(Inst);
+    return;
+  }
+
+  // Division operation is serialized if instruction is divergent and has unsafe
+  // divisor.
+  case Instruction::UDiv:
+  case Instruction::SDiv:
+  case Instruction::URem:
+  case Instruction::SRem: {
+    if (EnableIntDivRemBlendWithSafeValue)
+      return;
+    bool DivisorIsSafe = isDivisorSpeculationSafeForDivRem(Inst->getOpcode(),
+                                                           Inst->getOperand(1));
+    bool IsMasked = Inst->getParent()->getPredicate() != nullptr;
+    if (IsMasked && !DivisorIsSafe && !DA->isUniform(*Inst))
+      setInstWillBeSerialized(Inst);
+    return;
+  }
+
+  // Call is serialized based on its vectorization scenario (determined in
+  // CallVecDecisions).
+  case Instruction::Call: {
+    const VPCallInstruction *VPCall = cast<VPCallInstruction>(Inst);
+    assert(VPCall->getVFForScenario() > 0 &&
+           "CallVecScenario is not recorded for a valid VF.");
+    if (VPCall->getVectorizationScenario() ==
+        VPCallInstruction::CallVecScenariosTy::Serialization)
+      setInstWillBeSerialized(VPCall);
+    return;
+  }
+
+  // Select instruction is serialized if we're operating on non-vectorizable
+  // types.
+  case Instruction::Select: {
+    if (!isVectorizableTy(Inst->getOperand(1)->getType()))
+      setInstWillBeSerialized(Inst);
+    return;
+  }
+
+  // PHI instruction is serialized if we're operating on non-vectorizable types.
+  case Instruction::PHI: {
+    if (!isVectorizableTy(Inst->getType()))
+      setInstWillBeSerialized(Inst);
+    return;
+  }
+
+  // Load/store instruction is serialized if we're operating on non-vectorizable
+  // types. Uniform loads and stores to uniform pointers are exceptions.
+  case Instruction::Load:
+  case Instruction::Store: {
+    auto *LdSt = cast<VPLoadStoreInst>(Inst);
+    bool IsLoadOrStorePtrUniform = DA->isUniform(*LdSt->getPointerOperand());
+    if (!isVectorizableLoadStore(LdSt) && !IsLoadOrStorePtrUniform)
+      setInstWillBeSerialized(LdSt);
+    return;
+  }
+
+  // extract/insertelement instruction is serialized for non-constant index
+  // cases.
+  case Instruction::ExtractElement:
+  case Instruction::InsertElement: {
+    unsigned IdxOpNum =
+        Inst->getOpcode() == Instruction::ExtractElement ? 1 : 2;
+    VPValue *IdxVal = Inst->getOperand(IdxOpNum);
+    if (!isa<VPConstant>(IdxVal) || !cast<VPConstant>(IdxVal)->isConstantInt())
+      setInstWillBeSerialized(Inst);
+    return;
+  }
+
+  // TODO: Account for cases where VPAllocatePrivate is serialized. The
+  // decisions seems to be based on type alignment and hence VF-dependent.
+
+  default:
+    return;
+  }
 }
 
 bool VPlanScalVecAnalysis::computeSpecialInstruction(
@@ -979,6 +1080,11 @@ void VPlanScalVecAnalysis::compute(VPlanVector *P) {
       compute(&Inst);
     }
   }
+
+  // Analyze instruction for serialization. This will not interfere with SVA
+  // processing.
+  for (auto &VPInst : vpinstructions(Plan))
+    checkIfInstWillBeSerialized(&VPInst);
 }
 
 VPlanScalVecAnalysis::SVABits
