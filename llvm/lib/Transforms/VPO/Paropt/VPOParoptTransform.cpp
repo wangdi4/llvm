@@ -1869,6 +1869,18 @@ bool VPOParoptTransform::paroptTransforms() {
   if (!DisableOffload && ((Mode & ParPrepare) || isModeOmpNoFECollapse()))
     OffloadEntries = VPOParoptUtils::loadOffloadMetadata(*F->getParent());
 
+#if INTEL_CUSTOMIZATION
+  // Fusion+Collapse transformation needs an info about the
+  // loops already having 'collapse' clause to pick
+  // the fusion candidates, so we have to collect that info here
+  SmallPtrSet<WRegionNode *, 1> HaveCollapse;
+  if (Mode & FuseCollapse) {
+    for (auto *W : WRegionList)
+      if (W->canHaveCollapse() && W->getCollapse())
+        HaveCollapse.insert(W);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if ((Mode & OmpPar) && (Mode & ParTrans) && !DisableOffload) {
     if (isTargetSPIRV())
       propagateSPIRVSIMDWidth();
@@ -1989,6 +2001,12 @@ bool VPOParoptTransform::paroptTransforms() {
         Changed |= collapseOmpLoops(W);
         RemoveDirectives = false;
       }
+#if INTEL_CUSTOMIZATION
+      else if ((Mode & FuseCollapse) && W->canHaveCollapse()) {
+        Changed |= fuseAndCollapseOmpLoops(W, HaveCollapse);
+        RemoveDirectives = false;
+      }
+#endif // INTEL_CUSTOMIZATION
 
       switch (W->getWRegionKindID()) {
 
