@@ -496,10 +496,8 @@ if(MSVC)
   # FIXME: In fact, sanitizers should support both /MT and /MD, see PR20214.
   set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Asan doesn't support debug yet. String DEBUG
-=======
   # Remove any /M[DT][d] flags, and strip any definitions of _DEBUG.
   # Since we're using CMAKE_MSVC_RUNTIME_LIBRARY (CMP0091 set to NEW),
   # these options shouldn't be included in these flags variables. However,
@@ -508,7 +506,6 @@ if(MSVC)
   # duplicate CRT choice options. Thus make sure to strip out these flags
   # from these variables, when we're forcing a CRT choice other than what
   # the user requested here.
->>>>>>> 7bc09a471fbc274d8632d1379d4134bec63fecc4
   foreach(flag_var
     CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
     CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
@@ -518,11 +515,8 @@ if(MSVC)
     string(REGEX REPLACE "[/-]MD" "" ${flag_var} "${${flag_var}}")
     string(REGEX REPLACE "[/-]D_DEBUG" "" ${flag_var} "${${flag_var}}")
   endforeach()
-<<<<<<< HEAD
 # end INTEL_CUSTOMIZATION
-=======
 
->>>>>>> 7bc09a471fbc274d8632d1379d4134bec63fecc4
   append_list_if(COMPILER_RT_HAS_Oy_FLAG /Oy- SANITIZER_COMMON_CFLAGS)
   append_list_if(COMPILER_RT_HAS_GS_FLAG /GS- SANITIZER_COMMON_CFLAGS)
 
