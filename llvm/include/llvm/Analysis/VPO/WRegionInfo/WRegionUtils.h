@@ -393,7 +393,13 @@ public:
 
   /// \returns \b true iff \p W contains a WRN for which \p Predicate is true.
   static bool containsWRNsWith(WRegionNode *W,
-                               std::function<bool(WRegionNode *)> Predicate);
+                               std::function<bool(WRegionNode *)> Predicate,
+                               bool Recursive = false);
+
+  /// \returns \b true iff \p W has an ancestor WRN for which \p Predicate is
+  /// true.
+  static bool hasAncestorWRNWith(WRegionNode *W,
+                                 std::function<bool(WRegionNode *)> Predicate);
 
   /// Given a loop-type WRN \p W, if there is an enclosed SIMD construct bound
   /// to the same loop as W, then return the pointer to the WRNVecLoopNode

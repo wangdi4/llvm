@@ -2525,6 +2525,15 @@ private:
   /// Otherwise, it will do nothing.
   bool collapseOmpLoops(WRegionNode *W);
 
+  /// If the given region \p W is an OpenMP generic loop construct,
+  /// then this method will search for possible candidates for
+  /// fusion and auto-collapse transformation, considering
+  /// existing loops with collapse clause set provided in
+  /// \p HaveCollapse, and then perform the transformation itself.
+  bool
+  fuseAndCollapseOmpLoops(WRegionNode *W,
+                          const SmallPtrSet<WRegionNode *, 1> &HaveCollapse);
+
   /// If the given region is an OpenMP loop transformation tile construct,
   /// then the method will tile the loop nest accordingly.
   /// Otherwise, it will do nothing.

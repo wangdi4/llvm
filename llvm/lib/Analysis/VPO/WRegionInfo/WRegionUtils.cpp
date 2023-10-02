@@ -1054,7 +1054,8 @@ bool WRegionUtils::hasParentTarget(const WRegionNode *W) {
 
 // Returns true iff W contains a WRN for which Predicate is true.
 bool WRegionUtils::containsWRNsWith(
-    WRegionNode *W, std::function<bool(WRegionNode *)> Predicate) {
+    WRegionNode *W, std::function<bool(WRegionNode *)> Predicate,
+    bool Recursive) {
   if (!W->hasChildren())
     return false;
 
@@ -1069,7 +1070,21 @@ bool WRegionUtils::containsWRNsWith(
     if (!W->hasChildren())
       continue;
 
-    ContainedWRNs.append(W->wrn_child_begin(), W->wrn_child_end());
+    if (Recursive)
+      ContainedWRNs.append(W->wrn_child_begin(), W->wrn_child_end());
+  }
+  return false;
+}
+
+// Returns true iff W has an ancestor WRN for which Predicate is true.
+bool WRegionUtils::hasAncestorWRNWith(
+    WRegionNode *W, std::function<bool(WRegionNode *)> Predicate) {
+  WRegionNode *PW = W->getParent();
+  while (PW) {
+    if (Predicate(W))
+      return true;
+
+    PW = PW->getParent();
   }
   return false;
 }
