@@ -40,6 +40,7 @@
 #include <optional>
 using namespace llvm;
 
+<<<<<<< HEAD
 // Knobs for profile summary based thresholds.
 namespace llvm {
 extern cl::opt<int> ProfileSummaryCutoffHot;
@@ -51,6 +52,8 @@ extern cl::opt<int> ProfileSummaryColdCount;
 extern cl::opt<bool> DTransInlineHeuristics; // INTEL
 } // namespace llvm
 
+=======
+>>>>>>> e43da4d9011b81dd98754335c0456c6973773936
 static cl::opt<bool> PartialProfile(
     "partial-profile", cl::Hidden, cl::init(false),
     cl::desc("Specify the current profile is used as a partial profile."));
