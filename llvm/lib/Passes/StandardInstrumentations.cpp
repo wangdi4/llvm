@@ -1052,10 +1052,11 @@ void IRChangedPrinter::handleAfter(StringRef PassID, std::string &,
                                   const std::string &, const std::string &,
                                   Any) {}
 PrintIRInstrumentation::~PrintIRInstrumentation() {}
-void PrintIRInstrumentation::pushModuleDesc(StringRef, Any) {}
-PrintIRInstrumentation::PrintModuleDesc
-PrintIRInstrumentation::popModuleDesc(StringRef) {
-  return {};
+void PrintIRInstrumentation::pushPassRunDescriptor(StringRef, Any,
+                                                   std::string &) {}
+PrintIRInstrumentation::PassRunDescriptor
+PrintIRInstrumentation::popPassRunDescriptor(StringRef) {
+  return {0, "", "", ""};
 }
 void PrintIRInstrumentation::printBeforePass(StringRef, Any) {}
 void PrintIRInstrumentation::printAfterPass(StringRef, Any) {}
