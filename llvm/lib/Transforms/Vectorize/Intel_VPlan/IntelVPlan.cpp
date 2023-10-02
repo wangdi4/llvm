@@ -474,6 +474,8 @@ void VPInstruction::print(raw_ostream &O) const {
       SVA->printSVAKindForOperand(O, this, OpIdx);
       O << " ";
     }
+    if (!isa<VPCallInstruction>(this) && SVA->instWillBeSerialized(this))
+      O << ", Serial";
     O << ")";
   }
 
