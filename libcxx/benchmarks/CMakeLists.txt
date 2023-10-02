@@ -93,6 +93,13 @@ if (MSVC)
 # workaround on AIX as well.
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "AIX")
   add_compile_options(-std=c++23)
+# INTEL_CUSTOMIZATION
+  elseif (CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM")
+# The version of CMake we use does not yet support cxx_std_23 for IntelLLVM.
+# Use a similar workaround to what was done for ibm-clang.
+# TODO: remove this once it is no longer necessary.
+    add_compile_options(-std=c++23)
+# end INTEL_CUSTOMIZATION
 else()
   target_compile_features( cxx-benchmarks-flags INTERFACE cxx_std_23)
 endif()
