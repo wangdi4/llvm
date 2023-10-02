@@ -150,15 +150,9 @@ static bool checkArgCountAtLeast(Sema &S, CallExpr *Call, unsigned MinArgCount,
   if (ArgCount >= MinArgCount)
     return false;
 
-<<<<<<< HEAD
   return S.Diag(Call->getEndLoc(), DiagKind) << 0 /*function call*/
          << MinArgCount << ArgCount
-         << Call->getSourceRange();
-=======
-  return S.Diag(Call->getEndLoc(), diag::err_typecheck_call_too_few_args)
-         << 0 /*function call*/ << MinArgCount << ArgCount
          << /*is non object*/ 0 << Call->getSourceRange();
->>>>>>> 4a2d34d586d6e0b09d120dadbfdea4ba6f6569f8
 }
 
 /// Checks that a call expression's argument count is at most the desired
