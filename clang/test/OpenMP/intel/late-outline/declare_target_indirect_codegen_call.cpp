@@ -3,30 +3,30 @@
 //RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp-version=51 \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses \
+//RUN:  -fopenmp-late-outline \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
 //RUN: %clang_cc1 -triple spir64 -fopenmp-version=51 \
 //RUN:  -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses \
+//RUN:  -fopenmp-late-outline \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -Wsource-uses-openmp -o - %s | FileCheck %s -check-prefix TARG
 
 //RUN: %clang_cc1 -triple x86_64-pc-windows-msvc19.29.30133 \
-//RUN:  -fopenmp -fopenmp-version=51 -fopenmp-late-outline -fopenmp-typed-clauses \
+//RUN:  -fopenmp -fopenmp-version=51 -fopenmp-late-outline \
 //RUN:  -fopenmp-targets=spir64 -emit-llvm -disable-llvm-passes \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s | FileCheck %s -check-prefix WHOST
 
 //RUN: %clang_cc1 -triple x86_64-pc-windows-msvc19.29.30133 \
-//RUN:  -fopenmp -fopenmp-version=51 -fopenmp-late-outline -fopenmp-typed-clauses \
+//RUN:  -fopenmp -fopenmp-version=51 -fopenmp-late-outline \
 //RUN:  -fopenmp-targets=spir64 -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
 //RUN: %clang_cc1 -triple spir64 -aux-triple x86_64-pc-windows-msvc \
-//RUN:  -fopenmp -fopenmp-targets=spir64  -fopenmp-is-device \
-//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp -fopenmp-version=51 \
+//RUN:  -fopenmp -fopenmp-targets=spir64 -fopenmp-is-device \
+//RUN:  -fopenmp-late-outline -fopenmp -fopenmp-version=51 \
 //RUN:  -emit-llvm -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -Wsource-uses-openmp -o - %s | FileCheck %s -check-prefix TARG
 

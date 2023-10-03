@@ -1,8 +1,8 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -debug-info-kind=limited -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -debug-info-kind=limited -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
-// RUN: %clang_cc1 -debug-info-kind=limited -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -debug-info-kind=limited -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu -fopenmp-new-depend-ir %s \
 // RUN:  | FileCheck %s
 //

@@ -3321,7 +3321,7 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
   RegionExitDirective =
       CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit);
 
-  UseTypedClauses = CGF.CGM.getCodeGenOpts().OpenMPTypedClauses;
+  UseTypedClauses = true;
 
   if (isOpenMPLoopDirective(CurrentDirectiveKind)) {
     auto *LoopDir = cast<OMPLoopDirective>(&D);

@@ -1,17 +1,17 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-pch -o %t -std=c++14 -fopenmp \
-// RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-version=50 -triple x86_64-unknown-linux-gnu %s
+// RUN:  -fopenmp-late-outline -fopenmp-version=50 -triple x86_64-unknown-linux-gnu %s
 
-// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
 // RUN:  -include-pch %t -verify -fopenmp-version=50 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck \
 // RUN:  --check-prefixes CHECK,CHECK-NEW %s
 
 // RUN: %clang_cc1 -emit-pch -o %t -std=c++14 -fopenmp \
-// RUN:  -fno-openmp-new-depend-ir -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-version=50 \
+// RUN:  -fno-openmp-new-depend-ir -fopenmp-late-outline -fopenmp-version=50 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s
 //
-// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
 // RUN:  -fno-openmp-new-depend-ir -include-pch %t -verify -fopenmp-version=50 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck \
 // RUN:  --check-prefixes CHECK,CHECK-OLD %s

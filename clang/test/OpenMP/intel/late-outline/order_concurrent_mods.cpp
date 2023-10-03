@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
 // RUN:    -fopenmp-version=51 -emit-llvm -o - %s | FileCheck %s
 
 void foo1() {

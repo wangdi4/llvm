@@ -38,7 +38,7 @@ int bar();
 // ROT0-NEXT:    [[DOTOMP_UB36:%.*]] = alloca i32, align 4
 // ROT0-NEXT:    [[I40:%.*]] = alloca i32, align 4
 // ROT0-NEXT:    store i32 0, ptr [[K]], align 4
-// ROT0-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(ptr [[K]]), "QUAL.OMP.PRIVATE"(ptr [[I]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB]]), "QUAL.OMP.PRIVATE"(ptr [[L]]), "QUAL.OMP.PRIVATE"(ptr [[TMP]]) ]
+// ROT0-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED:TYPED"(ptr [[K]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[I]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTOMP_IV]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTOMP_UB]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[L]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[TMP]], i32 0, i32 1) ]
 // ROT0-NEXT:    store i32 0, ptr [[I]], align 4
 // ROT0-NEXT:    br label [[FOR_COND:%.*]]
 // ROT0:       for.cond:
@@ -47,7 +47,7 @@ int bar();
 // ROT0-NEXT:    br i1 [[CMP]], label [[FOR_BODY:%.*]], label [[FOR_END:%.*]]
 // ROT0:       for.body:
 // ROT0-NEXT:    store i32 15, ptr [[DOTOMP_UB]], align 4
-// ROT0-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 1), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB]]), "QUAL.OMP.LINEAR:IV"(ptr [[L]], i32 1) ]
+// ROT0-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[L]], i32 0, i32 1, i32 1) ]
 // ROT0-NEXT:    store i32 0, ptr [[DOTOMP_IV]], align 4
 // ROT0-NEXT:    br label [[OMP_INNER_FOR_COND:%.*]]
 // ROT0:       omp.inner.for.cond:
@@ -90,7 +90,7 @@ int bar();
 // ROT0:       for.end:
 // ROT0-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.PARALLEL"() ]
 // ROT0-NEXT:    store i32 1023, ptr [[DOTOMP_UB7]], align 4
-// ROT0-NEXT:    [[TMP12:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV6]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB7]]), "QUAL.OMP.LINEAR:IV"(ptr [[I11]], i32 1) ]
+// ROT0-NEXT:    [[TMP12:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV6]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB7]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I11]], i32 0, i32 1, i32 1) ]
 // ROT0-NEXT:    store i32 0, ptr [[DOTOMP_IV6]], align 4
 // ROT0-NEXT:    br label [[OMP_INNER_FOR_COND8:%.*]]
 // ROT0:       omp.inner.for.cond8:
@@ -122,7 +122,7 @@ int bar();
 // ROT0-NEXT:    call void @llvm.directive.region.exit(token [[TMP12]]) [ "DIR.OMP.END.SIMD"() ]
 // ROT0-NEXT:    store ptr @_Z3barv, ptr [[FP]], align 8
 // ROT0-NEXT:    store i32 1023, ptr [[DOTOMP_UB21]], align 4
-// ROT0-NEXT:    [[TMP19:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV20]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB21]]), "QUAL.OMP.LINEAR:IV"(ptr [[I25]], i32 1) ]
+// ROT0-NEXT:    [[TMP19:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV20]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB21]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I25]], i32 0, i32 1, i32 1) ]
 // ROT0-NEXT:    store i32 0, ptr [[DOTOMP_IV20]], align 4
 // ROT0-NEXT:    br label [[OMP_INNER_FOR_COND22:%.*]]
 // ROT0:       omp.inner.for.cond22:
@@ -154,7 +154,7 @@ int bar();
 // ROT0:       omp.loop.exit33:
 // ROT0-NEXT:    call void @llvm.directive.region.exit(token [[TMP19]]) [ "DIR.OMP.END.SIMD"() ]
 // ROT0-NEXT:    store i32 1023, ptr [[DOTOMP_UB36]], align 4
-// ROT0-NEXT:    [[TMP27:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV35]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB36]]), "QUAL.OMP.LINEAR:IV"(ptr [[I40]], i32 1) ]
+// ROT0-NEXT:    [[TMP27:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV35]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB36]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I40]], i32 0, i32 1, i32 1) ]
 // ROT0-NEXT:    store i32 0, ptr [[DOTOMP_IV35]], align 4
 // ROT0-NEXT:    br label [[OMP_INNER_FOR_COND37:%.*]]
 // ROT0:       omp.inner.for.cond37:
@@ -215,7 +215,7 @@ int bar();
 // ROT1-NEXT:    [[DOTOMP_UB41:%.*]] = alloca i32, align 4
 // ROT1-NEXT:    [[I45:%.*]] = alloca i32, align 4
 // ROT1-NEXT:    store i32 0, ptr [[K]], align 4
-// ROT1-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(ptr [[K]]), "QUAL.OMP.PRIVATE"(ptr [[I]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB]]), "QUAL.OMP.PRIVATE"(ptr [[L]]), "QUAL.OMP.PRIVATE"(ptr [[TMP]]) ]
+// ROT1-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED:TYPED"(ptr [[K]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[I]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTOMP_IV]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[DOTOMP_UB]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[L]], i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[TMP]], i32 0, i32 1) ]
 // ROT1-NEXT:    store i32 0, ptr [[I]], align 4
 // ROT1-NEXT:    br label [[FOR_COND:%.*]]
 // ROT1:       for.cond:
@@ -224,7 +224,7 @@ int bar();
 // ROT1-NEXT:    br i1 [[CMP]], label [[FOR_BODY:%.*]], label [[FOR_END:%.*]]
 // ROT1:       for.body:
 // ROT1-NEXT:    store i32 15, ptr [[DOTOMP_UB]], align 4
-// ROT1-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 1), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB]]), "QUAL.OMP.LINEAR:IV"(ptr [[L]], i32 1) ]
+// ROT1-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[L]], i32 0, i32 1, i32 1) ]
 // ROT1-NEXT:    store i32 0, ptr [[DOTOMP_IV]], align 4
 // ROT1-NEXT:    [[TMP3:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
 // ROT1-NEXT:    [[TMP4:%.*]] = load i32, ptr [[DOTOMP_UB]], align 4
@@ -272,7 +272,7 @@ int bar();
 // ROT1:       for.end:
 // ROT1-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.PARALLEL"() ]
 // ROT1-NEXT:    store i32 1023, ptr [[DOTOMP_UB8]], align 4
-// ROT1-NEXT:    [[TMP14:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV7]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB8]]), "QUAL.OMP.LINEAR:IV"(ptr [[I12]], i32 1) ]
+// ROT1-NEXT:    [[TMP14:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV7]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB8]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I12]], i32 0, i32 1, i32 1) ]
 // ROT1-NEXT:    store i32 0, ptr [[DOTOMP_IV7]], align 4
 // ROT1-NEXT:    [[TMP15:%.*]] = load i32, ptr [[DOTOMP_IV7]], align 4
 // ROT1-NEXT:    [[TMP16:%.*]] = load i32, ptr [[DOTOMP_UB8]], align 4
@@ -309,7 +309,7 @@ int bar();
 // ROT1-NEXT:    call void @llvm.directive.region.exit(token [[TMP14]]) [ "DIR.OMP.END.SIMD"() ]
 // ROT1-NEXT:    store ptr @_Z3barv, ptr [[FP]], align 8
 // ROT1-NEXT:    store i32 1023, ptr [[DOTOMP_UB24]], align 4
-// ROT1-NEXT:    [[TMP23:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV23]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB24]]), "QUAL.OMP.LINEAR:IV"(ptr [[I28]], i32 1) ]
+// ROT1-NEXT:    [[TMP23:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV23]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB24]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I28]], i32 0, i32 1, i32 1) ]
 // ROT1-NEXT:    store i32 0, ptr [[DOTOMP_IV23]], align 4
 // ROT1-NEXT:    [[TMP24:%.*]] = load i32, ptr [[DOTOMP_IV23]], align 4
 // ROT1-NEXT:    [[TMP25:%.*]] = load i32, ptr [[DOTOMP_UB24]], align 4
@@ -346,7 +346,7 @@ int bar();
 // ROT1:       omp.loop.exit38:
 // ROT1-NEXT:    call void @llvm.directive.region.exit(token [[TMP23]]) [ "DIR.OMP.END.SIMD"() ]
 // ROT1-NEXT:    store i32 1023, ptr [[DOTOMP_UB41]], align 4
-// ROT1-NEXT:    [[TMP33:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV40]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB41]]), "QUAL.OMP.LINEAR:IV"(ptr [[I45]], i32 1) ]
+// ROT1-NEXT:    [[TMP33:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[DOTOMP_IV40]], i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[DOTOMP_UB41]], i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I45]], i32 0, i32 1, i32 1) ]
 // ROT1-NEXT:    store i32 0, ptr [[DOTOMP_IV40]], align 4
 // ROT1-NEXT:    [[TMP34:%.*]] = load i32, ptr [[DOTOMP_IV40]], align 4
 // ROT1-NEXT:    [[TMP35:%.*]] = load i32, ptr [[DOTOMP_UB41]], align 4
