@@ -9390,8 +9390,11 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
 
   MappableExprsHandler::MapCombinedInfoTy CombinedInfo;
 
+  llvm::OpenMPIRBuilder &OMPBuilder =
+      CGF.CGM.getOpenMPRuntime().getOMPBuilder();
+
   if (!isOpenMPTargetExecutionDirective(Dir.getDirectiveKind())) {
-    MEHandler.generateAllInfo(CombinedInfo);
+    MEHandler.generateAllInfo(CombinedInfo, OMPBuilder);
   } else {
     llvm::DenseMap<llvm::Value *, llvm::Value *> LambdaPointers;
     llvm::DenseSet<CanonicalDeclPtr<const Decl>> MappedVarSet;
@@ -9472,7 +9475,8 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         // creates the base that covers all the pieces.
         MEHandler.emitCombinedEntry(
             CombinedInfo, CurInfo.Types, PartialStruct, CI->capturesThis(),
-            nullptr, !PartialStruct.PreliminaryMapData.BasePointers.empty());
+            OMPBuilder, nullptr,
+            !PartialStruct.PreliminaryMapData.BasePointers.empty());
         if (VD && PartialStruct.HasVTPtr && MEHandler.isFirstPrivateDecls(VD))
           CombinedInfo.Types.back() =
               OpenMPOffloadMappingFlags::OMP_MAP_PRIVATE |
@@ -9489,9 +9493,9 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
     }
     // Adjust MEMBER_OF flags for the lambdas captures.
     MEHandler.adjustMemberOfForLambdaCaptures(
-        LambdaPointers, CombinedInfo.BasePointers, CombinedInfo.Pointers,
-        CombinedInfo.Types);
-    MEHandler.generateAllInfo(CombinedInfo, MappedVarSet);
+        OMPBuilder, LambdaPointers, CombinedInfo.BasePointers,
+        CombinedInfo.Pointers, CombinedInfo.Types);
+    MEHandler.generateAllInfo(CombinedInfo, OMPBuilder, MappedVarSet);
 #if INTEL_CUSTOMIZATION
     if (CGF.getLangOpts().OpenMPUseHostUSMForImpicitReductionMap) {
       llvm::DenseMap<const ValueDecl *, const Expr *> ReductionExprs;
