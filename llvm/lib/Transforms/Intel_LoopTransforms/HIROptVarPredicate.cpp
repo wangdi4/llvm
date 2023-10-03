@@ -349,8 +349,8 @@ public:
         return;
       }
 
-      unsigned LHSIVLevel = LHSRef->getSingleCanonExpr()->getFirstIVLevel();
-      unsigned RHSIVLevel = RHSRef->getSingleCanonExpr()->getFirstIVLevel();
+      unsigned LHSIVLevel = LHSRef->getSingleCanonExpr()->getOutermostIVLevel();
+      unsigned RHSIVLevel = RHSRef->getSingleCanonExpr()->getOutermostIVLevel();
 
       // If we consider i1 loop do not consider 'if (i1 + 1 != i2 + 1)' as a
       // candidate.

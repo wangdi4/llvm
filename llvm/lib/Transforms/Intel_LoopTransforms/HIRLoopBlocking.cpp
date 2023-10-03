@@ -956,7 +956,7 @@ static void getModBlobIVLevel(const BlobDDRef *BRef, DDGraph &DDG,
 
     const CanonExpr *CE = RemLHS->getSingleCanonExpr();
     if (CE->hasIV()) {
-      unsigned IVLevel = CE->getFirstIVLevel();
+      unsigned IVLevel = CE->getOutermostIVLevel();
       IVsAtLevel[IVLevel]++;
       InstToIVmap[ModInst] = IVLevel;
       LLVM_DEBUG(dbgs() << "IV found for Mod Inst: "; ModInst->dump(););
@@ -1024,7 +1024,7 @@ public:
       bool hasBlob = false;
       for (auto &CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
         if (CE->numIVs() == 1) {
-          IVsAtLevel[CE->getFirstIVLevel()]++;
+          IVsAtLevel[CE->getOutermostIVLevel()]++;
         } else if ((CE->numBlobs() == 1) && (Ref->isNonLinear())) {
           // We only care about the %mod blob which we can trace inside the loop
           hasBlob = true;

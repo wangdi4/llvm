@@ -13,12 +13,15 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  END REGION
 
 ; CHECK: region.0:
-; CHECK: store i64 %L, ptr %[[TMP1:t[0-9]*]]
+; The invariant dimension/GEP is generated in loop preheader.
+
+; CHECK: store i64 %L, ptr [[TMP1:%t[0-9]*]]
+; CHECK: [[TMP2:%.*]] = load i64, ptr [[TMP1]]
+; CHECK: [[TMP3:%.*]] = sub nsw i64 0, [[TMP2]]
+; CHECK: [[GEP:%.*]] = getelementptr inbounds double, ptr %A, i64 [[TMP3]]
 
 ; CHECK: loop.{{[0-9]*}}:
-; CHECK: %[[TMP2:.*]] = load i64, ptr %[[TMP1]]
-; CHECK: %[[TMP3:.*]] = sub nsw i64 0, %[[TMP2]]
-; CHECK: getelementptr inbounds double, ptr %A, i64 %[[TMP3]]
+; CHECK: store double 1.000000e+00, ptr [[GEP]], align 8
 
 define void @test_IP_foo_(ptr noalias nocapture readonly dereferenceable(8) %A, ptr noalias nocapture readonly dereferenceable(4) %L_ptr) {
 entry:

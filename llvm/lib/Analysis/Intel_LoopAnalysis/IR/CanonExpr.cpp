@@ -458,7 +458,7 @@ bool CanonExpr::isStandAloneIV(bool AllowConversion, unsigned *Level) const {
 
       // Save the StandAlone Level:
       if (Level) {
-        *Level = getFirstIVLevel();
+        *Level = getOutermostIVLevel();
       }
 
       return true;
@@ -468,12 +468,23 @@ bool CanonExpr::isStandAloneIV(bool AllowConversion, unsigned *Level) const {
   return false;
 }
 
-unsigned CanonExpr::getFirstIVLevel() const {
+unsigned CanonExpr::getOutermostIVLevel() const {
 
   // We know there is at least one IV with coeff != 0
   for (auto IV = iv_begin(), E = iv_end(); IV != E; ++IV) {
     if (getIVConstCoeff(IV) != 0) {
       return getLevel(IV);
+    }
+  }
+
+  return 0;
+}
+
+unsigned CanonExpr::getInnermostIVLevel() const {
+
+  for (auto IV = iv_rbegin(), E = iv_rend(); IV != E; ++IV) {
+    if (IV->Coeff != 0) {
+      return (E - IV);
     }
   }
 

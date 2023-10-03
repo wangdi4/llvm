@@ -357,6 +357,9 @@ private:
   // current loop nest
   SmallVector<AllocaInst *, MaxLoopNestLevel + 1> CurIVValues;
 
+  // A stack of preheader bblocks of the loops in the current loopnest.
+  SmallVector<BasicBlock *, MaxLoopNestLevel> LoopPreheaders;
+
   // Maps the old region exiting edges to a vector of new ones. We can have
   // multiple new exits for one original exit due to replication (unrolling,
   // for example).
@@ -696,6 +699,40 @@ Value *CGVisitor::createCmpInst(const HLPredicate &P, Value *LHS, Value *RHS,
   return CmpInst;
 }
 
+static void setInsertPoint(IRBuilder<> &Builder, BasicBlock *InsertBB) {
+  auto *Term = InsertBB->getTerminator();
+
+  if (Term) {
+    // Setting insert point as an intruction overrides the debug loc to that
+    // instructions's debug loc which is not what we want to do here so we
+    // revert it back to the original debug loc.
+    auto OldDebugLoc = Builder.getCurrentDebugLocation();
+    Builder.SetInsertPoint(Term);
+    Builder.SetCurrentDebugLocation(OldDebugLoc);
+
+  } else {
+    Builder.SetInsertPoint(InsertBB);
+  }
+}
+
+// Saves insert block of Builder and restores it when destructor is called.
+class SaveRestoreInsertBlock {
+  IRBuilder<> &Builder;
+  BasicBlock *OldInsertBlock;
+
+public:
+  SaveRestoreInsertBlock(IRBuilder<> &Builder)
+      : Builder(Builder), OldInsertBlock(Builder.GetInsertBlock()) {}
+
+  BasicBlock *getSavedInsertBlock() { return OldInsertBlock; }
+
+  ~SaveRestoreInsertBlock() {
+    if (OldInsertBlock != Builder.GetInsertBlock()) {
+      setInsertPoint(Builder, OldInsertBlock);
+    }
+  }
+};
+
 Value *CGVisitor::getBlobValue(int64_t Coeff, unsigned BlobIdx, Type *Ty) {
 
   auto *BlobSCEV = getBlobSCEV(BlobIdx);
@@ -724,12 +761,26 @@ Value *CGVisitor::getBlobValue(int64_t Coeff, unsigned BlobIdx, Type *Ty) {
   // If the IP is bblock.end(), undefined behavior results because the
   // parent of that "instruction" is invalid. We work around this by
   // adding temporary instruction to use as our IP, and remove it after
-  Instruction *TmpIP = Builder.CreateUnreachable();
-  Value *Blob = Expander.expandCodeFor(BlobSCEV, nullptr, TmpIP);
+  Instruction *InsertPt = Builder.GetInsertBlock()->getTerminator();
+  Instruction *TmpInsertPt = !InsertPt ? Builder.CreateUnreachable() : nullptr;
 
-  // Expander shouldnt create new Bblocks, new IP is end of current bblock
-  Builder.SetInsertPoint(TmpIP->getParent());
-  TmpIP->eraseFromParent();
+  Value *Blob = Expander.expandCodeFor(BlobSCEV, nullptr,
+                                       InsertPt ? InsertPt : TmpInsertPt);
+
+  // Expander shouldn't create new Bblocks, new IP is current block's end or
+  // InsertPt.
+  if (TmpInsertPt) {
+    Builder.SetInsertPoint(Builder.GetInsertBlock());
+    TmpInsertPt->eraseFromParent();
+  } else {
+    // Setting insert point as an intruction overrides the debug loc to that
+    // instructions's debug loc which is not what we want to do here so we
+    // revert it back to the original debug loc.
+    auto OldDebugLoc = Builder.getCurrentDebugLocation();
+    Builder.SetInsertPoint(InsertPt);
+    Builder.SetCurrentDebugLocation(OldDebugLoc);
+  }
+
   Type *BType = Blob->getType();
 
   if (Negate) {
@@ -775,6 +826,20 @@ Value *CGVisitor::visitCanonExpr(CanonExpr *CE) {
     auto NullVal = ConstantPointerNull::get(PtrType);
     return Builder.CreateVectorSplat(
         cast<FixedVectorType>(SrcType)->getNumElements(), NullVal);
+  }
+
+  SaveRestoreInsertBlock SRIB(Builder);
+
+  // Check if CE is invariant w.r.t. some loop level. If so, generate code for
+  // it in the appropriate loop's preheader.
+  unsigned NestingLevel = LoopPreheaders.size();
+  if (NestingLevel != 0) {
+
+    unsigned InvarianceLevel = CE->getOutermostInvariantLevel();
+
+    if (InvarianceLevel <= NestingLevel) {
+      setInsertPoint(Builder, LoopPreheaders[InvarianceLevel - 1]);
+    }
   }
 
   BlobSum = sumBlobs(CE);
@@ -930,8 +995,17 @@ Value *CGVisitor::visitScalar(RegDDRef *Ref) {
 Value *CGVisitor::codeGenGEPRefDims(RegDDRef *Ref) {
 
   ScopeDbgLoc GepDbgLoc(*this, Ref->getGepDebugLoc());
+  SaveRestoreInsertBlock SRIB(Builder);
 
-  Value *BaseV = visitCanonExpr(Ref->getBaseCE());
+  auto *BaseCE = Ref->getBaseCE();
+  unsigned NestingLevel = LoopPreheaders.size();
+  unsigned InvarianceLevel = BaseCE->getOutermostInvariantLevel();
+
+  if (InvarianceLevel <= NestingLevel) {
+    setInsertPoint(Builder, LoopPreheaders[InvarianceLevel - 1]);
+  }
+
+  Value *BaseV = visitCanonExpr(BaseCE);
 
   bool HasVectorIndices = Ref->hasAnyVectorIndices();
 
@@ -959,9 +1033,28 @@ Value *CGVisitor::codeGenGEPRefDims(RegDDRef *Ref) {
     // stored as A[canon3][canon2][canon1], but gep requires them in reverse
     // order
     for (unsigned DimNum = NumDims; DimNum > 0; --DimNum) {
-      auto *IndexVal = visitCanonExpr(Ref->getDimensionIndex(DimNum));
-      auto *LowerVal = visitCanonExpr(Ref->getDimensionLower(DimNum));
-      auto *StrideVal = visitCanonExpr(Ref->getDimensionStride(DimNum));
+      auto *IndexCE = Ref->getDimensionIndex(DimNum);
+      auto *LowerCE = Ref->getDimensionLower(DimNum);
+      auto *StrideCE = Ref->getDimensionStride(DimNum);
+
+      // Check if dim is invariant w.r.t. some loop level. If so, generate
+      // code for it in the appropriate loop's preheader.
+      if (NestingLevel != 0) {
+
+        InvarianceLevel =
+            std::max({InvarianceLevel, IndexCE->getOutermostInvariantLevel(),
+                      LowerCE->getOutermostInvariantLevel(),
+                      StrideCE->getOutermostInvariantLevel()});
+
+        auto *InsertBB = (InvarianceLevel <= NestingLevel)
+                             ? LoopPreheaders[InvarianceLevel - 1]
+                             : SRIB.getSavedInsertBlock();
+        setInsertPoint(Builder, InsertBB);
+      }
+
+      auto *IndexVal = visitCanonExpr(IndexCE);
+      auto *LowerVal = visitCanonExpr(LowerCE);
+      auto *StrideVal = visitCanonExpr(StrideCE);
 
       // TODO: add isExact field to the dimension info and pass it to the
       // EmitSubsValue.
@@ -1306,6 +1399,7 @@ void CGVisitor::replaceOldRegion(BasicBlock *RegionEntry) {
 Value *CGVisitor::visitRegion(HLRegion *Reg) {
 
   assert(CurIVValues.empty() && "IV list not empty at region start");
+  assert(LoopPreheaders.empty() && "Loop preheaders not empty at region start");
 
   preprocess(Reg);
 
@@ -1562,6 +1656,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
   // of loop IV itself, but this information is not available from
   // CE
   CurIVValues.push_back(Alloca);
+  LoopPreheaders.push_back(Builder.GetInsertBlock());
 
   Value *StartVal = visitRegDDRef(Lp->getLowerDDRef());
 
@@ -1723,6 +1818,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
 #endif // INTEL_FEATURE_CSA
 
   CurIVValues.pop_back();
+  LoopPreheaders.pop_back();
 
   return nullptr;
 }

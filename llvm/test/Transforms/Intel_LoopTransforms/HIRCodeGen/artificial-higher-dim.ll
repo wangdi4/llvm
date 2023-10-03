@@ -9,10 +9,13 @@
 ; + END LOOP
 
 ; CHECK: region.0:
+; Loop invariant GEP is generated in loop preheader which is also the region
+; entry block.
+; CHECK: [[GEP:%.*]] = getelementptr inbounds %struct, {{.*}} %ld.ptr, i64 0, i32 2, i64 0
+
 ; CHECK: loop.{{[0-9]+}}:
-; CHECK: = getelementptr inbounds %struct, {{.*}} %ld.ptr, i64 0, i32 2, i64 0
-; CHECK-NEXT: = load i64, {{.*}} %i1.i64, align 4
-; CHECK-NEXT: = getelementptr inbounds double, {{.*}} %0, i64 %1
+; CHECK-NEXT: [[IV:%.*]] = load i64, {{.*}} %i1.i64, align 4
+; CHECK-NEXT: = getelementptr inbounds double, ptr [[GEP]], i64 [[IV]]
 
 
 %struct = type { i32, i32, [4 x double] }

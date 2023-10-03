@@ -1,23 +1,38 @@
-; RUN: opt -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
-; This text verifies that UB is correctly sext and is calculated
-; only once, before loop
-; Also verifies loop nest is correctly nested, i1 then i2
-; basic cg
-; CHECK: region.0:
-;  sext.i32.i64(%n) + -1 is our ub for loop 1
-; CHECK: [[SEXT_OP1:%[0-9]+]] = sext i32 %n to i64
-; CHECK-NEXT:  [[UB1:%[0-9]+]] = add i64 [[SEXT_OP1]], -1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
+
+; HIR-
+; + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 5>  <LEGAL_MAX_TC = 2147483647>
+; |   %1 = (@B)[0][i1];
+; |
+; |   + DO i2 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; |   |   (@A)[0][2 * i1 + sext.i32.i64(%k) * i2] = %1;
+; |   + END LOOP
+; + END LOOP
+
+; Verify that UB for both loops is generated in i1 loop's preheader which is the
+; region entry block. sext.i32.i64(%k) blob which is invariant w.r.t i1 loop is
+; also generated here.
+
+; CHECK:       region.0:
+; CHECK:       [[SEXTN1:%[0-9]+]] = sext i32 %n to i64
+; CHECK-NEXT:  [[UB1:%[0-9]+]] = add i64 [[SEXTN1]], -1
+; CHECK-NEXT:  [[SEXTN2:%[0-9]+]] = sext i32 %n to i64
+; CHECK-NEXT:  [[UB2:%[0-9]+]] = add i64 [[SEXTN2]], -1
 ; CHECK-NEXT: br label %[[L1Label:loop.[0-9]+]]
 
-; CHECK: [[L1Label]]:
-; check ub of l2 is also sext and calculated before loop2
-; CHECK: [[SEXT_OP2:%[0-9]+]] = sext i32 %n to i64
-; CHECK-NEXT:  [[UB2:%[0-9]+]] = add i64 [[SEXT_OP2]], -1
-; CHECK-NEXT: br label %[[L2Label:loop.[0-9]+]]
+; Verify that loop nest is correctly nested, i1 then i2, basic CG.
 
-; make sure loop 2 ends then loop 2 ends
+; CHECK: [[L1Label]]:
+; CHECK: br label %[[L2Label:loop.[0-9]+]]
+
+; CHECK: [[L2Label]]:
+; TODO: this invariant blob should be generated in i1 loop's preheader.
+; CHECK: [[SEXTK:%[0-9]+]] = sext i32 %k to i64
+
+; Make sure loop 2 ends then loop 1 ends
 ; CHECK: after[[L2Label]]:
 ; CHECK: after[[L1Label]]:
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
