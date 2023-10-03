@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 //===-- interception_linux.cpp ----------------------------------*- C++ -*-===//
 // INTEL_CUSTOMIZATION
 //
@@ -16,6 +17,9 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
+=======
+//===-- interception_win.cpp ------------------------------------*- C++ -*-===//
+>>>>>>> 2385cf66e275d831fe5aeb8daa5afae9614be955
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
