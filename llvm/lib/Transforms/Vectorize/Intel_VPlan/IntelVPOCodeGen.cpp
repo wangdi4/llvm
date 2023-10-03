@@ -2236,11 +2236,22 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     //
     // [p0, p1, p2, p3] - private memory for UDS for each lane;
     // red - original reduction pointer.
+    //                        0' 1' 2' 3'
+    // We need to calculate red+p0+p1+p2+p3, keeping intermediate sums and
+    // keeping the order of operands.
     //
-    // p0 = combiner(p0, red);
-    // p1 = combiner(p1, p0);
-    // p2 = combiner(p2, p1);
-    // p3 = combiner(p3, p2);
+    // red = combiner(red, p0); --- sum accumulator and the first object
+    // p0 = initializer();      --- re-initialize the first object
+    // p0 = combiner(p0, red);  --- copy to the appropriate object
+    // red = combiner(red, p1);
+    // p1 = initializer();
+    // p1 = combiner(p1, red);
+    // red = combiner(red, p2);
+    // p2 = initializer();
+    // p2 = combiner(p2, red);
+    // red = combiner(red, p3);
+    // p3 = initializer();
+    // p3 = combiner(p3, red);
     // red = initializer();
     // red = combiner(red, p3);
 
@@ -2256,16 +2267,17 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
           "VPRunningInclusiveUDS without Init is not implemented yet!");
 
     // Compute the running reduction for the remaining vector lanes.
-    auto *PrevPrivPtr = Orig;
+    Value *PrivPtr = nullptr;
     for (unsigned Lane = 0; Lane < getVF(); Lane++) {
-      auto *LanePrivPtr = getScalarValue(Priv, Lane);
-      Builder.CreateCall(CombinerFn, {LanePrivPtr, PrevPrivPtr});
-      PrevPrivPtr = LanePrivPtr;
+      PrivPtr = getScalarValue(Priv, Lane);
+      Builder.CreateCall(CombinerFn, {Orig, PrivPtr});
+      Builder.CreateCall(InitializerFn, {PrivPtr, Orig});
+      Builder.CreateCall(CombinerFn, {PrivPtr, Orig});
     }
 
     // Place the last value as the final value.
     Builder.CreateCall(InitializerFn, {Orig, Orig});
-    Builder.CreateCall(CombinerFn, {Orig, PrevPrivPtr});
+    Builder.CreateCall(CombinerFn, {Orig, PrivPtr});
 
     return;
   }
