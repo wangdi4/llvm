@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 
-; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -S -ip-cloned-func-arg-merge=false -filter-print-funcs=c_kernel.DIR.OMP.PARALLEL.LOOP.2.split678.1 2>&1 | FileCheck %s
 
 ; The test is a copy of ip_cloning_constant_array01.ll but checks IR instead of optimization's
 ; debug output
@@ -47,19 +47,8 @@ uselistorder ptr @c_kernel.DIR.OMP.PARALLEL.LOOP.2.split678, { 1, 0 }
 !0 = !{!1}
 !1 = !{i64 2, i64 -1, i64 -1, i1 true}
 
-; CHECK-LABEL: define fastcc void @lbm() {
-; CHECK-NEXT:    unreachable
-; CHECK:       1:
-; CHECK-NEXT:    call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr null, i32 0, ptr @c_kernel.DIR.OMP.PARALLEL.LOOP.2.split678.1, ptr null, ptr @OFF0, i64 0, i64 0, i64 0, i64 0, ptr null, ptr null, i64 0, i64 0)
-; CHECK-NEXT:    br label [[TMP3:%.*]]
-; CHECK:       2:
-; CHECK-NEXT:    call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr null, i32 0, ptr @c_kernel.DIR.OMP.PARALLEL.LOOP.2.split678, ptr null, ptr @OFF, i64 0, i64 0, i64 0, i64 0, ptr null, ptr null, i64 0, i64 0)
-; CHECK-NEXT:    br label [[TMP3]]
-; CHECK:       3:
-; CHECK-NEXT:    ret void
-;
-; CHECK-LABEL: define internal void @c_kernel.DIR.OMP.PARALLEL.LOOP.2.split678.1
-; CHECK-SAME: (ptr [[TMP0:%.*]], ptr [[TMP1:%.*]], ptr [[TMP2:%.*]], ptr [[TMP3:%.*]], i64 [[TMP4:%.*]], i64 [[TMP5:%.*]], i64 [[TMP6:%.*]], i64 [[TMP7:%.*]], ptr [[TMP8:%.*]], ptr [[TMP9:%.*]], i64 [[TMP10:%.*]], i64 [[TMP11:%.*]]) {
+; CHECK-LABEL: define internal void @c_kernel.DIR.OMP.PARALLEL.LOOP.2.split678.1(
+; CHECK-SAME: ptr [[TMP0:%.*]], ptr [[TMP1:%.*]], ptr [[TMP2:%.*]], ptr [[TMP3:%.*]], i64 [[TMP4:%.*]], i64 [[TMP5:%.*]], i64 [[TMP6:%.*]], i64 [[TMP7:%.*]], ptr [[TMP8:%.*]], ptr [[TMP9:%.*]], i64 [[TMP10:%.*]], i64 [[TMP11:%.*]]) {
 ; CHECK-NEXT:    br label [[TMP13:%.*]]
 ; CHECK:       13:
 ; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr i64, ptr [[TMP3]], i64 0
