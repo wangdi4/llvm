@@ -1,5 +1,6 @@
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
 
+; Verify that we can generate code for alloca insts successfully.
 
 ;          BEGIN REGION { }
 ;<11>         + DO i1 = 0, zext.i32.i64((-1 + %N)), 1   <DO_LOOP>
@@ -7,9 +8,15 @@
 ;<4>          |   (%allocs)[i1] = &((%0)[0]);
 ;<11>         + END LOOP
 ;          END REGION
+
 ;CHECK: region.0:
+
+; Verify that the loop invariant expr sext(%size) is generated in loop's
+;  preheader which is the region entry block.
+
+;CHECK: [[SEXT_SIZE:%[0-9]+]] = sext i32 %size to i64
+
 ;CHECK: loop.{{[0-9]+}}:
-;CHECK-NEXT: [[SEXT_SIZE:%[0-9]+]] = sext i32 %size to i64
 ;CHECK-NEXT: = alloca i8, i64 [[SEXT_SIZE]], align 1
 
 ; ModuleID = 'alloca.c'

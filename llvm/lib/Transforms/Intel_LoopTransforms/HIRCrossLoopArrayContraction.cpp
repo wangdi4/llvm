@@ -285,7 +285,7 @@ static HLLoop *getCandidateParentLoop(const RegDDRef *Ref,
   unsigned MinLevel = NonLinearLevel;
 
   for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
-    auto IVLevel = CE->getFirstIVLevel();
+    auto IVLevel = CE->getOutermostIVLevel();
 
     if (IVLevel != 0) {
       MinLevel = std::min(IVLevel, MinLevel);

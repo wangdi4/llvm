@@ -285,7 +285,7 @@ static bool isTransposeCandidate(const RegDDRef *Ref, unsigned LoopLevel) {
   } else {
     // Inner dimension has a single IV that is not the innerloop IV.
     const CanonExpr *InnerCE = Ref->getDimensionIndex(1);
-    if (InnerCE->numIVs() != 1 || InnerCE->getFirstIVLevel() == LoopLevel) {
+    if (InnerCE->numIVs() != 1 || InnerCE->getOutermostIVLevel() == LoopLevel) {
       return false;
     }
 
@@ -296,7 +296,7 @@ static bool isTransposeCandidate(const RegDDRef *Ref, unsigned LoopLevel) {
     }
 
     const CanonExpr *OuterCE = Ref->getDimensionIndex(2);
-    if (OuterCE->numIVs() != 1 || OuterCE->getFirstIVLevel() != LoopLevel) {
+    if (OuterCE->numIVs() != 1 || OuterCE->getOutermostIVLevel() != LoopLevel) {
       return false;
     }
 
@@ -376,7 +376,7 @@ bool ArrayTransposeAnalyzer::isValidRefGroup(
           return false;
         }
 
-        unsigned IVLevel = IndexCE->getFirstIVLevel();
+        unsigned IVLevel = IndexCE->getOutermostIVLevel();
         if (!IVLevel || IndexCE->numIVs() != 1) {
           LLVM_DEBUG(dbgs() << "[BadCand] Index not single IV.\n";);
           return false;

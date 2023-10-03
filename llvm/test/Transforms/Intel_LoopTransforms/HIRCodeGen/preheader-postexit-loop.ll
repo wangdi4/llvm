@@ -49,7 +49,6 @@
 
 ; Check postexit stmts
 ; CHECK: [[POSTEXIT]]:
-; CHECK: add i64 %M, 5
 ; CHECK: [[I1LOAD2:%.*]] = load i64, ptr %i1.i64
 ; CHECK: mul i64 [[INDVARS]]{{[0-9]+}}, [[I1LOAD2]]
 

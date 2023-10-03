@@ -439,9 +439,33 @@ public:
   bool isStandAloneIV(bool AllowConversion = true,
                       unsigned *Level = nullptr) const;
 
-  /// Returns the level of the first IV with coeff different from 0.
-  /// It returns 0 if no IV is found with coeff different from 0.
-  unsigned getFirstIVLevel() const;
+  /// Returns the level of the outermost IV contained in CE.
+  /// It returns 0 if no IV is found.
+  unsigned getOutermostIVLevel() const;
+
+  /// Returns the level of the innermost IV contained in CE.
+  /// It returns 0 if no IV is found.
+  unsigned getInnermostIVLevel() const;
+
+  /// Returns the outermost level w.r.t which this CE is invariant. Returns
+  /// NonLinearLevel for non-linear CEs as we don't have any useful info.
+  /// For example-
+  /// 1) i2 - invariance level is 3
+  /// 2) %t def@2 - invariance level is 3
+  /// 3) i1 + %t def@2 - invariance level is 3
+  /// 4) i2 + %t def@1 - invariance level is 3
+  ///
+  /// Note that it may return a non-existent loop level as we don't know the
+  /// surrounding context. For example, it will return 2 for a CE: (i1) even if
+  /// i1 is the innermost loop.
+  unsigned getOutermostInvariantLevel() const {
+    unsigned DefLevel = getDefinedAtLevel();
+
+    if (DefLevel == NonLinearLevel)
+      return NonLinearLevel;
+
+    return std::max(getInnermostIVLevel(), DefLevel) + 1;
+  }
 
   /// Returns true if this canon expr looks something like (4 * %t).
   /// If \p AllowConversion is true, src type to dst type conversion is allowed.
