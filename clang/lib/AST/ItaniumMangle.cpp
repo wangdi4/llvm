@@ -129,8 +129,8 @@ public:
   void mangleCXXRTTI(QualType T, raw_ostream &) override;
   void mangleCXXRTTIName(QualType T, raw_ostream &,
                          bool NormalizeIntegers) override;
-  void mangleTypeName(QualType T, raw_ostream &,
-                      bool NormalizeIntegers) override;
+  void mangleCanonicalTypeName(QualType T, raw_ostream &,
+                               bool NormalizeIntegers) override;
 
   void mangleCXXCtorComdat(const CXXConstructorDecl *D, raw_ostream &) override;
   void mangleCXXDtorComdat(const CXXDestructorDecl *D, raw_ostream &) override;
@@ -7190,8 +7190,8 @@ void ItaniumMangleContextImpl::mangleCXXRTTIName(
   Mangler.mangleType(Ty);
 }
 
-void ItaniumMangleContextImpl::mangleTypeName(QualType Ty, raw_ostream &Out,
-                                              bool NormalizeIntegers = false) {
+void ItaniumMangleContextImpl::mangleCanonicalTypeName(
+    QualType Ty, raw_ostream &Out, bool NormalizeIntegers = false) {
   mangleCXXRTTIName(Ty, Out, NormalizeIntegers);
 }
 
@@ -7199,7 +7199,7 @@ void ItaniumMangleContextImpl::mangleTypeName(QualType Ty, raw_ostream &Out,
 // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
 void ItaniumMangleContextImpl::mangleLambdaName(const RecordDecl *RD,
                                                 raw_ostream &Out) {
-  return mangleTypeName(QualType(RD->getTypeForDecl(), 0), Out);
+  return mangleCanonicalTypeName(QualType(RD->getTypeForDecl(), 0), Out);
 }
 #endif // INTEL_CUSTOMIZATION
 

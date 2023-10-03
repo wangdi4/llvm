@@ -92,7 +92,7 @@ llvm::MDNode *CodeGenTBAA::createTBAAPointerType(const PointerType *PTy) {
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
   Out << "pointer@";
-  MContext.mangleTypeName(PtrTy, Out);
+  MContext.mangleCanonicalTypeName(PtrTy, Out);
   return createScalarTypeNode(OutName, getChar(), /*Size=*/1);
 }
 #endif // INTEL_CUSTOMIZATION
@@ -289,7 +289,7 @@ llvm::MDNode *CodeGenTBAA::getTypeInfoHelper(const Type *Ty) {
 
     SmallString<256> OutName;
     llvm::raw_svector_ostream Out(OutName);
-    MContext.mangleTypeName(QualType(ETy, 0), Out);
+    MContext.mangleCanonicalTypeName(QualType(ETy, 0), Out);
     return createScalarTypeNode(OutName, getChar(), Size);
   }
 #if INTEL_CUSTOMIZATION
@@ -300,7 +300,7 @@ llvm::MDNode *CodeGenTBAA::getTypeInfoHelper(const Type *Ty) {
         SmallString<256> OutName;
         llvm::raw_svector_ostream Out(OutName);
         Out << "array@";
-        MContext.mangleTypeName(QualType(Ty, 0), Out);
+        MContext.mangleCanonicalTypeName(QualType(Ty, 0), Out);
         llvm::MDNode *Parent = getTypeInfo(CATy->getElementType());
         uint64_t Size = Context.getTypeSizeInChars(Ty).getQuantity();
         return MetadataCache[Ty] = createScalarTypeNode(OutName, Parent, Size);
@@ -541,7 +541,7 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
       Out << "struct@";
     if (Features.CPlusPlus) {
       // Don't use the mangler for C code.
-      MContext.mangleTypeName(QualType(Ty, 0), Out);
+      MContext.mangleCanonicalTypeName(QualType(Ty, 0), Out);
     } else {
       Out << RD->getName();
     }
@@ -581,7 +581,7 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
       OffsetsAndTypes.push_back(std::make_pair(Field.Type, Field.Offset));
     llvm::raw_svector_ostream Out(OutName);
     Out << "_Complex@";
-    MContext.mangleTypeName(FieldTy, Out);
+    MContext.mangleCanonicalTypeName(FieldTy, Out);
     return MDHelper.createTBAAStructTypeNode(OutName, OffsetsAndTypes);
 #endif // INTEL_CUSTOMIZATION
   }
