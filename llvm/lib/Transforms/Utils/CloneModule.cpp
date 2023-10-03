@@ -1,4 +1,21 @@
 //===- CloneModule.cpp - Clone an entire module ---------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -204,6 +221,14 @@ std::unique_ptr<Module> llvm::CloneModule(
 
   // And named metadata....
   for (const NamedMDNode &NMD : M.named_metadata()) {
+#if INTEL_CUSTOMIZATION
+    // TODO: This is temporary workaround to unblock issue due to memory
+    // corruption. "sycl_aspects" metadata is not required after linking.
+    // In the long run, "sycl_aspects" metadata can be removed just before
+    // linking.
+    if (NMD.getName() == "sycl_aspects")
+      continue;
+#endif // INTEL_CUSTOMIZATION
     NamedMDNode *NewNMD = New->getOrInsertNamedMetadata(NMD.getName());
     for (unsigned i = 0, e = NMD.getNumOperands(); i != e; ++i)
       NewNMD->addOperand(MapMetadata(NMD.getOperand(i), VMap));
