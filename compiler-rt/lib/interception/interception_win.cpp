@@ -1,4 +1,4 @@
-//===-- interception_linux.cpp ----------------------------------*- C++ -*-===//
+//===-- interception_win.cpp ------------------------------------*- C++ -*-===//
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
