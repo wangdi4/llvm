@@ -17,6 +17,30 @@ static void DieUnsupported() {
   die("Unified Runtime: functionality is not supported");
 }
 
+// Need to define the symbol for urProgramBuildExp, urProgramCompileExp & ur
+// ProgramLinkExp for compile, currently unsupported
+UR_APIEXPORT ur_result_t UR_APICALL urProgramBuildExp(ur_context_handle_t,
+                                                      ur_program_handle_t,
+                                                      uint32_t,
+                                                      ur_device_handle_t *,
+                                                      const char *) {
+  return UR_RESULT_ERROR_UNSUPPORTED_FEATURE;
+}
+
+UR_APIEXPORT ur_result_t UR_APICALL urProgramCompileExp(ur_context_handle_t,
+                                                        ur_program_handle_t,
+                                                        uint32_t,
+                                                        ur_device_handle_t *,
+                                                        const char *) {
+  return UR_RESULT_ERROR_UNSUPPORTED_FEATURE;
+}
+
+UR_APIEXPORT ur_result_t UR_APICALL urProgramLinkExp(
+    ur_context_handle_t, uint32_t, const ur_program_handle_t *, uint32_t,
+    ur_device_handle_t *, const char *, ur_program_handle_t *) {
+  return UR_RESULT_ERROR_UNSUPPORTED_FEATURE;
+}
+
 // All PI API interfaces are C interfaces
 extern "C" {
 __SYCL_EXPORT pi_result piPlatformsGet(pi_uint32 NumEntries,

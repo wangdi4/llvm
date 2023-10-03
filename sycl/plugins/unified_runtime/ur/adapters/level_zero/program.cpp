@@ -111,6 +111,17 @@ UR_APIEXPORT ur_result_t UR_APICALL urProgramBuild(
     const char *Options          ///< [in][optional] pointer to build options
                                  ///< null-terminated string.
 ) {
+  return urProgramBuildExp(Context, Program, 1, Context->Devices.data(),
+                           Options);
+}
+
+UR_APIEXPORT ur_result_t UR_APICALL urProgramBuildExp(
+    ur_context_handle_t Context, ///< [in] handle of the context instance.
+    ur_program_handle_t Program, ///< [in] Handle of the program to build.
+    uint32_t numDevices, ur_device_handle_t *phDevices,
+    const char *Options ///< [in][optional] pointer to build options
+                        ///< null-terminated string.
+) {
   // TODO
   // Check if device belongs to associated context.
   // UR_ASSERT(Program->Context, UR_RESULT_ERROR_INVALID_PROGRAM);
@@ -140,11 +151,10 @@ UR_APIEXPORT ur_result_t UR_APICALL urProgramBuild(
   ZeModuleDesc.pBuildFlags = Options;
   ZeModuleDesc.pConstants = Shim.ze();
 
-  auto Build2Device = Context->Build2Device;
-  if (!Build2Device)
-    Build2Device = Context->Devices[0];
-  ze_device_handle_t ZeDevice = Build2Device->ZeDevice;
+  ze_device_handle_t ZeDevice = phDevices[0]->ZeDevice;
   ze_context_handle_t ZeContext = Program->Context->ZeContext;
+  std::ignore = Context;
+  std::ignore = numDevices;
   ze_module_handle_t ZeModule = nullptr;
 
   ur_result_t Result = UR_RESULT_SUCCESS;
@@ -184,6 +194,19 @@ UR_APIEXPORT ur_result_t UR_APICALL urProgramBuild(
   Program->Code.reset();
   Program->ZeModule = ZeModule;
   return Result;
+}
+
+UR_APIEXPORT ur_result_t UR_APICALL urProgramCompileExp(
+    ur_context_handle_t Context, ///< [in] handle of the context instance.
+    ur_program_handle_t
+        Program, ///< [in][out] handle of the program to compile.
+    uint32_t numDevices, ur_device_handle_t *phDevices,
+    const char *Options ///< [in][optional] pointer to build options
+                        ///< null-terminated string.
+) {
+  std::ignore = numDevices;
+  std::ignore = phDevices;
+  return urProgramCompile(Context, Program, Options);
 }
 
 UR_APIEXPORT ur_result_t UR_APICALL urProgramCompile(
@@ -226,6 +249,22 @@ UR_APIEXPORT ur_result_t UR_APICALL urProgramLink(
     ur_program_handle_t
         *Program ///< [out] pointer to handle of program object created.
 ) {
+  return urProgramLinkExp(Context, Count, Programs, 1, Context->Devices.data(),
+                          Options, Program);
+}
+
+UR_APIEXPORT ur_result_t UR_APICALL urProgramLinkExp(
+    ur_context_handle_t Context, ///< [in] handle of the context instance.
+    uint32_t Count, ///< [in] number of program handles in `phPrograms`.
+    const ur_program_handle_t *Programs, ///< [in][range(0, count)] pointer to
+                                         ///< array of program handles.
+    uint32_t numDevices, ur_device_handle_t *phDevices,
+    const char *Options, ///< [in][optional] pointer to linker options
+                         ///< null-terminated string.
+    ur_program_handle_t
+        *Program ///< [out] pointer to handle of program object created.
+) {
+  std::ignore = numDevices;
   // TODO
   // UR_ASSERT(Context->isValidDevice(Context->Devices[0]),
   // UR_RESULT_ERROR_INVALID_DEVICE);
@@ -322,7 +361,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urProgramLink(
     // input module.
     //
     // TODO: Remove this workaround when the driver is fixed.
-    if (!Context->Devices[0]->Platform->ZeDriverModuleProgramExtensionFound ||
+    if (!phDevices[0]->Platform->ZeDriverModuleProgramExtensionFound ||
         (Count == 1)) {
       if (Count == 1) {
         ZeModuleDesc.pNext = nullptr;
@@ -338,7 +377,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urProgramLink(
     }
 
     // Call the Level Zero API to compile, link, and create the module.
-    ze_device_handle_t ZeDevice = Context->Devices[0]->ZeDevice;
+    ze_device_handle_t ZeDevice = phDevices[0]->ZeDevice;
     ze_context_handle_t ZeContext = Context->ZeContext;
     ze_module_handle_t ZeModule = nullptr;
     ze_module_build_log_handle_t ZeBuildLog = nullptr;

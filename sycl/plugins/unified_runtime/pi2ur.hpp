@@ -1893,8 +1893,19 @@ piProgramLink(pi_context Context, pi_uint32 NumDevices,
   ur_program_handle_t *UrProgram =
       reinterpret_cast<ur_program_handle_t *>(RetProgram);
 
-  HANDLE_ERRORS(urProgramLink(UrContext, NumInputPrograms, UrInputPrograms,
-                              Options, UrProgram));
+  auto UrDevices = reinterpret_cast<ur_device_handle_t *>(
+      const_cast<pi_device *>(DeviceList));
+
+  auto urResult = urProgramLinkExp(UrContext, NumInputPrograms, UrInputPrograms,
+                                   NumDevices, UrDevices, Options, UrProgram);
+  if (urResult == UR_RESULT_ERROR_UNSUPPORTED_FEATURE) {
+    HANDLE_ERRORS(urProgramLink(UrContext, NumInputPrograms, UrInputPrograms,
+                                Options, UrProgram));
+  } else {
+    if (urResult != UR_RESULT_SUCCESS) {
+      return ur2piResult(urResult);
+    }
+  }
 
   return PI_SUCCESS;
 }
@@ -1925,7 +1936,18 @@ inline pi_result piProgramCompile(
   HANDLE_ERRORS(urProgramGetInfo(UrProgram, PropName, sizeof(&UrContext),
                                  &UrContext, nullptr));
 
-  HANDLE_ERRORS(urProgramCompile(UrContext, UrProgram, Options));
+  auto UrDevices = reinterpret_cast<ur_device_handle_t *>(
+      const_cast<pi_device *>(DeviceList));
+
+  auto urResult =
+      urProgramCompileExp(UrContext, UrProgram, NumDevices, UrDevices, Options);
+  if (urResult == UR_RESULT_ERROR_UNSUPPORTED_FEATURE) {
+    HANDLE_ERRORS(urProgramCompile(UrContext, UrProgram, Options));
+  } else {
+    if (urResult != UR_RESULT_SUCCESS) {
+      return ur2piResult(urResult);
+    }
+  }
 
   return PI_SUCCESS;
 }
@@ -1958,7 +1980,18 @@ piProgramBuild(pi_program Program, pi_uint32 NumDevices,
   HANDLE_ERRORS(urProgramGetInfo(UrProgram, PropName, sizeof(&UrContext),
                                  &UrContext, nullptr));
 
-  HANDLE_ERRORS(urProgramBuild(UrContext, UrProgram, Options));
+  auto UrDevices = reinterpret_cast<ur_device_handle_t *>(
+      const_cast<pi_device *>(DeviceList));
+
+  auto urResult =
+      urProgramBuildExp(UrContext, UrProgram, NumDevices, UrDevices, Options);
+  if (urResult == UR_RESULT_ERROR_UNSUPPORTED_FEATURE) {
+    HANDLE_ERRORS(urProgramBuild(UrContext, UrProgram, Options));
+  } else {
+    if (urResult != UR_RESULT_SUCCESS) {
+      return ur2piResult(urResult);
+    }
+  }
 
   return PI_SUCCESS;
 }
