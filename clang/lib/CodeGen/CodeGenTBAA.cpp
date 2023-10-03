@@ -289,7 +289,7 @@ llvm::MDNode *CodeGenTBAA::getTypeInfoHelper(const Type *Ty) {
 
     SmallString<256> OutName;
     llvm::raw_svector_ostream Out(OutName);
-    MContext.mangleTypeName(QualType(ETy, 0), Out);
+    MContext.mangleCanonicalTypeName(QualType(ETy, 0), Out);
     return createScalarTypeNode(OutName, getChar(), Size);
   }
 #if INTEL_CUSTOMIZATION
@@ -541,7 +541,12 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
       Out << "struct@";
     if (Features.CPlusPlus) {
       // Don't use the mangler for C code.
+<<<<<<< HEAD
       MContext.mangleTypeName(QualType(Ty, 0), Out);
+=======
+      llvm::raw_svector_ostream Out(OutName);
+      MContext.mangleCanonicalTypeName(QualType(Ty, 0), Out);
+>>>>>>> 444e89050522fdff1c67c089622c2ae3eb1a6707
     } else {
       Out << RD->getName();
     }
