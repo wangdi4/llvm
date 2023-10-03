@@ -173,6 +173,10 @@ static cl::opt<bool>
     EnableManyRecCallsPredicateOpt("ip-manyreccalls-predicateopt",
                                    cl::init(true), cl::ReallyHidden);
 
+static cl::opt<bool> EnableClonedFunctionArgsMerge("ip-cloned-func-arg-merge",
+                                                   cl::init(true),
+                                                   cl::ReallyHidden);
+
 // Minimum number of loops in kernel on which predicate opt is performed
 static cl::opt<unsigned>
     PredicateOptMinLoops("ip-manyreccalls-predicateopt-min-loops", cl::init(5),
@@ -2930,6 +2934,136 @@ static void updateGlobalArraysUses(AbstractCallSite &ACS) {
   for (auto *LI : LoadsToReplace) {
     auto Zero = Constant::getNullValue(LI->getType());
     LI->replaceAllUsesWith(Zero);
+  }
+}
+
+using SameArgSet = std::unique_ptr<SmallVectorImpl<unsigned>>;
+using SameArgSetCollection = std::unique_ptr<SmallVectorImpl<SameArgSet>>;
+// The function gathers formal argument sets from a function.
+// These gathered sets specifically include formal arguments that accept
+// identical actual arguments, allowing for potential merging.
+// In this context, "merging" refers to the ability to replace any formal
+// argument within a detected set with another.
+//
+// Example:
+// If a function "foo" has the following body:
+// int foo(int a, int* p, int *q) {
+//  return a + p[0] + q[1];
+// }
+//
+// And it is called in the manner:
+//
+// int A[] = {0, 1};
+// int B[] = {2, 3};
+// int r1 = foo(1, A, A);
+// int r2 = foo(0, B, B);
+//
+// We want function foo to be transformed into:
+// int foo(int a, int* p, int *q) {
+//  return a + p[0] + p[1];
+//                    ^^^^
+// }
+// So it uses "p" instead of "q" inside the function.
+static SameArgSetCollection getSameArgSets(Function *F) {
+  LLVM_DEBUG({
+    dbgs() << "[IP_CLONING][ARG merge]: Analysing Function(";
+    F->printAsOperand(dbgs());
+    dbgs() << ")\n";
+  });
+
+  SameArgSetCollection Result = std::make_unique<SmallVector<SameArgSet, 16>>();
+  constexpr size_t NARGS = 64;
+  SmallVector<std::bitset<NARGS>> CurrSets;
+  bool FirstIter = true;
+  for (auto &U : F->uses()) {
+    AbstractCallSite ACS(&U);
+    if (!ACS)
+      return Result;
+
+    SmallDenseMap<Value *, std::bitset<NARGS>> TmpArgSetMap;
+    for (auto &FormalA : F->args()) {
+      if (FormalA.getArgNo() >= NARGS)
+        continue;
+      auto *ActualA = ACS.getCallArgOperand(FormalA);
+      if (!ActualA)
+        continue;
+      TmpArgSetMap[ActualA][FormalA.getArgNo()] = 1;
+    }
+    if (FirstIter) {
+      FirstIter = false;
+      for (auto [ActualA, ArgSet] : TmpArgSetMap)
+        CurrSets.push_back(ArgSet);
+      continue;
+    }
+
+    for (auto &S : CurrSets) {
+      size_t MaxCount = 0;
+      std::bitset<NARGS> MaxResultSet;
+      for (auto [ActualA, ArgSet] : TmpArgSetMap) {
+        auto RSet = S & ArgSet;
+        size_t Cnt = RSet.count();
+        if (Cnt > MaxCount) {
+          MaxCount = Cnt;
+          MaxResultSet = RSet;
+        }
+      }
+      S = MaxResultSet;
+    }
+  }
+
+  for (auto &S : CurrSets) {
+    if (S.count() < 2)
+      continue;
+    Result->push_back(std::make_unique<SmallVector<unsigned, 4>>());
+    for (size_t I = 0; I < S.size(); I++)
+      if (S.test(I))
+        Result->back()->push_back(I);
+  }
+
+  LLVM_DEBUG({
+    if (Result->empty())
+      dbgs() << "[IP_CLONING][ARG merge]: No mergeable arguments detected.\n";
+    else
+      dbgs() << "[IP_CLONING][ARG merge]: Detected " << Result->size()
+             << " mergeable argument sets.\n";
+
+    for (unsigned I = 0; I < Result->size(); I++) {
+      dbgs() << "  [" << I + 1 << "]: ";
+      for (auto ArgNo : *(*Result)[I]) {
+        dbgs() << ArgNo << " ";
+      }
+      dbgs() << "\n";
+    }
+  });
+  return Result;
+}
+
+// The function alters the usage of formal function parameters by substituting
+// them with one chosen from the recognized set of interchangeable parameters.
+static void mergeArgs() {
+  for (auto *F : ClonedFunctionList) {
+    auto SameArgsSetCollection = getSameArgSets(F);
+    for (auto &AS : *SameArgsSetCollection) {
+      // Pick the first arg as base
+      unsigned BaseArgNo = AS->front();
+      auto BaseArg = F->getArg(BaseArgNo);
+      // Replace all other args with the base
+      for (unsigned ArgNo : *AS) {
+        if (ArgNo == BaseArgNo)
+          continue;
+        auto Arg = F->getArg(ArgNo);
+        Arg->replaceAllUsesWith(BaseArg);
+        LLVM_DEBUG({
+          dbgs() << "[IP_CLONING][ARG merge]: Function(";
+          F->printAsOperand(dbgs());
+          dbgs() << ") - ARG(";
+          Arg->printAsOperand(dbgs());
+          dbgs() << ") replaced with ";
+          BaseArg->printAsOperand(dbgs());
+          dbgs() << "\n";
+        });
+      }
+    }
   }
 }
 
@@ -8685,6 +8819,9 @@ static bool analysisCallsCloneFunctions(
     });
     cloneFunction(AttemptCallbackCloning);
   }
+
+  if (AfterInl && EnableClonedFunctionArgsMerge)
+    mergeArgs();
 
   LLVM_DEBUG(dbgs() << " Total clones:  " << NumIPCloned << "\n");
 
