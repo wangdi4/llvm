@@ -109,13 +109,19 @@ class HIRMemoryReductionSinking {
   HIRLoopStatistics &HLS;
   HIRDDAnalysis &HDDA;
 
+  // If true, then we are going to apply the transformation for the reductions
+  // inside conditions.
+  bool AllowConditionalReductionSinking;
+
   SmallVector<MemoryReductionInfo, 16> MemoryReductions;
   SmallVector<MemoryReductionInfo, 8> InvariantMemoryReductions;
   SmallVector<MemoryReductionInfo, 8> ConditionalInvariantMemoryReductions;
 
 public:
-  HIRMemoryReductionSinking(HIRLoopStatistics &HLS, HIRDDAnalysis &HDDA)
-      : HLS(HLS), HDDA(HDDA) {}
+  HIRMemoryReductionSinking(HIRLoopStatistics &HLS, HIRDDAnalysis &HDDA,
+                            bool AllowConditionalReductionSinking)
+      : HLS(HLS), HDDA(HDDA),
+        AllowConditionalReductionSinking(AllowConditionalReductionSinking) {}
   bool run(HLLoop *Lp);
 
   bool validateReductionTemp(DDGraph DDG, const HLLoop *Lp);
@@ -133,6 +139,12 @@ private:
   bool haveCandidateReductions() {
     return !InvariantMemoryReductions.empty() ||
            !ConditionalInvariantMemoryReductions.empty();
+  }
+
+  // Return true if the user or the pass manager disables the transformation
+  // for reductions inside condition.
+  bool isConditionalReductionSinkingDisabled() {
+    return (DisableConditionalReductions || !AllowConditionalReductionSinking);
   }
 };
 
@@ -466,7 +478,7 @@ bool HIRMemoryReductionSinking::validateMemoryReductions(const HLLoop *Lp) {
   // collection earlier because the data collected from these reductions can be
   // useful for the reductions identified outside the conditions
   // (InvariantMemoryReductions).
-  if (DisableConditionalReductions)
+  if (isConditionalReductionSinkingDisabled())
     ConditionalInvariantMemoryReductions.clear();
   else
     ConditionalInvariantMemoryReductions.erase(
@@ -976,7 +988,8 @@ bool HIRMemoryReductionSinking::run(HLLoop *Lp) {
 
 static bool runMemoryReductionSinking(HIRFramework &HIRF,
                                       HIRLoopStatistics &HLS,
-                                      HIRDDAnalysis &HDDA) {
+                                      HIRDDAnalysis &HDDA,
+                                      bool AllowConditionalReductionSinking) {
   if (DisablePass) {
     LLVM_DEBUG(dbgs() << "HIR Memory Reduction Sinking Disabled \n");
     return false;
@@ -985,7 +998,7 @@ static bool runMemoryReductionSinking(HIRFramework &HIRF,
   SmallVector<HLLoop *, 64> CandidateLoops;
   HIRF.getHLNodeUtils().gatherInnermostLoops(CandidateLoops);
 
-  HIRMemoryReductionSinking MRS(HLS, HDDA);
+  HIRMemoryReductionSinking MRS(HLS, HDDA, AllowConditionalReductionSinking);
 
   bool Result = false;
 
@@ -1004,7 +1017,8 @@ bool HIRMemoryReductionSinkingLegacyPass::runOnFunction(Function &F) {
   bool Result = runMemoryReductionSinking(
       getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
       getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-      getAnalysis<HIRDDAnalysisWrapperPass>().getDDA());
+      getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+      true /* AllowConditionalReductionSinking */);
   return Result;
 }
 
@@ -1012,6 +1026,6 @@ PreservedAnalyses HIRMemoryReductionSinkingPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   ModifiedHIR = runMemoryReductionSinking(
       HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
-      AM.getResult<HIRDDAnalysisPass>(F));
+      AM.getResult<HIRDDAnalysisPass>(F), AllowConditionalReductionSinking);
   return PreservedAnalyses::all();
 }

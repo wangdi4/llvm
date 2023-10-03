@@ -24,8 +24,13 @@ namespace loopopt {
 
 class HIRMemoryReductionSinkingPass
     : public HIRPassInfoMixin<HIRMemoryReductionSinkingPass> {
+private:
+  bool AllowConditionalReductionSinking;
+
 public:
   static constexpr auto PassName = "hir-memory-reduction-sinking";
+  HIRMemoryReductionSinkingPass(bool AllowConditionalReductionSinking = true)
+      : AllowConditionalReductionSinking(AllowConditionalReductionSinking) {}
   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
                             HIRFramework &HIRF);
 };
