@@ -64,7 +64,7 @@ static cl::opt<bool>
                    cl::ReallyHidden);
 #endif // INTEL_CUSTOMIZATION
 
-// Extracts the variant information from the top 8 bits in the version and
+// Extracts the variant information from the top 32 bits in the version and
 // returns an enum specifying the variants present.
 static InstrProfKind getProfileKindFromVersion(uint64_t Version) {
   InstrProfKind ProfileKind = InstrProfKind::Unknown;
