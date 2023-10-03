@@ -55,6 +55,7 @@
 
 using namespace llvm;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This option adds some debug print statements to help debug the reading of
 // the raw profile data file produced by the runtime library.
@@ -65,6 +66,9 @@ static cl::opt<bool>
 #endif // INTEL_CUSTOMIZATION
 
 // Extracts the variant information from the top 8 bits in the version and
+=======
+// Extracts the variant information from the top 32 bits in the version and
+>>>>>>> 3c34245c4771d56465c9845cec258e8e55f8e550
 // returns an enum specifying the variants present.
 static InstrProfKind getProfileKindFromVersion(uint64_t Version) {
   InstrProfKind ProfileKind = InstrProfKind::Unknown;
