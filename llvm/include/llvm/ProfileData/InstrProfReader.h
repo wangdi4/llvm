@@ -334,15 +334,9 @@ private:
   const InstrProfCorrelatorImpl<IntPtrT> *Correlator;
   /// A list of timestamps paired with a function name reference.
   std::vector<std::pair<uint64_t, uint64_t>> TemporalProfTimestamps;
-<<<<<<< HEAD
   bool ShouldSwapBytes = false; // INTEL
-  // The value of the version field of the raw profile data header. The lower 56
-  // bits specifies the format version and the most significant 8 bits specify
-=======
-  bool ShouldSwapBytes;
   // The value of the version field of the raw profile data header. The lower 32
   // bits specifies the format version and the most significant 32 bits specify
->>>>>>> 3c34245c4771d56465c9845cec258e8e55f8e550
   // the variant types of the profile.
   uint64_t Version = 0;                                        // INTEL
   uint64_t CountersDelta = 0;                                  // INTEL
