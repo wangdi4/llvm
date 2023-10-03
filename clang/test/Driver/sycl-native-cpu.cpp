@@ -16,4 +16,6 @@
 // RUN:   %clang -### -target x86_64-windows-msvc -fsycl -fsycl-targets=native_cpu -g %s 2>&1 | FileCheck -check-prefix=CHECK-WIN %s
 // CHECK-WIN: {{.*}}"-fsycl-is-device"{{.*}}"-gcodeview"
 // CHECK-WIN-DAG: {{.*}}"-fsycl-is-host"{{.*}}"-gcodeview"
-// CHECK-WIN-NOT: dwarf
+// INTEL_CUSTOMIZATION
+// CHECK-WIN-NOT: dwarf-version
+// end INTEL_CUSTOMIZATION
