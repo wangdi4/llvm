@@ -7199,7 +7199,7 @@ void ItaniumMangleContextImpl::mangleCanonicalTypeName(
 // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
 void ItaniumMangleContextImpl::mangleLambdaName(const RecordDecl *RD,
                                                 raw_ostream &Out) {
-  return mangleTypeName(QualType(RD->getTypeForDecl(), 0), Out);
+  return mangleCanonicalTypeName(QualType(RD->getTypeForDecl(), 0), Out);
 }
 #endif // INTEL_CUSTOMIZATION
 
