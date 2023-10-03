@@ -1,29 +1,29 @@
 // RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 // RUN:   -fintel-openmp-region-late-collapsed-loops \
 // RUN:   -triple x86_64-unknown-linux-gnu \
 // RUN:   | FileCheck %s --check-prefixes CHECK,HOST
 
 // RUN: %clang_cc1 -emit-llvm-bc -o %t_host.bc %s -std=c++14 -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 // RUN:   -fintel-openmp-region-late-collapsed-loops \
 // RUN:   -triple x86_64-unknown-linux-gnu
 
 // RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 // RUN:   -fintel-openmp-region-late-collapsed-loops \
 // RUN:   -triple spir64 -fopenmp-is-device \
 // RUN:   -fopenmp-host-ir-file-path %t_host.bc \
 // RUN:   | FileCheck %s --check-prefixes CHECK,TARG
 
 // RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 // RUN:   -fintel-openmp-region-late-collapsed-loops \
 // RUN:   -triple x86_64-unknown-linux-gnu \
 // RUN:   | FileCheck %s --check-prefixes CHECK,HOST
 
 // RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 // RUN:   -triple x86_64-unknown-linux-gnu \
 // RUN:   -fintel-openmp-region-early-collapsed-loops \
 // RUN:   | FileCheck %s --check-prefix OFF

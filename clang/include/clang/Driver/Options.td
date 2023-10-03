@@ -3728,9 +3728,6 @@ defm openmp_target_malloc : BoolFOption<"openmp-target-malloc",
   LangOpts<"OpenMPTargetMalloc">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, CC1Option]>, NegFlag<SetFalse, [], [ClangOption, CC1Option]>,
   BothFlags<[NoArgumentUnused, HelpHidden]>>;
-def fopenmp_typed_clauses : Flag<["-"], "fopenmp-typed-clauses">,
-  Group<f_Group>, Flags<[NoArgumentUnused]>, Visibility<[ClangOption, CC1Option]>,
-  MarshallingInfoFlag<CodeGenOpts<"OpenMPTypedClauses">>;
 defm openmp_new_depend_ir : BoolFOption<"openmp-new-depend-ir",
   LangOpts<"OpenMPNewDependIR">, DefaultTrue,
   PosFlag<SetTrue>, NegFlag<SetFalse>,

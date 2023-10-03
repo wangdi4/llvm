@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fintel-compatibility \
-// RUN:  -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s \
+// RUN:  -fopenmp -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 
 extern long A[256];

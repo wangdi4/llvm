@@ -1,37 +1,37 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -disable-llvm-passes \
 // RUN:  -fexceptions -fcxx-exceptions \
-// RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu \
 // RUN:  | FileCheck %s --check-prefixes=BOTH,NOOPT
 
 // Same as above adding -O2
 // RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -disable-llvm-passes -O2 \
 // RUN:  -fexceptions -fcxx-exceptions \
-// RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu \
 // RUN:  | FileCheck %s -check-prefixes=BOTH,OPT
 
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions \
-// RUN: -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=x86_64-pc-linux-gnu \
+// RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN: -DTARGET_TEST -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix TTEST
 //
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions \
-// RUN: -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=x86_64-pc-linux-gnu \
+// RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN: -DTARGET_TEST -emit-llvm-bc %s -o %t-targ-host.bc
 
 // RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions \
-// RUN: -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=x86_64-pc-linux-gnu \
+// RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN: -fopenmp-is-device -fopenmp-host-ir-file-path %t-targ-host.bc \
 // RUN: -DTARGET_TEST -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix TTEST
 
 // RUN: %clang_cc1 -triple x86_64-pc-windows-msvc19.29.30133 -fopenmp \
-// RUN: -fexceptions -fcxx-exceptions -fopenmp-late-outline -fopenmp-typed-clauses -DWTEST \
+// RUN: -fexceptions -fcxx-exceptions -fopenmp-late-outline -DWTEST \
 // RUN: -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix WTEST
 

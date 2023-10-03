@@ -4,12 +4,12 @@
 // NOTE: Some editing added to match the loop metadata and remove version line.
 
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
-// RUN:  -fopenmp-typed-clauses -fopenmp-loop-rotation-control=0 \
+// RUN:  -fopenmp-loop-rotation-control=0 \
 // RUN:  -fopenmp-version=51 -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s --check-prefix ROT0
 
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
-// RUN:  -fopenmp-typed-clauses -fopenmp-loop-rotation-control=1 \
+// RUN:  -fopenmp-loop-rotation-control=1 \
 // RUN:  -fopenmp-version=51 -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s --check-prefix ROT1
 
