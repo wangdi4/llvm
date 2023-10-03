@@ -2661,7 +2661,8 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       FPM.addPass(HIRConditionalLoadStoreMotionPass());
 
     if (Level.getSizeLevel() == 0) {
-      FPM.addPass(HIRMemoryReductionSinkingPass());
+      FPM.addPass(HIRMemoryReductionSinkingPass(
+          false /* AllowConditionalReductionSinking */));
       FPM.addPass(HIRLoopPeelingPass());
     }
 
@@ -2702,6 +2703,8 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       FPM.addPass(HIROptPredicatePass(Level.getSpeedupLevel() == 3, false));
       FPM.addPass(HIRSpecialOptPredicatePass());
       FPM.addPass(HIRLMMPass());
+      FPM.addPass(HIRMemoryReductionSinkingPass(
+          true /* AllowConditionalReductionSinking */));
       if (RunVPOOpt) {
         if (EnableVPlanDriverHIR) {
           FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3),
