@@ -14,6 +14,7 @@
 
 #include "ScalarEvolution.h"
 
+#include "llvm/ADT/DenseMap.h"
 #include <llvm/IR/DataLayout.h>
 #include <llvm/Support/InstructionCost.h>
 #include <llvm/Support/KnownBits.h>

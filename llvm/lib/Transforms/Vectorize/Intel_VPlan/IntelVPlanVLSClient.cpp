@@ -17,7 +17,7 @@
 
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
-#include "ScalarEvolution.h"
+#include "LLVM/ScalarEvolutionLLVM.h"
 #include <optional>
 
 using namespace llvm::vpo;

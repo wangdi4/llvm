@@ -13,7 +13,7 @@
 
 #include "IntelVPlan.h"
 #include "IntelVPlanDominatorTree.h"
-#include "ScalarEvolution.h"
+#include "LLVM/ScalarEvolutionLLVM.h"
 
 #include <llvm/Analysis/ScalarEvolutionExpressions.h>
 #include <llvm/Analysis/ValueTracking.h>

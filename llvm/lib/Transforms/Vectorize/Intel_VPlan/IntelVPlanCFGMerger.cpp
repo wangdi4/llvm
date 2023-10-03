@@ -21,7 +21,7 @@
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanExternals.h"
-#include "ScalarEvolution.h"
+#include "LLVM/ScalarEvolutionLLVM.h"
 
 #define DEBUG_TYPE "VPlanCFGMerger"
 
