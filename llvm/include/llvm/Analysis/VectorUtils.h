@@ -585,6 +585,7 @@ static constexpr char const *_Unknown_ = "_unknown_";
 std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
                                           const Module &M);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 VFInfo demangleForVFABI(StringRef MangledName);
 std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
@@ -634,6 +635,8 @@ std::string mangleTLIVectorName(StringRef VectorName, StringRef ScalarName,
                                 unsigned numArgs, ElementCount VF,
                                 bool Masked = false);
 
+=======
+>>>>>>> 5a95960a7fbb7746776a788a5b2f6ab165f1380f
 /// Retrieve the `VFParamKind` from a string token.
 VFParamKind getVFParamKindFromString(const StringRef Token);
 

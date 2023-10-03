@@ -2330,6 +2330,7 @@ void InterleaveGroup<Instruction>::addMetadata(Instruction *NewInst) const {
 }
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool VFABI::supportedVectorVariantLegalization(const VFInfo &Variant,
                                                ArrayRef<Type *> ArgTys,
@@ -2518,6 +2519,8 @@ std::string VFABI::mangleTLIVectorName(StringRef VectorName,
   return std::string(Out.str());
 }
 
+=======
+>>>>>>> 5a95960a7fbb7746776a788a5b2f6ab165f1380f
 void VFABI::getVectorVariantNames(
     const CallInst &CI, SmallVectorImpl<std::string> &VariantMappings) {
   const StringRef S = CI.getFnAttr(VFABI::MappingsAttrName).getValueAsString();
