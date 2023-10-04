@@ -74,17 +74,18 @@ class VPOParoptModuleTransform {
 
 public:
   /// ParoptModuleTransform object constructor
-  VPOParoptModuleTransform(Module &M, int Mode, bool DisableOffload = false,
+  VPOParoptModuleTransform(
+      Module &M, int Mode, bool DisableOffload = false,
 #if INTEL_CUSTOMIZATION
-                           unsigned OptLevel = 2,
-                           LoopOptLimiter Limiter = LoopOptLimiter::None)
+      unsigned OptLevel = 2, LoopOptLimiter Limiter = LoopOptLimiter::None,
+      OptReportVerbosity::Level ORVerbosity = OptReportVerbosity::Low)
 #else
-                           unsigned OptLevel = 2)
+      unsigned OptLevel = 2)
 #endif  // INTEL_CUSTOMIZATION
-      : M(M), C(M.getContext()), Mode(Mode),
-        DisableOffload(DisableOffload), OptLevel(OptLevel),
+      : M(M), C(M.getContext()), Mode(Mode), DisableOffload(DisableOffload),
+        OptLevel(OptLevel),
 #if INTEL_CUSTOMIZATION
-        Limiter(Limiter), ORVerbosity(OptReportVerbosity::Low),
+        Limiter(Limiter), ORVerbosity(ORVerbosity),
 #endif  // INTEL_CUSTOMIZATION
         TgtOffloadEntryTy(nullptr), TgDeviceImageTy(nullptr),
         TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr), PrintfDecl(nullptr),

@@ -123,6 +123,9 @@ private:
   unsigned Mode;
 
 #if INTEL_CUSTOMIZATION
+  // NOTE: This only needs to be exposed for the old pass manager; it can be
+  // made private again when we remove old pass manager support.
+public:
   // Verbosity level for generating remarks using Loop Opt Report
   // framework (under -qopt-report).
   OptReportVerbosity::Level ORVerbosity = OptReportVerbosity::None;
@@ -150,12 +153,6 @@ public:
 
 private:
   VPOParoptPass Impl;
-
-#if INTEL_CUSTOMIZATION
-  // Verbosity level for generating remarks using Loop Opt Report
-  // framework (under -qopt-report).
-  OptReportVerbosity::Level ORVerbosity = OptReportVerbosity::None;
-#endif  // INTEL_CUSTOMIZATION
 };
 
 #if INTEL_CUSTOMIZATION

@@ -1966,15 +1966,26 @@ bool VPOParoptTransform::paroptTransforms() {
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
     if (ignoreRegion(W->getNumber())) {
+#if INTEL_CUSTOMIZATION
+      ORBuilder(*W, WRegionList)
+          .addRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::OpenMPConstructUserIgnored, W->getNumber(),
+                     W->getName());
+#endif // INTEL_CUSTOMIZATION
       Function *F = W->getEntryDirective()->getFunction();
       OptimizationRemark R("openmp", "Ignored", W->getEntryDirective());
       R << ("construct " + Twine(W->getNumber()) + " (" + W->getName() +
-            ") ignored on user's direction")
+            ") ignored at user's direction")
                .str();
       F->getContext().diagnose(R);
       RemoveDirectives = true;
     } else if (((Mode & OmpPar) && (Mode & ParTrans)) && DT &&
                !DT->isReachableFromEntry(W->getEntryBBlock())) {
+#if INTEL_CUSTOMIZATION
+      ORBuilder(*W, WRegionList)
+          .addRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::OpenMPConstructUnreachable, W->getName());
+#endif // INTEL_CUSTOMIZATION
       OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
       R << ore::NV("Construct", W->getName())
         << " construct is unreachable from function entry";
@@ -2949,10 +2960,20 @@ bool VPOParoptTransform::paroptTransforms() {
     // Emit opt-report remarks for handled/ignored constructs.
     if (RemoveDirectives || HandledWithoutRemovingDirectives) {
       if (Changed) {
+#if INTEL_CUSTOMIZATION
+        ORBuilder(*W, WRegionList)
+            .addRemark(OptReportVerbosity::High,
+                       OptRemarkID::OpenMPConstructTransformed, W->getName());
+#endif // INTEL_CUSTOMIZATION
         OptimizationRemark R("openmp", "Region", W->getEntryDirective());
         R << ore::NV("Construct", W->getName()) << " construct transformed";
         ORE.emit(R);
       } else {
+#if INTEL_CUSTOMIZATION
+        ORBuilder(*W, WRegionList)
+            .addRemark(OptReportVerbosity::High,
+                       OptRemarkID::OpenMPConstructIgnored, W->getName());
+#endif // INTEL_CUSTOMIZATION
         OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
         R << ore::NV("Construct", W->getName()) << " construct ignored";
         ORE.emit(R);
@@ -2963,7 +2984,7 @@ bool VPOParoptTransform::paroptTransforms() {
     // Move all opt-report metadata to the function because after transform
     // phase most of work regions will be removed, and for the remaining ones
     // no passes are expected to add any opt-report remarks.
-    if ((Mode & OmpPar) && (Mode & ParTrans))
+    if (RemoveDirectives || ((Mode & OmpPar) && (Mode & ParTrans)))
       if (ORBuilder(*W, WRegionList).getOptReport())
         ORBuilder(*W, WRegionList).preserveLostOptReport();
 

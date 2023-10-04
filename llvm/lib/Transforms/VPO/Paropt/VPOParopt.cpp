@@ -130,7 +130,7 @@ bool VPOParopt::runOnModule(Module &M) {
   };
 
 #if INTEL_CUSTOMIZATION
-  ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
+  Impl.ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
   return Impl.runImpl(M, WRegionInfoGetter, OptLevel, getLimiter());
 #else
   return Impl.runImpl(M, WRegionInfoGetter);
@@ -193,7 +193,8 @@ bool VPOParoptPass::runImpl(
 
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
 #if INTEL_CUSTOMIZATION
-  VPOParoptModuleTransform VP(M, Mode, DisableOffload, OptLevel, Limiter);
+  VPOParoptModuleTransform VP(M, Mode, DisableOffload, OptLevel, Limiter,
+                              ORVerbosity);
 #else
   VPOParoptModuleTransform VP(M, Mode, DisableOffload);
 #endif // INTEL_CUSTOMIZATION
