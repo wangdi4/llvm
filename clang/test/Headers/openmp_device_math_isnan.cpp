@@ -20,17 +20,17 @@
 
 double math(float f, double d) {
   double r = 0;
-  // INT_RETURN: call i32 @__nv_isnanf(float
+  // INT_RETURN: call noundef i32 @__nv_isnanf(float
   // AMD_INT_RETURN_SAFE: fcmp uno float
   // AMD_INT_RETURN_FAST: sitofp i32 0 to double
-  // BOOL_RETURN: call i32 @__nv_isnanf(float
+  // BOOL_RETURN: call noundef i32 @__nv_isnanf(float
   // AMD_BOOL_RETURN_SAFE: fcmp uno float
   // AMD_BOOL_RETURN_FAST: icmp ne i32 0, 0
   r += std::isnan(f);
-  // INT_RETURN: call i32 @__nv_isnand(double
+  // INT_RETURN: call noundef i32 @__nv_isnand(double
   // AMD_INT_RETURN_SAFE: fcmp uno double
   // AMD_INT_RETURN_FAST: sitofp i32 0 to double
-  // BOOL_RETURN: call i32 @__nv_isnand(double
+  // BOOL_RETURN: call noundef i32 @__nv_isnand(double
   // AMD_BOOL_RETURN_SAFE: fcmp uno double
   // AMD_BOOL_RETURN_FAST: icmp ne i32 0, 0
   r += std::isnan(d);
