@@ -321,16 +321,12 @@ BitcodeCompiler::compile(COFFLinkerContext &ctx,
     }
     if (ctx.config.saveTemps || emitASM)
       saveBuffer(buf[i].second, ltoObjName);
-<<<<<<< HEAD
-    ret.push_back(make<ObjFile>(ctx, MemoryBufferRef(objBuf, ltoObjName)));
+    if (!emitASM)
+      ret.push_back(make<ObjFile>(ctx, MemoryBufferRef(objBuf, ltoObjName)));
 #if INTEL_CUSTOMIZATION
     if (buffersOut)
       buffersOut->push_back(objBuf);
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (!emitASM)
-      ret.push_back(make<ObjFile>(ctx, MemoryBufferRef(objBuf, ltoObjName)));
->>>>>>> d12b99a4313816cf99e97cb5f579e2d51ba72b0b
   }
 
   return ret;
