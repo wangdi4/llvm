@@ -309,13 +309,6 @@ enum class split_barrier_action : uint8_t {
   signal = 1, // split barrier signal
 };
 
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-using raw_send_eot = sycl::ext::intel::esimd::raw_send_eot;
-using raw_send_sendc = sycl::ext::intel::esimd::raw_send_sendc;
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
-
 /// @} sycl_esimd_core
 
 } // namespace ext::intel::experimental::esimd
