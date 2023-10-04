@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -hir-allow-loop-materialization-regions=true -disable-output  2>&1 | FileCheck %s
 
 ; Verify that we create a region for a bblock with stores which looks like a materialization candidate.
 

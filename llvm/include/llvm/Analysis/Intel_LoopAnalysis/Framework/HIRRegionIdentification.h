@@ -26,6 +26,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Support/CommandLine.h"
 
 namespace llvm {
 
@@ -44,6 +45,8 @@ class SCEV;
 class TargetLibraryInfo;
 class MDNode;
 class Type;
+
+extern cl::opt<bool> AllowRegionsForLoopMaterialization;
 
 namespace loopopt {
 

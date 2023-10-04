@@ -20,7 +20,6 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/Statistic.h"
 
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -123,6 +122,14 @@ static cl::opt<bool>
 static cl::opt<bool> AllowLargeIntegers(
     "hir-allow-large-integers", cl::init(false), cl::Hidden,
     cl::desc("Option to allow integers greater than 64 bits in HIR"));
+
+namespace llvm {
+
+cl::opt<bool> AllowRegionsForLoopMaterialization(
+    "hir-allow-loop-materialization-regions", cl::init(false), cl::Hidden,
+    cl::desc("Option to allow formation of regions for loop materialization"));
+
+}
 
 STATISTIC(RegionCount, "Number of regions created");
 
@@ -2455,6 +2462,17 @@ static bool containsAlloca(const BasicBlock *BB) {
 
 void HIRRegionIdentification::formRegionsForLoopMaterialization(
     Function &Func) {
+
+  // Creation of regions for loop materialization can be expensive in compile
+  // time as we need to analyze and compute SCEV for all blocks in the region.
+  // This doesn't scale well for big functions. Specifically, inserting the
+  // regions in lexical order can be very expensive. If we choose to enable
+  // this by default we should tune the function size threshold for lexical
+  // insertion and also add a threshold for number of regions created for loop
+  // materialization.
+  if (!AllowRegionsForLoopMaterialization) {
+    return;
+  }
 
   unsigned FunctionSize = Func.size();
 

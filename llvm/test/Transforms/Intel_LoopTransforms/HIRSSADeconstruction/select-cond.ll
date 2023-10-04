@@ -3,7 +3,6 @@
 ; Test checks that CMP instruction did not get propogated into SELECT condition
 ; since one of the CMP arguments got redefined between CMP and SELECT.
 
-; CHECK: Region 2
 ; CHECK:  + DO i1 = 0, (zext.i2.i32(trunc.i32.i2((ptrtoint.ptr.i32(%src) /u 4))) + %n + -9)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 536870910>  <LEGAL_MAX_TC = 536870910>
 ; CHECK: |   %max4.0114.out = %max4.0114;
 ;        |   %indexCurr4.0116.out = %indexCurr4.0116;

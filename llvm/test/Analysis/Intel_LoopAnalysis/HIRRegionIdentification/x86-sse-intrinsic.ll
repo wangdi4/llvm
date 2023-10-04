@@ -1,10 +1,10 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; REQUIRES: asserts
+
+; RUN: opt %s -passes='print<hir-region-identification>' -debug-only=hir-region-identification -disable-output  2>&1 | FileCheck %s
 
 ; Test checks that no region is formed with llvm.x86.sse intrinsics.
 
-; CHECK: BEGIN REGION
-; CHECK-NOT: llvm.x86.sse 
-; CHECK: END REGION
+; CHECK: LOOPOPT_OPTREPORT: Loop %for.body: Skip loops with X86 SSE intrinsics
 
 source_filename = "rlsmax_intr.cpp"
 target datalayout = "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-f80:32-n8:16:32-S128"

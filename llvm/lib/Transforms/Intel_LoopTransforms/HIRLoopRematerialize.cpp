@@ -1385,6 +1385,12 @@ bool HIRLoopRematerialize::run() {
     return false;
   }
 
+  if (!AllowRegionsForLoopMaterialization) {
+    LLVM_DEBUG(
+        dbgs() << "Region formation for loop materialization is disabled.\n");
+    return false;
+  }
+
   // Scan HLRegions
   unsigned PreStat = LoopsRematerialized;
   for (HLNode &Node : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
