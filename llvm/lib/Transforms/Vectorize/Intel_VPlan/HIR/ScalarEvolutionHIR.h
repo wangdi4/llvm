@@ -97,7 +97,9 @@ private:
   loopopt::HLLoop *MainLoop;
 };
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &operator<<(raw_ostream &OS, const VPlanAddRecHIR &E);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 } // namespace vpo
 } // namespace llvm
 
