@@ -9601,6 +9601,7 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
             if (UsedScalars.test(I))
               continue;
             ScalarCost += ScalarEltCost(I);
+          }
 #if INTEL_CUSTOMIZATION
           // TODO: Ideally this cost adjustment for x86 CPUs superscalar feature
           // should belong to TTI. Currently implemented cost modeling
@@ -9633,7 +9634,6 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
             ScalarCost /= 2;
           }
 #endif // INTEL_CUSTOMIZATION
-          }
         }
 
         InstructionCost VecCost = VectorCost(CommonCost);
