@@ -2092,6 +2092,9 @@ private:
   ///  loop index variable into the register and performs loop rotation.
   bool regularizeOMPLoop(WRegionNode *W, bool First = true);
 
+  /// Insert kmpc_barrier for loops that are optimized away.
+  bool genBarrierForEmptyLoop(WRegionNode *W, bool IsTargetSPIRV);
+
   /// Check if loop is optimized away.
   bool isLoopOptimizedAway(WRegionNode *W);
 
