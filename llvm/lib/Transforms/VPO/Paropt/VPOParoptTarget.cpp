@@ -1655,7 +1655,12 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
           ArrayType::get(BufTy, cast<ConstantInt>(NumElems)->getZExtValue());
 
     uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_CLOSE;
-    if (AtomicFreeReductionDynamicBuffer)
+
+    bool UseReductionDynamicBuffer =
+        AtomicFreeReductionDynamicBuffer &&
+        VPOParoptTransform::deviceTriplesHasSPIRV();
+
+    if (UseReductionDynamicBuffer)
       MapType |= TGT_MAP_SIZE_TIMES_NUM_TEAMS;
     Value *MapTypeVal =
         ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
@@ -1682,12 +1687,11 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
     }
 
     if (NeedsGlobalBuffer) {
-      Value *MapGlobalSize =
-          ConstantInt::get(Type::getInt64Ty(F->getContext()),
-                           Size * ((AtomicFreeRedGlobalBufSize &&
-                                    !AtomicFreeReductionDynamicBuffer)
-                                       ? AtomicFreeRedGlobalBufSize
-                                       : 1));
+      Value *MapGlobalSize = ConstantInt::get(
+          Type::getInt64Ty(F->getContext()),
+          Size * ((AtomicFreeRedGlobalBufSize && !UseReductionDynamicBuffer)
+                      ? AtomicFreeRedGlobalBufSize
+                      : 1));
 
       auto *GlobalBuf = new GlobalVariable(
           *F->getParent(), BufTy, false, BufLinkage, Initializer, "red_buf",
@@ -1701,7 +1705,7 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
       Value *MapLocalSize = ConstantInt::get(
           Type::getInt64Ty(F->getContext()),
           Size * AtomicFreeRedLocalBufSize *
-              ((AtomicFreeRedGlobalBufSize && !AtomicFreeReductionDynamicBuffer)
+              ((AtomicFreeRedGlobalBufSize && !UseReductionDynamicBuffer)
                    ? AtomicFreeRedGlobalBufSize
                    : 1));
 
