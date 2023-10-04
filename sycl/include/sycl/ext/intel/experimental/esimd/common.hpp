@@ -311,17 +311,8 @@ enum class split_barrier_action : uint8_t {
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
-/// Specify if end of thread should be set.
-enum class raw_send_eot : uint8_t {
-  not_eot = 0,
-  eot = 1,
-};
-
-/// Specify if sendc should be used.
-enum class raw_send_sendc : uint8_t {
-  not_sendc = 0,
-  sendc = 1,
-};
+using raw_send_eot = sycl::ext::intel::esimd::raw_send_eot;
+using raw_send_sendc = sycl::ext::intel::esimd::raw_send_sendc;
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
