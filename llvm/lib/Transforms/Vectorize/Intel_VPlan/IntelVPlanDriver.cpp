@@ -16,7 +16,6 @@
 #include "HIR/IntelLoopVectorizationPlannerHIR.h"
 #include "HIR/IntelVPOCodeGenHIR.h"
 #include "HIR/IntelVPlanValueTrackingHIR.h"
-#include "HIR/ScalarEvolutionHIR.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPAlignAssumeCleanup.h"
 #include "IntelVPMemRefTransform.h"

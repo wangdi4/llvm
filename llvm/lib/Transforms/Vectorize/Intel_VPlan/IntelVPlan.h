@@ -53,6 +53,7 @@
 #include "IntelVPlanScalVecAnalysis.h"
 #include "IntelVPlanValue.h"
 #include "IntelVPlanValueTracking.h"
+#include "LLVM/ScalarEvolutionLLVM.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallSet.h"
