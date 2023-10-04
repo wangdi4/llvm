@@ -2873,7 +2873,6 @@ constexpr void check_lsc_block_2d_restrictions() {
                   "Unsupported block width");
   }
 }
-#undef BLOCK_2D_SCALE
 
 } // namespace detail
 
