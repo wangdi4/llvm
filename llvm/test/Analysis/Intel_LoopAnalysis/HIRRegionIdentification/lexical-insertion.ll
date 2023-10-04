@@ -1,6 +1,6 @@
-; RUN: opt < %s -passes='print<hir-region-identification>' -disable-output 2>&1 | FileCheck %s --check-prefix=LEX
+; RUN: opt < %s -passes='print<hir-region-identification>' -hir-allow-loop-materialization-regions=true -disable-output 2>&1 | FileCheck %s --check-prefix=LEX
 
-; RUN: opt < %s -passes='print<hir-region-identification>' -disable-output -hir-region-lexical-insertion-func-size-threshold=5 2>&1 | FileCheck %s --check-prefix=NO-LEX
+; RUN: opt < %s -passes='print<hir-region-identification>' -disable-output -hir-allow-loop-materialization-regions=true -hir-region-lexical-insertion-func-size-threshold=5 2>&1 | FileCheck %s --check-prefix=NO-LEX
 
 ; Verify that when function size is within the threshold, regions created for 
 ; materialization are inserted in lexical order otherwise they are inserted

@@ -1,4 +1,4 @@
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -hir-print-only=37 -aa-pipeline="scoped-noalias-aa" -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -hir-print-only=37 -aa-pipeline="scoped-noalias-aa" -hir-allow-loop-materialization-regions=true -disable-output %s 2>&1 | FileCheck %s
 
 ; The i2-i3 loopnests are not vectorized. When delinearized, LoopDepth (=2) <= MaxNumDimensions (=2).
 
