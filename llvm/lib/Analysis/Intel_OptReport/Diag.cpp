@@ -690,6 +690,12 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
      "Remainder loop for LLVM LoopUnroll partial unrolling"},
     {OptRemarkID::LLORGPeeledBy,
      "Loop has been peeled by %d iterations by LLVM LoopUnroll"},
+    {OptRemarkID::OpenMPConstructTransformed, "%s construct transformed"},
+    {OptRemarkID::OpenMPConstructUserIgnored,
+     "Construct %d (%s) ignored at user's direction"},
+    {OptRemarkID::OpenMPConstructUnreachable,
+     "%s construct is unreachable from function entry"},
+    {OptRemarkID::OpenMPConstructIgnored, "%s construct ignored"},
     {OptRemarkID::DummyRemarkForTesting, "Dummy remark for testing"},
 };
 

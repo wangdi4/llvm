@@ -356,6 +356,10 @@ public:
   /// \brief Return true if destructors are needed for privatized variables
   static bool needsDestructors(WRegionNode *W);
 
+  /// Returns \b true if \p W needs an implicit barrier (i.e. if W isOmpLoop
+  /// that is not a Distribute, Taskloop or SIMD node).
+  static bool needsImplicitBarrier(WRegionNode *W);
+
   /// Returns \b true if \p W contains a `\#pragma omp cancel` construct
   /// directly inside its region; \b false otherwise.
   static bool hasCancelConstruct(WRegionNode *W);

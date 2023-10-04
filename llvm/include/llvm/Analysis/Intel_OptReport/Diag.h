@@ -210,6 +210,10 @@ enum class OptRemarkID {
   LLORGUnrolledBy = 25604,
   LLORGRemainderLoop = 25605,
   LLORGPeeledBy = 25606,
+  OpenMPConstructTransformed = 25607,
+  OpenMPConstructUserIgnored = 25608,
+  OpenMPConstructUnreachable = 25609,
+  OpenMPConstructIgnored = 25610,
 
   DummyRemarkForTesting = 99999,
 };

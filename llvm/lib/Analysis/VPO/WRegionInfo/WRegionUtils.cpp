@@ -908,6 +908,14 @@ bool WRegionUtils::needsDestructors(WRegionNode *W) {
   return false;
 }
 
+// Returns true if W needs an implicit barrier.
+bool WRegionUtils::needsImplicitBarrier(WRegionNode *W) {
+  if (W->getIsOmpLoop() &&
+      (!W->getIsDistribute() || !W->getIsTask() || !isa<WRNVecLoopNode>(W)))
+    return true;
+  return false;
+}
+
 bool WRegionUtils::hasCancelConstruct(WRegionNode *W) {
   assert(W && "hasCancelConstruct: null WRegionNode");
 
