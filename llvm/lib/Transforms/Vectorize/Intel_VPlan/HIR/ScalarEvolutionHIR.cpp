@@ -266,11 +266,11 @@ VPlanAddRecHIR *VPlanScalarEvolutionHIR::makeVPlanAddRecHIR(
   return Ptr;
 }
 
-raw_ostream &vpo::operator<<(raw_ostream &OS, const VPlanAddRecHIR &E) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+raw_ostream &vpo::operator<<(raw_ostream &OS, const VPlanAddRecHIR &E) {
   OS << "{(";
   E.Base->print(OS);
   OS << "),+," << E.Stride << '}';
-#endif
   return OS;
 }
+#endif
