@@ -116,6 +116,7 @@ typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
                                         IsAddressOfRefs)>
     Gatherer;
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
+typedef SmallVector<DistPPNode *, 32> MergedPiBlockTy;
 
 class ScalarExpansion {
 public:
@@ -370,7 +371,7 @@ private:
 
   void
   processPiBlocksToHLNodes(const std::unique_ptr<PiGraph> &PGraph,
-                           ArrayRef<PiBlockList> GroupsOfPiBlocks,
+                           ArrayRef<MergedPiBlockTy> MergedPiBlocks,
                            SmallVectorImpl<HLDDNodeList> &DistributedLoops);
 
   void invalidateLoop(HLLoop *Loop) const;

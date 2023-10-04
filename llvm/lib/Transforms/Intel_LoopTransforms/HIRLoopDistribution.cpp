@@ -78,6 +78,30 @@ const OptRemarkID OptReportMsg[PragmaReturnCode::Last] = {
     //"Distribute point pragma not processed: Too many Distribute points"
     OptRemarkID::DistribPragmaFailExcessDistribPoints};
 
+// Combines all DistPPNodes in all the PiBlocks inside PiBlockList into a single
+// vector. Then sorts the nodes in the vector based on top sort num.
+static void
+mergeAndSortPiBlocks(ArrayRef<PiBlockList> GroupsOfPiBlocks,
+                     SmallVectorImpl<MergedPiBlockTy> &MergedPiBlocks) {
+
+  for (auto &PList : GroupsOfPiBlocks) {
+    auto &MergedPiBlock = MergedPiBlocks.emplace_back();
+
+    for (auto *PiBlock : PList) {
+      for (auto *PPNode :
+           make_range(PiBlock->dist_node_begin(), PiBlock->dist_node_end())) {
+        MergedPiBlock.push_back(PPNode);
+      }
+    }
+
+    std::sort(MergedPiBlock.begin(), MergedPiBlock.end(),
+              [](DistPPNode *A, DistPPNode *B) {
+                return A->getNode()->getTopSortNum() <
+                       B->getNode()->getTopSortNum();
+              });
+  }
+}
+
 bool HIRLoopDistribution::run() {
   if (DisableDist) {
     LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: Transform disabled\n");
@@ -208,10 +232,13 @@ bool HIRLoopDistribution::run() {
 
     if (NewOrdering.size() > 1 && NewOrdering.size() < MaxDistributedLoop) {
       SmallVector<HLDDNodeList, 8> DistributedLoops;
+      SmallVector<MergedPiBlockTy, 6> MergedPiBlocks;
+
+      mergeAndSortPiBlocks(NewOrdering, MergedPiBlocks);
 
       invalidateLoop(Lp);
 
-      processPiBlocksToHLNodes(PG, NewOrdering, DistributedLoops);
+      processPiBlocksToHLNodes(PG, MergedPiBlocks, DistributedLoops);
 
       // Do scalar expansion analysis.
       ScalarExpansion SCEX(Lp, false, DistributedLoops);
@@ -279,38 +306,25 @@ bool HIRLoopDistribution::run() {
 
 void HIRLoopDistribution::processPiBlocksToHLNodes(
     const std::unique_ptr<PiGraph> &PGraph,
-    ArrayRef<PiBlockList> GroupsOfPiBlocks,
+    ArrayRef<MergedPiBlockTy> MergedPiBlocks,
     SmallVectorImpl<HLDDNodeList> &DistributedLoops) {
 
-  // Maps (Original control statement, PiBlock list) -> Original or cloned HLIf.
-  SmallDenseMap<std::pair<HLIf *, const PiBlockList *>, HLIf *> ControlGuards;
+  // Maps (Original control statement, Merged Pi Block*) -> Original or cloned
+  // HLIf.
+  SmallDenseMap<std::pair<HLIf *, const MergedPiBlockTy *>, HLIf *>
+      ControlGuards;
 
   unsigned LoopNum = 0;
-  for (auto &PList : GroupsOfPiBlocks) {
+  for (auto &MergedPiBlock : MergedPiBlocks) {
+
     HLDDNodeList &CurLoopHLDDNodeList = DistributedLoops.emplace_back();
-
-    // Combine PiBlocks within single ordering group.
-    SmallVector<DistPPNode *, 32> MergedPiBlock;
-    for (auto *PiBlock : PList) {
-      for (auto *PPNode :
-           make_range(PiBlock->dist_node_begin(), PiBlock->dist_node_end())) {
-        MergedPiBlock.push_back(PPNode);
-      }
-    }
-
-    std::sort(MergedPiBlock.begin(), MergedPiBlock.end(),
-              [](DistPPNode *A, DistPPNode *B) {
-                return A->getNode()->getTopSortNum() <
-                       B->getNode()->getTopSortNum();
-              });
-
     for (auto *PPNode : MergedPiBlock) {
       HLNode *Node = PPNode->getNode();
 
       // Set the existing control node for the PList.
       if (PPNode->isControlNode()) {
         HLIf *ControlNode = cast<HLIf>(Node);
-        ControlGuards[{ControlNode, &PList}] = ControlNode;
+        ControlGuards[{ControlNode, &MergedPiBlock}] = ControlNode;
       }
 
       auto ControlDep = PGraph->getControlDependence(PPNode);
@@ -328,7 +342,7 @@ void HIRLoopDistribution::processPiBlocksToHLNodes(
         HLIf *OrigControlNode = cast<HLIf>(PiNode->getNode());
 
         // Try to get an existing node.
-        HLIf *&ControlNode = ControlGuards[{OrigControlNode, &PList}];
+        HLIf *&ControlNode = ControlGuards[{OrigControlNode, &MergedPiBlock}];
 
         // Do the cloning.
         if (!ControlNode) {
