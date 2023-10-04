@@ -1,9 +1,8 @@
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-blocking" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s -disable-output | FileCheck %s --check-prefix=DEFAULT
 
 ; Verify that blocking does not happen for the following code.
-; Because of linearized subscripts, it passes the test MaxDimension < LoopDepth.
-; However, it is not profitable.
+; No outer loop IVs are in the contiguous memory access direction, and no missing IVs are present.
+; Thus, no profitable refs were found by the loop blocking.
 
 ; DEFAULT-NOT: { modified }
 
@@ -32,21 +31,11 @@
 ;               + END LOOP
 ;         END REGION
 
-; Notice if it were the code as follows,
-; blocking did not happed because of "Failed MaxDimension < LoopDepth 2,2"
-;
-;       BEGIN REGION { }
-;             + DO i1 = 0, 511, 1   <DO_LOOP>
-;             |   + DO i2 = 0, 511, 1   <DO_LOOP>
-;             |   |   %mul = (@b)[0][i1][i2]  *  (@a)[0][i1][i2];
-;             |   |   %add = (@c)[0][i1][i2]  +  %mul;
-;             |   |   (@c)[0][i1][i2] = %add;
-;             |   + END LOOP
-;             + END LOOP
-;       END REGION
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-loop-blocking-skip-anti-pattern-check=true -hir-loop-blocking-no-delinear=true -disable-hir-loop-blocking-loop-depth-check=true 2>&1 < %s -disable-output | FileCheck %s --check-prefix=DEFAULT
+; Verify also that blocking can be avoided without the help of none of checking anti-pattern, delinearization or loop-depth checks.
 
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-blocking" -print-changed -disable-output 2>&1 < %s -disable-output | FileCheck %s --check-prefix=CHECK-CHANGED
 ; Verify that pass is not dumped with print-changed if it bails out.
-
 
 ; CHECK-CHANGED: Dump Before HIRTempCleanup
 ; CHECK-CHANGED-NOT: Dump After HIRLoopBlocking
