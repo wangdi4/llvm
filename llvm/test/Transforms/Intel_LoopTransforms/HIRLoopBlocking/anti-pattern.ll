@@ -1,12 +1,23 @@
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -hir-loop-blocking-no-delinear -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
+; REQUIRES:asserts
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-blocking,print<hir>" -hir-loop-blocking-skip-anti-pattern-check=false -hir-loop-blocking-no-delinear=false -debug-only=hir-loop-blocking -aa-pipeline="basic-aa" 2>&1 < %s -disable-output | FileCheck %s
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-blocking,print<hir>" -hir-loop-blocking-skip-anti-pattern-check=false -hir-loop-blocking-no-delinear=true -debug-only=hir-loop-blocking -aa-pipeline="basic-aa" 2>&1 < %s -disable-output | FileCheck %s
 
 ; Check the blocking doesn't happen because it is trivially clear that blocking doesn't help.
+; Notice that this is true whether deliearization is done or not (-hir-loop-blocking-no-delinear).
+
 ; - Innerloop is already unit-strided.
 ; - Outerloop's blocking will be just stripmining without blocking of the innerloop.
 ; Delinearization is disabled. With delinearization, num_dimensions >= num_depth hinders loop blocking.
 ; But with or without blocking, this pattern is not a good candidate for loop blocking.
-
-; CHECK: Function: matrix_mul_vect
+;
+; On the contrary, notice that this code is very close to the representative example in K&R book's chapter for loop blocking.
+; The code there was described as shown below:
+;
+;   DO I = 1, M
+;     DO J = 1, N
+;       D(J) = D(J) + B(J, I)
+;
+; However, in practice, the code showed performance degradation (e.g. coremark-pro/linear_alg-mid-100x100-sp@opt_base_glm)
 
 ;         BEGIN REGION { }
 ;               + DO i1 = 0, %N + -1, 1   <DO_LOOP>
@@ -19,9 +30,37 @@
 ;               + END LOOP
 ;         END REGION
 
+; CHECK: Trivial anti-pattern
+
 ; CHECK: Function: matrix_mul_vect
 ; CHECK-NOT: DO i3
 ; CHECK-NOT: DO i4
+
+; Without filtering as an anti-pattern, with disabling delinearization + enabling loop depth check, loop blocking currently considers it as profitable.
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-blocking,print<hir>"  -hir-loop-blocking-skip-anti-pattern-check=true -hir-loop-blocking-no-delinear=true -disable-hir-loop-blocking-loop-depth-check=false -aa-pipeline="basic-aa" 2>&1 < %s -disable-output | FileCheck %s --check-prefix=CHECK-BLOCKED
+
+; Without filtering as an anti-pattern, with enabling delinearization + disabling loop depth check, loop blocking currently considers it as profitable.
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-blocking,print<hir>"  -hir-loop-blocking-skip-anti-pattern-check=true -hir-loop-blocking-no-delinear=false -disable-hir-loop-blocking-loop-depth-check=true -aa-pipeline="basic-aa" 2>&1 < %s -disable-output | FileCheck %s --check-prefix=CHECK-BLOCKED
+
+; CHECK-BLOCKED: Function: matrix_mul_vect
+; CHECK-BLOCKED:  BEGIN REGION { modified }
+; CHECK-BLOCKED:        + DO i1 = 0, (%N + -1)/u64, 1   <DO_LOOP>
+; CHECK-BLOCKED:        |   %min = (-64 * i1 + %N + -1 <= 63) ? -64 * i1 + %N + -1 : 63;
+;                       |
+; CHECK-BLOCKED:        |   + DO i2 = 0, (%N + -1)/u64, 1   <DO_LOOP>
+; CHECK-BLOCKED:        |   |   %min2 = (-64 * i2 + %N + -1 <= 63) ? -64 * i2 + %N + -1 : 63;
+;                       |   |
+; CHECK-BLOCKED:        |   |   + DO i3 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+; CHECK-BLOCKED:        |   |   |   + DO i4 = 0, %min2, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+; CHECK-BLOCKED:        |   |   |   |   %1 = (%B)[64 * i2 + i4];
+; CHECK-BLOCKED:        |   |   |   |   %mul5 = (%A)[64 * %N * i1 + 64 * i2 + %N * i3 + i4]  *  %1;
+; CHECK-BLOCKED:        |   |   |   |   %add7 = %1  +  %mul5;
+; CHECK-BLOCKED:        |   |   |   |   (%B)[64 * i2 + i4] = %add7;
+; CHECK-BLOCKED:        |   |   |   + END LOOP
+; CHECK-BLOCKED:        |   |   + END LOOP
+; CHECK-BLOCKED:        |   + END LOOP
+; CHECK-BLOCKED:        + END LOOP
+; CHECK-BLOCKED:  END REGION
 
 ;Module Before HIR
 ; ModuleID = 'anti-pattern.c'
