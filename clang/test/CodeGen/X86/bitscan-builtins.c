@@ -1,15 +1,9 @@
-<<<<<<< HEAD
-// RUN: %clang_cc1 -x c -ffreestanding %s -triple=x86_64-unknown-unknown -emit-llvm -o - | FileCheck %s
-// RUN: %clang_cc1 -x c++ -std=c++11 -ffreestanding %s -triple=x86_64-unknown-unknown -emit-llvm -o - | FileCheck %s
-// INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -x c -ffreestanding -triple i686-unknown-unknown -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -x c++ -std=c++11 -ffreestanding %s -triple=i686-unknown-unknown -emit-llvm -o - | FileCheck %s
-// end INTEL_CUSTOMIZATION
-
-=======
 // RUN: %clang_cc1 -x c -ffreestanding %s -triple=x86_64-unknown-unknown -no-enable-noundef-analysis -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 -x c++ -std=c++11 -ffreestanding %s -triple=x86_64-unknown-unknown -no-enable-noundef-analysis -emit-llvm -o - | FileCheck %s
->>>>>>> 2da4960f20f7e5d88a68ce25636a895284dc66d8
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -x c -ffreestanding -triple i686-unknown-unknown -no-enable-noundef-analysis -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -x c++ -std=c++11 -ffreestanding %s -triple=i686-unknown-unknown -no-enable-noundef-analysis -emit-llvm -o - | FileCheck %s
+// end INTEL_CUSTOMIZATION
 
 // PR33722
 // RUN: %clang_cc1 -x c -ffreestanding %s -triple x86_64-unknown-unknown -fms-extensions -fms-compatibility-version=19.00 -no-enable-noundef-analysis -emit-llvm -o - | FileCheck %s
