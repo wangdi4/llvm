@@ -57,15 +57,11 @@
     !defined(__need_unreachable) && !defined(__need_max_align_t) &&            \
     !defined(__need_offsetof) && !defined(__need_wint_t)
 #define __STDDEF_H
-<<<<<<< HEAD
-#endif
 /* INTEL_CUSTOMIZATION */
 #if defined(_MSC_VER)
 #include <corecrt.h>
 #endif // if defined(_MSC_VER)
 /* end INTEL_CUSTOMIZATION */
-=======
->>>>>>> 9a7a6dd3c358ca7becef75c0a9581dcfa3e6b5f4
 #define __need_ptrdiff_t
 #define __need_size_t
 /* ISO9899:2011 7.20 (C11 Annex K): Define rsize_t if __STDC_WANT_LIB_EXT1__ is
