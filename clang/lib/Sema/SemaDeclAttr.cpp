@@ -8675,7 +8675,6 @@ static void handleSYCLIntelMaxReplicatesAttr(Sema &S, Decl *D,
 /// second is a direction.  The direction must be "depth" or "width".
 /// This is incompatible with the register attribute.
 static void handleSYCLIntelMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
@@ -8684,10 +8683,6 @@ static void handleSYCLIntelMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   S.CheckDeprecatedSYCLAttributeSpelling(AL);
 #endif // INTEL_CUSTOMIZATION
 
-  checkForDuplicateAttribute<SYCLIntelMergeAttr>(S, D, AL);
-
-=======
->>>>>>> a97d64c5fb5b8347868c9a22dabcae78a0e69f46
   SmallVector<StringRef, 2> Results;
   for (int I = 0; I < 2; I++) {
     StringRef Str;
