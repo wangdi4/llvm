@@ -917,6 +917,7 @@ IrPropSymFilenameTriple saveModule(module_split::ModuleDesc &MD, int I,
         Suffix = Twine("_globals").toStringRef(Temp);
     }
 #endif // INTEL_COLLAB
+    MD.cleanup();
     Res.Ir = saveModuleIR(MD.getModule(), I, Suffix);
   }
 #if INTEL_COLLAB
@@ -1350,6 +1351,7 @@ processInputModule(std::unique_ptr<Module> M) {
         error("some modules had to be split, '-" + IROutputOnly.ArgStr +
               "' can't be used");
       }
+      MMs.front().cleanup();
       saveModuleIR(MMs.front().getModule(), OutputFilename);
       return Table;
     }
