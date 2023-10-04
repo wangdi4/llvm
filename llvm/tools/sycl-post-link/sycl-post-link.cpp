@@ -905,6 +905,7 @@ IrPropSymFilenameTriple saveModule(module_split::ModuleDesc &MD, int I,
     // don't save IR, just record the filename
     Res.Ir = IRFilename.str();
   } else {
+<<<<<<< HEAD
 #if INTEL_COLLAB
     // All global variables' definitions are extracted into a single module,
     // which by convention must be listed first in the output table if
@@ -917,6 +918,9 @@ IrPropSymFilenameTriple saveModule(module_split::ModuleDesc &MD, int I,
         Suffix = Twine("_globals").toStringRef(Temp);
     }
 #endif // INTEL_COLLAB
+=======
+    MD.cleanup();
+>>>>>>> 7c5fd09275f196b8695b2073899db1d0ab9d24d1
     Res.Ir = saveModuleIR(MD.getModule(), I, Suffix);
   }
 #if INTEL_COLLAB
@@ -1350,6 +1354,7 @@ processInputModule(std::unique_ptr<Module> M) {
         error("some modules had to be split, '-" + IROutputOnly.ArgStr +
               "' can't be used");
       }
+      MMs.front().cleanup();
       saveModuleIR(MMs.front().getModule(), OutputFilename);
       return Table;
     }
