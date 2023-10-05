@@ -56,7 +56,7 @@ namespace clang {
       DIAG_SIZE_AST           =  300,
       DIAG_SIZE_COMMENT       =  100,
       DIAG_SIZE_CROSSTU       =  100,
-      DIAG_SIZE_SEMA          = 4500, // INTEL
+      DIAG_SIZE_SEMA          = 5000, // INTEL
       DIAG_SIZE_ANALYSIS      =  100,
       DIAG_SIZE_REFACTORING   = 1000,
     };
