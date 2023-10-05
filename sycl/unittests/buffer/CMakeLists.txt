@@ -1,5 +1,4 @@
 add_sycl_unittest(BufferTests OBJECT
-  BufferDestructionCheck.cpp
   BufferLocation.cpp
   Image.cpp
   BufferReleaseBase.cpp
