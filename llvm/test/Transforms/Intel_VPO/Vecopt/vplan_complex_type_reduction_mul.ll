@@ -16,8 +16,8 @@
 ; }
 
 ; REQUIRES: asserts
-; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -S -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s --check-prefix=LLVM-IR
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -debug-only=HIRLegality -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRVEC
+; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -S -debug-only=VPlanLegality < %s 2>&1 | FileCheck %s --check-prefix=LLVM-IR
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -debug-only=VPlanLegality -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRVEC
 ; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 ; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
 ; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI-HIR

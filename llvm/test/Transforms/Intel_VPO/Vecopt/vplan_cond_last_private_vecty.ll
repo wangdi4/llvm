@@ -1,6 +1,6 @@
 ;
-; RUN: opt %s -disable-output -passes="vplan-vec" -debug-only=vpo-ir-loop-vectorize-legality 2>&1 | FileCheck %s
-; RUN: opt %s -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -debug-only=HIRLegality 2>&1 | FileCheck %s
+; RUN: opt %s -disable-output -passes="vplan-vec" -debug-only=VPlanLegality 2>&1 | FileCheck %s
+; RUN: opt %s -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -debug-only=VPlanLegality 2>&1 | FileCheck %s
 
 ; CHECK: Conditional lastprivate of a vector type is not supported
 ; CHECK-NOT: <16 x i8>
