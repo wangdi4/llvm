@@ -22,7 +22,6 @@ if (NOT DEFINED UNIFIED_RUNTIME_LIBRARY OR NOT DEFINED UNIFIED_RUNTIME_INCLUDE_D
   # The UR tag should be from the 'adapters' branch
   set(UNIFIED_RUNTIME_REPO "https://github.com/oneapi-src/unified-runtime.git")
   set(UNIFIED_RUNTIME_TAG b38855ed815ffd076bfde5e5e06170ca4f723dc1)
-<<<<<<< HEAD
 
   if(INTEL_CUSTOMIZATION)
     # 1Source policy is to use internal mirrors as much as possible.
@@ -31,8 +30,6 @@ if (NOT DEFINED UNIFIED_RUNTIME_LIBRARY OR NOT DEFINED UNIFIED_RUNTIME_INCLUDE_D
       set(UNIFIED_RUNTIME_REPO "${GITSERVER}/unified-runtime.git")
     endif()
   endif(INTEL_CUSTOMIZATION)
-=======
->>>>>>> b7d91de4f7505eb9895c3812fda41efbea09062a
 
   set(UR_BUILD_ADAPTER_L0 ON)
   set(UMF_ENABLE_POOL_TRACKING ON)
