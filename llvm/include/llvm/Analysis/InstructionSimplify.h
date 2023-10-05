@@ -145,6 +145,14 @@ struct SimplifyQuery {
     assert((!SE && !LI || SE && LI) && "SE/LI are expected to come in pair.");
   }
 #endif // INTEL_CUSTOMIZATION
+
+  SimplifyQuery(const DataLayout &DL, const DominatorTree *DT,
+                AssumptionCache *AC = nullptr,
+                const Instruction *CXTI = nullptr, bool UseInstrInfo = true,
+                bool CanUseUndef = true)
+      : DL(DL), DT(DT), AC(AC), CxtI(CXTI), IIQ(UseInstrInfo),
+        CanUseUndef(CanUseUndef) {}
+
   SimplifyQuery getWithInstruction(Instruction *I) const {
     SimplifyQuery Copy(*this);
     Copy.CxtI = I;
