@@ -486,8 +486,6 @@ class OpenMPLateOutliner {
   std::vector<std::pair<llvm::WeakTrackingVH, llvm::Type *>> ReferencedValues;
   llvm::DenseSet<llvm::Value *> HandledValues;
 
-  bool UseTypedClauses = false;
-
 public:
   static const VarDecl *getExplicitVarDecl(const Expr *E);
   static const DeclRefExpr *getExplicitDeclRefOrNull(const Expr *E);
