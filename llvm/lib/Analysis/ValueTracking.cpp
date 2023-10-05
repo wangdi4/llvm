@@ -9370,7 +9370,6 @@ static ConstantRange getRangeForIntrinsic(const IntrinsicInst &II) {
   return ConstantRange::getFull(Width);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // select %cond, iXX C1, iXX C2
 // C1 and C2 must be non-negative, as we don't know the signed/unsigned
@@ -9397,19 +9396,6 @@ static void tryToMatchTwoConstIntSelect(const SelectInst &SI, APInt &Lower,
 }
 #endif // INTEL_CUSTOMIZATION
 
-static void setLimitsForSelectPattern(const SelectInst &SI, APInt &Lower,
-                                      APInt &Upper, const InstrInfoQuery &IIQ) {
-  const Value *LHS = nullptr, *RHS = nullptr;
-  SelectPatternResult R = matchSelectPattern(&SI, LHS, RHS);
-#if INTEL_CUSTOMIZATION
-  if (R.Flavor == SPF_UNKNOWN) {
-    tryToMatchTwoConstIntSelect(SI, Lower, Upper);
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  unsigned BitWidth = SI.getType()->getScalarSizeInBits();
-=======
 static ConstantRange getRangeForSelectPattern(const SelectInst &SI,
                                               const InstrInfoQuery &IIQ) {
   unsigned BitWidth = SI.getType()->getScalarSizeInBits();
@@ -9417,7 +9403,6 @@ static ConstantRange getRangeForSelectPattern(const SelectInst &SI,
   SelectPatternResult R = matchSelectPattern(&SI, LHS, RHS);
   if (R.Flavor == SPF_UNKNOWN)
     return ConstantRange::getFull(BitWidth);
->>>>>>> 941c75a53036e94be388942523d97b78653c95dd
 
   if (R.Flavor == SelectPatternFlavor::SPF_ABS) {
     // If the negation part of the abs (in RHS) has the NSW flag,
