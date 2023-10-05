@@ -28,7 +28,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h"
 
-#define DEBUG_TYPE "VPlanHCFGBuilder"
+#define DEBUG_TYPE "VPlanLegality"
 
 using namespace llvm;
 using namespace vpo;
@@ -230,7 +230,7 @@ template <typename... Args>
 bool HIRVectorizationLegality::bailout(OptReportVerbosity::Level Level,
                                        OptRemarkID ID, std::string Message,
                                        Args &&...BailoutArgs) {
-  DEBUG_WITH_TYPE("HIRLegality", dbgs() << Message << "\n");
+  LLVM_DEBUG(dbgs() << Message << "\n");
   setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
   return false;
 }
@@ -240,7 +240,7 @@ bool HIRVectorizationLegality::bailoutWithDebug(OptReportVerbosity::Level Level,
                                                 OptRemarkID ID,
                                                 std::string Debug,
                                                 Args &&...BailoutArgs) {
-  DEBUG_WITH_TYPE("HIRLegality", dbgs() << Debug << "\n");
+  LLVM_DEBUG(dbgs() << Debug << "\n");
   setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
   return false;
 }

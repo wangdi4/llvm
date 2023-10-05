@@ -29,7 +29,7 @@
 #include "../IntelVPlanUtils.h"
 #include "llvm/IR/PatternMatch.h"
 
-#define DEBUG_TYPE "vpo-ir-loop-vectorize-legality"
+#define DEBUG_TYPE "VPlanLegality"
 
 using namespace llvm;
 using namespace llvm::vpo;
