@@ -21,7 +21,7 @@ if (NOT DEFINED UNIFIED_RUNTIME_LIBRARY OR NOT DEFINED UNIFIED_RUNTIME_INCLUDE_D
 
   # The UR tag should be from the 'adapters' branch
   set(UNIFIED_RUNTIME_REPO "https://github.com/oneapi-src/unified-runtime.git")
-  set(UNIFIED_RUNTIME_TAG e6343f4cca9a37b17bc63f3a81968ac3f486be8a)
+  set(UNIFIED_RUNTIME_TAG b38855ed815ffd076bfde5e5e06170ca4f723dc1)
 
   if(INTEL_CUSTOMIZATION)
     # 1Source policy is to use internal mirrors as much as possible.
