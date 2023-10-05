@@ -25933,7 +25933,7 @@ static SDValue LowerSIGN_EXTEND_Mask(SDValue Op,
 #if INTEL_FEATURE_ISA_AVX256P
   if ((Subtarget.hasDQI() && WideEltVT.getSizeInBits() >= 32) ||
       (Subtarget.hasBWI() && WideEltVT.getSizeInBits() <= 16) ||
-      Subtarget.hasAVX256P()) {
+      (Subtarget.hasAVX256P() && ExtVT.getSizeInBits() <= 256)) {
 #else  // INTEL_FEATURE_ISA_AVX256P
   if ((Subtarget.hasDQI() && WideEltVT.getSizeInBits() >= 32) ||
       (Subtarget.hasBWI() && WideEltVT.getSizeInBits() <= 16)) {
