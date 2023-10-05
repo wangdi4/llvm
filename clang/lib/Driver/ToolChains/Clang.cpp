@@ -10741,16 +10741,11 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   }
   CmdArgs.push_back("-unbundle");
   CmdArgs.push_back("-allow-missing-bundles");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   auto TmpDir =
       TCArgs.MakeArgString(Twine("-base-temp-dir=") + C.getDriver().BaseTempDir);
   CmdArgs.push_back(TmpDir);
 #endif // INTEL_CUSTOMIZATION
-  if (TCArgs.hasArg(options::OPT_v))
-    CmdArgs.push_back("-verbose");
-=======
->>>>>>> c41bcf3d748198dfa42954055d2bfb754eee3472
 
   // All the inputs are encoded as commands.
   C.addCommand(std::make_unique<Command>(
