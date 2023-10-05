@@ -9396,60 +9396,50 @@ static void tryToMatchTwoConstIntSelect(const SelectInst &SI, APInt &Lower,
 }
 #endif // INTEL_CUSTOMIZATION
 
-static void setLimitsForSelectPattern(const SelectInst &SI, APInt &Lower,
-                                      APInt &Upper, const InstrInfoQuery &IIQ) {
+static ConstantRange getRangeForSelectPattern(const SelectInst &SI,
+                                              const InstrInfoQuery &IIQ) {
+  unsigned BitWidth = SI.getType()->getScalarSizeInBits();
   const Value *LHS = nullptr, *RHS = nullptr;
   SelectPatternResult R = matchSelectPattern(&SI, LHS, RHS);
-#if INTEL_CUSTOMIZATION
-  if (R.Flavor == SPF_UNKNOWN) {
-    tryToMatchTwoConstIntSelect(SI, Lower, Upper);
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  unsigned BitWidth = SI.getType()->getScalarSizeInBits();
+  if (R.Flavor == SPF_UNKNOWN)
+    return ConstantRange::getFull(BitWidth);
 
   if (R.Flavor == SelectPatternFlavor::SPF_ABS) {
     // If the negation part of the abs (in RHS) has the NSW flag,
     // then the result of abs(X) is [0..SIGNED_MAX],
     // otherwise it is [0..SIGNED_MIN], as -SIGNED_MIN == SIGNED_MIN.
-    Lower = APInt::getZero(BitWidth);
     if (match(RHS, m_Neg(m_Specific(LHS))) &&
         IIQ.hasNoSignedWrap(cast<Instruction>(RHS)))
-      Upper = APInt::getSignedMaxValue(BitWidth) + 1;
-    else
-      Upper = APInt::getSignedMinValue(BitWidth) + 1;
-    return;
+      return ConstantRange::getNonEmpty(APInt::getZero(BitWidth),
+                                        APInt::getSignedMaxValue(BitWidth) + 1);
+
+    return ConstantRange::getNonEmpty(APInt::getZero(BitWidth),
+                                      APInt::getSignedMinValue(BitWidth) + 1);
   }
 
   if (R.Flavor == SelectPatternFlavor::SPF_NABS) {
     // The result of -abs(X) is <= 0.
-    Lower = APInt::getSignedMinValue(BitWidth);
-    Upper = APInt(BitWidth, 1);
-    return;
+    return ConstantRange::getNonEmpty(APInt::getSignedMinValue(BitWidth),
+                                      APInt(BitWidth, 1));
   }
 
   const APInt *C;
   if (!match(LHS, m_APInt(C)) && !match(RHS, m_APInt(C)))
-    return;
+    return ConstantRange::getFull(BitWidth);
 
   switch (R.Flavor) {
-    case SPF_UMIN:
-      Upper = *C + 1;
-      break;
-    case SPF_UMAX:
-      Lower = *C;
-      break;
-    case SPF_SMIN:
-      Lower = APInt::getSignedMinValue(BitWidth);
-      Upper = *C + 1;
-      break;
-    case SPF_SMAX:
-      Lower = *C;
-      Upper = APInt::getSignedMaxValue(BitWidth) + 1;
-      break;
-    default:
-      break;
+  case SPF_UMIN:
+    return ConstantRange::getNonEmpty(APInt::getZero(BitWidth), *C + 1);
+  case SPF_UMAX:
+    return ConstantRange::getNonEmpty(*C, APInt::getZero(BitWidth));
+  case SPF_SMIN:
+    return ConstantRange::getNonEmpty(APInt::getSignedMinValue(BitWidth),
+                                      *C + 1);
+  case SPF_SMAX:
+    return ConstantRange::getNonEmpty(*C,
+                                      APInt::getSignedMaxValue(BitWidth) + 1);
+  default:
+    return ConstantRange::getFull(BitWidth);
   }
 }
 
@@ -9495,13 +9485,9 @@ ConstantRange llvm::computeConstantRange(const Value *V, bool ForSigned,
     CR = ConstantRange::getNonEmpty(Lower, Upper);
   } else if (auto *II = dyn_cast<IntrinsicInst>(V))
     CR = getRangeForIntrinsic(*II);
-  else if (auto *SI = dyn_cast<SelectInst>(V)) {
-    APInt Lower = APInt(BitWidth, 0);
-    APInt Upper = APInt(BitWidth, 0);
-    // TODO: Return ConstantRange.
-    setLimitsForSelectPattern(*SI, Lower, Upper, IIQ);
-    CR = ConstantRange::getNonEmpty(Lower, Upper);
-  } else if (isa<FPToUIInst>(V) || isa<FPToSIInst>(V)) {
+  else if (auto *SI = dyn_cast<SelectInst>(V))
+    CR = getRangeForSelectPattern(*SI, IIQ);
+  else if (isa<FPToUIInst>(V) || isa<FPToSIInst>(V)) {
     APInt Lower = APInt(BitWidth, 0);
     APInt Upper = APInt(BitWidth, 0);
     // TODO: Return ConstantRange.
