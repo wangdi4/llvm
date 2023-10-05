@@ -3,9 +3,16 @@
 // RUN: %libomptarget-compilexx-generic -O3 -ffast-math && \
 // RUN:   %libomptarget-run-generic
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #define COMPLEX_SUPPORTED (defined(__GNUC__) && __GNUC__ > 6)
 #if COMPLEX_SUPPORTED
+=======
+// FIXME: This fails to link due to missing math symbols. We should provide the
+//        needed math functions in the GPU `libm` and require the GPU C library.
+// UNSUPPORTED: amdgcn-amd-amdhsa
+
+>>>>>>> 75e648031c39bb602b02d83021eda59fd8fc2259
 #include <cassert>
 #include <complex>
 #include <iostream>
