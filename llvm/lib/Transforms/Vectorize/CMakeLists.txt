@@ -91,6 +91,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/HIR/IntelVPlanValueTrackingHIR.cpp
   Intel_VPlan/HIR/IntelVPlanVLSAnalysisHIR.cpp
   Intel_VPlan/HIR/IntelVPlanVerifierHIR.cpp
+  Intel_VPlan/HIR/LegalityHIR.cpp
   Intel_VPlan/Legality.cpp
   Intel_VPlan/LLVM/LegalityLLVM.cpp
   Intel_VPlan/LLVM/ScalarEvolutionLLVM.cpp
