@@ -352,6 +352,7 @@ public:
   // TODO - fix all __esimd* intrinsics and table entries according to the rule
   // above.
   ESIMDIntrinDescTable() {
+    // clang-format off
     Table = {
         // An element of the table is std::pair of <key, value>; key is the
         // source
@@ -544,6 +545,14 @@ public:
         {"raw_send2_noresult",
          {"raw.send2.noresult",
           {a(0), a(1), ai1(2), a(3), a(4), a(5), a(6), a(7)}}},
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+        {"raw_sendg",
+         {"raw.sendg",
+          {t16(4), t1(1), t1(0), t8(3), ai1(0), a(1), t16(5), a(2), t16(6),
+	   a(3), a(4), t64(7), a(5)}}},
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
         {"wait", {"dummy.mov", {a(0)}}},
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
@@ -726,6 +735,7 @@ public:
         {"subb", {"subb", {l(0)}}},
         {"bfn", {"bfn", {a(0), a(1), a(2), t(0)}}}};
   }
+  // clang-format on
 
   const IntrinTable &getTable() { return Table; }
 };

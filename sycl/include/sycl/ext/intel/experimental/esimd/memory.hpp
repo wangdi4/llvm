@@ -410,10 +410,10 @@ raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, __ESIMD_NS::simd<T1, N1> msg_src1,
   constexpr uint32_t src0_size = N0 * sizeof(T0);
   constexpr uint32_t src1_size = N1 * sizeof(T1);
 
-  return __esimd_raw_sendg2<eot, sendc, exec_size, sfid, dst_size, src0_size,
-                            src1_size, desc, ElemT2, N2, ElemT0, N0, ElemT1,
-                            N1>(mask.data(), msg_src0.data(), msg_src1.data(),
-                                ind0, ind1, msg_dst.data());
+  return __esimd_raw_sendg<eot, sendc, exec_size, sfid, dst_size, src0_size,
+                           src1_size, desc, ElemT2, N2, ElemT0, N0, ElemT1, N1>(
+      mask.data(), msg_src0.data(), msg_src1.data(), ind0, ind1,
+      msg_dst.data());
 }
 
 /// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
@@ -452,10 +452,12 @@ raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, __ESIMD_NS::simd<T1, N1> msg_src1,
   constexpr uint32_t src0_size = N0 * sizeof(T0);
   constexpr uint32_t src1_size = N1 * sizeof(T1);
 
-  return __esimd_raw_sendg2<eot, sendc, exec_size, sfid, dst_size, src0_size,
-                            src1_size, desc, ElemT2, N2, ElemT0, N0, ElemT1,
-                            N1>(mask.data(), msg_src0.data(), msg_src1.data(),
-                                ind0, msg_dst.data());
+  uint64_t undef; // Intentionally undefined.
+
+  return __esimd_raw_sendg<eot, sendc, exec_size, sfid, dst_size, src0_size,
+                           src1_size, desc, ElemT2, N2, ElemT0, N0, ElemT1, N1>(
+      mask.data(), msg_src0.data(), msg_src1.data(), ind0, undef,
+      msg_dst.data());
 }
 
 /// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
@@ -494,10 +496,12 @@ raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, __ESIMD_NS::simd<T1, N1> msg_src1,
   constexpr uint32_t src0_size = N0 * sizeof(T0);
   constexpr uint32_t src1_size = N1 * sizeof(T1);
 
-  return __esimd_raw_sendg2<eot, sendc, exec_size, sfid, dst_size, src0_size,
-                            src1_size, desc, ElemT2, N2, ElemT0, N0, ElemT1,
-                            N1>(mask.data(), msg_src0.data(), msg_src1.data(),
-                                msg_dst.data());
+  uint64_t undef; // Intentionally undefined.
+
+  return __esimd_raw_sendg<eot, sendc, exec_size, sfid, dst_size, src0_size,
+                           src1_size, desc, ElemT2, N2, ElemT0, N0, ElemT1, N1>(
+      mask.data(), msg_src0.data(), msg_src1.data(), undef, undef,
+      msg_dst.data());
 }
 
 /// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
@@ -524,16 +528,22 @@ __ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0,
                            __ESIMD_NS::simd<T1, N1> msg_src1, uint64_t ind0,
                            uint64_t ind1,
                            __ESIMD_NS::simd_mask<exec_size> mask = 1) {
+  using T2 = int;
+  constexpr int N2 = 16;
+
+  __ESIMD_NS::simd<T2, N2> undefv; // Intentionally undefined.
+  constexpr uint32_t zero_size = 0;
 
   using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
   using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+  using ElemT2 = __ESIMD_DNS::__raw_t<T2>;
 
   constexpr uint32_t src0_size = N0 * sizeof(T0);
   constexpr uint32_t src1_size = N1 * sizeof(T1);
 
-  __esimd_raw_sendg2_noresult<eot, sendc, exec_size, sfid, src0_size, src1_size,
-                              desc, ElemT0, N0, ElemT1, N1>(
-      mask.data(), msg_src0.data(), msg_src1.data(), ind0, ind1);
+  __esimd_raw_sendg<eot, sendc, exec_size, sfid, zero_size, src0_size,
+                    src1_size, desc, ElemT0, N0, ElemT1, N1, ElemT2, N2>(
+      mask.data(), msg_src0.data(), msg_src1.data(), ind0, ind1, undefv.data());
 }
 
 /// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
@@ -560,15 +570,25 @@ __ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0,
 
                            __ESIMD_NS::simd_mask<exec_size> mask = 1) {
 
+  using T2 = int;
+  constexpr int N2 = 16;
+
+  __ESIMD_NS::simd<T2, N2> undefv; // Intentionally undefined.
+  constexpr uint32_t zero_size = 0;
+
+  uint64_t undef; // Intentionally undefined.
+
   using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
   using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+  using ElemT2 = __ESIMD_DNS::__raw_t<T2>;
 
   constexpr uint32_t src0_size = N0 * sizeof(T0);
   constexpr uint32_t src1_size = N1 * sizeof(T1);
 
-  __esimd_raw_sendg2_noresult<eot, sendc, exec_size, sfid, src0_size, src1_size,
-                              desc, ElemT0, N0, ElemT1, N1>(
-      mask.data(), msg_src0.data(), msg_src1.data(), ind0);
+  __esimd_raw_sendg<eot, sendc, exec_size, sfid, zero_size, src0_size,
+                    src1_size, desc, ElemT0, N0, ElemT1, N1, ElemT2, N2>(
+      mask.data(), msg_src0.data(), msg_src1.data(), ind0, undef,
+      undefv.data());
 }
 
 /// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
@@ -593,15 +613,25 @@ __ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0,
                            __ESIMD_NS::simd<T1, N1> msg_src1,
                            __ESIMD_NS::simd_mask<exec_size> mask = 1) {
 
+  using T2 = int;
+  constexpr int N2 = 16;
+
+  __ESIMD_NS::simd<T2, N2> undefv; // Intentionally undefined.
+  constexpr uint32_t zero_size = 0;
+
+  uint64_t undef; // Intentionally undefined.
+
   using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
   using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+  using ElemT2 = __ESIMD_DNS::__raw_t<T2>;
 
   constexpr uint32_t src0_size = N0 * sizeof(T0);
   constexpr uint32_t src1_size = N1 * sizeof(T1);
 
-  __esimd_raw_sendg2_noresult<eot, sendc, exec_size, sfid, src0_size, src1_size,
-                              desc, ElemT0, N0, ElemT1, N1>(
-      mask.data(), msg_src0.data(), msg_src1.data());
+  __esimd_raw_sendg<eot, sendc, exec_size, sfid, zero_size, src0_size,
+                    src1_size, desc, ElemT0, N0, ElemT1, N1, ElemT2, N2>(
+      mask.data(), msg_src0.data(), msg_src1.data(), undef, undef,
+      undefv.data());
 }
 
 /// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
@@ -631,15 +661,22 @@ raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, uint64_t ind0, uint64_t ind1,
           __ESIMD_NS::simd_mask<exec_size> mask = 1,
           __ESIMD_NS::simd<T1, N1> msg_dst = 0) {
 
+  using T2 = int;
+  constexpr int N2 = 16;
+
+  __ESIMD_NS::simd<T2, N2> undefv; // Intentionally undefined.
+  constexpr uint32_t zero_size = 0;
+
   using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
   using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+  using ElemT2 = __ESIMD_DNS::__raw_t<T2>;
 
   constexpr uint32_t dst_size = N1 * sizeof(T1);
   constexpr uint32_t src0_size = N0 * sizeof(T0);
 
   return __esimd_raw_sendg<eot, sendc, exec_size, sfid, dst_size, src0_size,
-                           desc, ElemT1, N1, ElemT0, N0>(
-      mask.data(), msg_src0.data(), ind0, ind1, msg_dst.data());
+                           zero_size, desc, ElemT0, N0, ElemT2, N2, ElemT1, N1>(
+      mask.data(), msg_src0.data(), undefv.data(), ind0, ind1, msg_dst.data());
 }
 /// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
 /// message gateway.
@@ -667,15 +704,24 @@ raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, uint64_t ind0,
           __ESIMD_NS::simd_mask<exec_size> mask = 1,
           __ESIMD_NS::simd<T1, N1> msg_dst = 0) {
 
+  using T2 = int;
+  constexpr int N2 = 16;
+
+  __ESIMD_NS::simd<T2, N2> undefv; // Intentionally undefined.
+  constexpr uint32_t zero_size = 0;
+
+  uint64_t undef; // Intentionally undefined.
+
   using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
   using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+  using ElemT2 = __ESIMD_DNS::__raw_t<T2>;
 
   constexpr uint32_t dst_size = N1 * sizeof(T1);
   constexpr uint32_t src0_size = N0 * sizeof(T0);
 
   return __esimd_raw_sendg<eot, sendc, exec_size, sfid, dst_size, src0_size,
-                           desc, ElemT1, N1, ElemT0, N0>(
-      mask.data(), msg_src0.data(), ind0, msg_dst.data());
+                           zero_size, desc, ElemT0, N0, ElemT2, N2, ElemT1, N1>(
+      mask.data(), msg_src0.data(), undefv.data(), ind0, undef, msg_dst.data());
 }
 
 /// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
@@ -703,15 +749,25 @@ raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0,
           __ESIMD_NS::simd_mask<exec_size> mask = 1,
           __ESIMD_NS::simd<T1, N1> msg_dst = 0) {
 
+  using T2 = int;
+  constexpr int N2 = 16;
+
+  __ESIMD_NS::simd<T2, N2> undefv; // Intentionally undefined.
+  constexpr uint32_t zero_size = 0;
+
+  uint64_t undef; // Intentionally undefined.
+
   using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
   using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
+  using ElemT2 = __ESIMD_DNS::__raw_t<T2>;
 
   constexpr uint32_t dst_size = N1 * sizeof(T1);
   constexpr uint32_t src0_size = N0 * sizeof(T0);
 
   return __esimd_raw_sendg<eot, sendc, exec_size, sfid, dst_size, src0_size,
-                           desc, ElemT1, N1, ElemT0, N0>(
-      mask.data(), msg_src0.data(), msg_dst.data());
+                           zero_size, desc, ElemT0, N0, ElemT2, N2, ElemT1, N1>(
+      mask.data(), msg_src0.data(), undefv.data(), undef, undef,
+      msg_dst.data());
 }
 
 /// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
@@ -736,13 +792,20 @@ __ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, uint64_t ind0,
                            uint64_t ind1,
                            __ESIMD_NS::simd_mask<exec_size> mask = 1) {
 
+  using T1 = int;
+  constexpr int N1 = 16;
+
+  __ESIMD_NS::simd<T1, N1> undefv; // Intentionally undefined.
+  constexpr uint32_t zero_size = 0;
+
   using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+  using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
 
   constexpr uint32_t src0_size = N0 * sizeof(T0);
 
-  __esimd_raw_sendg_noresult<eot, sendc, exec_size, sfid, src0_size, desc,
-                             ElemT0, N0>(mask.data(), msg_src0.data(), ind0,
-                                         ind1);
+  __esimd_raw_sendg<eot, sendc, exec_size, sfid, zero_size, src0_size,
+                    zero_size, desc, ElemT0, N0, ElemT1, N1, ElemT1, N1>(
+      mask.data(), msg_src0.data(), undefv.data(), ind0, ind1, undefv.data());
 }
 /// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
 /// message gateway.
@@ -763,13 +826,22 @@ template <uint8_t exec_size, uint32_t sfid, uint64_t desc,
           raw_send_sendc sendc = raw_send_sendc::not_sendc, typename T0, int N0>
 __ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, uint64_t ind0,
                            __ESIMD_NS::simd_mask<exec_size> mask = 1) {
+  using T1 = int;
+  constexpr int N1 = 16;
+
+  __ESIMD_NS::simd<T1, N1> undefv; // Intentionally undefined.
+  constexpr uint32_t zero_size = 0;
+
+  uint64_t undef; // Intentionally undefined.
 
   using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+  using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
 
   constexpr uint32_t src0_size = N0 * sizeof(T0);
 
-  __esimd_raw_sendg_noresult<eot, sendc, exec_size, sfid, src0_size, desc,
-                             ElemT0, N0>(mask.data(), msg_src0.data(), ind0);
+  __esimd_raw_sendg<eot, sendc, exec_size, sfid, zero_size, src0_size,
+                    zero_size, desc, ElemT0, N0, ElemT1, N1, ElemT1, N1>(
+      mask.data(), msg_src0.data(), undefv.data(), ind0, undef, undefv.data());
 }
 
 /// Generalized raw send. Generates a \c sendg or \c sendgc instruction for the
@@ -791,12 +863,22 @@ template <uint8_t exec_size, uint32_t sfid, uint64_t desc,
 __ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0,
                            __ESIMD_NS::simd_mask<exec_size> mask = 1) {
 
+  using T1 = int;
+  constexpr int N1 = 16;
+
+  __ESIMD_NS::simd<T1, N1> undefv; // Intentionally undefined.
+  constexpr uint32_t zero_size = 0;
+
+  uint64_t undef; // Intentionally undefined.
+
   using ElemT0 = __ESIMD_DNS::__raw_t<T0>;
+  using ElemT1 = __ESIMD_DNS::__raw_t<T1>;
 
   constexpr uint32_t src0_size = N0 * sizeof(T0);
 
-  __esimd_raw_sendg_noresult<eot, sendc, exec_size, sfid, src0_size, desc,
-                             ElemT0, N0>(mask.data(), msg_src0.data());
+  __esimd_raw_sendg<eot, sendc, exec_size, sfid, zero_size, src0_size,
+                    zero_size, desc, ElemT0, N0, ElemT1, N1, ElemT1, N1>(
+      mask.data(), msg_src0.data(), undefv.data(), undef, undef, undefv.data());
 }
 #endif
 /* end INTEL_CUSTOMIZATION */

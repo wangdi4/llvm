@@ -57,10 +57,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # Author: Igor Gorban <igor.gorban@intel.com>
-        # Date:   Mon Aug 28 22:03:14 2023 +0200
-        # [Feature] Fixed warning from statical code analizer
-        set(LLVMGenXIntrinsics_GIT_TAG 7e6e5ac78d6fbf0a5ecbcc7fcb110222b18a5274)
+	# Author: Victor Mustya <victor.mustya@intel.com>
+	# Date: Wed, 20 Sep 2023 16:56:36 -0700
+	# Add an intrinsic for Xe3P generalized raw send
+        set(LLVMGenXIntrinsics_GIT_TAG a82f4ddc99ce73090a7d1cbf2e66441508cbcdae)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
