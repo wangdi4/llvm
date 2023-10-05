@@ -47,15 +47,6 @@
 //RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t -emit-llvm %s -o - \
 //RUN:   | FileCheck %s --check-prefixes ALL,NEW-ALL,HOST,NEW-HOST
 
-//RUN: %clang_cc1 -fopenmp -fintel-compatibility -fopenmp-late-outline \
-//RUN:   -fno-openmp-new-depend-ir -triple x86_64-unknown-linux-gnu \
-//RUN:   -emit-pch %s -o %t
-
-//RUN: %clang_cc1 -fopenmp -fintel-compatibility -fopenmp-late-outline \
-//RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t -emit-llvm %s -o - \
-//RUN:   -fno-openmp-new-depend-ir | \
-//RUN:   FileCheck %s --check-prefixes ALL,OLD-ALL,HOST,OLD-HOST
-
 //expected-no-diagnostics
 
 #ifndef HEADER
@@ -144,8 +135,6 @@ void caller2(int n, float* x, int dnum)
       //ALL-SAME: "QUAL.OMP.IMPLICIT"
       //NEW-HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %m
       //NEW-ALL-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DA]])
-      //OLD-ALL-SAME: "QUAL.OMP.DEPEND.IN"
-      //OLD-HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %m
       //TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %m.ascast
       //HOST-SAME: "QUAL.OMP.SHARED:TYPED"(ptr %a
       //TARG-SAME: "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %a.ascast
