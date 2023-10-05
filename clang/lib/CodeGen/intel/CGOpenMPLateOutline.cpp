@@ -2045,36 +2045,7 @@ void OpenMPLateOutliner::emitDoacrossClause(const T *C, bool IsSource) {
 }
 
 void OpenMPLateOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
-  // This function is needed until old IR for depend clause is no longer
-  // necessary and flag has been removed.
-  if (CGF.getLangOpts().OpenMPNewDependIR)
-    return;
-  auto DepKind = Cl->getDependencyKind();
-  if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink)
-    return emitDoacrossClause(Cl, DepKind == OMPC_DEPEND_source);
-
-  for (auto *E : Cl->varlists()) {
-    ClauseEmissionHelper CEH(*this, OMPC_depend);
-    ClauseStringBuilder &CSB = CEH.getBuilder();
-    switch (DepKind) {
-    case OMPC_DEPEND_in:
-      CSB.add("QUAL.OMP.DEPEND.IN");
-      break;
-    case OMPC_DEPEND_out:
-      CSB.add("QUAL.OMP.DEPEND.OUT");
-      break;
-    case OMPC_DEPEND_inout:
-      CSB.add("QUAL.OMP.DEPEND.INOUT");
-      break;
-    default:
-      llvm_unreachable("Unknown depend clause");
-    }
-    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
-        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
-      CSB.setArrSect();
-    addArg(CSB.getString());
-    addArg(E);
-  }
+  // The 'depend' clause is handled by emitOMPAllDependClauses.
 }
 
 void OpenMPLateOutliner::emitOMPXAttributeClause(const OMPXAttributeClause *) {}
@@ -2551,8 +2522,7 @@ void OpenMPLateOutliner::emitRemark(std::string Str) {
 #endif // INTEL_CUSTOMIZATION
 
 void OpenMPLateOutliner::emitOMPAllDependClauses() {
-  if (!CGF.getLangOpts().OpenMPNewDependIR ||
-      !Directive.hasClausesOfKind<OMPDependClause>())
+  if (!Directive.hasClausesOfKind<OMPDependClause>())
     return;
 
   bool IsDoacrossType = false;

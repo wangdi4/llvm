@@ -3728,10 +3728,6 @@ defm openmp_target_malloc : BoolFOption<"openmp-target-malloc",
   LangOpts<"OpenMPTargetMalloc">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, CC1Option]>, NegFlag<SetFalse, [], [ClangOption, CC1Option]>,
   BothFlags<[NoArgumentUnused, HelpHidden]>>;
-defm openmp_new_depend_ir : BoolFOption<"openmp-new-depend-ir",
-  LangOpts<"OpenMPNewDependIR">, DefaultTrue,
-  PosFlag<SetTrue>, NegFlag<SetFalse>,
-  BothFlags<[NoArgumentUnused, HelpHidden], [ClangOption, CC1Option]>>;
 defm openmp_experimental_vlas : BoolFOption<"openmp-experimental-vlas",
   LangOpts<"OpenMPExperimentalVLAs">, DefaultTrue,
   PosFlag<SetTrue>, NegFlag<SetFalse>,

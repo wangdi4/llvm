@@ -309,8 +309,6 @@ LANGOPT(IntelPragmaPrefetch, 1, 1,
     "Enable Intel compatible #pragma prefetch")
 LANGOPT(OpenMPTargetMalloc, 1, 0,
     "Enable dynamic memory allocation in parallel regions")
-LANGOPT(OpenMPNewDependIR, 1, 0,
-    "Enable generation of new IR for OpenMP depend clause")
 LANGOPT(OpenMPExperimentalVLAs, 1, 1,
     "Enable VLAs in OpenMP device code which may not be fully functional")
 #endif // INTEL_COLLAB
