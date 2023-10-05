@@ -395,18 +395,12 @@ static unsigned ComputeNumSignBits(const Value *V, unsigned Depth,
 unsigned llvm::ComputeNumSignBits(const Value *V, const DataLayout &DL,
                                   unsigned Depth, AssumptionCache *AC,
                                   const Instruction *CxtI,
-<<<<<<< HEAD
                                   const DominatorTree *DT, bool UseInstrInfo,
                                   ScalarEvolution *SE, LoopInfo *LI) {
   return ::ComputeNumSignBits(
       V, Depth,
       SimplifyQuery(DL, /*TLI*/ nullptr, DT, AC,
                     safeCxtI(V, CxtI), UseInstrInfo, true, /*TTI*/nullptr, SE, LI));
-=======
-                                  const DominatorTree *DT, bool UseInstrInfo) {
-  return ::ComputeNumSignBits(
-      V, Depth, SimplifyQuery(DL, DT, AC, safeCxtI(V, CxtI), UseInstrInfo));
->>>>>>> ba149f6e097242dd41aacf747bef35ba374ac467
 }
 #endif // INTEL_CUSTOMIZATION
 

@@ -141,13 +141,10 @@ struct SimplifyQuery {
                 const TargetTransformInfo *TTI = nullptr,
                 ScalarEvolution *SE = nullptr, LoopInfo *LI = nullptr)
       : DL(DL), TLI(TLI), DT(DT), AC(AC), CxtI(CXTI), IIQ(UseInstrInfo),
-<<<<<<< HEAD
         SE(SE), LI(LI), CanUseUndef(CanUseUndef), TTI(TTI){
     assert((!SE && !LI || SE && LI) && "SE/LI are expected to come in pair.");
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-        CanUseUndef(CanUseUndef) {}
 
   SimplifyQuery(const DataLayout &DL, const DominatorTree *DT,
                 AssumptionCache *AC = nullptr,
@@ -156,7 +153,6 @@ struct SimplifyQuery {
       : DL(DL), DT(DT), AC(AC), CxtI(CXTI), IIQ(UseInstrInfo),
         CanUseUndef(CanUseUndef) {}
 
->>>>>>> ba149f6e097242dd41aacf747bef35ba374ac467
   SimplifyQuery getWithInstruction(Instruction *I) const {
     SimplifyQuery Copy(*this);
     Copy.CxtI = I;
