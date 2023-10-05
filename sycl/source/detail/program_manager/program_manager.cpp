@@ -437,8 +437,7 @@ appendCompileOptionsForGRFSizeProperties(std::string &CompileOpts,
   }
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
-  // TODO: Support Auto GRF for ESIMD once vc supports it.
-  if (IsAutoGRF && !IsEsimdImage) {
+  if (IsAutoGRF) {
     if (!CompileOpts.empty())
       CompileOpts += " ";
     // This option works for both LO AND OCL backends.
