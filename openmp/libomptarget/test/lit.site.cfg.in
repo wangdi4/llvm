@@ -34,6 +34,7 @@ import lit.llvm
 lit.llvm.initialize(lit_config, config)
 config.libomptarget_has_libc = lit.util.pythonize_bool("@LIBOMPTARGET_GPU_LIBC_SUPPORT@")
 # end INTEL_CUSTOMIZATION
+config.libomptarget_libc_path = "@LIBOMPTARGET_GPU_LIBC_PATH@"
 
 # Let the main config do the real work.
 lit_config.load_config(config, "@CMAKE_CURRENT_SOURCE_DIR@/lit.cfg")
