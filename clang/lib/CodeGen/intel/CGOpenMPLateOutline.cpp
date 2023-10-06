@@ -3135,6 +3135,7 @@ void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
 void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
 void OpenMPLateOutliner::emitOMPXDynCGroupMemClause(
     const OMPXDynCGroupMemClause *) {}
+void OpenMPLateOutliner::emitOMPXBareClause(const OMPXBareClause *) {}
 
 void OpenMPLateOutliner::emitOMPInitClause(const OMPInitClause *Cl) {
   // Gather any valid preferences first.
