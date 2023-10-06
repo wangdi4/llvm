@@ -3134,6 +3134,28 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
 
   int Flags = KMP_IDENT_KMPC;
 
+  // Set ident_t flag
+  switch (W->getWRegionKindID()) {
+
+  case WRegionNode::WRNWksLoop:
+  case WRegionNode::WRNParallelLoop:
+    Flags |= KMP_IDENT_WORK_LOOP;
+    break;
+
+  case WRegionNode::WRNSections:
+  case WRegionNode::WRNParallelSections:
+    Flags |= KMP_IDENT_WORK_SECTIONS;
+    break;
+
+  case WRegionNode::WRNDistribute:
+  case WRegionNode::WRNDistributeParLoop:
+    Flags |= KMP_IDENT_WORK_DISTRIBUTE;
+    break;
+
+  default:
+    break;
+  }
+
   Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
