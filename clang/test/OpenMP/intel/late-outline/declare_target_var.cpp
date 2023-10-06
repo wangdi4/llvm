@@ -18,7 +18,7 @@ double log_smallx = log(2.5);
 #pragma omp end declare target
 
 int main() { }
-// CHECK: @log_smallx = target_declare addrspace(1) global double
+// CHECK: @log_smallx = {{.*}}target_declare addrspace(1) global double
 
 // CHECK-LABEL: @{{.*}}_log_smallx_{{.*}}_ctor()
 // CHECK: entry:
