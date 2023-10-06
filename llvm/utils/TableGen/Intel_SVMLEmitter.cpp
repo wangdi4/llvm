@@ -20,7 +20,7 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
-#include "llvm/Analysis/VectorUtils.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Format.h"
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
@@ -113,9 +113,9 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
       BitsInit *extraAttrs = VList[i]->getValueAsBitsInit("extraAttrs");
       uint64_t extraAttrsInt = getValueFromBitsInit(extraAttrs);
       std::string VFABIPrefixInit = "\"_ZGV";
-      VFABIPrefixInit += VFABI::_LLVM_;
-      // TODO: Assuming call always has only one with some exceptions. Encode
-      // number of args property into TableGen record.
+      VFABIPrefixInit += "_LLVM_"; // ISA is identified by VFABI::_LLVM_
+      // TODO: Assuming call always has only one arg with some exceptions.
+      // Encode number of args property into TableGen record.
       std::string VFABIPrefixArgs = "v\"";
       if (TwoArgFns.contains(StringRef(SvmlVariantNameStr)))
         VFABIPrefixArgs = "vv\"";
