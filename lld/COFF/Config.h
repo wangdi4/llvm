@@ -316,6 +316,7 @@ struct Configuration {
   uint32_t minorSubsystemVersion = 0;
   uint64_t timestamp = 0; // INTEL
   uint32_t functionPadMin = 0;
+  uint32_t timeTraceGranularity = 0;
   bool dynamicBase = true;
   bool allowBind = true;
   bool cetCompat = false;
@@ -339,6 +340,7 @@ struct Configuration {
   bool swaprunNet = false;
   bool thinLTOEmitImportsFiles;
   bool thinLTOIndexOnly;
+  bool timeTraceEnabled = false;
   bool autoImport = false;
   bool pseudoRelocs = false;
   bool stdcallFixup = false;

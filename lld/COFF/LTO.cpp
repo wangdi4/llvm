@@ -112,6 +112,8 @@ lto::Config BitcodeCompiler::createConfig() {
   c.CSIRProfile = std::string(ctx.config.ltoCSProfileFile);
   c.RunCSIRInstr = ctx.config.ltoCSProfileGenerate;
   c.PGOWarnMismatch = ctx.config.ltoPGOWarnMismatch;
+  c.TimeTraceEnabled = ctx.config.timeTraceEnabled;
+  c.TimeTraceGranularity = ctx.config.timeTraceGranularity;
 #if INTEL_CUSTOMIZATION
   c.SampleProfile = ctx.config.ltoSampleProfileName;
   c.ShouldDiscardValueNames = ctx.config.intelShouldDiscardValueNames;
