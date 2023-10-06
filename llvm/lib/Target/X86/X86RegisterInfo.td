@@ -845,7 +845,7 @@ def GR64_NOREX2_NOSP : RegisterClass<"X86", [i64], 64,
 #endif // INTEL_CUSTOMIZATION
 
 // Register classes used for ABIs that use 32-bit address accesses,
-// while using the whole x84_64 ISA.
+// while using the whole x86_64 ISA.
 
 // In such cases, it is fine to use RIP as we are sure the 32 high
 // bits are not set. We do not need variants for NOSP as RIP is not
