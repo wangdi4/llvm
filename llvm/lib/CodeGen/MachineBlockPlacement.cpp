@@ -1833,8 +1833,9 @@ MachineBasicBlock *MachineBlockPlacement::selectBestCandidateBlock(
            "Found CFG-violating block");
 
     BlockFrequency CandidateFreq = MBFI->getBlockFreq(MBB);
-    LLVM_DEBUG(dbgs() << "    " << getBlockName(MBB) << " -> ";
-               MBFI->printBlockFreq(dbgs(), CandidateFreq) << " (freq)\n");
+    LLVM_DEBUG(dbgs() << "    " << getBlockName(MBB) << " -> "
+                      << printBlockFreq(MBFI->getMBFI(), CandidateFreq)
+                      << " (freq)\n");
 
     // For ehpad, we layout the least probable first as to avoid jumping back
     // from least probable landingpads to more probable ones.
@@ -2230,8 +2231,8 @@ MachineBlockPlacement::findBestLoopTopHelper(
     if (Pred == L.getHeader())
       continue;
     LLVM_DEBUG(dbgs() << "   old top pred: " << getBlockName(Pred) << ", has "
-                      << Pred->succ_size() << " successors, ";
-               MBFI->printBlockFreq(dbgs(), Pred) << " freq\n");
+                      << Pred->succ_size() << " successors, "
+                      << printBlockFreq(MBFI->getMBFI(), *Pred) << " freq\n");
     if (Pred->succ_size() > 2)
       continue;
 
@@ -2375,10 +2376,10 @@ MachineBlockPlacement::findBestLoopExit(const MachineLoop &L,
       }
 
       BlockFrequency ExitEdgeFreq = MBFI->getBlockFreq(MBB) * SuccProb;
-      LLVM_DEBUG(dbgs() << "    exiting: " << getBlockName(MBB) << " -> "
-                        << getBlockName(Succ) << " [L:" << SuccLoopDepth
-                        << "] (";
-                 MBFI->printBlockFreq(dbgs(), ExitEdgeFreq) << ")\n");
+      LLVM_DEBUG(
+          dbgs() << "    exiting: " << getBlockName(MBB) << " -> "
+                 << getBlockName(Succ) << " [L:" << SuccLoopDepth << "] ("
+                 << printBlockFreq(MBFI->getMBFI(), ExitEdgeFreq) << ")\n");
       // Note that we bias this toward an existing layout successor to retain
       // incoming order in the absence of better information. The exit must have
       // a frequency higher than the current exit before we consider breaking
@@ -2672,8 +2673,8 @@ void MachineBlockPlacement::rotateLoopWithProfile(
     }
 
     LLVM_DEBUG(dbgs() << "The cost of loop rotation by making "
-                      << getBlockName(*Iter)
-                      << " to the top: " << Cost.getFrequency() << "\n");
+                      << getBlockName(*Iter) << " to the top: "
+                      << printBlockFreq(MBFI->getMBFI(), Cost) << "\n");
 
     if (Cost < SmallestRotationCost) {
       SmallestRotationCost = Cost;

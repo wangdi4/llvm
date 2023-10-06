@@ -109,6 +109,8 @@ bool MachineFunctionPass::runOnFunction(Function &F) {
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
+  MFProps.reset(ClearedProperties);
+
   bool RV = runOnMachineFunction(MF);
 
   if (ShouldEmitSizeRemarks) {
@@ -135,7 +137,6 @@ bool MachineFunctionPass::runOnFunction(Function &F) {
   }
 
   MFProps.set(SetProperties);
-  MFProps.reset(ClearedProperties);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   // For --print-changed, print if the serialized MF has changed. Modes other
