@@ -15,9 +15,14 @@ config.cuda_path = "@CUDA_TOOLKIT_ROOT_DIR@"
 config.cuda_libdir = "@CUDA_LIBDIR@"
 config.cuda_test_arch = "@LIBOMPTARGET_DEP_CUDA_ARCH@"
 config.libomptarget_obj_root = "@CMAKE_CURRENT_BINARY_DIR@/@CURRENT_TARGET@"
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 config.library_dir = "@CMAKE_LIBRARY_OUTPUT_DIRECTORY@"
 # end INTEL_CUSTOMIZATION
+=======
+config.library_dir = "@LIBOMPTARGET_LIBRARY_DIR@"
+config.llvm_library_dir = "@LIBOMPTARGET_LLVM_LIBRARY_DIR@"
+>>>>>>> 4e9054d3914a7095e28a9ba4e26a80b10bcc6c3d
 config.omp_header_directory = "@LIBOMPTARGET_OPENMP_HEADER_FOLDER@"
 config.omp_host_rtl_directory = "@LIBOMPTARGET_OPENMP_HOST_RTL_FOLDER@"
 config.llvm_lib_directory = "@LIBOMPTARGET_LLVM_LIBRARY_DIR@"
@@ -27,6 +32,7 @@ config.libomptarget_current_target = "@CURRENT_TARGET@"
 config.libomptarget_filecheck = "@OPENMP_FILECHECK_EXECUTABLE@"
 config.libomptarget_not = "@OPENMP_NOT_EXECUTABLE@"
 config.libomptarget_debug = @LIBOMPTARGET_DEBUG@
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 config.has_libomptarget_ompt = lit.util.pythonize_bool("@LIBOMPTARGET_OMPT_SUPPORT@")
 config.lit_tools_dir = path("@LLVM_LIT_TOOLS_DIR@")
@@ -35,6 +41,10 @@ lit.llvm.initialize(lit_config, config)
 config.libomptarget_has_libc = lit.util.pythonize_bool("@LIBOMPTARGET_GPU_LIBC_SUPPORT@")
 # end INTEL_CUSTOMIZATION
 config.libomptarget_libc_path = "@LIBOMPTARGET_GPU_LIBC_PATH@"
+=======
+config.has_libomptarget_ompt = @LIBOMPTARGET_OMPT_SUPPORT@
+config.libomptarget_has_libc = @LIBOMPTARGET_GPU_LIBC_SUPPORT@
+>>>>>>> 4e9054d3914a7095e28a9ba4e26a80b10bcc6c3d
 
 # Let the main config do the real work.
 lit_config.load_config(config, "@CMAKE_CURRENT_SOURCE_DIR@/lit.cfg")
