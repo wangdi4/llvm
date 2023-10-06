@@ -2971,7 +2971,6 @@ static bool isAddFoldingProfitable(const BinaryOperator *Add,
   if (Add->hasOneUse())
     return true;
 
-<<<<<<< HEAD
   // Add with one can easily be folded in both ztt and loop upper because of IV
   // increment.
   if (Op1.isOne())
@@ -2986,7 +2985,7 @@ static bool isAddFoldingProfitable(const BinaryOperator *Add,
   return true;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static Value *createLogicFromTable(const std::bitset<4> &Table, Value *Op0,
                                    Value *Op1, IRBuilderBase &Builder,
                                    bool HasOneUse) {
@@ -3029,7 +3028,6 @@ static Value *createLogicFromTable(const std::bitset<4> &Table, Value *Op0,
   return nullptr;
 }
 
->>>>>>> 5d8fb473d3848d2d3c4b88ef3a9bbf494ba0ff0b
 /// Fold icmp (add X, Y), C.
 Instruction *InstCombinerImpl::foldICmpAddConstant(ICmpInst &Cmp,
                                                    BinaryOperator *Add,
