@@ -112,7 +112,8 @@ lto::Config BitcodeCompiler::createConfig() {
   c.CSIRProfile = std::string(ctx.config.ltoCSProfileFile);
   c.RunCSIRInstr = ctx.config.ltoCSProfileGenerate;
   c.PGOWarnMismatch = ctx.config.ltoPGOWarnMismatch;
-<<<<<<< HEAD
+  c.TimeTraceEnabled = ctx.config.timeTraceEnabled;
+  c.TimeTraceGranularity = ctx.config.timeTraceGranularity;
 #if INTEL_CUSTOMIZATION
   c.SampleProfile = ctx.config.ltoSampleProfileName;
   c.ShouldDiscardValueNames = ctx.config.intelShouldDiscardValueNames;
@@ -128,10 +129,6 @@ lto::Config BitcodeCompiler::createConfig() {
   if (!ctx.config.dll)
     c.WPUtils.setLinkingExecutable(true);
 #endif // INTEL_CUSTOMIZATION
-=======
-  c.TimeTraceEnabled = ctx.config.timeTraceEnabled;
-  c.TimeTraceGranularity = ctx.config.timeTraceGranularity;
->>>>>>> 356139bd027d65b6843cbd4eda642104cfe6cf8f
 
   if (ctx.config.emit == EmitKind::LLVM) {
     c.PostInternalizeModuleHook = [this](size_t task, const Module &m) {

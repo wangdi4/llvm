@@ -1743,20 +1743,15 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     v.push_back(arg->getValue());
     config->mllvmOpts.emplace_back(arg->getValue());
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Don't reset llvm::cl states if coff::link is embedded in the compiler.
   if (!args.hasArg(OPT_intel_embedded_linker))
 #endif // INTEL_CUSTOMIZATION
-  cl::ResetAllOptionOccurrences();
-  cl::ParseCommandLineOptions(v.size(), v.data());
-=======
   {
     llvm::TimeTraceScope timeScope2("Parse cl::opt");
     cl::ResetAllOptionOccurrences();
     cl::ParseCommandLineOptions(v.size(), v.data());
   }
->>>>>>> 356139bd027d65b6843cbd4eda642104cfe6cf8f
 
   // Handle /errorlimit early, because error() depends on it.
   if (auto *arg = args.getLastArg(OPT_errorlimit)) {
