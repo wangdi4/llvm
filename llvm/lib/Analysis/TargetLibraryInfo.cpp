@@ -6215,7 +6215,7 @@ bool TargetLibraryInfoImpl::isOCLVectorFunction(StringRef FuncName) const {
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
   if (I != VectorDescs.end() && StringRef(I->getScalarFnName()) == FuncName) {
-    return I->AttrBits.test(static_cast<unsigned>(VecDescAttrs::IsOCLFn));
+    return I->getAttrBits().test(static_cast<unsigned>(VecDescAttrs::IsOCLFn));
   }
   return false;
 }
@@ -6229,7 +6229,7 @@ bool TargetLibraryInfoImpl::doesVectorFuncNeedArgRepacking(
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
   if (I != VectorDescs.end() && StringRef(I->getScalarFnName()) == FuncName) {
-    return I->AttrBits.test(
+    return I->getAttrBits().test(
         static_cast<unsigned>(VecDescAttrs::NeedsArgRepacking));
   }
   return false;
@@ -6244,7 +6244,8 @@ bool TargetLibraryInfoImpl::isFortranOnlyVectorFunction(
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
   if (I != VectorDescs.end() && StringRef(I->getScalarFnName()) == FuncName) {
-    return I->AttrBits.test(static_cast<unsigned>(VecDescAttrs::IsFortranOnly));
+    return I->getAttrBits().test(
+        static_cast<unsigned>(VecDescAttrs::IsFortranOnly));
   }
   return false;
 }
@@ -6259,7 +6260,7 @@ StringRef TargetLibraryInfoImpl::getVectorFuncReqdCpuFeature(
       llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
   while (I != VectorDescs.end() && StringRef(I->getScalarFnName()) == FuncName) {
     if (I->getVectorizationFactor() == VF)
-      return I->ReqdCpuFeature;
+      return I->getReqdCpuFeature();
     ++I;
   }
   return "";
@@ -6365,27 +6366,27 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
 StringRef TargetLibraryInfoImpl::getVectorizedFunction(
         StringRef F, const ElementCount &VF, bool Masked,
         const TargetTransformInfo *TTI) const {
-    const VecDesc *VD = getVectorMappingInfo(F, VF, Masked, TTI);
-    if (VD)
-        return VD->getVectorFnName();
-    return StringRef();
+  const VecDesc *VD = getVectorMappingInfo(F, VF, Masked, TTI);
+  if (VD)
+    return VD->getVectorFnName();
+  return StringRef();
 }
 
 const VecDesc *
 TargetLibraryInfoImpl::getVectorMappingInfo(StringRef F, const ElementCount &VF,
         bool Masked, const TargetTransformInfo *TTI) const {
-    F = sanitizeFunctionName(F);
-    if (F.empty())
-        return nullptr;
-    std::vector<VecDesc>::const_iterator I =
-        llvm::lower_bound(VectorDescs, F, compareWithScalarFnName);
-    while (I != VectorDescs.end() && StringRef(I->getScalarFnName()) == F) {
-        if ((I->getVectorizationFactor() == VF) && (I->isMasked() == Masked) &&
-                isCpuFeatureAvailableForTarget(I->ReqdCpuFeature, TTI))
-            return &(*I);
-        ++I;
-    }
+  F = sanitizeFunctionName(F);
+  if (F.empty())
     return nullptr;
+  std::vector<VecDesc>::const_iterator I =
+      llvm::lower_bound(VectorDescs, F, compareWithScalarFnName);
+  while (I != VectorDescs.end() && StringRef(I->getScalarFnName()) == F) {
+    if ((I->getVectorizationFactor() == VF) && (I->isMasked() == Masked) &&
+        isCpuFeatureAvailableForTarget(I->getReqdCpuFeature(), TTI))
+      return &(*I);
+    ++I;
+  }
+  return nullptr;
 }
 #endif // INTEL_CUSTOMIZATION
 

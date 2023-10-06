@@ -93,28 +93,30 @@ class VecDesc {
   ElementCount VectorizationFactor;
   bool Masked;
   StringRef VABIPrefix;
+  VecDescAttrBits AttrBits; // INTEL
+  StringRef ReqdCpuFeature; // INTEL
 
 public:
-  VecDescAttrBits AttrBits = 0;  // INTEL
-  StringRef ReqdCpuFeature = ""; // INTEL
-
   VecDesc() = delete;
+#if INTEL_CUSTOMIZATION
   VecDesc(StringRef ScalarFnName, StringRef VectorFnName,
-          ElementCount VectorizationFactor, bool Masked, StringRef VABIPrefix)
+          ElementCount VectorizationFactor, bool Masked, StringRef VABIPrefix,
+          VecDescAttrBits AttrBits = 0, StringRef ReqdCpuFeature = "")
       : ScalarFnName(ScalarFnName), VectorFnName(VectorFnName),
         VectorizationFactor(VectorizationFactor), Masked(Masked),
-        VABIPrefix(VABIPrefix) {}
-  VecDesc(StringRef ScalarFnName, StringRef VectorFnName,
-          ElementCount VectorizationFactor, bool Masked, VecDescAttrBits AttrBits, StringRef VABIPrefix)
-      : ScalarFnName(ScalarFnName), VectorFnName(VectorFnName),
-        VectorizationFactor(VectorizationFactor), Masked(Masked),
-        VABIPrefix(VABIPrefix), AttrBits(AttrBits) {}
+        VABIPrefix(VABIPrefix), AttrBits(AttrBits),
+        ReqdCpuFeature(ReqdCpuFeature) {}
+#endif
 
   StringRef getScalarFnName() const { return ScalarFnName; }
   StringRef getVectorFnName() const { return VectorFnName; }
   ElementCount getVectorizationFactor() const { return VectorizationFactor; }
   bool isMasked() const { return Masked; }
   StringRef getVABIPrefix() const { return VABIPrefix; }
+#if INTEL_CUSTOMIZATION
+  VecDescAttrBits getAttrBits() const { return AttrBits; }
+  StringRef getReqdCpuFeature() const { return ReqdCpuFeature; }
+#endif
 
   /// Returns a vector function ABI variant string on the form:
   ///    _ZGV<isa><mask><vlen><vparams>_<scalarname>(<vectorname>)
