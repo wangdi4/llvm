@@ -3033,7 +3033,7 @@ void JumpThreadingPass::threadThroughTwoBasicBlocks(BasicBlock *PredPredBB,
     assert(BPI && "It's expected BPI to exist along with BFI");
     auto NewBBFreq = BFI->getBlockFreq(PredPredBB) *
                      BPI->getEdgeProbability(PredPredBB, PredBB);
-    BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+    BFI->setBlockFreq(NewBB, NewBBFreq);
   }
 
   // We are going to have to map operands from the original BB block to the new
@@ -3319,6 +3319,15 @@ void JumpThreadingPass::threadEdge(
       BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
     }
 
+<<<<<<< HEAD
+=======
+  // Set the block frequency of NewBB.
+  if (BFI) {
+    assert(BPI && "It's expected BPI to exist along with BFI");
+    auto NewBBFreq =
+        BFI->getBlockFreq(PredBB) * BPI->getEdgeProbability(PredBB, BB);
+    BFI->setBlockFreq(NewBB, NewBBFreq);
+>>>>>>> 5181156b3743df29dc840e15990d9202b3501f60
   }
 
   // Remap operands to patch up intra-thread-region references.
@@ -3604,9 +3613,14 @@ BasicBlock *JumpThreadingPass::splitBlockPreds(BasicBlock *BB,
       if (BFI) // Update frequencies between Pred -> NewBB.
         NewBBFreq += FreqMap.lookup(Pred);
     }
+<<<<<<< HEAD
     if (BFI) { // Apply the summed frequency to NewBB.
       BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
     }
+=======
+    if (BFI) // Apply the summed frequency to NewBB.
+      BFI->setBlockFreq(NewBB, NewBBFreq);
+>>>>>>> 5181156b3743df29dc840e15990d9202b3501f60
   }
 
   DTU->applyUpdatesPermissive(Updates);
@@ -3643,9 +3657,19 @@ void JumpThreadingPass::updateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
     return;
   }
 
+<<<<<<< HEAD
   BasicBlock *RegionTop = RegionInfo.back().first;
   BasicBlock *RegionBottom = RegionInfo.front().second;
   DenseMap<BasicBlock*, int> BlockPredCount;
+=======
+  // As the edge from PredBB to BB is deleted, we have to update the block
+  // frequency of BB.
+  auto BBOrigFreq = BFI->getBlockFreq(BB);
+  auto NewBBFreq = BFI->getBlockFreq(NewBB);
+  auto BB2SuccBBFreq = BBOrigFreq * BPI->getEdgeProbability(BB, SuccBB);
+  auto BBNewFreq = BBOrigFreq - NewBBFreq;
+  BFI->setBlockFreq(BB, BBNewFreq);
+>>>>>>> 5181156b3743df29dc840e15990d9202b3501f60
 
   // Initialize BlockPredCount for each new block.
   for (auto BB : RegionBlocks) {
@@ -4009,7 +4033,7 @@ void JumpThreadingPass::unfoldSelectInstr(BasicBlock *Pred, BasicBlock *BB,
     BranchProbability PredToNewBBProb = BranchProbability::getBranchProbability(
         TrueWeight, TrueWeight + FalseWeight);
     auto NewBBFreq = BFI->getBlockFreq(Pred) * PredToNewBBProb;
-    BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+    BFI->setBlockFreq(NewBB, NewBBFreq);
   }
 
   // The select is now dead.

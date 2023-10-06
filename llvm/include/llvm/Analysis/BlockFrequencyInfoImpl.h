@@ -544,19 +544,18 @@ public:
   getBlockProfileCount(const Function &F, const BlockNode &Node,
                        bool AllowSynthetic = false) const;
   std::optional<uint64_t>
-  getProfileCountFromFreq(const Function &F, uint64_t Freq,
+  getProfileCountFromFreq(const Function &F, BlockFrequency Freq,
                           bool AllowSynthetic = false) const;
   bool isIrrLoopHeader(const BlockNode &Node);
 
-  void setBlockFreq(const BlockNode &Node, uint64_t Freq);
+  void setBlockFreq(const BlockNode &Node, BlockFrequency Freq);
 
   raw_ostream &printBlockFreq(raw_ostream &OS, const BlockNode &Node) const;
-  raw_ostream &printBlockFreq(raw_ostream &OS,
-                              const BlockFrequency &Freq) const;
+  raw_ostream &printBlockFreq(raw_ostream &OS, BlockFrequency Freq) const;
 
-  uint64_t getEntryFreq() const {
+  BlockFrequency getEntryFreq() const {
     assert(!Freqs.empty());
-    return Freqs[0].Integer;
+    return BlockFrequency(Freqs[0].Integer);
   }
 };
 
@@ -1046,7 +1045,7 @@ public:
   }
 
   std::optional<uint64_t>
-  getProfileCountFromFreq(const Function &F, uint64_t Freq,
+  getProfileCountFromFreq(const Function &F, BlockFrequency Freq,
                           bool AllowSynthetic = false) const {
     return BlockFrequencyInfoImplBase::getProfileCountFromFreq(F, Freq,
                                                                AllowSynthetic);
@@ -1056,7 +1055,7 @@ public:
     return BlockFrequencyInfoImplBase::isIrrLoopHeader(getNode(BB));
   }
 
-  void setBlockFreq(const BlockT *BB, uint64_t Freq);
+  void setBlockFreq(const BlockT *BB, BlockFrequency Freq);
 
   void forgetBlock(const BlockT *BB) {
     // We don't erase corresponding items from `Freqs`, `RPOT` and other to
@@ -1162,12 +1161,13 @@ void BlockFrequencyInfoImpl<BT>::calculate(const FunctionT &F,
     // blocks and unknown blocks.
     for (const BlockT &BB : F)
       if (!Nodes.count(&BB))
-        setBlockFreq(&BB, 0);
+        setBlockFreq(&BB, BlockFrequency());
   }
 }
 
 template <class BT>
-void BlockFrequencyInfoImpl<BT>::setBlockFreq(const BlockT *BB, uint64_t Freq) {
+void BlockFrequencyInfoImpl<BT>::setBlockFreq(const BlockT *BB,
+                                              BlockFrequency Freq) {
   if (Nodes.count(BB))
     BlockFrequencyInfoImplBase::setBlockFreq(getNode(BB), Freq);
   else {
