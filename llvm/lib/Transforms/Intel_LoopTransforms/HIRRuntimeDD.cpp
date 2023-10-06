@@ -83,6 +83,7 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -517,165 +518,6 @@ static bool sortRefsInGroups(RefGroupVecTy &Groups,
   }
 
   return UnsortedGroups.empty();
-}
-
-// Return true if the input group of RegDDRefs are accessing the memory
-// contiguously within the input loop. For example, assume the group contains
-// the following RegDDRefs:
-//
-//   (%A)[4 * i1 + sext.i32.i64(%t)]
-//   (%A)[4 * i1 + sext.i32.i64(%t) + 1]
-//   (%A)[4 * i1 + sext.i32.i64(%t) + 2]
-//   (%A)[4 * i1 + sext.i32.i64(%t) + 3]
-//
-// The IV coefficient for the innermost loop (i1) is 4. The group have 4
-// entries, all the entries have the same base canon expr, the RegDDRefs
-// are accessing entries from 0 to 3, and the distance between each RegDDRef
-// is 1. This means that the entries in the group represents an access to
-// the memory that is contiguous.
-// This function can also work on a delinearized group. An example group is
-//
-//   (%0)[2 * i1][4 * i2] <-- (%0)[2 * %18 * i1 + 4 * i2]
-//   (%0)[2 * i1][4 * i2 + 1] <-- (%0)[2 * %18 * i1 + 4 * i2 + 1]
-//   (%0)[2 * i1][4 * i2 + 2]
-//   (%0)[2 * i1][4 * i2 + 3]
-//   (%0)[2 * i1 + 1][4 * i2] <-- (%0)[2 * %18 * i1 + 4 * i2 + %18]
-//   (%0)[2 * i1 + 1][4 * i2 + 1]
-//   (%0)[2 * i1 + 1][4 * i2 + 2]
-//   (%0)[2 * i1 + 1][4 * i2 + 3]
-static bool isGroupAccessingContiguousMemory(
-    const RefGroupTy &Group, bool IsDelinearized,
-    const SmallPtrSetImpl<const RegDDRef *> &DelinearizedRefToIsLoad,
-    const HLLoop *InnermostLoop, TargetTransformInfo &TTI) {
-
-  auto IsRval = [IsDelinearized,
-                 &DelinearizedRefToIsLoad](const RegDDRef *Ref) {
-    return !IsDelinearized ? Ref->isRval()
-                           : DelinearizedRefToIsLoad.contains(Ref);
-  };
-
-  if (Group.empty())
-    return false;
-
-  assert(InnermostLoop && "Analyzing group without innermost loop");
-  assert(InnermostLoop->isInnermost() &&
-         "Input loop is not the innermost loop");
-
-  // This is restricted for groups with more than 1 entry
-  if (Group.size() == 1)
-    return false;
-
-  RegDDRef *FirstRef = Group.front();
-
-  auto &DDRU = FirstRef->getDDRefUtils();
-  auto &CEU = FirstRef->getCanonExprUtils();
-  auto Level = InnermostLoop->getNestingLevel();
-  uint64_t LoadStoreSize = CEU.getTypeSizeInBytes(FirstRef->getDestType());
-
-  // The IV coefficient will be the expected number of contiguous access
-  const CanonExpr *CE = FirstRef->getDimensionIndex(1);
-  unsigned IVBlobIndex;
-  int64_t ExpectedContiguousAccessMatches;
-  CE->getIVCoeff(Level, &IVBlobIndex, &ExpectedContiguousAccessMatches);
-  if (IVBlobIndex != InvalidBlobIndex)
-    return false;
-
-  if (ExpectedContiguousAccessMatches < 2)
-    return false;
-
-  // Bail out if the number of bits that are going to be accessed is larger
-  // than the threshold. If the size was provided using the option
-  // -hir-runtime-dd-contiguous-access-threshold=X, the prioritize this value.
-  // If the value is -1, then the threshold will be fully ignored. This is for
-  // testing purposes. Else, use the vector width computed from TTI.
-  int64_t MaxContiguousStrideSize = 0;
-  if (ContiguousStridedAccessSizeThreshold.getNumOccurrences()) {
-    MaxContiguousStrideSize = ContiguousStridedAccessSizeThreshold;
-  } else {
-    auto VectorWidth =
-        TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector);
-    MaxContiguousStrideSize = VectorWidth.getFixedValue();
-  }
-
-  // If MaxContiguousStrideSize is 0, then we fully disable RuntimeDD for
-  // contiguous memory access.
-  if (MaxContiguousStrideSize == 0)
-    return false;
-
-  if (MaxContiguousStrideSize > 0) {
-    int64_t ExpectedAccessInBits =
-        (((int64_t)LoadStoreSize * 8) * ExpectedContiguousAccessMatches);
-    if (ExpectedAccessInBits > MaxContiguousStrideSize)
-      return false;
-  }
-
-  // OriginalGroup before delinearization should be used to check isRval().
-  // Delinearized refs are not attached to HLDDNode.
-  bool IsLoad = IsRval(Group.front());
-  const RegDDRef *PrevRef = FirstRef;
-  int64_t NumContiguousAccessMatches = 1;
-
-  for (unsigned I = 1, E = Group.size(); I < E; I++) {
-    const RegDDRef *Ref = Group[I];
-
-    // All members of the group must have the same number of dimensions and the
-    // same base CE.
-    assert(FirstRef->getNumDimensions() == Ref->getNumDimensions() &&
-           "Number of dimensions are different");
-    assert(CanonExprUtils::areEqual(FirstRef->getBaseCE(), Ref->getBaseCE()) &&
-           "Base canon expr are different");
-
-    // We are going to trace only the Refs that are loads or stores if they
-    // match the first entry.
-    // NOTE: Perhaps we can expand this in the future to check both cases in
-    // one group.
-    if (IsRval(Ref) != IsLoad)
-      continue;
-
-    int64_t DistanceInBytes = 0;
-    if (!DDRU.getConstByteDistance(Ref, PrevRef, &DistanceInBytes, true))
-      return false;
-
-    if (DistanceInBytes == 0)
-      continue;
-
-    if ((uint64_t) DistanceInBytes != LoadStoreSize)
-      return false;
-
-    NumContiguousAccessMatches++;
-
-    // Number of entries found must be at least the same as the expected number
-    // of entries.
-    //
-    // NOTE: Perhaps this condition can be relaxed in the future to enable gaps.
-    // For example, assume that the only RegDDRefs in the group are:
-    //
-    //   (%A)[4 * i1 + sext.i32.i64(%t)]
-    //   (%A)[4 * i1 + sext.i32.i64(%t) + 1]
-    //   (%A)[4 * i1 + sext.i32.i64(%t) + 2]
-    //
-    // In this case, the coefficient is 4 but we only found 3 entries. There is
-    // a gap of 1.
-    //
-    // With delinearized group, this function can return true with the first 4
-    // ref occurences.
-    //
-    // (%0)[2 * i1][4 * i2]
-    // (%0)[2 * i1][4 * i2 + 1]
-    // (%0)[2 * i1][4 * i2 + 2]
-    // (%0)[2 * i1][4 * i2 + 3]
-    // (%0)[2 * i1 + 1][4 * i2]
-    // (%0)[2 * i1 + 1][4 * i2 + 1]
-    // (%0)[2 * i1 + 1][4 * i2 + 2]
-    // (%0)[2 * i1 + 1][4 * i2 + 3]
-    //
-    if (NumContiguousAccessMatches == ExpectedContiguousAccessMatches)
-      return true;
-
-    PrevRef = Ref;
-  }
-
-  return false;
 }
 
 RuntimeDDResult
@@ -1906,9 +1748,16 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
         std::any_of(Groups[I].begin(), Groups[I].end(),
                     [](const RegDDRef *Ref) { return Ref->isLval(); });
 
-    bool IsContiguousGroup = isGroupAccessingContiguousMemory(
-        GetGroupForChecks(I), DelinearizationRequired,
-        DelinearizedRefToIsLoad[I], InnermostLoop, TTI);
+    const auto &DelinearizedRefMap = DelinearizedRefToIsLoad[I];
+    auto IsRval = [DelinearizationRequired,
+                   &DelinearizedRefMap](const RegDDRef *Ref) {
+      return !DelinearizationRequired ? Ref->isRval()
+                                      : DelinearizedRefMap.contains(Ref);
+    };
+    bool IsContiguousGroup = DDRefUtils::isGroupAccessingContiguousMemory(
+        GetGroupForChecks(I), IsRval, InnermostLoop, TTI,
+        ContiguousStridedAccessSizeThreshold.getNumOccurrences(),
+        ContiguousStridedAccessSizeThreshold);
 
     IVSegments.emplace_back(GetGroupForChecks(I), IsWriteGroup,
                             IsContiguousGroup);
