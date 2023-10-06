@@ -3475,7 +3475,14 @@ Instruction *InstCombinerImpl::visitReturnInst(ReturnInst &RI) {
   if (ReturnClass == fcNone)
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
+  // We set nofpclass(nan,inf) which is causing problems with our own header
+  // files which use these constant values. CMPLRLLVM-52292
+  return nullptr;
+#endif // INTEL_CUSTOMIZATION
+
   KnownFPClass KnownClass;
+
   Value *Simplified =
       SimplifyDemandedUseFPClass(RetVal, ~ReturnClass, KnownClass, 0, &RI);
   if (!Simplified)
