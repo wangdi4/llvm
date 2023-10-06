@@ -498,10 +498,6 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
             BPI->getEdgeProbability(Src, BodyBlock); // INTEL
     }
     if (ShouldUpdateAnalysis) {
-<<<<<<< HEAD
-=======
-      BFI->setBlockFreq(DirectSucc, BlockFreqForDirectSucc);
->>>>>>> 5181156b3743df29dc840e15990d9202b3501f60
       BlockFrequency NewBlockFreqForTarget =
           BFI->getBlockFreq(Target) - BlockFreqForDirectSucc;
       BFI->setBlockFreq(Target, NewBlockFreqForTarget);
