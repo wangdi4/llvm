@@ -18,6 +18,7 @@ config.libomptarget_obj_root = "@CMAKE_CURRENT_BINARY_DIR@/@CURRENT_TARGET@"
 # INTEL_CUSTOMIZATION
 config.library_dir = "@CMAKE_LIBRARY_OUTPUT_DIRECTORY@"
 # end INTEL_CUSTOMIZATION
+config.llvm_library_dir = "@LIBOMPTARGET_LLVM_LIBRARY_DIR@"
 config.omp_header_directory = "@LIBOMPTARGET_OPENMP_HEADER_FOLDER@"
 config.omp_host_rtl_directory = "@LIBOMPTARGET_OPENMP_HOST_RTL_FOLDER@"
 config.llvm_lib_directory = "@LIBOMPTARGET_LLVM_LIBRARY_DIR@"
@@ -35,6 +36,5 @@ lit.llvm.initialize(lit_config, config)
 config.libomptarget_has_libc = lit.util.pythonize_bool("@LIBOMPTARGET_GPU_LIBC_SUPPORT@")
 # end INTEL_CUSTOMIZATION
 config.libomptarget_libc_path = "@LIBOMPTARGET_GPU_LIBC_PATH@"
-
 # Let the main config do the real work.
 lit_config.load_config(config, "@CMAKE_CURRENT_SOURCE_DIR@/lit.cfg")
