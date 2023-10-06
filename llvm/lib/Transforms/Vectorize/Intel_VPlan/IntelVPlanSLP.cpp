@@ -40,6 +40,16 @@ namespace vpo {
 // Shorthand for SmallVector of VPValues.
 using VPlanSLPValuesTy = SmallVector<const VPValue *, 32>;
 
+const VPValue *VPlanSLP::VPlanSLPNodeElement::getOperand(unsigned N) const {
+  // Only first two operands replacement is supported so far.
+  if (N >= 2 || AltOpcode == 0)
+    return cast<VPInstruction>(getValue())->getOperand(N);
+
+  assert(Op[N] && "Op[N] is not established yet");
+
+  return Op[N];
+}
+
 bool VPlanSLP::canMoveTo(const VPLoadStoreInst *FromInst,
                          const VPLoadStoreInst *ToInst) const {
   const RegDDRef *FromDDRef = FromInst->getHIRMemoryRef();
@@ -814,17 +824,27 @@ void VPlanSLP::printVector(ArrayRef<const VPValue *> Values) {
   }
 }
 
+void VPlanSLP::VPlanSLPNodeElement::dump(raw_ostream &OS) const {
+  if (const auto *I = dyn_cast<VPInstruction>(getValue())) {
+    I->printWithoutAnalyses(OS);
+    if (getOpcode() != I->getOpcode()) {
+      OS << " (altered: opcode: " << getOpcode() << ", Op0: ";
+      getOperand(0)->printAsOperand(OS);
+      OS << ", Op1: ";
+      getOperand(1)->printAsOperand(OS);
+      OS << ')';
+    }
+  } else
+    getValue()->printAsOperand(OS);
+  dbgs() << '\n';
+}
+
+// This function gets inlined even in debug compiler if implemented in the
+// header file, which makes it unusable in gdb session.
+void VPlanSLP::VPlanSLPNodeElement::dump() const { dump(dbgs()); }
+
 void VPlanSLP::printVector(ElemArrayRef Elems) {
-  for (const auto &E : Elems) {
-    dbgs() << '\t';
-    if (const auto *I = dyn_cast<VPInstruction>(E.getValue())) {
-      I->printWithoutAnalyses(dbgs());
-      if (E.getOpcode() != I->getOpcode())
-        dbgs() << " (altered opcode: " << E.getOpcode() << ')';
-    } else
-      E.getValue()->printAsOperand(dbgs());
-    dbgs() << '\n';
-  }
+  for_each(Elems, [](const auto &E) { E.dump(dbgs()); });
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
