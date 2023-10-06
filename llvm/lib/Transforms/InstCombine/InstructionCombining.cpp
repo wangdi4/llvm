@@ -2993,14 +2993,12 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   if (GEPType->isVectorTy())
     return nullptr;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (GEP.getNumOperands() == 2 && !IsGEPSrcEleScalable &&
       GEPEltType->isSized())
     if (auto *NewGEP = convertOpaqueGEPToLoadStoreType(GEP))
       return NewGEP;
 #endif // INTEL_CUSTOMIZATION
-=======
   if (GEP.getNumIndices() == 1) {
     // Try to replace ADD + GEP with GEP + GEP.
     Value *Idx1, *Idx2;
@@ -3017,7 +3015,6 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
                                        Idx2);
     }
   }
->>>>>>> e13bed4c5f3544c076ce57e36d9a11eefa5a7815
 
   if (!GEP.isInBounds()) {
     unsigned IdxWidth =
