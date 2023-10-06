@@ -261,15 +261,12 @@ static Value *getStateArg(Function *F, llvm::Constant *StateTLS) {
   return F->getArg(FT->getNumParams() - 1);
 }
 
-<<<<<<< HEAD
-=======
 static constexpr unsigned int NativeCPUGlobalAS = 1;
 static inline bool IsNativeCPUKernel(const Function *F) {
   return F->getCallingConv() == llvm::CallingConv::SPIR_KERNEL;
 }
 static constexpr StringRef STATE_TLS_NAME = "_ZL28nativecpu_thread_local_state";
 
->>>>>>> 5cbaf94a1ad214ce2e5441f819da340bae111207
 } // namespace
 static llvm::Constant *CurrentStatePointerTLS;
 PreservedAnalyses PrepareSYCLNativeCPUPass::run(Module &M,
