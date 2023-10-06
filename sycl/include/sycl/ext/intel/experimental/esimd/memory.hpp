@@ -2891,6 +2891,15 @@ namespace detail {
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 #define __ESIMD_DWORD_BLOCK_2D_WIDTH_SCALE (2)
+#define __ESIMD_BLOCK_2D_WIDTH_CHECK(OP, BLOCK_WIDTH, NBLOCKS, SIZE)           \
+  if constexpr ((OP) == block_2d_op::prefetch) {                               \
+    static_assert((BLOCK_WIDTH) * (NBLOCKS) * (SIZE) <= 64 ||                  \
+                      (BLOCK_WIDTH) * (NBLOCKS) * (SIZE) <= 64 == 256,         \
+                  "Unsupported block width for 2D prefetch");                  \
+  } else {                                                                     \
+    static_assert((BLOCK_WIDTH) * (NBLOCKS) * (SIZE) <= 64,                    \
+                  "Unsupported block width for 2D load/store");                \
+  }
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
