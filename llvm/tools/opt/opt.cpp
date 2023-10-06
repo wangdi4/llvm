@@ -688,8 +688,12 @@ int main(int argc, char **argv) {
         codegen::createTargetMachineForTriple(ModuleTriple.str(),
                                               GetCodeGenOptLevel());
     if (auto E = ExpectedTM.takeError()) {
+#if INTEL_CUSTOMIZATION
+      consumeError(std::move(E));
+#else
       errs() << argv[0] << ": WARNING: failed to create target machine for '"
              << ModuleTriple.str() << "': " << toString(std::move(E)) << "\n";
+#endif
     } else {
       TM = std::move(*ExpectedTM);
     }
