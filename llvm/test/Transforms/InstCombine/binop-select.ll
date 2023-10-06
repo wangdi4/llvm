@@ -332,7 +332,7 @@ define i32 @sub_sel_op1_use(i1 %b) {
 ;
   %s = select i1 %b, i32 42, i32 41
   call void @use(i32 %s)
-  %r = sub nsw i32 42, %s
+  %r = sub nuw nsw i32 42, %s
   ret i32 %r
 }
 
