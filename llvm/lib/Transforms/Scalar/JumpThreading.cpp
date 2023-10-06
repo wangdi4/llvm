@@ -3033,7 +3033,7 @@ void JumpThreadingPass::threadThroughTwoBasicBlocks(BasicBlock *PredPredBB,
     assert(BPI && "It's expected BPI to exist along with BFI");
     auto NewBBFreq = BFI->getBlockFreq(PredPredBB) *
                      BPI->getEdgeProbability(PredPredBB, PredBB);
-    BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+    BFI->setBlockFreq(NewBB, NewBBFreq);
   }
 
   // We are going to have to map operands from the original BB block to the new
@@ -3316,7 +3316,7 @@ void JumpThreadingPass::threadEdge(
       assert(BPI && "It's expected BPI to exist along with BFI");
       auto NewBBFreq =
           BFI->getBlockFreq(PredBB) * BPI->getEdgeProbability(PredBB, OldBB);
-      BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+      BFI->setBlockFreq(NewBB, NewBBFreq);
     }
 
   }
@@ -3604,9 +3604,8 @@ BasicBlock *JumpThreadingPass::splitBlockPreds(BasicBlock *BB,
       if (BFI) // Update frequencies between Pred -> NewBB.
         NewBBFreq += FreqMap.lookup(Pred);
     }
-    if (BFI) { // Apply the summed frequency to NewBB.
-      BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
-    }
+    if (BFI) // Apply the summed frequency to NewBB.
+      BFI->setBlockFreq(NewBB, NewBBFreq);
   }
 
   DTU->applyUpdatesPermissive(Updates);
@@ -3660,7 +3659,7 @@ void JumpThreadingPass::updateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
   SmallVector<BasicBlock*, 16> ReadyBlocks;
   auto NewRegionTopFreq =
     BFI->getBlockFreq(PredBB) * BPI->getEdgeProbability(PredBB, NewRegionTop);
-  BFI->setBlockFreq(NewRegionTop, NewRegionTopFreq.getFrequency());
+  BFI->setBlockFreq(NewRegionTop, NewRegionTopFreq);
   ReadyBlocks.push_back(RegionTop);
 
   while (!ReadyBlocks.empty()) {
@@ -3673,7 +3672,7 @@ void JumpThreadingPass::updateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
     auto BBOrigFreq = BFI->getBlockFreq(BB);
     auto NewBBFreq = BFI->getBlockFreq(NewBB);
     auto BBNewFreq = BBOrigFreq - NewBBFreq;
-    BFI->setBlockFreq(BB, BBNewFreq.getFrequency());
+    BFI->setBlockFreq(BB, BBNewFreq);
 
     // The bottom block in the region needs special treatment. We don't have to
     // worry about the outgoing edge weights for NewBB since it now ends in an
@@ -3775,7 +3774,7 @@ void JumpThreadingPass::updateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
       auto EdgeFreq =
           BFI->getBlockFreq(NewBB) * BPI->getEdgeProbability(BB, SuccIdx);
       auto NewSuccFreq = BFI->getBlockFreq(NewSucc) + EdgeFreq;
-      BFI->setBlockFreq(NewSucc, NewSuccFreq.getFrequency());
+      BFI->setBlockFreq(NewSucc, NewSuccFreq);
 
       if (--BlockPredCount[NewSucc] == 0)
         ReadyBlocks.push_back(*SI);
@@ -4009,7 +4008,7 @@ void JumpThreadingPass::unfoldSelectInstr(BasicBlock *Pred, BasicBlock *BB,
     BranchProbability PredToNewBBProb = BranchProbability::getBranchProbability(
         TrueWeight, TrueWeight + FalseWeight);
     auto NewBBFreq = BFI->getBlockFreq(Pred) * PredToNewBBProb;
-    BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+    BFI->setBlockFreq(NewBB, NewBBFreq);
   }
 
   // The select is now dead.
