@@ -8593,6 +8593,78 @@ void CodeGenFunction::EmitLateOutlineOMPUncollapsedLoop(
   EmitBlock(LoopEnd.getBlock());
 }
 
+void CodeGenFunction::EmitLateOutlineOMPUncollapsedLoopRotated(
+    const OMPLoopDirective &S, OpenMPDirectiveKind Kind, unsigned Depth) {
+  ArrayRef<Expr *> UncollapsedInits = S.uncollapsedInits();
+  ArrayRef<Expr *> UncollapsedLoopConds = S.uncollapsedLoopConds();
+  ArrayRef<Expr *> UncollapsedIncs = S.uncollapsedIncs();
+
+  EmitIgnoredExpr(UncollapsedInits[Depth]);
+
+  JumpDest LoopEnd =
+      getJumpDestInCurrentScope(createBasicBlock("omp.uncollapsed.loop.end"));
+  llvm::BasicBlock *EndBlock = LoopEnd.getBlock();
+  llvm::BasicBlock *LoopBodyPH = createBasicBlock("omp.uncollapsed.loop.lh");
+
+  // Emit condition.
+  EmitBranchOnBoolExpr(UncollapsedLoopConds[Depth], LoopBodyPH, EndBlock,
+                       getProfileCount(&S));
+
+  llvm::BasicBlock *LoopBody = createBasicBlock("omp.uncollapsed.loop.body");
+  EmitBlock(LoopBodyPH);
+  EmitBranch(LoopBody);
+
+  EmitBlock(LoopBody);
+
+  if (Depth == S.getLoopsNumber() - 1) {
+    // On a continue in the body, jump to the end.
+    JumpDest Continue = getJumpDestInCurrentScope("omp.body.continue");
+    BreakContinueStack.push_back(BreakContinue(LoopEnd, Continue));
+    RunCleanupsScope BodyScope(*this);
+    for (auto *E : S.counters()) {
+      auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      // Emit var without initialization.
+      if (VD->isLocalVarDecl() && !LocalDeclMap.count(VD)) {
+        AutoVarEmission VarEmission = EmitAutoVarAlloca(*VD);
+        if (CapturedStmtInfo) {
+          CapturedStmtInfo->recordVariableDefinition(VD);
+          CapturedStmtInfo->recordValueSuppression(
+              VarEmission.Addr.getPointer());
+        }
+        EmitAutoVarCleanups(VarEmission);
+      }
+    }
+    for (const Expr *UE : S.uncollapsedUpdates())
+      EmitIgnoredExpr(UE);
+    const Stmt *Body =
+        S.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
+    emitBody(*this, Body,
+             OMPLoopBasedDirective::tryToFindNextInnerLoop(
+                 Body, /*TryImperfectlyNestedLoops=*/true),
+             S.getLoopsNumber());
+    EmitStopPoint(&S);
+    EmitBlock(Continue.getBlock());
+    BreakContinueStack.pop_back();
+  } else
+    EmitLateOutlineOMPUncollapsedLoopRotated(S, Kind, Depth + 1);
+
+  JumpDest Inc = getJumpDestInCurrentScope("omp.uncollapsed.loop.inc");
+  EmitBlock(Inc.getBlock());
+  GenerateOMPIncrement(UncollapsedIncs[Depth]);
+  if (Depth == 0)
+    EmitLateOutlineOMPFinals(S);
+
+  llvm::BasicBlock *LoopECE =
+      createBasicBlock("omp.uncollapsed.loop.end_crit_edge");
+  EmitBranchOnBoolExpr(UncollapsedLoopConds[Depth], LoopBody, LoopECE,
+                       getProfileCount(&S));
+
+  EmitBlock(LoopECE);
+  EmitBranch(LoopEnd.getBlock());
+
+  EmitBlock(LoopEnd.getBlock());
+}
+
 void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
                                              OpenMPDirectiveKind Kind) {
   TerminateHandlerRAII THandler(*this);
@@ -8680,9 +8752,12 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
       Outliner.emitVLAExpressions();
 
 #if INTEL_CUSTOMIZATION
-      if (useUncollapsedLoop(S))
-        EmitLateOutlineOMPUncollapsedLoop(S, Kind, /*Depth=*/0);
-      else
+      if (useUncollapsedLoop(S)) {
+        if (CGM.getCodeGenOpts().OpenMPRotateLoops & 0x2)
+          EmitLateOutlineOMPUncollapsedLoopRotated(S, Kind, /*Depth=*/0);
+        else
+          EmitLateOutlineOMPUncollapsedLoop(S, Kind, /*Depth=*/0);
+      } else
 #endif // INTEL_CUSTOMIZATION
       {
         if (isOpenMPSimdDirective(Kind)) {

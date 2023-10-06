@@ -4282,6 +4282,9 @@ public:
   void EmitLateOutlineOMPUncollapsedLoop(const OMPLoopDirective &S,
                                          OpenMPDirectiveKind Kind,
                                          unsigned Depth);
+  void EmitLateOutlineOMPUncollapsedLoopRotated(const OMPLoopDirective &S,
+                                                OpenMPDirectiveKind Kind,
+                                                unsigned Depth);
   bool IsPrivateCounter(const VarDecl *VD) {
     return VD->isLocalVarDecl() && !LocalDeclMap.count(VD);
   }

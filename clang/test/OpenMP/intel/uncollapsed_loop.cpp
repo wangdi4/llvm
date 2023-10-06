@@ -111,10 +111,12 @@ void test_one(float *A0, float *A1, int Ni, int Nj, int Nk) {
   //CHECK: [[L47:%[0-9]*]] = load i64, ptr[[AS]] [[IV_J]]
   //CHECK: [[ADD54:%add[0-9]*]] = add nsw i64 [[L47]], 1
   //CHECK: store i64 [[ADD54]], ptr[[AS]] [[IV_J]]
+  //CHECK: br
   // Outer Inc
   //CHECK: [[L48:%[0-9]*]] = load i64, ptr[[AS]] [[IV_I]]
   //CHECK: [[ADD56:%add[0-9]*]] = add nsw i64 [[L48]], 1
   //CHECK: store i64 [[ADD56]], ptr[[AS]] [[IV_I]]
+  //CHECK: br
   //CHECK: "DIR.OMP.END.DISTRIBUTE.PARLOOP"()
   //CHECK: "DIR.OMP.END.TEAMS"()
   //CHECK: "DIR.OMP.END.TARGET"()
@@ -229,14 +231,17 @@ void test_two(float *A0, float *A1, int Ni, int Nj, int Nk) {
   //CHECK: [[L47:%[0-9]*]] = load i64, ptr[[AS]] [[IV_K]]
   //CHECK: [[ADD54:%add[0-9]*]] = add nsw i64 [[L47]], 1
   //CHECK: store i64 [[ADD54]], ptr[[AS]] [[IV_K]]
+  //CHECK: br
   // Next Inc
   //CHECK: [[L48:%[0-9]*]] = load i64, ptr[[AS]] [[IV_J]]
   //CHECK: [[ADD56:%add[0-9]*]] = add nsw i64 [[L48]], 1
   //CHECK: store i64 [[ADD56]], ptr[[AS]] [[IV_J]]
+  //CHECK: br
   // Outer Inc
   //CHECK: [[LI1:%[0-9]*]] = load i64, ptr[[AS]] [[IV_I]]
   //CHECK: [[ADDL:%add[0-9]*]] = add nsw i64 [[LI1]], 1
   //CHECK: store i64 [[ADDL]], ptr[[AS]] [[IV_I]]
+  //CHECK: br
   //CHECK: "DIR.OMP.END.SIMD"()
   //CHECK: "DIR.OMP.END.DISTRIBUTE.PARLOOP"()
   //CHECK: "DIR.OMP.END.TEAMS"()
