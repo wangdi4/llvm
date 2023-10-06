@@ -324,15 +324,19 @@ define i32 @sub_sel_op1_use(i1 %b) {
 ; CHECK-LABEL: @sub_sel_op1_use(
 ; CHECK-NEXT:    [[S:%.*]] = select i1 [[B:%.*]], i32 42, i32 41
 ; CHECK-NEXT:    call void @use(i32 [[S]])
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; xmain infers more wrap-flags than llorg
 ; CHECK-NEXT:    [[R:%.*]] = sub nuw nsw i32 42, [[S]]
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[R:%.*]] = sub nuw nsw i32 42, [[S]]
+>>>>>>> 4a2a6a4111035b4ccd0dce9e6445006f003b88e3
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
   %s = select i1 %b, i32 42, i32 41
   call void @use(i32 %s)
-  %r = sub nsw i32 42, %s
+  %r = sub nuw nsw i32 42, %s
   ret i32 %r
 }
 
