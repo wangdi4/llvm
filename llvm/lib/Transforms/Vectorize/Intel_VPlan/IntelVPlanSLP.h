@@ -45,6 +45,36 @@ using VPlanSLPNodeTy = enum {
 };
 
 class VPlanSLP {
+  // VPlanSLPNodeElement is mostly a wrapper for VPValue. It contains VPValue
+  // reference as data member as well as some additional data that is used for
+  // SLP modelling.
+  // Specifically, it has extra opcode value which effectively overrides the
+  // opcode value of associated VPValue/VPInstruction. It is used to implement
+  // transformations on top of VPlan IR w/o modifing IR.
+  class VPlanSLPNodeElement {
+    const VPValue *Value;
+    unsigned AltOpcode;
+
+  public:
+    VPlanSLPNodeElement(const VPValue *Value) : Value(Value), AltOpcode(0) {}
+    ~VPlanSLPNodeElement() = default;
+
+    const VPValue *getValue() const { return Value; }
+    unsigned getOpcode() const {
+      if (AltOpcode != 0)
+        return AltOpcode;
+      return cast<VPInstruction>(Value)->getOpcode();
+    }
+
+    void setAltOpcode(unsigned Opcode) { AltOpcode = Opcode; }
+  };
+
+  // Shorthands for some frequently used types.
+  using ElemVectorImplTy = SmallVectorImpl<VPlanSLPNodeElement>;
+  using ElemVectorTy = SmallVector<VPlanSLPNodeElement, 32>;
+  using ElemArrayRef = ArrayRef<VPlanSLPNodeElement>;
+  using ElemMutableArrayRef = MutableArrayRef<VPlanSLPNodeElement>;
+
   VPlanTTICostModel *CM;
   // Only instructions belonging BB are subject for SLP.
   const VPBasicBlock *BB;
@@ -55,6 +85,7 @@ class VPlanSLP {
   unsigned GraphID;
   // Formatted print of 'Values' into dbgs() stream.
   static void printVector(ArrayRef<const VPValue *> Values);
+  static void printVector(ElemArrayRef);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // TODO:
@@ -113,21 +144,21 @@ class VPlanSLP {
   // The method swaps elements from Op1 with elements from Op2 on the same index
   // position in order to make vectorization of Op1 and/or Op2 more probable or
   // profitable.
-  void tryReorderOperands(MutableArrayRef<const VPValue *> Op1,
-                          MutableArrayRef<const VPValue *> Op2) const;
+  void tryReorderOperands(ElemMutableArrayRef Op1,
+                          ElemMutableArrayRef Op2) const;
 
   // Tries to build an SLP tree starting at 'Seed' list and returns the
   // difference (vectorized_graph_cost - scalar_graph_cost). Thereby if the
   // cost is negative, it is profitable to vectorize. If the cost is Invalid,
   // the graph is not vectorizable with SLP.
-  VPInstructionCost buildGraph(ArrayRef<const VPValue *> Seed);
+  VPInstructionCost buildGraph(ElemArrayRef Seed);
 
   // Searches for SLP patters that start at 'Seed' as seed instructions.
   // The utility modifies input Seed vector sorting it and it is truncated
   // at function's exit.
   //
   // Return the sum of the gain costs of profitable to SLP subgraphs only.
-  VPInstructionCost searchSLPPatterns(SmallVectorImpl<const VPValue *> &Seed);
+  VPInstructionCost searchSLPPatterns(ElemVectorImplTy &Seed);
 
   // Utility collects the constant distances between Memrefs in Values array
   // and 'BaseMem' memory reference.
@@ -180,10 +211,12 @@ class VPlanSLP {
   // this is a quick heuristics based check rather than a legality check.
   //
   // The costs of profitable to vectorize groups is accumulated and returned.
-  VPInstructionCost formAndCostBundles(
-      ArrayRef<const VPValue *> InSeed,
-      std::function<bool(const VPValue *, const VPValue *)> Compare,
-      SmallVectorImpl<const VPValue *> *OutSeed = nullptr);
+  VPInstructionCost
+  formAndCostBundles(ElemArrayRef InSeed,
+                     std::function<bool(const VPlanSLPNodeElement &,
+                                        const VPlanSLPNodeElement &)>
+                         Compare,
+                     ElemVectorImplTy *OutSeed = nullptr);
 
 public:
   VPlanSLP(VPlanTTICostModel *CM, const VPBasicBlock *BB)

@@ -483,9 +483,9 @@ VPlanSLP::estimateSLPCostDifference(ArrayRef<const VPValue *> Values,
   return VecCost - ScalCost;
 }
 
-void VPlanSLP::tryReorderOperands(MutableArrayRef<const VPValue *> Op1,
-                                  MutableArrayRef<const VPValue *> Op2) const {
-  const VPValue *BaseV = Op1[0];
+void VPlanSLP::tryReorderOperands(ElemMutableArrayRef Op1,
+                                  ElemMutableArrayRef Op2) const {
+  const VPValue *BaseV = Op1[0].getValue();
   bool IsInst = isa<VPInstruction>(BaseV);
   unsigned Opcode = IsInst ? cast<VPInstruction>(BaseV)->getOpcode() : 0;
 
@@ -510,25 +510,25 @@ void VPlanSLP::tryReorderOperands(MutableArrayRef<const VPValue *> Op1,
   };
 
   for (unsigned Idx = 1; Idx < Op1.size(); Idx++) {
-    if (!IsSimilar(Op1[Idx])) {
+    if (!IsSimilar(Op1[Idx].getValue())) {
       std::swap(Op1[Idx], Op2[Idx]);
       if (SLPReportDetailLevel >= 2) {
-        LLVM_DEBUG(dbgs() << "VSLP: swapped operands ";
-                   Op1[Idx]->printAsOperand(dbgs()); dbgs() << " <-> ";
-                   Op2[Idx]->printAsOperand(dbgs());
-                   dbgs() << " at index = " << Idx << " in bundle/graph "
-                          << BundleID << '/' << GraphID << " in "
-                          << BB->getName() << '\n');
+        LLVM_DEBUG(
+            dbgs() << "VSLP: swapped operands ";
+            Op1[Idx].getValue()->printAsOperand(dbgs()); dbgs() << " <-> ";
+            Op2[Idx].getValue()->printAsOperand(dbgs());
+            dbgs() << " at index = " << Idx << " in bundle/graph " << BundleID
+                   << '/' << GraphID << " in " << BB->getName() << '\n');
       }
     }
   }
 }
 
-VPInstructionCost VPlanSLP::buildGraph(ArrayRef<const VPValue *> Seed) {
+VPInstructionCost VPlanSLP::buildGraph(ElemArrayRef Seed) {
   unsigned Depth = 0;
   VPInstructionCost Cost = 0;
   // The queue stores the operands yet to be processed.
-  std::queue<VPlanSLPValuesTy> WorkQueue;
+  std::queue<ElemVectorTy> WorkQueue;
 
   assert(Seed.size() > 1 && "Too small Seed's size.");
 
@@ -536,13 +536,21 @@ VPInstructionCost VPlanSLP::buildGraph(ArrayRef<const VPValue *> Seed) {
   WorkQueue.emplace(Seed);
 
   while (!WorkQueue.empty() && Depth++ < SLPUDDepthLimit) {
-    VPlanSLPValuesTy Values = WorkQueue.front();
+    ElemVectorTy ValuesEl = WorkQueue.front();
     VPlanSLPValuesTy VecValues;
     WorkQueue.pop();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     BundleID++;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    // TODO:
+    // The conversion from ElemVectorTy to VPlanSLPValuesTy will be removed once
+    // utilities take ElemVectorTy on input.
+    VPlanSLPValuesTy Values;
+    auto Range =
+        map_range(ValuesEl, [](const auto &E) { return E.getValue(); });
+    Values.assign(Range.begin(), Range.end());
 
     VPlanSLPNodeTy NType = getVectorizableValues(Values, VecValues);
     VPInstructionCost VCost = VPInstructionCost::getInvalid();
@@ -618,9 +626,9 @@ VPInstructionCost VPlanSLP::buildGraph(ArrayRef<const VPValue *> Seed) {
     // Consider deeper look ahead check.
     if (Instruction::isBinaryOp(Inst0->getOpcode()) &&
         Instruction::isCommutative(Inst0->getOpcode())) {
-      VPlanSLPValuesTy Op2Vec = WorkQueue.front();
+      ElemVectorTy Op2Vec = WorkQueue.front();
       WorkQueue.pop();
-      VPlanSLPValuesTy Op1Vec = WorkQueue.front();
+      ElemVectorTy Op1Vec = WorkQueue.front();
       WorkQueue.pop();
 
       tryReorderOperands(Op1Vec, Op2Vec);
@@ -632,10 +640,12 @@ VPInstructionCost VPlanSLP::buildGraph(ArrayRef<const VPValue *> Seed) {
   return Cost;
 }
 
-VPInstructionCost VPlanSLP::formAndCostBundles(
-    ArrayRef<const VPValue *> InSeed,
-    std::function<bool(const VPValue *, const VPValue *)> Compare,
-    SmallVectorImpl<const VPValue *> *OutSeed) {
+VPInstructionCost
+VPlanSLP::formAndCostBundles(ElemArrayRef InSeed,
+                             std::function<bool(const VPlanSLPNodeElement &,
+                                                const VPlanSLPNodeElement &)>
+                                 Compare,
+                             ElemVectorImplTy *OutSeed) {
   // We consider 2 <= VLs <= 16. SLP does not support non-power-of-2 VLs yet but
   // in many cases the code is SLP'ed with power-of-2 VLs after unroll.
   // TODO: yet to be proven that unroll would be likely to happen and that it
@@ -690,8 +700,7 @@ VPInstructionCost VPlanSLP::formAndCostBundles(
   return Cost;
 }
 
-VPInstructionCost
-VPlanSLP::searchSLPPatterns(SmallVectorImpl<const VPValue *> &Seed) {
+VPInstructionCost VPlanSLP::searchSLPPatterns(ElemVectorImplTy &Seed) {
   // TODO:
   // Consider sorting Seed input to form more profitable start vectors, such as
   // if input array for example is:
@@ -716,9 +725,9 @@ VPlanSLP::searchSLPPatterns(SmallVectorImpl<const VPValue *> &Seed) {
   //
   // Rather than deleting vectorized bundles from 'Seed' we keep remaining
   // stores in another local array for effectiveness.
-  auto AreMemoryAdjacent = [](const VPValue *V1, const VPValue *V2) {
-    const auto *S1 = dyn_cast<VPLoadStoreInst>(V1);
-    const auto *S2 = dyn_cast<VPLoadStoreInst>(V2);
+  auto AreMemoryAdjacent = [](const auto &V1, const auto &V2) {
+    const auto *S1 = dyn_cast<VPLoadStoreInst>(V1.getValue());
+    const auto *S2 = dyn_cast<VPLoadStoreInst>(V2.getValue());
 
     if (!S1 || !S2)
       return false;
@@ -733,9 +742,9 @@ VPlanSLP::searchSLPPatterns(SmallVectorImpl<const VPValue *> &Seed) {
     return DDRefUtils::getConstByteDistance(DDRef1, DDRef2, &Distance);
   };
 
-  auto AreSame32bit64bitSize = [this](const VPValue *V1, const VPValue *V2) {
-    const auto *IMem1 = dyn_cast<VPLoadStoreInst>(V1);
-    const auto *IMem2 = dyn_cast<VPLoadStoreInst>(V2);
+  auto AreSame32bit64bitSize = [this](const auto &V1, const auto &V2) {
+    const auto *IMem1 = dyn_cast<VPLoadStoreInst>(V1.getValue());
+    const auto *IMem2 = dyn_cast<VPLoadStoreInst>(V2.getValue());
 
     if (IMem1 && IMem2) {
       unsigned BW1 = CM->DL->getTypeSizeInBits(IMem1->getValueType());
@@ -743,11 +752,11 @@ VPlanSLP::searchSLPPatterns(SmallVectorImpl<const VPValue *> &Seed) {
       return (BW1 == BW2 && (BW1 == 32 || BW1 == 64));
     }
 
-    return V1->getType() == V2->getType();
+    return V1.getValue()->getType() == V2.getValue()->getType();
   };
 
   VPInstructionCost Cost = 0;
-  VPlanSLPValuesTy LocalSeed;
+  ElemVectorTy LocalSeed;
 
   Cost += formAndCostBundles(Seed, AreMemoryAdjacent, &LocalSeed);
   Cost += formAndCostBundles(LocalSeed, AreSame32bit64bitSize);
@@ -767,7 +776,7 @@ VPInstructionCost VPlanSLP::estimateSLPCostDifference() {
   // TODO: If that appears to be the case consider overlapping search windows.
   constexpr unsigned SearchWindowSize = 64;
   // The storage for stores that are seed instructions.
-  SmallVector<const VPValue *, SearchWindowSize> Stores;
+  SmallVector<VPlanSLPNodeElement, SearchWindowSize> Stores;
 
   VPInstructionCost Cost = 0;
 
@@ -776,8 +785,8 @@ VPInstructionCost VPlanSLP::estimateSLPCostDifference() {
     // vectorizable (volatile, no HIR node, etc.)
     // TODO: We need to extend the support to cover reductions.
     if (I.getOpcode() != Instruction::Store ||
-        !cast<VPLoadStoreInst>(&I)->isSimple() ||
-        cast<VPLoadStoreInst>(&I)->getHIRMemoryRef() == nullptr)
+        !cast<VPLoadStoreInst>(I).isSimple() ||
+        cast<VPLoadStoreInst>(I).getHIRMemoryRef() == nullptr)
       continue;
     Stores.push_back(&I);
 
@@ -793,6 +802,7 @@ VPInstructionCost VPlanSLP::estimateSLPCostDifference() {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// TODO: this function is scheduled to be deleted.
 void VPlanSLP::printVector(ArrayRef<const VPValue *> Values) {
   for (const auto *V : Values) {
     dbgs() << '\t';
@@ -800,6 +810,19 @@ void VPlanSLP::printVector(ArrayRef<const VPValue *> Values) {
       I->printWithoutAnalyses(dbgs());
     else
       V->printAsOperand(dbgs());
+    dbgs() << '\n';
+  }
+}
+
+void VPlanSLP::printVector(ElemArrayRef Elems) {
+  for (const auto &E : Elems) {
+    dbgs() << '\t';
+    if (const auto *I = dyn_cast<VPInstruction>(E.getValue())) {
+      I->printWithoutAnalyses(dbgs());
+      if (E.getOpcode() != I->getOpcode())
+        dbgs() << " (altered opcode: " << E.getOpcode() << ')';
+    } else
+      E.getValue()->printAsOperand(dbgs());
     dbgs() << '\n';
   }
 }
