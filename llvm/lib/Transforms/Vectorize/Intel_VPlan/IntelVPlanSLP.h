@@ -53,10 +53,13 @@ class VPlanSLP {
   // transformations on top of VPlan IR w/o modifing IR.
   class VPlanSLPNodeElement {
     const VPValue *Value;
+    const VPValue *Op[2];
     unsigned AltOpcode;
 
   public:
-    VPlanSLPNodeElement(const VPValue *Value) : Value(Value), AltOpcode(0) {}
+    VPlanSLPNodeElement(const VPValue *Value) : Value(Value) {
+      setOpsAndAltOpcode(nullptr, nullptr);
+    }
     ~VPlanSLPNodeElement() = default;
 
     const VPValue *getValue() const { return Value; }
@@ -66,7 +69,30 @@ class VPlanSLP {
       return cast<VPInstruction>(Value)->getOpcode();
     }
 
-    void setAltOpcode(unsigned Opcode) { AltOpcode = Opcode; }
+    // Trivial setter for private fields.
+    void setOpsAndAltOpcode(const VPValue *Op0, const VPValue *Op1,
+                            unsigned Opcode = 0) {
+      AltOpcode = Opcode;
+      Op[0] = Op0;
+      Op[1] = Op1;
+    }
+
+    /// getOperand() is a proxy for VPUser::getOperand() method. Thereby it
+    /// asserts that 'Value' is of VPInstruction type.
+    ///
+    /// VPlanSLPNodeElement::getOperand() can return values different from what
+    /// VPUser::getOperand() returns.
+    ///
+    /// For example it happens if a + b * (-1) is folded into a - b virtually.
+    /// In this case AltOpcode is set to '-', Op[0] is set to 'a' and Op[1] is
+    /// set to 'b' in the node corresponding to '+'.
+    const VPValue *getOperand(unsigned N) const;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    // To call from gdb and for debugging dumps.
+    void dump(raw_ostream &OS) const;
+    void dump() const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   };
 
   // Shorthands for some frequently used types.
