@@ -183,79 +183,78 @@ VPInstructionCost VPlanSLP::getVectorCost(const VPInstruction *Base,
   return CM->getTTICostForVF(Base, VF);
 }
 
-bool VPlanSLP::getSplatVector(ElemArrayRef InValues,
-                              ElemVectorImplTy &OutValues) const {
+bool VPlanSLP::getSplatVector(
+    ArrayRef<const VPValue *> InValues,
+    SmallVectorImpl<const VPValue *> &OutValues) const {
   // First sort InValues to group equal values in continuous chunks.
-  ElemVectorTy InValuesSorted;
+  VPlanSLPValuesTy InValuesSorted;
   InValuesSorted.assign(InValues.begin(), InValues.end());
-  llvm::sort(InValuesSorted, [](const auto &E1, const auto &E2) {
-    return E1.getValue() == E2.getValue();
-  });
+  llvm::sort(InValuesSorted);
   OutValues.clear();
 
   // Scan InValues until matching pair is found. When matching pair is found
   // scan to the end of InValues and copy all values that are the same.
-  ElemArrayRef::iterator BaseE = nullptr;
-  for (const auto &E : InValuesSorted) {
+  const VPValue *BaseV = nullptr;
+  for (const auto *V : InValuesSorted) {
     // Skip values of non-vectorizable types.
-    if (!isVectorizableTy(E.getValue()->getType()) ||
-        E.getValue()->getType()->isVoidTy())
+    if (!isVectorizableTy(V->getType()) || V->getType()->isVoidTy())
       continue;
 
     // Continuous chunk of same Values: push them in OutValues and continue
     // scanning.
-    if (BaseE && (E.getValue() == BaseE->getValue()))
-      OutValues.push_back(E);
-    // Get to this code when it is either:
-    // *) BaseE is nullptr yet.
-    // *) BaseE is not nullptr and we have not started gathering a group yet
+    if (V == BaseV)
+      OutValues.push_back(V);
+    // V != BaseV, which can be either:
+    // *) BaseV is nullptr yet.
+    // *) BaseV is not nullptr and we have not started gathering a group yet
     //    due to OutValues.empty() check.
-    // In both cases set up BaseE with new value and continue scanning.
+    // In both cases set up BaseV with new value and continue scanning.
     else if (OutValues.empty())
-      BaseE = &E;
-    // E.getValue() != BaseE->getValue() and we have some elements in OutValues.
-    // It means it is the end of BaseE group. Stop scanning.
+      BaseV = V;
+    // V != BaseV and we have some elements in OutValues. It means it is the end
+    // of BaseV group. Stop scanning.
     else
       break;
   }
-  // If OutValues has at least one element we add BaseE to OutValues as we
-  // haven't added it so far. All elements in OutValues are expected to hold
-  // the same VPValue, which is expected to be equal to BaseE->getValue().
+  // If OutValues has at least one element we add BaseV to OutValues as we
+  // haven't added it so far. BaseV is expected to be equal to all elements
+  // in OutValues.
   // When OutValues is empty no repetitive values are detected in InValues.
   if (!OutValues.empty())
-    OutValues.push_back(*BaseE);
+    OutValues.push_back(BaseV);
   return OutValues.size() > 1;
 }
 
-bool VPlanSLP::getConstVector(ElemArrayRef InValues,
-                              ElemVectorImplTy &OutValues) const {
+bool VPlanSLP::getConstVector(
+    ArrayRef<const VPValue *> InValues,
+    SmallVectorImpl<const VPValue *> &OutValues) const {
   OutValues.clear();
-  llvm::for_each(InValues, [&OutValues](const auto &E) {
-    if (isa<VPConstant>(E.getValue()))
-      OutValues.push_back(E);
+  llvm::for_each(InValues, [&OutValues](const VPValue *V) {
+    if (isa<VPConstant>(V))
+      OutValues.push_back(V);
   });
   return OutValues.size() > 1;
 }
 
-bool VPlanSLP::getVecInstsVector(ElemArrayRef InValues,
-                                 ElemVectorImplTy &OutValues) const {
+bool VPlanSLP::getVecInstsVector(
+    ArrayRef<const VPValue *> InValues,
+    SmallVectorImpl<const VPValue *> &OutValues) const {
   assert(!InValues.empty() && "Missed operands.");
   if (InValues.empty())
     return false;
 
-  ElemVectorTy LocalValues;
-  ElemArrayRef::iterator BaseE = nullptr;
+  VPlanSLPValuesTy LocalValues;
+  const VPInstruction *BaseI = nullptr;
   OutValues.clear();
 
-  // Loop through InValues to set BaseE in the first VPInstruction which passes
+  // Loop through InValues to set BaseI in the first VPInstruction which passes
   // vectorization sanity checks. Also populate OutValues with values that are
-  // possibly vectorizable with BaseE.
+  // possibly vectorizable with BaseI.
   //
-  // Please note that the algorithm picks the first suitable BaseE, while it is
+  // Please note that the algorithm picks the first suitable BaseI, while it is
   // not always optimal and there can be other vectorization opportunities with
-  // BaseE set to another instruction from InValues.
-  for (const auto &E : InValues) {
-    const auto *V = E.getValue();
+  // BaseI set to another instruction from InValues.
+  for (const auto *V : InValues) {
     // Skip not vectorizable types.
     if (const auto *InstMem = dyn_cast<VPLoadStoreInst>(V)) {
       if (!isVectorizableTy(InstMem->getValueType()))
@@ -271,21 +270,19 @@ bool VPlanSLP::getVecInstsVector(ElemArrayRef InValues,
     if (!Inst)
       continue;
 
-    // If BaseE is not set yet assign it to &E and continue to the next
+    // If BaseI is not set yet assign it to Inst and continue to the next
     // element from InValues.
-    if (BaseE == nullptr) {
-      LocalValues.push_back(E);
-      BaseE = &E;
+    if (BaseI == nullptr) {
+      LocalValues.push_back(Inst);
+      BaseI = Inst;
       continue;
     }
 
     // Check that the types and opcodes match for all operands and they are all
     // in the same BB.
-    if (Inst->getParent() !=
-            cast<VPInstruction>(BaseE->getValue())->getParent() ||
-        Inst->getOpcode() != BaseE->getOpcode() ||
-        Inst->getNumOperands() !=
-            cast<VPInstruction>(BaseE->getValue())->getNumOperands())
+    if (Inst->getParent() != BaseI->getParent() ||
+        Inst->getOpcode() != BaseI->getOpcode() ||
+        Inst->getNumOperands() != BaseI->getNumOperands())
       continue;
 
     // Special check for load/store value type as we care only about data
@@ -296,16 +293,16 @@ bool VPlanSLP::getVecInstsVector(ElemArrayRef InValues,
       if (CM->DL->getTypeSizeInBits(
               cast<VPLoadStoreInst>(Inst)->getValueType()) !=
           CM->DL->getTypeSizeInBits(
-              cast<VPLoadStoreInst>(BaseE->getValue())->getValueType()))
+              cast<VPLoadStoreInst>(BaseI)->getValueType()))
         continue;
-    } else if (Inst->getType() != BaseE->getValue()->getType())
+    } else if (Inst->getType() != BaseI->getType())
       continue;
 
-    LocalValues.push_back(E);
+    LocalValues.push_back(Inst);
   }
 
   // No vectorizable instructions are detected.
-  if (!BaseE)
+  if (!BaseI)
     return false;
 
   // Special considerations for load/store instructions: we don't want
@@ -319,16 +316,16 @@ bool VPlanSLP::getVecInstsVector(ElemArrayRef InValues,
   // and to the last suitable instruction from Values for stores.
 
   const VPLoadStoreInst *BaseMem;
-  if (BaseE->getOpcode() == Instruction::Store)
-    BaseMem = dyn_cast<VPLoadStoreInst>(LocalValues.back().getValue());
+  if (BaseI->getOpcode() == Instruction::Store)
+    BaseMem = dyn_cast<VPLoadStoreInst>(LocalValues.back());
   else
-    BaseMem = dyn_cast<VPLoadStoreInst>(LocalValues.front().getValue());
+    BaseMem = dyn_cast<VPLoadStoreInst>(LocalValues.front());
 
   if (BaseMem) {
-    for (const auto &E : LocalValues) {
-      const auto *InstMem = dyn_cast<VPLoadStoreInst>(E.getValue());
+    for (const auto *V : LocalValues) {
+      const auto *InstMem = dyn_cast<VPLoadStoreInst>(V);
       if (canMoveTo(InstMem, BaseMem))
-        OutValues.push_back(E);
+        OutValues.push_back(V);
     }
   } else
     // Vanilla vector copy as nothing else to check to not memrefs.
@@ -337,9 +334,9 @@ bool VPlanSLP::getVecInstsVector(ElemArrayRef InValues,
   return OutValues.size() > 1;
 }
 
-VPlanSLPNodeTy
-VPlanSLP::getVectorizableValues(ElemArrayRef InValues,
-                                ElemVectorImplTy &OutValues) const {
+VPlanSLPNodeTy VPlanSLP::getVectorizableValues(
+    ArrayRef<const VPValue *> InValues,
+    SmallVectorImpl<const VPValue *> &OutValues) const {
 
   assert(!InValues.empty() && "Missed operands.");
   if (InValues.empty())
@@ -549,27 +546,27 @@ VPInstructionCost VPlanSLP::buildGraph(ElemArrayRef Seed) {
   WorkQueue.emplace(Seed);
 
   while (!WorkQueue.empty() && Depth++ < SLPUDDepthLimit) {
-    ElemVectorTy Values = WorkQueue.front();
-    ElemVectorTy VecValues;
+    ElemVectorTy ValuesEl = WorkQueue.front();
+    VPlanSLPValuesTy VecValues;
     WorkQueue.pop();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     BundleID++;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    VPlanSLPNodeTy NType = getVectorizableValues(Values, VecValues);
-    VPInstructionCost VCost = VPInstructionCost::getInvalid();
-
     // TODO:
     // The conversion from ElemVectorTy to VPlanSLPValuesTy will be removed once
     // utilities take ElemVectorTy on input.
-    VPlanSLPValuesTy VecVPValues;
+    VPlanSLPValuesTy Values;
     auto Range =
-        map_range(VecValues, [](const auto &E) { return E.getValue(); });
-    VecVPValues.assign(Range.begin(), Range.end());
+        map_range(ValuesEl, [](const auto &E) { return E.getValue(); });
+    Values.assign(Range.begin(), Range.end());
+
+    VPlanSLPNodeTy NType = getVectorizableValues(Values, VecValues);
+    VPInstructionCost VCost = VPInstructionCost::getInvalid();
 
     if (NType != NotVector)
-      VCost = estimateSLPCostDifference(VecVPValues, NType);
+      VCost = estimateSLPCostDifference(VecValues, NType);
 
     if (SLPReportDetailLevel >= 1) {
       LLVM_DEBUG(dbgs() << "VSLP: bundle/graph " << BundleID << '/' << GraphID
@@ -620,7 +617,7 @@ VPInstructionCost VPlanSLP::buildGraph(ElemArrayRef Seed) {
     //
     // Don't walk through memref operands for stores & loads.
     // Stop traversing at splat vectors.
-    const auto *Inst0 = cast<VPInstruction>(VecValues[0].getValue());
+    const auto *Inst0 = cast<VPInstruction>(VecValues[0]);
     unsigned NumOperands = Inst0->getNumOperands();
     if (Inst0->getOpcode() == Instruction::Load)
       NumOperands = 0;
@@ -628,8 +625,9 @@ VPInstructionCost VPlanSLP::buildGraph(ElemArrayRef Seed) {
       NumOperands = 1;
 
     for (unsigned I = 0; I < NumOperands; I++)
-      WorkQueue.emplace(
-          map_range(VecValues, [I](const auto &E) { return E.getOperand(I); }));
+      WorkQueue.emplace(map_range(VecValues, [I](const auto *V) {
+        return cast<VPInstruction>(V)->getOperand(I);
+      }));
 
     // If the instruction is binary and commutative we do 1 step
     // 'look ahead' check: if the first operand's type/opcode doesn't match
