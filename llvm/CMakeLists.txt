@@ -2158,6 +2158,9 @@ if (INTEL_CUSTOMIZATION)
           # Address sanitizer thunk libs.
           clang_rt.asan_dll_thunk-x86_64
           clang_rt.asan_dynamic_runtime_thunk-x86_64
+
+          # Builtins
+          clang_rt.builtins-x86_64
         )
       endif()
     endif()

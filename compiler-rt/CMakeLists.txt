@@ -47,6 +47,8 @@
 #   - Linux
 # - cfi(CMPLRLLVM-43351)
 #   - Linux & Windows
+# - builtins(CMPLRLLVM-48369, CMPLRLLVM-50952)
+#   - Windows
 #
 # end INTEL_CUSTOMIZATION
 
