@@ -415,8 +415,11 @@ bool isWorkGroupAll(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ALL); }
 
 bool isWorkGroupAny(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ANY); }
 
-bool isWorkGroupBroadCast(StringRef S) {
-  return isMangleOf(S, NAME_WORK_GROUP_BROADCAST);
+std::pair<bool, bool> isWorkGroupBroadCast(StringRef S) {
+  bool IsMaskedBroadcast =
+      isMangleOf(S, (Twine("__") + NAME_WORK_GROUP_BROADCAST).str());
+  return {IsMaskedBroadcast || isMangleOf(S, NAME_WORK_GROUP_BROADCAST),
+          IsMaskedBroadcast};
 }
 
 bool isWorkGroupIdentity(StringRef S) {
@@ -842,12 +845,13 @@ bool isWorkGroupScan(StringRef S) {
 }
 
 bool isWorkGroupBuiltinUniform(StringRef S) {
-  return isWorkGroupAll(S) || isWorkGroupAny(S) || isWorkGroupBroadCast(S) ||
-         isWorkGroupReduceAdd(S) || isWorkGroupReduceMin(S) ||
-         isWorkGroupReduceMax(S) || isWorkGroupReduceMul(S) ||
-         isWorkGroupReduceBitwiseAnd(S) || isWorkGroupReduceBitwiseOr(S) ||
-         isWorkGroupReduceBitwiseXor(S) || isWorkGroupReduceLogicalAnd(S) ||
-         isWorkGroupReduceLogicalOr(S) || isWorkGroupReduceLogicalXor(S);
+  return isWorkGroupAll(S) || isWorkGroupAny(S) ||
+         isWorkGroupBroadCast(S).first || isWorkGroupReduceAdd(S) ||
+         isWorkGroupReduceMin(S) || isWorkGroupReduceMax(S) ||
+         isWorkGroupReduceMul(S) || isWorkGroupReduceBitwiseAnd(S) ||
+         isWorkGroupReduceBitwiseOr(S) || isWorkGroupReduceBitwiseXor(S) ||
+         isWorkGroupReduceLogicalAnd(S) || isWorkGroupReduceLogicalOr(S) ||
+         isWorkGroupReduceLogicalXor(S);
 }
 
 bool isWorkGroupMin(StringRef S) {

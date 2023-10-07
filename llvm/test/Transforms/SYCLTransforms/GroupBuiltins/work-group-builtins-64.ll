@@ -963,106 +963,6 @@ declare <32 x double> @_Z20work_group_broadcastDv32_dm(<32 x double>  %src, i64 
 
 declare <64 x double> @_Z20work_group_broadcastDv64_dm(<64 x double>  %src, i64  %local_id) 
 
-declare <4 x i8> @_Z20work_group_broadcastDv4_cmDv4_j(<4 x i8>  %src, i64  %local_id, <4 x i32>  %mask) 
-
-declare <8 x i8> @_Z20work_group_broadcastDv8_cmDv8_j(<8 x i8>  %src, i64  %local_id, <8 x i32>  %mask) 
-
-declare <16 x i8> @_Z20work_group_broadcastDv16_cmDv16_j(<16 x i8>  %src, i64  %local_id, <16 x i32>  %mask) 
-
-declare <32 x i8> @_Z20work_group_broadcastDv32_cmDv32_j(<32 x i8>  %src, i64  %local_id, <32 x i32>  %mask) 
-
-declare <64 x i8> @_Z20work_group_broadcastDv64_cmDv64_j(<64 x i8>  %src, i64  %local_id, <64 x i32>  %mask) 
-
-declare <4 x i8> @_Z20work_group_broadcastDv4_hmDv4_j(<4 x i8>  %src, i64  %local_id, <4 x i32>  %mask) 
-
-declare <8 x i8> @_Z20work_group_broadcastDv8_hmDv8_j(<8 x i8>  %src, i64  %local_id, <8 x i32>  %mask) 
-
-declare <16 x i8> @_Z20work_group_broadcastDv16_hmDv16_j(<16 x i8>  %src, i64  %local_id, <16 x i32>  %mask) 
-
-declare <32 x i8> @_Z20work_group_broadcastDv32_hmDv32_j(<32 x i8>  %src, i64  %local_id, <32 x i32>  %mask) 
-
-declare <64 x i8> @_Z20work_group_broadcastDv64_hmDv64_j(<64 x i8>  %src, i64  %local_id, <64 x i32>  %mask) 
-
-declare <4 x i16> @_Z20work_group_broadcastDv4_smDv4_j(<4 x i16>  %src, i64  %local_id, <4 x i32>  %mask) 
-
-declare <8 x i16> @_Z20work_group_broadcastDv8_smDv8_j(<8 x i16>  %src, i64  %local_id, <8 x i32>  %mask) 
-
-declare <16 x i16> @_Z20work_group_broadcastDv16_smDv16_j(<16 x i16>  %src, i64  %local_id, <16 x i32>  %mask) 
-
-declare <32 x i16> @_Z20work_group_broadcastDv32_smDv32_j(<32 x i16>  %src, i64  %local_id, <32 x i32>  %mask) 
-
-declare <64 x i16> @_Z20work_group_broadcastDv64_smDv64_j(<64 x i16>  %src, i64  %local_id, <64 x i32>  %mask) 
-
-declare <4 x i16> @_Z20work_group_broadcastDv4_tmDv4_j(<4 x i16>  %src, i64  %local_id, <4 x i32>  %mask) 
-
-declare <8 x i16> @_Z20work_group_broadcastDv8_tmDv8_j(<8 x i16>  %src, i64  %local_id, <8 x i32>  %mask) 
-
-declare <16 x i16> @_Z20work_group_broadcastDv16_tmDv16_j(<16 x i16>  %src, i64  %local_id, <16 x i32>  %mask) 
-
-declare <32 x i16> @_Z20work_group_broadcastDv32_tmDv32_j(<32 x i16>  %src, i64  %local_id, <32 x i32>  %mask) 
-
-declare <64 x i16> @_Z20work_group_broadcastDv64_tmDv64_j(<64 x i16>  %src, i64  %local_id, <64 x i32>  %mask) 
-
-declare <4 x i32> @_Z20work_group_broadcastDv4_imDv4_j(<4 x i32>  %src, i64  %local_id, <4 x i32>  %mask) 
-
-declare <8 x i32> @_Z20work_group_broadcastDv8_imDv8_j(<8 x i32>  %src, i64  %local_id, <8 x i32>  %mask) 
-
-declare <16 x i32> @_Z20work_group_broadcastDv16_imDv16_j(<16 x i32>  %src, i64  %local_id, <16 x i32>  %mask) 
-
-declare <32 x i32> @_Z20work_group_broadcastDv32_imDv32_j(<32 x i32>  %src, i64  %local_id, <32 x i32>  %mask) 
-
-declare <64 x i32> @_Z20work_group_broadcastDv64_imDv64_j(<64 x i32>  %src, i64  %local_id, <64 x i32>  %mask) 
-
-declare <4 x i32> @_Z20work_group_broadcastDv4_jmS_(<4 x i32>  %src, i64  %local_id, <4 x i32>  %mask) 
-
-declare <8 x i32> @_Z20work_group_broadcastDv8_jmS_(<8 x i32>  %src, i64  %local_id, <8 x i32>  %mask) 
-
-declare <16 x i32> @_Z20work_group_broadcastDv16_jmS_(<16 x i32>  %src, i64  %local_id, <16 x i32>  %mask) 
-
-declare <32 x i32> @_Z20work_group_broadcastDv32_jmS_(<32 x i32>  %src, i64  %local_id, <32 x i32>  %mask) 
-
-declare <64 x i32> @_Z20work_group_broadcastDv64_jmS_(<64 x i32>  %src, i64  %local_id, <64 x i32>  %mask) 
-
-declare <4 x i64> @_Z20work_group_broadcastDv4_lmDv4_j(<4 x i64>  %src, i64  %local_id, <4 x i32>  %mask) 
-
-declare <8 x i64> @_Z20work_group_broadcastDv8_lmDv8_j(<8 x i64>  %src, i64  %local_id, <8 x i32>  %mask) 
-
-declare <16 x i64> @_Z20work_group_broadcastDv16_lmDv16_j(<16 x i64>  %src, i64  %local_id, <16 x i32>  %mask) 
-
-declare <32 x i64> @_Z20work_group_broadcastDv32_lmDv32_j(<32 x i64>  %src, i64  %local_id, <32 x i32>  %mask) 
-
-declare <64 x i64> @_Z20work_group_broadcastDv64_lmDv64_j(<64 x i64>  %src, i64  %local_id, <64 x i32>  %mask) 
-
-declare <4 x i64> @_Z20work_group_broadcastDv4_mmDv4_j(<4 x i64>  %src, i64  %local_id, <4 x i32>  %mask) 
-
-declare <8 x i64> @_Z20work_group_broadcastDv8_mmDv8_j(<8 x i64>  %src, i64  %local_id, <8 x i32>  %mask) 
-
-declare <16 x i64> @_Z20work_group_broadcastDv16_mmDv16_j(<16 x i64>  %src, i64  %local_id, <16 x i32>  %mask) 
-
-declare <32 x i64> @_Z20work_group_broadcastDv32_mmDv32_j(<32 x i64>  %src, i64  %local_id, <32 x i32>  %mask) 
-
-declare <64 x i64> @_Z20work_group_broadcastDv64_mmDv64_j(<64 x i64>  %src, i64  %local_id, <64 x i32>  %mask) 
-
-declare <4 x float> @_Z20work_group_broadcastDv4_fmDv4_j(<4 x float>  %src, i64  %local_id, <4 x i32>  %mask) 
-
-declare <8 x float> @_Z20work_group_broadcastDv8_fmDv8_j(<8 x float>  %src, i64  %local_id, <8 x i32>  %mask) 
-
-declare <16 x float> @_Z20work_group_broadcastDv16_fmDv16_j(<16 x float>  %src, i64  %local_id, <16 x i32>  %mask) 
-
-declare <32 x float> @_Z20work_group_broadcastDv32_fmDv32_j(<32 x float>  %src, i64  %local_id, <32 x i32>  %mask) 
-
-declare <64 x float> @_Z20work_group_broadcastDv64_fmDv64_j(<64 x float>  %src, i64  %local_id, <64 x i32>  %mask) 
-
-declare <4 x double> @_Z20work_group_broadcastDv4_dmDv4_j(<4 x double>  %src, i64  %local_id, <4 x i32>  %mask) 
-
-declare <8 x double> @_Z20work_group_broadcastDv8_dmDv8_j(<8 x double>  %src, i64  %local_id, <8 x i32>  %mask) 
-
-declare <16 x double> @_Z20work_group_broadcastDv16_dmDv16_j(<16 x double>  %src, i64  %local_id, <16 x i32>  %mask) 
-
-declare <32 x double> @_Z20work_group_broadcastDv32_dmDv32_j(<32 x double>  %src, i64  %local_id, <32 x i32>  %mask) 
-
-declare <64 x double> @_Z20work_group_broadcastDv64_dmDv64_j(<64 x double>  %src, i64  %local_id, <64 x i32>  %mask) 
-
 declare signext i8 @_Z20work_group_broadcastcmm(i8  signext %src, i64  %local_id_x, i64  %local_id_y) 
 
 declare <4 x i8> @_Z20work_group_broadcastDv4_cmm(<4 x i8>  %src, i64  %local_id_x, i64  %local_id_y) 
@@ -1182,106 +1082,6 @@ declare <16 x double> @_Z20work_group_broadcastDv16_dmm(<16 x double>  %src, i64
 declare <32 x double> @_Z20work_group_broadcastDv32_dmm(<32 x double>  %src, i64  %local_id_x, i64  %local_id_y) 
 
 declare <64 x double> @_Z20work_group_broadcastDv64_dmm(<64 x double>  %src, i64  %local_id_x, i64  %local_id_y) 
-
-declare <4 x i8> @_Z20work_group_broadcastDv4_cmmDv4_j(<4 x i8>  %src, i64  %local_id_x, i64  %local_id_y, <4 x i32>  %mask) 
-
-declare <8 x i8> @_Z20work_group_broadcastDv8_cmmDv8_j(<8 x i8>  %src, i64  %local_id_x, i64  %local_id_y, <8 x i32>  %mask) 
-
-declare <16 x i8> @_Z20work_group_broadcastDv16_cmmDv16_j(<16 x i8>  %src, i64  %local_id_x, i64  %local_id_y, <16 x i32>  %mask) 
-
-declare <32 x i8> @_Z20work_group_broadcastDv32_cmmDv32_j(<32 x i8>  %src, i64  %local_id_x, i64  %local_id_y, <32 x i32>  %mask) 
-
-declare <64 x i8> @_Z20work_group_broadcastDv64_cmmDv64_j(<64 x i8>  %src, i64  %local_id_x, i64  %local_id_y, <64 x i32>  %mask) 
-
-declare <4 x i8> @_Z20work_group_broadcastDv4_hmmDv4_j(<4 x i8>  %src, i64  %local_id_x, i64  %local_id_y, <4 x i32>  %mask) 
-
-declare <8 x i8> @_Z20work_group_broadcastDv8_hmmDv8_j(<8 x i8>  %src, i64  %local_id_x, i64  %local_id_y, <8 x i32>  %mask) 
-
-declare <16 x i8> @_Z20work_group_broadcastDv16_hmmDv16_j(<16 x i8>  %src, i64  %local_id_x, i64  %local_id_y, <16 x i32>  %mask) 
-
-declare <32 x i8> @_Z20work_group_broadcastDv32_hmmDv32_j(<32 x i8>  %src, i64  %local_id_x, i64  %local_id_y, <32 x i32>  %mask) 
-
-declare <64 x i8> @_Z20work_group_broadcastDv64_hmmDv64_j(<64 x i8>  %src, i64  %local_id_x, i64  %local_id_y, <64 x i32>  %mask) 
-
-declare <4 x i16> @_Z20work_group_broadcastDv4_smmDv4_j(<4 x i16>  %src, i64  %local_id_x, i64  %local_id_y, <4 x i32>  %mask) 
-
-declare <8 x i16> @_Z20work_group_broadcastDv8_smmDv8_j(<8 x i16>  %src, i64  %local_id_x, i64  %local_id_y, <8 x i32>  %mask) 
-
-declare <16 x i16> @_Z20work_group_broadcastDv16_smmDv16_j(<16 x i16>  %src, i64  %local_id_x, i64  %local_id_y, <16 x i32>  %mask) 
-
-declare <32 x i16> @_Z20work_group_broadcastDv32_smmDv32_j(<32 x i16>  %src, i64  %local_id_x, i64  %local_id_y, <32 x i32>  %mask) 
-
-declare <64 x i16> @_Z20work_group_broadcastDv64_smmDv64_j(<64 x i16>  %src, i64  %local_id_x, i64  %local_id_y, <64 x i32>  %mask) 
-
-declare <4 x i16> @_Z20work_group_broadcastDv4_tmmDv4_j(<4 x i16>  %src, i64  %local_id_x, i64  %local_id_y, <4 x i32>  %mask) 
-
-declare <8 x i16> @_Z20work_group_broadcastDv8_tmmDv8_j(<8 x i16>  %src, i64  %local_id_x, i64  %local_id_y, <8 x i32>  %mask) 
-
-declare <16 x i16> @_Z20work_group_broadcastDv16_tmmDv16_j(<16 x i16>  %src, i64  %local_id_x, i64  %local_id_y, <16 x i32>  %mask) 
-
-declare <32 x i16> @_Z20work_group_broadcastDv32_tmmDv32_j(<32 x i16>  %src, i64  %local_id_x, i64  %local_id_y, <32 x i32>  %mask) 
-
-declare <64 x i16> @_Z20work_group_broadcastDv64_tmmDv64_j(<64 x i16>  %src, i64  %local_id_x, i64  %local_id_y, <64 x i32>  %mask) 
-
-declare <4 x i32> @_Z20work_group_broadcastDv4_immDv4_j(<4 x i32>  %src, i64  %local_id_x, i64  %local_id_y, <4 x i32>  %mask) 
-
-declare <8 x i32> @_Z20work_group_broadcastDv8_immDv8_j(<8 x i32>  %src, i64  %local_id_x, i64  %local_id_y, <8 x i32>  %mask) 
-
-declare <16 x i32> @_Z20work_group_broadcastDv16_immDv16_j(<16 x i32>  %src, i64  %local_id_x, i64  %local_id_y, <16 x i32>  %mask) 
-
-declare <32 x i32> @_Z20work_group_broadcastDv32_immDv32_j(<32 x i32>  %src, i64  %local_id_x, i64  %local_id_y, <32 x i32>  %mask) 
-
-declare <64 x i32> @_Z20work_group_broadcastDv64_immDv64_j(<64 x i32>  %src, i64  %local_id_x, i64  %local_id_y, <64 x i32>  %mask) 
-
-declare <4 x i32> @_Z20work_group_broadcastDv4_jmmS_(<4 x i32>  %src, i64  %local_id_x, i64  %local_id_y, <4 x i32>  %mask) 
-
-declare <8 x i32> @_Z20work_group_broadcastDv8_jmmS_(<8 x i32>  %src, i64  %local_id_x, i64  %local_id_y, <8 x i32>  %mask) 
-
-declare <16 x i32> @_Z20work_group_broadcastDv16_jmmS_(<16 x i32>  %src, i64  %local_id_x, i64  %local_id_y, <16 x i32>  %mask) 
-
-declare <32 x i32> @_Z20work_group_broadcastDv32_jmmS_(<32 x i32>  %src, i64  %local_id_x, i64  %local_id_y, <32 x i32>  %mask) 
-
-declare <64 x i32> @_Z20work_group_broadcastDv64_jmmS_(<64 x i32>  %src, i64  %local_id_x, i64  %local_id_y, <64 x i32>  %mask) 
-
-declare <4 x i64> @_Z20work_group_broadcastDv4_lmmDv4_j(<4 x i64>  %src, i64  %local_id_x, i64  %local_id_y, <4 x i32>  %mask) 
-
-declare <8 x i64> @_Z20work_group_broadcastDv8_lmmDv8_j(<8 x i64>  %src, i64  %local_id_x, i64  %local_id_y, <8 x i32>  %mask) 
-
-declare <16 x i64> @_Z20work_group_broadcastDv16_lmmDv16_j(<16 x i64>  %src, i64  %local_id_x, i64  %local_id_y, <16 x i32>  %mask) 
-
-declare <32 x i64> @_Z20work_group_broadcastDv32_lmmDv32_j(<32 x i64>  %src, i64  %local_id_x, i64  %local_id_y, <32 x i32>  %mask) 
-
-declare <64 x i64> @_Z20work_group_broadcastDv64_lmmDv64_j(<64 x i64>  %src, i64  %local_id_x, i64  %local_id_y, <64 x i32>  %mask) 
-
-declare <4 x i64> @_Z20work_group_broadcastDv4_mmmDv4_j(<4 x i64>  %src, i64  %local_id_x, i64  %local_id_y, <4 x i32>  %mask) 
-
-declare <8 x i64> @_Z20work_group_broadcastDv8_mmmDv8_j(<8 x i64>  %src, i64  %local_id_x, i64  %local_id_y, <8 x i32>  %mask) 
-
-declare <16 x i64> @_Z20work_group_broadcastDv16_mmmDv16_j(<16 x i64>  %src, i64  %local_id_x, i64  %local_id_y, <16 x i32>  %mask) 
-
-declare <32 x i64> @_Z20work_group_broadcastDv32_mmmDv32_j(<32 x i64>  %src, i64  %local_id_x, i64  %local_id_y, <32 x i32>  %mask) 
-
-declare <64 x i64> @_Z20work_group_broadcastDv64_mmmDv64_j(<64 x i64>  %src, i64  %local_id_x, i64  %local_id_y, <64 x i32>  %mask) 
-
-declare <4 x float> @_Z20work_group_broadcastDv4_fmmDv4_j(<4 x float>  %src, i64  %local_id_x, i64  %local_id_y, <4 x i32>  %mask) 
-
-declare <8 x float> @_Z20work_group_broadcastDv8_fmmDv8_j(<8 x float>  %src, i64  %local_id_x, i64  %local_id_y, <8 x i32>  %mask) 
-
-declare <16 x float> @_Z20work_group_broadcastDv16_fmmDv16_j(<16 x float>  %src, i64  %local_id_x, i64  %local_id_y, <16 x i32>  %mask) 
-
-declare <32 x float> @_Z20work_group_broadcastDv32_fmmDv32_j(<32 x float>  %src, i64  %local_id_x, i64  %local_id_y, <32 x i32>  %mask) 
-
-declare <64 x float> @_Z20work_group_broadcastDv64_fmmDv64_j(<64 x float>  %src, i64  %local_id_x, i64  %local_id_y, <64 x i32>  %mask) 
-
-declare <4 x double> @_Z20work_group_broadcastDv4_dmmDv4_j(<4 x double>  %src, i64  %local_id_x, i64  %local_id_y, <4 x i32>  %mask) 
-
-declare <8 x double> @_Z20work_group_broadcastDv8_dmmDv8_j(<8 x double>  %src, i64  %local_id_x, i64  %local_id_y, <8 x i32>  %mask) 
-
-declare <16 x double> @_Z20work_group_broadcastDv16_dmmDv16_j(<16 x double>  %src, i64  %local_id_x, i64  %local_id_y, <16 x i32>  %mask) 
-
-declare <32 x double> @_Z20work_group_broadcastDv32_dmmDv32_j(<32 x double>  %src, i64  %local_id_x, i64  %local_id_y, <32 x i32>  %mask) 
-
-declare <64 x double> @_Z20work_group_broadcastDv64_dmmDv64_j(<64 x double>  %src, i64  %local_id_x, i64  %local_id_y, <64 x i32>  %mask) 
 
 declare signext i8 @_Z20work_group_broadcastcmmm(i8  signext %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z) 
 
@@ -1403,106 +1203,6 @@ declare <32 x double> @_Z20work_group_broadcastDv32_dmmm(<32 x double>  %src, i6
 
 declare <64 x double> @_Z20work_group_broadcastDv64_dmmm(<64 x double>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z) 
 
-declare <4 x i8> @_Z20work_group_broadcastDv4_cmmmDv4_j(<4 x i8>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <4 x i32>  %mask) 
-
-declare <8 x i8> @_Z20work_group_broadcastDv8_cmmmDv8_j(<8 x i8>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <8 x i32>  %mask) 
-
-declare <16 x i8> @_Z20work_group_broadcastDv16_cmmmDv16_j(<16 x i8>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <16 x i32>  %mask) 
-
-declare <32 x i8> @_Z20work_group_broadcastDv32_cmmmDv32_j(<32 x i8>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <32 x i32>  %mask) 
-
-declare <64 x i8> @_Z20work_group_broadcastDv64_cmmmDv64_j(<64 x i8>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <64 x i32>  %mask) 
-
-declare <4 x i8> @_Z20work_group_broadcastDv4_hmmmDv4_j(<4 x i8>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <4 x i32>  %mask) 
-
-declare <8 x i8> @_Z20work_group_broadcastDv8_hmmmDv8_j(<8 x i8>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <8 x i32>  %mask) 
-
-declare <16 x i8> @_Z20work_group_broadcastDv16_hmmmDv16_j(<16 x i8>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <16 x i32>  %mask) 
-
-declare <32 x i8> @_Z20work_group_broadcastDv32_hmmmDv32_j(<32 x i8>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <32 x i32>  %mask) 
-
-declare <64 x i8> @_Z20work_group_broadcastDv64_hmmmDv64_j(<64 x i8>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <64 x i32>  %mask) 
-
-declare <4 x i16> @_Z20work_group_broadcastDv4_smmmDv4_j(<4 x i16>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <4 x i32>  %mask) 
-
-declare <8 x i16> @_Z20work_group_broadcastDv8_smmmDv8_j(<8 x i16>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <8 x i32>  %mask) 
-
-declare <16 x i16> @_Z20work_group_broadcastDv16_smmmDv16_j(<16 x i16>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <16 x i32>  %mask) 
-
-declare <32 x i16> @_Z20work_group_broadcastDv32_smmmDv32_j(<32 x i16>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <32 x i32>  %mask) 
-
-declare <64 x i16> @_Z20work_group_broadcastDv64_smmmDv64_j(<64 x i16>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <64 x i32>  %mask) 
-
-declare <4 x i16> @_Z20work_group_broadcastDv4_tmmmDv4_j(<4 x i16>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <4 x i32>  %mask) 
-
-declare <8 x i16> @_Z20work_group_broadcastDv8_tmmmDv8_j(<8 x i16>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <8 x i32>  %mask) 
-
-declare <16 x i16> @_Z20work_group_broadcastDv16_tmmmDv16_j(<16 x i16>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <16 x i32>  %mask) 
-
-declare <32 x i16> @_Z20work_group_broadcastDv32_tmmmDv32_j(<32 x i16>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <32 x i32>  %mask) 
-
-declare <64 x i16> @_Z20work_group_broadcastDv64_tmmmDv64_j(<64 x i16>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <64 x i32>  %mask) 
-
-declare <4 x i32> @_Z20work_group_broadcastDv4_immmDv4_j(<4 x i32>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <4 x i32>  %mask) 
-
-declare <8 x i32> @_Z20work_group_broadcastDv8_immmDv8_j(<8 x i32>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <8 x i32>  %mask) 
-
-declare <16 x i32> @_Z20work_group_broadcastDv16_immmDv16_j(<16 x i32>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <16 x i32>  %mask) 
-
-declare <32 x i32> @_Z20work_group_broadcastDv32_immmDv32_j(<32 x i32>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <32 x i32>  %mask) 
-
-declare <64 x i32> @_Z20work_group_broadcastDv64_immmDv64_j(<64 x i32>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <64 x i32>  %mask) 
-
-declare <4 x i32> @_Z20work_group_broadcastDv4_jmmmS_(<4 x i32>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <4 x i32>  %mask) 
-
-declare <8 x i32> @_Z20work_group_broadcastDv8_jmmmS_(<8 x i32>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <8 x i32>  %mask) 
-
-declare <16 x i32> @_Z20work_group_broadcastDv16_jmmmS_(<16 x i32>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <16 x i32>  %mask) 
-
-declare <32 x i32> @_Z20work_group_broadcastDv32_jmmmS_(<32 x i32>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <32 x i32>  %mask) 
-
-declare <64 x i32> @_Z20work_group_broadcastDv64_jmmmS_(<64 x i32>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <64 x i32>  %mask) 
-
-declare <4 x i64> @_Z20work_group_broadcastDv4_lmmmDv4_j(<4 x i64>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <4 x i32>  %mask) 
-
-declare <8 x i64> @_Z20work_group_broadcastDv8_lmmmDv8_j(<8 x i64>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <8 x i32>  %mask) 
-
-declare <16 x i64> @_Z20work_group_broadcastDv16_lmmmDv16_j(<16 x i64>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <16 x i32>  %mask) 
-
-declare <32 x i64> @_Z20work_group_broadcastDv32_lmmmDv32_j(<32 x i64>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <32 x i32>  %mask) 
-
-declare <64 x i64> @_Z20work_group_broadcastDv64_lmmmDv64_j(<64 x i64>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <64 x i32>  %mask) 
-
-declare <4 x i64> @_Z20work_group_broadcastDv4_mmmmDv4_j(<4 x i64>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <4 x i32>  %mask) 
-
-declare <8 x i64> @_Z20work_group_broadcastDv8_mmmmDv8_j(<8 x i64>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <8 x i32>  %mask) 
-
-declare <16 x i64> @_Z20work_group_broadcastDv16_mmmmDv16_j(<16 x i64>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <16 x i32>  %mask) 
-
-declare <32 x i64> @_Z20work_group_broadcastDv32_mmmmDv32_j(<32 x i64>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <32 x i32>  %mask) 
-
-declare <64 x i64> @_Z20work_group_broadcastDv64_mmmmDv64_j(<64 x i64>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <64 x i32>  %mask) 
-
-declare <4 x float> @_Z20work_group_broadcastDv4_fmmmDv4_j(<4 x float>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <4 x i32>  %mask) 
-
-declare <8 x float> @_Z20work_group_broadcastDv8_fmmmDv8_j(<8 x float>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <8 x i32>  %mask) 
-
-declare <16 x float> @_Z20work_group_broadcastDv16_fmmmDv16_j(<16 x float>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <16 x i32>  %mask) 
-
-declare <32 x float> @_Z20work_group_broadcastDv32_fmmmDv32_j(<32 x float>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <32 x i32>  %mask) 
-
-declare <64 x float> @_Z20work_group_broadcastDv64_fmmmDv64_j(<64 x float>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <64 x i32>  %mask) 
-
-declare <4 x double> @_Z20work_group_broadcastDv4_dmmmDv4_j(<4 x double>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <4 x i32>  %mask) 
-
-declare <8 x double> @_Z20work_group_broadcastDv8_dmmmDv8_j(<8 x double>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <8 x i32>  %mask) 
-
-declare <16 x double> @_Z20work_group_broadcastDv16_dmmmDv16_j(<16 x double>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <16 x i32>  %mask) 
-
-declare <32 x double> @_Z20work_group_broadcastDv32_dmmmDv32_j(<32 x double>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <32 x i32>  %mask) 
-
-declare <64 x double> @_Z20work_group_broadcastDv64_dmmmDv64_j(<64 x double>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <64 x i32>  %mask) 
-
 declare signext i8 @_Z20work_group_broadcastcmmPc(i8  signext %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
 declare <4 x i8> @_Z20work_group_broadcastDv4_cmmPS_(<4 x i8>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
@@ -1623,105 +1323,206 @@ declare <32 x double> @_Z20work_group_broadcastDv32_dmmPS_(<32 x double>  %src, 
 
 declare <64 x double> @_Z20work_group_broadcastDv64_dmmPS_(<64 x double>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <4 x i8> @_Z20work_group_broadcastDv4_cmmDv4_jPS_(<4 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
-
-declare <8 x i8> @_Z20work_group_broadcastDv8_cmmDv8_jPS_(<8 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
-
-declare <16 x i8> @_Z20work_group_broadcastDv16_cmmDv16_jPS_(<16 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
-
-declare <32 x i8> @_Z20work_group_broadcastDv32_cmmDv32_jPS_(<32 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
-
-declare <64 x i8> @_Z20work_group_broadcastDv64_cmmDv64_jPS_(<64 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
-
-declare <4 x i8> @_Z20work_group_broadcastDv4_hmmDv4_jPS_(<4 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
-
-declare <8 x i8> @_Z20work_group_broadcastDv8_hmmDv8_jPS_(<8 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
-
-declare <16 x i8> @_Z20work_group_broadcastDv16_hmmDv16_jPS_(<16 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
-
-declare <32 x i8> @_Z20work_group_broadcastDv32_hmmDv32_jPS_(<32 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
-
-declare <64 x i8> @_Z20work_group_broadcastDv64_hmmDv64_jPS_(<64 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
-
-declare <4 x i16> @_Z20work_group_broadcastDv4_smmDv4_jPS_(<4 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
-
-declare <8 x i16> @_Z20work_group_broadcastDv8_smmDv8_jPS_(<8 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
-
-declare <16 x i16> @_Z20work_group_broadcastDv16_smmDv16_jPS_(<16 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
-
-declare <32 x i16> @_Z20work_group_broadcastDv32_smmDv32_jPS_(<32 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
-
-declare <64 x i16> @_Z20work_group_broadcastDv64_smmDv64_jPS_(<64 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
-
-declare <4 x i16> @_Z20work_group_broadcastDv4_tmmDv4_jPS_(<4 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
-
-declare <8 x i16> @_Z20work_group_broadcastDv8_tmmDv8_jPS_(<8 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
-
-declare <16 x i16> @_Z20work_group_broadcastDv16_tmmDv16_jPS_(<16 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
-
-declare <32 x i16> @_Z20work_group_broadcastDv32_tmmDv32_jPS_(<32 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
-
-declare <64 x i16> @_Z20work_group_broadcastDv64_tmmDv64_jPS_(<64 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
-
-declare <4 x i32> @_Z20work_group_broadcastDv4_immDv4_jPS_(<4 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
-
-declare <8 x i32> @_Z20work_group_broadcastDv8_immDv8_jPS_(<8 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
-
-declare <16 x i32> @_Z20work_group_broadcastDv16_immDv16_jPS_(<16 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
-
-declare <32 x i32> @_Z20work_group_broadcastDv32_immDv32_jPS_(<32 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
-
-declare <64 x i32> @_Z20work_group_broadcastDv64_immDv64_jPS_(<64 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
-
-declare <4 x i32> @_Z20work_group_broadcastDv4_jmmS_PS_(<4 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
-
-declare <8 x i32> @_Z20work_group_broadcastDv8_jmmS_PS_(<8 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
-
-declare <16 x i32> @_Z20work_group_broadcastDv16_jmmS_PS_(<16 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
-
-declare <32 x i32> @_Z20work_group_broadcastDv32_jmmS_PS_(<32 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
-
-declare <64 x i32> @_Z20work_group_broadcastDv64_jmmS_PS_(<64 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
-
-declare <4 x i64> @_Z20work_group_broadcastDv4_lmmDv4_jPS_(<4 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
-
-declare <8 x i64> @_Z20work_group_broadcastDv8_lmmDv8_jPS_(<8 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
-
-declare <16 x i64> @_Z20work_group_broadcastDv16_lmmDv16_jPS_(<16 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
-
-declare <32 x i64> @_Z20work_group_broadcastDv32_lmmDv32_jPS_(<32 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
-
-declare <64 x i64> @_Z20work_group_broadcastDv64_lmmDv64_jPS_(<64 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
-
-declare <4 x i64> @_Z20work_group_broadcastDv4_mmmDv4_jPS_(<4 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
-
-declare <8 x i64> @_Z20work_group_broadcastDv8_mmmDv8_jPS_(<8 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
-
-declare <16 x i64> @_Z20work_group_broadcastDv16_mmmDv16_jPS_(<16 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
-
-declare <32 x i64> @_Z20work_group_broadcastDv32_mmmDv32_jPS_(<32 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
-
-declare <64 x i64> @_Z20work_group_broadcastDv64_mmmDv64_jPS_(<64 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
-
-declare <4 x float> @_Z20work_group_broadcastDv4_fmmDv4_jPS_(<4 x float>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
-
-declare <8 x float> @_Z20work_group_broadcastDv8_fmmDv8_jPS_(<8 x float>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
-
-declare <16 x float> @_Z20work_group_broadcastDv16_fmmDv16_jPS_(<16 x float>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
-
-declare <32 x float> @_Z20work_group_broadcastDv32_fmmDv32_jPS_(<32 x float>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
-
-declare <64 x float> @_Z20work_group_broadcastDv64_fmmDv64_jPS_(<64 x float>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
-
-declare <4 x double> @_Z20work_group_broadcastDv4_dmmDv4_jPS_(<4 x double>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
-
-declare <8 x double> @_Z20work_group_broadcastDv8_dmmDv8_jPS_(<8 x double>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
-
-declare <16 x double> @_Z20work_group_broadcastDv16_dmmDv16_jPS_(<16 x double>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
-
-declare <32 x double> @_Z20work_group_broadcastDv32_dmmDv32_jPS_(<32 x double>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
-
-declare <64 x double> @_Z20work_group_broadcastDv64_dmmDv64_jPS_(<64 x double>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
+declare <4 x i8> @_Z22__work_group_broadcastDv4_cmS_(<4 x i8> returned %src, i64 %local_id, <4 x i8> %mask)
+declare <8 x i8> @_Z22__work_group_broadcastDv8_cmS_(<8 x i8> returned %src, i64 %local_id, <8 x i8> %mask)
+declare <16 x i8> @_Z22__work_group_broadcastDv16_cmS_(<16 x i8> returned %src, i64 %local_id, <16 x i8> %mask)
+declare <32 x i8> @_Z22__work_group_broadcastDv32_cmS_(<32 x i8> returned %src, i64 %local_id, <32 x i8> %mask)
+declare <64 x i8> @_Z22__work_group_broadcastDv64_cmS_(<64 x i8> returned %src, i64 %local_id, <64 x i8> %mask)
+declare <4 x i8> @_Z22__work_group_broadcastDv4_hmS_(<4 x i8> returned %src, i64 %local_id, <4 x i8> %mask)
+declare <8 x i8> @_Z22__work_group_broadcastDv8_hmS_(<8 x i8> returned %src, i64 %local_id, <8 x i8> %mask)
+declare <16 x i8> @_Z22__work_group_broadcastDv16_hmS_(<16 x i8> returned %src, i64 %local_id, <16 x i8> %mask)
+declare <32 x i8> @_Z22__work_group_broadcastDv32_hmS_(<32 x i8> returned %src, i64 %local_id, <32 x i8> %mask)
+declare <64 x i8> @_Z22__work_group_broadcastDv64_hmS_(<64 x i8> returned %src, i64 %local_id, <64 x i8> %mask)
+declare <4 x i16> @_Z22__work_group_broadcastDv4_smS_(<4 x i16> returned %src, i64 %local_id, <4 x i16> %mask)
+declare <8 x i16> @_Z22__work_group_broadcastDv8_smS_(<8 x i16> returned %src, i64 %local_id, <8 x i16> %mask)
+declare <16 x i16> @_Z22__work_group_broadcastDv16_smS_(<16 x i16> returned %src, i64 %local_id, <16 x i16> %mask)
+declare <32 x i16> @_Z22__work_group_broadcastDv32_smS_(<32 x i16> returned %src, i64 %local_id, <32 x i16> %mask)
+declare <64 x i16> @_Z22__work_group_broadcastDv64_smS_(<64 x i16> returned %src, i64 %local_id, <64 x i16> %mask)
+declare <4 x i16> @_Z22__work_group_broadcastDv4_tmS_(<4 x i16> returned %src, i64 %local_id, <4 x i16> %mask)
+declare <8 x i16> @_Z22__work_group_broadcastDv8_tmS_(<8 x i16> returned %src, i64 %local_id, <8 x i16> %mask)
+declare <16 x i16> @_Z22__work_group_broadcastDv16_tmS_(<16 x i16> returned %src, i64 %local_id, <16 x i16> %mask)
+declare <32 x i16> @_Z22__work_group_broadcastDv32_tmS_(<32 x i16> returned %src, i64 %local_id, <32 x i16> %mask)
+declare <64 x i16> @_Z22__work_group_broadcastDv64_tmS_(<64 x i16> returned %src, i64 %local_id, <64 x i16> %mask)
+declare <4 x i32> @_Z22__work_group_broadcastDv4_imS_(<4 x i32> returned %src, i64 %local_id, <4 x i32> %mask)
+declare <8 x i32> @_Z22__work_group_broadcastDv8_imS_(<8 x i32> returned %src, i64 %local_id, <8 x i32> %mask)
+declare <16 x i32> @_Z22__work_group_broadcastDv16_imS_(<16 x i32> returned %src, i64 %local_id, <16 x i32> %mask)
+declare <32 x i32> @_Z22__work_group_broadcastDv32_imS_(<32 x i32> returned %src, i64 %local_id, <32 x i32> %mask)
+declare <64 x i32> @_Z22__work_group_broadcastDv64_imS_(<64 x i32> returned %src, i64 %local_id, <64 x i32> %mask)
+declare <4 x i32> @_Z22__work_group_broadcastDv4_jmS_(<4 x i32> returned %src, i64 %local_id, <4 x i32> %mask)
+declare <8 x i32> @_Z22__work_group_broadcastDv8_jmS_(<8 x i32> returned %src, i64 %local_id, <8 x i32> %mask)
+declare <16 x i32> @_Z22__work_group_broadcastDv16_jmS_(<16 x i32> returned %src, i64 %local_id, <16 x i32> %mask)
+declare <32 x i32> @_Z22__work_group_broadcastDv32_jmS_(<32 x i32> returned %src, i64 %local_id, <32 x i32> %mask)
+declare <64 x i32> @_Z22__work_group_broadcastDv64_jmS_(<64 x i32> returned %src, i64 %local_id, <64 x i32> %mask)
+declare <4 x i64> @_Z22__work_group_broadcastDv4_lmS_(<4 x i64> returned %src, i64 %local_id, <4 x i64> %mask)
+declare <8 x i64> @_Z22__work_group_broadcastDv8_lmS_(<8 x i64> returned %src, i64 %local_id, <8 x i64> %mask)
+declare <16 x i64> @_Z22__work_group_broadcastDv16_lmS_(<16 x i64> returned %src, i64 %local_id, <16 x i64> %mask)
+declare <32 x i64> @_Z22__work_group_broadcastDv32_lmS_(<32 x i64> returned %src, i64 %local_id, <32 x i64> %mask)
+declare <64 x i64> @_Z22__work_group_broadcastDv64_lmS_(<64 x i64> returned %src, i64 %local_id, <64 x i64> %mask)
+declare <4 x i64> @_Z22__work_group_broadcastDv4_mmS_(<4 x i64> returned %src, i64 %local_id, <4 x i64> %mask)
+declare <8 x i64> @_Z22__work_group_broadcastDv8_mmS_(<8 x i64> returned %src, i64 %local_id, <8 x i64> %mask)
+declare <16 x i64> @_Z22__work_group_broadcastDv16_mmS_(<16 x i64> returned %src, i64 %local_id, <16 x i64> %mask)
+declare <32 x i64> @_Z22__work_group_broadcastDv32_mmS_(<32 x i64> returned %src, i64 %local_id, <32 x i64> %mask)
+declare <64 x i64> @_Z22__work_group_broadcastDv64_mmS_(<64 x i64> returned %src, i64 %local_id, <64 x i64> %mask)
+declare <4 x float> @_Z22__work_group_broadcastDv4_fmS_(<4 x float> returned %src, i64 %local_id, <4 x float> %mask)
+declare <8 x float> @_Z22__work_group_broadcastDv8_fmS_(<8 x float> returned %src, i64 %local_id, <8 x float> %mask)
+declare <16 x float> @_Z22__work_group_broadcastDv16_fmS_(<16 x float> returned %src, i64 %local_id, <16 x float> %mask)
+declare <32 x float> @_Z22__work_group_broadcastDv32_fmS_(<32 x float> returned %src, i64 %local_id, <32 x float> %mask)
+declare <64 x float> @_Z22__work_group_broadcastDv64_fmS_(<64 x float> returned %src, i64 %local_id, <64 x float> %mask)
+declare <4 x double> @_Z22__work_group_broadcastDv4_dmS_(<4 x double> returned %src, i64 %local_id, <4 x double> %mask)
+declare <8 x double> @_Z22__work_group_broadcastDv8_dmS_(<8 x double> returned %src, i64 %local_id, <8 x double> %mask)
+declare <16 x double> @_Z22__work_group_broadcastDv16_dmS_(<16 x double> returned %src, i64 %local_id, <16 x double> %mask)
+declare <32 x double> @_Z22__work_group_broadcastDv32_dmS_(<32 x double> returned %src, i64 %local_id, <32 x double> %mask)
+declare <64 x double> @_Z22__work_group_broadcastDv64_dmS_(<64 x double> returned %src, i64 %local_id, <64 x double> %mask)
+declare <4 x i8> @_Z22__work_group_broadcastDv4_cmmS_(<4 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, <4 x i8> %mask)
+declare <8 x i8> @_Z22__work_group_broadcastDv8_cmmS_(<8 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, <8 x i8> %mask)
+declare <16 x i8> @_Z22__work_group_broadcastDv16_cmmS_(<16 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, <16 x i8> %mask)
+declare <32 x i8> @_Z22__work_group_broadcastDv32_cmmS_(<32 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, <32 x i8> %mask)
+declare <64 x i8> @_Z22__work_group_broadcastDv64_cmmS_(<64 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, <64 x i8> %mask)
+declare <4 x i8> @_Z22__work_group_broadcastDv4_hmmS_(<4 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, <4 x i8> %mask)
+declare <8 x i8> @_Z22__work_group_broadcastDv8_hmmS_(<8 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, <8 x i8> %mask)
+declare <16 x i8> @_Z22__work_group_broadcastDv16_hmmS_(<16 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, <16 x i8> %mask)
+declare <32 x i8> @_Z22__work_group_broadcastDv32_hmmS_(<32 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, <32 x i8> %mask)
+declare <64 x i8> @_Z22__work_group_broadcastDv64_hmmS_(<64 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, <64 x i8> %mask)
+declare <4 x i16> @_Z22__work_group_broadcastDv4_smmS_(<4 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, <4 x i16> %mask)
+declare <8 x i16> @_Z22__work_group_broadcastDv8_smmS_(<8 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, <8 x i16> %mask)
+declare <16 x i16> @_Z22__work_group_broadcastDv16_smmS_(<16 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, <16 x i16> %mask)
+declare <32 x i16> @_Z22__work_group_broadcastDv32_smmS_(<32 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, <32 x i16> %mask)
+declare <64 x i16> @_Z22__work_group_broadcastDv64_smmS_(<64 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, <64 x i16> %mask)
+declare <4 x i16> @_Z22__work_group_broadcastDv4_tmmS_(<4 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, <4 x i16> %mask)
+declare <8 x i16> @_Z22__work_group_broadcastDv8_tmmS_(<8 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, <8 x i16> %mask)
+declare <16 x i16> @_Z22__work_group_broadcastDv16_tmmS_(<16 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, <16 x i16> %mask)
+declare <32 x i16> @_Z22__work_group_broadcastDv32_tmmS_(<32 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, <32 x i16> %mask)
+declare <64 x i16> @_Z22__work_group_broadcastDv64_tmmS_(<64 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, <64 x i16> %mask)
+declare <4 x i32> @_Z22__work_group_broadcastDv4_immS_(<4 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, <4 x i32> %mask)
+declare <8 x i32> @_Z22__work_group_broadcastDv8_immS_(<8 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, <8 x i32> %mask)
+declare <16 x i32> @_Z22__work_group_broadcastDv16_immS_(<16 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, <16 x i32> %mask)
+declare <32 x i32> @_Z22__work_group_broadcastDv32_immS_(<32 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, <32 x i32> %mask)
+declare <64 x i32> @_Z22__work_group_broadcastDv64_immS_(<64 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, <64 x i32> %mask)
+declare <4 x i32> @_Z22__work_group_broadcastDv4_jmmS_(<4 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, <4 x i32> %mask)
+declare <8 x i32> @_Z22__work_group_broadcastDv8_jmmS_(<8 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, <8 x i32> %mask)
+declare <16 x i32> @_Z22__work_group_broadcastDv16_jmmS_(<16 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, <16 x i32> %mask)
+declare <32 x i32> @_Z22__work_group_broadcastDv32_jmmS_(<32 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, <32 x i32> %mask)
+declare <64 x i32> @_Z22__work_group_broadcastDv64_jmmS_(<64 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, <64 x i32> %mask)
+declare <4 x i64> @_Z22__work_group_broadcastDv4_lmmS_(<4 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, <4 x i64> %mask)
+declare <8 x i64> @_Z22__work_group_broadcastDv8_lmmS_(<8 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, <8 x i64> %mask)
+declare <16 x i64> @_Z22__work_group_broadcastDv16_lmmS_(<16 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, <16 x i64> %mask)
+declare <32 x i64> @_Z22__work_group_broadcastDv32_lmmS_(<32 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, <32 x i64> %mask)
+declare <64 x i64> @_Z22__work_group_broadcastDv64_lmmS_(<64 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, <64 x i64> %mask)
+declare <4 x i64> @_Z22__work_group_broadcastDv4_mmmS_(<4 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, <4 x i64> %mask)
+declare <8 x i64> @_Z22__work_group_broadcastDv8_mmmS_(<8 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, <8 x i64> %mask)
+declare <16 x i64> @_Z22__work_group_broadcastDv16_mmmS_(<16 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, <16 x i64> %mask)
+declare <32 x i64> @_Z22__work_group_broadcastDv32_mmmS_(<32 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, <32 x i64> %mask)
+declare <64 x i64> @_Z22__work_group_broadcastDv64_mmmS_(<64 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, <64 x i64> %mask)
+declare <4 x float> @_Z22__work_group_broadcastDv4_fmmS_(<4 x float> returned %src, i64 %local_id_x, i64 %local_id_y, <4 x float> %mask)
+declare <8 x float> @_Z22__work_group_broadcastDv8_fmmS_(<8 x float> returned %src, i64 %local_id_x, i64 %local_id_y, <8 x float> %mask)
+declare <16 x float> @_Z22__work_group_broadcastDv16_fmmS_(<16 x float> returned %src, i64 %local_id_x, i64 %local_id_y, <16 x float> %mask)
+declare <32 x float> @_Z22__work_group_broadcastDv32_fmmS_(<32 x float> returned %src, i64 %local_id_x, i64 %local_id_y, <32 x float> %mask)
+declare <64 x float> @_Z22__work_group_broadcastDv64_fmmS_(<64 x float> returned %src, i64 %local_id_x, i64 %local_id_y, <64 x float> %mask)
+declare <4 x double> @_Z22__work_group_broadcastDv4_dmmS_(<4 x double> returned %src, i64 %local_id_x, i64 %local_id_y, <4 x double> %mask)
+declare <8 x double> @_Z22__work_group_broadcastDv8_dmmS_(<8 x double> returned %src, i64 %local_id_x, i64 %local_id_y, <8 x double> %mask)
+declare <16 x double> @_Z22__work_group_broadcastDv16_dmmS_(<16 x double> returned %src, i64 %local_id_x, i64 %local_id_y, <16 x double> %mask)
+declare <32 x double> @_Z22__work_group_broadcastDv32_dmmS_(<32 x double> returned %src, i64 %local_id_x, i64 %local_id_y, <32 x double> %mask)
+declare <64 x double> @_Z22__work_group_broadcastDv64_dmmS_(<64 x double> returned %src, i64 %local_id_x, i64 %local_id_y, <64 x double> %mask)
+declare <4 x i8> @_Z22__work_group_broadcastDv4_cmmmS_(<4 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <4 x i8> %mask)
+declare <8 x i8> @_Z22__work_group_broadcastDv8_cmmmS_(<8 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <8 x i8> %mask)
+declare <16 x i8> @_Z22__work_group_broadcastDv16_cmmmS_(<16 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <16 x i8> %mask)
+declare <32 x i8> @_Z22__work_group_broadcastDv32_cmmmS_(<32 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <32 x i8> %mask)
+declare <64 x i8> @_Z22__work_group_broadcastDv64_cmmmS_(<64 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <64 x i8> %mask)
+declare <4 x i8> @_Z22__work_group_broadcastDv4_hmmmS_(<4 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <4 x i8> %mask)
+declare <8 x i8> @_Z22__work_group_broadcastDv8_hmmmS_(<8 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <8 x i8> %mask)
+declare <16 x i8> @_Z22__work_group_broadcastDv16_hmmmS_(<16 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <16 x i8> %mask)
+declare <32 x i8> @_Z22__work_group_broadcastDv32_hmmmS_(<32 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <32 x i8> %mask)
+declare <64 x i8> @_Z22__work_group_broadcastDv64_hmmmS_(<64 x i8> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <64 x i8> %mask)
+declare <4 x i16> @_Z22__work_group_broadcastDv4_smmmS_(<4 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <4 x i16> %mask)
+declare <8 x i16> @_Z22__work_group_broadcastDv8_smmmS_(<8 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <8 x i16> %mask)
+declare <16 x i16> @_Z22__work_group_broadcastDv16_smmmS_(<16 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <16 x i16> %mask)
+declare <32 x i16> @_Z22__work_group_broadcastDv32_smmmS_(<32 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <32 x i16> %mask)
+declare <64 x i16> @_Z22__work_group_broadcastDv64_smmmS_(<64 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <64 x i16> %mask)
+declare <4 x i16> @_Z22__work_group_broadcastDv4_tmmmS_(<4 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <4 x i16> %mask)
+declare <8 x i16> @_Z22__work_group_broadcastDv8_tmmmS_(<8 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <8 x i16> %mask)
+declare <16 x i16> @_Z22__work_group_broadcastDv16_tmmmS_(<16 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <16 x i16> %mask)
+declare <32 x i16> @_Z22__work_group_broadcastDv32_tmmmS_(<32 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <32 x i16> %mask)
+declare <64 x i16> @_Z22__work_group_broadcastDv64_tmmmS_(<64 x i16> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <64 x i16> %mask)
+declare <4 x i32> @_Z22__work_group_broadcastDv4_immmS_(<4 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <4 x i32> %mask)
+declare <8 x i32> @_Z22__work_group_broadcastDv8_immmS_(<8 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <8 x i32> %mask)
+declare <16 x i32> @_Z22__work_group_broadcastDv16_immmS_(<16 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <16 x i32> %mask)
+declare <32 x i32> @_Z22__work_group_broadcastDv32_immmS_(<32 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <32 x i32> %mask)
+declare <64 x i32> @_Z22__work_group_broadcastDv64_immmS_(<64 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <64 x i32> %mask)
+declare <4 x i32> @_Z22__work_group_broadcastDv4_jmmmS_(<4 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <4 x i32> %mask)
+declare <8 x i32> @_Z22__work_group_broadcastDv8_jmmmS_(<8 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <8 x i32> %mask)
+declare <16 x i32> @_Z22__work_group_broadcastDv16_jmmmS_(<16 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <16 x i32> %mask)
+declare <32 x i32> @_Z22__work_group_broadcastDv32_jmmmS_(<32 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <32 x i32> %mask)
+declare <64 x i32> @_Z22__work_group_broadcastDv64_jmmmS_(<64 x i32> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <64 x i32> %mask)
+declare <4 x i64> @_Z22__work_group_broadcastDv4_lmmmS_(<4 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <4 x i64> %mask)
+declare <8 x i64> @_Z22__work_group_broadcastDv8_lmmmS_(<8 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <8 x i64> %mask)
+declare <16 x i64> @_Z22__work_group_broadcastDv16_lmmmS_(<16 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <16 x i64> %mask)
+declare <32 x i64> @_Z22__work_group_broadcastDv32_lmmmS_(<32 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <32 x i64> %mask)
+declare <64 x i64> @_Z22__work_group_broadcastDv64_lmmmS_(<64 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <64 x i64> %mask)
+declare <4 x i64> @_Z22__work_group_broadcastDv4_mmmmS_(<4 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <4 x i64> %mask)
+declare <8 x i64> @_Z22__work_group_broadcastDv8_mmmmS_(<8 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <8 x i64> %mask)
+declare <16 x i64> @_Z22__work_group_broadcastDv16_mmmmS_(<16 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <16 x i64> %mask)
+declare <32 x i64> @_Z22__work_group_broadcastDv32_mmmmS_(<32 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <32 x i64> %mask)
+declare <64 x i64> @_Z22__work_group_broadcastDv64_mmmmS_(<64 x i64> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <64 x i64> %mask)
+declare <4 x float> @_Z22__work_group_broadcastDv4_fmmmS_(<4 x float> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <4 x float> %mask)
+declare <8 x float> @_Z22__work_group_broadcastDv8_fmmmS_(<8 x float> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <8 x float> %mask)
+declare <16 x float> @_Z22__work_group_broadcastDv16_fmmmS_(<16 x float> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <16 x float> %mask)
+declare <32 x float> @_Z22__work_group_broadcastDv32_fmmmS_(<32 x float> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <32 x float> %mask)
+declare <64 x float> @_Z22__work_group_broadcastDv64_fmmmS_(<64 x float> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <64 x float> %mask)
+declare <4 x double> @_Z22__work_group_broadcastDv4_dmmmS_(<4 x double> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <4 x double> %mask)
+declare <8 x double> @_Z22__work_group_broadcastDv8_dmmmS_(<8 x double> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <8 x double> %mask)
+declare <16 x double> @_Z22__work_group_broadcastDv16_dmmmS_(<16 x double> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <16 x double> %mask)
+declare <32 x double> @_Z22__work_group_broadcastDv32_dmmmS_(<32 x double> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <32 x double> %mask)
+declare <64 x double> @_Z22__work_group_broadcastDv64_dmmmS_(<64 x double> returned %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z, <64 x double> %mask)
+declare <4 x i8> @_Z22__work_group_broadcastDv4_cmmS_PS_(<4 x i8> %src, i64 %linear_local_id, i64 %linear_id, <4 x i8> %mask, ptr %accum)
+declare <8 x i8> @_Z22__work_group_broadcastDv8_cmmS_PS_(<8 x i8> %src, i64 %linear_local_id, i64 %linear_id, <8 x i8> %mask, ptr %accum)
+declare <16 x i8> @_Z22__work_group_broadcastDv16_cmmS_PS_(<16 x i8> %src, i64 %linear_local_id, i64 %linear_id, <16 x i8> %mask, ptr %accum)
+declare <32 x i8> @_Z22__work_group_broadcastDv32_cmmS_PS_(<32 x i8> %src, i64 %linear_local_id, i64 %linear_id, <32 x i8> %mask, ptr %accum)
+declare <64 x i8> @_Z22__work_group_broadcastDv64_cmmS_PS_(<64 x i8> %src, i64 %linear_local_id, i64 %linear_id, <64 x i8> %mask, ptr %accum)
+declare <4 x i8> @_Z22__work_group_broadcastDv4_hmmS_PS_(<4 x i8> %src, i64 %linear_local_id, i64 %linear_id, <4 x i8> %mask, ptr %accum)
+declare <8 x i8> @_Z22__work_group_broadcastDv8_hmmS_PS_(<8 x i8> %src, i64 %linear_local_id, i64 %linear_id, <8 x i8> %mask, ptr %accum)
+declare <16 x i8> @_Z22__work_group_broadcastDv16_hmmS_PS_(<16 x i8> %src, i64 %linear_local_id, i64 %linear_id, <16 x i8> %mask, ptr %accum)
+declare <32 x i8> @_Z22__work_group_broadcastDv32_hmmS_PS_(<32 x i8> %src, i64 %linear_local_id, i64 %linear_id, <32 x i8> %mask, ptr %accum)
+declare <64 x i8> @_Z22__work_group_broadcastDv64_hmmS_PS_(<64 x i8> %src, i64 %linear_local_id, i64 %linear_id, <64 x i8> %mask, ptr %accum)
+declare <4 x i16> @_Z22__work_group_broadcastDv4_smmS_PS_(<4 x i16> %src, i64 %linear_local_id, i64 %linear_id, <4 x i16> %mask, ptr %accum)
+declare <8 x i16> @_Z22__work_group_broadcastDv8_smmS_PS_(<8 x i16> %src, i64 %linear_local_id, i64 %linear_id, <8 x i16> %mask, ptr %accum)
+declare <16 x i16> @_Z22__work_group_broadcastDv16_smmS_PS_(<16 x i16> %src, i64 %linear_local_id, i64 %linear_id, <16 x i16> %mask, ptr %accum)
+declare <32 x i16> @_Z22__work_group_broadcastDv32_smmS_PS_(<32 x i16> %src, i64 %linear_local_id, i64 %linear_id, <32 x i16> %mask, ptr %accum)
+declare <64 x i16> @_Z22__work_group_broadcastDv64_smmS_PS_(<64 x i16> %src, i64 %linear_local_id, i64 %linear_id, <64 x i16> %mask, ptr %accum)
+declare <4 x i16> @_Z22__work_group_broadcastDv4_tmmS_PS_(<4 x i16> %src, i64 %linear_local_id, i64 %linear_id, <4 x i16> %mask, ptr %accum)
+declare <8 x i16> @_Z22__work_group_broadcastDv8_tmmS_PS_(<8 x i16> %src, i64 %linear_local_id, i64 %linear_id, <8 x i16> %mask, ptr %accum)
+declare <16 x i16> @_Z22__work_group_broadcastDv16_tmmS_PS_(<16 x i16> %src, i64 %linear_local_id, i64 %linear_id, <16 x i16> %mask, ptr %accum)
+declare <32 x i16> @_Z22__work_group_broadcastDv32_tmmS_PS_(<32 x i16> %src, i64 %linear_local_id, i64 %linear_id, <32 x i16> %mask, ptr %accum)
+declare <64 x i16> @_Z22__work_group_broadcastDv64_tmmS_PS_(<64 x i16> %src, i64 %linear_local_id, i64 %linear_id, <64 x i16> %mask, ptr %accum)
+declare <4 x i32> @_Z22__work_group_broadcastDv4_immS_PS_(<4 x i32> %src, i64 %linear_local_id, i64 %linear_id, <4 x i32> %mask, ptr %accum)
+declare <8 x i32> @_Z22__work_group_broadcastDv8_immS_PS_(<8 x i32> %src, i64 %linear_local_id, i64 %linear_id, <8 x i32> %mask, ptr %accum)
+declare <16 x i32> @_Z22__work_group_broadcastDv16_immS_PS_(<16 x i32> %src, i64 %linear_local_id, i64 %linear_id, <16 x i32> %mask, ptr %accum)
+declare <32 x i32> @_Z22__work_group_broadcastDv32_immS_PS_(<32 x i32> %src, i64 %linear_local_id, i64 %linear_id, <32 x i32> %mask, ptr %accum)
+declare <64 x i32> @_Z22__work_group_broadcastDv64_immS_PS_(<64 x i32> %src, i64 %linear_local_id, i64 %linear_id, <64 x i32> %mask, ptr %accum)
+declare <4 x i32> @_Z22__work_group_broadcastDv4_jmmS_PS_(<4 x i32> %src, i64 %linear_local_id, i64 %linear_id, <4 x i32> %mask, ptr %accum)
+declare <8 x i32> @_Z22__work_group_broadcastDv8_jmmS_PS_(<8 x i32> %src, i64 %linear_local_id, i64 %linear_id, <8 x i32> %mask, ptr %accum)
+declare <16 x i32> @_Z22__work_group_broadcastDv16_jmmS_PS_(<16 x i32> %src, i64 %linear_local_id, i64 %linear_id, <16 x i32> %mask, ptr %accum)
+declare <32 x i32> @_Z22__work_group_broadcastDv32_jmmS_PS_(<32 x i32> %src, i64 %linear_local_id, i64 %linear_id, <32 x i32> %mask, ptr %accum)
+declare <64 x i32> @_Z22__work_group_broadcastDv64_jmmS_PS_(<64 x i32> %src, i64 %linear_local_id, i64 %linear_id, <64 x i32> %mask, ptr %accum)
+declare <4 x i64> @_Z22__work_group_broadcastDv4_lmmS_PS_(<4 x i64> %src, i64 %linear_local_id, i64 %linear_id, <4 x i64> %mask, ptr %accum)
+declare <8 x i64> @_Z22__work_group_broadcastDv8_lmmS_PS_(<8 x i64> %src, i64 %linear_local_id, i64 %linear_id, <8 x i64> %mask, ptr %accum)
+declare <16 x i64> @_Z22__work_group_broadcastDv16_lmmS_PS_(<16 x i64> %src, i64 %linear_local_id, i64 %linear_id, <16 x i64> %mask, ptr %accum)
+declare <32 x i64> @_Z22__work_group_broadcastDv32_lmmS_PS_(<32 x i64> %src, i64 %linear_local_id, i64 %linear_id, <32 x i64> %mask, ptr %accum)
+declare <64 x i64> @_Z22__work_group_broadcastDv64_lmmS_PS_(<64 x i64> %src, i64 %linear_local_id, i64 %linear_id, <64 x i64> %mask, ptr %accum)
+declare <4 x i64> @_Z22__work_group_broadcastDv4_mmmS_PS_(<4 x i64> %src, i64 %linear_local_id, i64 %linear_id, <4 x i64> %mask, ptr %accum)
+declare <8 x i64> @_Z22__work_group_broadcastDv8_mmmS_PS_(<8 x i64> %src, i64 %linear_local_id, i64 %linear_id, <8 x i64> %mask, ptr %accum)
+declare <16 x i64> @_Z22__work_group_broadcastDv16_mmmS_PS_(<16 x i64> %src, i64 %linear_local_id, i64 %linear_id, <16 x i64> %mask, ptr %accum)
+declare <32 x i64> @_Z22__work_group_broadcastDv32_mmmS_PS_(<32 x i64> %src, i64 %linear_local_id, i64 %linear_id, <32 x i64> %mask, ptr %accum)
+declare <64 x i64> @_Z22__work_group_broadcastDv64_mmmS_PS_(<64 x i64> %src, i64 %linear_local_id, i64 %linear_id, <64 x i64> %mask, ptr %accum)
+declare <4 x float> @_Z22__work_group_broadcastDv4_fmmS_PS_(<4 x float> %src, i64 %linear_local_id, i64 %linear_id, <4 x float> %mask, ptr %accum)
+declare <8 x float> @_Z22__work_group_broadcastDv8_fmmS_PS_(<8 x float> %src, i64 %linear_local_id, i64 %linear_id, <8 x float> %mask, ptr %accum)
+declare <16 x float> @_Z22__work_group_broadcastDv16_fmmS_PS_(<16 x float> %src, i64 %linear_local_id, i64 %linear_id, <16 x float> %mask, ptr %accum)
+declare <32 x float> @_Z22__work_group_broadcastDv32_fmmS_PS_(<32 x float> %src, i64 %linear_local_id, i64 %linear_id, <32 x float> %mask, ptr %accum)
+declare <64 x float> @_Z22__work_group_broadcastDv64_fmmS_PS_(<64 x float> %src, i64 %linear_local_id, i64 %linear_id, <64 x float> %mask, ptr %accum)
+declare <4 x double> @_Z22__work_group_broadcastDv4_dmmS_PS_(<4 x double> %src, i64 %linear_local_id, i64 %linear_id, <4 x double> %mask, ptr %accum)
+declare <8 x double> @_Z22__work_group_broadcastDv8_dmmS_PS_(<8 x double> %src, i64 %linear_local_id, i64 %linear_id, <8 x double> %mask, ptr %accum)
+declare <16 x double> @_Z22__work_group_broadcastDv16_dmmS_PS_(<16 x double> %src, i64 %linear_local_id, i64 %linear_id, <16 x double> %mask, ptr %accum)
+declare <32 x double> @_Z22__work_group_broadcastDv32_dmmS_PS_(<32 x double> %src, i64 %linear_local_id, i64 %linear_id, <32 x double> %mask, ptr %accum)
+declare <64 x double> @_Z22__work_group_broadcastDv64_dmmS_PS_(<64 x double> %src, i64 %linear_local_id, i64 %linear_id, <64 x double> %mask, ptr %accum)
 
 declare i8 @_Z30__finalize_work_group_identityc(i8  signext %src) 
 

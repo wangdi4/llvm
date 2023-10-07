@@ -315,19 +315,9 @@ CallInst *GroupBuiltinPass::getWICall(Instruction *Before, StringRef FuncName,
   return Call;
 }
 
-static inline bool isMaskedBroadcast(const Function *F) {
-  // The last argument of masked broadcast must be a vector i32 mask.
-  auto *FTy = F->getFunctionType();
-  unsigned LastOpIdx = FTy->getNumParams() - 1;
-  if (auto *VTy = dyn_cast<FixedVectorType>(FTy->getParamType(LastOpIdx)))
-    return VTy->getScalarType()->isIntegerTy() &&
-           VTy->getScalarType()->getIntegerBitWidth() == 32;
-  return false;
-}
-
 static inline unsigned getNDimForBroadcast(const Function *F) {
   unsigned NDim = F->getFunctionType()->getNumParams() - 1;
-  if (isMaskedBroadcast(F))
+  if (isWorkGroupBroadCast(F->getName()).second)
     NDim--;
   return NDim;
 }
@@ -537,8 +527,7 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
     // result.
 
     // a. At first - produce parameter list for the new callee.
-    bool IsBroadcast = isWorkGroupBroadCast(FuncName);
-    bool IsMaskedBroadcast = IsBroadcast && isMaskedBroadcast(Callee);
+    auto [IsBroadcast, IsMaskedBroadcast] = isWorkGroupBroadCast(FuncName);
     SmallVector<Value *, 2> Params;
     if (!IsBroadcast) {
       // For all WG function, but broadcasts - keep original arguments intact.
@@ -571,7 +560,6 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
     assert(isMangledName(FuncName) &&
            "WG BI function name is expected to be mangled!");
     reflection::FunctionDescriptor FD = demangle(FuncName);
-
     if (IsBroadcast) {
       reflection::RefParamType MaskTy;
       if (IsMaskedBroadcast)
