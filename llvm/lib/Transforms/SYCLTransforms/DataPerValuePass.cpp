@@ -15,6 +15,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/DiagnosticInfo.h"
 
 #define DEBUG_TYPE "sycl-kernel-data-per-value-analysis"
 
@@ -354,6 +355,11 @@ unsigned int DataPerValue::getValueOffset(Value *Val, Type *Ty,
       // same solution in GPU device.
       // TODO: Support dynamic size arrary.
       SizeInBits = SizeInBits * (C ? C->getZExtValue() : VLAMaxSize);
+      Val->getContext().diagnose(OptimizationWarningDiagInfo(
+          "VLA has been detected. Its private memory size is set to 4KB. If "
+          "the size is not big enough and leads to stack/buffer overflow or "
+          "incorrect results, please increase private memory size limit using "
+          "env variable CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE"));
     }
   }
 
