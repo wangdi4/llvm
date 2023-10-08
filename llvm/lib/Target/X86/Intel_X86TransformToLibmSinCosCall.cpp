@@ -51,6 +51,8 @@ using namespace llvm;
 namespace {
 
 static bool isGNUSinCosCall(CallInst *CI) {
+  if (!CI->getCalledFunction())
+    return false;
   if (CI->getCalledFunction()->getName() == "sincos") {
     if (CI->getNumOperands() != 4)
       return false;
