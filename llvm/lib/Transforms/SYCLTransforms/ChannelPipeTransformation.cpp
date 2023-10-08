@@ -292,15 +292,6 @@ static Value *createPipeUserStub(Value *ChannelUser, Value *Pipe) {
   Type *PipeTy;
   if (auto *GV = dyn_cast<GlobalVariable>(Pipe)) {
     PipeTy = GV->getValueType();
-    if (isa<LoadInst>(ChannelUser) || isa<StoreInst>(ChannelUser)) {
-      if (auto *ArrTy = dyn_cast<ArrayType>(PipeTy)) {
-        PipeTy = ArrTy->getElementType();
-        if (!isa<ArrayType>(getLoadStoreType(ChannelUser))) {
-          while (auto *ATy = dyn_cast<ArrayType>(PipeTy))
-            PipeTy = ATy->getElementType();
-        }
-      }
-    }
   } else if (auto *AI = dyn_cast<AllocaInst>(Pipe)) {
     PipeTy = AI->getAllocatedType();
   } else if (auto *GEPOp = dyn_cast<GEPOperator>(Pipe)) {
@@ -308,6 +299,23 @@ static Value *createPipeUserStub(Value *ChannelUser, Value *Pipe) {
   } else {
     PipeTy = Pipe->getType();
   }
+
+  Type *ChannelUserSourceType;
+  if (auto *GEPInst = dyn_cast<GetElementPtrInst>(ChannelUser)) {
+    ChannelUserSourceType = GEPInst->getSourceElementType();
+  } else if (auto *GEPOp = dyn_cast<GEPOperator>(ChannelUser)) {
+    ChannelUserSourceType = GEPOp->getSourceElementType();
+  } else if (isa<StoreInst>(ChannelUser) || isa<LoadInst>(ChannelUser)) {
+    ChannelUserSourceType = getLoadStoreType(ChannelUser);
+  } else {
+    ChannelUserSourceType = ChannelUser->getType();
+  }
+
+  if (!ChannelUserSourceType->isArrayTy() && PipeTy->isArrayTy()) {
+    while (auto *ATy = dyn_cast<ArrayType>(PipeTy))
+      PipeTy = ATy->getElementType();
+  }
+
   Value *UndefPipe;
   if (isa<PHINode>(ChannelUser) || isa<SelectInst>(ChannelUser) ||
       isa<StoreInst>(ChannelUser))

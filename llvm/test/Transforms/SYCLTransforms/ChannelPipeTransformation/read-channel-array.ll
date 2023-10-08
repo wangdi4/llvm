@@ -7,6 +7,8 @@
 ; kernel void test() {
 ;   int val0 = read_channel_intel(c4[0][0][0][0]);
 ;   int val1 = read_channel_intel(c4[0][0][0][1]);
+;   int val2 = read_channel_intel(c4[3][2][1][0]);
+;   int val3 = read_channel_intel(c4[3][2][0][0]);
 ; }
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -20,10 +22,18 @@ entry:
 ; CHECK: call i32 @__read_pipe_2_bl_fpga(ptr addrspace(1)
 ; CHECK: load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([4 x [8 x [16 x [2 x ptr addrspace(1)]]]], ptr addrspace(1) @c4.pipe, i64 0, i64 0, i64 0, i64 0, i64 1), align 8
 ; CHECK: call i32 @__read_pipe_2_bl_fpga(ptr addrspace(1)
+; CHECK: load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([4 x [8 x [16 x [2 x ptr addrspace(1)]]]], ptr addrspace(1) @c4.pipe, i64 0, i64 3, i64 2, i64 1), align 8
+; CHECK: call i32 @__read_pipe_2_bl_fpga(ptr addrspace(1)
+; CHECK: load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([4 x [8 x [16 x [2 x ptr addrspace(1)]]]], ptr addrspace(1) @c4.pipe, i64 0, i64 3, i64 2), align 8
+; CHECK: call i32 @__read_pipe_2_bl_fpga(ptr addrspace(1)
   %0 = load ptr addrspace(1), ptr addrspace(1) @c4, align 4, !tbaa !3
   %call = call i32 @_Z18read_channel_intel11ocl_channeli(ptr addrspace(1) %0) #2
-  %1 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([4 x [8 x [16 x [2 x ptr addrspace(1)]]]], ptr addrspace(1) @c4, i64 0, i64 0, i64 0, i64 0, i64 1), align 4, !tbaa !3
+  %1 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([4 x [8 x [16 x [2 x target("spirv.Channel")]]]], ptr addrspace(1) @c4, i64 0, i64 0, i64 0, i64 0, i64 1), align 4, !tbaa !3
   %call1 = call i32 @_Z18read_channel_intel11ocl_channeli(ptr addrspace(1) %1) #2
+  %2 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([4 x [8 x [16 x [2 x target("spirv.Channel")]]]], ptr addrspace(1) @c4, i64 0, i64 3, i64 2, i64 1), align 4, !tbaa !3
+  %call2 = call i32 @_Z18read_channel_intel11ocl_channeli(ptr addrspace(1) %2) #2
+  %3 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([4 x [8 x [16 x [2 x target("spirv.Channel")]]]], ptr addrspace(1) @c4, i64 0, i64 3, i64 2), align 4, !tbaa !3
+  %call3 = call i32 @_Z18read_channel_intel11ocl_channeli(ptr addrspace(1) %3) #2
   ret void
 }
 
