@@ -71,6 +71,13 @@ C++ Specific Potentially Breaking Changes
   (`#49884 <https://github.com/llvm/llvm-project/issues/49884>`_), and
   (`#61273 <https://github.com/llvm/llvm-project/issues/61273>`_)
 
+- The `ClassScopeFunctionSpecializationDecl` AST node has been removed.
+  Dependent class scope explicit function template specializations now use
+  `DependentFunctionTemplateSpecializationInfo` to store candidate primary
+  templates and explicit template arguments. This should not impact users of
+  Clang as a compiler, but it may break assumptions in Clang-based tools
+  iterating over the AST.
+
 ABI Changes in This Version
 ---------------------------
 - Following the SystemV ABI for x86-64, ``__int128`` arguments will no longer
@@ -152,6 +159,7 @@ Non-comprehensive list of changes in this release
 
 New Compiler Flags
 ------------------
+
 * ``-fverify-intermediate-code`` and its complement ``-fno-verify-intermediate-code``.
   Enables or disables verification of the generated LLVM IR.
   Users can pass this to turn on extra verification to catch certain types of
@@ -159,6 +167,10 @@ New Compiler Flags
   Since enabling the verifier adds a non-trivial cost of a few percent impact on
   build times, it's disabled by default, unless your LLVM distribution itself is
   compiled with runtime checks enabled.
+* ``-fkeep-system-includes`` modifies the behavior of the ``-E`` option,
+  preserving ``#include`` directives for "system" headers instead of copying
+  the preprocessed text to the output. This can greatly reduce the size of the
+  preprocessed output, which can be helpful when trying to reduce a test case.
 
 Deprecated Compiler Flags
 -------------------------

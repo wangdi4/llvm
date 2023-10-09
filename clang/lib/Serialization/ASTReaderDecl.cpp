@@ -358,9 +358,7 @@ namespace clang {
     }
 
     void VisitClassTemplatePartialSpecializationDecl(
-                                     ClassTemplatePartialSpecializationDecl *D);
-    void VisitClassScopeFunctionSpecializationDecl(
-                                       ClassScopeFunctionSpecializationDecl *D);
+        ClassTemplatePartialSpecializationDecl *D);
     RedeclarableResult
     VisitVarTemplateSpecializationDeclImpl(VarTemplateSpecializationDecl *D);
 
@@ -953,27 +951,16 @@ void ASTDeclReader::VisitFunctionDecl(FunctionDecl *FD) {
     Record.readTemplateArgumentList(TemplArgs, /*Canonicalize*/ true);
 
     // Template args as written.
-    SmallVector<TemplateArgumentLoc, 8> TemplArgLocs;
-    SourceLocation LAngleLoc, RAngleLoc;
-    bool HasTemplateArgumentsAsWritten = Record.readInt();
-    if (HasTemplateArgumentsAsWritten) {
-      unsigned NumTemplateArgLocs = Record.readInt();
-      TemplArgLocs.reserve(NumTemplateArgLocs);
-      for (unsigned i = 0; i != NumTemplateArgLocs; ++i)
-        TemplArgLocs.push_back(Record.readTemplateArgumentLoc());
-
-      LAngleLoc = readSourceLocation();
-      RAngleLoc = readSourceLocation();
-    }
+    TemplateArgumentListInfo TemplArgsWritten;
+    bool HasTemplateArgumentsAsWritten = Record.readBool();
+    if (HasTemplateArgumentsAsWritten)
+      Record.readTemplateArgumentListInfo(TemplArgsWritten);
 
     SourceLocation POI = readSourceLocation();
 
     ASTContext &C = Reader.getContext();
-    TemplateArgumentList *TemplArgList
-      = TemplateArgumentList::CreateCopy(C, TemplArgs);
-    TemplateArgumentListInfo TemplArgsInfo(LAngleLoc, RAngleLoc);
-    for (unsigned i = 0, e = TemplArgLocs.size(); i != e; ++i)
-      TemplArgsInfo.addArgument(TemplArgLocs[i]);
+    TemplateArgumentList *TemplArgList =
+        TemplateArgumentList::CreateCopy(C, TemplArgs);
 
     MemberSpecializationInfo *MSInfo = nullptr;
     if (Record.readInt()) {
@@ -988,7 +975,7 @@ void ASTDeclReader::VisitFunctionDecl(FunctionDecl *FD) {
     FunctionTemplateSpecializationInfo *FTInfo =
         FunctionTemplateSpecializationInfo::Create(
             C, FD, Template, TSK, TemplArgList,
-            HasTemplateArgumentsAsWritten ? &TemplArgsInfo : nullptr, POI,
+            HasTemplateArgumentsAsWritten ? &TemplArgsWritten : nullptr, POI,
             MSInfo);
     FD->TemplateOrSpecialization = FTInfo;
 
@@ -1019,21 +1006,20 @@ void ASTDeclReader::VisitFunctionDecl(FunctionDecl *FD) {
   }
   case FunctionDecl::TK_DependentFunctionTemplateSpecialization: {
     // Templates.
-    UnresolvedSet<8> TemplDecls;
-    unsigned NumTemplates = Record.readInt();
-    while (NumTemplates--)
-      TemplDecls.addDecl(readDeclAs<NamedDecl>());
+    UnresolvedSet<8> Candidates;
+    unsigned NumCandidates = Record.readInt();
+    while (NumCandidates--)
+      Candidates.addDecl(readDeclAs<NamedDecl>());
 
     // Templates args.
-    TemplateArgumentListInfo TemplArgs;
-    unsigned NumArgs = Record.readInt();
-    while (NumArgs--)
-      TemplArgs.addArgument(Record.readTemplateArgumentLoc());
-    TemplArgs.setLAngleLoc(readSourceLocation());
-    TemplArgs.setRAngleLoc(readSourceLocation());
+    TemplateArgumentListInfo TemplArgsWritten;
+    bool HasTemplateArgumentsAsWritten = Record.readBool();
+    if (HasTemplateArgumentsAsWritten)
+      Record.readTemplateArgumentListInfo(TemplArgsWritten);
 
-    FD->setDependentTemplateSpecialization(Reader.getContext(),
-                                           TemplDecls, TemplArgs);
+    FD->setDependentTemplateSpecialization(
+        Reader.getContext(), Candidates,
+        HasTemplateArgumentsAsWritten ? &TemplArgsWritten : nullptr);
     // These are not merged; we don't need to merge redeclarations of dependent
     // template friends.
     break;
@@ -2528,14 +2514,6 @@ void ASTDeclReader::VisitClassTemplatePartialSpecializationDecl(
   }
 }
 
-void ASTDeclReader::VisitClassScopeFunctionSpecializationDecl(
-                                    ClassScopeFunctionSpecializationDecl *D) {
-  VisitDecl(D);
-  D->Specialization = readDeclAs<CXXMethodDecl>();
-  if (Record.readInt())
-    D->TemplateArgs = Record.readASTTemplateArgumentListInfo();
-}
-
 void ASTDeclReader::VisitFunctionTemplateDecl(FunctionTemplateDecl *D) {
   RedeclarableResult Redecl = VisitRedeclarableTemplateDecl(D);
 
@@ -3895,9 +3873,6 @@ Decl *ASTReader::ReadDeclRecord(DeclID ID) {
     break;
   case DECL_VAR_TEMPLATE_PARTIAL_SPECIALIZATION:
     D = VarTemplatePartialSpecializationDecl::CreateDeserialized(Context, ID);
-    break;
-  case DECL_CLASS_SCOPE_FUNCTION_SPECIALIZATION:
-    D = ClassScopeFunctionSpecializationDecl::CreateDeserialized(Context, ID);
     break;
   case DECL_FUNCTION_TEMPLATE:
     D = FunctionTemplateDecl::CreateDeserialized(Context, ID);
