@@ -31,7 +31,7 @@ namespace vpo {
 
 extern bool VPlanPrintLegality;
 
-class VPOVectorizationLegality;
+class LegalityLLVM;
 class VPlanVerifier;
 class WRNVecLoopNode;
 class VPlan;
@@ -64,7 +64,7 @@ protected:
   // TODO: This must be a reference. Using pointer to support temporal nullptr
   // from HIR.
   /// The legality analysis.
-  VPOVectorizationLegality *Legal;
+  LegalityLLVM *Legal;
 
   ScalarEvolution *SE;
 
@@ -96,7 +96,7 @@ protected:
 public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                    const WRNVecLoopNode *WRL, VPlanVector *Plan,
-                   VPOVectorizationLegality *Legal, AssumptionCache &AC,
+                   LegalityLLVM *Legal, AssumptionCache &AC,
                    const DominatorTree &DT, ScalarEvolution *SE = nullptr,
                    BlockFrequencyInfo *BFI = nullptr);
 

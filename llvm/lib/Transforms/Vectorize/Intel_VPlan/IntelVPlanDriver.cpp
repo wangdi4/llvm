@@ -522,7 +522,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   // maps with Loop's as keys would be stale.
   ScalarEvolution SE(Fn, *TLI, *AC, *DT, *LI);
   PredicatedScalarEvolution PSE(SE, *Lp);
-  VPOVectorizationLegality LVL(Lp, PSE, &Fn, &Fn.getContext());
+  LegalityLLVM LVL(Lp, PSE, &Fn, &Fn.getContext());
   VPlanOptReportBuilder VPORBuilder(ORBuilder, LI);
 
   // If region has SIMD directive mark then we will reuse community metadata on
@@ -1677,8 +1677,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL, TTI, Lp);
 
-  HIRVectorizationLegality HIRVecLegal(TTI, SafeRedAnalysis, DDA,
-                                       &Fn.getContext());
+  LegalityHIR HIRVecLegal(TTI, SafeRedAnalysis, DDA, &Fn.getContext());
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, getDT(), &HIRVecLegal,
                                   DDA, &VLSA, LightWeightMode,
                                   &Fn.getContext());

@@ -181,7 +181,7 @@ static Type *getWiderType(const DataLayout &DL, Type *Ty0, Type *Ty1) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPOVectorizationLegality::dump(raw_ostream &OS) const {
+void LegalityLLVM::dump(raw_ostream &OS) const {
   OS << "VPOLegality Descriptor Lists\n";
   OS << "\n\nVPOLegality PrivateList:\n";
   for (auto const &Pvt : Privates) {
@@ -215,8 +215,9 @@ void VPOVectorizationLegality::dump(raw_ostream &OS) const {
 // store i32 %NewVal, i32* %Sum
 // eof loop
 // use %NewVal
-bool VPOVectorizationLegality::doesReductionUsePhiNodes(
-    Value *RedVarPtr, PHINode *&LoopHeaderPhiNode, Value *&StartV) {
+bool LegalityLLVM::doesReductionUsePhiNodes(Value *RedVarPtr,
+                                            PHINode *&LoopHeaderPhiNode,
+                                            Value *&StartV) {
   auto usedInOnlyOneHeaderPhiNode = [this](Value *V) {
     PHINode *Phi = nullptr;
     for (auto U : V->users())
@@ -302,8 +303,8 @@ bool VPOVectorizationLegality::doesReductionUsePhiNodes(
   return (StartV && LoopHeaderPhiNode);
 }
 
-bool VPOVectorizationLegality::isInMemoryReductionPattern(
-    Value *RedVarPtr, Instruction *&CallOrStore) {
+bool LegalityLLVM::isInMemoryReductionPattern(Value *RedVarPtr,
+                                              Instruction *&CallOrStore) {
   SmallVector<Value *, 4> Users;
   CallOrStore = nullptr;
   CallInst *Call = nullptr;
@@ -326,7 +327,7 @@ bool VPOVectorizationLegality::isInMemoryReductionPattern(
   return false;
 }
 
-bool VPOVectorizationLegality::isEndDirective(Instruction *I) const {
+bool LegalityLLVM::isEndDirective(Instruction *I) const {
   return VPOAnalysisUtils::isEndDirective(I) &&
          VPOAnalysisUtils::getDirectiveID(I) == DIR_OMP_SIMD;
 }
@@ -335,7 +336,7 @@ bool VPOVectorizationLegality::isEndDirective(Instruction *I) const {
 // identify any aliasing variables to the explicit SIMD descriptors. We traverse
 // the CFG backwards, starting from Loop pre-header to the BB where SIMD clause
 // is found.
-void VPOVectorizationLegality::collectPreLoopDescrAliases() {
+void LegalityLLVM::collectPreLoopDescrAliases() {
   BasicBlock *LpPH = TheLoop->getLoopPreheader();
 
   if (!LpPH)
@@ -363,7 +364,7 @@ void VPOVectorizationLegality::collectPreLoopDescrAliases() {
 // Utility to analyze all instructions in loop post-exit to identify any
 // aliasing variables to the explicit SIMD descriptor. We traverse CFG starting
 // from loop exit BB to the BB where END.SIMD clause is found.
-void VPOVectorizationLegality::collectPostExitLoopDescrAliases() {
+void LegalityLLVM::collectPostExitLoopDescrAliases() {
   BasicBlock *LpEx = TheLoop->getExitBlock();
 
   if (!LpEx)
@@ -401,7 +402,7 @@ void VPOVectorizationLegality::collectPostExitLoopDescrAliases() {
 }
 
 template <typename LoopEntitiesRange>
-bool VPOVectorizationLegality::isEntityAliasingSafe(
+bool LegalityLLVM::isEntityAliasingSafe(
     const LoopEntitiesRange &LERange,
     function_ref<bool(const Instruction *)> IsAliasInRelevantScope) {
   for (auto *En : LERange) {
@@ -436,8 +437,8 @@ bool VPOVectorizationLegality::isEntityAliasingSafe(
 // We want to scan the block RegionEntry : loop-preheader and checks if we have
 // a store of the  pointer to any memory locations. If that is the case, we
 // treat this loop as unsafe for vectorization.
-bool VPOVectorizationLegality::isAliasingSafe(DominatorTree &DT,
-                                              const CallInst *RegionEntry) {
+bool LegalityLLVM::isAliasingSafe(DominatorTree &DT,
+                                  const CallInst *RegionEntry) {
   // We would not have a RegionEntry in case of auto-vectorization or when we
   // are using -vplan-build-vect-candidates. In that scenario, we do not want
   // this check to be done and depend on the AA analysis for safety.
@@ -457,7 +458,7 @@ bool VPOVectorizationLegality::isAliasingSafe(DominatorTree &DT,
          isEntityAliasingSafe(linearVals(), IsInstInRelevantScope);
 }
 
-void VPOVectorizationLegality::parseMinMaxReduction(
+void LegalityLLVM::parseMinMaxReduction(
     Value *RedVarPtr, RecurKind Kind,
     std::optional<InscanReductionKind> InscanRedKind, Type *Ty) {
 
@@ -547,7 +548,7 @@ void VPOVectorizationLegality::parseMinMaxReduction(
   }
 }
 
-void VPOVectorizationLegality::parseBinOpReduction(
+void LegalityLLVM::parseBinOpReduction(
     Value *RedVarPtr, RecurKind Kind,
     std::optional<InscanReductionKind> InscanRedKind, bool IsComplex,
     Type *Ty) {
@@ -603,7 +604,7 @@ void VPOVectorizationLegality::parseBinOpReduction(
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
 }
 
-void VPOVectorizationLegality::addReduction(
+void LegalityLLVM::addReduction(
     Value *RedVarPtr, Type *Ty, RecurKind Kind,
     std::optional<InscanReductionKind> InscanRedKind, bool IsComplex) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
@@ -618,31 +619,28 @@ void VPOVectorizationLegality::addReduction(
   parseBinOpReduction(RedVarPtr, Kind, InscanRedKind, IsComplex, Ty);
 }
 
-bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
+bool LegalityLLVM::isExplicitReductionPhi(PHINode *Phi) {
   return ExplicitReductions.count(Phi);
 }
 
 template <typename... Args>
-bool VPOVectorizationLegality::bailout(OptReportVerbosity::Level Level,
-                                       OptRemarkID ID, std::string Message,
-                                       Args &&...BailoutArgs) {
+bool LegalityLLVM::bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
+                           std::string Message, Args &&...BailoutArgs) {
   LLVM_DEBUG(dbgs() << Message << '\n');
   setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
   return false;
 }
 
 template <typename... Args>
-bool VPOVectorizationLegality::bailoutWithDebug(OptReportVerbosity::Level Level,
-                                                OptRemarkID ID,
-                                                std::string Debug,
-                                                Args &&...BailoutArgs) {
+bool LegalityLLVM::bailoutWithDebug(OptReportVerbosity::Level Level,
+                                    OptRemarkID ID, std::string Debug,
+                                    Args &&...BailoutArgs) {
   LLVM_DEBUG(dbgs() << Debug << '\n');
   setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
   return false;
 }
 
-bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
-                                            const WRNVecLoopNode *WRLp) {
+bool LegalityLLVM::canVectorize(DominatorTree &DT, const WRNVecLoopNode *WRLp) {
   IsSimdLoop = WRLp;
   clearBailoutRemark();
 
@@ -855,7 +853,7 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
   return true;
 }
 
-bool VPOVectorizationLegality::isLiveOut(const Instruction *I) const {
+bool LegalityLLVM::isLiveOut(const Instruction *I) const {
   if (!TheLoop->contains(I))
     return false;
   return (llvm::any_of(I->users(), [this](const User *U) {
@@ -864,7 +862,7 @@ bool VPOVectorizationLegality::isLiveOut(const Instruction *I) const {
 }
 
 const Instruction *
-VPOVectorizationLegality::getLiveOutPhiOperand(const PHINode *Phi) const {
+LegalityLLVM::getLiveOutPhiOperand(const PHINode *Phi) const {
   if (isLiveOut(Phi))
     return Phi;
   auto Iter = llvm::find_if(Phi->operands(), [&](const Value *Oper) {
@@ -924,8 +922,7 @@ VPOVectorizationLegality::getLiveOutPhiOperand(const PHINode *Phi) const {
 //
 // No other data dependency checks are done because we do this for simd loops
 // only.
-bool VPOVectorizationLegality::checkAndAddAliasForSimdLastPrivate(
-    const PHINode *Phi) {
+bool LegalityLLVM::checkAndAddAliasForSimdLastPrivate(const PHINode *Phi) {
   if (!IsSimdLoop)
     return false;
   bool IsHeaderPhi = Phi->getParent() == TheLoop->getHeader();
@@ -973,7 +970,7 @@ bool VPOVectorizationLegality::checkAndAddAliasForSimdLastPrivate(
 }
 
 PrivDescr<Value> *
-VPOVectorizationLegality::findPrivateOrAlias(const Value *Candidate) const {
+LegalityLLVM::findPrivateOrAlias(const Value *Candidate) const {
   if (Privates.count(Candidate))
     return Privates.find(Candidate)->second.get();
   for (auto Priv : privates())
@@ -982,8 +979,8 @@ VPOVectorizationLegality::findPrivateOrAlias(const Value *Candidate) const {
   return nullptr;
 }
 
-void VPOVectorizationLegality::updatePrivateExitInst(PrivDescrTy *Priv,
-                                                     const Instruction *ExitI) {
+void LegalityLLVM::updatePrivateExitInst(PrivDescrTy *Priv,
+                                         const Instruction *ExitI) {
   if (!Priv->getUpdateInstructions().empty()) {
     assert(ExitI == Priv->getUpdateInstructions()[0] &&
            "second liveout for private");
@@ -991,9 +988,8 @@ void VPOVectorizationLegality::updatePrivateExitInst(PrivDescrTy *Priv,
   Priv->addUpdateInstruction(ExitI);
 }
 
-void VPOVectorizationLegality::addInductionPhi(
-    PHINode *Phi, const InductionDescriptor &ID,
-    SmallPtrSetImpl<Value *> &AllowedExit) {
+void LegalityLLVM::addInductionPhi(PHINode *Phi, const InductionDescriptor &ID,
+                                   SmallPtrSetImpl<Value *> &AllowedExit) {
 
   Inductions[Phi] = ID;
 
@@ -1031,17 +1027,17 @@ void VPOVectorizationLegality::addInductionPhi(
   return;
 }
 
-bool VPOVectorizationLegality::isLoopPrivate(Value *V) const {
+bool LegalityLLVM::isLoopPrivate(Value *V) const {
   return Privates.count(getPtrThruCast<BitCastInst>(V)) ||
          isInMemoryReduction(V);
 }
 
-bool VPOVectorizationLegality::isInMemoryReduction(Value *V) const {
+bool LegalityLLVM::isInMemoryReduction(Value *V) const {
   V = getPtrThruCast<BitCastInst>(V);
   return isa<PointerType>(V->getType()) && InMemoryReductions.count(V);
 }
 
-bool VPOVectorizationLegality::isInductionVariable(const Value *V) {
+bool LegalityLLVM::isInductionVariable(const Value *V) {
   Value *In0 = const_cast<Value *>(V);
   PHINode *PN = dyn_cast_or_null<PHINode>(In0);
   if (!PN)

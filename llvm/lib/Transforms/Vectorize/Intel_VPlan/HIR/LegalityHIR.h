@@ -47,11 +47,10 @@ namespace vpo {
 // High-level class to capture and provide loop vectorization legality analysis
 // for incoming HIR. Currently various loop entities like reductions, inductions
 // and privates are identified and stored within this class.
-class HIRVectorizationLegality final
-    : public VectorizationLegalityBase<HIRVectorizationLegality> {
+class LegalityHIR final : public LegalityBase<LegalityHIR> {
   // Explicit vpo:: to workaround gcc bug
   // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52625
-  template <typename LegalityTy> friend class vpo::VectorizationLegalityBase;
+  template <typename LegalityTy> friend class vpo::LegalityBase;
 
 public:
   struct CompareByDDRefSymbase {
@@ -93,15 +92,14 @@ public:
   using LinearListTy = SmallVector<LinearDescr, 8>;
 
   // Delete copy/assignment/move operations
-  HIRVectorizationLegality(const HIRVectorizationLegality &) = delete;
-  HIRVectorizationLegality &
-  operator=(const HIRVectorizationLegality &) = delete;
-  HIRVectorizationLegality(HIRVectorizationLegality &&) = delete;
-  HIRVectorizationLegality &operator=(HIRVectorizationLegality &&) = delete;
+  LegalityHIR(const LegalityHIR &) = delete;
+  LegalityHIR &operator=(const LegalityHIR &) = delete;
+  LegalityHIR(LegalityHIR &&) = delete;
+  LegalityHIR &operator=(LegalityHIR &&) = delete;
 
-  HIRVectorizationLegality(const TargetTransformInfo *TTI,
-                           HIRSafeReductionAnalysis *SafeReds,
-                           HIRDDAnalysis *DDA, LLVMContext *C)
+  LegalityHIR(const TargetTransformInfo *TTI,
+              HIRSafeReductionAnalysis *SafeReds, HIRDDAnalysis *DDA,
+              LLVMContext *C)
       : TTI(TTI), SRA(SafeReds), DDAnalysis(DDA), Context(C) {}
 
   /// Returns true if it is legal to vectorize this loop.
