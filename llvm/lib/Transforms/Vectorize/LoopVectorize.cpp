@@ -3365,24 +3365,13 @@ LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
   InstructionCost ScalarCallCost =
       TTI.getCallInstrCost(CI->getCalledFunction(), RetTy, Tys, CostKind);
 
-<<<<<<< HEAD
-  // Compute corresponding vector type for return value and arguments.
-  Type *RetTy = ToVectorTy(ScalarRetTy, VF);
-  for (Type *ScalarTy : ScalarTys)
-    Tys.push_back(ToVectorTy(ScalarTy, VF));
-
+#if INTEL_CUSTOMIZATION
   // Compute costs of unpacking argument values for the scalar calls and
   // packing the return values to a vector.
   InstructionCost ScalarizationCost =
       getScalarizationOverhead(CI, VF, CostKind);
-
   InstructionCost Cost =
       ScalarCallCost * VF.getKnownMinValue() + ScalarizationCost;
-
-  // If we can't emit a vector call for this function, then the currently found
-  // cost is the cost we need to return.
-  InstructionCost MaskCost = 0;
-#if INTEL_CUSTOMIZATION
   // If the callee is glibc sincos, just scalarize.
   LibFunc LibF;
   if (TLI->getLibFunc(*CI, LibF)) {
@@ -3390,32 +3379,6 @@ LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
       return Cost;
   }
 #endif // INTEL_CUSTOMIZATION
-  VFShape Shape = VFShape::get(*CI, VF, MaskRequired);
-  if (NeedsMask)
-    *NeedsMask = MaskRequired;
-  Function *VecFunc = VFDatabase(*CI).getVectorizedFunction(Shape);
-  // If we want an unmasked vector function but can't find one matching the VF,
-  // maybe we can find vector function that does use a mask and synthesize
-  // an all-true mask.
-  if (!VecFunc && !MaskRequired) {
-    Shape = VFShape::get(*CI, VF, /*HasGlobalPred=*/true);
-    VecFunc = VFDatabase(*CI).getVectorizedFunction(Shape);
-    // If we found one, add in the cost of creating a mask
-    if (VecFunc) {
-      if (NeedsMask)
-        *NeedsMask = true;
-      MaskCost = TTI.getShuffleCost(
-          TargetTransformInfo::SK_Broadcast,
-          VectorType::get(
-              IntegerType::getInt1Ty(VecFunc->getFunctionType()->getContext()),
-              VF));
-    }
-  }
-
-  // We don't support masked function calls yet, but we can scalarize a
-  // masked call with branches (unless VF is scalable).
-  if (!TLI || CI->isNoBuiltin() || !VecFunc)
-    return VF.isScalable() ? InstructionCost::getInvalid() : Cost;
 
 #if INTEL_CUSTOMIZATION
   // Use vector library call if scalar call is known to read memory only. This
@@ -3424,22 +3387,12 @@ LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
     return Cost;
 #endif
 
-  // If the corresponding vector cost is cheaper, return its cost.
-  InstructionCost VectorCallCost =
-      TTI.getCallInstrCost(nullptr, RetTy, Tys, CostKind) + MaskCost;
-  if (VectorCallCost < Cost) {
-    *Variant = VecFunc;
-    Cost = VectorCallCost;
-  }
-  return Cost;
-=======
   // If this is an intrinsic we may have a lower cost for it.
   if (getVectorIntrinsicIDForCall(CI, TLI)) {
     InstructionCost IntrinsicCost = getVectorIntrinsicCost(CI, VF);
     return std::min(ScalarCallCost, IntrinsicCost);
   }
   return ScalarCallCost;
->>>>>>> 3273ea40e5ba3d4dde3c190273800a885a586e3c
 }
 
 static Type *MaybeVectorizeType(Type *Elt, ElementCount VF) {
@@ -7722,8 +7675,6 @@ LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC,
     if (VF.isVector())
       CM.collectInstsToScalarize(VF);
   }
-<<<<<<< HEAD
-  CM.collectInLoopReductions();
 
 #if INTEL_CUSTOMIZATION
   ElementCount MinVF = std::accumulate(VFCandidates.begin(), VFCandidates.end(),
@@ -7740,10 +7691,6 @@ LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC,
   assert(MaxFactors.ScalableVF != ElementCount::getFixed(0) && "ScalableVF are not supported!");
 #endif // INTEL_CUSTOMIZATION
 
-=======
-
-  buildVPlansWithVPRecipes(ElementCount::getFixed(1), MaxFactors.FixedVF);
->>>>>>> 3273ea40e5ba3d4dde3c190273800a885a586e3c
   buildVPlansWithVPRecipes(ElementCount::getScalable(1), MaxFactors.ScalableVF);
 
   LLVM_DEBUG(printPlans(dbgs()));
