@@ -251,7 +251,7 @@ void check_ast()
 
   // Checking of different argument values.
   //CHECK: VarDecl{{.*}}mrg_mrg
-  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default ;INTEL
   //CHECK: SYCLIntelMergeAttr{{.*}}"mrg4" "depth"
   //CHECK-NOT: SYCLIntelMergeAttr
   [[intel::merge("mrg4", "depth")]]
@@ -259,7 +259,7 @@ void check_ast()
 
   // Checking of duplicate argument values.
   //CHECK: VarDecl{{.*}}mrg_mrg6
-  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default ;INTEL
   //CHECK: SYCLIntelMergeAttr{{.*}}"mrg6" "depth"
   //CHECK-NOT: SYCLIntelMergeAttr
   [[intel::merge("mrg6", "depth")]]

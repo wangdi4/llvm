@@ -603,7 +603,8 @@ void foo1()
   //Last one is applied and others ignored.
   //CHECK: VarDecl{{.*}}mrg_six
   //CHECK: SYCLIntelMergeAttr{{.*}}"mrg4" "depth"{{$}}
-  //CHECK: SYCLIntelMergeAttr{{.*}}"mrg5" "width"{{$}}
+  //CHECK-NOT: SYCLIntelMergeAttr
+  //expected-note@+2{{previous attribute is here}}
   //expected-warning@+2{{is already applied}}
   __attribute__((__merge__("mrg4","depth")))
   __attribute__((__merge__("mrg5","width")))
@@ -665,7 +666,7 @@ void foo1()
   unsigned int bb_ten[4];
 
   // force_pow2_depth
-  //expected-error@+1{{'__force_pow2_depth__' attribute requires integer constant between 0 and 1 inclusive}}
+  //expected-error@+1{{'__force_pow2_depth__' attribute requires integer constant value 0 or 1}}
   __attribute__((__force_pow2_depth__(5))) unsigned int ml_one[4];
 
   //expected-error@+2{{'__memory__' and 'register' attributes are not compatible}}
