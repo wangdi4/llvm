@@ -110,6 +110,7 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/yn_s_ep.cpp
                                imf/intel/pown_s_ep.cpp
                                # end INTEL_CUSTOMIZATION
+                               imf_utils/fp32_round.cpp
                                imf/imf_inline_fp32.cpp
                                imf/imf_fp32_dl.cpp)
 
@@ -194,6 +195,7 @@ set(imf_fp64_fallback_src_list imf_utils/double_convert.cpp
                                imf/intel/y1_d_ep.cpp
                                imf/intel/pown_d_la.cpp
                                # end INTEL_CUSTOMIZATION
+                               imf_utils/fp64_round.cpp
                                imf/imf_inline_fp64.cpp
                                imf/imf_fp64_dl.cpp)
 
