@@ -37,6 +37,7 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf_utils/half_convert.cpp
                                imf_utils/float_convert.cpp
                                imf_utils/simd_emulate.cpp
+<<<<<<< HEAD
                                # INTEL_CUSTOMIZATION
                                ${imf_fp32_omp_lib_funcs_list}
                                imf/intel/cos_h_la.cpp
@@ -110,6 +111,9 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/yn_s_ep.cpp
                                imf/intel/pown_s_ep.cpp
                                # end INTEL_CUSTOMIZATION
+=======
+                               imf_utils/fp32_round.cpp
+>>>>>>> 58ad6f81446fe8edc79b70258c0d5d125743d597
                                imf/imf_inline_fp32.cpp
                                imf/imf_fp32_dl.cpp)
 
@@ -129,6 +133,7 @@ set(imf_fp64_omp_lib_funcs_list imf/intel/cos_d_ha.cpp
 # end INTEL_CUSTOMIZATION
 
 set(imf_fp64_fallback_src_list imf_utils/double_convert.cpp
+<<<<<<< HEAD
                                # INTEL_CUSTOMIZATION
                                ${imf_fp64_omp_lib_funcs_list}
                                imf/intel/erfinv_d_la.cpp
@@ -194,6 +199,9 @@ set(imf_fp64_fallback_src_list imf_utils/double_convert.cpp
                                imf/intel/y1_d_ep.cpp
                                imf/intel/pown_d_la.cpp
                                # end INTEL_CUSTOMIZATION
+=======
+                               imf_utils/fp64_round.cpp
+>>>>>>> 58ad6f81446fe8edc79b70258c0d5d125743d597
                                imf/imf_inline_fp64.cpp
                                imf/imf_fp64_dl.cpp)
 
