@@ -105,6 +105,12 @@ public:
     return {symbols.get(), numSymbols};
   }
 
+  MutableArrayRef<Symbol *> getMutableSymbols() {
+    assert(fileKind == BinaryKind || fileKind == ObjKind ||
+           fileKind == BitcodeKind);
+    return {symbols.get(), numSymbols};
+  }
+
   // Get filename to use for linker script processing.
   StringRef getNameForScript() const;
 

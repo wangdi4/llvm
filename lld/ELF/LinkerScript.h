@@ -340,6 +340,7 @@ public:
 
   void addOrphanSections();
   void diagnoseOrphanHandling() const;
+  void diagnoseMissingSGSectionAddress() const;
   void adjustOutputSections();
   void adjustSectionsAfterSorting();
 
