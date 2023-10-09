@@ -2766,7 +2766,40 @@ HLNode *HLNodeUtils::getLastLexicalChild(HLNode *Parent, HLNode *Node) {
       static_cast<const HLNode *>(Parent), static_cast<const HLNode *>(Node)));
 }
 
+bool HLNodeUtils::isLexicalFirstChildOfParent(const HLNode *Node) {
+  assert(Node && "Node is null!");
+
+  auto *Parent = Node->getParent();
+
+  if (auto *If = dyn_cast<HLIf>(Parent)) {
+    return (Node == If->getFirstThenChild()) ||
+           (Node == If->getFirstElseChild());
+  }
+
+  if (auto *Switch = dyn_cast<HLSwitch>(Parent)) {
+    if (Node == Switch->getFirstDefaultCaseChild()) {
+      return true;
+    }
+
+    for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+      if (Node == Switch->getFirstCaseChild(I)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  if (auto *Lp = dyn_cast<HLLoop>(Parent)) {
+    return (Node == Lp->getFirstChild());
+  }
+
+  return (Node == cast<HLRegion>(Parent)->getFirstChild());
+}
+
 bool HLNodeUtils::isLexicalLastChildOfParent(const HLNode *Node) {
+  assert(Node && "Node is null!");
+
   auto *Parent = Node->getParent();
 
   if (auto *If = dyn_cast<HLIf>(Parent)) {

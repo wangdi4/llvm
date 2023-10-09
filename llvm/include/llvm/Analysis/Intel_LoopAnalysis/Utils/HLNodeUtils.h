@@ -419,10 +419,18 @@ private:
   static const HLNode *getLexicalChildImpl(const HLNode *Parent,
                                            const HLNode *Node, bool First);
 
+  // Returns true if \p Node is first child of its parent. It could be the first
+  // child of any case for HLIf/HLSwitch.
+  // This implementation avoids using top sort numbers so it is more expensive
+  // in compile time. It is used by framework and some transformations operating
+  // on disconnected nodes.
+  static bool isLexicalFirstChildOfParent(const HLNode *Node);
+
   // Returns true if \p Node is last child of its parent. It could be the last
   // child of any case for HLIf/HLSwitch.
-  // This is used by framework so the implementation avoids using top sort
-  // numbers.
+  // This implementation avoids using top sort numbers so it is more expensive
+  // in compile time. It is used by framework and some transformations operating
+  // on disconnected nodes.
   static bool isLexicalLastChildOfParent(const HLNode *Node);
 
   /// Returns the outermost parent of Node1 which is safe to be used for

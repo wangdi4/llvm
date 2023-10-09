@@ -269,6 +269,24 @@ public:
   }
   HLNode *getNextNode();
 
+  /// Returns the previous node without using top sort number, if any, else
+  /// return nullptr. Note: This is more expensive in compile time. It should
+  /// only be used in rare circumstances (transformation needs to operate on
+  /// disconnected nodes) or very specific circumstances (framework usage).
+  const HLNode *getPrevNodeWithoutUsingTopSortNum() const {
+    return const_cast<HLNode *>(this)->getPrevNodeWithoutUsingTopSortNum();
+  }
+  HLNode *getPrevNodeWithoutUsingTopSortNum();
+
+  /// Returns the next node without using top sort number, if any, else return
+  /// nullptr. Note: This is more expensive in compile time. It should only be
+  /// used in rare circumstances (transformation needs to operate on
+  /// disconnected nodes) or very specific circumstances (framework usage).
+  const HLNode *getNextNodeWithoutUsingTopSortNum() const {
+    return const_cast<HLNode *>(this)->getNextNodeWithoutUsingTopSortNum();
+  }
+  HLNode *getNextNodeWithoutUsingTopSortNum();
+
   MDNode *getProfileData() const { return ProfileData; }
   void setProfileData(MDNode *ProfData) { ProfileData = ProfData; }
   /// Get weights of True and False sides of branch_weights.
