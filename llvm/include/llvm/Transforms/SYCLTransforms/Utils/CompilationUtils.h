@@ -348,7 +348,8 @@ bool isWorkGroupReserveWritePipe(StringRef S);
 bool isWorkGroupCommitWritePipe(StringRef S);
 bool isWorkGroupAll(StringRef S);
 bool isWorkGroupAny(StringRef S);
-bool isWorkGroupBroadCast(StringRef S);
+/// Return a <IsBroadcast, IsMaskedBroadcast> pair.
+std::pair<bool, bool> isWorkGroupBroadCast(StringRef S);
 bool isWorkGroupIdentity(StringRef S);
 bool isWorkGroupReduceAdd(StringRef S);
 bool isWorkGroupScanExclusiveAdd(StringRef S);
