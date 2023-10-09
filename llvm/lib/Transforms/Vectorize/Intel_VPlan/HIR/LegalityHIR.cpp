@@ -34,7 +34,7 @@ using namespace llvm;
 using namespace vpo;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void HIRVectorizationLegality::dump(raw_ostream &OS) const {
+void LegalityHIR::dump(raw_ostream &OS) const {
   OS << "HIRLegality Descriptor Lists\n";
   OS << "\n\nHIRLegality PrivatesList:\n";
   for (auto &Pvt : PrivatesList) {
@@ -128,8 +128,8 @@ static bool isSIMDDescriptorDDRef(const RegDDRef *DescrRef, const DDRef *Ref) {
 }
 
 template <typename DescrType>
-DescrType *HIRVectorizationLegality::findDescr(ArrayRef<DescrType> List,
-                                               const DDRef *Ref) const {
+DescrType *LegalityHIR::findDescr(ArrayRef<DescrType> List,
+                                  const DDRef *Ref) const {
   for (auto &Descr : List) {
     // TODO: try to avoid returning the non-const ptr.
     DescrType *CurrentDescr = const_cast<DescrType *>(&Descr);
@@ -147,28 +147,23 @@ DescrType *HIRVectorizationLegality::findDescr(ArrayRef<DescrType> List,
 }
 
 // Explicit template instantiations for findDescr.
-template HIRVectorizationLegality::RedDescrTy *
-HIRVectorizationLegality::findDescr(
-    ArrayRef<HIRVectorizationLegality::RedDescrTy> List,
-    const DDRef *Ref) const;
-template HIRVectorizationLegality::PrivDescrTy *
-HIRVectorizationLegality::findDescr(
-    ArrayRef<HIRVectorizationLegality::PrivDescrTy> List,
-    const DDRef *Ref) const;
-template HIRVectorizationLegality::PrivDescrNonPODTy *
-HIRVectorizationLegality::findDescr(
-    ArrayRef<HIRVectorizationLegality::PrivDescrNonPODTy> List,
-    const DDRef *Ref) const;
-template HIRVectorizationLegality::PrivDescrF90DVTy *
-HIRVectorizationLegality::findDescr(
-    ArrayRef<HIRVectorizationLegality::PrivDescrF90DVTy> List,
-    const DDRef *Ref) const;
-template HIRVectorizationLegality::LinearDescr *
-HIRVectorizationLegality::findDescr(
-    ArrayRef<HIRVectorizationLegality::LinearDescr> List,
-    const DDRef *Ref) const;
+template LegalityHIR::RedDescrTy *
+LegalityHIR::findDescr(ArrayRef<LegalityHIR::RedDescrTy> List,
+                       const DDRef *Ref) const;
+template LegalityHIR::PrivDescrTy *
+LegalityHIR::findDescr(ArrayRef<LegalityHIR::PrivDescrTy> List,
+                       const DDRef *Ref) const;
+template LegalityHIR::PrivDescrNonPODTy *
+LegalityHIR::findDescr(ArrayRef<LegalityHIR::PrivDescrNonPODTy> List,
+                       const DDRef *Ref) const;
+template LegalityHIR::PrivDescrF90DVTy *
+LegalityHIR::findDescr(ArrayRef<LegalityHIR::PrivDescrF90DVTy> List,
+                       const DDRef *Ref) const;
+template LegalityHIR::LinearDescr *
+LegalityHIR::findDescr(ArrayRef<LegalityHIR::LinearDescr> List,
+                       const DDRef *Ref) const;
 
-void HIRVectorizationLegality::recordPotentialSIMDDescrUse(DDRef *Ref) {
+void LegalityHIR::recordPotentialSIMDDescrUse(DDRef *Ref) {
 
   DescrWithInitValueTy *Descr = getLinearRednDescriptors(Ref);
 
@@ -191,8 +186,7 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUse(DDRef *Ref) {
   }
 }
 
-void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
-    HLInst *UpdateInst) {
+void LegalityHIR::recordPotentialSIMDDescrUpdate(HLInst *UpdateInst) {
   RegDDRef *Ref = UpdateInst->getLvalDDRef();
 
   // Instruction does not write into any LVal, bail out of analysis
@@ -227,25 +221,23 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
 }
 
 template <typename... Args>
-bool HIRVectorizationLegality::bailout(OptReportVerbosity::Level Level,
-                                       OptRemarkID ID, std::string Message,
-                                       Args &&...BailoutArgs) {
+bool LegalityHIR::bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
+                          std::string Message, Args &&...BailoutArgs) {
   LLVM_DEBUG(dbgs() << Message << "\n");
   setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
   return false;
 }
 
 template <typename... Args>
-bool HIRVectorizationLegality::bailoutWithDebug(OptReportVerbosity::Level Level,
-                                                OptRemarkID ID,
-                                                std::string Debug,
-                                                Args &&...BailoutArgs) {
+bool LegalityHIR::bailoutWithDebug(OptReportVerbosity::Level Level,
+                                   OptRemarkID ID, std::string Debug,
+                                   Args &&...BailoutArgs) {
   LLVM_DEBUG(dbgs() << Debug << "\n");
   setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
   return false;
 }
 
-bool HIRVectorizationLegality::canVectorize(const WRNVecLoopNode *WRLp) {
+bool LegalityHIR::canVectorize(const WRNVecLoopNode *WRLp) {
   clearBailoutRemark();
   // Send explicit data from WRLoop to the Legality.
   bool RetVal = EnterExplicitData(WRLp);
@@ -254,8 +246,8 @@ bool HIRVectorizationLegality::canVectorize(const WRNVecLoopNode *WRLp) {
   return RetVal;
 }
 
-void HIRVectorizationLegality::findAliasDDRefs(HLNode *BeginNode,
-                                               HLNode *EndNode, HLLoop *HLoop) {
+void LegalityHIR::findAliasDDRefs(HLNode *BeginNode, HLNode *EndNode,
+                                  HLLoop *HLoop) {
 
   // Containers to collect all nodes that are present before/after HLoop to
   // process for potential aliases.
@@ -368,7 +360,7 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *BeginNode,
 }
 
 const HIRVectorIdioms *
-HIRVectorizationLegality::getVectorIdioms(HLLoop *Loop) const {
+LegalityHIR::getVectorIdioms(HLLoop *Loop) const {
   IdiomListTy &IdiomList = VecIdioms[Loop];
   if (!IdiomList) {
     IdiomList.reset(new HIRVectorIdioms());
@@ -379,8 +371,7 @@ HIRVectorizationLegality::getVectorIdioms(HLLoop *Loop) const {
   return IdiomList.get();
 }
 
-bool HIRVectorizationLegality::isMinMaxIdiomTemp(const DDRef *Ref,
-                                                 HLLoop *Loop) const {
+bool LegalityHIR::isMinMaxIdiomTemp(const DDRef *Ref, HLLoop *Loop) const {
   auto *Idioms = getVectorIdioms(Loop);
   for (auto &IdiomDescr : make_range(Idioms->begin(), Idioms->end()))
     if ((IdiomDescr.second == HIRVectorIdioms::IdiomId::MinOrMax ||

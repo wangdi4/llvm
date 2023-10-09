@@ -116,7 +116,7 @@ class SyncDependenceAnalysis;
 class VPValue;
 class VPOCodeGen;
 class VPOCodeGenHIR;
-class VPOVectorizationLegality;
+class LegalityLLVM;
 class VPDominatorTree;
 class VPPostDominatorTree;
 // To be later declared as a friend
@@ -134,7 +134,7 @@ typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 // Class names mapping to minimize the diff:
 #define InnerLoopVectorizer VPOCodeGen
-#define LoopVectorizationLegality VPOVectorizationLegality
+#define LoopVectorizationLegality LegalityLLVM
 
 struct TripCountInfo;
 

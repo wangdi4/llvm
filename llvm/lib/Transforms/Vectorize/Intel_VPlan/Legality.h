@@ -37,17 +37,17 @@ namespace llvm {
 class Function;
 
 namespace vpo {
-class VPOVectorizationLegality;
+class LegalityLLVM;
 
 extern bool ForceUDSReductionVec;
 extern bool EnableHIRPrivateArrays;
 extern bool EnableF90DVSupport;
 extern bool EnableHIRF90DVSupport;
 
-template <typename LegalityTy> class VectorizationLegalityBase {
-  static constexpr IRKind IR =
-      std::is_same<LegalityTy, VPOVectorizationLegality>::value ? IRKind::LLVMIR
-                                                                : IRKind::HIR;
+template <typename LegalityTy> class LegalityBase {
+  static constexpr IRKind IR = std::is_same<LegalityTy, LegalityLLVM>::value
+                                   ? IRKind::LLVMIR
+                                   : IRKind::HIR;
 
 public:
   using ValueTy =
@@ -61,7 +61,7 @@ public:
   static bool forceUDSReductionVec() { return ForceUDSReductionVec; }
 
 protected:
-  VectorizationLegalityBase() = default;
+  LegalityBase() = default;
 
   /// Import explicit data from WRLoop.
   bool EnterExplicitData(const WRNVecLoopNode *WRLp) {

@@ -41,7 +41,7 @@ class HIRSafeReductionAnalysis;
 
 namespace vpo {
 class WRNVecLoopNode;
-class HIRVectorizationLegality;
+class LegalityHIR;
 class VPlan;
 class VPlanVLSAnalysis;
 class VPInstruction;
@@ -71,8 +71,7 @@ public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                 HIRSafeReductionAnalysis *SRA, VPlanVLSAnalysis *VLSA,
                 const VPlanVector *Plan, Function &Fn, HLLoop *Loop,
-                OptReportBuilder &ORB,
-                const HIRVectorizationLegality *HIRLegality,
+                OptReportBuilder &ORB, const LegalityHIR *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
                 const RegDDRef *SearchLoopPeelArrayRef, bool IsOmpSIMD,
                 MergedCFGInfo &CFGInfo, VPLoopDescrMap &LoopDescrs)
@@ -798,7 +797,7 @@ private:
 
   // HIR vectorization legality which contains reductions, inductions and
   // privates coming from SIMD clause descriptors.
-  const HIRVectorizationLegality *HIRLegality;
+  const LegalityHIR *HIRLegality;
 
   // Set of unit-stride Refs
   SmallPtrSet<const RegDDRef *, 4> UnitStrideRefSet;
