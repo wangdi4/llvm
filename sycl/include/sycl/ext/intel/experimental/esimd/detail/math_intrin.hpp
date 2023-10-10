@@ -32,6 +32,7 @@
 #include <sycl/ext/intel/esimd/detail/host_util.hpp>
 #include <sycl/ext/intel/esimd/detail/math_intrin.hpp>
 #include <sycl/ext/intel/esimd/detail/types.hpp>
+#include <sycl/ext/intel/esimd/xmx/common.hpp>
 
 #define __ESIMD_raw_vec_t(T, SZ)                                               \
   sycl::ext::intel::esimd::detail::vector_type_t<                              \
