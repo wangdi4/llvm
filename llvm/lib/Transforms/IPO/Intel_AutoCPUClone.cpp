@@ -411,6 +411,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       SmallVector<StringRef, 64> NewFeatures;
       OldFeatures.split(NewFeatures, ",", -1, false);
 
+      NewFeatures.erase(
+          remove_if(NewFeatures, [](StringRef Str) { return Str[0] == '-'; }),
+          NewFeatures.end());
+
       // Drop leading "+".
       transform(NewFeatures, NewFeatures.begin(),
                 [](StringRef Str) { return Str.substr(1); });
