@@ -73,7 +73,7 @@ if(INTEL_CUSTOMIZATION)
     libomptarget_add_resource_file(omptarget)
   else(WIN32)
     target_link_libraries(omptarget PRIVATE
-        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
+        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports$<$<BOOL:${LLVM_LINKER_IS_LLD}>:,--undefined-version>")
   endif(WIN32)
 
   set_target_properties(omptarget PROPERTIES
