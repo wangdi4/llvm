@@ -12,7 +12,11 @@
 // TODO: enable the upstream test when OCL CPU 2024.0 is uplifted
 // RUN: %{build} -o %t.out -DSYCL_EXT_ONEAPI_MATRIX_VERSION=4
 // RUN: %{run} %t.out
+<<<<<<< HEAD
 // end INTEL_CUSTOMIZATION
+=======
+// XFAIL: *
+>>>>>>> a8561988c2b47b89451bd3ab34b3ecd871fc24d7
 
 #include "common.hpp"
 #include <iostream>
