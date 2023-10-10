@@ -7,7 +7,7 @@
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024"
 target triple = "spir64-unknown-unknown"
 
-define spir_kernel void @test(ptr addrspace(1) nocapture %results, ptr addrspace(3) %mem0, ptr addrspace(3) %mem1, ptr addrspace(3) %mem2, ptr addrspace(3) %mem3, ptr addrspace(3) %mem4, ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) #0 !kernel_arg_base_type !3 {
+define spir_kernel void @test(ptr addrspace(1) nocapture %results, ptr addrspace(3) %mem0, ptr addrspace(3) %mem1, ptr addrspace(3) %mem2, ptr addrspace(3) %mem3, ptr addrspace(3) %mem4, ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle, ptr noalias %pBufferRanges) #0 !kernel_arg_base_type !3 {
 entry:
 ; CHECK: [[GEP0:%[0-9]+]] = getelementptr i8, ptr %UniformArgs, i32 8
 ; CHECK-NEXT: [[LOAD0:%[0-9]+]] = load i64, ptr [[GEP0]], align 8

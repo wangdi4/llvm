@@ -6,7 +6,8 @@
 ; CHECK-SAME:          ptr noalias %pWGId,
 ; CHECK-SAME:          [4 x i64] %BaseGlbId,
 ; CHECK-SAME:          ptr noalias %pSpecialBuf,
-; CHECK-SAME:          ptr noalias %RuntimeHandle)
+; CHECK-SAME:          ptr noalias %RuntimeHandle,
+; CHECK-SAME:          ptr noalias %pBufferRanges)
 ;
 ; CHECK: define void @test
 ; CHECK: [[FUNCPTR:%.*]] = bitcast ptr %fp to ptr
