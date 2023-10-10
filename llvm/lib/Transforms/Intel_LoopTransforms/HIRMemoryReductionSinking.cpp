@@ -390,15 +390,30 @@ bool HIRMemoryReductionSinking::validateReductionTemp(DDGraph DDG,
   return haveCandidateReductions();
 }
 
+// This function checks if the input opcode is a subtraction, then return the
+// opcode for addition, else return the same. It is used to associate the
+// reductions that combine additions and subtractions.
+static unsigned getAssociatedOpcode(unsigned Opcode) {
+  if (Opcode == Instruction::FSub) {
+    return Instruction::FAdd;
+  }
+
+  if (Opcode == Instruction::Sub) {
+    return Instruction::Add;
+  }
+
+  return Opcode;
+}
+
 static bool
 isValidReductionRef(const DDRef *Ref, unsigned Opcode,
                     const SmallVectorImpl<MemoryReductionInfo> &MemReductions) {
   bool CheckLval = Ref->isLval();
 
   for (auto &OtherRedn : MemReductions) {
-    if (Opcode != OtherRedn.Opcode) {
+    if (getAssociatedOpcode(Opcode) !=
+        getAssociatedOpcode(OtherRedn.Opcode))
       continue;
-    }
 
     if (CheckLval) {
       if (Ref == OtherRedn.StoreRef) {
@@ -521,19 +536,6 @@ static RegDDRef *createReductionInitializer(HLLoop *Lp, unsigned Opcode,
   return RednTemp;
 }
 
-// Returns the corresponding commutative opcode for \p Opcode.
-static unsigned getCommutativeOpcode(unsigned Opcode) {
-  if (Opcode == Instruction::FSub) {
-    return Instruction::FAdd;
-  }
-
-  if (Opcode == Instruction::Sub) {
-    return Instruction::Add;
-  }
-
-  return Opcode;
-}
-
 // This function uses the information in the input MemoryReductionInfo to
 // create a reduction temp and replaces reduction load/store inside the loop
 // with the temp.
@@ -547,7 +549,7 @@ static HLInst *createReductionTemp(HLLoop *Lp, MemoryReductionInfo &InvRedn) {
   auto *StoreRef = InvRedn.StoreRef;
   auto *StoreInst = StoreRef->getHLDDNode();
 
-  unsigned Opcode = getCommutativeOpcode(InvRedn.Opcode);
+  unsigned Opcode = getAssociatedOpcode(InvRedn.Opcode);
 
   auto *RednTemp = createReductionInitializer(Lp, Opcode, InvRedn.FMF,
                                               LoadRef->getDestType());
