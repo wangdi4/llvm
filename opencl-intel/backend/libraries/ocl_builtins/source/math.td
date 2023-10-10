@@ -99,9 +99,11 @@ defset list<OclBuiltin> math_builtins_with_general_vect_info = {
 
   defset list<OclBuiltin> math_builtins_with_i32gentype_arg1 = {
     def ldexp_f16 : OclBuiltin<"ldexp", (outs gentype:$ret), (ins gentype:$x, i32gentype:$k)>;
-    def pown_f16 : OclBuiltin<"pown", (outs gentype:$ret), (ins gentype:$x, i32gentype:$y)>;
     def rootn_f16 : OclBuiltin<"rootn", (outs gentype:$ret), (ins gentype:$x, i32gentype:$y)>;
   } // defset math_builtins_with_i32gentype_arg1
+
+  def pown_f16 : OclBuiltin<"pown", (outs gentype:$ret), (ins gentype:$x, i32gentype:$y)>;
+
 } // defset math_builtins_with_general_vect_info
 
 // Masked prototypes for math_builtins_with_general_vect_info
@@ -293,17 +295,6 @@ def : OclBuiltinImpl<nextafter_fp16, math_f16_types, false, [{
   return result;
 }]>, SHARED;
 
-// nextafter fp16 for AMX
-defvar indices = Range<0, !size(nextafter_fp16.Ins)>.Tout;
-defvar args = RangeStr<"$Arg#VarName", indices>.Tout;
-let Types = !filter(ty, math_f16_types, !le(ty.VecLength, 32)) in
-def : OclBuiltinImpl<nextafter_fp16, [], false, call_svml_code, [["$Func", nextafter_fp16.Name], ["$ARGLIST", !interleave(args, ", ")]]>, AMX;
-
-defvar expanded_lo_args = RangeStr<"$Arg#VarName.lo", indices>.Tout;
-defvar expanded_hi_args = RangeStr<"$Arg#VarName.hi", indices>.Tout;
-let Types = !filter(ty, math_f16_types, !gt(ty.VecLength, 32)) in
-def : OclBuiltinImpl<nextafter_fp16, [], false, expand_code, [["$LOARGLIST", !interleave(expanded_lo_args, ", ")], ["$HIARGLIST", !interleave(expanded_hi_args, ", ")]]>, AMX;
-
 // [MASKED] nan: fill results with zero to avoid potential NaN propagation.
 def : OclBuiltinImpl<nan_mask, nan_mask.Types, false, mask_inactive_res_to_zero>, SHARED;
 
@@ -416,6 +407,12 @@ foreach bi = math_builtins_with_i32gentype_arg1 in {
   // TODO: (when masked variants are added)
   // [AMX] v3f16: call masked v4f16
 }
+
+// gentype pown(gentype, i32gentype)
+// [SHARED] vXf16: convert Arg0 to f32 and call f32 implementations.
+// We don't call __ocl_svml_*_pown for SPR since the OCL SVML implementation has bug.
+// Always promote fp16 to fp32 for all targets.
+def : OclBuiltinImpl<pown_f16, math_f16_types, false, promote_f16_to_f32_code, [["$ARGLIST", "convert_$Arg0f32gentype($Arg0VarName), $Arg1VarName"]]>, SHARED;
 
 // gentype fmax/fmin(gentype, sgentype)
 // Broadcast arg1 to vector type.
