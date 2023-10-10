@@ -823,6 +823,7 @@ bool LegalityLLVM::canVectorize(DominatorTree &DT, const WRNVecLoopNode *WRLp) {
                    INTERNAL("Aliasing of privates outside the loop can't be "
                             "determined to be safe."));
 
+  LoadInst *VolatileLoad = nullptr;
   BasicBlock *Header = TheLoop->getHeader();
   // For each block in the loop.
   for (BasicBlock *BB : TheLoop->blocks()) {
@@ -835,6 +836,28 @@ bool LegalityLLVM::canVectorize(DominatorTree &DT, const WRNVecLoopNode *WRLp) {
             INTERNAL("Instruction contains unsupported data type"),
             WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
                                           : AuxRemarkID::Loop);
+
+      // Look for a Windows atomic load idiom; for example:
+      //   %ld = load volatile i64, ptr %g, align 8
+      //   fence syncscope("singlethread") seq_cst
+      // Together these do the Windows equivalent of "load atomic".
+      // For now we bail out rather than try to correctly scalarize
+      // these if the loop is otherwise vectorizable.
+      if (auto *Load = dyn_cast<LoadInst>(&I))
+        if (Load->isVolatile())
+          VolatileLoad = Load;
+
+      if (auto *Fence = dyn_cast<FenceInst>(&I)) {
+        if (VolatileLoad &&
+            Fence->getOrdering() == AtomicOrdering::SequentiallyConsistent &&
+            Fence->getSyncScopeID() == SyncScope::SingleThread)
+          return bailoutWithDebug(
+              OptReportVerbosity::Medium, OptRemarkID::VecWindowsAtomic,
+              INTERNAL("Loop contains a volatile load and fence."),
+              WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                            : AuxRemarkID::Loop,
+              "load");
+      }
 
       if (auto *Phi = dyn_cast<PHINode>(&I)) {
         if (!isPHIOkayForVectorization(Phi, BB, WRLp, Header))
