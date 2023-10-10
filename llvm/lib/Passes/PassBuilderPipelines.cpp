@@ -2213,14 +2213,14 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   FPM.addPass(SROAPass(SROAPass(SROAOptions::ModifyCFG)));
 #endif // !INTEL_CUSTOMIZATION
 
+  if (EnableInferAlignmentPass)
+    FPM.addPass(InferAlignmentPass());
+
 #if INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
   // if IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
 #endif // INTEL_CUSTOMIZATION
-
-  if (EnableInferAlignmentPass)
-    FPM.addPass(InferAlignmentPass());
 
   // This is needed for two reasons:
   //   1. It works around problems that instcombine introduces, such as sinking
