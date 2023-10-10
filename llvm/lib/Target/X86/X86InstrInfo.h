@@ -182,6 +182,7 @@ class X86InstrInfo final : public X86GenInstrInfo {
 public:
   explicit X86InstrInfo(X86Subtarget &STI);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-40015: Skip doing FMA for some expressions to accommodate
   // precision tolerance.
@@ -195,6 +196,8 @@ public:
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 8cc2b51e63f2d3664318629dc3d07f0fd11f3295
   /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
   /// such, whenever a client has an instance of instruction info, it should
   /// always be able to get register info as well (through this method).
