@@ -3365,28 +3365,6 @@ LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
   InstructionCost ScalarCallCost =
       TTI.getCallInstrCost(CI->getCalledFunction(), RetTy, Tys, CostKind);
 
-#if INTEL_CUSTOMIZATION
-  // Compute costs of unpacking argument values for the scalar calls and
-  // packing the return values to a vector.
-  InstructionCost ScalarizationCost =
-      getScalarizationOverhead(CI, VF, CostKind);
-  InstructionCost Cost =
-      ScalarCallCost * VF.getKnownMinValue() + ScalarizationCost;
-  // If the callee is glibc sincos, just scalarize.
-  LibFunc LibF;
-  if (TLI->getLibFunc(*CI, LibF)) {
-    if (LibF == LibFunc_sincos || LibF == LibFunc_sincosf)
-      return Cost;
-  }
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-  // Use vector library call if scalar call is known to read memory only. This
-  // is non-default behavior.
-  if (!VectorizeNonReadonlyLibCalls && !CI->onlyReadsMemory())
-    return Cost;
-#endif
-
   // If this is an intrinsic we may have a lower cost for it.
   if (getVectorIntrinsicIDForCall(CI, TLI)) {
     InstructionCost IntrinsicCost = getVectorIntrinsicCost(CI, VF);
@@ -7061,6 +7039,18 @@ void LoopVectorizationCostModel::setVectorizedCallDecision(ElementCount VF) {
       // Find the cost of vectorizing the call, if we can find a suitable
       // vector variant of the function.
       InstructionCost MaskCost = 0;
+#if INTEL_CUSTOMIZATION
+      // If the callee is glibc sincos, just scalarize.
+      LibFunc LibF;
+      if (TLI->getLibFunc(*CI, LibF)) {
+        if (LibF == LibFunc_sincos || LibF == LibFunc_sincosf) {
+          setCallWideningDecision(CI, VF, CM_Scalarize, nullptr /*VecFunc*/,
+                                  Intrinsic::not_intrinsic, std::nullopt,
+                                  ScalarCost);
+          continue;
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
       VFShape Shape = VFShape::get(*CI, VF, MaskRequired);
       bool UsesMask = MaskRequired;
       Function *VecFunc = VFDatabase(*CI).getVectorizedFunction(Shape);
@@ -7096,6 +7086,17 @@ void LoopVectorizationCostModel::setVectorizedCallDecision(ElementCount VF) {
       if (TLI && VecFunc && !CI->isNoBuiltin())
         VectorCost =
             TTI.getCallInstrCost(nullptr, RetTy, Tys, CostKind) + MaskCost;
+
+#if INTEL_CUSTOMIZATION
+      // Use vector library call if scalar call is known to read memory only.
+      // This is non-default behavior.
+      if (!VectorizeNonReadonlyLibCalls && !CI->onlyReadsMemory()) {
+        setCallWideningDecision(CI, VF, CM_Scalarize, nullptr /*VecFunc*/,
+                                Intrinsic::not_intrinsic, std::nullopt,
+                                ScalarCost);
+        continue;
+      }
+#endif
 
       // Find the cost of an intrinsic; some targets may have instructions that
       // perform the operation without needing an actual call.
