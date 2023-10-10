@@ -57,7 +57,7 @@ exit:
 ; CHECK:   %dummyChar = load i8, ptr addrspace(3) [[VAR1]], align 1
 ; CHECK:   %dummyFloat = load float, ptr addrspace(3) [[VAR2]], align 4
 
-; CHECK:   call void @foo(ptr addrspace(1) %ApInt, ptr addrspace(1) %BpInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat, ptr addrspace(3) noalias undef, ptr noalias undef, ptr noalias undef, [4 x i32] undef, ptr noalias undef, ptr noalias undef)
+; CHECK:   call void @foo(ptr addrspace(1) %ApInt, ptr addrspace(1) %BpInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat, ptr addrspace(3) noalias undef, ptr noalias undef, ptr noalias undef, [4 x i32] undef, ptr noalias undef, ptr noalias undef, ptr noalias undef)
 
 
 ; DEBUGIFY-NOT: WARNING

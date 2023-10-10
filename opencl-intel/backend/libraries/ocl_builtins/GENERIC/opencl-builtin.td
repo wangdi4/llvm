@@ -265,6 +265,7 @@ def sampler_t : OclType<"sampler_t", "sampler_t", 1, 0, 0>;
 def event_t : OclType<"event_t", "event_t", 1, 0, 0>;
 def pevent_t : OclType<"pevent_t", "event_t", 1, 0, 1>;
 def void: OclType<"void", "void", 1, 0, 0>;
+def pvoid: OclType<"void*", "void*", 1, 0, 0>;
 defm atom_v1f16 : _OCLTYPE1_<"atom_v1f16", 1, 16, "atomic_half">;
 defm atom_v1i32 : _OCLTYPE1_<"atom_v1i32", 1, 32, "atomic_int">;
 defm atom_v1u32 : _OCLTYPE1_<"atom_v1u32", 1, 32, "atomic_uint">;

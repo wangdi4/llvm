@@ -34,7 +34,8 @@ entry:
 ; CHECK:             ptr noalias %pWGId,
 ; CHECK:                    [4 x i64] %BaseGlbId,
 ; CHECK:             ptr noalias %pSpecialBuf,
-; CHECK:             ptr noalias %RuntimeHandle) #0 {
+; CHECK:             ptr noalias %RuntimeHandle,
+; CHECK:             ptr noalias %pBufferRanges) #0 {
 ; CHECK-NEXT:             entry:
 ; CHECK-NEXT:             %x = add i32 100, 10
 ; CHECK-NEXT:             ret void
@@ -45,7 +46,8 @@ entry:
 ; CHECK:             ptr noalias %pWGId,
 ; CHECK:                    [4 x i64] %BaseGlbId,
 ; CHECK:             ptr noalias %pSpecialBuf,
-; CHECK:             ptr noalias %RuntimeHandle) #0 {
+; CHECK:             ptr noalias %RuntimeHandle,
+; CHECK:             ptr noalias %pBufferRanges) #0 {
 ; CHECK-NEXT:             entry:
 ; CHECK-NEXT:             %temp = add i32 %x, 10
 ; CHECK-NEXT:             %res = mul i32 %temp, %y
@@ -57,21 +59,24 @@ entry:
 ; CHECK:             ptr noalias %pWGId,
 ; CHECK:                    [4 x i64] %BaseGlbId,
 ; CHECK:             ptr noalias %pSpecialBuf,
-; CHECK:             ptr noalias %RuntimeHandle) {
+; CHECK:             ptr noalias %RuntimeHandle,
+; CHECK:             ptr noalias %pBufferRanges) {
 ; CHECK-NEXT:             entry:
 ; CHECK-NEXT:      call void @functionWithoutArgs(ptr addrspace(3) noalias %pLocalMemBase,
 ; CHECK:             ptr noalias %pWorkDim,
 ; CHECK:             ptr noalias %pWGId,
 ; CHECK:                    [4 x i64] %BaseGlbId,
 ; CHECK:             ptr noalias %pSpecialBuf,
-; CHECK:             ptr noalias %RuntimeHandle)
+; CHECK:             ptr noalias %RuntimeHandle,
+; CHECK:             ptr noalias %pBufferRanges)
 ; CHECK-NEXT:             [[VAR2:%[a-zA-Z0-9]+]] = call i32 @functionWithArgs(i32 %x, i32 %y,
 ; CHECK:             ptr addrspace(3) noalias %pLocalMemBase,
 ; CHECK:             ptr noalias %pWorkDim,
 ; CHECK:             ptr noalias %pWGId,
 ; CHECK:                    [4 x i64] %BaseGlbId,
 ; CHECK:             ptr noalias %pSpecialBuf,
-; CHECK:             ptr noalias %RuntimeHandle)
+; CHECK:             ptr noalias %RuntimeHandle,
+; CHECK:             ptr noalias %pBufferRanges)
 ; CHECK-NEXT:             ret i32 [[VAR2]]
 
 ; CHECK: attributes #0 = { nounwind }

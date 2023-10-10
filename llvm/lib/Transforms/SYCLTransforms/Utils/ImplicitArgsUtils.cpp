@@ -80,12 +80,13 @@ struct ArgData {
 };
 
 static const ArgData ImpArgs[ImplicitArgsUtils::IA_NUMBER] = {
-    {"pLocalMemBase", true},  // IA_SLM_BUFFER,
-    {"pWorkDim", false},      // IA_WORK_GROUP_INFO
-    {"pWGId", true},          // IA_WORK_GROUP_ID
-    {"BaseGlbId", true},      // IA_GLOBAL_BASE_ID
-    {"pSpecialBuf", true},    // IA_BARRIER_BUFFER
-    {"RuntimeHandle", true}}; // IA_RUNTIME_HANDLE
+    {"pLocalMemBase", true},   // IA_SLM_BUFFER,
+    {"pWorkDim", false},       // IA_WORK_GROUP_INFO
+    {"pWGId", true},           // IA_WORK_GROUP_ID
+    {"BaseGlbId", true},       // IA_GLOBAL_BASE_ID
+    {"pSpecialBuf", true},     // IA_BARRIER_BUFFER
+    {"RuntimeHandle", true},   // IA_RUNTIME_HANDLE
+    {"pBufferRanges", false}}; // IA_BUFFER_RANGE_INFO
 
 const char *ImplicitArgsUtils::getArgName(unsigned Idx) {
   // TODO: maybe we don't need impargs?
@@ -110,11 +111,17 @@ ImplicitArgsUtils::getImplicitArgProps(unsigned int Arg) {
   return ImplicitArgProps[Arg];
 }
 
-void ImplicitArgsUtils::initImplicitArgProps(unsigned int SizeOfPtr) {
+void ImplicitArgsUtils::initImplicitArgProps(unsigned int SizeOfPtr,
+                                             size_t GlobalArgCount,
+                                             size_t LocalArgCount) {
   for (unsigned int i = 0; i < NUM_IMPLICIT_ARGS; ++i) {
     switch (i) {
     case IA_WORK_GROUP_INFO:
       ImplicitArgProps[i].Size = sizeof(UniformKernelArgs);
+      break;
+    case IA_BUFFER_RANGE_INFO:
+      ImplicitArgProps[i].Size =
+          2 + (1 + LocalArgCount) * 2 + GlobalArgCount * 2;
       break;
     default:
       ImplicitArgProps[i].Size = SizeOfPtr;

@@ -47,7 +47,7 @@ declare ptr @get_special_buffer.() #1
 ; CHECK-NEXT: %translated_opencl_printf_call = call i32 @__opencl_printf(ptr addrspace(2) @.str, ptr [[GEP0]] 
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test(ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) #2 !kernel_arg_addr_space !3 !kernel_arg_access_qual !3 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !3 !kernel_arg_name !3 !kernel_arg_host_accessible !3 !kernel_arg_pipe_depth !3 !kernel_arg_pipe_io !3 !kernel_arg_buffer_location !3 !kernel_has_sub_groups !4 !barrier_buffer_size !5 !kernel_execution_length !6 !kernel_has_global_sync !4 !recommended_vector_length !7 !private_memory_size !8 {
+define dso_local void @test(ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle, ptr noalias %pBufferRanges) #2 !kernel_arg_addr_space !3 !kernel_arg_access_qual !3 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !3 !kernel_arg_name !3 !kernel_arg_host_accessible !3 !kernel_arg_pipe_depth !3 !kernel_arg_pipe_io !3 !kernel_arg_buffer_location !3 !kernel_has_sub_groups !4 !barrier_buffer_size !5 !kernel_execution_length !6 !kernel_has_global_sync !4 !recommended_vector_length !7 !private_memory_size !8 {
 entry:
   %hhd.addr = alloca ptr, align 8
   %hd.addr = alloca ptr, align 8

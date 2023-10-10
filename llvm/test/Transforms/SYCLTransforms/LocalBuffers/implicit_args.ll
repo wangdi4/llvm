@@ -46,7 +46,8 @@ entry:
 ; CHECK-SAME:        ptr noalias %pWGId,
 ; CHECK-SAME:         [4 x i32] %BaseGlbId,
 ; CHECK-SAME:        ptr noalias %pSpecialBuf,
-; CHECK-SAME:        ptr noalias %RuntimeHandle)
+; CHECK-SAME:        ptr noalias %RuntimeHandle,
+; CHECK-SAME:        ptr noalias %pBufferRanges)
 ; CHECK-NEXT:   entry:
 
 ; CHECK-NEXT:      [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
@@ -69,7 +70,8 @@ entry:
 ; CHECK-SAME:        ptr noalias %pWGId,
 ; CHECK:              [4 x i32] %BaseGlbId,
 ; CHECK-SAME:        ptr noalias %pSpecialBuf,
-; CHECK-SAME:        ptr noalias %RuntimeHandle)
+; CHECK-SAME:        ptr noalias %RuntimeHandle,
+; CHECK-SAME:        ptr noalias %pBufferRanges)
 ; CHECK-NEXT:   entry:
 
 ; CHECK-NEXT:      [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0

@@ -149,6 +149,7 @@ public:
     IA_GLOBAL_BASE_ID,
     IA_BARRIER_BUFFER,
     IA_RUNTIME_HANDLE,
+    IA_BUFFER_RANGE_INFO,
     IA_NUMBER
   };
   static const unsigned int NUM_IMPLICIT_ARGS = IA_NUMBER;
@@ -164,7 +165,8 @@ public:
 
   /// Initialize properties on implicit arguments in run time.
   /// \param SizeOfPtr size of pointer, depends on target machine.
-  static void initImplicitArgProps(unsigned int SizeOfPtr);
+  static void initImplicitArgProps(unsigned int SizeOfPtr,
+                                   size_t GlobalArgCount, size_t LocalArgCount);
 
   /// Indicate that the properties were initialized.
   static bool Initialized;
