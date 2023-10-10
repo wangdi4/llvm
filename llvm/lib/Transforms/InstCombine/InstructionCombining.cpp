@@ -197,6 +197,12 @@ static cl::opt<bool> DisableCanonicalizeSwap(
     cl::desc("disable canonicalizing GEP of GEP constant indices to "
              "have constants as the rightmost indices"),
     cl::ReallyHidden, cl::init(false));
+
+static cl::opt<bool>
+    DisableFpclassFolding("instcombine-disable-fpclass-folding",
+                          cl::desc("Disable fpclass folding in InstCombin"),
+                          cl::ReallyHidden, cl::init(true));
+
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned>
@@ -3476,9 +3482,10 @@ Instruction *InstCombinerImpl::visitReturnInst(ReturnInst &RI) {
     return nullptr;
 
 #if INTEL_CUSTOMIZATION
-  // We set nofpclass(nan,inf) which is causing problems with our own header
-  // files which use these constant values. CMPLRLLVM-52292
-  return nullptr;
+  if (DisableFpclassFolding)
+    // We set nofpclass(nan,inf) which is causing problems with our own header
+    // files which use these constant values. CMPLRLLVM-52292
+    return nullptr;
 #endif // INTEL_CUSTOMIZATION
 
   KnownFPClass KnownClass;
