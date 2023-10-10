@@ -41,7 +41,7 @@ namespace vpo {
 class VPlanVLSAnalysis;
 class WRNVecLoopNode;
 class VPOCodeGen;
-class VPOVectorizationLegality;
+class LegalityLLVM;
 class WRNVecLoopNode;
 class VPlanHCFGBuilder;
 class VPlanRemainderEvaluator;
@@ -355,8 +355,7 @@ public:
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
                            const TargetLibraryInfo *TLI,
                            const TargetTransformInfo *TTI, const DataLayout *DL,
-                           class DominatorTree *DT,
-                           VPOVectorizationLegality *Legal,
+                           class DominatorTree *DT, LegalityLLVM *Legal,
                            VPlanVLSAnalysis *VLSA, LLVMContext *C,
                            BlockFrequencyInfo *BFI = nullptr)
       : VectorlengthMD(nullptr), WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL),

@@ -44,7 +44,7 @@ private:
   HIRDDAnalysis *DDA;
   mutable DDGraph DDG;
 
-  HIRVectorizationLegality *HIRLegality;
+  LegalityHIR *HIRLegality;
 
   /// True when target loop being vectorized is a search loop.
   bool IsSearchLoop = false;
@@ -79,9 +79,9 @@ public:
                               const TargetLibraryInfo *TLI,
                               const TargetTransformInfo *TTI,
                               const DataLayout *DL, DominatorTree *DT,
-                              HIRVectorizationLegality *HIRLegal,
-                              HIRDDAnalysis *DDA, VPlanVLSAnalysisHIR *VLSA,
-                              bool LightWeightMode, LLVMContext *C)
+                              LegalityHIR *HIRLegal, HIRDDAnalysis *DDA,
+                              VPlanVLSAnalysisHIR *VLSA, bool LightWeightMode,
+                              LLVMContext *C)
       : LoopVectorizationPlanner(WRL, /*Lp=*/nullptr, /*LI=*/nullptr, TLI, TTI,
                                  DL, DT, nullptr, VLSA, C, nullptr /* BFI */),
         TheLoop(Lp), LightWeightMode(LightWeightMode), DDA(DDA),

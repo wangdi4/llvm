@@ -1507,6 +1507,11 @@ FuncSet getAllSyncBuiltinsDeclsForKernelUniformCallAttr(Module &M) {
   return FSet;
 }
 
+bool isAddrspaceQuailureBuiltins(StringRef FName) {
+  return FName == "__to_local" || FName == "__to_global" ||
+         FName == "__to_private";
+}
+
 static std::string addSuffixInFunctionName(std::string FuncName,
                                            StringRef Suffix) {
   return (Twine("__") + FuncName + Twine("_before.") + Suffix).str();
@@ -1730,7 +1735,7 @@ bool hasOcl20Support(const Module &M) {
 
 void getImplicitArgs(Function *pFunc, Value **LocalMem, Value **WorkDim,
                      Value **WGId, Value **BaseGlbId, Value **SpecialBuf,
-                     Value **RunTimeHandle) {
+                     Value **RunTimeHandle, Value **BufferRanges) {
 
   assert(pFunc && "Function cannot be null");
   assert(pFunc->arg_size() >= ImplicitArgsUtils::NUM_IMPLICIT_ARGS &&
@@ -1769,6 +1774,11 @@ void getImplicitArgs(Function *pFunc, Value **LocalMem, Value **WorkDim,
   if (nullptr != RunTimeHandle)
     *RunTimeHandle = &*DestI;
   ++DestI;
+
+  if (nullptr != BufferRanges)
+    *BufferRanges = &*DestI;
+  ++DestI;
+
   assert(DestI == pFunc->arg_end());
 }
 

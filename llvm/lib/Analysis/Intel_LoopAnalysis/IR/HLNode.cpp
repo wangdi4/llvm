@@ -374,6 +374,22 @@ HLNode *HLNode::getPrevNode() { return getPrevNextNodeImpl(true); }
 
 HLNode *HLNode::getNextNode() { return getPrevNextNodeImpl(false); }
 
+HLNode *HLNode::getPrevNodeWithoutUsingTopSortNum() {
+
+  if (HLNodeUtils::isLexicalFirstChildOfParent(this))
+    return nullptr;
+
+  return &*std::prev(getIterator());
+}
+
+HLNode *HLNode::getNextNodeWithoutUsingTopSortNum() {
+
+  if (HLNodeUtils::isLexicalLastChildOfParent(this))
+    return nullptr;
+
+  return &*std::next(getIterator());
+}
+
 // Implementation is almost the same as Instruction::extractProfMetadata
 bool HLNode::extractProfileData(uint64_t &TrueVal, uint64_t &FalseVal) const {
   assert((isa<HLLoop>(this) || isa<HLIf>(this) ||

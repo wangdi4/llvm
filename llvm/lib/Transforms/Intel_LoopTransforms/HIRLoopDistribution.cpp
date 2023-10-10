@@ -538,7 +538,10 @@ bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
   const HLInst *BlobNode = dyn_cast<HLInst>(RVal->getHLDDNode());
 
   for (int I = 0; I < 2; ++I) {
-    BlobNode = dyn_cast_or_null<HLInst>(BlobNode->getPrevNode());
+    // We could have cloned ifs and the nodes may be disconnected from HIR so we
+    // can't use getPrevNode() which relies on top sort number.
+    BlobNode =
+        dyn_cast_or_null<HLInst>(BlobNode->getPrevNodeWithoutUsingTopSortNum());
     if (!BlobNode) {
       return false;
     }

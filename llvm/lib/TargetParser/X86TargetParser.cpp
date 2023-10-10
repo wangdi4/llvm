@@ -119,7 +119,8 @@ constexpr FeatureBitset FeaturesKNM = FeaturesKNL | FeatureAVX512VPOPCNTDQ;
 
 #if INTEL_CUSTOMIZATION
 constexpr FeatureBitset FeaturesCommonAVX512 =
-    FeaturesBroadwell | FeatureAES | FeatureAVX512F | FeatureAVX512CD;
+    FeaturesBroadwell | FeatureAES | FeatureAVX512F | FeatureEVEX512 |
+    FeatureAVX512CD;
 #endif // INTEL_CUSTOMIZATION
 
 // Intel Skylake processors.

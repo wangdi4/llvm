@@ -49,7 +49,7 @@ protected:
   std::unique_ptr<DataLayout> DL;
   std::unique_ptr<ScalarEvolution> SE;
   std::unique_ptr<PredicatedScalarEvolution> PSE;
-  std::unique_ptr<VPOVectorizationLegality> Legal;
+  std::unique_ptr<LegalityLLVM> Legal;
   std::unique_ptr<VPExternalValues> Externals;
   std::unique_ptr<VPUnlinkedInstructions> UVPI;
   std::unique_ptr<LoopVectorizationPlanner> LVP;
@@ -80,8 +80,7 @@ protected:
     SE.reset(new ScalarEvolution(F, *TLI, *AC, *DT, *LI));
     if (Loop) {
       PSE.reset(new PredicatedScalarEvolution(*SE, *Loop));
-      Legal.reset(
-          new VPOVectorizationLegality(Loop, *PSE, &F, &F.getContext()));
+      Legal.reset(new LegalityLLVM(Loop, *PSE, &F, &F.getContext()));
     }
     Externals.reset(new VPExternalValues(M.get()));
     UVPI.reset(new VPUnlinkedInstructions());

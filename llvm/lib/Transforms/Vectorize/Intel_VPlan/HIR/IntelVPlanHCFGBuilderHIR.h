@@ -51,7 +51,7 @@ private:
   /// HIR DDGraph that contains DD information for the incoming loop nest.
   const DDGraph &DDG;
 
-  HIRVectorizationLegality *HIRLegality;
+  LegalityHIR *HIRLegality;
 
   /// Loop header VPBasicBlock to HLLoop map.
   SmallDenseMap<VPBasicBlock *, HLLoop *, 4> Header2HLLoop;
@@ -64,7 +64,7 @@ private:
 
 public:
   VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlanVector *Plan,
-                      HIRVectorizationLegality *Legality, const DDGraph &DDG,
+                      LegalityHIR *Legality, const DDGraph &DDG,
                       const DominatorTree &DT, AssumptionCache &AC);
 };
 

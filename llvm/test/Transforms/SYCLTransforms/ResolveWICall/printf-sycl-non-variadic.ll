@@ -42,7 +42,7 @@ declare i32 @printf(ptr addrspace(2), ...) #0
 ; CHECK-NEXT: %translated_opencl_printf_call = call i32 @__opencl_printf(ptr addrspace(2) %7, ptr [[GEP0]]
 
 ; Function Attrs: noinline nounwind optnone
-define void @_Z11do_d_i_testv(ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) #1 {
+define void @_Z11do_d_i_testv(ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle, ptr noalias %pBufferRanges) #1 {
 entry:
   %CHAR_VALUE = alloca i8, align 1
   %SHORT_VALUE = alloca i16, align 2

@@ -13,7 +13,7 @@ target triple = "x86_64-pc-linux"
 
 ; CHECK: define void @_ZTS17assignment_kernelIN4sycl3_V110atomic_refELNS1_6access13address_spaceE1EPcE(ptr noalias %UniformArgs, ptr noalias %pWGId, ptr noalias %RuntimeHandle)
 
-define void @_ZTS17assignment_kernelIN4sycl3_V110atomic_refELNS1_6access13address_spaceE1EPcE(ptr addrspace(1) noalias align 8 %_arg_st, ptr noalias nocapture readonly byval(%"class.sycl::_V1::id") align 8 %_arg_st3, ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) !kernel_arg_base_type !1 {
+define void @_ZTS17assignment_kernelIN4sycl3_V110atomic_refELNS1_6access13address_spaceE1EPcE(ptr addrspace(1) noalias align 8 %_arg_st, ptr noalias nocapture readonly byval(%"class.sycl::_V1::id") align 8 %_arg_st3, ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle, ptr noalias %pBufferRanges) !kernel_arg_base_type !1 {
 entry:
   ret void
 }

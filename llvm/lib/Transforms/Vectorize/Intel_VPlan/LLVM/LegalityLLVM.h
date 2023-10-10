@@ -38,15 +38,14 @@ class PredicatedScalarEvolution;
 
 namespace vpo {
 
-class VPOVectorizationLegality final
-    : public VectorizationLegalityBase<VPOVectorizationLegality> {
+class LegalityLLVM final : public LegalityBase<LegalityLLVM> {
   // Explicit vpo:: to workaround gcc bug
   // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52625
-  template <typename LegalityTy> friend class vpo::VectorizationLegalityBase;
+  template <typename LegalityTy> friend class vpo::LegalityBase;
 
 public:
-  VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE, Function *F,
-                           LLVMContext *C)
+  LegalityLLVM(Loop *L, PredicatedScalarEvolution &PSE, Function *F,
+               LLVMContext *C)
       : TheLoop(L), PSE(PSE), Context(C), Induction(nullptr),
         WidestIndTy(nullptr) {}
 
@@ -62,6 +61,16 @@ public:
     bool IsComplex;
     Type *Ty;
   };
+
+  /// Returns true iff nothing about \p Phi in basic block \p BB will
+  /// invalidate vectorization of \p WRLp.
+  bool isPHIOkayForVectorization(PHINode *Phi, BasicBlock *BB,
+                                 const WRNVecLoopNode *WRLp,
+                                 BasicBlock *Header);
+
+  /// Returns true iff nothing about \p Call will invalidate vectorization
+  /// of \p WRLp.
+  bool isCallOkayForVectorization(CallInst *Call, const WRNVecLoopNode *WRLp);
 
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize(DominatorTree &DT, const WRNVecLoopNode *WRLp);

@@ -4868,11 +4868,10 @@ HLLoop *HIRParser::getNextLexicalLoop(HLNode *Node) {
   HLNode *NextNode = Node;
 
   do {
-    NextNode = &*std::next(NextNode->getIterator());
-  } while (!isa<HLLoop>(NextNode) &&
-           !HLNodeUtils::isLexicalLastChildOfParent(NextNode));
+    NextNode = NextNode->getNextNodeWithoutUsingTopSortNum();
+  } while (NextNode && !isa<HLLoop>(NextNode));
 
-  return dyn_cast<HLLoop>(NextNode);
+  return dyn_cast_or_null<HLLoop>(NextNode);
 }
 
 bool HIRParser::processBlockLoopBeginDirective(HLInst *HInst) {

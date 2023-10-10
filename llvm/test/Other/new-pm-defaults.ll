@@ -393,9 +393,9 @@
 ; INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: SROAPass
 ; CHECK-DEFAULT: Running pass: WarnMissedTransformationsPass
-; CHECK-O-NEXT: Running pass: InstCombinePass
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: InferAlignmentPass
+; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O-NEXT: Running pass: LCSSAPass
 ; CHECK-DEFAULT-NEXT: Running analysis: MemorySSAAnalysis on foo ;INTEL

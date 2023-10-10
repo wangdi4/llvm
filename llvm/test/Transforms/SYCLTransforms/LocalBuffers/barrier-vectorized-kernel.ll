@@ -12,7 +12,7 @@ target triple = "x86_64-pc-linux"
 
 ; CHECK-NOT: @test.i =
 
-define dso_local void @test(ptr addrspace(1) noundef align 4 %dst, ptr addrspace(3) noalias %pLocalMemBase, ptr %pWorkDim, ptr %pWGId, [4 x i64] %BaseGlbId, ptr %pSpecialBuf, ptr %RuntimeHandle) !vectorized_kernel !1 !vectorized_width !2 !kernel_arg_base_type !4 !arg_type_null_val !5 {
+define dso_local void @test(ptr addrspace(1) noundef align 4 %dst, ptr addrspace(3) noalias %pLocalMemBase, ptr %pWorkDim, ptr %pWGId, [4 x i64] %BaseGlbId, ptr %pSpecialBuf, ptr %RuntimeHandle, ptr %pBufferRanges) !vectorized_kernel !1 !vectorized_width !2 !kernel_arg_base_type !4 !arg_type_null_val !5 {
 entry:
 ; CHECK-LABEL: define dso_local void @test(
 ; CHECK-SAME: !local_buffer_size [[LOCAL_SIZE:![0-9]+]]
@@ -23,7 +23,7 @@ entry:
   ret void
 }
 
-define dso_local void @_ZGVeN16u_test(ptr addrspace(1) noundef align 4 %dst, ptr addrspace(3) noalias %pLocalMemBase, ptr %pWorkDim, ptr %pWGId, [4 x i64] %BaseGlbId, ptr %pSpecialBuf, ptr %RuntimeHandle) !scalar_kernel !0 !vectorized_width !3 !kernel_arg_base_type !4 !arg_type_null_val !5 {
+define dso_local void @_ZGVeN16u_test(ptr addrspace(1) noundef align 4 %dst, ptr addrspace(3) noalias %pLocalMemBase, ptr %pWorkDim, ptr %pWGId, [4 x i64] %BaseGlbId, ptr %pSpecialBuf, ptr %RuntimeHandle, ptr %pBufferRanges) !scalar_kernel !0 !vectorized_width !3 !kernel_arg_base_type !4 !arg_type_null_val !5 {
 entry:
 ; CHECK-LABEL: define dso_local void @_ZGVeN16u_test(
 ; CHECK-SAME: !local_buffer_size [[LOCAL_SIZE]]

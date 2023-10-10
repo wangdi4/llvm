@@ -112,7 +112,7 @@ private:
   VPLoopInductionsHIRMap Inductions;
 
   // HIR legality object
-  HIRVectorizationLegality &HIRLegality;
+  LegalityHIR &HIRLegality;
 
   // Recognized VPlan idioms.
   const HIRVectorIdioms *Idioms;
@@ -331,8 +331,7 @@ private:
 
 public:
   VPDecomposerHIR(VPlanVector *P, const loopopt::HLLoop *OHLp,
-                  const loopopt::DDGraph &DDG,
-                  HIRVectorizationLegality &HIRLegality)
+                  const loopopt::DDGraph &DDG, LegalityHIR &HIRLegality)
       : Plan(P), OutermostHLp(OHLp), DDG(DDG), HIRLegality(HIRLegality),
         Idioms(
             HIRLegality.getVectorIdioms(const_cast<HLLoop *>(OutermostHLp))) {
@@ -462,8 +461,7 @@ public:
                        HIRLegality.getPrivateDescr(Ref) != nullptr ||
                        HIRLegality.getPrivateDescrNonPOD(Ref) != nullptr ||
                        HIRLegality.getPrivateDescrF90DV(Ref) != nullptr;
-    if (HIRVectorizationLegality::LinearDescr *LinDescr =
-            HIRLegality.getLinearDescr(Ref)) {
+    if (LegalityHIR::LinearDescr *LinDescr = HIRLegality.getLinearDescr(Ref)) {
       // Create a VPExternalDef for variable stride DDRef
       const DDRef *StepDDRef = LinDescr->Step;
       if (!StepDDRef->getSingleCanonExpr()->isConstant()) {

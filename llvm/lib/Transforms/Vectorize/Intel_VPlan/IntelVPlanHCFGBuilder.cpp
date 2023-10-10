@@ -52,9 +52,9 @@ bool VPlanPrintLegality = false;
 
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                                    const WRNVecLoopNode *WRL, VPlanVector *Plan,
-                                   VPOVectorizationLegality *Legal,
-                                   AssumptionCache &AC, const DominatorTree &DT,
-                                   ScalarEvolution *SE, BlockFrequencyInfo *BFI)
+                                   LegalityLLVM *Legal, AssumptionCache &AC,
+                                   const DominatorTree &DT, ScalarEvolution *SE,
+                                   BlockFrequencyInfo *BFI)
     : TheLoop(Lp), LI(LI), BFI(BFI), WRLp(WRL), Plan(Plan), Legal(Legal),
       SE(SE), DT(DT), AC(AC) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
@@ -239,15 +239,15 @@ static void assertIsSingleElementAlloca(Value *CurValue) {
 // Base class for VPLoopEntity conversion functors.
 class VPEntityConverterBase {
 public:
-  using InductionList = VPOVectorizationLegality::InductionList;
-  using LinearListTy = VPOVectorizationLegality::LinearListTy;
-  using ReductionList = VPOVectorizationLegality::ReductionList;
-  using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
-  using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
-  using UDRList = VPOVectorizationLegality::UDRList;
-  using PrivDescrTy = VPOVectorizationLegality::PrivDescrTy;
-  using PrivDescrNonPODTy = VPOVectorizationLegality::PrivDescrNonPODTy;
-  using PrivDescrF90DVTy = VPOVectorizationLegality::PrivDescrF90DVTy;
+  using InductionList = LegalityLLVM::InductionList;
+  using LinearListTy = LegalityLLVM::LinearListTy;
+  using ReductionList = LegalityLLVM::ReductionList;
+  using ExplicitReductionList = LegalityLLVM::ExplicitReductionList;
+  using InMemoryReductionList = LegalityLLVM::InMemoryReductionList;
+  using UDRList = LegalityLLVM::UDRList;
+  using PrivDescrTy = LegalityLLVM::PrivDescrTy;
+  using PrivDescrNonPODTy = LegalityLLVM::PrivDescrNonPODTy;
+  using PrivDescrF90DVTy = LegalityLLVM::PrivDescrF90DVTy;
 
   VPEntityConverterBase(PlainCFGBuilder &Bld) : Builder(Bld) {}
 
@@ -700,8 +700,7 @@ using PrivatesConverter  = VPLoopEntitiesConverter<PrivateDescr, Loop, Loop2VPLo
 
 /// Convert incoming loop entities to the VPlan format.
 void PlainCFGBuilder::convertEntityDescriptors(
-    VPOVectorizationLegality *Legal,
-    ScalarEvolution *SE,
+    LegalityLLVM *Legal, ScalarEvolution *SE,
     VPlanHCFGBuilder::VPLoopEntityConverterList &Cvts) {
   auto RedCvt = std::make_unique<ReductionConverter>(Plan);
   auto IndCvt = std::make_unique<InductionConverter>(Plan);

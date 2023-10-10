@@ -311,8 +311,8 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopUnrollPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: SROAPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: WarnMissedTransformationsPass
-; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: InferAlignmentPass
+; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LCSSAPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: MemorySSAAnalysis ;INTEL

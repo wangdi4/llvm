@@ -80,7 +80,7 @@ void bar(int if_val, int num_threads_val) {
 
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
   // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[PB3_ADDR]]
-  // CHECK-SAME: "QUAL.OMP.PROC_BIND.MASTER"
+  // CHECK-SAME: "QUAL.OMP.PROC_BIND.PRIMARY"
   #pragma omp parallel private(pb3) proc_bind(primary)
   { foo(); }
 

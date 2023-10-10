@@ -49,10 +49,9 @@ public:
   VPOCodeGen(Loop *OrigLoop, LLVMContext &Context,
              PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
              TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
-             unsigned VecWidth, unsigned UnrollFactor,
-             VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
-             const VPlanVector *Plan, OptReportBuilder &ORBuilder,
-             bool IsOmpSIMD = false,
+             unsigned VecWidth, unsigned UnrollFactor, LegalityLLVM *LVL,
+             VPlanVLSAnalysis *VLSA, const VPlanVector *Plan,
+             OptReportBuilder &ORBuilder, bool IsOmpSIMD = false,
              VecErrorHandlerTy VecErrorHandler = nullptr)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
         Legal(LVL), VLSA(VLSA),
@@ -491,7 +490,7 @@ private:
   TargetTransformInfo *TTI;
 
   /// Vectorization Legality.
-  VPOVectorizationLegality *Legal;
+  LegalityLLVM *Legal;
 
   /// Variable-length stridedness analysis.
   VPlanVLSAnalysis *VLSA;

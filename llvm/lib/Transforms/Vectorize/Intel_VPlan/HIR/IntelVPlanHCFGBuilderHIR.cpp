@@ -83,7 +83,7 @@ private:
   /// entity descriptors.
   SmallDenseMap<VPBasicBlock *, HLLoop *> &Header2HLLoop;
 
-  HIRVectorizationLegality *Legal;
+  LegalityHIR *Legal;
 
   /// Hold the set of dangling predecessors to be connected to the next active
   /// VPBasicBlock.
@@ -142,7 +142,7 @@ private:
 public:
   PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, VPlanVector *Plan,
                      SmallDenseMap<VPBasicBlock *, HLLoop *> &H2HLLp,
-                     HIRVectorizationLegality *HIRLegality)
+                     LegalityHIR *HIRLegality)
       : TheLoop(Lp), Plan(Plan), Header2HLLoop(H2HLLp), Legal(HIRLegality),
         Decomposer(Plan, Lp, DDG, *HIRLegality) {}
 
@@ -813,8 +813,7 @@ bool PlainCFGBuilderHIR::buildPlainCFG() {
 }
 
 VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
-                                         VPlanVector *Plan,
-                                         HIRVectorizationLegality *Legal,
+                                         VPlanVector *Plan, LegalityHIR *Legal,
                                          const DDGraph &DDG,
                                          const DominatorTree &DT,
                                          AssumptionCache &AC)
@@ -1191,12 +1190,12 @@ private:
 class VPEntityConverterBase {
 public:
   using InductionList = VPDecomposerHIR::VPInductionHIRList;
-  using LinearList = HIRVectorizationLegality::LinearListTy;
-  using ExplicitReductionList = HIRVectorizationLegality::ReductionListTy;
-  using UDRList = HIRVectorizationLegality::UDRListTy;
-  using PrivatesListTy = HIRVectorizationLegality::PrivatesListTy;
-  using PrivatesNonPODListTy = HIRVectorizationLegality::PrivatesNonPODListTy;
-  using PrivatesF90DVListTy = HIRVectorizationLegality::PrivatesF90DVListTy;
+  using LinearList = LegalityHIR::LinearListTy;
+  using ExplicitReductionList = LegalityHIR::ReductionListTy;
+  using UDRList = LegalityHIR::UDRListTy;
+  using PrivatesListTy = LegalityHIR::PrivatesListTy;
+  using PrivatesNonPODListTy = LegalityHIR::PrivatesNonPODListTy;
+  using PrivatesF90DVListTy = LegalityHIR::PrivatesF90DVListTy;
   using InductionKind = VPInduction::InductionKind;
 
 
@@ -1391,10 +1390,8 @@ public:
             ? Decomposer.getVPExternalDefForDDRef(CurrValue.getInitValue())
             : nullptr);
 
-    if (HIRVectorizationLegality::DescrValueTy *Alias =
-            CurrValue.getValidAlias()) {
-      auto *RedAlias =
-          cast<HIRVectorizationLegality::DescrWithInitValueTy>(Alias);
+    if (LegalityHIR::DescrValueTy *Alias = CurrValue.getValidAlias()) {
+      auto *RedAlias = cast<LegalityHIR::DescrWithInitValueTy>(Alias);
       VPValue *AliasInit =
           Decomposer.getVPExternalDefForDDRef(RedAlias->getInitValue());
       SmallVector<VPInstruction *, 4> AliasUpdates;
@@ -1468,8 +1465,7 @@ public:
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
     Descriptor.setIsF90(false);
-    if (HIRVectorizationLegality::DescrValueTy *Alias =
-            CurValue.getValidAlias()) {
+    if (LegalityHIR::DescrValueTy *Alias = CurValue.getValidAlias()) {
       SmallVector<VPInstruction *, 4> AliasUpdates;
       for (auto *UpdateInst : Alias->getUpdateInstructions())
         AliasUpdates.push_back(
