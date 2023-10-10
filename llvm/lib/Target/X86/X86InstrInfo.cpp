@@ -170,7 +170,6 @@ X86InstrInfo::X86InstrInfo(X86Subtarget &STI)
       Subtarget(STI), RI(STI.getTargetTriple()) {
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // CMPLRLLVM-40015: Skip doing FMA for some expressions to accommodate precision
 // tolerance.
@@ -237,8 +236,6 @@ X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 8cc2b51e63f2d3664318629dc3d07f0fd11f3295
 bool
 X86InstrInfo::isCoalescableExtInstr(const MachineInstr &MI,
                                     Register &SrcReg, Register &DstReg,
