@@ -647,7 +647,7 @@ if config.new_pm_default:
     config.available_features.add('new_pm_default')
 
 import lit.llvm.util
-config.options_to_revert_to_llorg_behavior = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false" ]
+config.options_to_revert_to_llorg_behavior = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false" , "-instcombine-disable-fpclass-folding=false"]
 lit.llvm.util.add_default_options_to_tool(config, 'opt', config.options_to_revert_to_llorg_behavior)
 lit.llvm.util.add_default_options_to_tool(config, 'llc', config.options_to_revert_to_llorg_behavior)
 # end INTEL_CUSTOMIZATION
