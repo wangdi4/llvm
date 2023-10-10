@@ -218,20 +218,14 @@ X86RegisterInfo::getLargestLegalSuperClass(const TargetRegisterClass *RC,
     case X86::GR16RegClassID:
     case X86::GR32RegClassID:
     case X86::GR64RegClassID:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-=======
->>>>>>> feea5db01360b477b8cf2df03abfa9fc986633d5
     case X86::GR8_NOREX2RegClassID:
     case X86::GR16_NOREX2RegClassID:
     case X86::GR32_NOREX2RegClassID:
     case X86::GR64_NOREX2RegClassID:
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> feea5db01360b477b8cf2df03abfa9fc986633d5
     case X86::RFP32RegClassID:
     case X86::RFP64RegClassID:
     case X86::RFP80RegClassID:
@@ -818,14 +812,6 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-
-  // Reserve the extended general purpose registers.
-  if (!Is64Bit || !MF.getSubtarget<X86Subtarget>().hasEGPR()) {
-    for (unsigned n = 0; n != 16; ++n) {
-      for (MCRegAliasIterator AI(X86::R16 + n, this, true); AI.isValid(); ++AI)
-        Reserved.set(*AI);
-    }
-  }
 
   assert(checkAllSuperRegsMarked(Reserved,
                                  {X86::SIL, X86::DIL, X86::BPL, X86::SPL,
