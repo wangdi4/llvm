@@ -1382,6 +1382,7 @@ def ProcessorFeatures {
 #if INTEL_CUSTOMIZATION
   // Broadwell ISA, AVX512F+CD and SKX tuning flags.
   list<SubtargetFeature> CommonAVX512AdditionalFeatures = [FeatureAVX512,
+                                                           FeatureEVEX512,
                                                            FeatureCDI];
   list<SubtargetFeature> CommonAVX512Features =
     !listconcat(BDWFeatures, CommonAVX512AdditionalFeatures);
