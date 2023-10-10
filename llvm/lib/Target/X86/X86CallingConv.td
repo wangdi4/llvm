@@ -342,16 +342,22 @@ def RetCC_X86_32_Fast : CallingConv<[
 // Intel_OCL_BI return-value convention.
 def RetCC_Intel_OCL_BI : CallingConv<[
   // Vector types are returned in XMM0,XMM1,XMMM2 and XMM3.
-  CCIfType<[f32, f64, v4i32, v2i64, v4f32, v2f64],
+#if INTEL_CUSTOMIZATION
+  CCIfType<[f16, f32, f64, v4i32, v2i64, v8f16, v4f32, v2f64],
+#endif // INTEL_CUSTOMIZATION
             CCAssignToReg<[XMM0,XMM1,XMM2,XMM3]>>,
 
   // 256-bit FP vectors
   // No more than 4 registers
-  CCIfType<[v8f32, v4f64, v8i32, v4i64],
+#if INTEL_CUSTOMIZATION
+  CCIfType<[v16f16, v8f32, v4f64, v8i32, v4i64],
+#endif // INTEL_CUSTOMIZATION
             CCAssignToReg<[YMM0,YMM1,YMM2,YMM3]>>,
 
   // 512-bit FP vectors
-  CCIfType<[v16f32, v8f64, v16i32, v8i64],
+#if INTEL_CUSTOMIZATION
+  CCIfType<[v32f16, v16f32, v8f64, v16i32, v8i64],
+#endif // INTEL_CUSTOMIZATION
             CCAssignToReg<[ZMM0,ZMM1,ZMM2,ZMM3]>>,
 
   // i32, i64 in the standard way
@@ -1291,15 +1297,21 @@ def CC_Intel_OCL_BI : CallingConv<[
   CCIfType<[i32], CCAssignToStack<4, 4>>,
 
   // The SSE vector arguments are passed in XMM registers.
-  CCIfType<[f32, f64, v4i32, v2i64, v4f32, v2f64],
+#if INTEL_CUSTOMIZATION
+  CCIfType<[f16, f32, f64, v4i32, v2i64, v8f16, v4f32, v2f64],
+#endif // INTEL_CUSTOMIZATION
            CCAssignToReg<[XMM0, XMM1, XMM2, XMM3]>>,
 
   // The 256-bit vector arguments are passed in YMM registers.
-  CCIfType<[v8f32, v4f64, v8i32, v4i64],
+#if INTEL_CUSTOMIZATION
+  CCIfType<[v16f16, v8f32, v4f64, v8i32, v4i64],
+#endif // INTEL_CUSTOMIZATION
            CCAssignToReg<[YMM0, YMM1, YMM2, YMM3]>>,
 
   // The 512-bit vector arguments are passed in ZMM registers.
-  CCIfType<[v16f32, v8f64, v16i32, v8i64],
+#if INTEL_CUSTOMIZATION
+  CCIfType<[v32f16, v16f32, v8f64, v16i32, v8i64],
+#endif // INTEL_CUSTOMIZATION
            CCAssignToReg<[ZMM0, ZMM1, ZMM2, ZMM3]>>,
 
   // Pass masks in mask registers
