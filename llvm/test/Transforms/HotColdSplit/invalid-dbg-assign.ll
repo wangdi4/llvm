@@ -1,4 +1,4 @@
-; RUN: opt -passes=hotcoldsplit -hotcoldsplit-threshold=-1 -S %s | FileCheck %s
+; RUN: opt -passes=hotcoldsplit -hotcoldsplit-threshold=-1 -intel-codeextractor-debug=false -S %s | FileCheck %s ;INTEL
 declare void @llvm.dbg.assign(metadata, metadata, metadata, metadata, metadata, metadata)
 
 ; CHECK: define void @foo
