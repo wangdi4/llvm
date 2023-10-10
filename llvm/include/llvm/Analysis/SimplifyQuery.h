@@ -67,11 +67,13 @@ struct SimplifyQuery {
   // keywords like nsw, which provides conservative results if those cannot
   // be safely used.
   const InstrInfoQuery IIQ;
-
+  ScalarEvolution *SE; // INTEL
+  LoopInfo *LI;        // INTEL
   /// Controls whether simplifications are allowed to constrain the range of
   /// possible values for uses of undef. If it is false, simplifications are not
   /// allowed to assume a particular value for a use of undef for example.
   bool CanUseUndef = true;
+  const TargetTransformInfo *TTI = nullptr; // INTEL
 
   SimplifyQuery(const DataLayout &DL, const Instruction *CXTI = nullptr)
       : DL(DL), CxtI(CXTI) {}
@@ -79,11 +81,16 @@ struct SimplifyQuery {
   SimplifyQuery(const DataLayout &DL, const TargetLibraryInfo *TLI,
                 const DominatorTree *DT = nullptr,
                 AssumptionCache *AC = nullptr,
+#if INTEL_CUSTOMIZATION
                 const Instruction *CXTI = nullptr, bool UseInstrInfo = true,
-                bool CanUseUndef = true)
+                bool CanUseUndef = true,
+                const TargetTransformInfo *TTI = nullptr,
+                ScalarEvolution *SE = nullptr, LoopInfo *LI = nullptr)
       : DL(DL), TLI(TLI), DT(DT), AC(AC), CxtI(CXTI), IIQ(UseInstrInfo),
-        CanUseUndef(CanUseUndef) {}
-
+        SE(SE), LI(LI), CanUseUndef(CanUseUndef), TTI(TTI){
+    assert((!SE && !LI || SE && LI) && "SE/LI are expected to come in pair.");
+  }
+#endif // INTEL_CUSTOMIZATION
   SimplifyQuery(const DataLayout &DL, const DominatorTree *DT,
                 AssumptionCache *AC = nullptr,
                 const Instruction *CXTI = nullptr, bool UseInstrInfo = true,
