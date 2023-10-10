@@ -133,9 +133,6 @@
 #cmakedefine01 LLVM_ENABLE_NEW_PASS_MANAGER
 // end INTEL_CUSTOMIZATION
 
-/* Define if the xar_open() function is supported on this platform. */
-#cmakedefine LLVM_HAVE_LIBXAR ${LLVM_HAVE_LIBXAR}
-
 /* Define if building libLLVM shared library */
 #cmakedefine LLVM_BUILD_LLVM_DYLIB
 
