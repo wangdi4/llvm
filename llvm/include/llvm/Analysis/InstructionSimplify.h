@@ -48,8 +48,12 @@
 #ifndef LLVM_ANALYSIS_INSTRUCTIONSIMPLIFY_H
 #define LLVM_ANALYSIS_INSTRUCTIONSIMPLIFY_H
 
+<<<<<<< HEAD
 #include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include "llvm/IR/PatternMatch.h"
+=======
+#include "llvm/Analysis/SimplifyQuery.h"
+>>>>>>> 500a6c95ff63d0b1d68afe7b64fad4a569748aea
 
 namespace llvm {
 
@@ -70,6 +74,7 @@ class TargetLibraryInfo;
 class Type;
 class Value;
 
+<<<<<<< HEAD
 /// InstrInfoQuery provides an interface to query additional information for
 /// instructions like metadata or keywords like nsw, which provides conservative
 /// results if the users specified it is safe to use.
@@ -175,6 +180,8 @@ struct SimplifyQuery {
   }
 };
 
+=======
+>>>>>>> 500a6c95ff63d0b1d68afe7b64fad4a569748aea
 // NOTE: the explicit multiple argument versions of these functions are
 // deprecated.
 // Please use the SimplifyQuery versions in new code.
