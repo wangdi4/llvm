@@ -154,6 +154,7 @@
 /// Types
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 typedef struct kmp_barrier_counting {
   atomic_uint count;
   atomic_uint go;
@@ -222,6 +223,7 @@ typedef enum omp_sched_t {
   omp_sched_guided = 0x3,
   omp_sched_auto = 0x4,
 } omp_sched_t;
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 typedef enum omp_pause_resource_t {
   omp_pause_soft = 1,
@@ -239,6 +241,7 @@ typedef struct __omp_offloading_fptr_map_t {
 /// Task state
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 enum {
   TASK_SCHED_MASK = (0x1 | 0x2 | 0x3), // for runtime schedule
   TASK_IN_PARALLEL = 0x10, // has encountered at least one parallel region
@@ -318,6 +321,14 @@ typedef struct kmp_local_state {
   ushort spmd_num_threads;
 } kmp_local_state_t;
 
+/// Global state
+typedef struct kmp_global_state {
+  kmp_barrier_t g_barrier;     // global barrier
+  int assume_simple_spmd_mode; // assume simple SPMD mode
+  int spmd_num_threads;        // for __kmpc_spmd_push/pop_num_threads
+} kmp_global_state_t;
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
+
 /// Dynamic memory heap type
 typedef struct kmp_mem_heap {
   uintptr_t alloc_base;
@@ -352,14 +363,6 @@ typedef struct kmp_program_data {
   int teams_thread_limit;
 } kmp_program_data_t;
 
-/// Global state
-typedef struct kmp_global_state {
-  kmp_barrier_t g_barrier;         // global barrier
-  int assume_simple_spmd_mode;     // assume simple SPMD mode
-  int spmd_num_threads;            // for __kmpc_spmd_push/pop_num_threads
-} kmp_global_state_t;
-
-
 ///
 /// Types from host runtime
 ///
@@ -379,17 +382,19 @@ typedef struct ident {
 /// Program-scope global data
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Global state
 EXTERN kmp_global_state_t __omp_spirv_global_data;
-
-/// Program data initialized by runtime
-EXTERN kmp_program_data_t __omp_spirv_program_data;
 
 /// Per-team state
 EXTERN kmp_local_state_t __omp_spirv_local_data[KMP_MAX_NUM_GROUPS];
 
 /// Per-thread state for all work groups
 EXTERN kmp_thread_state_t __omp_spirv_thread_data[KMP_MAX_NUM_GROUPS];
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
+
+/// Program data initialized by runtime
+EXTERN kmp_program_data_t __omp_spirv_program_data;
 
 /// Per-team SPMD num threads
 /// We only support correct push/pop_spmd_num_threads behavior up to

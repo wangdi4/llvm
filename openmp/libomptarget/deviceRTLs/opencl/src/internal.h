@@ -199,7 +199,6 @@ INLINE void __kmp_init_local(kmp_local_state_t *local_state) {
   atomic_init(&local_state->work_barrier.go, 0);
   local_state->spmd_num_threads = 0;
 }
-#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 /// Access local data
 INLINE kmp_local_state_t *__kmp_get_local_state() {
@@ -211,7 +210,6 @@ INLINE kmp_thread_state_t *__kmp_get_thread_state() {
   return &__omp_spirv_thread_data[__kmp_get_group_id()];
 }
 
-#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Initialize all team data
 INLINE void __kmp_init_locals() {
   for (int i = 0; i < KMP_MAX_NUM_GROUPS; ++i)

@@ -18,11 +18,17 @@
 /// Runtime data stored in global address space
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 kmp_global_state_t __omp_spirv_global_data = {
   .g_barrier = {{ATOMIC_VAR_INIT(0u), ATOMIC_VAR_INIT(0u)}},
   .assume_simple_spmd_mode = 1,
   .spmd_num_threads = 0
 };
+
+kmp_local_state_t __omp_spirv_local_data[KMP_MAX_NUM_GROUPS];
+
+kmp_thread_state_t __omp_spirv_thread_data[KMP_MAX_NUM_GROUPS];
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 kmp_program_data_t __omp_spirv_program_data = {
   .initialized = 0,
@@ -38,10 +44,6 @@ kmp_program_data_t __omp_spirv_program_data = {
 };
 
 ushort __omp_spirv_spmd_num_threads[KMP_MAX_SPMD_NUM_GROUPS];
-
-kmp_local_state_t __omp_spirv_local_data[KMP_MAX_NUM_GROUPS];
-
-kmp_thread_state_t __omp_spirv_thread_data[KMP_MAX_NUM_GROUPS];
 
 // Host to target pointer map for user functions that may be called indirectly.
 __attribute__((weak)) __global __omp_offloading_fptr_map_t *
