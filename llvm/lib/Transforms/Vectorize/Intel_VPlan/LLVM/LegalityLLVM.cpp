@@ -640,6 +640,135 @@ bool LegalityLLVM::bailoutWithDebug(OptReportVerbosity::Level Level,
   return false;
 }
 
+bool LegalityLLVM::isPHIOkayForVectorization(PHINode *Phi, BasicBlock *BB,
+                                             const WRNVecLoopNode *WRLp,
+                                             BasicBlock *Header) {
+  // If this PHINode is not in the header block, then we know that we
+  // can convert it to select during if-conversion. No need to check if
+  // the PHIs in this block are induction or reduction variables.
+  if (BB != Header) {
+    // Check that this instruction has no outside users or is an
+    // identified reduction value with an outside user.
+    if (!hasOutsideLoopUser(TheLoop, Phi, AllowedExit))
+      return true;
+
+    if (any_of(Phi->users(), [&](User *U) {
+          return isa<PHINode>(U) && ExplicitReductions.count(cast<PHINode>(U));
+        }))
+      // Used in reduction scheme.
+      return true;
+
+    if (checkAndAddAliasForSimdLastPrivate(Phi))
+      return true;
+
+    if (checkUncondLastPrivOperands<PHINode>(
+            Header, Phi, [&](PHINode *Phi) { return Inductions.count(Phi); }))
+      return true;
+
+    return bailoutWithDebug(
+        OptReportVerbosity::Medium, OptRemarkID::VecFailUnknownLiveOut,
+        INTERNAL("Loop contains a live-out value that could not be "
+                 "identified as an induction or reduction."),
+        WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                      : AuxRemarkID::Loop);
+  }
+
+  // We only allow if-converted PHIs with exactly two incoming values.
+  if (Phi->getNumIncomingValues() != 2)
+    return bailoutWithDebug(
+        OptReportVerbosity::Medium, OptRemarkID::VecFailComplexControlFlow,
+        INTERNAL("Loop contains a recurrent computation without "
+                 "exactly two predecessors."),
+        WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                      : AuxRemarkID::Loop,
+        std::string(" 5.0"));
+
+  if (isExplicitReductionPhi(Phi))
+    return true;
+
+  RecurrenceDescriptor RedDes;
+  if (RecurrenceDescriptor::isReductionPHI(Phi, TheLoop, RedDes)) {
+    AllowedExit.insert(RedDes.getLoopExitInstr());
+    Reductions[Phi] = RedDes;
+    return true;
+  }
+
+  InductionDescriptor ID;
+  if (InductionDescriptor::isInductionPHI(Phi, TheLoop, PSE, ID, false,
+                                          false /* OnlyConstPtrStep */) &&
+      // The induction auto-recognizer can produce an induction in a
+      // form that our framework doesn't handle when a variable-step
+      // add recurrence is bypassed by a uniform compare from the
+      // header to the latch.  In such cases when the comparison is
+      // less or greater, scalar evolution correctly identifies the
+      // step recurrence as one of the SCEVMinMaxExpr types.  The
+      // current framework doesn't know what to do with this.  Since
+      // it only happens for variable-step inductions, the problem
+      // isn't observed in the community vectorizer.  It's best for
+      // us to bail out in such cases.  See CMPLRLLVM-44206.
+      !isa<SCEVMinMaxExpr>(ID.getStep())) {
+    addInductionPhi(Phi, ID, AllowedExit);
+    return true;
+  }
+
+  if (checkAndAddAliasForSimdLastPrivate(Phi))
+    return true;
+
+  LLVM_DEBUG(dbgs() << "LV: Found an unidentified PHI." << *Phi << "\n");
+  return bailoutWithDebug(
+      OptReportVerbosity::Medium, OptRemarkID::VecFailUnknownRecurrence,
+      INTERNAL("Loop contains a recurrent computation that could not "
+               "be identified as an induction or reduction."),
+      WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                    : AuxRemarkID::Loop);
+}
+
+bool LegalityLLVM::isCallOkayForVectorization(CallInst *Call,
+                                              const WRNVecLoopNode *WRLp) {
+  Function *F = Call->getCalledFunction();
+  if (!F)
+    return true;
+
+  if (vpo::VPOAnalysisUtils::isBeginDirective(Call)) {
+    // Memory motion guarding directives are inserted for UDRs and will be
+    // removed by VPlan framework.
+    if (vpo::VPOAnalysisUtils::getDirectiveID(Call) == DIR_VPO_GUARD_MEM_MOTION)
+      return true;
+
+    if (EnableNestedRegions)
+      return true;
+
+    // Most probably DIR.OMP.ORDERED, which we have to support in future.
+    // But even any other directive is unexpected here, so be safe.
+    bool OmpOrd = VPOAnalysisUtils::getDirectiveID(Call) == DIR_OMP_ORDERED;
+    LLVM_DEBUG(dbgs() << "LV: For call " << *Call << ":\n");
+    if (OmpOrd)
+      return bailout(
+          OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
+          OptReportAuxDiag::getMsg(AuxRemarkID::OmpSimdOrderedUnsupported));
+    else if (NestedSimdStrategy == NestedSimdStrategies::BailOut)
+      return bailoutWithDebug(
+          OptReportVerbosity::Medium, OptRemarkID::VecFailNestedSimdRegion,
+          INTERNAL("Unsupported nested OpenMP (simd) loop or region."),
+          WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                        : AuxRemarkID::Loop);
+  }
+
+  // Bail out if we need to scalarize the read/write pipe OpenCL calls. We
+  // have to do this because there are no users of these calls directly since
+  // the results are written through a ptr argument. Thus, the vectorizer is
+  // unable to correctly materialize the necessary scalars into a vector
+  // through the VectorLoopValueMap. See getOrCreateVectorValue().
+  if ((isOpenCLReadChannel(F->getName()) ||
+       isOpenCLWriteChannel(F->getName())) &&
+      !UseSimdChannels) {
+    return bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
+                   INTERNAL("OpenCL read/write channel is not enabled."));
+  }
+
+  return true;
+}
+
 bool LegalityLLVM::canVectorize(DominatorTree &DT, const WRNVecLoopNode *WRLp) {
   IsSimdLoop = WRLp;
   clearBailoutRemark();
@@ -708,137 +837,15 @@ bool LegalityLLVM::canVectorize(DominatorTree &DT, const WRNVecLoopNode *WRLp) {
                                           : AuxRemarkID::Loop);
 
       if (auto *Phi = dyn_cast<PHINode>(&I)) {
+        if (!isPHIOkayForVectorization(Phi, BB, WRLp, Header))
+          return false;
+        continue;
+      }
 
-        // If this PHINode is not in the header block, then we know that we
-        // can convert it to select during if-conversion. No need to check if
-        // the PHIs in this block are induction or reduction variables.
-        if (BB != Header) {
-          // Check that this instruction has no outside users or is an
-          // identified reduction value with an outside user.
-          if (!hasOutsideLoopUser(TheLoop, Phi, AllowedExit))
-            continue;
-
-          if (any_of(Phi->users(), [&](User *U) {
-                return isa<PHINode>(U) &&
-                       ExplicitReductions.count(cast<PHINode>(U));
-              }))
-            // Used in reduction scheme.
-            continue;
-
-          if (checkAndAddAliasForSimdLastPrivate(Phi))
-            continue;
-
-          if (checkUncondLastPrivOperands<PHINode>(
-                  Header, Phi,
-                  [&](PHINode *Phi) { return Inductions.count(Phi); }))
-            continue;
-
-          return bailoutWithDebug(
-              OptReportVerbosity::Medium, OptRemarkID::VecFailUnknownLiveOut,
-              INTERNAL("Loop contains a live-out value that could not be "
-                       "identified as an induction or reduction."),
-              WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
-                                            : AuxRemarkID::Loop);
-        }
-
-        // We only allow if-converted PHIs with exactly two incoming values.
-        if (Phi->getNumIncomingValues() != 2)
-          return bailoutWithDebug(
-              OptReportVerbosity::Medium,
-              OptRemarkID::VecFailComplexControlFlow,
-              INTERNAL("Loop contains a recurrent computation without "
-                       "exactly two predecessors."),
-              WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
-                                            : AuxRemarkID::Loop,
-              std::string(" 5.0"));
-
-        if (isExplicitReductionPhi(Phi))
-          continue;
-
-        RecurrenceDescriptor RedDes;
-        if (RecurrenceDescriptor::isReductionPHI(Phi, TheLoop, RedDes)) {
-          AllowedExit.insert(RedDes.getLoopExitInstr());
-          Reductions[Phi] = RedDes;
-          continue;
-        }
-
-        InductionDescriptor ID;
-        if (InductionDescriptor::isInductionPHI(Phi, TheLoop, PSE, ID, false,
-                                                false /* OnlyConstPtrStep */) &&
-            // The induction auto-recognizer can produce an induction in a
-            // form that our framework doesn't handle when a variable-step
-            // add recurrence is bypassed by a uniform compare from the
-            // header to the latch.  In such cases when the comparison is
-            // less or greater, scalar evolution correctly identifies the
-            // step recurrence as one of the SCEVMinMaxExpr types.  The
-            // current framework doesn't know what to do with this.  Since
-            // it only happens for variable-step inductions, the problem
-            // isn't observed in the community vectorizer.  It's best for
-            // us to bail out in such cases.  See CMPLRLLVM-44206.
-            !isa<SCEVMinMaxExpr>(ID.getStep())) {
-          addInductionPhi(Phi, ID, AllowedExit);
-          continue;
-        }
-
-        if (checkAndAddAliasForSimdLastPrivate(Phi))
-          continue;
-
-        LLVM_DEBUG(dbgs() << "LV: Found an unidentified PHI." << *Phi << "\n");
-        return bailoutWithDebug(
-            OptReportVerbosity::Medium, OptRemarkID::VecFailUnknownRecurrence,
-            INTERNAL("Loop contains a recurrent computation that could not "
-                     "be identified as an induction or reduction."),
-            WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
-                                          : AuxRemarkID::Loop);
-      } // end of PHI handling
-
-      // Bail out if we need to scalarize the read/write pipe OpenCL calls. We
-      // have to do this because there are no users of these calls directly
-      // since the results are written through a ptr argument. Thus, the
-      // vectorizer is unable to correctly materialize the necessary scalars
-      // into a vector through the VectorLoopValueMap. See
-      // getOrCreateVectorValue().
       if (auto Call = dyn_cast<CallInst>(&I)) {
-        Function *F = Call->getCalledFunction();
-        if (!F)
-          continue;
-
-        if (vpo::VPOAnalysisUtils::isBeginDirective(Call)) {
-          // Memory motion guarding directives are inserted for UDRs and will be
-          // removed by VPlan framework.
-          if (vpo::VPOAnalysisUtils::getDirectiveID(Call) ==
-              DIR_VPO_GUARD_MEM_MOTION)
-            continue;
-
-          if (EnableNestedRegions)
-            continue;
-
-          // Most probably DIR.OMP.ORDERED, which we have to support in future.
-          // But even any other directive is unexpected here, so be safe.
-          bool OmpOrd =
-              VPOAnalysisUtils::getDirectiveID(Call) == DIR_OMP_ORDERED;
-          LLVM_DEBUG(dbgs() << "LV: For call " << *Call << ":\n");
-          if (OmpOrd)
-            return bailout(OptReportVerbosity::Medium,
-                           OptRemarkID::VecFailGenericBailout,
-                           OptReportAuxDiag::getMsg(
-                               AuxRemarkID::OmpSimdOrderedUnsupported));
-          else if (NestedSimdStrategy == NestedSimdStrategies::BailOut)
-            return bailoutWithDebug(
-                OptReportVerbosity::Medium,
-                OptRemarkID::VecFailNestedSimdRegion,
-                INTERNAL("Unsupported nested OpenMP (simd) loop or region."),
-                WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
-                                              : AuxRemarkID::Loop);
-        }
-
-        if ((isOpenCLReadChannel(F->getName()) ||
-             isOpenCLWriteChannel(F->getName())) &&
-            !UseSimdChannels) {
-          return bailout(OptReportVerbosity::High,
-                         OptRemarkID::VecFailGenericBailout,
-                         INTERNAL("OpenCL read/write channel is not enabled."));
-        }
+        if (!isCallOkayForVectorization(Call, WRLp))
+          return false;
+        continue;
       }
     }
   }

@@ -62,6 +62,16 @@ public:
     Type *Ty;
   };
 
+  /// Returns true iff nothing about \p Phi in basic block \p BB will
+  /// invalidate vectorization of \p WRLp.
+  bool isPHIOkayForVectorization(PHINode *Phi, BasicBlock *BB,
+                                 const WRNVecLoopNode *WRLp,
+                                 BasicBlock *Header);
+
+  /// Returns true iff nothing about \p Call will invalidate vectorization
+  /// of \p WRLp.
+  bool isCallOkayForVectorization(CallInst *Call, const WRNVecLoopNode *WRLp);
+
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize(DominatorTree &DT, const WRNVecLoopNode *WRLp);
 
