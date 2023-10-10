@@ -128,6 +128,7 @@
 /* Define to 1 if you have the <sysexits.h> header file. */
 #cmakedefine HAVE_SYSEXITS_H ${HAVE_SYSEXITS_H}
 
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 /* Define to 1 to enable the experimental new pass manager by default */
 #cmakedefine01 LLVM_ENABLE_NEW_PASS_MANAGER
@@ -136,6 +137,8 @@
 /* Define if the xar_open() function is supported on this platform. */
 #cmakedefine LLVM_HAVE_LIBXAR ${LLVM_HAVE_LIBXAR}
 
+=======
+>>>>>>> eb601430d3d7f45c30ef8d793a45cbcedf910577
 /* Define if building libLLVM shared library */
 #cmakedefine LLVM_BUILD_LLVM_DYLIB
 
