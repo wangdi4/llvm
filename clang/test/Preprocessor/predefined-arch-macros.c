@@ -872,6 +872,7 @@
 // CHECK_KNL_M32: #define __AVX__ 1
 // CHECK_KNL_M32: #define __BMI2__ 1
 // CHECK_KNL_M32: #define __BMI__ 1
+// CHECK_KNL_M32: #define __EVEX512__ 1
 // CHECK_KNL_M32: #define __F16C__ 1
 // CHECK_KNL_M32: #define __FMA__ 1
 // CHECK_KNL_M32: #define __LZCNT__ 1
@@ -911,6 +912,7 @@
 // CHECK_KNL_M64: #define __AVX__ 1
 // CHECK_KNL_M64: #define __BMI2__ 1
 // CHECK_KNL_M64: #define __BMI__ 1
+// CHECK_KNL_M64: #define __EVEX512__ 1
 // CHECK_KNL_M64: #define __F16C__ 1
 // CHECK_KNL_M64: #define __FMA__ 1
 // CHECK_KNL_M64: #define __LZCNT__ 1
@@ -954,6 +956,7 @@
 // CHECK_KNM_M32: #define __AVX__ 1
 // CHECK_KNM_M32: #define __BMI2__ 1
 // CHECK_KNM_M32: #define __BMI__ 1
+// CHECK_KNM_M32: #define __EVEX512__ 1
 // CHECK_KNM_M32: #define __F16C__ 1
 // CHECK_KNM_M32: #define __FMA__ 1
 // CHECK_KNM_M32: #define __LZCNT__ 1
@@ -991,6 +994,7 @@
 // CHECK_KNM_M64: #define __AVX__ 1
 // CHECK_KNM_M64: #define __BMI2__ 1
 // CHECK_KNM_M64: #define __BMI__ 1
+// CHECK_KNM_M64: #define __EVEX512__ 1
 // CHECK_KNM_M64: #define __F16C__ 1
 // CHECK_KNM_M64: #define __FMA__ 1
 // CHECK_KNM_M64: #define __LZCNT__ 1
@@ -1031,6 +1035,7 @@
 // CHECK_SKX_M32: #define __BMI__ 1
 // CHECK_SKX_M32: #define __CLFLUSHOPT__ 1
 // CHECK_SKX_M32: #define __CLWB__ 1
+// CHECK_SKX_M32: #define __EVEX512__ 1
 // CHECK_SKX_M32: #define __F16C__ 1
 // CHECK_SKX_M32: #define __FMA__ 1
 // CHECK_SKX_M32: #define __INVPCID__ 1
@@ -1076,6 +1081,7 @@
 // CHECK_SKX_M64: #define __BMI__ 1
 // CHECK_SKX_M64: #define __CLFLUSHOPT__ 1
 // CHECK_SKX_M64: #define __CLWB__ 1
+// CHECK_SKX_M64: #define __EVEX512__ 1
 // CHECK_SKX_M64: #define __F16C__ 1
 // CHECK_SKX_M64: #define __FMA__ 1
 // CHECK_SKX_M64: #define __INVPCID__ 1
@@ -1125,6 +1131,7 @@
 // CHECK_CLX_M32: #define __BMI__ 1
 // CHECK_CLX_M32: #define __CLFLUSHOPT__ 1
 // CHECK_CLX_M32: #define __CLWB__ 1
+// CHECK_CLX_M32: #define __EVEX512__ 1
 // CHECK_CLX_M32: #define __F16C__ 1
 // CHECK_CLX_M32: #define __FMA__ 1
 // CHECK_CLX_M32: #define __INVPCID__ 1
@@ -1171,6 +1178,7 @@
 // CHECK_CLX_M64: #define __BMI__ 1
 // CHECK_CLX_M64: #define __CLFLUSHOPT__ 1
 // CHECK_CLX_M64: #define __CLWB__ 1
+// CHECK_CLX_M64: #define __EVEX512__ 1
 // CHECK_CLX_M64: #define __F16C__ 1
 // CHECK_CLX_M64: #define __FMA__ 1
 // CHECK_CLX_M64: #define __INVPCID__ 1
@@ -1221,6 +1229,7 @@
 // CHECK_CPX_M32: #define __BMI__ 1
 // CHECK_CPX_M32: #define __CLFLUSHOPT__ 1
 // CHECK_CPX_M32: #define __CLWB__ 1
+// CHECK_CPX_M32: #define __EVEX512__ 1
 // CHECK_CPX_M32: #define __F16C__ 1
 // CHECK_CPX_M32: #define __FMA__ 1
 // CHECK_CPX_M32: #define __INVPCID__ 1
@@ -1268,6 +1277,7 @@
 // CHECK_CPX_M64: #define __BMI__ 1
 // CHECK_CPX_M64: #define __CLFLUSHOPT__ 1
 // CHECK_CPX_M64: #define __CLWB__ 1
+// CHECK_CPX_M64: #define __EVEX512__ 1
 // CHECK_CPX_M64: #define __F16C__ 1
 // CHECK_CPX_M64: #define __FMA__ 1
 // CHECK_CPX_M64: #define __INVPCID__ 1
@@ -1318,6 +1328,7 @@
 // CHECK_CNL_M32: #define __BMI__ 1
 // CHECK_CNL_M32: #define __CLFLUSHOPT__ 1
 // CHECK_CNL_M32-NOT: #define __CLWB__ 1
+// CHECK_CNL_M32: #define __EVEX512__ 1
 // CHECK_CNL_M32: #define __F16C__ 1
 // CHECK_CNL_M32: #define __FMA__ 1
 // CHECK_CNL_M32: #define __INVPCID__ 1
@@ -1366,6 +1377,7 @@
 // CHECK_CNL_M64: #define __BMI__ 1
 // CHECK_CNL_M64: #define __CLFLUSHOPT__ 1
 // CHECK_CNL_M64-NOT: #define __CLWB__ 1
+// CHECK_CNL_M64: #define __EVEX512__ 1
 // CHECK_CNL_M64: #define __F16C__ 1
 // CHECK_CNL_M64: #define __FMA__ 1
 // CHECK_CNL_M64: #define __INVPCID__ 1
@@ -1422,6 +1434,7 @@
 // CHECK_ICL_M32: #define __BMI__ 1
 // CHECK_ICL_M32: #define __CLFLUSHOPT__ 1
 // CHECK_ICL_M32-NOT: #define __CLWB__ 1
+// CHECK_ICL_M32: #define __EVEX512__ 1
 // CHECK_ICL_M32: #define __F16C__ 1
 // CHECK_ICL_M32: #define __FMA__ 1
 // CHECK_ICL_M32: #define __GFNI__ 1
@@ -1483,6 +1496,7 @@
 // CHECK_ICL_M64: #define __BMI__ 1
 // CHECK_ICL_M64: #define __CLFLUSHOPT__ 1
 // CHECK_ICL_M64-NOT: #define __CLWB__ 1
+// CHECK_ICL_M64: #define __EVEX512__ 1
 // CHECK_ICL_M64: #define __F16C__ 1
 // CHECK_ICL_M64: #define __FMA__ 1
 // CHECK_ICL_M64: #define __GFNI__ 1
@@ -1542,6 +1556,7 @@
 // CHECK_ICX_M32: #define __BMI__ 1
 // CHECK_ICX_M32: #define __CLFLUSHOPT__ 1
 // CHECK_ICX_M32: #define __CLWB__ 1
+// CHECK_ICX_M32: #define __EVEX512__ 1
 // CHECK_ICX_M32: #define __F16C__ 1
 // CHECK_ICX_M32: #define __FMA__ 1
 // CHECK_ICX_M32: #define __GFNI__ 1
@@ -1600,6 +1615,7 @@
 // CHECK_ICX_M64: #define __BMI__ 1
 // CHECK_ICX_M64: #define __CLFLUSHOPT__ 1
 // CHECK_ICX_M64: #define __CLWB__ 1
+// CHECK_ICX_M64: #define __EVEX512__ 1
 // CHECK_ICX_M64: #define __F16C__ 1
 // CHECK_ICX_M64: #define __FMA__ 1
 // CHECK_ICX_M64: #define __GFNI__ 1
@@ -1660,6 +1676,7 @@
 // CHECK_TGL_M32: #define __BMI__ 1
 // CHECK_TGL_M32: #define __CLFLUSHOPT__ 1
 // CHECK_TGL_M32: #define __CLWB__ 1
+// CHECK_TGL_M32: #define __EVEX512__ 1
 // CHECK_TGL_M32: #define __F16C__ 1
 // CHECK_TGL_M32: #define __FMA__ 1
 // CHECK_TGL_M32: #define __GFNI__ 1
@@ -1722,6 +1739,7 @@
 // CHECK_TGL_M64: #define __BMI__ 1
 // CHECK_TGL_M64: #define __CLFLUSHOPT__ 1
 // CHECK_TGL_M64: #define __CLWB__ 1
+// CHECK_TGL_M64: #define __EVEX512__ 1
 // CHECK_TGL_M64: #define __F16C__ 1
 // CHECK_TGL_M64: #define __FMA__ 1
 // CHECK_TGL_M64: #define __GFNI__ 1
@@ -1795,6 +1813,7 @@
 // CHECK_SPR_M32: #define __CLFLUSHOPT__ 1
 // CHECK_SPR_M32: #define __CLWB__ 1
 // CHECK_SPR_M32: #define __ENQCMD__ 1
+// CHECK_SPR_M32: #define __EVEX512__ 1
 // CHECK_SPR_M32: #define __F16C__ 1
 // CHECK_SPR_M32: #define __FMA__ 1
 // CHECK_SPR_M32: #define __GFNI__ 1
@@ -1870,6 +1889,7 @@
 // CHECK_SPR_M64: #define __CLFLUSHOPT__ 1
 // CHECK_SPR_M64: #define __CLWB__ 1
 // CHECK_SPR_M64: #define __ENQCMD__ 1
+// CHECK_SPR_M64: #define __EVEX512__ 1
 // CHECK_SPR_M64: #define __F16C__ 1
 // CHECK_SPR_M64: #define __FMA__ 1
 // CHECK_SPR_M64: #define __GFNI__ 1
@@ -1949,6 +1969,7 @@
 // CHECK_GNR_M32: #define __CLFLUSHOPT__ 1
 // CHECK_GNR_M32: #define __CLWB__ 1
 // CHECK_GNR_M32: #define __ENQCMD__ 1
+// CHECK_GNR_M32: #define __EVEX512__ 1
 // CHECK_GNR_M32: #define __F16C__ 1
 // CHECK_GNR_M32: #define __FMA__ 1
 // CHECK_GNR_M32: #define __GFNI__ 1
@@ -2028,6 +2049,7 @@
 // CHECK_GNR_M64: #define __CLFLUSHOPT__ 1
 // CHECK_GNR_M64: #define __CLWB__ 1
 // CHECK_GNR_M64: #define __ENQCMD__ 1
+// CHECK_GNR_M64: #define __EVEX512__ 1
 // CHECK_GNR_M64: #define __F16C__ 1
 // CHECK_GNR_M64: #define __FMA__ 1
 // CHECK_GNR_M64: #define __GFNI__ 1
@@ -3932,6 +3954,7 @@
 // CHECK_ZNVER4_M32: #define __CLFLUSHOPT__ 1
 // CHECK_ZNVER4_M32: #define __CLWB__ 1
 // CHECK_ZNVER4_M32: #define __CLZERO__ 1
+// CHECK_ZNVER4_M32: #define __EVEX512__ 1
 // CHECK_ZNVER4_M32: #define __F16C__ 1
 // CHECK_ZNVER4_M32-NOT: #define __FMA4__ 1
 // CHECK_ZNVER4_M32: #define __FMA__ 1
@@ -3996,6 +4019,7 @@
 // CHECK_ZNVER4_M64: #define __CLFLUSHOPT__ 1
 // CHECK_ZNVER4_M64: #define __CLWB__ 1
 // CHECK_ZNVER4_M64: #define __CLZERO__ 1
+// CHECK_ZNVER4_M64: #define __EVEX512__ 1
 // CHECK_ZNVER4_M64: #define __F16C__ 1
 // CHECK_ZNVER4_M64-NOT: #define __FMA4__ 1
 // CHECK_ZNVER4_M64: #define __FMA__ 1
