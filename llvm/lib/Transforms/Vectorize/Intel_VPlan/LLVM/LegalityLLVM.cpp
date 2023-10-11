@@ -401,38 +401,6 @@ void LegalityLLVM::collectPostExitLoopDescrAliases() {
   }
 }
 
-template <typename LoopEntitiesRange>
-bool LegalityLLVM::isEntityAliasingSafe(
-    const LoopEntitiesRange &LERange,
-    function_ref<bool(const Instruction *)> IsAliasInRelevantScope) {
-  for (auto *En : LERange) {
-    SetVector<const Value *> WL;
-    WL.insert(En);
-    while (!WL.empty()) {
-      auto *HeadI = WL.pop_back_val();
-      for (auto *Use : HeadI->users()) {
-        const auto *UseInst = cast<Instruction>(Use);
-
-        // We only want to analyze the blocks between the region-entry and the
-        // loop-block (typically just simd.loop.preheader). This means we won't
-        // loop on cycle-causing PHIs.
-        if (!IsAliasInRelevantScope(UseInst))
-          continue;
-
-        // If this is a store of private pointer or any of its alias to an
-        // external memory, treat the loop as unsafe for vectorization and
-        // return false.
-        if (const auto *SI = dyn_cast<StoreInst>(UseInst))
-          if (SI->getValueOperand() == HeadI)
-            return false;
-        if (isTrivialPointerAliasingInst(UseInst))
-          WL.insert(UseInst);
-      }
-    }
-  }
-  return true;
-}
-
 // Check the safety of aliasing of loop-privates outside of the loop.
 // We want to scan the block RegionEntry : loop-preheader and checks if we have
 // a store of the  pointer to any memory locations. If that is the case, we
@@ -621,23 +589,6 @@ void LegalityLLVM::addReduction(
 
 bool LegalityLLVM::isExplicitReductionPhi(PHINode *Phi) {
   return ExplicitReductions.count(Phi);
-}
-
-template <typename... Args>
-bool LegalityLLVM::bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
-                           std::string Message, Args &&...BailoutArgs) {
-  LLVM_DEBUG(dbgs() << Message << '\n');
-  setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
-  return false;
-}
-
-template <typename... Args>
-bool LegalityLLVM::bailoutWithDebug(OptReportVerbosity::Level Level,
-                                    OptRemarkID ID, std::string Debug,
-                                    Args &&...BailoutArgs) {
-  LLVM_DEBUG(dbgs() << Debug << '\n');
-  setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
-  return false;
 }
 
 bool LegalityLLVM::isPHIOkayForVectorization(PHINode *Phi, BasicBlock *BB,

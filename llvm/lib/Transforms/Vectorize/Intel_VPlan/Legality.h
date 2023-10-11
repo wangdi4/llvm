@@ -60,8 +60,11 @@ public:
   /// Return true if requested to vectorize a loop with inscan reduction.
   static bool forceUDSReductionVec() { return ForceUDSReductionVec; }
 
+  /// Return the reason for bailing out.
+  VPlanBailoutRemark &getBailoutRemark() { return BR; }
+
 protected:
-  LegalityBase() = default;
+  LegalityBase(LLVMContext *C) : Context(C) {}
 
   /// Import explicit data from WRLoop.
   bool EnterExplicitData(const WRNVecLoopNode *WRLp) {
@@ -70,8 +73,45 @@ protected:
     return visitPrivates(WRLp) && visitLinears(WRLp) && visitReductions(WRLp);
   }
 
-  /// Cached bailout reason data.
+  /// Reports a reason for vectorization bailout. Always returns false.
+  /// \p Message will appear both in the debug dump and the opt report remark.
+  template <typename... Args>
+  bool bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
+               std::string Message, Args &&...BailoutArgs) {
+    DEBUG_WITH_TYPE("VPlanLegality", dbgs() << Message << '\n');
+    setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
+    return false;
+  }
+
+  /// Reports a reason for vectorization bailout. Always returns false.
+  /// \p Debug will appear in the debug dump, but not in the opt report remark.
+  template <typename... Args>
+  bool bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
+                        std::string Debug, Args &&...BailoutArgs) {
+    DEBUG_WITH_TYPE("VPlanLegality", dbgs() << Debug << '\n');
+    setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
+    return false;
+  }
+
+  /// Initialize cached bailout remark data.
+  void clearBailoutRemark() { BR.BailoutRemark = OptRemark(); }
+
+  /// Store a variadic remark indicating the reason for not vectorizing a loop.
+  /// Clients should pass string constants as std::string to avoid extra
+  /// instantiations of this template function.
+  template <typename... Args>
+  void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
+                        OptRemarkID BailoutID, Args &&...BailoutArgs) {
+    BR.BailoutLevel = BailoutLevel;
+    BR.BailoutRemark =
+        OptRemark::get(*Context, BailoutID, std::forward<Args>(BailoutArgs)...);
+  }
+
+  /// Cached bailout reason remark.
   VPlanBailoutRemark BR;
+
+  /// Context for creating optimization report remarks.
+  LLVMContext *Context;
 
 private:
   /// Imports any SIMD loop private amd listprivate information into Legality
@@ -422,21 +462,6 @@ private:
     } else
       addReduction(Val, RedType, Kind, std::nullopt, Item->getIsComplex());
     return true;
-  }
-
-  // Set of thunks to a parent methods
-  template <typename... Args>
-  bool bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
-               std::string Message, Args &&...BailoutArgs) {
-    return static_cast<LegalityTy *>(this)->bailout(
-        Level, ID, Message, std::forward<Args>(BailoutArgs)...);
-  }
-
-  template <typename... Args>
-  bool bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
-                        std::string Debug, Args &&...BailoutArgs) {
-    return static_cast<LegalityTy *>(this)->bailoutWithDebug(
-        Level, ID, Debug, std::forward<Args>(BailoutArgs)...);
   }
 
   void addLoopPrivate(ValueTy *Val, Type *Ty, Function *Constr, Function *Destr,

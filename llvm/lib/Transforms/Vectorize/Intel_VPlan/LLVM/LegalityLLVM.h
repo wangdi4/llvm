@@ -27,6 +27,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LLVM_LEGALITYLLVM_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LLVM_LEGALITYLLVM_H
 
+#include "../IntelVPlanUtils.h"
 #include "../Legality.h"
 
 using namespace llvm::loopopt;
@@ -46,7 +47,7 @@ class LegalityLLVM final : public LegalityBase<LegalityLLVM> {
 public:
   LegalityLLVM(Loop *L, PredicatedScalarEvolution &PSE, Function *F,
                LLVMContext *C)
-      : TheLoop(L), PSE(PSE), Context(C), Induction(nullptr),
+      : LegalityBase(C), TheLoop(L), PSE(PSE), Induction(nullptr),
         WidestIndTy(nullptr) {}
 
   struct ExplicitReductionDescr {
@@ -185,8 +186,6 @@ private:
   /// of new predicates if this is required to enable vectorization and
   /// unrolling.
   PredicatedScalarEvolution &PSE;
-  /// Context object for the current function.
-  LLVMContext *Context;
   /// Holds the integer induction variable. This is the counter of the
   /// loop.
   PHINode *Induction;
@@ -252,8 +251,6 @@ public:
   // variables to the explicit SIMD descriptor.
   void collectPostExitLoopDescrAliases();
 
-  VPlanBailoutRemark &getBailoutRemark() { return BR; }
-
   // Return the iterator-range to the list of privates loop-entities.
   // TODO: Windows compiler explicitly doesn't allow for const type specifier.
   inline decltype(auto) privates() const {
@@ -297,32 +294,6 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
-  /// Reports a reason for vectorization bailout. Always returns false.
-  /// \p Message will appear both in the debug dump and the opt report remark.
-  template <typename... Args>
-  bool bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
-               std::string Message, Args &&...BailoutArgs);
-
-  /// Reports a reason for vectorization bailout. Always returns false.
-  /// \p Debug will appear in the debug dump, but not in the opt report remark.
-  template <typename... Args>
-  bool bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
-                        std::string Debug, Args &&...BailoutArgs);
-
-  /// Initialize cached bailout remark data.
-  void clearBailoutRemark() { BR.BailoutRemark = OptRemark(); }
-
-  /// Store a variadic remark indicating the reason for not vectorizing a loop.
-  /// Clients should pass string constants as std::string to avoid extra
-  /// instantiations of this template function.
-  template <typename... Args>
-  void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
-                        OptRemarkID BailoutID, Args &&...BailoutArgs) {
-    BR.BailoutLevel = BailoutLevel;
-    BR.BailoutRemark =
-        OptRemark::get(*Context, BailoutID, std::forward<Args>(BailoutArgs)...);
-  }
-
   /// Add an in memory non-POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
                       Function *Destr, Function *CopyAssign, PrivateKindTy Kind,
@@ -418,7 +389,34 @@ private:
   template <typename LoopEntitiesRange>
   bool isEntityAliasingSafe(
       const LoopEntitiesRange &LERange,
-      function_ref<bool(const Instruction *)> IsAliasInRelevantScope);
+      function_ref<bool(const Instruction *)> IsAliasInRelevantScope) {
+    for (auto *En : LERange) {
+      SetVector<const Value *> WL;
+      WL.insert(En);
+      while (!WL.empty()) {
+        auto *HeadI = WL.pop_back_val();
+        for (auto *Use : HeadI->users()) {
+          const auto *UseInst = cast<Instruction>(Use);
+
+          // We only want to analyze the blocks between the region-entry and the
+          // loop-block (typically just simd.loop.preheader). This means we
+          // won't loop on cycle-causing PHIs.
+          if (!IsAliasInRelevantScope(UseInst))
+            continue;
+
+          // If this is a store of private pointer or any of its alias to an
+          // external memory, treat the loop as unsafe for vectorization and
+          // return false.
+          if (const auto *SI = dyn_cast<StoreInst>(UseInst))
+            if (SI->getValueOperand() == HeadI)
+              return false;
+          if (isTrivialPointerAliasingInst(UseInst))
+            WL.insert(UseInst);
+        }
+      }
+    }
+    return true;
+  }
 
   /// Utility function to check whether given Instruction is end directive of
   /// OMP.SIMD directive.
