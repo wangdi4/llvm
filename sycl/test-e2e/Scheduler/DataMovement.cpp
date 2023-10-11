@@ -1,5 +1,5 @@
-// RUNx: %{build} -o %t.out %debug_option
-// RUNx: %{run} %t.out
+// RUN: %{build} -o %t.out %debug_option
+// RUN: %{run} %t.out
 //
 //==-------------------------- DataMovement.cpp ----------------------------==//
 //
