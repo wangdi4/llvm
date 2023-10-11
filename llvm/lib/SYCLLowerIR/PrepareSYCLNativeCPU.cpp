@@ -261,7 +261,6 @@ static Value *getStateArg(Function *F, llvm::Constant *StateTLS) {
   return F->getArg(FT->getNumParams() - 1);
 }
 
-__attribute__((unused)) static constexpr unsigned int NativeCPUGlobalAS = 1;
 static inline bool IsNativeCPUKernel(const Function *F) {
   return F->getCallingConv() == llvm::CallingConv::SPIR_KERNEL;
 }
