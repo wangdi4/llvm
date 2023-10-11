@@ -65,6 +65,9 @@ public:
 
 protected:
   LegalityBase(LLVMContext *C) : Context(C) {}
+  LegalityBase(const LegalityBase &) noexcept = delete;
+  LegalityBase &operator=(const LegalityBase &) = delete;
+  virtual ~LegalityBase() = default;
 
   /// Import explicit data from WRLoop.
   bool EnterExplicitData(const WRNVecLoopNode *WRLp) {
@@ -113,6 +116,18 @@ protected:
   /// Context for creating optimization report remarks.
   LLVMContext *Context;
 
+  /// Check whether Fortran90 dope vectors are supported for this IR.
+  virtual bool isF90DVSupported() { return EnableF90DVSupport; }
+
+  /// Check whether array privates are supported for this IR.
+  virtual bool isPrivateArraySupported() { return true; }
+
+  /// Return true if we don't need to consult memory aliases for this
+  /// reduction.  Otherwise set a bailout message and return false;
+  virtual bool reductionOkayForMemoryAliases(const ReductionItem *Item) {
+    return true;
+  }
+
 private:
   /// Imports any SIMD loop private amd listprivate information into Legality
   /// Return true on success.
@@ -131,9 +146,7 @@ private:
     }
 
     for (PrivateItem *Item : WRLp->getPriv().items()) {
-      if ((!EnableF90DVSupport ||
-           (!EnableHIRF90DVSupport && IR == IRKind::HIR)) &&
-          Item->getIsF90DopeVector())
+      if (Item->getIsF90DopeVector() && !isF90DVSupported())
         // See CMPLRLLVM-10783.
         return bailout(OptReportVerbosity::High,
                        OptRemarkID::VecFailGenericBailout,
@@ -273,8 +286,7 @@ private:
       return true;
     }
 
-    if (!EnableHIRPrivateArrays && IR == IRKind::HIR &&
-        isa<ArrayType>(PrivType))
+    if (isa<ArrayType>(PrivType) && !isPrivateArraySupported())
       return bailout(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
                      INTERNAL("Private array is not supported"));
@@ -311,8 +323,7 @@ private:
       return true;
     }
 
-    if (!EnableHIRPrivateArrays && IR == IRKind::HIR &&
-        isa<ArrayType>(LPrivType))
+    if (isa<ArrayType>(LPrivType) && !isPrivateArraySupported())
       return bailout(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
                      INTERNAL("Private array is not supported"));
@@ -384,24 +395,12 @@ private:
                        INTERNAL("Cannot handle array reduction with "
                                 "non-single value type."));
 
-      // Bailouts from HIR path for cases where memory aliases concept is
-      // needed. So far, these include -
-      // 1. Non-alloca instruction being used in reduction clause.
-      // 2. Array sections with offsets.
-      if (IR == IRKind::HIR) {
-        bool OrigIsAllocaInst = false;
-        if (auto *OrigI = dyn_cast<Instruction>(Item->getOrig()))
-          OrigIsAllocaInst = isa<AllocaInst>(OrigI);
-
-        if (!OrigIsAllocaInst)
-          return bailout(
-              OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-              INTERNAL("Non-alloca instruction in reduction clause."));
-        if (Item->getIsArraySection())
-          return bailout(
-              OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-              INTERNAL("Array sections with offsets not supported."));
-      }
+      // Bailouts for cases where memory aliases concept is needed.
+      // So far, these are needed only on the HIR path and include:
+      //   1. Non-alloca instruction being used in reduction clause.
+      //   2. Array sections with offsets.
+      if (!reductionOkayForMemoryAliases(Item))
+        return false;
 
       // VPEntities framework can only handle single-element allocas. This check
       // works for both LLVM-IR and HIR.
