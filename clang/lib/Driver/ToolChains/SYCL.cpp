@@ -1866,9 +1866,11 @@ void SYCLToolChain::AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
                                          const ToolChain &HostTC) const {
   // Current implied args are for debug information and disabling of
   // optimizations.  They are passed along to the respective areas as follows:
-  //  FPGA and default device:  -g -cl-opt-disable
-  //  GEN:  -options "-g -O0"
-  //  CPU:  "--bo=-g -cl-opt-disable"
+  // FPGA:  -g -cl-opt-disable
+  // Default device AOT: -g -cl-opt-disable
+  // Default device JIT: -g (-cl-opt-disable is handled by the runtime)
+  // GEN:  -options "-g -O0"
+  // CPU:  "--bo=-g -cl-opt-disable"
   llvm::opt::ArgStringList BeArgs;
   // Per-device argument vector storing the device name and the backend argument
   // string
@@ -1963,10 +1965,16 @@ void SYCLToolChain::AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
       }
     }
   }
-  Arg *A = Args.getLastArg(options::OPT_O_Group);
-  if (A && A->getOption().matches(options::OPT_O0) || IsMSVCOd )
-#endif // INTEL_CUSTOMIZATION
+  if (IsMSVCOd )
       BeArgs.push_back("-cl-opt-disable");
+  else
+#endif // INTEL_CUSTOMIZATION
+  // Only pass -cl-opt-disable for non-JIT, as the runtime
+  // handles it in that case.
+  if (Triple.getSubArch() != llvm::Triple::NoSubArch)
+    if (Arg *A = Args.getLastArg(options::OPT_O_Group))
+      if (A->getOption().matches(options::OPT_O0))
+        BeArgs.push_back("-cl-opt-disable");
   if (IsGen) {
     // For GEN (spir64_gen) we have implied -device settings given usage
     // of intel_gpu_ as a target.  Handle those here, and also check that no
