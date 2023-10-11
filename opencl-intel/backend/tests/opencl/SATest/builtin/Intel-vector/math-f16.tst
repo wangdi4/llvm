@@ -177,9 +177,9 @@
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_log10s32(<32 x half> {{.*}})
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_log1ps32(<32 x half> {{.*}})
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_logbs32(<32 x half> {{.*}})
-; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_nextafters32(<32 x half> {{.*}}, <32 x half> {{.*}})
+; CHECK32-NOT: call{{.*}}@__ocl_svml_{{[xz]}}1_nextafters32
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_pows32(<32 x half> {{.*}}, <32 x half> {{.*}})
-; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_powns32(<32 x half> {{.*}}, <32 x i32> {{.*}})
+; CHECK32-NOT: call{{.*}}@__ocl_svml_{{[xz]}}1_powns32
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_powrs32(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_remainders32(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK32: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_rootns32(<32 x half> {{.*}}, <32 x i32> {{.*}})
@@ -265,12 +265,10 @@
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_log1ps32(<32 x half> {{.*}})
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_logbs32(<32 x half> {{.*}})
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_logbs32(<32 x half> {{.*}})
-; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_nextafters32(<32 x half> {{.*}}, <32 x half> {{.*}})
-; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_nextafters32(<32 x half> {{.*}}, <32 x half> {{.*}})
+; CHECK64-NOT: call{{.*}}@__ocl_svml_{{[xz]}}1_nextafters
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_pows32(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_pows32(<32 x half> {{.*}}, <32 x half> {{.*}})
-; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_powns32(<32 x half> {{.*}}, <32 x i32> {{.*}})
-; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_powns32(<32 x half> {{.*}}, <32 x i32> {{.*}})
+; CHECK64-NOT: call{{.*}}@__ocl_svml_{{[xz]}}1_powns
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_powrs32(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_powrs32(<32 x half> {{.*}}, <32 x half> {{.*}})
 ; CHECK64: call{{.*}} intel_ocl_bicc_avx512 <32 x half> @__ocl_svml_{{[xz]}}1_remainders32(<32 x half> {{.*}}, <32 x half> {{.*}})
