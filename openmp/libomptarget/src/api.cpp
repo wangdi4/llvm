@@ -113,13 +113,8 @@ EXTERN void llvm_omp_target_free_shared(void *Ptre, int DeviceNum) {
 EXTERN void *llvm_omp_target_dynamic_shared_alloc() { return nullptr; }
 EXTERN void *llvm_omp_get_dynamic_shared() { return nullptr; }
 
-#if INTEL_CUSTOMIZATION
-EXTERN_ATTR([[nodiscard]])
-void *llvm_omp_target_lock_mem(void *Ptr, size_t Size, int DeviceNum) {
-#else  // INTEL_CUSTOMIZATION
 EXTERN [[nodiscard]] void *llvm_omp_target_lock_mem(void *Ptr, size_t Size,
                                                     int DeviceNum) {
-#endif // INTEL_CUSTOMIZATION
   return targetLockExplicit(Ptr, Size, DeviceNum, __func__);
 }
 

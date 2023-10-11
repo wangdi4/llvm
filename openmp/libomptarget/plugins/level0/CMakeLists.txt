@@ -138,7 +138,8 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
           ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} NAME)
       target_link_libraries(omptarget.rtl.level0 PRIVATE
           ${LEVEL0_LIBRARY_NAME} ${LIBOMP_LIB_FILE}
-          -LIBPATH:${LEVEL0_LIBRARY_PATH})
+          -LIBPATH:${LEVEL0_LIBRARY_PATH}
+          "-def:${CMAKE_CURRENT_SOURCE_DIR}/src/rtl.def")
       # Compilation of the sycl wrapper requires runtime type information and
       # exceptions enabled
       target_compile_options(omptarget.sycl.wrap PRIVATE

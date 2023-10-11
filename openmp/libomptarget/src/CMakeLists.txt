@@ -71,6 +71,8 @@ if(INTEL_CUSTOMIZATION)
       LLVMObject)
   if(WIN32)
     libomptarget_add_resource_file(omptarget)
+    target_link_libraries(omptarget PRIVATE
+        "-def:${CMAKE_CURRENT_SOURCE_DIR}/omptarget.def")
   else(WIN32)
     target_link_libraries(omptarget PRIVATE
         "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports$<$<BOOL:${LLVM_LINKER_IS_LLD}>:,--undefined-version>")
@@ -87,7 +89,6 @@ if(INTEL_CUSTOMIZATION)
     # aligning the compile flags.
     llvm_update_compile_flags(omptarget)
     target_compile_definitions(omptarget PUBLIC OMPTARGET_PROFILE_ENABLED)
-    target_link_libraries(omptarget PRIVATE LLVMSupport)
   endif(OPENMP_ENABLE_LIBOMPTARGET_PROFILING)
 
   install(TARGETS omptarget LIBRARY COMPONENT omptarget
