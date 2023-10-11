@@ -79,6 +79,7 @@
 ///   WRNScopeNode            | #pragma omp scope
 ///   WRNGuardMemMotion       | WRN to guard memory motion
 ///   WRNTileNode             | #pragma omp tile
+///   WRNInterleaveNode       | #pragma ompx interleave
 ///   WRNScanNode             | #pragma omp scan
 ///
 //===----------------------------------------------------------------------===//
@@ -1994,7 +1995,7 @@ private:
   // TODO: To avoid confusion, when possible use the auxiliary Livein clause
   // instead of Firstprivate, which is not allowed for this construct per
   // OpenMP spec.
-  FirstprivateClause Fpriv;  // Not allowed in spec
+  FirstprivateClause Fpriv; // Not allowed in spec
   LiveinClause Livein;
   SizesClause Sizes;
   WRNLoopInfo WRNLI;
@@ -2011,6 +2012,35 @@ public:
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTile;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma ompx interleave
+/// \endcode
+class WRNInterleaveNode : public WRegionNode {
+private:
+  // TODO: To avoid confusion, when possible use the auxiliary Livein clause
+  // instead of Firstprivate, which is not allowed for this construct per
+  // OpenMP spec.
+  FirstprivateClause Fpriv; // Not allowed in spec
+  LiveinClause Livein;
+  StridesClause Strides;
+  WRNLoopInfo WRNLI;
+
+public:
+  WRNInterleaveNode(BasicBlock *BB, LoopInfo *L);
+  DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
+  DEFINE_GETTER(LiveinClause,       getLivein,      Livein)
+  DEFINE_GETTER(StridesClause,      getStrides,     Strides)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
+
+  int getOmpLoopDepth() const override { return Strides.size(); }
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNInterleave;
   }
 };
 

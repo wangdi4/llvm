@@ -1,14 +1,17 @@
 ; REQUIRES: asserts
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug -S %s 2>&1 | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug-only=wrninfo -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug-only=wrninfo -S %s 2>&1 | FileCheck %s
+;
+; Current FE doesn't yet emit IR for the interleave construct.
+; This LIT test is hand-modified from a LIT test for the tile construct (parsing_tile_nested.ll).
 ;
 ; INTEL_CUSTOMIZATION
 ; Test src:
 ;   subroutine test()
 ;   integer :: i, j
-;   !$omp tile sizes(4,2)
+;   !$omp tile sizes(4,2)  ! hand-modified for !$ompx interleave strides(4,2)
 ;   do i = 1, 100
-;     !$omp tile sizes(8)
+;     !$omp tile sizes(8)  ! hand-modified for !$ompx interleave strides(8)
 ;     do j = 1, 48
 ;       call bar(i,j)
 ;     end do
@@ -17,21 +20,21 @@
 ;
 ; end INTEL_CUSTOMIZATION
 ; Nested Case:
-; Check the WRN graph for an outer TILE SIZES(4,2) and an
-; inner TILE SIZES(8), with one intervening loop level between them.
+; Check the WRN graph for an outer INTERLEAVE STRIDES(4,2) and an
+; inner INTERLEAVE STRIDES(8), with one intervening loop level between them.
 ;
-; CHECK: BEGIN TILE ID=1 {
+; CHECK: BEGIN INTERLEAVE ID=1 {
 ; CHECK:   LIVEIN clause (size=1): (ptr %omp.pdo.norm.{{.*}})
-; CHECK:   SIZES clause (size=2): (i32 4) (i32 2)
+; CHECK:   STRIDES clause (size=2): (i32 4) (i32 2)
 ; CHECK:   IV clause:   %omp.pdo.norm.{{.*}}
 ; CHECK:   UB clause:   %omp.pdo.norm.{{.*}}
-; CHECK:   BEGIN TILE ID=2 {
+; CHECK:   BEGIN INTERLEAVE ID=2 {
 ; CHECK:     LIVEIN clause (size=1): (ptr %omp.pdo.norm.lb)
-; CHECK:     SIZES clause (size=1): (i32 8)
+; CHECK:     STRIDES clause (size=1): (i32 8)
 ; CHECK:     IV clause:   %omp.pdo.norm.iv
 ; CHECK:     UB clause:   %omp.pdo.norm.ub
-; CHECK:   } END TILE ID=2
-; CHECK: } END TILE ID=1
+; CHECK:   } END INTERLEAVE ID=2
+; CHECK: } END INTERLEAVE ID=1
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -111,8 +114,8 @@ omp.pdo.body10:                                   ; preds = %omp.pdo.cond9
   br label %omp.pdo.cond9
 
 bb_new12:                                         ; preds = %omp.pdo.body4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TILE"(),
-    "QUAL.OMP.SIZES"(i32 8),
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.INTERLEAVE"(),  ; was "DIR.OMP.TILE"
+    "QUAL.OMP.STRIDES"(i32 8), ; was "QUAL.OMP.SIZES"
     "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %omp.pdo.norm.iv, i32 0),
     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %omp.pdo.norm.ub, i32 0),
     "QUAL.OMP.LIVEIN"(ptr %omp.pdo.norm.lb) ]
@@ -121,15 +124,15 @@ bb_new12:                                         ; preds = %omp.pdo.body4
   br label %omp.pdo.cond9
 
 omp.pdo.epilog11:                                 ; preds = %omp.pdo.cond9
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TILE"() ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.INTERLEAVE"() ]
   %omp.pdo.norm.iv_fetch.20 = load i32, ptr %omp.pdo.norm.iv4, align 4
   %add.4 = add nsw i32 %omp.pdo.norm.iv_fetch.20, 1
   store i32 %add.4, ptr %omp.pdo.norm.iv4, align 4
   br label %omp.pdo.cond3
 
 bb_new6:                                          ; preds = %alloca_0
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TILE"(),
-    "QUAL.OMP.SIZES"(i32 4, i32 2),
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.INTERLEAVE"(),  ; was "DIR.OMP.TILE"
+    "QUAL.OMP.STRIDES"(i32 4, i32 2), ; was "QUAL.OMP.SIZES"
     "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %omp.pdo.norm.iv4, i32 0),
     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %omp.pdo.norm.ub6, i32 0),
     "QUAL.OMP.LIVEIN"(ptr %omp.pdo.norm.lb5) ]
@@ -138,7 +141,7 @@ bb_new6:                                          ; preds = %alloca_0
   br label %omp.pdo.cond3
 
 omp.pdo.epilog5:                                  ; preds = %omp.pdo.cond3
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TILE"() ]
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.INTERLEAVE"() ]
   ret void
 }
 
