@@ -71,8 +71,7 @@ void ImplicitArgsInfo::init(LLVMContext *LC, unsigned PointerSizeInBits) {
       PointerType::get(IntegerType::get(*C, 8), 0);
   ArgTypes[ImplicitArgsUtils::IA_RUNTIME_HANDLE] =
       PointerType::get(StructType::get(*C), 0);
-  ArgTypes[ImplicitArgsUtils::IA_BUFFER_RANGE_INFO] = SizetPtrTy;
-  assert(ImplicitArgsUtils::IA_BUFFER_RANGE_INFO + 1 ==
+  assert(ImplicitArgsUtils::IA_RUNTIME_HANDLE + 1 ==
          ImplicitArgsUtils::IA_NUMBER);
 }
 

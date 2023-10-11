@@ -13,7 +13,7 @@ target triple = "x86_64-pc-linux"
 
 ; CHECK-NOT: @test.i =
 
-define internal fastcc void @foo(ptr addrspace(3) noalias %pLocalMemBase, ptr %pWorkDim, ptr %pWGId, [4 x i64] %BaseGlbId, ptr %pSpecialBuf, ptr %RuntimeHandle, ptr %pBufferRanges) {
+define internal fastcc void @foo(ptr addrspace(3) noalias %pLocalMemBase, ptr %pWorkDim, ptr %pWGId, [4 x i64] %BaseGlbId, ptr %pSpecialBuf, ptr %RuntimeHandle) {
 entry:
 ; CHECK-LABEL: define internal fastcc void @foo(ptr addrspace(3) noalias %pLocalMemBase,
 ; CHECK-NOT: !local_buffer_size
@@ -25,7 +25,7 @@ entry:
   ret void
 }
 
-define dso_local void @test(ptr addrspace(1) noundef align 4 %dst, ptr addrspace(3) noalias %pLocalMemBase, ptr %pWorkDim, ptr %pWGId, [4 x i64] %BaseGlbId, ptr %pSpecialBuf, ptr %RuntimeHandle, ptr %pBufferRanges) !vectorized_kernel !5 !vectorized_width !6 !kernel_arg_base_type !9 !arg_type_null_val !10 {
+define dso_local void @test(ptr addrspace(1) noundef align 4 %dst, ptr addrspace(3) noalias %pLocalMemBase, ptr %pWorkDim, ptr %pWGId, [4 x i64] %BaseGlbId, ptr %pSpecialBuf, ptr %RuntimeHandle) !vectorized_kernel !5 !vectorized_width !6 !kernel_arg_base_type !9 !arg_type_null_val !10 {
 LoopEnd_0:
 ; CHECK-LABEL: define dso_local void @test(ptr addrspace(1) noundef align 4 %dst, ptr addrspace(3) noalias %pLocalMemBase,
 ; CHECK-SAME: !local_buffer_size [[LOCAL_SIZE:![0-9]+]]
@@ -42,7 +42,7 @@ LoopEnd_0:
   ret void
 }
 
-define dso_local void @_ZGVeN16u_test(ptr addrspace(1) noundef align 4 %dst, ptr addrspace(3) noalias %pLocalMemBase, ptr %pWorkDim, ptr %pWGId, [4 x i64] %BaseGlbId, ptr %pSpecialBuf, ptr %RuntimeHandle, ptr %pBufferRanges) !vectorized_width !7 !vectorization_dimension !8 !scalar_kernel !0 !kernel_arg_base_type !9 !arg_type_null_val !10 {
+define dso_local void @_ZGVeN16u_test(ptr addrspace(1) noundef align 4 %dst, ptr addrspace(3) noalias %pLocalMemBase, ptr %pWorkDim, ptr %pWGId, [4 x i64] %BaseGlbId, ptr %pSpecialBuf, ptr %RuntimeHandle) !vectorized_width !7 !vectorization_dimension !8 !scalar_kernel !0 !kernel_arg_base_type !9 !arg_type_null_val !10 {
 LoopEnd_0:
 ; CHECK-LABEL: define dso_local void @_ZGVeN16u_test(ptr addrspace(1) noundef align 4 %dst, ptr addrspace(3) noalias %pLocalMemBase,
 ; CHECK-SAME: !local_buffer_size [[LOCAL_SIZE]]

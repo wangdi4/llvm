@@ -9,7 +9,7 @@ target triple = "x86_64-pc-linux"
 
 %struct.ndrange_t.6 = type { i32, [3 x i64], [3 x i64], [3 x i64] }
 
-define internal void @__block_fn_block_invoke(ptr addrspace(4) %.block_descriptor, ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle, ptr noalias %pBufferRanges) #0 !kernel_arg_base_type !8 !arg_type_null_val !9 {
+define internal void @__block_fn_block_invoke(ptr addrspace(4) %.block_descriptor, ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) #0 !kernel_arg_base_type !8 !arg_type_null_val !9 {
 entry:
   %0 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], ptr, ptr, [3 x i64], [2 x [3 x i64]], [3 x i64] }, ptr %pWorkDim, i64 0, i32 5
   %RuntimeInterface4 = load ptr, ptr %0, align 1
@@ -38,7 +38,7 @@ entry:
 
 ; CHECK: define dso_local void @____block_fn_block_invoke_kernel_separated_args
 
-define dso_local void @__block_fn_block_invoke_kernel(ptr addrspace(4) %0, ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle, ptr noalias %pBufferRanges) #1 !no_barrier_path !1 !kernel_has_sub_groups !1 !block_literal_size !2 !local_buffer_size !3 !barrier_buffer_size !4 !kernel_execution_length !5 !kernel_has_barrier !1 !kernel_has_global_sync !1 !private_memory_size !6 !opencl.stats.InstCounter.CantVectNonInlineUnsupportedFunctions !7 !kernel_arg_base_type !8 !arg_type_null_val !9 {
+define dso_local void @__block_fn_block_invoke_kernel(ptr addrspace(4) %0, ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) #1 !no_barrier_path !1 !kernel_has_sub_groups !1 !block_literal_size !2 !local_buffer_size !3 !barrier_buffer_size !4 !kernel_execution_length !5 !kernel_has_barrier !1 !kernel_has_global_sync !1 !private_memory_size !6 !opencl.stats.InstCounter.CantVectNonInlineUnsupportedFunctions !7 !kernel_arg_base_type !8 !arg_type_null_val !9 {
 entry:
   %1 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], ptr, ptr, [3 x i64], [2 x [3 x i64]], [3 x i64] }, ptr %pWorkDim, i64 0, i32 5
   %RuntimeInterface9 = load ptr, ptr %1, align 1

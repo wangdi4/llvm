@@ -645,8 +645,6 @@ FuncSet getAllSyncBuiltinsDeclsForNoDuplicateRelax(Module &M);
 /// "kernel-uniform-call" attribute (see LangRef for details).
 FuncSet getAllSyncBuiltinsDeclsForKernelUniformCallAttr(Module &M);
 
-bool isAddrspaceQuailureBuiltins(StringRef FName);
-
 /// Retrieves the pointer to the implicit arguments added to the given function
 /// \param F The function for which implicit arguments need to be retrieved.
 /// \param LocalMem The LocalMem argument, nullptr if this argument shouldn't be
@@ -660,10 +658,9 @@ bool isAddrspaceQuailureBuiltins(StringRef FName);
 /// \param SpecialBuf The SpecialBuf argument, nullptr if this argument
 /// shouldn't be retrieved.
 /// \param RunTimeHandle The RunTimeHandle argument.
-/// \param BufferRanges The buffer args' address space info.
 void getImplicitArgs(Function *F, Value **LocalMem, Value **WorkDim,
                      Value **WGId, Value **BaseGlbId, Value **SpecialBuf,
-                     Value **RunTimeHandle, Value **BufferRanges);
+                     Value **RunTimeHandle);
 
 /// Get implicit arguments SLM_BUFFER element type.
 Type *getSLMBufferElementType(LLVMContext &C);

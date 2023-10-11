@@ -926,11 +926,16 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       }
 
       if (IsCLMode()) {
-        if (!Args.getLastArgValue(options::OPT_fuse_ld_EQ, "lld")
-                 .equals_insensitive("lld"))
-          Diag(clang::diag::err_drv_spgo_without_lld);
-        DAL->AddJoinedArg(nullptr, Opts.getOption(options::OPT_fuse_ld_EQ),
-                          "lld");
+        // TODO: We should only add -fuse-ld=lld when final phase is Link. Here
+        // we can not get final phase.
+        if (Arg *A = Args.getLastArg(options::OPT_fuse_ld_EQ)) {
+          if (!StringRef(A->getValue()).equals_insensitive("lld"))
+            Diag(clang::diag::err_drv_spgo_without_lld);
+        } else {
+          DAL->AddJoinedArg(nullptr, Opts.getOption(options::OPT_fuse_ld_EQ),
+                            "lld");
+          DAL->ClaimAllArgs(options::OPT_fuse_ld_EQ);
+        }
       }
     }
   }
