@@ -102,6 +102,32 @@ public:
               LLVMContext *C)
       : LegalityBase(C), TTI(TTI), SRA(SafeReds), DDAnalysis(DDA) {}
 
+  /// Check whether Fortran90 dope vectors are supported for HIR.
+  bool isF90DVSupported() override {
+    return EnableF90DVSupport && EnableHIRF90DVSupport;
+  }
+
+  /// Check whether array privates are supported for HIR.
+  bool isPrivateArraySupported() override { return EnableHIRPrivateArrays; }
+
+  /// Return true if we don't need to consult memory aliases for this
+  /// reduction.  Otherwise set a bailout message and return false;
+  bool reductionOkayForMemoryAliases(const ReductionItem *Item) override {
+    bool OrigIsAllocaInst = false;
+    if (auto *OrigI = dyn_cast<Instruction>(Item->getOrig()))
+      OrigIsAllocaInst = isa<AllocaInst>(OrigI);
+
+    if (!OrigIsAllocaInst)
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
+                     INTERNAL("Non-alloca instruction in reduction clause."));
+    if (Item->getIsArraySection())
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
+                     INTERNAL("Array sections with offsets not supported."));
+    return true;
+  }
+
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize(const WRNVecLoopNode *WRLp);
 
