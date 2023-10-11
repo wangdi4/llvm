@@ -999,8 +999,7 @@ void ValueProfRecord::deserializeTo(InstrProfRecord &Record,
 // For writing/serializing,  Old is the host endianness, and  New is
 // byte order intended on disk. For Reading/deserialization, Old
 // is the on-disk source endianness, and New is the host endianness.
-void ValueProfRecord::swapBytes(support::endianness Old,
-                                support::endianness New) {
+void ValueProfRecord::swapBytes(llvm::endianness Old, llvm::endianness New) {
   using namespace support;
 
   if (Old == New)
@@ -1037,7 +1036,7 @@ void ValueProfData::deserializeTo(InstrProfRecord &Record,
 }
 
 template <class T>
-static T swapToHostOrder(const unsigned char *&D, support::endianness Orig) {
+static T swapToHostOrder(const unsigned char *&D, llvm::endianness Orig) {
   using namespace support;
 
   if (Orig == little)
@@ -1077,7 +1076,7 @@ Error ValueProfData::checkIntegrity() {
 Expected<std::unique_ptr<ValueProfData>>
 ValueProfData::getValueProfData(const unsigned char *D,
                                 const unsigned char *const BufferEnd,
-                                support::endianness Endianness) {
+                                llvm::endianness Endianness) {
   using namespace support;
 
   if (D + sizeof(ValueProfData) > BufferEnd)
@@ -1100,7 +1099,7 @@ ValueProfData::getValueProfData(const unsigned char *D,
   return std::move(VPD);
 }
 
-void ValueProfData::swapBytesToHost(support::endianness Endianness) {
+void ValueProfData::swapBytesToHost(llvm::endianness Endianness) {
   using namespace support;
 
   if (Endianness == llvm::endianness::native)
@@ -1116,7 +1115,7 @@ void ValueProfData::swapBytesToHost(support::endianness Endianness) {
   }
 }
 
-void ValueProfData::swapBytesFromHost(support::endianness Endianness) {
+void ValueProfData::swapBytesFromHost(llvm::endianness Endianness) {
   using namespace support;
 
   if (Endianness == llvm::endianness::native)
