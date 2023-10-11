@@ -153,10 +153,7 @@ KnownBits analyzeKnownBitsFromAndXorOr(
 
 /// Return true if LHS and RHS have no common bits set.
 bool haveNoCommonBitsSet(const Value *LHS, const Value *RHS,
-                         const DataLayout &DL, AssumptionCache *AC = nullptr,
-                         const Instruction *CxtI = nullptr,
-                         const DominatorTree *DT = nullptr,
-                         bool UseInstrInfo = true);
+                         const SimplifyQuery &SQ);
 
 #if INTEL_CUSTOMIZATION
 /// Return the number of times the sign bit of the register is replicated into

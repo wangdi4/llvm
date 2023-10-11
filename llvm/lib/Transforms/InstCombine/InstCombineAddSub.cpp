@@ -926,7 +926,7 @@ Instruction *InstCombinerImpl::foldAddWithConstant(BinaryOperator &Add) {
   // (X | Op01C) + Op1C --> X + (Op01C + Op1C) iff the `or` is actually an `add`
   Constant *Op01C;
   if (match(Op0, m_Or(m_Value(X), m_ImmConstant(Op01C))) &&
-      haveNoCommonBitsSet(X, Op01C, DL, &AC, &Add, &DT))
+      haveNoCommonBitsSet(X, Op01C, SQ.getWithInstruction(&Add)))
     return BinaryOperator::CreateAdd(X, ConstantExpr::getAdd(Op01C, Op1C));
 
   // (X | C2) + C --> (X | C2) ^ C2 iff (C2 == -C)
@@ -1588,6 +1588,7 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
     return replaceInstUsesWith(I, Constant::getNullValue(I.getType()));
 
   // A+B --> A|B iff A and B have no bits set in common.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (haveNoCommonBitsSet(LHS, RHS, DL, &AC, &I, &DT)) {
     // Don't replace add with or if CodeGen can fold it into a memory operand.
@@ -1614,6 +1615,10 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
       return BinaryOperator::CreateOr(LHS, RHS);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (haveNoCommonBitsSet(LHS, RHS, SQ.getWithInstruction(&I)))
+    return BinaryOperator::CreateOr(LHS, RHS);
+>>>>>>> 80fa5a6377c44b3e78cddbe43abb79d209abc7e5
 
   if (Instruction *Ext = narrowMathIfNoOverflow(I))
     return Ext;
@@ -1737,7 +1742,7 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
   // ctpop(A) + ctpop(B) => ctpop(A | B) if A and B have no bits set in common.
   if (match(LHS, m_OneUse(m_Intrinsic<Intrinsic::ctpop>(m_Value(A)))) &&
       match(RHS, m_OneUse(m_Intrinsic<Intrinsic::ctpop>(m_Value(B)))) &&
-      haveNoCommonBitsSet(A, B, DL, &AC, &I, &DT))
+      haveNoCommonBitsSet(A, B, SQ.getWithInstruction(&I)))
     return replaceInstUsesWith(
         I, Builder.CreateIntrinsic(Intrinsic::ctpop, {I.getType()},
                                    {Builder.CreateOr(A, B)}));
