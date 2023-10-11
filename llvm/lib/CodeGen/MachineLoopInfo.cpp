@@ -186,7 +186,7 @@ MachineLoopInfo::findLoopPreheader(MachineLoop *L, bool SpeculativePreheader,
 }
 
 #if INTEL_CUSTOMIZATION
-MDNode *MachineLoop::getLoopID() const {
+MDNode *MachineLoop::getLoopID(bool IfAssert) const {
   MDNode *LoopID = nullptr;
 
   if (auto *MBB = findLoopControlBlock()) {
@@ -198,7 +198,10 @@ MDNode *MachineLoop::getLoopID() const {
     //       not be able to preserve the mapping in all cases.
     //       I want to keep it for now to conduct broad testing
     //       of the mapping validity.
-    assert(BB && "MBB->BB mapping is invalid.");
+    if (IfAssert)
+      assert(BB && "MBB->BB mapping is invalid.");
+    else if (!BB)
+      return nullptr;
 
     if (const auto *TI = BB->getTerminator()) {
       LoopID = TI->getMetadata(LLVMContext::MD_loop);
