@@ -917,7 +917,8 @@ IrPropSymFilenameTriple saveModule(module_split::ModuleDesc &MD, int I,
         Suffix = Twine("_globals").toStringRef(Temp);
     }
 #endif // INTEL_COLLAB
-    MD.cleanup();
+    if (!EnableOmpExplicitSimd.getNumOccurrences() > 0)
+      MD.cleanup();
     Res.Ir = saveModuleIR(MD.getModule(), I, Suffix);
   }
 #if INTEL_COLLAB
