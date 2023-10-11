@@ -23,6 +23,9 @@
 // CHECK-CL-GENERATE: lld-link"
 // CHECK-CL-GENERATE-SAME: "-profile-sample-generate"
 
+// RUN: %clang_cl -### --target=x86_64-unknown-windows-msvc /fprofile-sample-generate -c -- %s 2>&1 | FileCheck --check-prefix=CHECK-CL-GENERATE-WARNING %s
+// CHECK-CL-GENERATE-WARNING-NOT: warning: argument unused during compilation: '-fuse-ld=lld' [-Wunused-command-line-argument]
+
 // RUN: %clang -### --target=x86_64-unknown-linux -fprofile-sample-generate -gsplit-dwarf -c %s 2>&1 | FileCheck --check-prefix=CHECK-GENERATE-FISSION %s
 // RUN: %clang_cl -### --target=x86_64-unknown-windows-msvc /fprofile-sample-generate -gsplit-dwarf -c -- %s 2>&1 | FileCheck --check-prefix=CHECK-GENERATE-FISSION %s
 // CHECK-GENERATE-FISSION: "-split-dwarf-file" "intel-spgo.dwo" "-split-dwarf-output" "intel-spgo.dwo"
