@@ -2991,7 +2991,7 @@ static SameArgSetCollection getSameArgSets(Function *F) {
     }
     if (FirstIter) {
       FirstIter = false;
-      for (auto [ActualA, ArgSet] : TmpArgSetMap)
+      for (const auto &[ActualA, ArgSet] : TmpArgSetMap)
         CurrSets.push_back(ArgSet);
       continue;
     }
