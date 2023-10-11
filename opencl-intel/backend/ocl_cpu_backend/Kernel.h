@@ -164,11 +164,6 @@ public:
   virtual size_t GetExplicitArgumentBufferSize() const override;
 
   /**
-   * @returns the size of argument's range info array
-   */
-  virtual size_t GetSizeOfBufferRangeInfo() const override;
-
-  /**
    * @returns the required alignement of the argument buffer
    */
   virtual size_t GetArgumentBufferRequiredAlignment() const override;

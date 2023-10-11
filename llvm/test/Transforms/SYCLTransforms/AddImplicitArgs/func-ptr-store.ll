@@ -26,7 +26,7 @@ entry:
 define void @_ZTSZZ4mainENKUlRN4sycl3_V17handlerEE_clES2_E4Init(ptr addrspace(1) noalias nocapture writeonly align 8 %_arg_AccC, ptr noalias nocapture readonly byval(%"class.sycl::_V1::id") align 8 %_arg_AccC3) local_unnamed_addr #2 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !6 !arg_type_null_val !7 !no_barrier_path !8 !kernel_has_sub_groups !9 !kernel_has_global_sync !9 !kernel_execution_length !10 !max_wg_dimensions !11 !barrier_buffer_size !11 !private_memory_size !11 !vectorized_width !12 !spirv.ParameterDecorations !13 {
 scalar_kernel_entry:
 ; CHECK-LABEL: define void @_ZTSZZ4mainENKUlRN4sycl3_V17handlerEE_clES2_E4Init(
-; CHECK-SAME: ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle, ptr noalias %pBufferRanges)
+; CHECK-SAME: ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle)
 ; CHECK: store ptr @_ZGVeM4vv__Z3addii, ptr addrspace(1) %add.ptr.i, align 8
 ; CHECK: store ptr @_ZGVeN4uu__Z3addii, ptr addrspace(1)
 ; CHECK: store ptr @_ZGVeM8vv__Z3addii, ptr addrspace(1)
@@ -57,7 +57,7 @@ scalar_kernel_entry:
 }
 
 ; CHECK: define <4 x double> @_ZGVeM4vv__Z3addii(
-; CHECK-SAME: ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle, ptr noalias %pBufferRanges)
+; CHECK-SAME: ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle)
 
 define <4 x double> @_ZGVeM4vv__Z3addii(<4 x i32> %A, <4 x i32> %B, <4 x double> %mask) #3 {
 entry:

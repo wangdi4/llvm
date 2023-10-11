@@ -26,8 +26,7 @@ entry:
 ; CHECK:          ptr noalias %pWGId,
 ; CHECK:                 [4 x i32] %BaseGlbId,
 ; CHECK:          ptr noalias %pSpecialBuf,
-; CHECK:          ptr noalias %RuntimeHandle,
-; CHECK:          ptr noalias %pBufferRanges) #0 {
+; CHECK:          ptr noalias %RuntimeHandle) #0 {
 ; CHECK-NEXT:          entry:
 ; CHECK-NEXT:          %x = add i32 100, 10
 ; CHECK-NEXT:          ret void
@@ -38,8 +37,7 @@ entry:
 ; CHECK:        ptr noalias %pWGId,
 ; CHECK:               [4 x i32] %BaseGlbId,
 ; CHECK:        ptr noalias %pSpecialBuf,
-; CHECK:          ptr noalias %RuntimeHandle,
-; CHECK:          ptr noalias %pBufferRanges) #0 {
+; CHECK:        ptr noalias %RuntimeHandle) #0 {
 ; CHECK-NEXT:        entry:
 ; CHECK-NEXT:        %temp = add i32 %x, 10
 ; CHECK-NEXT:        %res = mul i32 %temp, %y

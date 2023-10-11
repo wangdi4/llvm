@@ -785,75 +785,6 @@ NDRange::NDRange(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd, ITaskList *pList,
   m_numThreads = pList->GetDeviceConcurency();
 }
 
-static void prepareKernelArgsAddrSpaceInfo(
-    unsigned int MemArgCount, const unsigned int *MemoryObjectArgumentIndexes,
-    const KernelArgument *ExplicitArgument, char *LockedParams, int ParamsCount,
-    size_t ExplicitArgsSizeInBytes) {
-  std::vector<size_t> BufferArgSize;
-  std::vector<size_t> BufferArgAddr;
-  // get buffer size, buffer addr
-  for (unsigned int i = 0; i < MemArgCount; ++i) {
-    const KernelArgument &param =
-        ExplicitArgument[MemoryObjectArgumentIndexes[i]];
-    size_t Offset = param.OffsetInBytes;
-    char *KernelArgsPosition = (char *)LockedParams;
-    IOCLDevMemoryObject *memObj =
-        *(IOCLDevMemoryObject **)(KernelArgsPosition + Offset);
-    if (nullptr != memObj) {
-      cl_mem_obj_descriptor *objHandle;
-      memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0,
-                                       (void **)&objHandle);
-      if (objHandle->memObjType == CL_MEM_OBJECT_BUFFER) {
-        BufferArgSize.push_back(objHandle->dimensions.buffer_size);
-        BufferArgAddr.push_back((size_t)objHandle->pData);
-      }
-    } else {
-      // args input pointer is setted with nullptr
-      BufferArgSize.push_back(0);
-      BufferArgAddr.push_back(0);
-    }
-  }
-  /*
-    BufferRanges's struct is as follow. (Each element's size 8 Byte)
-      [LocalArgCount] [GlobalArgCount]
-      [LocalBufferBaseAddr] [LocalBufferSize]
-      [LocalArg1Addr ][ LocalArg1Size ] [LocalArg2Addr ][ LocalArg2Size ]...
-      [GlobalArg1Addr][ GlobalArg1Size] [GlobalArg2Addr][ GlobalArg2Size]...
-  */
-  size_t LocalArgCount = 0;
-  size_t GlobalArgCount = 0;
-  for (int I = 0; I < ParamsCount; I++) {
-    if (ExplicitArgument[I].Ty == KRNL_ARG_PTR_GLOBAL)
-      GlobalArgCount++;
-    else if (ExplicitArgument[I].Ty == KRNL_ARG_PTR_LOCAL)
-      LocalArgCount++;
-  }
-  void *KernelArgsInfoPosition =
-      (LockedParams) + ExplicitArgsSizeInBytes + sizeof(UniformKernelArgs);
-  size_t *KernelArgsInfo = (size_t *)KernelArgsInfoPosition;
-  KernelArgsInfo[0] = LocalArgCount;
-  KernelArgsInfo[1] = GlobalArgCount;
-  KernelArgsInfo[2] = 0; // placeholder for LocalBufferBaseAddr
-  KernelArgsInfo[3] = 0; // placeholder for LocalBuffer size
-  KernelArgsInfo += 4;
-  size_t *LocalArgsInfo = KernelArgsInfo;
-  size_t *GlobalArgsInfo = KernelArgsInfo + LocalArgCount * 2;
-
-  int BufferIdx = 0;
-  for (int I = 0; I < ParamsCount; I++) {
-    if (ExplicitArgument[I].Ty == KRNL_ARG_PTR_GLOBAL) {
-      *(GlobalArgsInfo++) = BufferArgAddr[BufferIdx];
-      *(GlobalArgsInfo++) = BufferArgSize[BufferIdx];
-      BufferIdx++;
-    } else if (ExplicitArgument[I].Ty == KRNL_ARG_PTR_LOCAL) {
-      *(LocalArgsInfo++) = 0; // placeholder for local buffer's address which
-                              // alloca in kernel entry block
-      *(LocalArgsInfo++) = *((size_t *)LockedParams +
-                             I); // local buffer's size which is in uniformArgs
-    }
-  }
-}
-
 int NDRange::Init(size_t region[], unsigned int &dimCount,
                   size_t numberOfThreads) {
   cl_dev_cmd_param_kernel *cmdParams =
@@ -916,11 +847,6 @@ int NDRange::Init(size_t region[], unsigned int &dimCount,
   for (cl_uint i = 0; i < cmdParams->uiNonArgUsmBuffersCount; ++i)
     cmdParams->ppNonArgUsmBuffers[i]->clDevMemObjGetDescriptor(
         CL_DEVICE_TYPE_CPU, 0, (void **)&devMemObjects[offset + i]);
-
-  prepareKernelArgsAddrSpaceInfo(
-      uiMemArgCount, pKernel->GetMemoryObjectArgumentIndexes(), pParams,
-      pLockedParams, pKernel->GetKernelParamsCount(),
-      pKernel->GetExplicitArgumentBufferSize());
 
   std::vector<char> kernelParamsVec;
 
@@ -1563,8 +1489,7 @@ void DeviceNDRange::InitBlockCmdDesc(
          "Explicit arguments buffer size is not as expected");
 
   // We should also allocate space for the implicit arguments
-  size_t const total_size = exp_arg_size + sizeof(UniformKernelArgs) +
-                            pKernel->GetSizeOfBufferRangeInfo();
+  size_t const total_size = exp_arg_size + sizeof(UniformKernelArgs);
 
   char *pAllocatedContext = (char *)ALIGNED_MALLOC(
       total_size, pKernel->GetArgumentBufferRequiredAlignment());
