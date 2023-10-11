@@ -48,7 +48,6 @@
 #ifndef LLVM_ANALYSIS_INSTRUCTIONSIMPLIFY_H
 #define LLVM_ANALYSIS_INSTRUCTIONSIMPLIFY_H
 
-#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include "llvm/Analysis/SimplifyQuery.h"
 
 namespace llvm {

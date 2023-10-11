@@ -10,6 +10,7 @@
 #define LLVM_ANALYSIS_SIMPLIFYQUERY_H
 
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 
 namespace llvm {
 
