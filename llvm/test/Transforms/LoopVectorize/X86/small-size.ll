@@ -294,10 +294,10 @@ define void @example3(i32 %n, ptr noalias nocapture %p, ptr noalias nocapture %q
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_STORE_IF14:%.*]], label [[PRED_STORE_CONTINUE15:%.*]] ;INTEL
 ; CHECK:       pred.store.if14:
 ; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP7:%.*]] = add nuw nsw i64 [[INDEX]], 1
-; CHECK-NEXT:    [[NEXT_GEP5:%.*]] = getelementptr i32, ptr [[P]], i64 [[TMP7]]
-; CHECK-NEXT:    [[TMP8:%.*]] = add nuw nsw i64 [[INDEX]], 1
-; CHECK-NEXT:    [[NEXT_GEP9:%.*]] = getelementptr i32, ptr [[Q]], i64 [[TMP8]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i32, ptr [[P]], i64 [[INDEX]]
+; CHECK-NEXT:    [[NEXT_GEP5:%.*]] = getelementptr i32, ptr [[TMP7]], i64 1
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr i32, ptr [[Q]], i64 [[INDEX]]
+; CHECK-NEXT:    [[NEXT_GEP9:%.*]] = getelementptr i32, ptr [[TMP8]], i64 1
 ; CHECK-NEXT:    [[TMP9:%.*]] = load i32, ptr [[NEXT_GEP9]], align 16
 ; CHECK-NEXT:    store i32 [[TMP9]], ptr [[NEXT_GEP5]], align 16
 ; end INTEL_CUSTOMIZATION
@@ -307,10 +307,10 @@ define void @example3(i32 %n, ptr noalias nocapture %p, ptr noalias nocapture %q
 ; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_STORE_IF16:%.*]], label [[PRED_STORE_CONTINUE17:%.*]] ;INTEL
 ; CHECK:       pred.store.if16:
 ; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP11:%.*]] = add nuw nsw i64 [[INDEX]], 2
-; CHECK-NEXT:    [[NEXT_GEP6:%.*]] = getelementptr i32, ptr [[P]], i64 [[TMP11]]
-; CHECK-NEXT:    [[TMP12:%.*]] = add nuw nsw i64 [[INDEX]], 2
-; CHECK-NEXT:    [[NEXT_GEP10:%.*]] = getelementptr i32, ptr [[Q]], i64 [[TMP12]]
+; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr i32, ptr [[P]], i64 [[INDEX]]
+; CHECK-NEXT:    [[NEXT_GEP6:%.*]] = getelementptr i32, ptr [[TMP11]], i64 2
+; CHECK-NEXT:    [[TMP12:%.*]] = getelementptr i32, ptr [[Q]], i64 [[INDEX]]
+; CHECK-NEXT:    [[NEXT_GEP10:%.*]] = getelementptr i32, ptr [[TMP12]], i64 2
 ; CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[NEXT_GEP10]], align 16
 ; CHECK-NEXT:    store i32 [[TMP13]], ptr [[NEXT_GEP6]], align 16
 ; end INTEL_CUSTOMIZATION
@@ -320,10 +320,10 @@ define void @example3(i32 %n, ptr noalias nocapture %p, ptr noalias nocapture %q
 ; CHECK-NEXT:    br i1 [[TMP14]], label [[PRED_STORE_IF18:%.*]], label [[PRED_STORE_CONTINUE19]] ;INTEL
 ; CHECK:       pred.store.if18:
 ; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP15:%.*]] = add nuw nsw i64 [[INDEX]], 3
-; CHECK-NEXT:    [[NEXT_GEP7:%.*]] = getelementptr i32, ptr [[P]], i64 [[TMP15]]
-; CHECK-NEXT:    [[TMP16:%.*]] = add nuw nsw i64 [[INDEX]], 3
-; CHECK-NEXT:    [[NEXT_GEP11:%.*]] = getelementptr i32, ptr [[Q]], i64 [[TMP16]]
+; CHECK-NEXT:    [[TMP15:%.*]] = getelementptr i32, ptr [[P]], i64 [[INDEX]]
+; CHECK-NEXT:    [[NEXT_GEP7:%.*]] = getelementptr i32, ptr [[TMP15]], i64 3
+; CHECK-NEXT:    [[TMP16:%.*]] = getelementptr i32, ptr [[Q]], i64 [[INDEX]]
+; CHECK-NEXT:    [[NEXT_GEP11:%.*]] = getelementptr i32, ptr [[TMP16]], i64 3
 ; CHECK-NEXT:    [[TMP17:%.*]] = load i32, ptr [[NEXT_GEP11]], align 16
 ; CHECK-NEXT:    store i32 [[TMP17]], ptr [[NEXT_GEP7]], align 16
 ; end INTEL_CUSTOMIZATION
@@ -480,10 +480,10 @@ define void @example23c(ptr noalias nocapture %src, ptr noalias nocapture %dst) 
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_STORE_IF11:%.*]], label [[PRED_STORE_CONTINUE12:%.*]] ;INTEL
 ; CHECK:       pred.store.if11:
 ; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP7:%.*]] = add nuw nsw i64 [[INDEX]], 1
-; CHECK-NEXT:    [[NEXT_GEP8:%.*]] = getelementptr i32, ptr [[DST]], i64 [[TMP7]]
-; CHECK-NEXT:    [[TMP8:%.*]] = add nuw nsw i64 [[INDEX]], 1
-; CHECK-NEXT:    [[NEXT_GEP4:%.*]] = getelementptr i16, ptr [[SRC]], i64 [[TMP8]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i32, ptr [[DST]], i64 [[INDEX]]
+; CHECK-NEXT:    [[NEXT_GEP8:%.*]] = getelementptr i32, ptr [[TMP7]], i64 1
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr i16, ptr [[SRC]], i64 [[INDEX]]
+; CHECK-NEXT:    [[NEXT_GEP4:%.*]] = getelementptr i16, ptr [[TMP8]], i64 1
 ; CHECK-NEXT:    [[TMP9:%.*]] = load i16, ptr [[NEXT_GEP4]], align 2
 ; CHECK-NEXT:    [[TMP10:%.*]] = zext i16 [[TMP9]] to i32
 ; CHECK-NEXT:    [[TMP11:%.*]] = shl nuw nsw i32 [[TMP10]], 7
@@ -495,10 +495,10 @@ define void @example23c(ptr noalias nocapture %src, ptr noalias nocapture %dst) 
 ; CHECK-NEXT:    br i1 [[TMP12]], label [[PRED_STORE_IF13:%.*]], label [[PRED_STORE_CONTINUE14:%.*]] ;INTEL
 ; CHECK:       pred.store.if13:
 ; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP13:%.*]] = add nuw nsw i64 [[INDEX]], 2
-; CHECK-NEXT:    [[NEXT_GEP9:%.*]] = getelementptr i32, ptr [[DST]], i64 [[TMP13]]
-; CHECK-NEXT:    [[TMP14:%.*]] = add nuw nsw i64 [[INDEX]], 2
-; CHECK-NEXT:    [[NEXT_GEP5:%.*]] = getelementptr i16, ptr [[SRC]], i64 [[TMP14]]
+; CHECK-NEXT:    [[TMP13:%.*]] = getelementptr i32, ptr [[DST]], i64 [[INDEX]]
+; CHECK-NEXT:    [[NEXT_GEP9:%.*]] = getelementptr i32, ptr [[TMP13]], i64 2
+; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr i16, ptr [[SRC]], i64 [[INDEX]]
+; CHECK-NEXT:    [[NEXT_GEP5:%.*]] = getelementptr i16, ptr [[TMP14]], i64 2
 ; CHECK-NEXT:    [[TMP15:%.*]] = load i16, ptr [[NEXT_GEP5]], align 2
 ; CHECK-NEXT:    [[TMP16:%.*]] = zext i16 [[TMP15]] to i32
 ; CHECK-NEXT:    [[TMP17:%.*]] = shl nuw nsw i32 [[TMP16]], 7
@@ -510,10 +510,10 @@ define void @example23c(ptr noalias nocapture %src, ptr noalias nocapture %dst) 
 ; CHECK-NEXT:    br i1 [[TMP18]], label [[PRED_STORE_IF15:%.*]], label [[PRED_STORE_CONTINUE16]] ;INTEL
 ; CHECK:       pred.store.if15:
 ; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP19:%.*]] = add nuw nsw i64 [[INDEX]], 3
-; CHECK-NEXT:    [[NEXT_GEP10:%.*]] = getelementptr i32, ptr [[DST]], i64 [[TMP19]]
-; CHECK-NEXT:    [[TMP20:%.*]] = add nuw nsw i64 [[INDEX]], 3
-; CHECK-NEXT:    [[NEXT_GEP6:%.*]] = getelementptr i16, ptr [[SRC]], i64 [[TMP20]]
+; CHECK-NEXT:    [[TMP19:%.*]] = getelementptr i32, ptr [[DST]], i64 [[INDEX]]
+; CHECK-NEXT:    [[NEXT_GEP10:%.*]] = getelementptr i32, ptr [[TMP19]], i64 3
+; CHECK-NEXT:    [[TMP20:%.*]] = getelementptr i16, ptr [[SRC]], i64 [[INDEX]]
+; CHECK-NEXT:    [[NEXT_GEP6:%.*]] = getelementptr i16, ptr [[TMP20]], i64 3
 ; CHECK-NEXT:    [[TMP21:%.*]] = load i16, ptr [[NEXT_GEP6]], align 2
 ; CHECK-NEXT:    [[TMP22:%.*]] = zext i16 [[TMP21]] to i32
 ; CHECK-NEXT:    [[TMP23:%.*]] = shl nuw nsw i32 [[TMP22]], 7
