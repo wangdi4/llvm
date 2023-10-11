@@ -46,7 +46,31 @@ void testInvalidCompileTimeProperty(sycl::queue &q) {
 
   // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
   // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
+  TEST(malloc_device_annotated<T>, N, q, properties{conduit, bar})
+
+  // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
+  // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
+  TEST(aligned_alloc_device_annotated, 1, N, q, properties{conduit, bar})
+
+  // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
+  // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
+  TEST(aligned_alloc_device_annotated<T>, 1, N, q, properties{conduit, bar})
+
+  // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
+  // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
   TEST(malloc_shared_annotated, N, q, properties{conduit, baz<1>})
+
+  // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
+  // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
+  TEST(malloc_shared_annotated<T>, N, q, properties{conduit, baz<1>})
+
+  // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
+  // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
+  TEST(aligned_alloc_shared_annotated, N, q, properties{conduit, baz<1>})
+
+  // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
+  // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
+  TEST(aligned_alloc_shared_annotated<T>, N, q, properties{conduit, baz<1>})
 
   // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
   // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
@@ -54,7 +78,25 @@ void testInvalidCompileTimeProperty(sycl::queue &q) {
 
   // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
   // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
+  TEST(malloc_host_annotated<T>, N, q, properties{conduit, boo<double>})
+
+  // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
+  // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
+  TEST(aligned_alloc_host_annotated, N, q, properties{conduit, boo<double>})
+
+  // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
+  // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
+  TEST(aligned_alloc_host_annotated<T>, N, q, properties{conduit, boo<double>})
+
+  // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
+  // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
   TEST(malloc_annotated, N, q, alloc::device, properties{conduit, bar, baz<1>})
+
+  // expected-error-re@sycl/ext/oneapi/experimental/common_annotated_properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Property is invalid for the given type.}}
+  // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Found invalid compile-time property in the property list.}}
+  TEST(malloc_annotated<T>, N, q, alloc::device, properties{work_group_size})
+  TEST(aligned_alloc_annotated<T>, N, q, properties{usm_kind_device, ready_latency})
+  TEST(aligned_alloc_annotated, N, q, properties{usm_kind_device, device_image_scope})
 }
 
 void testMissingUsmKind(sycl::queue &q) {
@@ -67,13 +109,24 @@ void testMissingUsmKind(sycl::queue &q) {
 }
 
 
-void testConfilictingUsmKind(sycl::queue &q) {
+void testConflictingUsmKind(sycl::queue &q) {
   // Conflict usm kinds between function name and property list
-  properties InP{usm_kind_host};
   // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Input property list contains conflicting USM kind.}}
   // expected-error@+1 {{no matching function for call to 'malloc_shared_annotated'}}
-  auto AP = malloc_shared_annotated<int, decltype(InP)>(N, q);
+  TEST((malloc_shared_annotated<int>), N, q, properties{usm_kind_host});
+
+  // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Input property list contains conflicting USM kind.}}
+  // expected-error@+1 {{no matching function for call to 'malloc_device_annotated'}}
+  TEST((malloc_device_annotated<int>), N, q, properties{usm_kind_host});
+
+  // expected-error-re@sycl/ext/oneapi/experimental/annotated_usm/alloc_util.hpp:* {{static assertion failed due to requirement {{.+}}: Input property list contains conflicting USM kind.}}
+  // expected-error@+1 {{no matching function for call to 'malloc_host_annotated'}}
+  TEST((malloc_host_annotated<int>), N, q, properties{usm_kind_device});
+
+  // expected-error-re@sycl/ext/oneapi/properties/properties.hpp:* {{static assertion failed due to requirement {{.+}}: Duplicate properties in property list.}}
+  properties InvalidPropList{usm_kind_device, usm_kind_host};
 }
+
 
 // clang-format on
 int main() {
@@ -82,6 +135,6 @@ int main() {
   testInvalidRuntimeProperty(q);
   testInvalidCompileTimeProperty(q);
   testMissingUsmKind(q);
-  testConfilictingUsmKind(q);
+  testConflictingUsmKind(q);
   return 0;
 }
