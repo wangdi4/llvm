@@ -371,11 +371,6 @@ public:
   virtual size_t GetExplicitArgumentBufferSize() const = 0;
 
   /**
-   * @returns the size of argument's range info array
-   */
-  virtual size_t GetSizeOfBufferRangeInfo() const = 0;
-
-  /**
    * @returns the required alignement of the argument buffer
    */
   virtual size_t GetArgumentBufferRequiredAlignment() const = 0;

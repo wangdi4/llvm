@@ -60,7 +60,7 @@ dim_0_pre_head:                                   ; preds = %dim_0_exit, %dim_1_
 
 scalar_kernel_entry:                              ; preds = %scalar_kernel_entry, %dim_0_pre_head
 ; CHECK-LABEL: scalar_kernel_entry
-; CHECK-ARG: call i32 @foo(ptr addrspace(1) noalias noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}}, ptr addrspace(3) noalias null, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias null, ptr noalias %RuntimeHandle, ptr noalias null)
+; CHECK-ARG: call i32 @foo(ptr addrspace(1) noalias noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}}, ptr addrspace(3) noalias null, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias null, ptr noalias %RuntimeHandle)
 ; CHECK-TLS: call i32 @foo(ptr addrspace(1) noundef {{.*}}, i32 noundef {{.*}}, i64 noundef {{.*}})
 
   %dim_0_ind_var = phi i64 [ %base.gid.dim0, %dim_0_pre_head ], [ %dim_0_inc_ind_var, %scalar_kernel_entry ]

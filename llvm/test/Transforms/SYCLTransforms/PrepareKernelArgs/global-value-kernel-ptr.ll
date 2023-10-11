@@ -26,7 +26,7 @@ declare void @___ZTS13dummy_functorIN14program_info__12program_infoEE_before.Add
 declare void @___ZGVeN16__ZTS13dummy_functorIN14program_info__12program_infoEE_before.AddImplicitArgs() #0
 
 ; Function Attrs: mustprogress norecurse
-define weak_odr void @_ZTS13dummy_functorIN14program_info__12program_infoEE(ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle, ptr noalias %pBufferRanges) #0 comdat !kernel_arg_addr_space !1 !kernel_arg_access_qual !1 !kernel_arg_type !1 !kernel_arg_base_type !1 !kernel_arg_type_qual !1 !kernel_arg_buffer_location !1 {
+define weak_odr void @_ZTS13dummy_functorIN14program_info__12program_infoEE(ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) #0 comdat !kernel_arg_addr_space !1 !kernel_arg_access_qual !1 !kernel_arg_type !1 !kernel_arg_base_type !1 !kernel_arg_type_qual !1 !kernel_arg_buffer_location !1 {
 entry:
   ret void
 }
