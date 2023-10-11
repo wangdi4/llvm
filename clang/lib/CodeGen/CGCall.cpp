@@ -6602,7 +6602,11 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // SYCL does not support C++ exceptions or termination in device code, so all
   // functions have to return.
   bool SyclSkipNoReturn = false;
-  if (getLangOpts().SYCLIsDevice && CI->doesNotReturn()) {
+#if INTEL_CUSTOMIZATION
+  if ((getLangOpts().SYCLIsDevice || (getLangOpts().OpenMPLateOutline &&
+                                      getLangOpts().OpenMPIsTargetDevice)) &&
+      CI->doesNotReturn()) {
+#endif // INTEL_CUSTOMIZATION
     if (auto *F = CI->getCalledFunction())
       F->removeFnAttr(llvm::Attribute::NoReturn);
     CI->removeFnAttr(llvm::Attribute::NoReturn);
