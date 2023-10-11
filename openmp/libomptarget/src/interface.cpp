@@ -760,7 +760,7 @@ EXTERN int __tgt_get_interop_property(
     if ( ExtObj ) {
       *PropertyValue = (void *)&ExtObj->PlugInType;
     } else {
-      int PlugInType = Interop->FrId;	    
+      int PlugInType = Interop->FrId;
       if (PlugInType == 6)
          *PropertyValue = (void *)&interop_plugin_level0_val;
       else if (PlugInType == 3)
