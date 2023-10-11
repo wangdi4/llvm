@@ -1588,9 +1588,8 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
     return replaceInstUsesWith(I, Constant::getNullValue(I.getType()));
 
   // A+B --> A|B iff A and B have no bits set in common.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  if (haveNoCommonBitsSet(LHS, RHS, DL, &AC, &I, &DT)) {
+  if (haveNoCommonBitsSet(LHS, RHS, SQ.getWithInstruction(&I))) {
     // Don't replace add with or if CodeGen can fold it into a memory operand.
     bool HasOneConstantOp = isa<Constant>(LHS) || isa<Constant>(RHS);
     bool AddIsFoldable =
@@ -1615,10 +1614,6 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
       return BinaryOperator::CreateOr(LHS, RHS);
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (haveNoCommonBitsSet(LHS, RHS, SQ.getWithInstruction(&I)))
-    return BinaryOperator::CreateOr(LHS, RHS);
->>>>>>> 80fa5a6377c44b3e78cddbe43abb79d209abc7e5
 
   if (Instruction *Ext = narrowMathIfNoOverflow(I))
     return Ext;
