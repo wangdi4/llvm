@@ -1089,6 +1089,18 @@ WRNTileNode::WRNTileNode(BasicBlock *BB, LoopInfo *Li)
 }
 
 //
+// Methods for WRNInterleaveNode
+//
+
+// constructor
+WRNInterleaveNode::WRNInterleaveNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNInterleave, BB), WRNLI(Li) {
+  setIsOmpLoopTransform();
+
+  LLVM_DEBUG(dbgs() << "\nCreated WRNInterleaveNode<" << getNumber() << ">\n");
+}
+
+//
 // Methods for WRNScanNode
 //
 

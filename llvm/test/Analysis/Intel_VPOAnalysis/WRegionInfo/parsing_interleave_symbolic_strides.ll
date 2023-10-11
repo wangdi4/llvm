@@ -1,14 +1,17 @@
 ; REQUIRES: asserts
 ; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug-only=wrninfo -S %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug-only=wrninfo -S %s 2>&1 | FileCheck %s
-
+;
+; Current FE doesn't yet emit IR for the interleave construct.
+; This LIT test is hand-modified from a LIT test for the tile construct (parsing_tile_symbolic_sizes.ll).
+;
 ; INTEL_CUSTOMIZATION
 ; Test src:
 ;
 ;   subroutine test(M,N,S,T)
 ;   integer   :: i, j, M, S
 ;   integer*8 :: N, T
-;   !$omp tile sizes(S, T, 2)
+;   !$omp tile sizes(S, T, 2)   ! hand-modified for !$ompx interleave strides(S, T, 2)
 ;   do i = 1, M
 ;     do j = 1, 100
 ;       do k = 1, N
@@ -19,12 +22,12 @@
 ;   end subroutine
 ; end INTEL_CUSTOMIZATION
 
-; Case with symbolic sizes of different data types:
-; Check the WRN for TILE SIZES(S,T,2) where S is i32 and T is i64
+; Case with symbolic strides of different data types:
+; Check the WRN for INTERLEAVE STRIDES(S,T,2) where S is i32 and T is i64
 
-; CHECK: BEGIN TILE ID=1 {
+; CHECK: BEGIN INTERLEAVE ID=1 {
 ; CHECK:  LIVEIN clause (size=3): (ptr %do.norm.lb4) (ptr %do.norm.lb) (ptr %omp.pdo.norm.lb)
-; CHECK:  SIZES clause (size=3): (ptr %"test_$S.3") (ptr %"test_$T.4") (i32 2)
+; CHECK:  STRIDES clause (size=3): (ptr %"test_$S.3") (ptr %"test_$T.4") (i32 2)
 ; CHECK:   IV clause:   %omp.pdo.norm.iv{{.*}};   %do.norm.iv{{.*}};   %do.norm.iv6
 ; CHECK:   UB clause:   %omp.pdo.norm.ub{{.*}};   %do.norm.ub{{.*}};   %do.norm.ub5
 
@@ -113,8 +116,8 @@ alloca_0:
   br label %bb_new6
 
 bb_new6:  ; preds = %alloca_0
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TILE"(),
-    "QUAL.OMP.SIZES"(ptr %"test_$S.3", ptr %"test_$T.4", i32 2),
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.INTERLEAVE"(), ; was "DIR.OMP.TILE"
+    "QUAL.OMP.STRIDES"(ptr %"test_$S.3", ptr %"test_$T.4", i32 2),  ; was "QUAL.OMP.SIZES"
     "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %omp.pdo.norm.iv, i32 0, ptr %do.norm.iv, i32 0, ptr %do.norm.iv6, i32 0),
     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %omp.pdo.norm.ub, i32 0, ptr %do.norm.ub, i32 0, ptr %do.norm.ub5, i32 0),
     "QUAL.OMP.LIVEIN"(ptr %do.norm.lb4),
@@ -190,7 +193,7 @@ do.epilog11:  ; preds = %do.cond9
   br label %omp.pdo.cond3
 
 omp.pdo.epilog5:  ; preds = %omp.pdo.cond3
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TILE"() ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.INTERLEAVE"() ]
   ret void
 
 }

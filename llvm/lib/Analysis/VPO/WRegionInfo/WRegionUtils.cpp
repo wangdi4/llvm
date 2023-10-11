@@ -299,6 +299,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_TILE:
       W = new WRNTileNode(EntryBB, LI);
       break;
+    case DIR_OMP_INTERLEAVE:
+      W = new WRNInterleaveNode(EntryBB, LI);
+      break;
     case DIR_OMP_SCAN:
       W = new WRNScanNode(EntryBB);
       break;

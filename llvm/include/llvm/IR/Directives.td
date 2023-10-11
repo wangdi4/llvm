@@ -164,6 +164,9 @@ def "DIR.OMP.END.SCOPE" : Directive;
 def "DIR.OMP.TILE" : Directive;
 def "DIR.OMP.END.TILE" : Directive;
 
+def "DIR.OMP.INTERLEAVE" : Directive;
+def "DIR.OMP.END.INTERLEAVE" : Directive;
+
 def "DIR.OMP.SCAN" : Directive;
 def "DIR.OMP.END.SCAN" : Directive;
 
@@ -343,6 +346,7 @@ def "QUAL.OMP.NOCONTEXT" : Clause;
 def "QUAL.OMP.NOVARIANTS" : Clause;
 def "QUAL.OMP.DATA" : Clause;
 def "QUAL.OMP.SIZES" : Clause;
+def "QUAL.OMP.STRIDES" : Clause;
 def "QUAL.OMP.INTEROP" : Clause;
 def "QUAL.OMP.INCLUSIVE" : Clause;
 def "QUAL.OMP.EXCLUSIVE" : Clause;

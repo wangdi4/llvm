@@ -166,6 +166,7 @@ template<>Clause<AlignedItem>     ::Clause():ClauseID(QUAL_OMP_ALIGNED){}
 template<>Clause<NontemporalItem> ::Clause():ClauseID(QUAL_OMP_NONTEMPORAL){}
 template<>Clause<FlushItem>       ::Clause():ClauseID(QUAL_OMP_FLUSH){}
 template<>Clause<SizesItem>       ::Clause():ClauseID(QUAL_OMP_SIZES){}
+template<>Clause<StridesItem>     ::Clause():ClauseID(QUAL_OMP_STRIDES){}
 template<>Clause<LiveinItem>      ::Clause():ClauseID(QUAL_OMP_LIVEIN){}
 template<>Clause<AllocateItem>    ::Clause():ClauseID(QUAL_OMP_ALLOCATE){}
 template<>Clause<DataItem>        ::Clause():ClauseID(QUAL_OMP_DATA){}
