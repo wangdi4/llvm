@@ -2006,7 +2006,6 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
 bool GVNPass::performLoopLoadPRE(LoadInst *Load,
                                  AvailValInBlkVect &ValuesPerBlock,
                                  UnavailBlkVect &UnavailableBlocks) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // This transformation adds a conditional loop carried dependency
   // for the load. It's bad for vectorization.
@@ -2017,11 +2016,6 @@ bool GVNPass::performLoopLoadPRE(LoadInst *Load,
     return false;
 #endif // INTEL_CUSTOMIZATION
 
-  if (!LI)
-    return false;
-
-=======
->>>>>>> fa5884770ab240139f33a8b2be801673ca21b9c0
   const Loop *L = LI->getLoopFor(Load->getParent());
   // TODO: Generalize to other loop blocks that dominate the latch.
   if (!L || L->getHeader() != Load->getParent())
@@ -2988,15 +2982,11 @@ bool GVNPass::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
   // Merge unconditional branches, allowing PRE to catch more
   // optimization opportunities.
   for (BasicBlock &BB : llvm::make_early_inc_range(F)) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     BBCount++;
     ICount += std::distance(BB.begin(), BB.end());
 #endif // INTEL_CUSTOMIZATION
-    bool removedBlock = MergeBlockIntoPredecessor(&BB, &DTU, LI, MSSAU, MD);
-=======
     bool removedBlock = MergeBlockIntoPredecessor(&BB, &DTU, &LI, MSSAU, MD);
->>>>>>> fa5884770ab240139f33a8b2be801673ca21b9c0
     if (removedBlock)
       ++NumGVNBlocks;
 
