@@ -270,11 +270,7 @@ declare void @abort()
 
 define void @monkey(ptr noundef %arr, i32 noundef %len) {
 ; CHECK-LABEL: define void @monkey
-<<<<<<< HEAD
 ; CHECK-SAME: (ptr nocapture noundef [[ARR:%.*]], i32 noundef [[LEN:%.*]]) local_unnamed_addr #[[ATTR2:[0-9]+]] {
-=======
-; CHECK-SAME: (ptr nocapture noundef [[ARR:%.*]], i32 noundef [[LEN:%.*]]) local_unnamed_addr #[[ATTR1:[0-9]+]] {
->>>>>>> 56a3e49a00161f6ac71316e3c1f4d5069c916590
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[CMP8:%.*]] = icmp ugt i32 [[LEN]], 1
 ; CHECK-NEXT:    br i1 [[CMP8]], label [[FOR_BODY4_PREHEADER:%.*]], label [[FOR_COND_CLEANUP:%.*]]
