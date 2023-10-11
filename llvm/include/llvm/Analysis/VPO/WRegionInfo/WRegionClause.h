@@ -56,7 +56,7 @@ class WRegionNode;
 class WRegionUtils;
 
 extern void printFnPtr(Function *Fn, formatted_raw_ostream &OS,
-                       bool PrintType=true);
+                       bool PrintType = true);
 
 // for readability; VAR and EXPR match OpenMP4.1 specs
 typedef Value* VAR;
@@ -108,8 +108,7 @@ extern DenseMap<int, StringRef> WRNLoopOrderName;
 //   Item: abstract base class NOT intended to be instantiated directly.
 //         Contains members common to list items in OMP clauses
 //
-class Item
-{
+class Item {
   friend class WRegionUtils;
 
   public:
@@ -316,7 +315,7 @@ class Item
       }
     }
 
-    void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void printOrig(formatted_raw_ostream &OS, bool PrintType = true) const {
 
 #if INTEL_CUSTOMIZATION
       if (getIsF90DopeVector())
@@ -360,8 +359,8 @@ class Item
 #endif // INTEL_CUSTOMIZATION
     }
 
-    virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
-    SmallVector<StringRef, 5> ModStrings;
+    virtual void print(formatted_raw_ostream &OS, bool PrintType = true) const {
+      SmallVector<StringRef, 5> ModStrings;
 #if INTEL_CUSTOMIZATION
       if (getIsF90DopeVector())
         ModStrings.push_back("F90_DV");
@@ -460,8 +459,7 @@ class Item
 //   SharedItem: OMP SHARED clause item
 //   (cf PAROPT_OMP_SHARED_NODE)
 //
-class SharedItem : public Item
-{
+class SharedItem : public Item {
   private:
     bool  IsPassedDirectly;
 
@@ -469,7 +467,8 @@ class SharedItem : public Item
     SharedItem(VAR Orig) : Item(Orig, IK_Shared), IsPassedDirectly(false) {}
     void setIsPassedDirectly(bool Flag) { IsPassedDirectly = Flag; }
     bool getIsPassedDirectly() const { return IsPassedDirectly; }
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
+    void print(formatted_raw_ostream &OS,
+               bool PrintType = true) const override {
       Item::print(OS, PrintType);
     }
     static bool classof(const Item *I) { return I->getKind() == IK_Shared; }
@@ -482,8 +481,7 @@ class MapItem;      // forward declaration
 //   PrivateItem: OMP PRIVATE clause item
 //   (cf PAROPT_OMP_PRIVATE_NODE)
 //
-class PrivateItem : public Item
-{
+class PrivateItem : public Item {
   private:
     AllocateItem *InAllocate = nullptr; // AllocateItem with the same opnd
     MapItem *InMap = nullptr;           // MapItem with the same opnd
@@ -532,7 +530,8 @@ class PrivateItem : public Item
     RDECL getConstructor() const { return Constructor; }
     RDECL getDestructor()  const { return Destructor;  }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
+    void print(formatted_raw_ostream &OS,
+               bool PrintType = true) const override {
       if (getIsNonPod()) {
 #if INTEL_CUSTOMIZATION
         OS << (getIsF90NonPod() ? "F90_NONPOD(" : "NONPOD(");
@@ -560,8 +559,7 @@ class LastprivateItem; // forward declaration
 //   FirstprivateItem: OMP FIRSTPRIVATE clause item
 //   (cf PAROPT_OMP_FIRSTPRIVATE_NODE)
 //
-class FirstprivateItem : public Item
-{
+class FirstprivateItem : public Item {
   private:
     LastprivateItem *InLastprivate; // LastprivateItem with the same opnd
     MapItem *InMap;                 // MapItem with the same opnd
@@ -635,7 +633,8 @@ class FirstprivateItem : public Item
       return IsParoptGeneratedForNonPtrCapture;
     }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
+    void print(formatted_raw_ostream &OS,
+               bool PrintType = true) const override {
       if (getIsNonPod()) {
 #if INTEL_CUSTOMIZATION
         OS << (getIsF90NonPod() ? "F90_NONPOD(" : "NONPOD(");
@@ -662,8 +661,7 @@ class FirstprivateItem : public Item
 //   LastprivateItem: OMP LASTPRIVATE clausclause item
 //   (cf PAROPT_OMP_LASTPRIVATE_NODE)
 //
-class LastprivateItem : public Item
-{
+class LastprivateItem : public Item {
   private:
     bool IsConditional;               // conditional lastprivate
     FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
@@ -729,7 +727,8 @@ class LastprivateItem : public Item
     RDECL getCopyAssign() const { return CopyAssign; }
     RDECL getDestructor() const { return Destructor; }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
+    void print(formatted_raw_ostream &OS,
+               bool PrintType = true) const override {
       if (getIsNonPod()) {
 #if INTEL_CUSTOMIZATION
         OS << (getIsF90NonPod() ? "F90_NONPOD(" : "NONPOD(");
@@ -1140,8 +1139,7 @@ public:
 //   CopyinItem: OMP COPYIN clausclause item
 //   (cf PAROPT_OMP_COPYIN_NODE)
 //
-class CopyinItem : public Item
-{
+class CopyinItem : public Item {
   private:
     RDECL Copy;
 
@@ -1160,8 +1158,7 @@ class CopyinItem : public Item
 //
 //   CopyprivateItem: OMP COPYPRIVATE clause item
 //
-class CopyprivateItem : public Item
-{
+class CopyprivateItem : public Item {
   private:
     RDECL Copy;
 
@@ -1207,8 +1204,7 @@ class CopyprivateItem : public Item
 //
 //   LinearItem: OMP LINEAR clause item
 //
-class LinearItem : public Item
-{
+class LinearItem : public Item {
   private:
     EXPR Step;
 #if INTEL_CUSTOMIZATION
@@ -1236,7 +1232,8 @@ class LinearItem : public Item
     bool getIsIV() const { return IsIV; }
 
     // Specialized print() to output the stride as well
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
+    void print(formatted_raw_ostream &OS,
+               bool PrintType = true) const override {
       if (getIsIV())
         OS << "IV";
       OS << "(";
@@ -1258,8 +1255,7 @@ class LinearItem : public Item
 //
 //   UniformItem: OMP UNIFORM clause item
 //
-class UniformItem : public Item
-{
+class UniformItem : public Item {
 public:
   UniformItem(VAR Orig) : Item(Orig, IK_Uniform) {}
   static bool classof(const Item *I) { return I->getKind() == IK_Uniform; }
@@ -1309,8 +1305,7 @@ public:
 //   Triple#1:   ps                &(ps->next)             sizeof(S1*) = 8
 //   Triple#2:   &(ps->next)       &(ps->next->d[17])      25*sizeof(double)
 //
-class MapAggrTy
-{
+class MapAggrTy {
 private:
   Value *BasePtr;
   Value *SectionPtr;
@@ -1351,8 +1346,7 @@ class UseDevicePtrItem;
 //
 //   MapItem: OMP MAP clause item
 //
-class MapItem : public Item
-{
+class MapItem : public Item {
 private:
   unsigned MapKind = 0; // bit vector for map kind and modifiers
 
@@ -1504,7 +1498,7 @@ public:
     return !ArrSecInfo.getArraySectionDims().empty();
   };
 
-  void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
+  void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
     if (getIsMapChain()) {
       OS << "CHAIN" << (getIsFunctionPointer() ? ",FPTR" : "")
          << (getIsVarLen() ? ",VARLEN" : "")
@@ -1562,8 +1556,7 @@ public:
 //
 //   IsDevicePtrItem: OMP IS_DEVICE_PTR clause item
 //
-class IsDevicePtrItem : public Item
-{
+class IsDevicePtrItem : public Item {
   public:
     IsDevicePtrItem(VAR Orig) : Item(Orig, IK_IsDevicePtr) {}
     static bool classof(const Item *I) {
@@ -1575,8 +1568,7 @@ class IsDevicePtrItem : public Item
 //
 //   UseDevicePtrItem: OMP USE_DEVICE_PTR clause item
 //
-class UseDevicePtrItem : public Item
-{
+class UseDevicePtrItem : public Item {
   MapItem *InMap;
   bool IsUseDeviceAddr; // true only if parsing a use_device_addr clause
 public:
@@ -1639,6 +1631,7 @@ public:
 //   AlignedItem   (for the aligned clause in simd constructs)
 //   FlushItem     (for the flush clause)
 //   SizesItem     (for the sizes clause in tile constructs)
+//   StridesItem   (for the strides clause in interleave constructs)
 //   LiveinItem    (for the auxiliary livein clause)
 //   AllocateItem  (for the allocate clause)
 //   DataItem      (for the data clause in prefetch constructs)
@@ -1650,8 +1643,7 @@ public:
 // receives a single EXPR for doacross(sink:sink_expr), which is already in
 // the form ' IV +/- offset'.
 //
-class SubdeviceItem
-{
+class SubdeviceItem {
   private:
     EXPR  Level;          // null if unspecified
     EXPR  Start;          // null if unspecified
@@ -1675,14 +1667,13 @@ class SubdeviceItem
     EXPR getStart()     const   { return Start;  }
     EXPR getLength()    const   { return Length; }
     EXPR getStride()    const   { return Stride; }
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
-        OS << "SUBDEVICE(" << Level << ", " << Start << ", " << Length << ", "
-           << Stride << ")";
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
+      OS << "SUBDEVICE(" << Level << ", " << Start << ", " << Length << ", "
+         << Stride << ")";
     }
 };
 
-class DependItem
-{
+class DependItem {
   private:
     VAR   Base;           // scalar item or base of array section
     bool  IsByRef;        // true if Base is by-reference
@@ -1752,7 +1743,7 @@ class DependItem
       }
     }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
       SmallVector<StringRef, 5> ModStrings;
       if (getIsByRef())
         ModStrings.push_back("BYREF");
@@ -1819,8 +1810,7 @@ class DoacrossSinkItem : public DoacrossSrcSinkItem {
         : DoacrossSrcSinkItem(std::move(DEs)) {}
 };
 
-class AlignedItem
-{
+class AlignedItem {
   private:
     VAR Base;                // pointer or base of array
     int Alignment;           // 0 if unspecified
@@ -1836,7 +1826,7 @@ class AlignedItem
     int  getAlign() const { return Alignment; }
     bool getIsPointerToPointer() const { return IsPointerToPointer; }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
       if (getIsPointerToPointer())
         OS << "PTR_TO_PTR";
       OS << "(";
@@ -1845,8 +1835,7 @@ class AlignedItem
     }
 };
 
-class NontemporalItem
-{
+class NontemporalItem {
   private:
     VAR Base;                // pointer or base of array
     bool IsPointerToPointer; // true if var is a pointer to pointer (e.g. i32**)
@@ -1881,7 +1870,7 @@ class NontemporalItem
     bool getIsF90DopeVector() const { return IsF90DopeVector; }
 #endif // INTEL_CUSTOMIZATION
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
 #if INTEL_CUSTOMIZATION
       if (getIsF90DopeVector())
         OS << "F90_DV";
@@ -1894,8 +1883,7 @@ class NontemporalItem
     }
 };
 
-class FlushItem
-{
+class FlushItem {
   private:
     VAR  Var;  // global, static, volatile values
 
@@ -1904,7 +1892,7 @@ class FlushItem
     void setOrig(VAR V)      { Var = V; }
     VAR  getOrig()  const { return Var; }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
@@ -1912,8 +1900,7 @@ class FlushItem
 };
 
 // For the SIZES(s1,s2,...) clause of TILE construct
-class SizesItem
-{
+class SizesItem {
   private:
     Value *Val;
 
@@ -1922,7 +1909,24 @@ class SizesItem
     void setOrig(Value *V) { Val = V; }
     Value *getOrig() const { return Val; }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
+};
+
+// For the STRIDES(s1,s2,...) clause of INTERLEAVE construct
+class StridesItem {
+  private:
+    Value *Val;
+
+  public:
+    StridesItem(Value *V) : Val(V) {}
+    void setOrig(Value *V) { Val = V; }
+    Value *getOrig() const { return Val; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
@@ -1932,8 +1936,7 @@ class SizesItem
 // For the LIVEIN(v1,v2,....) clause, which is not in OpenMP, but a
 // clause artificially introduced for variables in an OpenMP region
 // that are not listed in any of its data-environment clauses.
-class LiveinItem
-{
+class LiveinItem {
   private:
     VAR  Var;
     bool IsSubObject = false;
@@ -1946,7 +1949,7 @@ class LiveinItem
     VAR getOrig() const { return Var; }
     bool getIsSubObject() const { return IsSubObject; }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
       if (getIsSubObject())
         OS << "SUBOBJ";
       OS << "(" ;
@@ -1955,8 +1958,7 @@ class LiveinItem
     }
 };
 
-class AllocateItem
-{
+class AllocateItem {
   private:
     VAR   Var;
     uint64_t Alignment;
@@ -2158,8 +2160,7 @@ public:
 };
 
 // For the INTEROP clause in a DISPATCH construct.
-class InteropItem
-{
+class InteropItem {
   private:
     VAR  Var;
 
@@ -2168,7 +2169,7 @@ class InteropItem
     void setOrig(VAR V) { Var = V; }
     VAR getOrig() const { return Var; }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
@@ -2185,8 +2186,7 @@ class InteropItem
 //
 // The list-type clauses are essentially vectors of the clause items above
 //
-template <typename ClauseItem> class Clause
-{
+template <typename ClauseItem> class Clause {
   friend class WRegionNode;
   friend class WRegionUtils;
   friend class VPOParoptTransform;
@@ -2314,6 +2314,7 @@ typedef Clause<AlignedItem>         AlignedClause;
 typedef Clause<NontemporalItem>     NontemporalClause;
 typedef Clause<FlushItem>           FlushSet;
 typedef Clause<SizesItem>           SizesClause;
+typedef Clause<StridesItem>         StridesClause;
 typedef Clause<LiveinItem>          LiveinClause;
 typedef Clause<AllocateItem>        AllocateClause;
 typedef Clause<DataItem>            DataClause;
@@ -2474,8 +2475,7 @@ typedef enum WRNScheduleModifierBit {
     WRNScheduleNonmonotonic = 1<<30
 } WRNScheduleModifierBit;
 
-class ScheduleClause
-{
+class ScheduleClause {
   private:
     WRNScheduleKind Kind;
     EXPR            ChunkExpr;

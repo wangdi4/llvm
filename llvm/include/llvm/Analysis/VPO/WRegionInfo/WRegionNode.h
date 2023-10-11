@@ -309,6 +309,7 @@ public:
   bool canHaveOrderedTripCounts() const;
   bool canHaveIf() const;
   bool canHaveSizes() const;
+  bool canHaveStrides() const;
   bool canHaveLivein() const;
 #if INTEL_CUSTOMIZATION
   bool canHaveDoConcurrent() const;
@@ -410,6 +411,7 @@ public:
 
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
   virtual SizesClause &getSizes()            {WRNERROR(QUAL_OMP_SIZES);       }
+  virtual StridesClause &getStrides()        {WRNERROR(QUAL_OMP_STRIDES);     }
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual InclusiveClause &getInclusive()    {WRNERROR(QUAL_OMP_INCLUSIVE);   }
   virtual ExclusiveClause &getExclusive()    {WRNERROR(QUAL_OMP_EXCLUSIVE);   }
@@ -477,6 +479,8 @@ public:
                                            {WRNERROR(QUAL_OMP_SHARED);      }
   virtual const SizesClause &getSizes() const
                                            {WRNERROR(QUAL_OMP_SIZES);       }
+  virtual const StridesClause &getStrides() const
+                                           {WRNERROR(QUAL_OMP_STRIDES);     }
   virtual const UniformClause &getUniform() const
                                            {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual const InclusiveClause &getInclusive() const
@@ -956,7 +960,7 @@ public:
 
   /// An enumeration to keep track of the concrete subclasses of
   /// WRegionNode
-  enum WRegionNodeKind{
+  enum WRegionNodeKind {
                                       // WRNAttribute:
     // These require outlining:
 
@@ -990,6 +994,7 @@ public:
     WRNWorkshare,                     // IsOmpLoop
     WRNDistribute,                    // IsOmpLoop, IsDistribute
     WRNTile,                          // IsOmpLoopTransform
+    WRNInterleave,                    // IsOmpLoopTransform
     WRNAtomic,
     WRNBarrier,
     WRNCancel,

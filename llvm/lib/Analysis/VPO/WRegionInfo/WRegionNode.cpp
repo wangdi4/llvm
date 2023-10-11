@@ -85,6 +85,7 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNTaskyield, "taskyield"},
     {WRegionNode::WRNScope, "scope"},
     {WRegionNode::WRNTile, "tile"},
+    {WRegionNode::WRNInterleave, "interleave"},
     {WRegionNode::WRNScan, "scan"},
 };
 
@@ -649,6 +650,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveSizes())
     PrintedSomething |= getSizes().print(OS, Depth, Verbosity);
+
+  if (canHaveStrides())
+    PrintedSomething |= getStrides().print(OS, Depth, Verbosity);
 
   if (PrintedSomething)
     OS << "\n";
@@ -2098,6 +2102,10 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     extractQualOpndList<SizesClause>(Args, NumArgs, ClauseID, getSizes());
     break;
   }
+  case QUAL_OMP_STRIDES: {
+    extractQualOpndList<StridesClause>(Args, NumArgs, ClauseID, getStrides());
+    break;
+  }
   case QUAL_OMP_LIVEIN: {
     extractLiveinOpndList(Args, NumArgs, ClauseInfo, getLivein());
     break;
@@ -2500,7 +2508,8 @@ bool WRegionNode::canHavePrivate() const {
 
 bool WRegionNode::canHaveFirstprivate() const {
   unsigned SubClassID = getWRegionKindID();
-  if (SubClassID == WRNTile) // TODO: remove Firstprivate from Tile
+  if (SubClassID == WRNTile ||     // TODO: remove Firstprivate from Tile
+      SubClassID == WRNInterleave) // TODO: remove Firstprivate from Interleave
     return true;
   if (SubClassID == WRNVecLoop)
     return false;
@@ -2882,6 +2891,15 @@ bool WRegionNode::canHaveSizes() const {
   return false;
 }
 
+bool WRegionNode::canHaveStrides() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNInterleave:
+    return true;
+  }
+  return false;
+}
+
 bool WRegionNode::canHaveLivein() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
@@ -2891,6 +2909,7 @@ bool WRegionNode::canHaveLivein() const {
   case WRNTarget:
   case WRNTargetData:
   case WRNTile:
+  case WRNInterleave:
   case WRNGuardMemMotion:
   case WRNTask:
     return true;

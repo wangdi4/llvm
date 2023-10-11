@@ -2,11 +2,14 @@
 ; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug-only=wrninfo -S %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug-only=wrninfo -S %s 2>&1 | FileCheck %s
 ;
+; Current FE doesn't yet emit IR for the interleave construct.
+; This LIT test is hand-modified from a LIT test for the tile construct (parsing_tile_constant_sizes.ll).
+;
 ; INTEL_CUSTOMIZATION
 ; Test src:
 ;   subroutine test()
 ;   integer :: i, j
-;   !$omp tile sizes(4, 8)
+;   !$omp tile sizes(4, 8)  ! hand-modified for !$ompx interleave strides(4,8)
 ;   do i = 1, 100
 ;     do j = 1, 48
 ;       call bar(i,j)
@@ -15,12 +18,12 @@
 ;   end subroutine
 ;
 ; end INTEL_CUSTOMIZATION
-; Simple case with constant sizes:
-; Check the WRN for TILE SIZES(4,8)
+; Simple case with constant strides:
+; Check the WRN for INTERLEAVE STRIDES(4,8)
 ;
-; CHECK: BEGIN TILE ID=1 {
+; CHECK: BEGIN INTERLEAVE ID=1 {
 ; CHECK:   LIVEIN clause (size=2): (ptr %do.norm.lb) (ptr %omp.pdo.norm.lb)
-; CHECK:   SIZES clause (size=2): (i32 4) (i32 8)
+; CHECK:   STRIDES clause (size=2): (i32 4) (i32 8)
 ; CHECK:   IV clause:   %omp.pdo.norm.iv = alloca i32,{{.*}};   %do.norm.iv = alloca i32,
 ; CHECK:   UB clause:   %omp.pdo.norm.ub = alloca i32,{{.*}};   %do.norm.ub = alloca i32,
 
@@ -110,8 +113,8 @@ do.epilog11:                                      ; preds = %do.cond9
   br label %omp.pdo.cond3
 
 bb_new6:                                          ; preds = %alloca_0
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TILE"(),
-    "QUAL.OMP.SIZES"(i32 4, i32 8),
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.INTERLEAVE"(),  ; was "DIR.OMP.TILE"
+    "QUAL.OMP.STRIDES"(i32 4, i32 8),  ; was "QUAL.OMP.SIZES"
     "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %omp.pdo.norm.iv, i32 0, ptr %do.norm.iv, i32 0),
     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %omp.pdo.norm.ub, i32 0, ptr %do.norm.ub, i32 0),
     "QUAL.OMP.LIVEIN"(ptr %do.norm.lb),
@@ -121,7 +124,7 @@ bb_new6:                                          ; preds = %alloca_0
   br label %omp.pdo.cond3
 
 omp.pdo.epilog5:                                  ; preds = %omp.pdo.cond3
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TILE"() ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.INTERLEAVE"() ]
   ret void
 }
 
