@@ -345,8 +345,8 @@ if config.llvm_use_sanitizer:
 llvm_config.add_intel_features()
 
 import lit.llvm.util
-config.options_to_revert_to_llorg_behavior = [ "-mllvm -xmain-enable-gep0-removal" , "-mllvm -instcombine-disable-fpclass-folding=false"]
-lit.llvm.util.add_default_options_to_tool(config, 'clang_cc1', config.options_to_revert_to_llorg_behavior)
+config.clang_opts_to_mimic_llorg = [ "-mllvm -xmain-enable-gep0-removal" , "-mllvm -instcombine-disable-fpclass-folding=false"]
+lit.llvm.util.add_default_options_to_tool(config, 'clang_cc1', config.clang_opts_to_mimic_llorg)
 
 # end INTEL_CUSTOMIZATION
 
