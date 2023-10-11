@@ -188,7 +188,7 @@ static bool selectBfloatLibs(const llvm::Triple &Triple, const Compilation &C,
       if (SYCLTriple == Triple) {
         const toolchains::SYCLToolChain *SYCLTC =
             static_cast<const toolchains::SYCLToolChain *>(TI->second);
-        SYCLTC->TranslateBackendTargetArgs(Triple, Args, TargArgs);
+        SYCLTC->TranslateBackendTargetArgs(Action::OFK_SYCL, Triple, Args, TargArgs);
         break;
       }
     }

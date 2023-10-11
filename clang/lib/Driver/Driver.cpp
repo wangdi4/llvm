@@ -6273,45 +6273,7 @@ class OffloadingActionBuilder final {
     bool addSYCLDeviceLibs(const ToolChain *TC, ActionList &DeviceLinkObjects,
                            bool isSpirvAOT, bool isMSVCEnv) {
       int NumOfDeviceLibLinked = 0;
-<<<<<<< HEAD
-      // Currently, all SYCL device libraries will be linked by default. Linkage
-      // of "internal" libraries cannot be affected via -fno-sycl-device-lib.
-      llvm::StringMap<bool> devicelib_link_info = {
-          {"libc", true},          {"libm-fp32", true},   {"libm-fp64", true},
-          {"libimf-fp32", true},   {"libimf-fp64", true}, {"libimf-bf16", true},
-          {"libm-bfloat16", true}, {"internal", true}};
-      if (Arg *A = Args.getLastArg(options::OPT_fsycl_device_lib_EQ,
-                                   options::OPT_fno_sycl_device_lib_EQ)) {
-        if (A->getValues().size() == 0)
-          C.getDriver().Diag(diag::warn_drv_empty_joined_argument)
-              << A->getAsString(Args);
-        else {
-          if (A->getOption().matches(options::OPT_fno_sycl_device_lib_EQ))
-            NoDeviceLibs = true;
 
-          for (StringRef Val : A->getValues()) {
-            if (Val == "all") {
-              for (const auto &K : devicelib_link_info.keys())
-                devicelib_link_info[K] =
-                    true && (!NoDeviceLibs || K.equals("internal"));
-              break;
-            }
-            auto LinkInfoIter = devicelib_link_info.find(Val);
-            if (LinkInfoIter == devicelib_link_info.end() ||
-                Val.equals("internal")) {
-              // TODO: Move the diagnostic to the SYCL section of
-              // Driver::CreateOffloadingDeviceToolChains() to minimize code
-              // duplication.
-              C.getDriver().Diag(diag::err_drv_unsupported_option_argument)
-                  << A->getSpelling() << Val; // INTEL
-            }
-            devicelib_link_info[Val] = true && !NoDeviceLibs;
-          }
-        }
-      }
-
-=======
->>>>>>> 7b907cbcaea9b24b26a8beffd9a4f7afef5aecca
       SmallVector<SmallString<128>, 4> LibLocCandidates;
       SYCLInstallation.getSYCLDeviceLibPath(LibLocCandidates);
 
