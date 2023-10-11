@@ -1754,10 +1754,20 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
       return !DelinearizationRequired ? Ref->isRval()
                                       : DelinearizedRefMap.contains(Ref);
     };
-    bool IsContiguousGroup = DDRefUtils::isGroupAccessingContiguousMemory(
-        GetGroupForChecks(I), IsRval, InnermostLoop, TTI,
-        ContiguousStridedAccessSizeThreshold.getNumOccurrences(),
-        ContiguousStridedAccessSizeThreshold);
+
+    bool IsContiguousGroup = false;
+    if (ContiguousStridedAccessSizeThreshold.getNumOccurrences() &&
+        ContiguousStridedAccessSizeThreshold == 0)
+      IsContiguousGroup = false;
+    else {
+      std::optional<int64_t> SizeThreshold =
+          ContiguousStridedAccessSizeThreshold.getNumOccurrences()
+              ? std::optional<int64_t>(ContiguousStridedAccessSizeThreshold)
+              : std::nullopt;
+
+      IsContiguousGroup = DDRefUtils::isGroupAccessingContiguousMemory(
+          GetGroupForChecks(I), IsRval, InnermostLoop, TTI, SizeThreshold);
+    }
 
     IVSegments.emplace_back(GetGroupForChecks(I), IsWriteGroup,
                             IsContiguousGroup);
