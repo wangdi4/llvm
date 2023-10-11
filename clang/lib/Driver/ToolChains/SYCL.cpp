@@ -1879,7 +1879,6 @@ void SYCLToolChain::AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
   if (Arg *A = Args.getLastArg(options::OPT_g_Group, options::OPT__SLASH_Z7))
     if (!A->getOption().matches(options::OPT_g0))
       BeArgs.push_back("-g");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // FIXME: /Od is not translating to -O0 for OpenMP
   bool IsMSVCOd = false;
@@ -1966,18 +1965,16 @@ void SYCLToolChain::AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
       }
     }
   }
-  Arg *A = Args.getLastArg(options::OPT_O_Group);
-  if (A && A->getOption().matches(options::OPT_O0) || IsMSVCOd )
-#endif // INTEL_CUSTOMIZATION
+  if (IsMSVCOd )
       BeArgs.push_back("-cl-opt-disable");
-=======
+  else
+#endif // INTEL_CUSTOMIZATION
   // Only pass -cl-opt-disable for non-JIT, as the runtime
   // handles it in that case.
   if (Triple.getSubArch() != llvm::Triple::NoSubArch)
     if (Arg *A = Args.getLastArg(options::OPT_O_Group))
       if (A->getOption().matches(options::OPT_O0))
         BeArgs.push_back("-cl-opt-disable");
->>>>>>> bda1eb21c179213f004c4c2c41696f2fef180070
   if (IsGen) {
     // For GEN (spir64_gen) we have implied -device settings given usage
     // of intel_gpu_ as a target.  Handle those here, and also check that no
