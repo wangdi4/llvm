@@ -178,7 +178,7 @@ static cl::opt<bool> DisableSinkForMultiCopy(
 // the number of different IVs appearing in one references is 2.
 // c[i][j], a[i][k], b[k][j].
 static cl::opt<bool> DisableLoopDepthCheck(
-    "disable-" OPT_SWITCH "-loop-depth-check", cl::init(false), cl::Hidden,
+    "disable-" OPT_SWITCH "-loop-depth-check", cl::init(true), cl::Hidden,
     cl::desc("Disable loop depth check in " OPT_DESC " pass"));
 
 // matmul: block as many loops as possible. Will block all 3 levels
@@ -1296,8 +1296,9 @@ bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap,
 // Checks whether memrefs with missing loop induction variables exist.
 class KAndRChecker {
 public:
-  KAndRChecker(const MemRefGatherer::VectorTy &Refs, StringRef Func)
-      : Refs(Refs), Func(Func) {
+  KAndRChecker(const MemRefGatherer::VectorTy &Refs, StringRef Func,
+               bool Advanced)
+      : Refs(Refs), Func(Func), Advanced(Advanced) {
     NumRefsWithSmallStrides.resize(MaxLoopNestLevel + 1, 0);
     NumRefsMissingAtLevel.resize(MaxLoopNestLevel + 1, 0);
     countProBlockingRefs(Refs);
@@ -1312,7 +1313,7 @@ public:
 
     unsigned MaxDimension =
         calcMaxVariantDimension(OutermostLoop->getNestingLevel());
-    if (!DisableLoopDepthCheck) {
+    if (Advanced || !DisableLoopDepthCheck) {
       // A heuristic choice: Choose not to block. Stop here.
       // This check is useful for blocking typical matrix multiplication.
       if (LoopNestDepth <= MaxDimension) {
@@ -1441,6 +1442,10 @@ private:
                       *InnerLp = InnermostLoop;
          Lp != ELp && NumTotalLoops < MaxLoopNestLevel;
          InnerLp = Lp, Lp = Lp->getParentLoop(), Level = Level - 1) {
+
+      if (Lp->hasVectorizeEnablingPragma())
+        continue;
+
       // Reused carried across Level
       // OR
       // See if any refs deepest dimension has this Level IV with a small stride
@@ -1473,7 +1478,8 @@ private:
     // Look into the innermost loop again for blocking when algo is MatMul.
     // Experiments in skx showed blocking all three levels of matrix
     // multiplication gives best performance.
-    if (NumTotalLoops < MaxLoopNestLevel && LoopBlockingAlgorithm == MatMul &&
+    if (!InnermostLoop->hasVectorizeEnablingPragma() &&
+        NumTotalLoops < MaxLoopNestLevel && LoopBlockingAlgorithm == MatMul &&
         (std::any_of(std::next(NumRefsMissingAtLevel.begin(), OuterLevel),
                      std::next(NumRefsMissingAtLevel.begin(), InnerLevel + 1),
                      [](int Num) { return Num > 0; }))) {
@@ -1483,6 +1489,16 @@ private:
                         << " will be stripmined\n");
 
       markAsToStripmine(InnermostLoop, StripmineCandidateMap);
+      IsCandFound = true;
+    }
+
+    if (StripmineCandidateMap.size() == 1 &&
+        StripmineCandidateMap.count(OutermostLoop)) {
+      LLVM_DEBUG(
+          dbgs()
+          << "Loop blocking only the outermost loop is not profitable.\n");
+      StripmineCandidateMap.clear();
+      IsCandFound = false;
     }
 
     LLVM_DEBUG(dbgs() << "determineProfitableStipmineLoop result: "
@@ -1494,6 +1510,7 @@ private:
   const MemRefGatherer::VectorTy &Refs;
   // Used only for diagnosis or debug purposes.
   StringRef Func;
+  bool Advanced;
   SmallVector<int, MaxLoopNestLevel + 1> NumRefsWithSmallStrides;
   SmallVector<int, MaxLoopNestLevel + 1> NumRefsMissingAtLevel;
 };
@@ -1659,11 +1676,12 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
 HLLoop *tryKAndRWithFixedStripmineSizes(
     const MemRefGatherer::VectorTy &Refs, const LoopNestTCTy &LoopNestTC,
     HLLoop *InnermostLoop, HLLoop *OutermostLoop, HIRDDAnalysis &DDA,
-    HIRSafeReductionAnalysis &SRA, StringRef Func, LoopMapTy &LoopMap) {
+    HIRSafeReductionAnalysis &SRA, StringRef Func, LoopMapTy &LoopMap,
+    bool Advanced) {
 
   // Try K&R + fixed stripmine sizes
   // Just use existing logic for now to avoid regression
-  KAndRChecker KAndRProfitability(Refs, Func);
+  KAndRChecker KAndRProfitability(Refs, Func, Advanced);
   LoopMapTy StripmineSizes;
   adjustBlockSize(LoopNestTC, StripmineSizes);
 
@@ -1706,6 +1724,25 @@ static bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
   return Count / ((float)Refs.size()) >= 0.4;
 }
 
+static bool
+isGroupAccessingContiguousMemory(const MemRefGatherer::VectorTy &Refs,
+                                 const HLLoop *InnermostLoop,
+                                 TargetTransformInfo &TTI) {
+
+  // TODO: The occurrences of grouping may needs consolidation.
+  DDRefGrouping::RefGroupVecTy<RegDDRef *> Groups;
+  DDRefIndexGrouping(Groups, Refs);
+
+  for (const auto &Group : Groups) {
+    if (DDRefUtils::isGroupAccessingContiguousMemory(
+            Group, [](const RegDDRef *Ref) { return Ref->isRval(); },
+            InnermostLoop, TTI))
+      return true;
+  }
+
+  return false;
+}
+
 // Find marked loops that we want to perform sinking so blocking analysis
 // will be triggered. These marked loops are likely profitable for
 // blocking, but were not made perfect in prior passes. After sinking is
@@ -1741,12 +1778,41 @@ static const HLLoop *getOuterLoopAfterSpecialSinking(HLLoop *InnermostLp,
   return OuterCandidate;
 }
 
+static void markVectorizeEnablingPragma(
+    const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
+    SmallVectorImpl<unsigned> &VectorEnabledLoopMarker) {
+  unsigned InnermostLevel = InnermostLoop->getNestingLevel();
+
+  unsigned AccumulatedNumVectorEnabledLoops = 0;
+  unsigned CurLevel = InnermostLevel;
+  for (const HLLoop *Loop = InnermostLoop,
+                    *EndLp = OutermostLoop->getParentLoop();
+       Loop != EndLp; Loop = Loop->getParentLoop(), CurLevel--) {
+
+    if (Loop->hasVectorizeEnablingPragma())
+      AccumulatedNumVectorEnabledLoops++;
+
+    VectorEnabledLoopMarker[CurLevel] = AccumulatedNumVectorEnabledLoops;
+  }
+}
+
+static bool hasAllVectorizeEnablingPragma(
+    const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
+    const SmallVectorImpl<unsigned> &VectorEnabledLoopMarker) {
+
+  unsigned InnermostLevel = InnermostLoop->getNestingLevel();
+  unsigned OutermostLevel = OutermostLoop->getNestingLevel();
+  return VectorEnabledLoopMarker[OutermostLevel] ==
+         (InnermostLevel - OutermostLevel + 1);
+}
+
 // Returns the outermost loop where blocking will be applied
 // in the range of [outermost, InnermostLoop]
 HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
                             HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
-                            HLLoop *InnermostLoop, bool Advanced,
-                            bool SinkForMultiCopy, LoopMapTy &LoopMap) {
+                            TargetTransformInfo &TTI, HLLoop *InnermostLoop,
+                            bool Advanced, bool SinkForMultiCopy,
+                            LoopMapTy &LoopMap) {
 
   const HLLoop *HighestAncestor = nullptr;
   // Do sinking for special loops we want to block when running multiple copies.
@@ -1778,6 +1844,17 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
     return nullptr;
   }
 
+  SmallVector<unsigned, MaxLoopNestLevel + 1> VectorEnabledLoopMarker(
+      MaxLoopNestLevel + 1, 0);
+  markVectorizeEnablingPragma(InnermostLoop, HighestAncestor,
+                              VectorEnabledLoopMarker);
+
+  if (hasAllVectorizeEnablingPragma(InnermostLoop, HighestAncestor,
+                                    VectorEnabledLoopMarker)) {
+    LLVM_DEBUG(dbgs() << "All candidates have #pragma vector. \n");
+    return nullptr;
+  }
+
   // Check using MemRefs
   // TODO: see if pre-header and post-exit refs better be added.
   //       Currently, they are not added.
@@ -1800,6 +1877,12 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
   HLLoop *AdjustedHighestAncestor =
       getHighestAncestorWithTCThreshold(LoopNestTC, AllConstTC);
 
+  if (hasAllVectorizeEnablingPragma(InnermostLoop, HighestAncestor,
+                                    VectorEnabledLoopMarker)) {
+    LLVM_DEBUG(dbgs() << "All candidates have #pragma vector. \n");
+    return nullptr;
+  }
+
   if (IsLikelySmall && !AllConstTC) {
     LLVM_DEBUG(dbgs() << "The input's TC is likely to be small\n");
     return nullptr;
@@ -1808,6 +1891,12 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
   if (isTrivialAntiPattern(Refs, InnermostLoop->getNestingLevel(),
                            AdjustedHighestAncestor->getNestingLevel())) {
     LLVM_DEBUG(dbgs() << "Trivial anti-pattern\n");
+    return nullptr;
+  }
+
+  if (isGroupAccessingContiguousMemory(Refs, InnermostLoop, TTI)) {
+    LLVM_DEBUG(dbgs() << "Contains a ref group accessing contiguous memory. "
+                         "May benefit more from vectorization as-is.\n");
     return nullptr;
   }
 
@@ -1834,7 +1923,7 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
   // All linear refs and LoopTC above minimum threshold for blocked loops.
   HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
       Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor, DDA, SRA, Func,
-      LoopMap);
+      LoopMap, Advanced);
 
   if (ValidOutermost) {
     printDiag(SUCCESS_NON_SIV_OR_NON_ADVANCED, Func, AdjustedHighestAncestor,
@@ -2286,7 +2375,7 @@ bool HIRLoopBlocking::run(bool ForPragma) {
 
     if (!ForPragma && !HasPragma) {
       OutermostLoop =
-          findLoopNestToBlock(HIRF, FuncName, HDDA, SRA, InnermostLoop,
+          findLoopNestToBlock(HIRF, FuncName, HDDA, SRA, TTI, InnermostLoop,
                               Advanced, SinkForMultiCopy, LoopMap);
     } else if (ForPragma && HasPragma) {
       HLLoop *OutermostPragmaLoop =
