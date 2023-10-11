@@ -100,7 +100,7 @@ public:
   LegalityHIR(const TargetTransformInfo *TTI,
               HIRSafeReductionAnalysis *SafeReds, HIRDDAnalysis *DDA,
               LLVMContext *C)
-      : TTI(TTI), SRA(SafeReds), DDAnalysis(DDA), Context(C) {}
+      : LegalityBase(C), TTI(TTI), SRA(SafeReds), DDAnalysis(DDA) {}
 
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize(const WRNVecLoopNode *WRLp);
@@ -159,9 +159,6 @@ public:
   /// instruction.
   void recordPotentialSIMDDescrUpdate(HLInst *UpdateInst);
 
-  /// Return the reason for bailing out.
-  VPlanBailoutRemark &getBailoutRemark() { return BR; }
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Debug print utility to display contents of the descriptor lists
   void dump(raw_ostream &OS) const;
@@ -169,32 +166,6 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
-  /// Reports a reason for vectorization bailout. Always returns false.
-  /// \p Message will appear both in the debug dump and the opt report remark.
-  template <typename... Args>
-  bool bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
-               std::string Message, Args &&...BailoutArgs);
-
-  /// Reports a reason for vectorization bailout. Always returns false.
-  /// \p Debug will appear in the debug dump, but not in the opt report remark.
-  template <typename... Args>
-  bool bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
-                        std::string Debug, Args &&...BailoutArgs);
-
-  /// Initialize cached bailout remark data.
-  void clearBailoutRemark() { BR.BailoutRemark = OptRemark(); }
-
-  /// Store a variadic remark indicating the reason for not vectorizing a loop.
-  /// Clients should pass string constants as std::string to avoid extra
-  /// instantiations of this template function.
-  template <typename... Args>
-  void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
-                        OptRemarkID BailoutID, Args &&...BailoutArgs) {
-    BR.BailoutLevel = BailoutLevel;
-    BR.BailoutRemark =
-        OptRemark::get(*Context, BailoutID, std::forward<Args>(BailoutArgs)...);
-  }
-
   /// Add an explicit non-POD private to PrivatesList
   /// TODO: Use Constr, Destr and CopyAssign for non-POD privates.
   void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, Function *Constr,
@@ -242,11 +213,30 @@ private:
                          InscanRedKind);
   }
 
+  /// Check if the incoming \p Ref matches the original SIMD descriptor DDRef
+  /// \p DescrRef.
+  bool isSIMDDescriptorDDRef(const RegDDRef *DescrRef, const DDRef *Ref) const;
+
   /// Check if the given \p Ref is an explicit SIMD descriptor variable of type
   /// \p DescrType in the list \p List, if yes then return the descriptor object
   /// corresponding to it, else nullptr
   template <typename DescrType>
-  DescrType *findDescr(ArrayRef<DescrType> List, const DDRef *Ref) const;
+  DescrType *findDescr(ArrayRef<DescrType> List, const DDRef *Ref) const {
+    for (auto &Descr : List) {
+      // TODO: try to avoid returning the non-const ptr.
+      DescrType *CurrentDescr = const_cast<DescrType *>(&Descr);
+      assert(isa<RegDDRef>(CurrentDescr->getRef()) &&
+             "The original SIMD descriptor Ref is not a RegDDRef.");
+      if (isSIMDDescriptorDDRef(cast<RegDDRef>(CurrentDescr->getRef()), Ref))
+        return CurrentDescr;
+
+      // Check if Ref matches any aliases of current descriptor's ref
+      if (CurrentDescr->findAlias(Ref))
+        return CurrentDescr;
+    }
+
+    return nullptr;
+  }
 
   /// Return the descriptor object corresponding to the input \p Ref, if it
   /// represents a reduction or linear SIMD variable (original or aliases). If
@@ -268,7 +258,6 @@ private:
   const TargetTransformInfo *TTI;
   HIRSafeReductionAnalysis *SRA;
   HIRDDAnalysis *DDAnalysis;
-  LLVMContext *Context;
   PrivatesListTy PrivatesList;
   PrivatesNonPODListTy PrivatesNonPODList;
   PrivatesF90DVListTy PrivatesF90DVList;

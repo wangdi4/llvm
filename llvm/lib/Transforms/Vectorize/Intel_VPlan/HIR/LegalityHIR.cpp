@@ -66,7 +66,8 @@ void LegalityHIR::dump(raw_ostream &OS) const {
 
 /// Check if the incoming \p Ref matches the original SIMD descriptor DDRef \p
 /// DescrRef
-static bool isSIMDDescriptorDDRef(const RegDDRef *DescrRef, const DDRef *Ref) {
+bool LegalityHIR::isSIMDDescriptorDDRef(const RegDDRef *DescrRef,
+                                        const DDRef *Ref) const {
   assert(DescrRef->isAddressOf() &&
          "Original SIMD descriptor ref is not address of type.");
 
@@ -127,42 +128,6 @@ static bool isSIMDDescriptorDDRef(const RegDDRef *DescrRef, const DDRef *Ref) {
   return false;
 }
 
-template <typename DescrType>
-DescrType *LegalityHIR::findDescr(ArrayRef<DescrType> List,
-                                  const DDRef *Ref) const {
-  for (auto &Descr : List) {
-    // TODO: try to avoid returning the non-const ptr.
-    DescrType *CurrentDescr = const_cast<DescrType *>(&Descr);
-    assert(isa<RegDDRef>(CurrentDescr->getRef()) &&
-           "The original SIMD descriptor Ref is not a RegDDRef.");
-    if (isSIMDDescriptorDDRef(cast<RegDDRef>(CurrentDescr->getRef()), Ref))
-      return CurrentDescr;
-
-    // Check if Ref matches any aliases of current descriptor's ref
-    if (CurrentDescr->findAlias(Ref))
-      return CurrentDescr;
-  }
-
-  return nullptr;
-}
-
-// Explicit template instantiations for findDescr.
-template LegalityHIR::RedDescrTy *
-LegalityHIR::findDescr(ArrayRef<LegalityHIR::RedDescrTy> List,
-                       const DDRef *Ref) const;
-template LegalityHIR::PrivDescrTy *
-LegalityHIR::findDescr(ArrayRef<LegalityHIR::PrivDescrTy> List,
-                       const DDRef *Ref) const;
-template LegalityHIR::PrivDescrNonPODTy *
-LegalityHIR::findDescr(ArrayRef<LegalityHIR::PrivDescrNonPODTy> List,
-                       const DDRef *Ref) const;
-template LegalityHIR::PrivDescrF90DVTy *
-LegalityHIR::findDescr(ArrayRef<LegalityHIR::PrivDescrF90DVTy> List,
-                       const DDRef *Ref) const;
-template LegalityHIR::LinearDescr *
-LegalityHIR::findDescr(ArrayRef<LegalityHIR::LinearDescr> List,
-                       const DDRef *Ref) const;
-
 void LegalityHIR::recordPotentialSIMDDescrUse(DDRef *Ref) {
 
   DescrWithInitValueTy *Descr = getLinearRednDescriptors(Ref);
@@ -218,23 +183,6 @@ void LegalityHIR::recordPotentialSIMDDescrUpdate(HLInst *UpdateInst) {
     assert(Alias && "Alias not found.");
     Alias->addUpdateInstruction(UpdateInst);
   }
-}
-
-template <typename... Args>
-bool LegalityHIR::bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
-                          std::string Message, Args &&...BailoutArgs) {
-  LLVM_DEBUG(dbgs() << Message << "\n");
-  setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
-  return false;
-}
-
-template <typename... Args>
-bool LegalityHIR::bailoutWithDebug(OptReportVerbosity::Level Level,
-                                   OptRemarkID ID, std::string Debug,
-                                   Args &&...BailoutArgs) {
-  LLVM_DEBUG(dbgs() << Debug << "\n");
-  setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
-  return false;
 }
 
 bool LegalityHIR::canVectorize(const WRNVecLoopNode *WRLp) {
