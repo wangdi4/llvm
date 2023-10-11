@@ -90,7 +90,7 @@ public:
   /// latch instruction does not contain the llvm.loop metadata or
   /// multiple latch instructions contain different llvm.loop metadata nodes,
   /// then null is returned.
-  MDNode *getLoopID() const;
+  MDNode *getLoopID(bool IfAssert = true) const;
 #endif  // INTEL_CUSTOMIZATION
 
   /// Returns true if the instruction is loop invariant.
