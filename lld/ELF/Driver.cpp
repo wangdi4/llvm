@@ -1218,7 +1218,7 @@ static void ltoValidateAllVtablesHaveTypeInfos(opt::InputArgList &args) {
 }
 
 static CGProfileSortKind getCGProfileSortKind(opt::InputArgList &args) {
-  StringRef s = args.getLastArgValue(OPT_call_graph_profile_sort, "hfsort");
+  StringRef s = args.getLastArgValue(OPT_call_graph_profile_sort, "cdsort");
   if (s == "hfsort")
     return CGProfileSortKind::Hfsort;
   if (s == "cdsort")
@@ -3421,8 +3421,7 @@ void LinkerDriver::link(opt::InputArgList &args) {
   // partition.
   copySectionsIntoPartitions();
 
-  if (config->emachine == EM_AARCH64 &&
-      config->androidMemtagMode != ELF::NT_MEMTAG_LEVEL_NONE) {
+  if (canHaveMemtagGlobals()) {
     llvm::TimeTraceScope timeScope("Process memory tagged symbols");
     createTaggedSymbols(ctx.objectFiles);
   }
