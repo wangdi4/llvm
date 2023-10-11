@@ -1151,8 +1151,8 @@ void DDRefUtils::removeNoAliasScopes(
 bool DDRefUtils::isGroupAccessingContiguousMemory(
     const SmallVectorImpl<RegDDRef *> &Group,
     function_ref<bool(const RegDDRef *)> IsRval, const HLLoop *InnermostLoop,
-    TargetTransformInfo &TTI, bool ThresholdPresent,
-    int64_t ContiguousStrideSizeThreshold) {
+    TargetTransformInfo &TTI,
+    std::optional<int64_t> ContiguousStrideSizeThreshold) {
 
   if (Group.empty())
     return false;
@@ -1163,6 +1163,23 @@ bool DDRefUtils::isGroupAccessingContiguousMemory(
 
   // This is restricted for groups with more than 1 entry
   if (Group.size() == 1)
+    return false;
+
+  // Bail out if the number of bits that are going to be accessed is larger
+  // than the threshold. If the size was provided using the optional arg,
+  // ContigousStrideSizeThreshold, prioritize that value.
+  // If the value is -1, then the threshold will be fully ignored. This is for
+  // testing purposes. Else, use the vector width computed from TTI.
+  int64_t MaxContiguousStrideSize = 0;
+  if (ContiguousStrideSizeThreshold.has_value()) {
+    MaxContiguousStrideSize = ContiguousStrideSizeThreshold.value();
+  } else {
+    auto VectorWidth =
+        TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector);
+    MaxContiguousStrideSize = VectorWidth.getFixedValue();
+  }
+
+  if (MaxContiguousStrideSize == 0)
     return false;
 
   const RegDDRef *FirstRef = Group.front();
@@ -1181,25 +1198,6 @@ bool DDRefUtils::isGroupAccessingContiguousMemory(
     return false;
 
   if (ExpectedContiguousAccessMatches < 2)
-    return false;
-
-  // Bail out if the number of bits that are going to be accessed is larger
-  // than the threshold. If the size was provided using the option
-  // -hir-runtime-dd-contiguous-access-threshold=X, the prioritize this value.
-  // If the value is -1, then the threshold will be fully ignored. This is for
-  // testing purposes. Else, use the vector width computed from TTI.
-  int64_t MaxContiguousStrideSize = 0;
-  if (ThresholdPresent) {
-    MaxContiguousStrideSize = ContiguousStrideSizeThreshold;
-  } else {
-    auto VectorWidth =
-        TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector);
-    MaxContiguousStrideSize = VectorWidth.getFixedValue();
-  }
-
-  // If MaxContiguousStrideSize is 0, then we fully disable RuntimeDD for
-  // contiguous memory access.
-  if (MaxContiguousStrideSize == 0)
     return false;
 
   if (MaxContiguousStrideSize > 0) {

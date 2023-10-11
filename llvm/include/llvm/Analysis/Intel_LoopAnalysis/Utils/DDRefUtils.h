@@ -470,8 +470,8 @@ public:
   static bool isGroupAccessingContiguousMemory(
       const SmallVectorImpl<RegDDRef *> &Group,
       function_ref<bool(const RegDDRef *)> IsRval, const HLLoop *InnermostLoop,
-      TargetTransformInfo &TTI, bool ThresholdPresent = false,
-      int64_t ContiguousStrideSizeThreshold = 0);
+      TargetTransformInfo &TTI,
+      std::optional<int64_t> ContiguousStrideSizeThreshold = std::nullopt);
 };
 
 } // End namespace loopopt
