@@ -41,7 +41,7 @@ void bar(int if_val, int num_threads_val) {
 
   // proc_bind
   // CHECK: "QUAL.OMP.PRIVATE:TYPED"(ptr [[PB1_ADDR]]
-  // CHECK-SAME: "QUAL.OMP.PROC_BIND.MASTER"
+  // CHECK-SAME: "QUAL.OMP.PROC_BIND.PRIMARY"
   #pragma omp parallel private(pb1) proc_bind(master)
   { foo(); }
 
