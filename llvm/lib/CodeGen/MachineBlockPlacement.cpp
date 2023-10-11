@@ -3332,13 +3332,33 @@ void MachineBlockPlacement::alignBlocks() {
     const Align TLIAlign = TLI->getPrefLoopAlignment(L);
     Attribute AttrAlignAttr =
         F->getFunction().getFnAttribute("intel-code-align");
-    unsigned AttrAlign = 1;
+    unsigned MaxAttrMDAlign = 1;
     if (AttrAlignAttr.isValid()) {
       StringRef Val = AttrAlignAttr.getValueAsString();
-      Val.getAsInteger(0, AttrAlign);
+      Val.getAsInteger(0, MaxAttrMDAlign);
     }
-    // Use max of the TLIAlign and AttrAlign
-    const Align LoopAlign = std::max(TLIAlign, Align(AttrAlign));
+    MDNode *LoopID = L->getLoopID(false);
+    if (LoopID) {
+      for (unsigned i = 1, e = LoopID->getNumOperands(); i < e; ++i) {
+        MDNode *MD = dyn_cast<MDNode>(LoopID->getOperand(i));
+        if (MD == nullptr)
+          continue;
+        MDString *S = dyn_cast<MDString>(MD->getOperand(0));
+        if (S == nullptr)
+          continue;
+        if (S->getString() == "llvm.loop.intel.align") {
+          assert(MD->getNumOperands() == 2 &&
+                 "per-loop align metadata should have two operands.");
+          unsigned MDAlgin =
+              mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+          assert(MDAlgin >= 1 && "per-loop align value must be positive.");
+          MaxAttrMDAlign = std::max(MaxAttrMDAlign, MDAlgin);
+        }
+      }
+    }
+
+    // Use max of the TLIAlign and MaxAttrMDAlign
+    const Align LoopAlign = std::max(TLIAlign, Align(MaxAttrMDAlign));
     if (LoopAlign == 1)
 #endif // INTEL_CUSTOMIZATION
       continue; // Don't care about loop alignment.
