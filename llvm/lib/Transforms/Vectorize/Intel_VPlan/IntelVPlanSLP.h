@@ -58,7 +58,7 @@ class VPlanSLP {
 
   public:
     VPlanSLPNodeElement(const VPValue *Value) : Value(Value) {
-      setOpsAndAltOpcode(nullptr, nullptr);
+      setOpsAndAltOpcode(nullptr, nullptr, 0);
     }
     ~VPlanSLPNodeElement() = default;
 
@@ -71,7 +71,7 @@ class VPlanSLP {
 
     // Trivial setter for private fields.
     void setOpsAndAltOpcode(const VPValue *Op0, const VPValue *Op1,
-                            unsigned Opcode = 0) {
+                            unsigned Opcode) {
       AltOpcode = Opcode;
       Op[0] = Op0;
       Op[1] = Op1;
@@ -124,8 +124,7 @@ class VPlanSLP {
   // NOTE:
   // There can be more than one splat vector in InValues. The utility can detect
   // only one and the caller handles the rest elements.
-  bool getSplatVector(ArrayRef<const VPValue *> InValues,
-                      SmallVectorImpl<const VPValue *> &OutValues) const;
+  bool getSplatVector(ElemArrayRef InValues, ElemVectorImplTy &OutValues) const;
 
   // Picks all values in InValues array that are constants and copies those
   // values in OutValues. Return true if 2 or more same values are found.
@@ -138,15 +137,14 @@ class VPlanSLP {
   // the same type of their arguments. The exception here could be vectorizable
   // scalar instructions that have two or more immediate arguments of different
   // type.
-  bool getConstVector(ArrayRef<const VPValue *> InValues,
-                      SmallVectorImpl<const VPValue *> &OutValues) const;
+  bool getConstVector(ElemArrayRef InValues, ElemVectorImplTy &OutValues) const;
 
   // Return true if at least two values from InValues array can be represented
   // with a vector instruction.
   //
   // The utility populates OutValues with vectorizable VPInstructions.
-  bool getVecInstsVector(ArrayRef<const VPValue *> InValues,
-                         SmallVectorImpl<const VPValue *> &OutValues) const;
+  bool getVecInstsVector(ElemArrayRef InValues,
+                         ElemVectorImplTy &OutValues) const;
 
   // Selects values from InValues array that can be vectorized legally and
   // copy those values into OutValues array.
@@ -157,9 +155,8 @@ class VPlanSLP {
   //
   // It is caller responsibility to handle other elements of InValues that are
   // not copied into OutValues but may construct another vector yet.
-  VPlanSLPNodeTy
-  getVectorizableValues(ArrayRef<const VPValue *> InValues,
-                        SmallVectorImpl<const VPValue *> &OutValues) const;
+  VPlanSLPNodeTy getVectorizableValues(ElemArrayRef InValues,
+                                       ElemVectorImplTy &OutValues) const;
 
   // Returns true iff VPLoadStoreInst FromInst can be moved to ToInst.
   // TODO: It might be duplication of VPVLSClientMemref::canMoveTo().
