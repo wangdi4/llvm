@@ -157,7 +157,7 @@ static cl::opt<uint32_t> MaxNumUsesTraversed(
     cl::desc("Max num uses visited for identifying load "
              "invariance in loop using invariant start (default = 8)"));
 
-cl::opt<unsigned> FPAssociationUpperLimit(
+static cl::opt<unsigned> FPAssociationUpperLimit(
     "licm-max-num-fp-reassociations", cl::init(5U), cl::Hidden,
     cl::desc(
         "Set upper limit for the number of transformations performed "
