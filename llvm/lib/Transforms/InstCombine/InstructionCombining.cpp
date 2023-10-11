@@ -201,7 +201,7 @@ static cl::opt<bool> DisableCanonicalizeSwap(
 static cl::opt<bool>
     DisableFpclassFolding("instcombine-disable-fpclass-folding",
                           cl::desc("Disable fpclass folding in InstCombin"),
-                          cl::ReallyHidden, cl::init(true));
+                          cl::Hidden, cl::init(true));
 
 #endif // INTEL_CUSTOMIZATION
 
