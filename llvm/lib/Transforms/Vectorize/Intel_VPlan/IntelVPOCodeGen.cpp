@@ -2793,9 +2793,8 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
 
   Function *CalledFunc = VPCall->getCalledFunction();
   assert(CalledFunc && "Unexpected null call function.");
-  Function *VectorF =
-      getOrInsertVectorLibFunction(CalledFunc, VF, VecArgTys, TLI,
-                                   Intrinsic::not_intrinsic, IsMasked);
+  Function *VectorF = getOrInsertVectorLibFunction(
+      CalledFunc, VF, VecArgTys, TLI, TTI, Intrinsic::not_intrinsic, IsMasked);
   assert(VectorF && "Vector function not created.");
   CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
   // Copy fast math flags represented in VPInstruction to VecCall.
@@ -3582,7 +3581,7 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
     } else {
       VectorF =
           getOrInsertVectorLibFunction(CalledFunc, VF / PumpFactor, VecArgTys,
-                                       TLI, VectorIntrinID, IsMasked);
+                                       TLI, TTI, VectorIntrinID, IsMasked);
       assert(VectorF && "Can't create vector function.");
       VectorFTy = cast<Function>(VectorF)->getFunctionType();
     }

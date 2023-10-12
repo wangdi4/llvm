@@ -1757,7 +1757,7 @@ void VPOCodeGenHIR::replaceLibCallsInScalarLoop(HLInst *HInst) {
     // Using the newly created vector call arguments, generate the vector
     // call instruction and extract the low element.
     Function *VectorF = getOrInsertVectorLibFunction(
-        F, RemainderLibCallVF, ArgTys, TLI, Intrinsic::not_intrinsic,
+        F, RemainderLibCallVF, ArgTys, TLI, TTI, Intrinsic::not_intrinsic,
         false /*non-masked*/);
     assert(VectorF && "Can't create vector function.");
 
@@ -3266,8 +3266,9 @@ void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
           RetChunks);
       assert(VectorF && "Can't create vector variant function.");
     } else {
-      VectorF = getOrInsertVectorLibFunction(Fn, VF / PumpFactor, ArgTys, TLI,
-                                             VectorIntrinID, Mask != nullptr);
+      VectorF =
+          getOrInsertVectorLibFunction(Fn, VF / PumpFactor, ArgTys, TLI, TTI,
+                                       VectorIntrinID, Mask != nullptr);
       assert(VectorF && "Can't create vector function.");
       VectorFTy = cast<Function>(VectorF)->getFunctionType();
     }

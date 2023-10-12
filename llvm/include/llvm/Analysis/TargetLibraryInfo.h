@@ -277,8 +277,9 @@ public:
   /// returned if and only if a vector version for a particular VF
   /// and appropriate 'IsMasked' property exists.
   bool isFunctionVectorizable(StringRef F, const ElementCount &VF,
-                              bool IsMasked) const {
-    return !getVectorizedFunction(F, VF, IsMasked).empty();
+                              bool IsMasked,
+                              const TargetTransformInfo *TTI = nullptr) const {
+    return !getVectorizedFunction(F, VF, IsMasked, TTI).empty();
   }
 
   /// True iff vector library is set to SVML.
@@ -523,8 +524,9 @@ public:
 
 #if INTEL_CUSTOMIZATION
   bool isFunctionVectorizable(StringRef F, const ElementCount &VF,
-                              bool IsMasked = false) const {
-    return Impl->isFunctionVectorizable(F, VF, IsMasked);
+                              bool IsMasked = false,
+                              const TargetTransformInfo *TTI = nullptr) const {
+    return Impl->isFunctionVectorizable(F, VF, IsMasked, TTI);
   }
 
 private:

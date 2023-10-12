@@ -1065,10 +1065,12 @@ Value *getOrInsertVectorVariantFunction(FunctionType *&FTy, Function &OrigF,
 /// This function will insert functions for library calls, intrinsics.
 /// The call site instruction is not strictly required here. It is
 /// used only for OpenCL read/write channel functions.
-Function *getOrInsertVectorLibFunction(
-  Function *OrigF, unsigned VL, ArrayRef<Type *> ArgTys,
-  TargetLibraryInfo *TLI, Intrinsic::ID ID, bool Masked,
-  const CallInst *Call = nullptr);
+Function *getOrInsertVectorLibFunction(Function *OrigF, unsigned VL,
+                                       ArrayRef<Type *> ArgTys,
+                                       TargetLibraryInfo *TLI,
+                                       const TargetTransformInfo *TTI,
+                                       Intrinsic::ID ID, bool Masked,
+                                       const CallInst *Call = nullptr);
 
 /// Update \p CI call to use calling convention from a \p Callee.
 void setCallCallingConvention(CallInst *CI, Value *Callee);

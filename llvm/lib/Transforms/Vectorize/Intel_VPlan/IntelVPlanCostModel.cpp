@@ -63,12 +63,15 @@ static cl::opt<float>
 static cl::opt<float> CMDefaultCallCost("vplan-cm-default-call-cost",
                                         cl::init(100.f), cl::Hidden,
                                         cl::desc("Default cost of a call"));
+static cl::opt<float>
+    CMCallCostVFBias("vplan-cm-call-cost-vf-bias", cl::init(1.f), cl::Hidden,
+                     cl::desc("VF bias is the cost of a call"));
 
 // Heuristic for the call of a vector variant.
 // Returns a default cost with a bias dependent on VF. This favors larger VFs
 // which is our aim.
 static float getCMDefaultCallCost(unsigned VF) {
-  return CMDefaultCallCost + (CMDefaultCallCost*VF/100);
+  return CMDefaultCallCost + VF * CMCallCostVFBias;
 }
 
 /// A helper function that returns the alignment of load or store instruction.
