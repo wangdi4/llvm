@@ -34,15 +34,11 @@ constexpr unsigned int recordThresh = 10;
 
 #ifndef MCACHE1
 #define MCACHE1 32
-<<<<<<< HEAD
 #endif
 #ifndef NCACHE1
 #define NCACHE1 (TN * 4)
 #endif
 #ifndef KCACHE1
-=======
-#define NCACHE1 (TN * 4)
->>>>>>> 92f6588a88b982da2561eee7427dcedb6bc1d3ad
 #define KCACHE1 16
 #endif
 
