@@ -12,16 +12,30 @@ The VPlan vectorizer is a large component.  This page provides a brief
 description of the vectorizer's subcomponents and where to find the
 associated code.
 
-Almost all vectorizer code is found in one directory and its single
-subdirectory::
+Almost all vectorizer code is found in one directory and its
+subdirectories::
 
-   llvm/lib/Transforms/Vectorize/Intel_VPlan              [.../Intel_VPlan]
-   llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR     [.../VPlanHIR]
+   llvm/lib/Transforms/Vectorize/Intel_VPlan          [.../Intel_VPlan]
+   llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR      [.../HIR]
+   llvm/lib/Transforms/Vectorize/Intel_VPlan/LLVM     [.../LLVM]
+
+The intention of this directory structure is to separate code that is dependent
+on the form of the input IR from code that is independent of it.  VPlan is
+designed as a separate IR for modeling vectorization opportunities.  Currently
+VPlan can be invoked using either LLVM IR or the loop optimizer's HIR representation;
+each is converted into the VPlan IR.  (See :doc:`Pipeline` for a full discussion.)
+Code in the ``Intel_VPlan`` directory is independent of which IR was chosen.
+Code in the ``HIR`` subdirectory is specific to HIR.  Code in the ``LLVM``
+subdirectory is specific to LLVM IR.
+
+Work is currently underway to restructure code to meet the above guidelines (and
+clean it up in other ways).  Until that work is complete, some files in ``[.../Intel_VPlan]``
+will contain IR-dependent code.
 
 A few files are co-located with the community vectorizer's include path in order
 to make them available to the pass manager::
 
-   llvm/include/llvm/Transforms/Vectorize                 [.../Vectorize]
+   llvm/include/llvm/Transforms/Vectorize             [.../Vectorize]
 
 Overall Framework
 =================
@@ -100,10 +114,12 @@ does some legality testing in its ``isSupported()`` method.
 
 Legality is implemented in the following files:
 
-* `.../Intel_VPlan/IntelLoopVectorizationLegality.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationLegality.h>`_
-* `.../Intel_VPlan/IntelLoopVectorizationLegality.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationLegality.cpp>`_
-* `.../VPlanHIR/IntelVPlanHCFGBuilderHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.h>`_
-* `.../VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp>`_
+* `.../Intel_VPlan/Legality.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/Legality.h>`_
+* `.../Intel_VPlan/Legality.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/Legality.cpp>`_
+* `.../HIR/LegalityHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/LegalityHIR.h>`_
+* `.../HIR/LegalityHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/LegalityHIR.cpp>`_
+* `.../LLVM/LegalityLLVM.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/LLVM/LegalityLLVM.h>`_
+* `.../LLVM/LegalityLLVM.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/LLVM/LegalityLLVM.cpp>`_
 
 The HIR framework (beyond the scope of this document) can be found here:
 
@@ -124,8 +140,8 @@ The Planner is implemented in the following files:
 
 * `.../Intel_VPlan/IntelLoopVectorizationPlanner.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationPlanner.h>`_
 * `.../Intel_VPlan/IntelLoopVectorizationPlanner.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationPlanner.cpp>`_
-* `.../VPlanHIR/IntelLoopVectorizationPlannerHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.h>`_
-* `.../VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp>`_
+* `.../HIR/IntelLoopVectorizationPlannerHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelLoopVectorizationPlannerHIR.h>`_
+* `.../HIR/IntelLoopVectorizationPlannerHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelLoopVectorizationPlannerHIR.cpp>`_
 
 Framework APIs
 ==============
@@ -142,7 +158,7 @@ in VPlan IR, ``VPValue`` serves as a base class for ``VPUser``, which is a base 
 
 The API for VPValue and its derived types is implemented in the following file:
 
-* `.../IntelVPlanValue.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanValue.h>`_
+* `.../Intel_VPlan/IntelVPlanValue.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanValue.h>`_
 
 API for VPlan and VPInstruction
 -------------------------------
@@ -192,7 +208,7 @@ class also provides support for storing underlying HIR nodes with instructions.
 The VPlan Builder API is implemented in the following files:
 
 * `.../Intel_VPlan/IntelVPlanBuilder.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanBuilder.h>`_
-* `.../VPlanHIR/IntelVPlanBuilderHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanBuilderHIR.h>`_
+* `.../HIR/IntelVPlanBuilderHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanBuilderHIR.h>`_
 
 Externals API
 -------------
@@ -275,12 +291,12 @@ Control flow graph construction is implemented in the following files:
 * `.../Intel_VPlan/IntelVPlanCFGBuilder.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCFGBuilder.cpp>`_
 * `.../Intel_VPlan/IntelVPlanHCFGBuilder.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanHCFGBuilder.h>`_
 * `.../Intel_VPlan/IntelVPlanHCFGBuilder.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanHCFGBuilder.cpp>`_
-* `.../VPlanHIR/IntelVPlanDecomposerHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanDecomposerHIR.h>`_
-* `.../VPlanHIR/IntelVPlanDecomposerHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanDecomposerHIR.cpp>`_
-* `.../VPlanHIR/IntelVPlanHCFGBuilderHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.h>`_
-* `.../VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp>`_
-* `.../VPlanHIR/IntelVPlanInstructionDataHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.h>`_
-* `.../VPlanHIR/IntelVPlanInstructionDataHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.cpp>`_
+* `.../HIR/IntelVPlanDecomposerHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanDecomposerHIR.h>`_
+* `.../HIR/IntelVPlanDecomposerHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanDecomposerHIR.cpp>`_
+* `.../HIR/IntelVPlanHCFGBuilderHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanHCFGBuilderHIR.h>`_
+* `.../HIR/IntelVPlanHCFGBuilderHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanHCFGBuilderHIR.cpp>`_
+* `.../HIR/IntelVPlanInstructionDataHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanInstructionDataHIR.h>`_
+* `.../HIR/IntelVPlanInstructionDataHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanInstructionDataHIR.cpp>`_
 
 CFG Merger
 ----------
@@ -314,8 +330,8 @@ Loop entity management is implemented in the following files:
 * `.../Intel_VPlan/IntelVPlanLegalityDescr.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLegalityDescr.h>`_
 * `.../Intel_VPlan/IntelVPLoopAnalysis.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPLoopAnalysis.h>`_
 * `.../Intel_VPlan/IntelVPLoopAnalysis.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPLoopAnalysis.cpp>`_
-* `.../VPlanHIR/IntelVPlanHCFGBuilderHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.h>`_
-* `.../VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp>`_
+* `.../HIR/IntelVPlanHCFGBuilderHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanHCFGBuilderHIR.h>`_
+* `.../HIR/IntelVPlanHCFGBuilderHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanHCFGBuilderHIR.cpp>`_
 
 Analyses
 ========
@@ -352,10 +368,12 @@ and can interoperate with LLVM's community SCEV analysis.  The HIR SCEV analysis
 
 Scalar evolution for VPlan is implemented in the following files:
 
-* `.../Intel_VPlan/IntelVPlanScalarEvolution.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanScalarEvolution.h>`_
-* `.../Intel_VPlan/IntelVPlanScalarEvolution.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanScalarEvolution.cpp>`_
-* `.../VPlanHIR/IntelVPlanScalarEvolutionHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanScalarEvolutionHIR.h>`_
-* `.../VPlanHIR/IntelVPlanScalarEvolutionHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanScalarEvolutionHIR.cpp>`_
+* `.../Intel_VPlan/ScalarEvolution.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/ScalarEvolution.h>`_
+* `.../Intel_VPlan/ScalarEvolution.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/ScalarEvolution.cpp>`_
+* `.../HIR/ScalarEvolutionHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/ScalarEvolutionHIR.h>`_
+* `.../HIR/ScalarEvolutionHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/ScalarEvolutionHIR.cpp>`_
+* `.../LLVM/ScalarEvolutionLLVM.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/LLVM/ScalarEvolutionLLVM.h>`_
+* `.../LLVM/ScalarEvolutionLLVM.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/LLVM/ScalarEvolutionLLVM.cpp>`_
 
 .. _ValueTracking-label:
 
@@ -373,8 +391,8 @@ Value tracking is implemented in the following files:
 * `.../Intel_VPlan/IntelVPAssumptionCache.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPAssumptionCache.cpp>`_
 * `.../Intel_VPlan/IntelVPlanValueTracking.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanValueTracking.h>`_
 * `.../Intel_VPlan/IntelVPlanValueTracking.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanValueTracking.cpp>`_
-* `.../VPlanHIR/IntelVPlanValueTrackingHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanValueTrackingHIR.h>`_
-* `.../VPlanHIR/IntelVPlanValueTrackingHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanValueTrackingHIR.cpp>`_
+* `.../HIR/IntelVPlanValueTrackingHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanValueTrackingHIR.h>`_
+* `.../HIR/IntelVPlanValueTrackingHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanValueTrackingHIR.cpp>`_
 
 Divergence Analysis
 -------------------
@@ -458,9 +476,9 @@ VLS analysis is implemented in the following files:
 * `.../Intel_VPlan/IntelVPlanVLSAnalysis.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSAnalysis.cpp>`_
 * `.../Intel_VPlan/IntelVPlanVLSClient.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSClient.h>`_
 * `.../Intel_VPlan/IntelVPlanVLSClient.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSClient.cpp>`_
-* `.../VPlanHIR/IntelVPlanVLSAnalysisHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanVLSAnalysisHIR.h>`_
-* `.../VPlanHIR/IntelVPlanVLSAnalysisHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanVLSAnalysisHIR.cpp>`_
-* `.../VPlanHIR/IntelVPlanVLSClientHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanVLSClientHIR.h>`_
+* `.../HIR/IntelVPlanVLSAnalysisHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanVLSAnalysisHIR.h>`_
+* `.../HIR/IntelVPlanVLSAnalysisHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanVLSAnalysisHIR.cpp>`_
+* `.../HIR/IntelVPlanVLSClientHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanVLSClientHIR.h>`_
 
 The Intel ``OptVLS`` infrastructure is implemented in the following files:
 
@@ -742,8 +760,8 @@ VPlan code generation is implemented in the following files:
 * `.../Intel_VPlan/IntelVPlanVectorizeIndirectCalls.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVectorizeIndirectCalls.cpp>`_
 * `.../Intel_VPlan/IntelVPOCodeGen.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPOCodeGen.h>`_
 * `.../Intel_VPlan/IntelVPOCodeGen.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPOCodeGen.cpp>`_
-* `.../VPlanHIR/IntelVPOCodeGenHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPOCodeGenHIR.h>`_
-* `.../VPlanHIR/IntelVPOCodeGenHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPOCodeGenHIR.cpp>`_
+* `.../HIR/IntelVPOCodeGenHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPOCodeGenHIR.h>`_
+* `.../HIR/IntelVPOCodeGenHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPOCodeGenHIR.cpp>`_
 
 Optimization Report
 ===================
@@ -781,8 +799,8 @@ The VPlan verifier is implemented in the following files:
 
 * `.../Intel_VPlan/IntelVPlanVerifier.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVerifier.h>`_
 * `.../Intel_VPlan/IntelVPlanVerifier.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVerifier.cpp>`_
-* `.../VPlanHIR/IntelVPlanVerifierHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanVerifierHIR.h>`_
-* `.../VPlanHIR/IntelVPlanVerifierHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanVerifierHIR.cpp>`_
+* `.../HIR/IntelVPlanVerifierHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanVerifierHIR.h>`_
+* `.../HIR/IntelVPlanVerifierHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPlanVerifierHIR.cpp>`_
 
 Function Vectorizer
 -------------------
