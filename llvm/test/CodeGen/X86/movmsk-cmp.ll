@@ -4422,7 +4422,6 @@ define i32 @pr67287(<2 x i64> %broadcast.splatinsert25) {
 ; KNL-NEXT:    testb $3, %al
 ; KNL-NEXT:    jne .LBB97_2
 ; KNL-NEXT:  # %bb.1: # %entry
-; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb $1, %al
 ; KNL-NEXT:    jne .LBB97_2
 ; KNL-NEXT:  # %bb.3: # %middle.block
