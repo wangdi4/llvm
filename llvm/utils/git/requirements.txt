@@ -4,7 +4,6 @@
 #
 # Modifications, Copyright (C) Intel Corporation
 #
-<<<<<<< HEAD
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
 # provided to you ("License"). Unless the License provides otherwise, you may not
@@ -21,43 +20,3 @@
 # comment.
 #
 # end INTEL_CUSTOMIZATION
-=======
-certifi==2023.7.22
-    # via
-    #   -r requirements.txt.in
-    #   requests
-cffi==1.15.1
-    # via
-    #   cryptography
-    #   pynacl
-charset-normalizer==2.1.1
-    # via requests
-cryptography==41.0.4
-    # via pyjwt
-deprecated==1.2.13
-    # via pygithub
-gitdb==4.0.9
-    # via gitpython
-gitpython==3.1.37
-    # via -r requirements.txt.in
-idna==3.4
-    # via requests
-pycparser==2.21
-    # via cffi
-pygithub==1.59.1
-    # via -r requirements.txt.in
-pyjwt[crypto]==2.5.0
-    # via pygithub
-pynacl==1.5.0
-    # via pygithub
-requests==2.31.0
-    # via pygithub
-smmap==5.0.0
-    # via gitdb
-types-cryptography==3.3.23.2
-    # via pyjwt
-urllib3==1.26.12
-    # via requests
-wrapt==1.14.1
-    # via deprecated
->>>>>>> 1cdb3c667df235e85827741cd4ddcb8346619204
