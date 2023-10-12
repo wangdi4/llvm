@@ -221,7 +221,7 @@ bool TargetLibraryInfo::isFunctionVectorizable(
   StringRef ReqdCpuFeature = getVectorFuncReqdCpuFeature(CalledFnName, VF);
   return isValidCallForVectorization(CB) &&
          isCpuFeatureAvailableForTarget(ReqdCpuFeature, TTI) &&
-         isFunctionVectorizable(CalledFnName, VF, IsMasked);
+         isFunctionVectorizable(CalledFnName, VF, IsMasked, TTI);
 }
 
 bool TargetLibraryInfo::isFunctionVectorizable(const CallBase &CB,
