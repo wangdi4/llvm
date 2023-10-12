@@ -36,8 +36,6 @@ namespace llvm {
 namespace loopopt {
 
 namespace distribute {
-const unsigned MaxDistributedLoop = 25;
-const unsigned MaxArrayTempsAllowed = 50;
 const unsigned SmallTripCount = 16;
 const unsigned StripmineSize = 64;
 // For stress testing, use small max resource
@@ -117,6 +115,60 @@ typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
     Gatherer;
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 typedef SmallVector<DistPPNode *, 32> MergedPiBlockTy;
+
+// Collects vectorization related info for loop chunks.
+struct ChunkVectorizationInfo {
+  unsigned NumUnitStrideRefs;
+  unsigned NumNonUnitStrideRefs;
+  unsigned NumFPOperations;
+  unsigned NumCalls;
+
+  bool IsLegal;
+  // This flag is set if the vectorization preventing lexically backward edge is
+  // across PiBlocks so it can be converted into forward edge with distribution
+  // mmaking vectorization legal.
+  bool IsLegalAfterDistribution;
+
+  // Default constructor for empty chunks. Empty chunk is vectorizable.
+  ChunkVectorizationInfo()
+      : NumUnitStrideRefs(0), NumNonUnitStrideRefs(0), NumFPOperations(0),
+        NumCalls(0), IsLegal(true), IsLegalAfterDistribution(true) {}
+
+  bool isLegal() const { return (IsLegal || IsLegalAfterDistribution); }
+
+  // Disable vectorization when there are too many non-unit stride refs in
+  // comparison to number of unit stride refs.
+  bool isProfitable() const {
+    return (NumUnitStrideRefs >= (2 * NumNonUnitStrideRefs));
+  }
+
+  // Accumulate results of CVI into this object.
+  void accumulate(const ChunkVectorizationInfo &CVI) {
+    NumUnitStrideRefs += CVI.NumUnitStrideRefs;
+    NumNonUnitStrideRefs += CVI.NumNonUnitStrideRefs;
+    NumFPOperations += CVI.NumFPOperations;
+    NumCalls += CVI.NumCalls;
+
+    IsLegal = IsLegal && CVI.IsLegal;
+    IsLegalAfterDistribution =
+        IsLegalAfterDistribution && CVI.IsLegalAfterDistribution;
+  }
+
+  // Returns true if the chunk contains substantial computation to consider
+  // vectorization even if it requires many scalar-expanded temps.
+  bool hasSubstantialComputation() const {
+    return (isLegal() && (2 * NumCalls + NumFPOperations) > 25);
+  }
+
+  void clear() {
+    NumUnitStrideRefs = 0;
+    NumNonUnitStrideRefs = 0;
+    NumFPOperations = 0;
+    NumCalls = 0;
+    IsLegal = true;
+    IsLegalAfterDistribution = true;
+  }
+};
 
 class ScalarExpansion {
 public:
@@ -280,18 +332,20 @@ class HIRLoopDistribution {
   typedef bool InsertOrMove;
 
 public:
-  HIRLoopDistribution(HIRFramework &HIRF, HIRDDAnalysis &DDA,
-                      HIRSafeReductionAnalysis &SRA,
+  HIRLoopDistribution(HIRFramework &HIRF, const TargetLibraryInfo &TLI,
+                      HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
                       HIRSparseArrayReductionAnalysis &SARA,
                       HIRLoopResource &HLR, HIRLoopLocality &HLL,
                       DistHeuristics DistCostModel)
-      : HIRF(HIRF), DDA(DDA), SRA(SRA), SARA(SARA), HNU(HIRF.getHLNodeUtils()),
-        HLR(HLR), HLL(HLL), DistCostModel(DistCostModel) {}
+      : HIRF(HIRF), TLI(TLI), DDA(DDA), SRA(SRA), SARA(SARA),
+        HNU(HIRF.getHLNodeUtils()), HLR(HLR), HLL(HLL),
+        DistCostModel(DistCostModel) {}
 
   bool run();
 
 private:
   HIRFramework &HIRF;
+  const TargetLibraryInfo &TLI;
   HIRDDAnalysis &DDA;
   HIRSafeReductionAnalysis &SRA;
   HIRSparseArrayReductionAnalysis &SARA;
