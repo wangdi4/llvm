@@ -6164,19 +6164,19 @@ InstructionCost X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
   static const CostTblEntry SKXGatherDTbl[] = {
     { ISD::MGATHER, MVT::v4i32, 2 }, // vpgatherdd xmm version.
     { ISD::MGATHER, MVT::v8i32, 4 }, // vpgatherdd ymm version.
-    { ISD::MGATHER, MVT::v16i32, 10 }, // vpgatherdd zmm version.
+    { ISD::MGATHER, MVT::v16i32, 8 }, // vpgatherdd zmm version.
 
-    { ISD::MGATHER, MVT::v4f32, 2 }, // vpgatherdps xmm version.
-    { ISD::MGATHER, MVT::v8f32, 4 }, // vpgatherdps ymm version.
-    { ISD::MGATHER, MVT::v16f32, 10 }, // vpgatherdps zmm version.
+    { ISD::MGATHER, MVT::v4f32, 2 }, // vgatherdps xmm version.
+    { ISD::MGATHER, MVT::v8f32, 4 }, // vgatherdps ymm version.
+    { ISD::MGATHER, MVT::v16f32, 8 }, // vgatherdps zmm version.
 
     { ISD::MGATHER, MVT::v2i64, 3 }, // vpgatherdq xmm version.
     { ISD::MGATHER, MVT::v4i64, 3 }, // vpgatherdq ymm version.
     { ISD::MGATHER, MVT::v8i64, 4 }, // vpgatherdq zmm version.
 
-    { ISD::MGATHER, MVT::v2f64, 3 }, // vpgatherdpd xmm version.
-    { ISD::MGATHER, MVT::v4f64, 3 }, // vpgatherdpd ymm version.
-    { ISD::MGATHER, MVT::v8f64, 4 }, // vpgatherdpd zmm version.
+    { ISD::MGATHER, MVT::v2f64, 3 }, // vgatherdpd xmm version.
+    { ISD::MGATHER, MVT::v4f64, 3 }, // vgatherdpd ymm version.
+    { ISD::MGATHER, MVT::v8f64, 4 }, // vgatherdpd zmm version.
   };
 
   static const CostTblEntry SKXGatherQTbl[] = {
