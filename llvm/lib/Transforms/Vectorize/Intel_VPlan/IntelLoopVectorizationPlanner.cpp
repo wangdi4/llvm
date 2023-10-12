@@ -1658,8 +1658,16 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       // future.
       VPInstructionCost MainLoopIterationCostWithoutPeel,
           MainLoopOverheadWithoutPeel;
+      // Create new CM instead of reusing already created one. This is a
+      // temporary workaround for the problem with SVA and CallVecDecision, they
+      // are kept in VPlan but VPlan can be reused for another VF estimation by
+      // peel/remainder evaluators.
+      //
+      auto MainLoopCMNoPeel = IsVectorAlways || ForcedVF > 1
+                                  ? createNoSLPCostModel(Plan, VF, UF)
+                                  : createCostModel(Plan, VF, UF);
       std::tie(MainLoopIterationCostWithoutPeel, MainLoopOverheadWithoutPeel) =
-          MainLoopCM->getCost();
+          MainLoopCMNoPeel->getCost(false /*ForPeel */, nullptr /*peel*/, OS);
       if (MainLoopIterationCostWithoutPeel.isUnknown() ||
           MainLoopOverheadWithoutPeel.isUnknown()) {
         LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << ", UF = " << UF
@@ -1778,7 +1786,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         LLVM_DEBUG(dbgs() << "Peeling will be performed.\n");
       }
 
-      if (UseMasked && MaskedMainThreshold !=0) {
+      if (UseMasked && MaskedMainThreshold != 0 && ForcedVF <= 1) {
         // Restrict gain for masked main loop by a threshold.
         VPInstructionCost MinReqGain =
             (ScalarCost * VPInstructionCost(MaskedMainThreshold)) / 100.;

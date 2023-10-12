@@ -1258,20 +1258,21 @@ llvm::getOrInsertVectorVariantFunction(FunctionType *&FTy, Function &OrigF,
   return VectorF;
 }
 
-Function *llvm::getOrInsertVectorLibFunction(
-    Function *OrigF, unsigned VL,
-    ArrayRef<Type *> ArgTys,
-    TargetLibraryInfo *TLI,
-    Intrinsic::ID ID,
-    bool Masked, const CallInst *Call) {
+Function *llvm::getOrInsertVectorLibFunction(Function *OrigF, unsigned VL,
+                                             ArrayRef<Type *> ArgTys,
+                                             TargetLibraryInfo *TLI,
+                                             const TargetTransformInfo *TTI,
+                                             Intrinsic::ID ID, bool Masked,
+                                             const CallInst *Call) {
 
   // OrigF is the original scalar function being called. Widen the scalar
   // call to a vector call if it is known to be vectorizable as SVML or
   // an intrinsic.
   assert(OrigF && "Function not found for call instruction");
   StringRef FnName = OrigF->getName();
-  if (TLI && !TLI->isFunctionVectorizable(
-        FnName, ElementCount::getFixed(VL)) &&
+  if (TLI &&
+      !TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VL), Masked,
+                                   TTI) &&
       !ID && !isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName))
     return nullptr;
 
@@ -1352,9 +1353,8 @@ Function *llvm::getOrInsertVectorLibFunction(
 
   assert(TLI && "TLI is expected to be initialized.");
   // Generate a vector library call.
-  StringRef VFnName =
-      TLI->getVectorizedFunction(FnName, ElementCount::getFixed(VL),
-                                 Masked);
+  StringRef VFnName = TLI->getVectorizedFunction(
+      FnName, ElementCount::getFixed(VL), Masked, TTI);
   Function *VectorF = M->getFunction(VFnName);
   if (!VectorF) {
     // isFunctionVectorizable() returned true, so it is guaranteed that
