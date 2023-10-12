@@ -361,10 +361,20 @@ static bool writtenBetween(MemorySSA *MSSA, BatchAAResults &AA,
 static void combineAAMetadata(Instruction *ReplInst, Instruction *I) {
   // FIXME: MD_tbaa_struct and MD_mem_parallel_loop_access should also be
   // handled here, but combineMetadata doesn't support them yet
+#if INTEL_CUSTOMIZATION
+  unsigned KnownIDs[] = {LLVMContext::MD_tbaa,
+                         LLVMContext::MD_alias_scope,
+                         LLVMContext::MD_noalias,
+                         LLVMContext::MD_invariant_group,
+                         LLVMContext::MD_access_group,
+                         LLVMContext::MD_std_container_ptr,
+                         LLVMContext::MD_std_container_ptr_iter};
+#else
   unsigned KnownIDs[] = {LLVMContext::MD_tbaa, LLVMContext::MD_alias_scope,
                          LLVMContext::MD_noalias,
                          LLVMContext::MD_invariant_group,
                          LLVMContext::MD_access_group};
+#endif // INTEL_CUSTOMIZATION
   combineMetadata(ReplInst, I, KnownIDs, true);
 }
 
@@ -1137,14 +1147,6 @@ bool MemCpyOptPass::performCallSlotOptzn(Instruction *cpyLoad,
   // Update AA metadata
   // FIXME: MD_tbaa_struct and MD_mem_parallel_loop_access should also be
   // handled here, but combineMetadata doesn't support them yet
-#if INTEL_CUSTOMIZATION
-  unsigned KnownIDs[] = {LLVMContext::MD_tbaa, LLVMContext::MD_alias_scope,
-                         LLVMContext::MD_noalias,
-                         LLVMContext::MD_invariant_group,
-                         LLVMContext::MD_access_group,
-                         LLVMContext::MD_std_container_ptr,
-                         LLVMContext::MD_std_container_ptr_iter};
-#endif // INTEL_CUSTOMIZATION
   combineAAMetadata(C, cpyLoad);
   if (cpyLoad != cpyStore)
     combineAAMetadata(C, cpyStore);

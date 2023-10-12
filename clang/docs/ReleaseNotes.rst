@@ -376,6 +376,7 @@ Bug Fixes in This Version
 - Fix a crash when evaluating value-dependent structured binding
   variables at compile time.
   Fixes (`#67690 <https://github.com/llvm/llvm-project/issues/67690>`_)
+<<<<<<< HEAD
 - Fixes a ``clang-17`` regression where ``LLVM_UNREACHABLE_OPTIMIZE=OFF``
   cannot be used with ``Release`` mode builds. (`#68237 <https://github.com/llvm/llvm-project/issues/68237>`_).
 - Fix crash in evaluating ``constexpr`` value for invalid template function.
@@ -384,6 +385,8 @@ Bug Fixes in This Version
 - Fixed an issue when a shift count larger than ``__INT64_MAX__``, in a right
   shift operation, could result in missing warnings about
   ``shift count >= width of type`` or internal compiler error.
+=======
+>>>>>>> 2c3d3aad4239eb5300e4058fdeb6c58b96c83432
 
 Bug Fixes to Compiler Builtins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

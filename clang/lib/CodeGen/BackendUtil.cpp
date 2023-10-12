@@ -1145,8 +1145,8 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
                                       PrepareForLTO || PrepareForThinLTO));
     } else if (CodeGenOpts.FatLTO) {
       MPM.addPass(PB.buildFatLTODefaultPipeline(
-          Level, PrepareForThinLTO,
-          PrepareForThinLTO || shouldEmitRegularLTOSummary()));
+          Level, PrepareForThinOrUnifiedLTO,
+          PrepareForThinOrUnifiedLTO || shouldEmitRegularLTOSummary()));
     } else if (PrepareForThinLTO) {
       MPM.addPass(PB.buildThinLTOPreLinkDefaultPipeline(Level));
     } else if (PrepareForLTO) {
