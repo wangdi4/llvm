@@ -41,6 +41,8 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+extern cl::opt<bool> ParseTileAsInterleave;
+
 unsigned WRegionNode::UniqueNum(0);
 
 DenseMap<int, StringRef> llvm::vpo::WRNName = {
@@ -2099,7 +2101,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_SIZES: {
-    extractQualOpndList<SizesClause>(Args, NumArgs, ClauseID, getSizes());
+    if (ParseTileAsInterleave) {
+      extractQualOpndList<StridesClause>(Args, NumArgs, QUAL_OMP_STRIDES,
+                                         getStrides());
+      LLVM_DEBUG(dbgs() << "Parsed SIZES as a STRIDES clause.\n");
+    } else {
+      extractQualOpndList<SizesClause>(Args, NumArgs, ClauseID, getSizes());
+    }
     break;
   }
   case QUAL_OMP_STRIDES: {
