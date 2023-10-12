@@ -4,7 +4,8 @@
 ; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -debug-only=ipcloning  -disable-output 2>&1 |  FileCheck %s
 ; CHECK: [IP_CLONING][ARG merge]: Analysing Function(ptr @c_kernel.DIR.OMP.PARALLEL.LOOP.2.split678.1)
 ; CHECK-NEXT: [IP_CLONING][ARG merge]: Detected 1 mergeable argument sets.
-; CHECK-NEXT:   [1]: 8 9 
+; CHECK-NEXT:   [1]: 8 9
+; CHECK-NEXT: [IP_CLONING][ARG merge]: Set attribute for (ptr %8) to none 
 ; CHECK-NEXT: [IP_CLONING][ARG merge]: Function(ptr @c_kernel.DIR.OMP.PARALLEL.LOOP.2.split678.1) - ARG(ptr %9) replaced with ptr %8
 
 ; The test assesses the compiler's capability to "merge" formal function parameters,
