@@ -259,6 +259,9 @@ MODULE_PASS("function-import", FunctionImportPass())
 MODULE_PASS("function-splitting", FunctionSplittingPass()) // INTEL
 MODULE_PASS("globalopt", GlobalOptPass())
 MODULE_PASS("globalsplit", GlobalSplitPass())
+MODULE_PASS("hipstdpar-select-accelerator-code",
+  HipStdParAcceleratorCodeSelectionPass())
+MODULE_PASS("hipstdpar-interpose-alloc", HipStdParAllocationInterpositionPass())
 MODULE_PASS("hotcoldsplit", HotColdSplittingPass())
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
