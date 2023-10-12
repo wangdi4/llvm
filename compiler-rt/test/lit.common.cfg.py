@@ -951,3 +951,11 @@ if config.compiler_id == "GNU":
     gcc_dir = os.path.dirname(config.clang)
     libasan_dir = os.path.join(gcc_dir, "..", "lib" + config.bits)
     push_dynamic_library_lookup_path(config, libasan_dir)
+
+# INTEL_CUSTOMIZATION
+# JIRA: CMPLRLLVM-52386, CMPLRLLVM-42781
+# This flag will help solve runtime problems with i386 on zsc16(or any systems 
+# that have too many files)
+if "-m32" in shlex.split(config.target_cflags):
+    config.target_cflags += " -D_FILE_OFFSET_BITS=64 "
+# end INTEL_CUSTOMIZATION
