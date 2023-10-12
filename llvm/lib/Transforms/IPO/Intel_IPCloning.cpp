@@ -3038,15 +3038,127 @@ static SameArgSetCollection getSameArgSets(Function *F) {
   return Result;
 }
 
+// Auxilary function to define if attribute refers to memory
+// access type for a function parameter.
+static bool isMemAccessAttr(Attribute::AttrKind AKind) {
+  return AKind == Attribute::ReadNone || AKind == Attribute::ReadOnly ||
+         AKind == Attribute::WriteOnly;
+}
+
+static bool isMemAccessAttr(Attribute A) {
+  return A.isEnumAttribute() && isMemAccessAttr(A.getKindAsEnum());
+}
+
+// The function categorizes a function's parameter attributes into two groups:
+// memory access type and all other attributes. The non-memory attributes are
+// placed in the initial slot of the resulting tuple, while the memory access
+// type is placed in the second slot.
+static std::tuple<AttrBuilder, std::optional<Attribute::AttrKind>>
+splitAttributes(Function *F, unsigned ArgNo) {
+  const auto &Attrs = F->getAttributes();
+  auto &Ctx = F->getContext();
+  AttrBuilder AB(Ctx);
+  std::optional<Attribute::AttrKind> MemAccessTypeAttr;
+  for (auto A : Attrs.getParamAttrs(ArgNo)) {
+    if (isMemAccessAttr(A)) {
+      MemAccessTypeAttr = A.getKindAsEnum();
+      continue;
+    }
+    AB.addAttribute(A);
+  }
+
+  // If memory access type attributes are absent for a formal function
+  // argument, and that argument is a pointer, we designate the result as
+  // Attribute::None. This serves as a signal for the subsequent merge logic
+  // to recognize this specific situation.
+  if (!MemAccessTypeAttr && F->getArg(ArgNo)->getType()->isPointerTy())
+    MemAccessTypeAttr = Attribute::None;
+
+  return {std::move(AB), std::move(MemAccessTypeAttr)};
+}
+
+// The table of memory access attributes merge rules.
+// A / O     | None | ReadNone  | ReadOnly  | WriteOnly
+// ----------+------+-----------+-----------+----------
+// None      | None | None      | None      | None
+// ReadNone  | None | ReadNone  | ReadOnly  | WriteOnly
+// ReadOnly  | None | ReadOnly  | ReadOnly  | None
+// WriteOnly | None | WriteOnly | None      | WriteOnly
+
+// The function merges memory access attributes and stores result in
+// the first parameter.
+static void updateMemAccessAttr(Attribute::AttrKind &A, Attribute::AttrKind O) {
+  if (A == O || A == Attribute::None || O == Attribute::ReadNone)
+    return;
+  if (A == Attribute::ReadNone)
+    A = O;
+  else
+    A = Attribute::None;
+}
+
+static void updateMemAccessAttr(std::optional<Attribute::AttrKind> &A,
+                                const std::optional<Attribute::AttrKind> O) {
+  if (A == O || !O)
+    return;
+  if (!A)
+    A = O;
+  else
+    updateMemAccessAttr(A.value(), O.value());
+}
+
+// The function evaluates whether it's possible to merge the attributes of
+// the parameters. If this assessment is successful, it provides the merged
+// memory access attribute as the second element in the resulting tuple, while
+// the result of the validity check is shown as the first element in the tuple.
+// To put it simply, the feasibility check assesses whether the attributes,
+// excluding memory access attributes, match across all entries in "SAS"
+// parameter.
+static std::tuple<bool, std::optional<Attribute::AttrKind>>
+getMergedAttributeSet(Function *F, const SameArgSet &SAS) {
+  if (SAS->empty())
+    return {false, std::nullopt};
+  unsigned BaseArgNo = SAS->front();
+  auto [AB, MemAccessTypeAttr] = splitAttributes(F, BaseArgNo);
+  auto ArgTy = F->getArg(BaseArgNo)->getType();
+  for (unsigned ArgNo : *SAS) {
+    if (ArgNo == BaseArgNo)
+      continue;
+    if (ArgTy != F->getArg(ArgNo)->getType())
+      return {false, std::nullopt};
+    auto [TAB, TMemAccessTypeAttr] = splitAttributes(F, ArgNo);
+    if (AB != TAB)
+      return {false, std::nullopt};
+    updateMemAccessAttr(MemAccessTypeAttr, TMemAccessTypeAttr);
+  }
+  return {true, MemAccessTypeAttr};
+}
+
 // The function alters the usage of formal function parameters by substituting
 // them with one chosen from the recognized set of interchangeable parameters.
 static void mergeArgs() {
+
   for (auto *F : ClonedFunctionList) {
     auto SameArgsSetCollection = getSameArgSets(F);
     for (auto &AS : *SameArgsSetCollection) {
+      auto [Mergeable, MemAttr] = getMergedAttributeSet(F, AS);
+      if (!Mergeable)
+        continue;
       // Pick the first arg as base
       unsigned BaseArgNo = AS->front();
-      auto BaseArg = F->getArg(BaseArgNo);
+      auto *BaseArg = F->getArg(BaseArgNo);
+      if (MemAttr) {
+        BaseArg->removeAttr(Attribute::ReadNone);
+        BaseArg->removeAttr(Attribute::ReadOnly);
+        BaseArg->removeAttr(Attribute::WriteOnly);
+        if (MemAttr != Attribute::None)
+          BaseArg->addAttr(MemAttr.value());
+        LLVM_DEBUG({
+          dbgs() << "[IP_CLONING][ARG merge]: Set attribute for (";
+          BaseArg->printAsOperand(dbgs());
+          dbgs() << ") to " << Attribute::getNameFromAttrKind(MemAttr.value());
+          dbgs() << "\n";
+        });
+      }
       // Replace all other args with the base
       for (unsigned ArgNo : *AS) {
         if (ArgNo == BaseArgNo)
