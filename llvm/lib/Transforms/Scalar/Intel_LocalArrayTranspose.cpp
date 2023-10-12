@@ -197,7 +197,6 @@ bool LocalArrayTransposePass::isValidPHINode(PHINode *PHIN, CallBase *CB1) {
   auto IC0 = dyn_cast<ConstantInt>(ICI->getOperand(1));
   if (!IC0 || !IC0->isZero())
     return false;
-  return true;
   return foundDealloc;
 }
 
