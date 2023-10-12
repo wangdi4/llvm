@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug-only=wrninfo -S %s 2>&1 | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug-only=wrninfo -S %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug-only=wrninfo -S %s 2>&1 | FileCheck --check-prefix=TILE %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug-only=wrninfo -S %s 2>&1 | FileCheck --check-prefix=TILE %s
+; RUN: opt -vpo-paropt-parse-tile-as-interleave -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug -S %s 2>&1 | FileCheck --check-prefix=INTERLEAVE %s
+; RUN: opt -vpo-paropt-parse-tile-as-interleave  -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug -S %s 2>&1 | FileCheck --check-prefix=INTERLEAVE %s
 ;
 ; INTEL_CUSTOMIZATION
 ; Test src:
@@ -18,16 +20,27 @@
 ; Simple case with constant sizes:
 ; Check the WRN for TILE SIZES(4,8)
 ;
-; CHECK: BEGIN TILE ID=1 {
-; CHECK:   LIVEIN clause (size=2): (ptr %do.norm.lb) (ptr %omp.pdo.norm.lb)
-; CHECK:   SIZES clause (size=2): (i32 4) (i32 8)
-; CHECK:   IV clause:   %omp.pdo.norm.iv = alloca i32,{{.*}};   %do.norm.iv = alloca i32,
-; CHECK:   UB clause:   %omp.pdo.norm.ub = alloca i32,{{.*}};   %do.norm.ub = alloca i32,
+; TILE: BEGIN TILE ID=1 {
+; TILE:   LIVEIN clause (size=2): (ptr %do.norm.lb) (ptr %omp.pdo.norm.lb)
+; TILE:   SIZES clause (size=2): (i32 4) (i32 8)
+; TILE:   IV clause:   %omp.pdo.norm.iv = alloca i32,{{.*}};   %do.norm.iv = alloca i32,
+; TILE:   UB clause:   %omp.pdo.norm.ub = alloca i32,{{.*}};   %do.norm.ub = alloca i32,
+
+; Parsing TILE as INTERLEAVE by using the -vpo-paropt-parse-tile-as-interleave flag
+; INTERLEAVE updateWRGraph found: DIR.OMP.TILE
+; INTERLEAVE Created WRNInterleaveNode<1>
+; INTERLEAVE Parsed TILE as an INTERLEAVE construct.
+; INTERLEAVE ClauseSpecifier: base name = QUAL.OMP.SIZES
+; INTERLEAVE Parsed SIZES as a STRIDES clause.
+; INTERLEAVE: BEGIN INTERLEAVE ID=1 {
+; INTERLEAVE:   LIVEIN clause (size=2): (ptr %do.norm.lb) (ptr %omp.pdo.norm.lb)
+; INTERLEAVE:   STRIDES clause (size=2): (i32 4) (i32 8)
+; INTERLEAVE:   IV clause:   %omp.pdo.norm.iv = alloca i32,{{.*}};   %do.norm.iv = alloca i32,
+; INTERLEAVE:   UB clause:   %omp.pdo.norm.ub = alloca i32,{{.*}};   %do.norm.ub = alloca i32,
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: noinline nounwind optnone uwtable
 define void @test_() {
 alloca_0:
   %"$io_ctx" = alloca [8 x i64], align 8
@@ -125,17 +138,14 @@ omp.pdo.epilog5:                                  ; preds = %omp.pdo.cond3
   ret void
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
 
-; Function Attrs: noinline nounwind optnone uwtable
 define internal void @bar_.t0p.t0p(ptr %arg0, ptr %arg1) {
 wrap_start18:
   call void (...) @bar_(ptr %arg0, ptr %arg1)
   ret void
 }
 
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
 declare void @bar_(...)

@@ -34,7 +34,6 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: noinline nounwind optnone uwtable
 define void @test_(ptr noalias dereferenceable(4) %"test_$M$argptr", ptr noalias dereferenceable(8) %"test_$N$argptr", ptr noalias dereferenceable(4) %"test_$S$argptr", ptr noalias dereferenceable(8) %"test_$T$argptr") {
 alloca_0:
   %"$io_ctx" = alloca [8 x i64], align 8
@@ -198,10 +197,8 @@ omp.pdo.epilog5:  ; preds = %omp.pdo.cond3
 
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
 
-; Function Attrs: noinline nounwind optnone uwtable
 define internal void @bar_.t0p.t0p.t0p(ptr %arg0, ptr %arg1, ptr %arg2) {
 wrap_start22:
   call void (...) @bar_(ptr %arg0, ptr %arg1, ptr %arg2)
@@ -209,7 +206,6 @@ wrap_start22:
 
 }
 
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token %0)
 
 declare void @bar_(...)
