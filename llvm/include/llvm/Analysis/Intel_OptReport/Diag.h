@@ -215,6 +215,8 @@ enum class OptRemarkID {
   OpenMPConstructUserIgnored = 25608,
   OpenMPConstructUnreachable = 25609,
   OpenMPConstructIgnored = 25610,
+  OpenMPClangImplicitMap = 25611,
+  OpenMPClangImplicitFirstPrivate = 25612,
 
   DummyRemarkForTesting = 99999,
 };
@@ -245,6 +247,7 @@ public:
 
 enum class AuxRemarkID {
   InvalidAuxRemark,
+  Empty,
 
   // Remark numbers through 10000 are reserved for the vectorizer.
   VectorizerRemarksBegin, // No associated message
@@ -268,6 +271,15 @@ enum class AuxRemarkID {
   DivergentBranchDisabled,
   VectorizerRemarksEnd, // No associated message
 
+  // Remark numbers through 20000 are reserved for OpenMP.
+  OpenMPRemarksBegin = 10001, // No associated message
+  CapturedByLambda,
+  CapturedInReferencedLambda,
+  ThisKeywordReferenced,
+  NonScalarFieldReferenced,
+  PointerVariableReferenced,
+  NonScalarVariableReferenced,
+  OpenMPRemarksEnd, // No associated message
   // Add remark numbers for other components here.  Please reserve
   // remarks in blocks of 10000.
 };

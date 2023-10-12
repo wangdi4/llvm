@@ -698,6 +698,11 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
     {OptRemarkID::OpenMPConstructUnreachable,
      "%s construct is unreachable from function entry"},
     {OptRemarkID::OpenMPConstructIgnored, "%s construct ignored"},
+    {OptRemarkID::OpenMPClangImplicitMap,
+     "\"%s\"%s has an implicit clause \"map(%s)\" because %s at line:[%d:%d]"},
+    {OptRemarkID::OpenMPClangImplicitFirstPrivate,
+     "\"%s\" has an implicit clause \"firstprivate(%s)\" because it is a "
+     "scalar variable referenced at line:[%d:%d]"},
     {OptRemarkID::DummyRemarkForTesting, "Dummy remark for testing"},
 };
 
@@ -714,6 +719,8 @@ const char *OptReportDiag::getMsg(DiagTableKey Id) {
 
 const DenseMap<AuxRemarkID, const char *> OptReportAuxDiag::AuxDiags = {
     {AuxRemarkID::InvalidAuxRemark, "Internal error: invalid auxiliary remark"},
+    {AuxRemarkID::Empty, ""},
+
     {AuxRemarkID::Loop, "loop"},
     {AuxRemarkID::SimdLoop, "simd loop"},
     {AuxRemarkID::OmpSimdOrderedUnsupported,
@@ -750,6 +757,17 @@ const DenseMap<AuxRemarkID, const char *> OptReportAuxDiag::AuxDiags = {
     {AuxRemarkID::DivergentBranchDisabled,
      "The loop contains a divergent conditional branch, and the user has "
      "suppressed vectorization of such loops."},
+
+    {AuxRemarkID::CapturedByLambda, " (captured by lambda)"},
+    {AuxRemarkID::CapturedInReferencedLambda,
+     "a lambda referenced inside the construct captures it"},
+    {AuxRemarkID::ThisKeywordReferenced, "\"this\" is referenced"},
+    {AuxRemarkID::NonScalarFieldReferenced,
+     "it is a non-scalar field referenced"},
+    {AuxRemarkID::PointerVariableReferenced,
+     "it is a pointer variable referenced"},
+    {AuxRemarkID::NonScalarVariableReferenced,
+     "it is a non-scalar variable referenced"},
 };
 
 const char *OptReportAuxDiag::getMsg(AuxRemarkID Id) {
