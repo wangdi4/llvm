@@ -1211,8 +1211,9 @@ void OpenMPLateOutliner::addImplicitClauses() {
       else
         emitImplicit(VD, ICK_firstprivate);
 #if INTEL_CUSTOMIZATION
-      if (OptRepFPMapInfos.find(VD) != OptRepFPMapInfos.end())
-        emitRemark(OptRepFPMapInfos[VD]);
+      const auto FoundFPMapLoc = OptRepFPMapLocs.find(VD);
+      if (FoundFPMapLoc != OptRepFPMapLocs.end())
+        emitImplicitFirstPrivateRemark(VD, FoundFPMapLoc->second);
 #endif  // INTEL_CUSTOMIZATION
     } else if (isImplicitTask(OMPD_task)) {
       // BE requests:
@@ -2329,7 +2330,7 @@ void OpenMPLateOutliner::buildMapQualifier(
 namespace {
 class ExprVarRefFinder final : public ConstStmtVisitor<ExprVarRefFinder> {
   CodeGenFunction &CGF;
-  llvm::MapVector<const VarDecl *, std::string> *FPInfos;
+  llvm::MapVector<const VarDecl *, PresumedLoc> *FPLocs;
   llvm::SmallVector<const Expr *> MapVarExprs;
 public:
   llvm::SmallVector<const Expr *> &getMapVarExprs() { return MapVarExprs; }
@@ -2348,7 +2349,7 @@ public:
                   Name + ")\" because \"" + Name + "\" is a scalar variable ";
       ReasonStr += "referenced within the construct at line:[" +
                    std::to_string(Line) + ":" + std::to_string(Column) + "]";
-      FPInfos->insert(std::make_pair(VD, ReasonStr));
+      FPLocs->insert(std::make_pair(VD, PLoc));
     }
   }
   void VisitMemberExpr(const MemberExpr *ME) {
@@ -2364,45 +2365,112 @@ public:
         Visit(Child);
   }
   ExprVarRefFinder(CodeGenFunction &CGF,
-                   llvm::MapVector<const VarDecl *, std::string> *FPInfos)
-      : CGF(CGF), FPInfos(FPInfos) {}
+                   llvm::MapVector<const VarDecl *, PresumedLoc> *FPLocs)
+      : CGF(CGF), FPLocs(FPLocs) {}
 };
+} // namespace
+
+llvm::OptReport OpenMPLateOutliner::getOrCreateOptReport() {
+  if (DirectiveOptReport)
+    return DirectiveOptReport;
+
+  llvm::LLVMContext &Context = CGF.CurFn->getContext();
+  DirectiveOptReport = llvm::OptReport::createEmptyOptReport(Context);
+
+  const StringRef Construct =
+      getOpenMPDirectiveName(Directive.getDirectiveKind());
+  DirectiveOptReport.setTitle("OMP " + Construct.upper());
+  llvm::DebugLoc DL = CGF.SourceLocToDebugLoc(Directive.getBeginLoc());
+  if (DL)
+    DirectiveOptReport.setDebugLoc(DL);
+  return DirectiveOptReport;
 }
-static std::string getReasonStr(const ValueDecl *Var, CodeGenFunction &CGF,
-                                ImplicitParamDecl *CXXABIThisDecl,
-                                OpenMPMapClauseKind MapType,
-                                bool IsCaptureByLambda, SourceLocation Loc) {
-  std::string Name = Var->getNameAsString();
-  std::string Strs;
-  std::string Capture = IsCaptureByLambda ? "(captured by lambda) " : " ";
-  Strs += " \"" + Name + "\"" + Capture + "has an implicit clause: \"map(";
-  Strs += MapType == OMPC_MAP_to ? "to : " : "tofrom : ";
-  PresumedLoc PLoc = CGF.getContext().getSourceManager().getPresumedLoc(Loc);
-  unsigned Line = PLoc.getLine();
-  unsigned Column = PLoc.getColumn();
-  std::string LineInfo;
-  if (IsCaptureByLambda)
-    LineInfo = "referenced at line:[" + std::to_string(Line) + ":" +
-               std::to_string(Column) + "]";
-  else
-    LineInfo = "referenced within the construct at line:[" +
-               std::to_string(Line) + ":" + std::to_string(Column) + "]";
-  if (IsCaptureByLambda)
-    return Strs + Name + ")\" because \"" + Name +
-           "\" is captured in a lambda mapped on the construct, and is " +
-           LineInfo;
-  else if (Var == CXXABIThisDecl)
-    return Strs + Name + "[:1])\" because \"" + Name + "\" this keyword is " +
-           LineInfo;
-  else if (isa<FieldDecl>(Var))
-    return Strs + Name + ")\" because field \"" + Name +
-           "\" is a non-scalar variable " + LineInfo;
-  else if (Var->getType()->isPointerType())
-    return Strs + Name + "[:0])\" because \"" + Name +
-           "\" is a pointer variable " + LineInfo;
-  else
-    return Strs + Name + ")\" because \"" + Name +
-           "\" is a non-scalar variable " + LineInfo;
+
+void OpenMPLateOutliner::emitImplicitMapRemark(
+    const ValueDecl *Var, ImplicitParamDecl *CXXABIThisDecl,
+    OpenMPMapClauseKind MapType, bool IsCaptureByLambda, SourceLocation Loc) {
+  const std::string Name = Var->getNameAsString();
+  llvm::AuxRemarkID Capture = llvm::AuxRemarkID::Empty;
+  std::string MapClause =
+      (MapType == OMPC_MAP_to ? "to : " : "tofrom : ") + Name;
+  llvm::AuxRemarkID Reason = llvm::AuxRemarkID::InvalidAuxRemark;
+  const PresumedLoc PLoc =
+      CGF.getContext().getSourceManager().getPresumedLoc(Loc);
+  const unsigned Line = PLoc.getLine();
+  const unsigned Column = PLoc.getColumn();
+  if (IsCaptureByLambda) {
+    Capture = llvm::AuxRemarkID::CapturedByLambda;
+    Reason = llvm::AuxRemarkID::CapturedInReferencedLambda;
+  } else if (Var == CXXABIThisDecl) {
+    MapClause += "[:1]";
+    Reason = llvm::AuxRemarkID::ThisKeywordReferenced;
+  } else if (isa<FieldDecl>(Var)) {
+    Reason = llvm::AuxRemarkID::NonScalarFieldReferenced;
+  } else if (Var->getType()->isPointerType()) {
+    MapClause += "[:0]";
+    Reason = llvm::AuxRemarkID::PointerVariableReferenced;
+  } else {
+    Reason = llvm::AuxRemarkID::NonScalarVariableReferenced;
+  }
+
+  if (OROptions.getVerbosity() >= llvm::OptReportVerbosity::High) {
+    llvm::LLVMContext &Context = CGF.CurFn->getContext();
+    getOrCreateOptReport().addRemark(
+        llvm::OptRemark::get(Context, llvm::OptRemarkID::OpenMPClangImplicitMap,
+                             Name, Capture, MapClause, Reason, Line, Column));
+  }
+
+  if (!CGF.CGM.getCodeGenOpts().OptRecordFile.empty() ||
+      CGF.CGM.getCodeGenOpts().OptimizationRemark.patternMatches("openmp")) {
+    const StringRef Construct =
+        getOpenMPDirectiveName(Directive.getDirectiveKind());
+    llvm::DebugLoc DL = CGF.SourceLocToDebugLoc(Directive.getBeginLoc());
+    llvm::OptimizationRemarkEmitter ORE(CGF.CurFn);
+    llvm::OptimizationRemark R("openmp", "Region", DL,
+                               &CGF.CurFn->getEntryBlock());
+    R << llvm::ore::NV("Construct", Construct) << " construct: \""
+      << llvm::ore::NV("Name", Name)
+      << ("\"" + StringRef(llvm::OptReportAuxDiag::getMsg(Capture)) +
+          " has an implicit clause \"map(")
+             .str()
+      << llvm::ore::NV("MapClause", MapClause) << ")\" because "
+      << llvm::ore::NV("Reason", llvm::OptReportAuxDiag::getMsg(Reason))
+      << " at line:[" << llvm::ore::NV("Line", Line) << ":"
+      << llvm::ore::NV("Column", Column) << "]";
+    ORE.emit(R);
+  }
+}
+
+void OpenMPLateOutliner::emitImplicitFirstPrivateRemark(const ValueDecl *Var,
+                                                        PresumedLoc PLoc) {
+  const StringRef Name = Var->getName();
+  const unsigned Line = PLoc.getLine();
+  const unsigned Column = PLoc.getColumn();
+
+  if (OROptions.getVerbosity() >= llvm::OptReportVerbosity::High) {
+    llvm::LLVMContext &Context = CGF.CurFn->getContext();
+    getOrCreateOptReport().addRemark(llvm::OptRemark::get(
+        Context, llvm::OptRemarkID::OpenMPClangImplicitFirstPrivate, Name, Name,
+        Line, Column));
+  }
+
+  if (!CGF.CGM.getCodeGenOpts().OptRecordFile.empty() ||
+      CGF.CGM.getCodeGenOpts().OptimizationRemark.patternMatches("openmp")) {
+    const StringRef Construct =
+        getOpenMPDirectiveName(Directive.getDirectiveKind());
+    llvm::DebugLoc DL = CGF.SourceLocToDebugLoc(Directive.getBeginLoc());
+    llvm::OptimizationRemarkEmitter ORE(CGF.CurFn);
+    llvm::OptimizationRemark R("openmp", "Region", DL,
+                               &CGF.CurFn->getEntryBlock());
+    R << llvm::ore::NV("Construct", Construct) << " construct: \""
+      << llvm::ore::NV("Name", Name)
+      << "\" has an implicit clause \"firstprivate("
+      << llvm::ore::NV("FirstPrivateClause", Name)
+      << ")\" because it is a scalar variable referenced at line:["
+      << llvm::ore::NV("Line", Line) << ":" << llvm::ore::NV("Column", Column)
+      << "]";
+    ORE.emit(R);
+  }
 }
 
 static SourceLocation
@@ -2456,9 +2524,9 @@ static void
 getMapReportInfo(OpenMPLateOutliner &O, const OMPExecutableDirective &Dir,
                  CodeGenFunction &CGF, ImplicitParamDecl *CXXABIThisDecl,
                  const SmallVector<CGOpenMPRuntime::LOMapInfo, 4> &Info,
-                 llvm::MapVector<const VarDecl *, std::string> *FPInfos) {
+                 llvm::MapVector<const VarDecl *, PresumedLoc> *FPLocs) {
   const Stmt *S = Dir.getCapturedStmt(OMPD_target)->getCapturedStmt();
-  ExprVarRefFinder Finder(CGF, FPInfos);
+  ExprVarRefFinder Finder(CGF, FPLocs);
   Finder.Visit(S);
   llvm::SmallVector<const Expr *> &MapVarExprs = Finder.getMapVarExprs();
   for (auto &I : Info) {
@@ -2472,23 +2540,10 @@ getMapReportInfo(OpenMPLateOutliner &O, const OMPExecutableDirective &Dir,
       SourceLocation Loc = getExprLocation(MapVarExprs, Dir, &IsCaptureByLambda,
                                            CXXABIThisDecl, &Var);
       assert(Loc.isValid() && "Reference location is not set");
-      O.emitRemark(getReasonStr(Var, CGF, CXXABIThisDecl, I.MapType,
-                                IsCaptureByLambda, Loc));
+      O.emitImplicitMapRemark(Var, CXXABIThisDecl, I.MapType, IsCaptureByLambda,
+                              Loc);
     }
   }
-}
-
-void OpenMPLateOutliner::emitRemark(std::string Str) {
-  llvm::OptimizationRemarkEmitter ORE(CGF.CurFn);
-  llvm::DiagnosticLocation DL =
-      CGF.SourceLocToDebugLoc(Directive.getBeginLoc());
-  llvm::OptimizationRemark R("openmp", "Region", DL,
-                             &CGF.CurFn->getEntryBlock());
-  R << llvm::ore::NV("Construct",
-                     getOpenMPDirectiveName(Directive.getDirectiveKind()))
-    << " construct:";
-  R << Str;
-  ORE.emit(R);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2711,11 +2766,12 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
   // generate info for map report.
   if (isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()) &&
       (!CGF.CGM.getCodeGenOpts().OptRecordFile.empty() ||
-       CGF.CGM.getCodeGenOpts().OptimizationRemark.patternMatches("openmp"))) {
-    llvm::MapVector<const VarDecl *, std::string> FPInfos;
+       CGF.CGM.getCodeGenOpts().OptimizationRemark.patternMatches("openmp") ||
+       OROptions.getVerbosity() >= llvm::OptReportVerbosity::High)) {
+    llvm::MapVector<const VarDecl *, PresumedLoc> FPLocs;
     getMapReportInfo(*this, Directive, CGF, CGF.getCXXABIThisDecl(), Info,
-                     &FPInfos);
-    OptRepFPMapInfos = std::move(FPInfos);
+                     &FPLocs);
+    OptRepFPMapLocs = std::move(FPLocs);
   }
 #endif // INTEL_CUSTOMIZATION
 }
@@ -3365,6 +3421,9 @@ OpenMPLateOutliner::~OpenMPLateOutliner() {
     llvm::CallInst *MarkerCall = D.CallEntry;
     CGF.Builder.SetInsertPoint(MarkerCall);
     D.CallEntry = CGF.Builder.CreateCall(RegionEntryDirective, {}, D.OpBundles);
+    D.CallEntry->setMetadata(llvm::OptReportTag::Root,
+                             DirectiveOptReport.get());
+    DirectiveOptReport = {};
     if (MarkerCall != MarkerInstruction)
       MarkerCall->eraseFromParent();
     D.clear();
