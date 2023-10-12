@@ -779,6 +779,8 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
     ThreadRegionInfo &RegionInfo,       // INTEL
     ConstantPreference Preference, DenseSet<Value *> &RecursionSet,
     Instruction *CxtI) {
+  const DataLayout &DL = BB->getModule()->getDataLayout();
+
   // This method walks up use-def chains recursively.  Because of this, we could
   // get into an infinite loop going around loops in the use-def chain.  To
   // prevent this, keep track of what (value, block) pairs we've already visited
@@ -892,16 +894,19 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
   // Handle Cast instructions.
   if (CastInst *CI = dyn_cast<CastInst>(I)) {
     Value *Source = CI->getOperand(0);
-    computeValueKnownInPredecessorsImpl(Source, BB, Result, RegionInfo, // INTEL
+    PredValueInfoTy Vals;
+    computeValueKnownInPredecessorsImpl(Source, BB, Vals, RegionInfo, // INTEL
                                         Preference, RecursionSet, CxtI);// INTEL
-    if (Result.empty())
+    if (Vals.empty())
       return false;
 
     // Convert the known values.
-    for (auto &R : Result)
-      R.first = ConstantExpr::getCast(CI->getOpcode(), R.first, CI->getType());
+    for (auto &Val : Vals)
+      if (Constant *Folded = ConstantFoldCastOperand(CI->getOpcode(), Val.first,
+                                                     CI->getType(), DL))
+        Result.emplace_back(Folded, Val.second);
 
-    return true;
+    return !Result.empty();
   }
 
   if (FreezeInst *FI = dyn_cast<FreezeInst>(I)) {
@@ -1007,7 +1012,6 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
     ThreadRegionInfoTy RegionInfoOp0;                                   // INTEL
     if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(1))) {
-      const DataLayout &DL = BO->getModule()->getDataLayout();
       PredValueInfoTy LHSVals;
       computeValueKnownInPredecessorsImpl(BO->getOperand(0), BB, LHSVals,
                                           RegionInfoOp0,                    // INTEL
@@ -3029,7 +3033,7 @@ void JumpThreadingPass::threadThroughTwoBasicBlocks(BasicBlock *PredPredBB,
     assert(BPI && "It's expected BPI to exist along with BFI");
     auto NewBBFreq = BFI->getBlockFreq(PredPredBB) *
                      BPI->getEdgeProbability(PredPredBB, PredBB);
-    BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+    BFI->setBlockFreq(NewBB, NewBBFreq);
   }
 
   // We are going to have to map operands from the original BB block to the new
@@ -3312,7 +3316,7 @@ void JumpThreadingPass::threadEdge(
       assert(BPI && "It's expected BPI to exist along with BFI");
       auto NewBBFreq =
           BFI->getBlockFreq(PredBB) * BPI->getEdgeProbability(PredBB, OldBB);
-      BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+      BFI->setBlockFreq(NewBB, NewBBFreq);
     }
 
   }
@@ -3600,9 +3604,8 @@ BasicBlock *JumpThreadingPass::splitBlockPreds(BasicBlock *BB,
       if (BFI) // Update frequencies between Pred -> NewBB.
         NewBBFreq += FreqMap.lookup(Pred);
     }
-    if (BFI) { // Apply the summed frequency to NewBB.
-      BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
-    }
+    if (BFI) // Apply the summed frequency to NewBB.
+      BFI->setBlockFreq(NewBB, NewBBFreq);
   }
 
   DTU->applyUpdatesPermissive(Updates);
@@ -3656,7 +3659,7 @@ void JumpThreadingPass::updateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
   SmallVector<BasicBlock*, 16> ReadyBlocks;
   auto NewRegionTopFreq =
     BFI->getBlockFreq(PredBB) * BPI->getEdgeProbability(PredBB, NewRegionTop);
-  BFI->setBlockFreq(NewRegionTop, NewRegionTopFreq.getFrequency());
+  BFI->setBlockFreq(NewRegionTop, NewRegionTopFreq);
   ReadyBlocks.push_back(RegionTop);
 
   while (!ReadyBlocks.empty()) {
@@ -3669,7 +3672,7 @@ void JumpThreadingPass::updateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
     auto BBOrigFreq = BFI->getBlockFreq(BB);
     auto NewBBFreq = BFI->getBlockFreq(NewBB);
     auto BBNewFreq = BBOrigFreq - NewBBFreq;
-    BFI->setBlockFreq(BB, BBNewFreq.getFrequency());
+    BFI->setBlockFreq(BB, BBNewFreq);
 
     // The bottom block in the region needs special treatment. We don't have to
     // worry about the outgoing edge weights for NewBB since it now ends in an
@@ -3771,7 +3774,7 @@ void JumpThreadingPass::updateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
       auto EdgeFreq =
           BFI->getBlockFreq(NewBB) * BPI->getEdgeProbability(BB, SuccIdx);
       auto NewSuccFreq = BFI->getBlockFreq(NewSucc) + EdgeFreq;
-      BFI->setBlockFreq(NewSucc, NewSuccFreq.getFrequency());
+      BFI->setBlockFreq(NewSucc, NewSuccFreq);
 
       if (--BlockPredCount[NewSucc] == 0)
         ReadyBlocks.push_back(*SI);
@@ -4005,7 +4008,7 @@ void JumpThreadingPass::unfoldSelectInstr(BasicBlock *Pred, BasicBlock *BB,
     BranchProbability PredToNewBBProb = BranchProbability::getBranchProbability(
         TrueWeight, TrueWeight + FalseWeight);
     auto NewBBFreq = BFI->getBlockFreq(Pred) * PredToNewBBProb;
-    BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+    BFI->setBlockFreq(NewBB, NewBBFreq);
   }
 
   // The select is now dead.

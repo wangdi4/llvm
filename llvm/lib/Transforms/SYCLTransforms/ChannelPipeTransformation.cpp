@@ -346,7 +346,7 @@ static Value *createPipeUserStub(Value *ChannelUser, Value *Pipe) {
            "Unexpected constant value with channel variable");
 
     ConstantFolder Folder;
-    return Folder.CreatePtrToInt(cast<Constant>(Pipe), CE->getType());
+    return Folder.FoldCast(Instruction::PtrToInt, Pipe, CE->getType());
   }
 
   auto *ChannelInst = cast<Instruction>(ChannelUser);

@@ -1588,16 +1588,6 @@ DEF_TRAVERSE_DECL(FriendTemplateDecl, {
   }
 })
 
-DEF_TRAVERSE_DECL(ClassScopeFunctionSpecializationDecl, {
-  TRY_TO(TraverseDecl(D->getSpecialization()));
-
-  if (D->hasExplicitTemplateArgs()) {
-    TRY_TO(TraverseTemplateArgumentLocsHelper(
-        D->getTemplateArgsAsWritten()->getTemplateArgs(),
-        D->getTemplateArgsAsWritten()->NumTemplateArgs));
-  }
-})
-
 DEF_TRAVERSE_DECL(LinkageSpecDecl, {})
 
 DEF_TRAVERSE_DECL(ExportDecl, {})
@@ -2186,6 +2176,13 @@ bool RecursiveASTVisitor<Derived>::TraverseFunctionHelper(FunctionDecl *D) {
         TRY_TO(TraverseTemplateArgumentLocsHelper(TALI->getTemplateArgs(),
                                                   TALI->NumTemplateArgs));
       }
+    }
+  } else if (const DependentFunctionTemplateSpecializationInfo *DFSI =
+                 D->getDependentSpecializationInfo()) {
+    if (const ASTTemplateArgumentListInfo *TALI =
+            DFSI->TemplateArgumentsAsWritten) {
+      TRY_TO(TraverseTemplateArgumentLocsHelper(TALI->getTemplateArgs(),
+                                                TALI->NumTemplateArgs));
     }
   }
 
@@ -4033,6 +4030,11 @@ bool RecursiveASTVisitor<Derived>::VisitOMPDoacrossClause(
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPXAttributeClause(
     OMPXAttributeClause *C) {
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPXBareClause(OMPXBareClause *C) {
   return true;
 }
 

@@ -33,6 +33,7 @@
 #include "clang/AST/ASTMutationListener.h"
 #include "clang/AST/ASTStructuralEquivalence.h"
 #include "clang/AST/CXXInheritance.h"
+#include "clang/AST/Decl.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Expr.h"
@@ -57,6 +58,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <bitset>
 #include <optional>
@@ -3207,7 +3209,7 @@ QualType Sema::BuildMemberPointerType(QualType T, QualType Class,
       (Entity.getNameKind() == DeclarationName::CXXConstructorName) ||
       (Entity.getNameKind() == DeclarationName::CXXDestructorName);
   if (T->isFunctionType())
-    adjustMemberFunctionCC(T, /*IsStatic=*/false, IsCtorOrDtor, Loc);
+    adjustMemberFunctionCC(T, /*HasThisPointer=*/true, IsCtorOrDtor, Loc);
 
   return Context.getMemberPointerType(T, Class.getTypePtr());
 }
@@ -5923,7 +5925,12 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     //
     // Core issue 547 also allows cv-qualifiers on function types that are
     // top-level template type arguments.
-    enum { NonMember, Member, DeductionGuide } Kind = NonMember;
+    enum {
+      NonMember,
+      Member,
+      ExplicitObjectMember,
+      DeductionGuide
+    } Kind = NonMember;
     if (D.getName().getKind() == UnqualifiedIdKind::IK_DeductionGuideName)
       Kind = DeductionGuide;
     else if (!D.getCXXScopeSpec().isSet()) {
@@ -5935,6 +5942,18 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       DeclContext *DC = S.computeDeclContext(D.getCXXScopeSpec());
       if (!DC || DC->isRecord())
         Kind = Member;
+    }
+
+    if (Kind == Member) {
+      unsigned I;
+      if (D.isFunctionDeclarator(I)) {
+        const DeclaratorChunk &Chunk = D.getTypeObject(I);
+        if (Chunk.Fun.NumParams) {
+          auto *P = dyn_cast_or_null<ParmVarDecl>(Chunk.Fun.Params->Param);
+          if (P && P->isExplicitObjectParameter())
+            Kind = ExplicitObjectMember;
+        }
+      }
     }
 
     // C++11 [dcl.fct]p6 (w/DR1417):
@@ -5954,7 +5973,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     //
     // ... for instance.
     if (IsQualifiedFunction &&
-        !(Kind == Member &&
+        !(Kind == Member && !D.isExplicitObjectMemberFunction() &&
           D.getDeclSpec().getStorageClassSpec() != DeclSpec::SCS_static) &&
         !IsTypedefName && D.getContext() != DeclaratorContext::TemplateArg &&
         D.getContext() != DeclaratorContext::TemplateTypeArg) {
@@ -8348,14 +8367,15 @@ bool Sema::hasExplicitCallingConv(QualType T) {
   return false;
 }
 
-void Sema::adjustMemberFunctionCC(QualType &T, bool IsStatic, bool IsCtorOrDtor,
-                                  SourceLocation Loc) {
+void Sema::adjustMemberFunctionCC(QualType &T, bool HasThisPointer,
+                                  bool IsCtorOrDtor, SourceLocation Loc) {
   FunctionTypeUnwrapper Unwrapped(*this, T);
   const FunctionType *FT = Unwrapped.get();
   bool IsVariadic = (isa<FunctionProtoType>(FT) &&
                      cast<FunctionProtoType>(FT)->isVariadic());
   CallingConv CurCC = FT->getCallConv();
-  CallingConv ToCC = Context.getDefaultCallingConvention(IsVariadic, !IsStatic);
+  CallingConv ToCC =
+      Context.getDefaultCallingConvention(IsVariadic, HasThisPointer);
 
   if (CurCC == ToCC)
     return;
@@ -8375,7 +8395,7 @@ void Sema::adjustMemberFunctionCC(QualType &T, bool IsStatic, bool IsCtorOrDtor,
     // we should adjust a __cdecl type to __thiscall for instance methods, and a
     // __thiscall type to __cdecl for static methods.
     CallingConv DefaultCC =
-        Context.getDefaultCallingConvention(IsVariadic, IsStatic);
+        Context.getDefaultCallingConvention(IsVariadic, !HasThisPointer);
 
     if (CurCC != DefaultCC)
       return;
@@ -10090,11 +10110,14 @@ QualType Sema::BuildAtomicType(QualType T, SourceLocation Loc) {
       DisallowedKind = 5;
     else if (T->isSizelessType())
       DisallowedKind = 6;
-    else if (!T.isTriviallyCopyableType(Context))
+    else if (!T.isTriviallyCopyableType(Context) && getLangOpts().CPlusPlus)
       // Some other non-trivially-copyable type (probably a C++ class)
       DisallowedKind = 7;
     else if (T->isBitIntType())
       DisallowedKind = 8;
+    else if (getLangOpts().C23 && T->isUndeducedAutoType())
+      // _Atomic auto is prohibited in C23
+      DisallowedKind = 9;
 
     if (DisallowedKind != -1) {
       Diag(Loc, diag::err_atomic_specifier_bad_type) << DisallowedKind << T;

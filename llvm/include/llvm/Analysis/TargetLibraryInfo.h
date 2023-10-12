@@ -71,16 +71,56 @@ using VecDescAttrBits =
     std::bitset<static_cast<unsigned>(VecDescAttrs::LastAttr) + 1>;
 #endif // INTEL_CUSTOMIZATION
 
-/// Describes a possible vectorization of a function.
-/// Function 'VectorFnName' is equivalent to 'ScalarFnName' vectorized
-/// by a factor 'VectorizationFactor'.
-struct VecDesc {
+/// Provides info so a possible vectorization of a function can be
+/// computed. Function 'VectorFnName' is equivalent to 'ScalarFnName'
+/// vectorized by a factor 'VectorizationFactor'.
+/// The VABIPrefix string holds information about isa, mask, vlen,
+/// and vparams so a scalar-to-vector mapping of the form:
+///    _ZGV<isa><mask><vlen><vparams>_<scalarname>(<vectorname>)
+/// can be constructed where:
+///
+/// <isa> = "_LLVM_"
+/// <mask> = "M" if masked, "N" if no mask.
+/// <vlen> = Number of concurrent lanes, stored in the `VectorizationFactor`
+///          field of the `VecDesc` struct. If the number of lanes is scalable
+///          then 'x' is printed instead.
+/// <vparams> = "v", as many as are the numArgs.
+/// <scalarname> = the name of the scalar function.
+/// <vectorname> = the name of the vector function.
+class VecDesc {
   StringRef ScalarFnName;
   StringRef VectorFnName;
   ElementCount VectorizationFactor;
   bool Masked;
-  VecDescAttrBits AttrBits = 0;  // INTEL
-  StringRef ReqdCpuFeature = ""; // INTEL
+  StringRef VABIPrefix;
+  VecDescAttrBits AttrBits; // INTEL
+  StringRef ReqdCpuFeature; // INTEL
+
+public:
+  VecDesc() = delete;
+#if INTEL_CUSTOMIZATION
+  VecDesc(StringRef ScalarFnName, StringRef VectorFnName,
+          ElementCount VectorizationFactor, bool Masked, StringRef VABIPrefix,
+          VecDescAttrBits AttrBits = 0, StringRef ReqdCpuFeature = "")
+      : ScalarFnName(ScalarFnName), VectorFnName(VectorFnName),
+        VectorizationFactor(VectorizationFactor), Masked(Masked),
+        VABIPrefix(VABIPrefix), AttrBits(AttrBits),
+        ReqdCpuFeature(ReqdCpuFeature) {}
+#endif
+
+  StringRef getScalarFnName() const { return ScalarFnName; }
+  StringRef getVectorFnName() const { return VectorFnName; }
+  ElementCount getVectorizationFactor() const { return VectorizationFactor; }
+  bool isMasked() const { return Masked; }
+  StringRef getVABIPrefix() const { return VABIPrefix; }
+#if INTEL_CUSTOMIZATION
+  VecDescAttrBits getAttrBits() const { return AttrBits; }
+  StringRef getReqdCpuFeature() const { return ReqdCpuFeature; }
+#endif
+
+  /// Returns a vector function ABI variant string on the form:
+  ///    _ZGV<isa><mask><vlen><vparams>_<scalarname>(<vectorname>)
+  std::string getVectorFunctionABIVariantString() const;
 };
 
   enum LibFunc : unsigned {
@@ -331,6 +371,12 @@ public:
   StringRef
   getVectorizedFunction(StringRef F, const ElementCount &VF, bool Masked,
                         const TargetTransformInfo *TTI = nullptr) const;
+
+  /// Return a pointer to a VecDesc object holding all info for scalar to vector
+  /// mappings in TLI for the equivalent of F, vectorized with factor VF.
+  /// If no such mapping exists, return nullpointer.
+  const VecDesc *getVectorMappingInfo(StringRef F, const ElementCount &VF,
+                                      bool Masked, const TargetTransformInfo *TTI) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// Set to true iff i32 parameters to library functions should have signext
@@ -622,6 +668,10 @@ public:
                         bool Masked = false,
                         const TargetTransformInfo *TTI = nullptr) const {
     return Impl->getVectorizedFunction(F, VF, Masked, TTI);
+  }
+  const VecDesc *getVectorMappingInfo(StringRef F, const ElementCount &VF,
+                                      bool Masked, const TargetTransformInfo *TTI = nullptr) const {
+    return Impl->getVectorMappingInfo(F, VF, Masked, TTI);
   }
 #endif // INTEL_CUSTOMIZATION
 

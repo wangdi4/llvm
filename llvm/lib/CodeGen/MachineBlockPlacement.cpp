@@ -530,9 +530,9 @@ class MachineBlockPlacement : public MachineFunctionPass {
     if (UseProfileCount) {
       auto Count = MBFI->getBlockProfileCount(BB);
       if (Count)
-        return *Count;
+        return BlockFrequency(*Count);
       else
-        return 0;
+        return BlockFrequency(0);
     } else
       return MBFI->getBlockFreq(BB);
   }
@@ -899,10 +899,10 @@ bool MachineBlockPlacement::shouldTailDuplicate(MachineBasicBlock *BB) {
 /// penalty is less than 100%
 /// TODO(iteratee): Use 64-bit fixed point edge frequencies everywhere.
 static bool greaterWithBias(BlockFrequency A, BlockFrequency B,
-                            uint64_t EntryFreq) {
+                            BlockFrequency EntryFreq) {
   BranchProbability ThresholdProb(TailDupPlacementPenalty, 100);
   BlockFrequency Gain = A - B;
-  return (Gain / ThresholdProb).getFrequency() >= EntryFreq;
+  return (Gain / ThresholdProb) >= EntryFreq;
 }
 
 /// Check the edge frequencies to see if tail duplication will increase
@@ -947,7 +947,7 @@ bool MachineBlockPlacement::isProfitableToTailDup(
   auto SuccFreq = MBFI->getBlockFreq(Succ);
   BlockFrequency P = BBFreq * PProb;
   BlockFrequency Qout = BBFreq * QProb;
-  uint64_t EntryFreq = MBFI->getEntryFreq();
+  BlockFrequency EntryFreq = MBFI->getEntryFreq();
   // If there are no more successors, it is profitable to copy, as it strictly
   // increases fallthrough.
   if (SuccSuccs.size() == 0)
@@ -1833,8 +1833,9 @@ MachineBasicBlock *MachineBlockPlacement::selectBestCandidateBlock(
            "Found CFG-violating block");
 
     BlockFrequency CandidateFreq = MBFI->getBlockFreq(MBB);
-    LLVM_DEBUG(dbgs() << "    " << getBlockName(MBB) << " -> ";
-               MBFI->printBlockFreq(dbgs(), CandidateFreq) << " (freq)\n");
+    LLVM_DEBUG(dbgs() << "    " << getBlockName(MBB) << " -> "
+                      << printBlockFreq(MBFI->getMBFI(), CandidateFreq)
+                      << " (freq)\n");
 
     // For ehpad, we layout the least probable first as to avoid jumping back
     // from least probable landingpads to more probable ones.
@@ -2062,7 +2063,7 @@ BlockFrequency
 MachineBlockPlacement::TopFallThroughFreq(
     const MachineBasicBlock *Top,
     const BlockFilterSet &LoopBlockSet) {
-  BlockFrequency MaxFreq = 0;
+  BlockFrequency MaxFreq = BlockFrequency(0);
   for (MachineBasicBlock *Pred : Top->predecessors()) {
     BlockChain *PredChain = BlockToChain[Pred];
     if (!LoopBlockSet.count(Pred) &&
@@ -2121,7 +2122,7 @@ MachineBlockPlacement::FallThroughGains(
     const MachineBasicBlock *ExitBB,
     const BlockFilterSet &LoopBlockSet) {
   BlockFrequency FallThrough2Top = TopFallThroughFreq(OldTop, LoopBlockSet);
-  BlockFrequency FallThrough2Exit = 0;
+  BlockFrequency FallThrough2Exit = BlockFrequency(0);
   if (ExitBB)
     FallThrough2Exit = MBFI->getBlockFreq(NewTop) *
         MBPI->getEdgeProbability(NewTop, ExitBB);
@@ -2129,58 +2130,58 @@ MachineBlockPlacement::FallThroughGains(
       MBPI->getEdgeProbability(NewTop, OldTop);
 
   // Find the best Pred of NewTop.
-   MachineBasicBlock *BestPred = nullptr;
-   BlockFrequency FallThroughFromPred = 0;
-   for (MachineBasicBlock *Pred : NewTop->predecessors()) {
-     if (!LoopBlockSet.count(Pred))
-       continue;
-     BlockChain *PredChain = BlockToChain[Pred];
-     if (!PredChain || Pred == *std::prev(PredChain->end())) {
-       BlockFrequency EdgeFreq = MBFI->getBlockFreq(Pred) *
-           MBPI->getEdgeProbability(Pred, NewTop);
-       if (EdgeFreq > FallThroughFromPred) {
-         FallThroughFromPred = EdgeFreq;
-         BestPred = Pred;
-       }
-     }
-   }
+  MachineBasicBlock *BestPred = nullptr;
+  BlockFrequency FallThroughFromPred = BlockFrequency(0);
+  for (MachineBasicBlock *Pred : NewTop->predecessors()) {
+    if (!LoopBlockSet.count(Pred))
+      continue;
+    BlockChain *PredChain = BlockToChain[Pred];
+    if (!PredChain || Pred == *std::prev(PredChain->end())) {
+      BlockFrequency EdgeFreq =
+          MBFI->getBlockFreq(Pred) * MBPI->getEdgeProbability(Pred, NewTop);
+      if (EdgeFreq > FallThroughFromPred) {
+        FallThroughFromPred = EdgeFreq;
+        BestPred = Pred;
+      }
+    }
+  }
 
-   // If NewTop is not placed after Pred, another successor can be placed
-   // after Pred.
-   BlockFrequency NewFreq = 0;
-   if (BestPred) {
-     for (MachineBasicBlock *Succ : BestPred->successors()) {
-       if ((Succ == NewTop) || (Succ == BestPred) || !LoopBlockSet.count(Succ))
-         continue;
-       if (ComputedEdges.contains(Succ))
-         continue;
-       BlockChain *SuccChain = BlockToChain[Succ];
-       if ((SuccChain && (Succ != *SuccChain->begin())) ||
-           (SuccChain == BlockToChain[BestPred]))
-         continue;
-       BlockFrequency EdgeFreq = MBFI->getBlockFreq(BestPred) *
-           MBPI->getEdgeProbability(BestPred, Succ);
-       if (EdgeFreq > NewFreq)
-         NewFreq = EdgeFreq;
-     }
-     BlockFrequency OrigEdgeFreq = MBFI->getBlockFreq(BestPred) *
-         MBPI->getEdgeProbability(BestPred, NewTop);
-     if (NewFreq > OrigEdgeFreq) {
-       // If NewTop is not the best successor of Pred, then Pred doesn't
-       // fallthrough to NewTop. So there is no FallThroughFromPred and
-       // NewFreq.
-       NewFreq = 0;
-       FallThroughFromPred = 0;
-     }
-   }
+  // If NewTop is not placed after Pred, another successor can be placed
+  // after Pred.
+  BlockFrequency NewFreq = BlockFrequency(0);
+  if (BestPred) {
+    for (MachineBasicBlock *Succ : BestPred->successors()) {
+      if ((Succ == NewTop) || (Succ == BestPred) || !LoopBlockSet.count(Succ))
+        continue;
+      if (ComputedEdges.contains(Succ))
+        continue;
+      BlockChain *SuccChain = BlockToChain[Succ];
+      if ((SuccChain && (Succ != *SuccChain->begin())) ||
+          (SuccChain == BlockToChain[BestPred]))
+        continue;
+      BlockFrequency EdgeFreq = MBFI->getBlockFreq(BestPred) *
+                                MBPI->getEdgeProbability(BestPred, Succ);
+      if (EdgeFreq > NewFreq)
+        NewFreq = EdgeFreq;
+    }
+    BlockFrequency OrigEdgeFreq = MBFI->getBlockFreq(BestPred) *
+                                  MBPI->getEdgeProbability(BestPred, NewTop);
+    if (NewFreq > OrigEdgeFreq) {
+      // If NewTop is not the best successor of Pred, then Pred doesn't
+      // fallthrough to NewTop. So there is no FallThroughFromPred and
+      // NewFreq.
+      NewFreq = BlockFrequency(0);
+      FallThroughFromPred = BlockFrequency(0);
+    }
+  }
 
-   BlockFrequency Result = 0;
-   BlockFrequency Gains = BackEdgeFreq + NewFreq;
-   BlockFrequency Lost = FallThrough2Top + FallThrough2Exit +
-       FallThroughFromPred;
-   if (Gains > Lost)
-     Result = Gains - Lost;
-   return Result;
+  BlockFrequency Result = BlockFrequency(0);
+  BlockFrequency Gains = BackEdgeFreq + NewFreq;
+  BlockFrequency Lost =
+      FallThrough2Top + FallThrough2Exit + FallThroughFromPred;
+  if (Gains > Lost)
+    Result = Gains - Lost;
+  return Result;
 }
 
 /// Helper function of findBestLoopTop. Find the best loop top block
@@ -2222,7 +2223,7 @@ MachineBlockPlacement::findBestLoopTopHelper(
   LLVM_DEBUG(dbgs() << "Finding best loop top for: " << getBlockName(OldTop)
                     << "\n");
 
-  BlockFrequency BestGains = 0;
+  BlockFrequency BestGains = BlockFrequency(0);
   MachineBasicBlock *BestPred = nullptr;
   for (MachineBasicBlock *Pred : OldTop->predecessors()) {
     if (!LoopBlockSet.count(Pred))
@@ -2230,8 +2231,8 @@ MachineBlockPlacement::findBestLoopTopHelper(
     if (Pred == L.getHeader())
       continue;
     LLVM_DEBUG(dbgs() << "   old top pred: " << getBlockName(Pred) << ", has "
-                      << Pred->succ_size() << " successors, ";
-               MBFI->printBlockFreq(dbgs(), Pred) << " freq\n");
+                      << Pred->succ_size() << " successors, "
+                      << printBlockFreq(MBFI->getMBFI(), *Pred) << " freq\n");
     if (Pred->succ_size() > 2)
       continue;
 
@@ -2247,8 +2248,9 @@ MachineBlockPlacement::findBestLoopTopHelper(
 
     BlockFrequency Gains = FallThroughGains(Pred, OldTop, OtherBB,
                                             LoopBlockSet);
-    if ((Gains > 0) && (Gains > BestGains ||
-        ((Gains == BestGains) && Pred->isLayoutSuccessor(OldTop)))) {
+    if ((Gains > BlockFrequency(0)) &&
+        (Gains > BestGains ||
+         ((Gains == BestGains) && Pred->isLayoutSuccessor(OldTop)))) {
       BestPred = Pred;
       BestGains = Gains;
     }
@@ -2374,10 +2376,10 @@ MachineBlockPlacement::findBestLoopExit(const MachineLoop &L,
       }
 
       BlockFrequency ExitEdgeFreq = MBFI->getBlockFreq(MBB) * SuccProb;
-      LLVM_DEBUG(dbgs() << "    exiting: " << getBlockName(MBB) << " -> "
-                        << getBlockName(Succ) << " [L:" << SuccLoopDepth
-                        << "] (";
-                 MBFI->printBlockFreq(dbgs(), ExitEdgeFreq) << ")\n");
+      LLVM_DEBUG(
+          dbgs() << "    exiting: " << getBlockName(MBB) << " -> "
+                 << getBlockName(Succ) << " [L:" << SuccLoopDepth << "] ("
+                 << printBlockFreq(MBFI->getMBFI(), ExitEdgeFreq) << ")\n");
       // Note that we bias this toward an existing layout successor to retain
       // incoming order in the absence of better information. The exit must have
       // a frequency higher than the current exit before we consider breaking
@@ -2560,14 +2562,14 @@ void MachineBlockPlacement::rotateLoopWithProfile(
   if (ChainHeaderBB->isEntryBlock())
     return;
 
-  BlockFrequency SmallestRotationCost = BlockFrequency::getMaxFrequency();
+  BlockFrequency SmallestRotationCost = BlockFrequency::max();
 
   // A utility lambda that scales up a block frequency by dividing it by a
   // branch probability which is the reciprocal of the scale.
   auto ScaleBlockFrequency = [](BlockFrequency Freq,
                                 unsigned Scale) -> BlockFrequency {
     if (Scale == 0)
-      return 0;
+      return BlockFrequency(0);
     // Use operator / between BlockFrequency and BranchProbability to implement
     // saturating multiplication.
     return Freq / BranchProbability(1, Scale);
@@ -2627,7 +2629,7 @@ void MachineBlockPlacement::rotateLoopWithProfile(
     auto TailBB = *TailIter;
 
     // Calculate the cost by putting this BB to the top.
-    BlockFrequency Cost = 0;
+    BlockFrequency Cost = BlockFrequency(0);
 
     // If the current BB is the loop header, we need to take into account the
     // cost of the missed fall through edge from outside of the loop to the
@@ -2658,8 +2660,7 @@ void MachineBlockPlacement::rotateLoopWithProfile(
     if (TailBB->isSuccessor(*Iter)) {
       auto TailBBFreq = MBFI->getBlockFreq(TailBB);
       if (TailBB->succ_size() == 1)
-        Cost += ScaleBlockFrequency(TailBBFreq.getFrequency(),
-                                    MisfetchCost + JumpInstCost);
+        Cost += ScaleBlockFrequency(TailBBFreq, MisfetchCost + JumpInstCost);
       else if (TailBB->succ_size() == 2) {
         auto TailToHeadProb = MBPI->getEdgeProbability(TailBB, *Iter);
         auto TailToHeadFreq = TailBBFreq * TailToHeadProb;
@@ -2672,8 +2673,8 @@ void MachineBlockPlacement::rotateLoopWithProfile(
     }
 
     LLVM_DEBUG(dbgs() << "The cost of loop rotation by making "
-                      << getBlockName(*Iter)
-                      << " to the top: " << Cost.getFrequency() << "\n");
+                      << getBlockName(*Iter) << " to the top: "
+                      << printBlockFreq(MBFI->getMBFI(), Cost) << "\n");
 
     if (Cost < SmallestRotationCost) {
       SmallestRotationCost = Cost;
@@ -3602,7 +3603,7 @@ static uint64_t countMBBInstruction(MachineBasicBlock *MBB) {
 // So we should scale the threshold accordingly. But the instruction size is not
 // available on all targets, so we use the number of instructions instead.
 BlockFrequency MachineBlockPlacement::scaleThreshold(MachineBasicBlock *BB) {
-  return DupThreshold.getFrequency() * countMBBInstruction(BB);
+  return BlockFrequency(DupThreshold.getFrequency() * countMBBInstruction(BB));
 }
 
 // Returns true if BB is Pred's best successor.
@@ -3756,7 +3757,7 @@ void MachineBlockPlacement::findDuplicateCandidates(
 }
 
 void MachineBlockPlacement::initDupThreshold() {
-  DupThreshold = 0;
+  DupThreshold = BlockFrequency(0);
   if (!F->getFunction().hasProfileData())
     return;
 
@@ -3764,12 +3765,13 @@ void MachineBlockPlacement::initDupThreshold() {
   uint64_t HotThreshold = PSI->getOrCompHotCountThreshold();
   if (HotThreshold != UINT64_MAX) {
     UseProfileCount = true;
-    DupThreshold = HotThreshold * TailDupProfilePercentThreshold / 100;
+    DupThreshold =
+        BlockFrequency(HotThreshold * TailDupProfilePercentThreshold / 100);
     return;
   }
 
   // Profile count is not available, we can use block frequency instead.
-  BlockFrequency MaxFreq = 0;
+  BlockFrequency MaxFreq = BlockFrequency(0);
   for (MachineBasicBlock &MBB : *F) {
     BlockFrequency Freq = MBFI->getBlockFreq(&MBB);
     if (Freq > MaxFreq)
@@ -3777,7 +3779,7 @@ void MachineBlockPlacement::initDupThreshold() {
   }
 
   BranchProbability ThresholdProb(TailDupPlacementPenalty, 100);
-  DupThreshold = MaxFreq * ThresholdProb;
+  DupThreshold = BlockFrequency(MaxFreq * ThresholdProb);
   UseProfileCount = false;
 }
 
@@ -3984,7 +3986,7 @@ void MachineBlockPlacement::applyExtTsp() {
 
   auto BlockSizes = std::vector<uint64_t>(F->size());
   auto BlockCounts = std::vector<uint64_t>(F->size());
-  std::vector<EdgeCountT> JumpCounts;
+  std::vector<codelayout::EdgeCount> JumpCounts;
   for (MachineBasicBlock &MBB : *F) {
     // Getting the block frequency.
     BlockFrequency BlockFreq = MBFI->getBlockFreq(&MBB);
@@ -4003,8 +4005,8 @@ void MachineBlockPlacement::applyExtTsp() {
     for (MachineBasicBlock *Succ : MBB.successors()) {
       auto EP = MBPI->getEdgeProbability(&MBB, Succ);
       BlockFrequency JumpFreq = BlockFreq * EP;
-      auto Jump = std::make_pair(BlockIndex[&MBB], BlockIndex[Succ]);
-      JumpCounts.push_back(std::make_pair(Jump, JumpFreq.getFrequency()));
+      JumpCounts.push_back(
+          {BlockIndex[&MBB], BlockIndex[Succ], JumpFreq.getFrequency()});
     }
   }
 
@@ -4017,7 +4019,7 @@ void MachineBlockPlacement::applyExtTsp() {
                        calcExtTspScore(BlockSizes, BlockCounts, JumpCounts)));
 
   // Run the layout algorithm.
-  auto NewOrder = applyExtTspLayout(BlockSizes, BlockCounts, JumpCounts);
+  auto NewOrder = computeExtTspLayout(BlockSizes, BlockCounts, JumpCounts);
   std::vector<const MachineBasicBlock *> NewBlockOrder;
   NewBlockOrder.reserve(F->size());
   for (uint64_t Node : NewOrder) {

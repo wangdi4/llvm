@@ -1161,7 +1161,6 @@ void transform::ForeachOp::getEffects(
     SmallVectorImpl<MemoryEffects::EffectInstance> &effects) {
   BlockArgument iterVar = getIterationVariable();
   if (any_of(getBody().front().without_terminator(), [&](Operation &op) {
-
         return isHandleConsumed(iterVar, cast<TransformOpInterface>(&op));
       })) {
     consumesHandle(getTarget(), effects);
@@ -1244,6 +1243,10 @@ transform::GetParentOp::apply(transform::TransformRewriter &rewriter,
       parent = parent->getParentOp();
     }
     if (!parent) {
+      if (getAllowEmptyResults()) {
+        results.set(llvm::cast<OpResult>(getResult()), parents);
+        return DiagnosedSilenceableFailure::success();
+      }
       DiagnosedSilenceableFailure diag =
           emitSilenceableError()
           << "could not find a parent op that matches all requirements";
@@ -1379,9 +1382,7 @@ transform::GetTypeOp::apply(transform::TransformRewriter &rewriter,
                             transform::TransformResults &results,
                             transform::TransformState &state) {
   SmallVector<Attribute> params;
-  ArrayRef<Value> values = state.getPayloadValues(getValue());
-  params.reserve(values.size());
-  for (Value value : values) {
+  for (Value value : state.getPayloadValues(getValue())) {
     Type type = value.getType();
     if (getElemental()) {
       if (auto shaped = dyn_cast<ShapedType>(type)) {
@@ -1545,6 +1546,21 @@ transform::IncludeOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
              cast<FunctionOpInterface>(*target), /*emitWarnings=*/false,
              /*alsoVerifyInternal=*/true)
       .checkAndReport();
+}
+
+//===----------------------------------------------------------------------===//
+// MatchOperationEmptyOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure transform::MatchOperationEmptyOp::matchOperation(
+    ::std::optional<::mlir::Operation *> maybeCurrent,
+    transform::TransformResults &results, transform::TransformState &state) {
+  if (!maybeCurrent.has_value()) {
+    DBGS_MATCHER() << "MatchOperationEmptyOp success\n";
+    return DiagnosedSilenceableFailure::success();
+  }
+  DBGS_MATCHER() << "MatchOperationEmptyOp failure\n";
+  return emitSilenceableError() << "operation is not empty";
 }
 
 //===----------------------------------------------------------------------===//
@@ -2188,7 +2204,7 @@ LogicalResult transform::SequenceOp::verify() {
     }
   }
 
-  if (!getBodyBlock()->hasTerminator())
+  if (!getBodyBlock()->mightHaveTerminator())
     return emitOpError() << "expects to have a terminator in the body";
 
   if (getBodyBlock()->getTerminator()->getOperandTypes() !=
@@ -2311,10 +2327,8 @@ void transform::SequenceOp::build(OpBuilder &builder, OperationState &state,
 
 void transform::PrintOp::build(OpBuilder &builder, OperationState &result,
                                StringRef name) {
-  if (!name.empty()) {
-    result.addAttribute(PrintOp::getNameAttrName(result.name),
-                        builder.getStrArrayAttr(name));
-  }
+  if (!name.empty())
+    result.getOrAddProperties<Properties>().name = builder.getStringAttr(name);
 }
 
 void transform::PrintOp::build(OpBuilder &builder, OperationState &result,

@@ -895,7 +895,7 @@ int main (int argc, char **argv) {
 // CHECK4-NEXT:  omp.par.entry:
 // CHECK4-NEXT:    [[GEP_VLA:%.*]] = getelementptr { ptr }, ptr [[TMP0]], i32 0, i32 0
 // CHECK4-NEXT:    [[LOADGEP_VLA:%.*]] = load ptr, ptr [[GEP_VLA]], align 8
-// CHECK4-NEXT:    call void @llvm.dbg.value(metadata ptr %loadgep_vla, metadata !35, metadata !DIExpression(DW_OP_deref)), !dbg [[DBG36:![0-9]+]]
+// CHECK4-NEXT:    call void @llvm.dbg.value(metadata ptr %loadgep_vla, metadata [[DBG35:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[DBG36:![0-9]+]] ;INTEL
 // CHECK4-NEXT:    [[TID_ADDR_LOCAL:%.*]] = alloca i32, align 4
 // CHECK4-NEXT:    [[TMP1:%.*]] = load i32, ptr [[TID_ADDR]], align 4
 // CHECK4-NEXT:    store i32 [[TMP1]], ptr [[TID_ADDR_LOCAL]], align 4
@@ -963,7 +963,7 @@ int main (int argc, char **argv) {
 // CHECK4-NEXT:    [[LOADGEP__RELOADED:%.*]] = load ptr, ptr [[GEP__RELOADED]], align 8
 // CHECK4-NEXT:    [[GEP_ARGC_ADDR:%.*]] = getelementptr { ptr, ptr }, ptr [[TMP0]], i32 0, i32 1
 // CHECK4-NEXT:    [[LOADGEP_ARGC_ADDR:%.*]] = load ptr, ptr [[GEP_ARGC_ADDR]], align 8
-// CHECK4-NEXT:    call void @llvm.dbg.value(metadata ptr %loadgep_argc.addr, metadata !60, metadata !DIExpression(DW_OP_deref)), !dbg [[DBG61:![0-9]+]]
+// CHECK4-NEXT:    call void @llvm.dbg.value(metadata ptr %loadgep_argc.addr, metadata [[DBG60:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[DBG61:![0-9]+]] ;INTEL
 // CHECK4-NEXT:    [[TID_ADDR_LOCAL:%.*]] = alloca i32, align 4
 // CHECK4-NEXT:    [[TMP1:%.*]] = load i32, ptr [[TID_ADDR]], align 4
 // CHECK4-NEXT:    store i32 [[TMP1]], ptr [[TID_ADDR_LOCAL]], align 4

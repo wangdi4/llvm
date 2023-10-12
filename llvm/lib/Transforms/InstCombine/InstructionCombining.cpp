@@ -162,13 +162,6 @@ STATISTIC(NumReassoc  , "Number of reassociations");
 DEBUG_COUNTER(VisitCounter, "instcombine-visit",
               "Controls which instructions are visited");
 
-// FIXME: these limits eventually should be as low as 2.
-#ifndef NDEBUG
-static constexpr unsigned InstCombineDefaultInfiniteLoopThreshold = 100;
-#else
-static constexpr unsigned InstCombineDefaultInfiniteLoopThreshold = 1000;
-#endif
-
 static cl::opt<bool>
 EnableCodeSinking("instcombine-code-sinking", cl::desc("Enable code sinking"),
                                               cl::init(true));
@@ -204,15 +197,13 @@ static cl::opt<bool> DisableCanonicalizeSwap(
     cl::desc("disable canonicalizing GEP of GEP constant indices to "
              "have constants as the rightmost indices"),
     cl::ReallyHidden, cl::init(false));
-#endif // INTEL_CUSTOMIZATION
 
-// FIXME: Remove this option, it has been superseded by verify-fixpoint.
-// Only keeping it for now to avoid unnecessary test churn in this patch.
-static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
-    "instcombine-infinite-loop-threshold",
-    cl::desc("Number of instruction combining iterations considered an "
-             "infinite loop"),
-    cl::init(InstCombineDefaultInfiniteLoopThreshold), cl::Hidden);
+static cl::opt<bool>
+    DisableFpclassFolding("instcombine-disable-fpclass-folding",
+                          cl::desc("Disable fpclass folding in InstCombin"),
+                          cl::Hidden, cl::init(true));
+
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned>
 MaxArraySize("instcombine-maxarray-size", cl::init(1024),
@@ -452,10 +443,12 @@ static bool simplifyAssocCastAssoc(BinaryOperator *BinOp1,
 
   // Fold the constants together in the destination type:
   // (op (cast (op X, C2)), C1) --> (op (cast X), FoldedC)
+  const DataLayout &DL = IC.getDataLayout();
   Type *DestTy = C1->getType();
-  Constant *CastC2 = ConstantExpr::getCast(CastOpcode, C2, DestTy);
-  Constant *FoldedC =
-      ConstantFoldBinaryOpOperands(AssocOpcode, C1, CastC2, IC.getDataLayout());
+  Constant *CastC2 = ConstantFoldCastOperand(CastOpcode, C2, DestTy, DL);
+  if (!CastC2)
+    return false;
+  Constant *FoldedC = ConstantFoldBinaryOpOperands(AssocOpcode, C1, CastC2, DL);
   if (!FoldedC)
     return false;
 
@@ -2417,8 +2410,8 @@ Instruction *InstCombinerImpl::narrowMathIfNoOverflow(BinaryOperator &BO) {
     Constant *WideC;
     if (!Op0->hasOneUse() || !match(Op1, m_Constant(WideC)))
       return nullptr;
-    Constant *NarrowC = ConstantExpr::getTrunc(WideC, X->getType());
-    if (ConstantExpr::getCast(CastOpc, NarrowC, BO.getType()) != WideC)
+    Constant *NarrowC = getLosslessTrunc(WideC, X->getType(), CastOpc);
+    if (!NarrowC)
       return nullptr;
     Y = NarrowC;
   }
@@ -3002,7 +2995,6 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
         return CastInst::CreatePointerBitCastOrAddrSpaceCast(Y, GEPType);
     }
   }
-
   // We do not handle pointer-vector geps here.
   if (GEPType->isVectorTy())
     return nullptr;
@@ -3013,6 +3005,22 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     if (auto *NewGEP = convertOpaqueGEPToLoadStoreType(GEP))
       return NewGEP;
 #endif // INTEL_CUSTOMIZATION
+  if (GEP.getNumIndices() == 1) {
+    // Try to replace ADD + GEP with GEP + GEP.
+    Value *Idx1, *Idx2;
+    if (match(GEP.getOperand(1),
+              m_OneUse(m_Add(m_Value(Idx1), m_Value(Idx2))))) {
+      //   %idx = add i64 %idx1, %idx2
+      //   %gep = getelementptr i32, i32* %ptr, i64 %idx
+      // as:
+      //   %newptr = getelementptr i32, i32* %ptr, i64 %idx1
+      //   %newgep = getelementptr i32, i32* %newptr, i64 %idx2
+      auto *NewPtr = Builder.CreateGEP(GEP.getResultElementType(),
+                                       GEP.getPointerOperand(), Idx1);
+      return GetElementPtrInst::Create(GEP.getResultElementType(), NewPtr,
+                                       Idx2);
+    }
+  }
 
   if (!GEP.isInBounds()) {
     unsigned IdxWidth =
@@ -3464,8 +3472,30 @@ Instruction *InstCombinerImpl::visitFree(CallInst &FI, Value *Op) {
 }
 
 Instruction *InstCombinerImpl::visitReturnInst(ReturnInst &RI) {
-  // Nothing for now.
-  return nullptr;
+  Value *RetVal = RI.getReturnValue();
+  if (!RetVal || !AttributeFuncs::isNoFPClassCompatibleType(RetVal->getType()))
+    return nullptr;
+
+  Function *F = RI.getFunction();
+  FPClassTest ReturnClass = F->getAttributes().getRetNoFPClass();
+  if (ReturnClass == fcNone)
+    return nullptr;
+
+#if INTEL_CUSTOMIZATION
+  if (DisableFpclassFolding)
+    // We set nofpclass(nan,inf) which is causing problems with our own header
+    // files which use these constant values. CMPLRLLVM-52292
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
+
+  KnownFPClass KnownClass;
+
+  Value *Simplified =
+      SimplifyDemandedUseFPClass(RetVal, ~ReturnClass, KnownClass, 0, &RI);
+  if (!Simplified)
+    return nullptr;
+
+  return ReturnInst::Create(RI.getContext(), Simplified);
 }
 
 // WARNING: keep in sync with SimplifyCFGOpt::simplifyUnreachable()!

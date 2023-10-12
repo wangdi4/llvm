@@ -27,6 +27,7 @@ set(BACKEND_TEST_TYPE_LINK_LIBS
   CLElfLib
   CacheBinaryHandler
   LLVMBinaryFormat
+  LLVMDebugInfoBTF
   LLVMDebugInfoDWARF
   LLVMDebugInfoTraceBack
   LLVMIntel_Debug

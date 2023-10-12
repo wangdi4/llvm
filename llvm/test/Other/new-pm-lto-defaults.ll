@@ -232,12 +232,12 @@
 ; end INTEL_CUSTOMIZATION
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O23SZ-NEXT: Running pass: ConstraintEliminationPass
+; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
+; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: HandlePragmaVectorAlignedPass on foo ;INTEL
-; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo ;INTEL
-; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis on foo ;INTEL
@@ -264,7 +264,6 @@
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: AAManager on foo
-; COM: CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT: Running pass: LICMPass on loop
 ; CHECK-O23SZ-NEXT: Running pass: GVNPass on foo

@@ -227,11 +227,6 @@ void freebsd::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     else
       CmdArgs.push_back("elf64ltsmip_fbsd");
     break;
-  case llvm::Triple::riscv32:
-    CmdArgs.push_back("-m");
-    CmdArgs.push_back("elf32lriscv");
-    CmdArgs.push_back("-X");
-    break;
   case llvm::Triple::riscv64:
     CmdArgs.push_back("-m");
     CmdArgs.push_back("elf64lriscv");
@@ -249,11 +244,10 @@ void freebsd::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
+  assert((Output.isFilename() || Output.isNothing()) && "Invalid output.");
   if (Output.isFilename()) {
     CmdArgs.push_back("-o");
     CmdArgs.push_back(Output.getFilename());
-  } else {
-    assert(Output.isNothing() && "Invalid output.");
   }
 
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles,

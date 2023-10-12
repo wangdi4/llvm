@@ -62,7 +62,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
   bool UseSingleArrayFuncs = CGF.getLangOpts().OpenMPUseSingleElemArrayFuncs;
   if (Ty->isArrayType() && (UseSingleArrayFuncs || IsUDR))
     Ty = Ctx.getBaseElementType(Ty).getNonReferenceType();
-  CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
+  CGM.getCXXABI().getMangleContext().mangleCanonicalTypeName(Ty, Out);
   Out << ".omp.def_constr";
 
   if (llvm::Value *F = CGM.GetGlobalValue(OutName))
@@ -128,7 +128,7 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty, bool IsUDR) {
   bool UseSingleArrayFuncs = CGF.getLangOpts().OpenMPUseSingleElemArrayFuncs;
   if (Ty->isArrayType() && (UseSingleArrayFuncs || IsUDR))
     Ty = Ctx.getBaseElementType(Ty).getNonReferenceType();
-  CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
+  CGM.getCXXABI().getMangleContext().mangleCanonicalTypeName(Ty, Out);
   Out << ".omp.destr";
 
   if (llvm::Value *F = CGM.GetGlobalValue(OutName))
@@ -190,7 +190,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
 
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
-  CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
+  CGM.getCXXABI().getMangleContext().mangleCanonicalTypeName(Ty, Out);
   Out << ".omp.copy_constr";
 
   if (llvm::Value *F = CGM.GetGlobalValue(OutName))
@@ -305,7 +305,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
 
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
-  CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
+  CGM.getCXXABI().getMangleContext().mangleCanonicalTypeName(Ty, Out);
   Out << ".omp.copy_assign";
 
   if (llvm::Value *F = CGM.GetGlobalValue(OutName))
@@ -3191,6 +3191,7 @@ void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
 void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
 void OpenMPLateOutliner::emitOMPXDynCGroupMemClause(
     const OMPXDynCGroupMemClause *) {}
+void OpenMPLateOutliner::emitOMPXBareClause(const OMPXBareClause *) {}
 
 void OpenMPLateOutliner::emitOMPInitClause(const OMPInitClause *Cl) {
   // Gather any valid preferences first.

@@ -20,6 +20,7 @@ set(LLVM_LINK_COMPONENTS
   AllTargetsDisassemblers
   AllTargetsInfos
   BinaryFormat
+  DebugInfoBTF
   DebugInfoDWARF
   DebugInfoTraceBack # INTEL
   Demangle

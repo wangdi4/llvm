@@ -1092,7 +1092,9 @@ void Sema::PrintInstantiationStack() {
           << Active->InstantiationRange;
       break;
     case CodeSynthesisContext::BuildingDeductionGuides:
-      llvm_unreachable("unexpected deduction guide in instantiation stack");
+      Diags.Report(Active->PointOfInstantiation,
+                   diag::note_building_deduction_guide_here);
+      break;
     }
   }
 }
@@ -3132,6 +3134,8 @@ ParmVarDecl *Sema::SubstParmVarDecl(
     NewParm->setUninstantiatedDefaultArg(Arg);
   }
 
+  NewParm->setExplicitObjectParameterLoc(
+      OldParm->getExplicitObjectParamThisLoc());
   NewParm->setHasInheritedDefaultArg(OldParm->hasInheritedDefaultArg());
 
   if (OldParm->isParameterPack() && !NewParm->isParameterPack()) {

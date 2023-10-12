@@ -57,6 +57,13 @@ using namespace llvm::support::endian;
 using namespace lld;
 using namespace lld::elf;
 
+// This function is explicity instantiated in ARM.cpp, don't do it here to avoid
+// warnings with MSVC.
+extern template void ObjFile<ELF32LE>::importCmseSymbols();
+extern template void ObjFile<ELF32BE>::importCmseSymbols();
+extern template void ObjFile<ELF64LE>::importCmseSymbols();
+extern template void ObjFile<ELF64BE>::importCmseSymbols();
+
 bool InputFile::isInGroup;
 uint32_t InputFile::nextGroupId;
 
@@ -322,6 +329,13 @@ template <class ELFT> static void doParseFile(InputFile *file) {
 
 // Add symbols in File to the symbol table.
 void elf::parseFile(InputFile *file) { invokeELFT(doParseFile, file); }
+
+// This function is explicity instantiated in ARM.cpp. Mark it extern here,
+// to avoid warnings when building with MSVC.
+extern template void ObjFile<ELF32LE>::importCmseSymbols();
+extern template void ObjFile<ELF32BE>::importCmseSymbols();
+extern template void ObjFile<ELF64LE>::importCmseSymbols();
+extern template void ObjFile<ELF64BE>::importCmseSymbols();
 
 // Concatenates arguments to construct a string representing an error location.
 static std::string createFileLineMsg(StringRef path, unsigned line) {

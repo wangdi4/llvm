@@ -76,7 +76,7 @@ void AddStaticDeviceLibsLinking(Compilation &C, const Tool &T,
                                 const llvm::opt::ArgList &DriverArgs,
                                 llvm::opt::ArgStringList &CmdArgs,
                                 StringRef Arch, StringRef Target,
-                                bool isBitCodeSDL, bool postClangLink);
+                                bool isBitCodeSDL);
 void AddStaticDeviceLibsPostLinking(const Driver &D,
                                     const llvm::opt::ArgList &DriverArgs,
                                     llvm::opt::ArgStringList &CmdArgs,
@@ -86,14 +86,12 @@ void AddStaticDeviceLibs(Compilation *C, const Tool *T, const JobAction *JA,
                          const InputInfoList *Inputs, const Driver &D,
                          const llvm::opt::ArgList &DriverArgs,
                          llvm::opt::ArgStringList &CmdArgs, StringRef Arch,
-                         StringRef Target, bool isBitCodeSDL,
-                         bool postClangLink);
+                         StringRef Target, bool isBitCodeSDL);
 
 bool SDLSearch(const Driver &D, const llvm::opt::ArgList &DriverArgs,
                llvm::opt::ArgStringList &CmdArgs,
                SmallVector<std::string, 8> LibraryPaths, std::string Lib,
-               StringRef Arch, StringRef Target, bool isBitCodeSDL,
-               bool postClangLink);
+               StringRef Arch, StringRef Target, bool isBitCodeSDL);
 
 bool GetSDLFromOffloadArchive(Compilation &C, const Driver &D, const Tool &T,
                               const JobAction &JA, const InputInfoList &Inputs,
@@ -101,7 +99,7 @@ bool GetSDLFromOffloadArchive(Compilation &C, const Driver &D, const Tool &T,
                               llvm::opt::ArgStringList &CC1Args,
                               SmallVector<std::string, 8> LibraryPaths,
                               StringRef Lib, StringRef Arch, StringRef Target,
-                              bool isBitCodeSDL, bool postClangLink);
+                              bool isBitCodeSDL);
 
 const char *SplitDebugName(const JobAction &JA, const llvm::opt::ArgList &Args,
                            const InputInfo &Input, const InputInfo &Output);

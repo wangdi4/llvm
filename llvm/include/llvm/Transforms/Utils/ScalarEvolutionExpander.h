@@ -303,17 +303,16 @@ public:
 
   /// Insert code to directly compute the specified SCEV expression into the
   /// program.  The code is inserted into the specified block.
+  Value *expandCodeFor(const SCEV *SH, Type *Ty, BasicBlock::iterator I);
   Value *expandCodeFor(const SCEV *SH, Type *Ty, Instruction *I) {
-    return expandCodeForImpl(SH, Ty, I);
+    return expandCodeFor(SH, Ty, I->getIterator());
   }
 
   /// Insert code to directly compute the specified SCEV expression into the
   /// program.  The code is inserted into the SCEVExpander's current
   /// insertion point. If a type is specified, the result will be expanded to
   /// have that type, with a cast if necessary.
-  Value *expandCodeFor(const SCEV *SH, Type *Ty = nullptr) {
-    return expandCodeForImpl(SH, Ty);
-  }
+  Value *expandCodeFor(const SCEV *SH, Type *Ty = nullptr);
 
   /// Generates a code sequence that evaluates this predicate.  The inserted
   /// instructions will be at position \p Loc.  The result will be of type i1
@@ -427,23 +426,6 @@ public:
 private:
   LLVMContext &getContext() const { return SE.getContext(); }
 
-  /// Insert code to directly compute the specified SCEV expression into the
-  /// program. The code is inserted into the SCEVExpander's current
-  /// insertion point. If a type is specified, the result will be expanded to
-  /// have that type, with a cast if necessary. If \p Root is true, this
-  /// indicates that \p SH is the top-level expression to expand passed from
-  /// an external client call.
-  Value *expandCodeForImpl(const SCEV *SH, Type *Ty);
-
-  /// Insert code to directly compute the specified SCEV expression into the
-  /// program. The code is inserted into the specified block. If \p
-  /// Root is true, this indicates that \p SH is the top-level expression to
-  /// expand passed from an external client call.
-  Value *expandCodeForImpl(const SCEV *SH, Type *Ty, BasicBlock::iterator I);
-  Value *expandCodeForImpl(const SCEV *SH, Type *Ty, Instruction *I) {
-    return expandCodeForImpl(SH, Ty, I->getIterator());
-  }
-
   /// Recursive helper function for isHighCostExpansion.
   bool isHighCostExpansionHelper(const SCEVOperand &WorkItem, Loop *L,
                                  const Instruction &At, InstructionCost &Cost,
@@ -473,7 +455,7 @@ private:
 
   /// Expand a SCEVAddExpr with a pointer type into a GEP instead of using
   /// ptrtoint+arithmetic+inttoptr.
-  Value *expandAddToGEP(const SCEV *Op, Type *Ty, Value *V);
+  Value *expandAddToGEP(const SCEV *Op, Value *V);
 
   /// Find a previous Value in ExprValueMap for expand.
   /// DropPoisonGeneratingInsts is populated with instructions for which
@@ -483,6 +465,14 @@ private:
       SmallVectorImpl<Instruction *> &DropPoisonGeneratingInsts);
 
   virtual Value *expand(const SCEV *S); // INTEL
+  Value *expand(const SCEV *S, BasicBlock::iterator I) {
+    setInsertPoint(I);
+    return expand(S);
+  }
+  Value *expand(const SCEV *S, Instruction *I) {
+    setInsertPoint(I);
+    return expand(S);
+  }
 
   /// Determine the most "relevant" loop for the given SCEV.
   const Loop *getRelevantLoop(const SCEV *);
@@ -532,10 +522,10 @@ private:
 
   Value *expandAddRecExprLiterally(const SCEVAddRecExpr *);
   PHINode *getAddRecExprPHILiterally(const SCEVAddRecExpr *Normalized,
-                                     const Loop *L, Type *ExpandTy, Type *IntTy,
-                                     Type *&TruncTy, bool &InvertStep);
-  Value *expandIVInc(PHINode *PN, Value *StepV, const Loop *L, Type *ExpandTy,
-                     Type *IntTy, bool useSubtract);
+                                     const Loop *L, Type *&TruncTy,
+                                     bool &InvertStep);
+  Value *expandIVInc(PHINode *PN, Value *StepV, const Loop *L,
+                     bool useSubtract);
 
   void fixupInsertPoints(Instruction *I);
 

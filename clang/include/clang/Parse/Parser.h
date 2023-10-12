@@ -1819,6 +1819,7 @@ public:
   ExprResult ParseConstantExpressionInExprEvalContext(
       TypeCastState isTypeCast = NotTypeCast);
   ExprResult ParseConstantExpression();
+  ExprResult ParseArrayBoundExpression();
   ExprResult ParseCaseExpression(SourceLocation CaseLoc);
   ExprResult ParseConstraintExpression();
   ExprResult
@@ -3039,7 +3040,7 @@ private:
     return false;
   }
 
-  void ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
+  void ParseOpenMPAttributeArgs(const IdentifierInfo *AttrName,
 #if INTEL_COLLAB
                                 bool IsExtension,
 #endif // INTEL_COLLAB

@@ -437,8 +437,7 @@ appendCompileOptionsForGRFSizeProperties(std::string &CompileOpts,
   }
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
-  // TODO: Support Auto GRF for ESIMD once vc supports it.
-  if (IsAutoGRF && !IsEsimdImage) {
+  if (IsAutoGRF) {
     if (!CompileOpts.empty())
       CompileOpts += " ";
     // This option works for both LO AND OCL backends.
@@ -1190,8 +1189,10 @@ getDeviceLibPrograms(const ContextImplPtr Context,
     if (!isDeviceLibRequired(Ext, DeviceLibReqMask)) {
       continue;
     }
+
     if ((Ext == DeviceLibExt::cl_intel_devicelib_math_fp64 ||
-         Ext == DeviceLibExt::cl_intel_devicelib_complex_fp64) &&
+         Ext == DeviceLibExt::cl_intel_devicelib_complex_fp64 ||
+         Ext == DeviceLibExt::cl_intel_devicelib_imf_fp64) &&
         !fp64Support) {
       continue;
     }

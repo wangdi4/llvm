@@ -109,6 +109,7 @@ target_link_libraries(
   ImathLibd
   LLVMAsmParser
   LLVMBinaryFormat
+  LLVMDebugInfoBTF
   LLVMDebugInfoDWARF
   LLVMDebugInfoTraceBack
   LLVMInterpreterPluggable

@@ -230,6 +230,10 @@ public:
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 
+  /// The code model-specific large data threshold to use
+  /// (-mlarge-data-threshold).
+  uint64_t LargeDataThreshold;
+
   /// The filename with path we use for coverage data files. The runtime
   /// allows further manipulation with the GCOV_PREFIX and GCOV_PREFIX_STRIP
   /// environment variables.

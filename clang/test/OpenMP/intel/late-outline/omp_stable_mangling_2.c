@@ -6,7 +6,7 @@
 
 // CHECK: [[VAR_X:@x]] = internal target_declare global i32 0,
 // CHECK: @._ZL1x_[[HASH:[a-f0-9]+]].ref = internal constant ptr @x
-// CHECK: [[VAR_Y:@y]] ={{ dso_local | }}target_declare global float 0.000000e+00,
+// CHECK: [[VAR_Y:@y]] = {{.*}}target_declare global float 0.000000e+00,
 #pragma omp declare target
 static int x;
 float y;

@@ -65,6 +65,8 @@ enum class ExportSource {
   ModuleDefinition,
 };
 
+enum class EmitKind { Obj, LLVM, ASM };
+
 // Represents an /export option.
 struct Export {
   StringRef name;       // N in /export:N or /export:E=N
@@ -87,7 +89,7 @@ struct Export {
   StringRef symbolName;
   StringRef exportName; // Name in DLL
 
-  bool operator==(const Export &e) {
+  bool operator==(const Export &e) const {
     return (name == e.name && extName == e.extName &&
             aliasTarget == e.aliasTarget &&
             ordinal == e.ordinal && noname == e.noname &&
@@ -314,6 +316,7 @@ struct Configuration {
   uint32_t minorSubsystemVersion = 0;
   uint64_t timestamp = 0; // INTEL
   uint32_t functionPadMin = 0;
+  uint32_t timeTraceGranularity = 0;
   bool dynamicBase = true;
   bool allowBind = true;
   bool cetCompat = false;
@@ -337,10 +340,12 @@ struct Configuration {
   bool swaprunNet = false;
   bool thinLTOEmitImportsFiles;
   bool thinLTOIndexOnly;
+  bool timeTraceEnabled = false;
   bool autoImport = false;
   bool pseudoRelocs = false;
   bool stdcallFixup = false;
   bool writeCheckSum = false;
+  EmitKind emit = EmitKind::Obj;
 };
 
 } // namespace lld::coff

@@ -2196,6 +2196,7 @@ gentbl(
     tbl_outs = [
       ("-gen-global-isel", "lib/Target/RISCV/RISCVGenGlobalISel.inc"),
       ("-gen-global-isel-combiner -combiners=RISCVO0PreLegalizerCombiner", "lib/Target/RISCV/RISCVGenO0PreLegalizeGICombiner.inc"),
+      ("-gen-global-isel-combiner -combiners=RISCVPostLegalizerCombiner", "lib/Target/RISCV/RISCVGenPostLegalizeGICombiner.inc"),
       ("-gen-global-isel-combiner -combiners=RISCVPreLegalizerCombiner", "lib/Target/RISCV/RISCVGenPreLegalizeGICombiner.inc"),
     ],
     tblgen = ":llvm-tblgen",
@@ -2751,6 +2752,27 @@ cc_library(
 )
 
 cc_library(
+    name = "OrcDebugging",
+    srcs = glob([
+        "lib/ExecutionEngine/Orc/Debugging/*.cpp",
+    ]),
+    hdrs = glob([
+        "include/llvm/ExecutionEngine/Orc/Debugging/*.h",
+    ]),
+    copts = llvm_copts,
+    deps = [
+        ":BinaryFormat",
+        ":DebugInfo",
+        ":OrcShared",
+        ":OrcJIT",
+        ":JITLink",
+        ":Support",
+        ":TargetParser",
+    ],
+)
+
+
+cc_library(
     name = "OrcTargetProcess",
     srcs = glob([
         "lib/ExecutionEngine/Orc/TargetProcess/*.cpp",
@@ -3185,6 +3207,7 @@ cc_binary(
         ":Object",
         ":OrcJIT",
         ":OrcTargetProcess",
+        ":OrcDebugging",
         ":Support",
         ":TargetParser",
         ":config",
@@ -3738,6 +3761,7 @@ cc_binary(
         ":MCDisassembler",
         ":MCJIT",
         ":Object",
+        ":OrcDebugging",
         ":OrcJIT",
         ":OrcShared",
         ":OrcTargetProcess",

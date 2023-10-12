@@ -80,7 +80,7 @@ static void CheckOutput(int fd) {
 
   int i = 0;
   while (getline(&buf, &size, fin) != -1 && i < TEST_NUM) {
-    if (strncmp(refs[i], buf, strlen(refs[i])) == 0)
+    if (strstr(buf, refs[i]) != NULL)
       i++;
   }
   // consume all output

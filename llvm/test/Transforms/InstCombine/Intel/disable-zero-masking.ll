@@ -69,10 +69,10 @@ define dso_local void @disable-zero-masking(ptr noalias %vec_ptr, ptr noalias %c
 ; CHECK-NEXT:    [[AND64:%.*]] = and i64 [[AND63]], 255
 ; CHECK-NEXT:    [[SHR65:%.*]] = lshr i64 [[AND63]], 8
 ; CHECK-NEXT:    [[AND66:%.*]] = and i64 [[SHR65]], 255
-; CHECK-NEXT:    [[ADD:%.*]] = add nuw nsw i64 [[AND64]], [[AND66]]
-; CHECK-NEXT:    [[ARRAYIDX67:%.*]] = getelementptr inbounds i32, ptr [[CNT_PTR:%.*]], i64 [[ADD]]
-; CHECK-NEXT:    [[TMP27:%.*]] = load i32, ptr [[ARRAYIDX67]], align 4
-; CHECK-NEXT:    [[INC:%.*]] = add nsw i32 [[TMP27]], 1
+; CHECK-NEXT:    [[TMP27:%.*]] = getelementptr i32, ptr [[CNT_PTR:%.*]], i64 [[AND64]]
+; CHECK-NEXT:    [[ARRAYIDX67:%.*]] = getelementptr i32, ptr [[TMP27]], i64 [[AND66]]
+; CHECK-NEXT:    [[TMP28:%.*]] = load i32, ptr [[ARRAYIDX67]], align 4
+; CHECK-NEXT:    [[INC:%.*]] = add nsw i32 [[TMP28]], 1
 ; CHECK-NEXT:    store i32 [[INC]], ptr [[ARRAYIDX67]], align 4
 ; CHECK-NEXT:    ret void
 ;

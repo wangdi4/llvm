@@ -694,8 +694,6 @@ inline ElementCount VectorType::getElementCount() const {
 class PointerType : public Type {
   explicit PointerType(LLVMContext &C, unsigned AddrSpace);
 
-  Type *PointeeTy;
-
 public:
   PointerType(const PointerType &) = delete;
   PointerType &operator=(const PointerType &) = delete;
@@ -733,20 +731,7 @@ public:
     return get(PT->getContext(), AddressSpace);
   }
 
-  [[deprecated("Pointer element types are deprecated. You can *temporarily* "
-               "use Type::getPointerElementType() instead")]]
-  Type *getElementType() const {
-    assert(!isOpaque() && "Attempting to get element type of opaque pointer");
-    return PointeeTy;
-  }
-
-#if !INTEL_CUSTOMIZATION
-  [[deprecated("Always returns true")]]
-#endif // !INTEL_CUSTOMIZATION
-  bool
-  isOpaque() const {
-    return true;
-  }
+  bool isOpaque() const { return true; }
 
   /// Return true if the specified type is valid as a element type.
   static bool isValidElementType(Type *ElemTy);

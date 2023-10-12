@@ -48,6 +48,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/DebugInfo/BTF/BTFParser.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/DebugInfo/Intel_TraceBack/TraceContext.h" // INTEL
 #include "llvm/DebugInfo/Symbolize/SymbolizableModule.h"
@@ -557,6 +558,22 @@ static void printRelocation(formatted_raw_ostream &OS, StringRef FileName,
   OS << Name << "\t" << Val;
 }
 
+static void printBTFRelocation(formatted_raw_ostream &FOS, llvm::BTFParser &BTF,
+                               object::SectionedAddress Address,
+                               LiveVariablePrinter &LVP) {
+  const llvm::BTF::BPFFieldReloc *Reloc = BTF.findFieldReloc(Address);
+  if (!Reloc)
+    return;
+
+  SmallString<64> Val;
+  BTF.symbolize(Reloc, Val);
+  FOS << "\t\t";
+  if (LeadingAddr)
+    FOS << format("%016" PRIx64 ":  ", Address.Address + AdjustVMA);
+  FOS << "CO-RE " << Val;
+  LVP.printAfterOtherLine(FOS, true);
+}
+
 class PrettyPrinter {
 public:
   virtual ~PrettyPrinter() = default;
@@ -788,12 +805,12 @@ public:
       OS << "\t<unknown>";
   }
 
-  void setInstructionEndianness(llvm::support::endianness Endianness) {
+  void setInstructionEndianness(llvm::endianness Endianness) {
     InstructionEndianness = Endianness;
   }
 
 private:
-  llvm::support::endianness InstructionEndianness = llvm::support::little;
+  llvm::endianness InstructionEndianness = llvm::support::little;
 };
 ARMPrettyPrinter ARMPrettyPrinterInst;
 
@@ -1648,6 +1665,16 @@ disassembleObject(ObjectFile &Obj, const ObjectFile &DbgObj,
   if (SymbolizeOperands && !Obj.isRelocatableObject())
     ReadBBAddrMap();
 
+  std::optional<llvm::BTFParser> BTF;
+  if (InlineRelocs && BTFParser::hasBTFSections(Obj)) {
+    BTF.emplace();
+    BTFParser::ParseOptions Opts = {};
+    Opts.LoadTypes = true;
+    Opts.LoadRelocs = true;
+    if (Error E = BTF->parse(Obj, Opts))
+      WithColor::defaultErrorHandler(std::move(E));
+  }
+
   for (const SectionRef &Section : ToolSectionFilter(Obj)) {
     if (FilterSections.empty() && !DisassembleAll &&
         (!Section.isText() || Section.isVirtual()))
@@ -2184,6 +2211,9 @@ disassembleObject(ObjectFile &Obj, const ObjectFile &DbgObj,
         emitPostInstructionInfo(FOS, *DT->Context->getAsmInfo(),
                                 *DT->SubtargetInfo, CommentStream.str(), LVP);
         Comments.clear();
+
+        if (BTF)
+          printBTFRelocation(FOS, *BTF, {Index, Section.getIndex()}, LVP);
 
         // Hexagon does this in pretty printer
         if (Obj.getArch() != Triple::hexagon) {

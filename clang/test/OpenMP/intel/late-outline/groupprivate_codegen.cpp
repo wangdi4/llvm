@@ -49,7 +49,7 @@ int main() {
 //HOST: @y = target_declare global i32 0, align 4
 //HOST: @x_gp = global i32 0, align 4
 //HOST: @_ZZL5test1vE1x = internal global i32 0, align 4
-//TARG: @y = target_declare addrspace(3) global i32 0, align 4
+//TARG: @y = {{.*}}target_declare addrspace(3) global i32 0, align 4
 //TARG: @x_gp = external addrspace(3) global i32, align 4
 //TARG: @_ZZL5test1vE1x = internal addrspace(3) global i32 undef, align 4
 //TARG-NOT: {i32 1, !"_Z1y", i32 0, i32 0, ptr addrspace(3) @y}

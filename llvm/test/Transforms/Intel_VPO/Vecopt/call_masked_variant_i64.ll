@@ -29,7 +29,9 @@ define void @test(ptr nocapture noundef readonly %src, ptr nocapture noundef wri
 ; VPLANCGVF16-NEXT:    [[WIDE_LOAD0:%.*]] = load <16 x i64>, ptr [[SCALAR_GEP0]], align 8
 ; VPLANCGVF16-NEXT:    [[WIDE_LOAD_PART_0_OF_2_0:%.*]] = shufflevector <16 x i64> [[WIDE_LOAD0]], <16 x i64> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; VPLANCGVF16-NEXT:    [[WIDE_LOAD_PART_1_OF_2_0:%.*]] = shufflevector <16 x i64> [[WIDE_LOAD0]], <16 x i64> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-; VPLANCGVF16-NEXT:    [[TMP4:%.*]] = call x86_regcallcc { <8 x i64>, <8 x i64> } @_ZGVZM16v_vfunc(<8 x i64> noundef [[WIDE_LOAD_PART_0_OF_2_0]], <8 x i64> noundef [[WIDE_LOAD_PART_1_OF_2_0]], i32 zext (i8 bitcast (<8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true> to i8) to i32), i32 zext (i8 bitcast (<8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true> to i8) to i32)) #0
+; VPLANCGVF16-NEXT:    [[ZEXT0:%.*]] = zext i8 bitcast (<8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true> to i8) to i32
+; VPLANCGVF16-NEXT:    [[ZEXT1:%.*]] = zext i8 bitcast (<8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true> to i8) to i32
+; VPLANCGVF16-NEXT:    [[TMP4:%.*]] = call x86_regcallcc { <8 x i64>, <8 x i64> } @_ZGVZM16v_vfunc(<8 x i64> noundef [[WIDE_LOAD_PART_0_OF_2_0]], <8 x i64> noundef [[WIDE_LOAD_PART_1_OF_2_0]], i32 [[ZEXT0]], i32 [[ZEXT1]]) #0
 ;
 ; VPLANCGVF8:  define void @test(ptr nocapture noundef readonly [[SRC0:%.*]], ptr nocapture noundef writeonly [[DST0:%.*]]) #2 {
 ; VPLANCGVF8:       vector.body:
@@ -37,7 +39,8 @@ define void @test(ptr nocapture noundef readonly %src, ptr nocapture noundef wri
 ; VPLANCGVF8-NEXT:    [[VEC_PHI0:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VPLANNEDBB20]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
 ; VPLANCGVF8-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, ptr [[SRC0]], i64 [[UNI_PHI0]]
 ; VPLANCGVF8-NEXT:    [[WIDE_LOAD0:%.*]] = load <8 x i64>, ptr [[SCALAR_GEP0]], align 8
-; VPLANCGVF8-NEXT:    [[TMP4:%.*]] = call x86_regcallcc <8 x i64> @_ZGVZM8v_vfunc(<8 x i64> noundef [[WIDE_LOAD0]], i32 zext (i8 bitcast (<8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true> to i8) to i32)) #0
+; VPLANCGVF8-NEXT:    [[ZEXT0:%.*]] = zext i8 bitcast (<8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true> to i8) to i32
+; VPLANCGVF8-NEXT:    [[TMP4:%.*]] = call x86_regcallcc <8 x i64> @_ZGVZM8v_vfunc(<8 x i64> noundef [[WIDE_LOAD0]], i32 [[ZEXT0]]) #0
 ;
 ; HIRVF16-LABEL:  Function: test
 ; HIRVF16:             + DO i1 = 0, [[LOOP_UB0:%.*]], 16   <DO_LOOP>  <MAX_TC_EST = 134217727>  <LEGAL_MAX_TC = 134217727> <simd-vectorized> <nounroll> <novectorize>

@@ -1471,8 +1471,7 @@ namespace llvm {
     /// Lower the specified operand into the Ops vector. If it is invalid, don't
     /// add anything to Ops. If hasMemory is true it means one of the asm
     /// constraint of the inline asm instruction being processed is 'm'.
-    void LowerAsmOperandForConstraint(SDValue Op,
-                                      std::string &Constraint,
+    void LowerAsmOperandForConstraint(SDValue Op, StringRef Constraint,
                                       std::vector<SDValue> &Ops,
                                       SelectionDAG &DAG) const override;
 

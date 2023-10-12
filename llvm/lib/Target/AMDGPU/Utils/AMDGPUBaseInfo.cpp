@@ -2085,6 +2085,10 @@ bool hasVOPD(const MCSubtargetInfo &STI) {
   return STI.hasFeature(AMDGPU::FeatureVOPD);
 }
 
+bool hasDPPSrc1SGPR(const MCSubtargetInfo &STI) {
+  return STI.hasFeature(AMDGPU::FeatureDPPSrc1SGPR);
+}
+
 unsigned hasKernargPreload(const MCSubtargetInfo &STI) {
   return STI.hasFeature(AMDGPU::FeatureKernargPreload);
 }
@@ -2101,6 +2105,10 @@ bool isSGPR(unsigned Reg, const MCRegisterInfo* TRI) {
   const unsigned FirstSubReg = TRI->getSubReg(Reg, AMDGPU::sub0);
   return SGPRClass.contains(FirstSubReg != 0 ? FirstSubReg : Reg) ||
     Reg == AMDGPU::SCC;
+}
+
+bool isHi(unsigned Reg, const MCRegisterInfo &MRI) {
+  return MRI.getEncodingValue(Reg) & AMDGPU::EncValues::IS_HI;
 }
 
 #define MAP_REG2REG \
@@ -2233,16 +2241,13 @@ bool isSISrcFPOperand(const MCInstrDesc &Desc, unsigned OpNo) {
   case AMDGPU::OPERAND_REG_IMM_FP16:
   case AMDGPU::OPERAND_REG_IMM_FP16_DEFERRED:
   case AMDGPU::OPERAND_REG_IMM_V2FP16:
-  case AMDGPU::OPERAND_REG_IMM_V2INT16:
   case AMDGPU::OPERAND_REG_INLINE_C_FP32:
   case AMDGPU::OPERAND_REG_INLINE_C_FP64:
   case AMDGPU::OPERAND_REG_INLINE_C_FP16:
   case AMDGPU::OPERAND_REG_INLINE_C_V2FP16:
-  case AMDGPU::OPERAND_REG_INLINE_C_V2INT16:
   case AMDGPU::OPERAND_REG_INLINE_AC_FP32:
   case AMDGPU::OPERAND_REG_INLINE_AC_FP16:
   case AMDGPU::OPERAND_REG_INLINE_AC_V2FP16:
-  case AMDGPU::OPERAND_REG_INLINE_AC_V2INT16:
   case AMDGPU::OPERAND_REG_IMM_V2FP32:
   case AMDGPU::OPERAND_REG_INLINE_C_V2FP32:
   case AMDGPU::OPERAND_REG_INLINE_AC_FP64:
@@ -2531,6 +2536,8 @@ bool isArgPassedInSGPR(const Argument *A) {
   case CallingConv::AMDGPU_PS:
   case CallingConv::AMDGPU_CS:
   case CallingConv::AMDGPU_Gfx:
+  case CallingConv::AMDGPU_CS_Chain:
+  case CallingConv::AMDGPU_CS_ChainPreserve:
     // For non-compute shaders, SGPR inputs are marked with either inreg or
     // byval. Everything else is in VGPRs.
     return A->hasAttribute(Attribute::InReg) ||
@@ -2556,6 +2563,8 @@ bool isArgPassedInSGPR(const CallBase *CB, unsigned ArgNo) {
   case CallingConv::AMDGPU_PS:
   case CallingConv::AMDGPU_CS:
   case CallingConv::AMDGPU_Gfx:
+  case CallingConv::AMDGPU_CS_Chain:
+  case CallingConv::AMDGPU_CS_ChainPreserve:
     // For non-compute shaders, SGPR inputs are marked with either inreg or
     // byval. Everything else is in VGPRs.
     return CB->paramHasAttr(ArgNo, Attribute::InReg) ||

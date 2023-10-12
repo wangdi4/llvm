@@ -356,6 +356,8 @@ public:
              const Twine &NamePrefix = "") const;
 
   void print(raw_ostream &OS) const override { print(OS, 0); };
+#else
+  void printAsOperand(raw_ostream &OS, bool PrintType) const {}
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
   BasicBlock *getOriginalBB() const { return OriginalBB; }

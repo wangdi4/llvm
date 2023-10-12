@@ -54,7 +54,9 @@
 
 cmake_minimum_required(VERSION 3.20.0)
 
-set(LLVM_COMMON_CMAKE_UTILS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
+if(NOT DEFINED LLVM_COMMON_CMAKE_UTILS)
+  set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
+endif()
 include(${LLVM_COMMON_CMAKE_UTILS}/Modules/CMakePolicy.cmake
   NO_POLICY_SCOPE)
 
@@ -500,6 +502,14 @@ if(MSVC)
 
 # INTEL_CUSTOMIZATION
 # Asan doesn't support debug yet. String DEBUG
+  # Remove any /M[DT][d] flags, and strip any definitions of _DEBUG.
+  # Since we're using CMAKE_MSVC_RUNTIME_LIBRARY (CMP0091 set to NEW),
+  # these options shouldn't be included in these flags variables. However,
+  # package managers that don't know which mechanism is used for passing
+  # CRT choice flags might be passing them both ways - which leads to
+  # duplicate CRT choice options. Thus make sure to strip out these flags
+  # from these variables, when we're forcing a CRT choice other than what
+  # the user requested here.
   foreach(flag_var
     CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
     CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
@@ -510,6 +520,7 @@ if(MSVC)
     string(REGEX REPLACE "[/-]D_DEBUG" "" ${flag_var} "${${flag_var}}")
   endforeach()
 # end INTEL_CUSTOMIZATION
+
   append_list_if(COMPILER_RT_HAS_Oy_FLAG /Oy- SANITIZER_COMMON_CFLAGS)
   append_list_if(COMPILER_RT_HAS_GS_FLAG /GS- SANITIZER_COMMON_CFLAGS)
 

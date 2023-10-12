@@ -125,6 +125,7 @@
 #include "llvm/Transforms/Scalar/LoopSink.h"
 #include "llvm/Transforms/Scalar/LoopUnrollAndJamPass.h"
 #include "llvm/Transforms/Scalar/LoopUnrollPass.h"
+#include "llvm/Transforms/Scalar/LoopVersioningLICM.h"
 #include "llvm/Transforms/Scalar/LowerConstantIntrinsics.h"
 #include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Scalar/LowerMatrixIntrinsics.h"
@@ -753,6 +754,10 @@ static cl::opt<AttributorRunOption> AttributorRun(
                clEnumValN(AttributorRunOption::NONE, "none",
                           "disable attributor runs")));
 
+static cl::opt<bool> UseLoopVersioningLICM(
+    "enable-loop-versioning-licm", cl::init(false), cl::Hidden,
+    cl::desc("Enable the experimental Loop Versioning LICM pass"));
+
 cl::opt<bool> EnableMemProfContextDisambiguation(
     "enable-memprof-context-disambiguation", cl::init(false), cl::Hidden,
     cl::ZeroOrMore, cl::desc("Enable MemProf context disambiguation"));
@@ -1102,9 +1107,6 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
     FPM.addPass(AggressiveInstCombinePass());
 #endif // INTEL_CUSTOMIZATION
 
-  if (EnableConstraintElimination)
-    FPM.addPass(ConstraintEliminationPass());
-
   if (!Level.isOptimizingForSize())
     FPM.addPass(LibCallsShrinkWrapPass());
 
@@ -1145,6 +1147,8 @@ if (!SYCLOptimizationMode) {
 
   // Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
   // optimizations rely on TTI, which is not accurate for SPIR target.
+  if (EnableConstraintElimination)
+    FPM.addPass(ConstraintEliminationPass());
 
   // Add the primary loop simplification pipeline.
   // FIXME: Currently this is split into two loop pass pipelines because we run
@@ -2955,6 +2959,21 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   invokeOptimizerEarlyEPCallbacks(MPM, Level);
 
   FunctionPassManager OptimizePM;
+  // Scheduling LoopVersioningLICM when inlining is over, because after that
+  // we may see more accurate aliasing. Reason to run this late is that too
+  // early versioning may prevent further inlining due to increase of code
+  // size. Other optimizations which runs later might get benefit of no-alias
+  // assumption in clone loop.
+  if (UseLoopVersioningLICM) {
+    OptimizePM.addPass(
+        createFunctionToLoopPassAdaptor(LoopVersioningLICMPass()));
+    // LoopVersioningLICM pass might increase new LICM opportunities.
+    OptimizePM.addPass(createFunctionToLoopPassAdaptor(
+        LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
+                 /*AllowSpeculation=*/true),
+        /*USeMemorySSA=*/true, /*UseBlockFrequencyInfo=*/false));
+  }
+
   OptimizePM.addPass(Float2IntPass());
   OptimizePM.addPass(LowerConstantIntrinsicsPass());
 

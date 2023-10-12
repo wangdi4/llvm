@@ -111,6 +111,7 @@ add_llvm_component_library(LLVMVectorize
   Analysis
   Core
   Support
+  TargetParser
   TransformUtils
 # INTEL_CUSTOMIZATION
   Intel_LoopAnalysis

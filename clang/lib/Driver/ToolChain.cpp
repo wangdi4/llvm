@@ -2002,7 +2002,8 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
       getTriple().getArch() == llvm::Triple::arm || getTriple().isWasm() ||
-      getTriple().isAArch64() || getTriple().isRISCV())
+      getTriple().isAArch64() || getTriple().isRISCV() ||
+      getTriple().isLoongArch64())
     Res |= SanitizerKind::CFIICall;
   if (getTriple().getArch() == llvm::Triple::x86_64 ||
 #if INTEL_CUSTOMIZATION

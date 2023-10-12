@@ -42,12 +42,6 @@ using namespace llvm;
 
 // Knobs for profile summary based thresholds.
 namespace llvm {
-extern cl::opt<int> ProfileSummaryCutoffHot;
-extern cl::opt<int> ProfileSummaryCutoffCold;
-extern cl::opt<unsigned> ProfileSummaryHugeWorkingSetSizeThreshold;
-extern cl::opt<unsigned> ProfileSummaryLargeWorkingSetSizeThreshold;
-extern cl::opt<int> ProfileSummaryHotCount;
-extern cl::opt<int> ProfileSummaryColdCount;
 extern cl::opt<bool> DTransInlineHeuristics; // INTEL
 } // namespace llvm
 

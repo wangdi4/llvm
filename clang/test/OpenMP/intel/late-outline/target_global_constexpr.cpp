@@ -18,7 +18,7 @@
 //RUN:  -Wsource-uses-openmp -o - %s | FileCheck %s -check-prefix TARG
 
 //HOST: @d = target_declare global { ptr, i32 } zeroinitializer, align 8
-//TARG: @d = target_declare addrspace(1) global { ptr addrspace(4), i32 } zeroinitializer, align 8
+//TARG: @d = {{.*}}target_declare addrspace(1) global { ptr addrspace(4), i32 } zeroinitializer, align 8
 
 struct ConstExprA {
   int *b;

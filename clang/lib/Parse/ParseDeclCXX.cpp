@@ -4013,7 +4013,11 @@ ExceptionSpecificationType Parser::tryParseExceptionSpecification(
     // There is an argument.
     BalancedDelimiterTracker T(*this, tok::l_paren);
     T.consumeOpen();
-    NoexceptExpr = ParseConstantExpression();
+
+    EnterExpressionEvaluationContext ConstantEvaluated(
+        Actions, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+    NoexceptExpr = ParseConstantExpressionInExprEvalContext();
+
     T.consumeClose();
     if (!NoexceptExpr.isInvalid()) {
       NoexceptExpr =
@@ -4332,7 +4336,7 @@ Parser::TryParseCXX11AttributeIdentifier(SourceLocation &Loc,
   }
 }
 
-void Parser::ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
+void Parser::ParseOpenMPAttributeArgs(const IdentifierInfo *AttrName,
 #if INTEL_COLLAB
                                       bool IsExtension,
 #endif // INTEL_COLLAB
@@ -4378,7 +4382,7 @@ void Parser::ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
       //  * An identifier (omp) for the attribute namespace followed by ::
       //  * An identifier (directive) or an identifier (sequence).
       SourceLocation IdentLoc;
-      IdentifierInfo *Ident = TryParseCXX11AttributeIdentifier(IdentLoc);
+      const IdentifierInfo *Ident = TryParseCXX11AttributeIdentifier(IdentLoc);
 
 #if INTEL_COLLAB
       // If there is an identifier and it is 'omp' or 'ompx', a double colon is
@@ -4479,8 +4483,6 @@ bool Parser::ParseCXX11AttributeArgs(
       !hasAttribute(LO.CPlusPlus ? AttributeCommonInfo::Syntax::AS_CXX11
                                  : AttributeCommonInfo::Syntax::AS_C23,
                     ScopeName, AttrName, getTargetInfo(), getLangOpts())) {
-    if (getLangOpts().MicrosoftExt || getLangOpts().HLSL) {
-    }
     // Eat the left paren, then skip to the ending right paren.
     ConsumeParen();
     SkipUntil(tok::r_paren);
@@ -4527,6 +4529,14 @@ bool Parser::ParseCXX11AttributeArgs(
   if (!Attrs.empty() &&
       IsBuiltInOrStandardCXX11Attribute(AttrName, ScopeName)) {
     ParsedAttr &Attr = Attrs.back();
+
+    // Ignore attributes that don't exist for the target.
+    if (!Attr.existsInTarget(getTargetInfo())) {
+      Diag(LParenLoc, diag::warn_unknown_attribute_ignored) << AttrName;
+      Attr.setInvalid(true);
+      return true;
+    }
+
     // If the attribute is a standard or built-in attribute and we are
     // parsing an argument list, we need to determine whether this attribute
     // was allowed to have an argument list (such as [[deprecated]]), and how
