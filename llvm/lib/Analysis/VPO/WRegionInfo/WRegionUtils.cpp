@@ -40,6 +40,16 @@ using namespace vpo;
 using namespace loopopt;
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+// Current FE doesn't yet support the INTERLEAVE construct, but we
+// want to enable this loop transformation in performance experiments.
+// With this flag, TILE SIZES(x) means INTERLEAVE STRIDES(x).
+// TODO: remove this flag when FE supports the new construct.
+#endif // INTEL_CUSTOMIZATION
+cl::opt<bool> ParseTileAsInterleave(
+    "vpo-paropt-parse-tile-as-interleave", cl::Hidden, cl::init(false),
+    cl::desc("Experimental: parse TILE construct as INTERLEAVE construct."));
+
 // Return default address space for the current target.
 // It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
 unsigned WRegionUtils::getDefaultAS(const Module *M) {
@@ -297,7 +307,13 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       W = new WRNGuardMemMotionNode(EntryBB);
       break;
     case DIR_OMP_TILE:
-      W = new WRNTileNode(EntryBB, LI);
+      if (ParseTileAsInterleave) {
+        W = new WRNInterleaveNode(EntryBB, LI);
+        DirID = DIR_OMP_INTERLEAVE;
+        LLVM_DEBUG(dbgs() << "Parsed TILE as an INTERLEAVE construct.\n");
+      } else {
+        W = new WRNTileNode(EntryBB, LI);
+      }
       break;
     case DIR_OMP_INTERLEAVE:
       W = new WRNInterleaveNode(EntryBB, LI);
