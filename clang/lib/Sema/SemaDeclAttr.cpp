@@ -8268,6 +8268,7 @@ static void handleSYCLIntelNoGlobalWorkOffsetAttr(Sema &S, Decl *D,
 /// Handle the [[intel::singlepump]] attribute.
 static void handleSYCLIntelSinglePumpAttr(Sema &S, Decl *D,
                                           const ParsedAttr &AL) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
    return;
@@ -8276,6 +8277,18 @@ static void handleSYCLIntelSinglePumpAttr(Sema &S, Decl *D,
 #endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<SYCLIntelSinglePumpAttr>(S, D, AL);
+=======
+  // 'singlepump' Attribute does not take any argument. Give a warning for
+  // duplicate attributes but not if it's one we've implicitly added and drop
+  // any duplicates.
+  if (const auto *ExistingAttr = D->getAttr<SYCLIntelSinglePumpAttr>()) {
+    if (ExistingAttr && !ExistingAttr->isImplicit()) {
+      S.Diag(AL.getLoc(), diag::warn_duplicate_attribute_exact) << &AL;
+      S.Diag(ExistingAttr->getLoc(), diag::note_previous_attribute);
+      return;
+    }
+  }
+>>>>>>> 970c1c6cdf416fe3ef93ae8039ae7359921f2791
 
   // If the declaration does not have an [[intel::fpga_memory]]
   // attribute, this creates one as an implicit attribute.
@@ -8289,6 +8302,7 @@ static void handleSYCLIntelSinglePumpAttr(Sema &S, Decl *D,
 /// Handle the [[intel::doublepump]] attribute.
 static void handleSYCLIntelDoublePumpAttr(Sema &S, Decl *D,
                                           const ParsedAttr &AL) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
    return;
@@ -8297,6 +8311,18 @@ static void handleSYCLIntelDoublePumpAttr(Sema &S, Decl *D,
 #endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<SYCLIntelDoublePumpAttr>(S, D, AL);
+=======
+  // 'doublepump' Attribute does not take any argument. Give a warning for
+  // duplicate attributes but not if it's one we've implicitly added and drop
+  // any duplicates.
+  if (const auto *ExistingAttr = D->getAttr<SYCLIntelDoublePumpAttr>()) {
+    if (ExistingAttr && !ExistingAttr->isImplicit()) {
+      S.Diag(AL.getLoc(), diag::warn_duplicate_attribute_exact) << &AL;
+      S.Diag(ExistingAttr->getLoc(), diag::note_previous_attribute);
+      return;
+    }
+  }
+>>>>>>> 970c1c6cdf416fe3ef93ae8039ae7359921f2791
 
   // If the declaration does not have an [[intel::fpga_memory]]
   // attribute, this creates one as an implicit attribute.
@@ -8366,6 +8392,7 @@ static bool checkSYCLIntelRegisterAttrCompatibility(Sema &S, Decl *D,
 
 /// Handle the [[intel::fpga_register]] attribute.
 /// This is incompatible with most of the other memory attributes.
+<<<<<<< HEAD
 static void handleSYCLIntelRegisterAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
@@ -8376,6 +8403,23 @@ static void handleSYCLIntelRegisterAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 
   checkForDuplicateAttribute<SYCLIntelRegisterAttr>(S, D, A);
   if (checkSYCLIntelRegisterAttrCompatibility(S, D, A))
+=======
+static void handleSYCLIntelRegisterAttr(Sema &S, Decl *D,
+		                        const ParsedAttr &A) {
+
+  // 'fpga_register' Attribute does not take any argument. Give a warning for
+  // duplicate attributes but not if it's one we've implicitly added and drop
+  // any duplicates.
+  if (const auto *ExistingAttr = D->getAttr<SYCLIntelRegisterAttr>()) {
+    if (ExistingAttr && !ExistingAttr->isImplicit()) {
+      S.Diag(A.getLoc(), diag::warn_duplicate_attribute_exact) << &A;
+      S.Diag(ExistingAttr->getLoc(), diag::note_previous_attribute);
+      return;
+    }
+  }
+
+  if (checkIntelFPGARegisterAttrCompatibility(S, D, A))
+>>>>>>> 970c1c6cdf416fe3ef93ae8039ae7359921f2791
     return;
 
   handleSimpleAttribute<SYCLIntelRegisterAttr>(S, D, A);
@@ -8567,6 +8611,7 @@ static void handleSYCLIntelNumBanksAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 
 static void handleIntelSimpleDualPortAttr(Sema &S, Decl *D,
                                           const ParsedAttr &AL) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
    return;
@@ -8575,6 +8620,18 @@ static void handleIntelSimpleDualPortAttr(Sema &S, Decl *D,
 #endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<SYCLIntelSimpleDualPortAttr>(S, D, AL);
+=======
+  // 'simple_dual_port' Attribute does not take any argument. Give a warning for
+  // duplicate attributes but not if it's one we've implicitly added and drop
+  // any duplicates.
+  if (const auto *ExistingAttr = D->getAttr<SYCLIntelSimpleDualPortAttr>()) {
+    if (ExistingAttr && !ExistingAttr->isImplicit()) {
+      S.Diag(AL.getLoc(), diag::warn_duplicate_attribute_exact) << &AL;
+      S.Diag(ExistingAttr->getLoc(), diag::note_previous_attribute);
+      return;
+    }
+  }
+>>>>>>> 970c1c6cdf416fe3ef93ae8039ae7359921f2791
 
   if (!D->hasAttr<SYCLIntelMemoryAttr>())
     D->addAttr(SYCLIntelMemoryAttr::CreateImplicit(
