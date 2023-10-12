@@ -411,7 +411,7 @@ raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, __ESIMD_NS::simd<T1, N1> msg_src1,
   constexpr uint32_t src1_size = N1 * sizeof(T1);
 
   return __esimd_raw_sendg<eot, sendc, exec_size, sfid, dst_size, src0_size,
-                           src1_size, desc, ElemT2, N2, ElemT0, N0, ElemT1, N1>(
+                           src1_size, desc, ElemT0, N0, ElemT1, N1, ElemT2, N2>(
       mask.data(), msg_src0.data(), msg_src1.data(), ind0, ind1,
       msg_dst.data());
 }
@@ -455,7 +455,7 @@ raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, __ESIMD_NS::simd<T1, N1> msg_src1,
   uint64_t undef; // Intentionally undefined.
 
   return __esimd_raw_sendg<eot, sendc, exec_size, sfid, dst_size, src0_size,
-                           src1_size, desc, ElemT2, N2, ElemT0, N0, ElemT1, N1>(
+                           src1_size, desc, ElemT0, N0, ElemT1, N1, ElemT2, N2>(
       mask.data(), msg_src0.data(), msg_src1.data(), ind0, undef,
       msg_dst.data());
 }
@@ -484,7 +484,6 @@ template <typename T2, int N2, uint8_t exec_size, uint32_t sfid, uint64_t desc,
           typename T1, int N1>
 __ESIMD_API __ESIMD_NS::simd<T2, N2>
 raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, __ESIMD_NS::simd<T1, N1> msg_src1,
-
           __ESIMD_NS::simd_mask<exec_size> mask = 1,
           __ESIMD_NS::simd<T2, N2> msg_dst = 0) {
 
@@ -499,7 +498,7 @@ raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0, __ESIMD_NS::simd<T1, N1> msg_src1,
   uint64_t undef; // Intentionally undefined.
 
   return __esimd_raw_sendg<eot, sendc, exec_size, sfid, dst_size, src0_size,
-                           src1_size, desc, ElemT2, N2, ElemT0, N0, ElemT1, N1>(
+                           src1_size, desc, ElemT0, N0, ElemT1, N1, ElemT2, N2>(
       mask.data(), msg_src0.data(), msg_src1.data(), undef, undef,
       msg_dst.data());
 }
@@ -567,7 +566,6 @@ template <uint8_t exec_size, uint32_t sfid, uint64_t desc,
           typename T1, int N1>
 __ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0,
                            __ESIMD_NS::simd<T1, N1> msg_src1, uint64_t ind0,
-
                            __ESIMD_NS::simd_mask<exec_size> mask = 1) {
 
   using T2 = int;
