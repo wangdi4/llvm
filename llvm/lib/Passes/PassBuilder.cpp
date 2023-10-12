@@ -129,11 +129,8 @@
 #include "llvm/Transforms/Coroutines/CoroEarly.h"
 #include "llvm/Transforms/Coroutines/CoroElide.h"
 #include "llvm/Transforms/Coroutines/CoroSplit.h"
-<<<<<<< HEAD
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h" // INTEL
-=======
 #include "llvm/Transforms/HipStdPar/HipStdPar.h"
->>>>>>> b74320ad31928c527af978000e3c5dd080777038
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Annotation2Metadata.h"
 #include "llvm/Transforms/IPO/ArgumentPromotion.h"
