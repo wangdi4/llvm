@@ -5,13 +5,13 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-unroll-and-jam,print<hir>" -debug-only=hir-unroll-and-jam -hir-unroll-and-jam-max-unrolled-loop-memrefs=32 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=UNDER-THRESHOLD
 
 ; Verify that we skip unroll & jam for both i1 and i2 loops due to too many
-;  memrefs in the loop.
+; memrefs in the loop.
 
 ; CHECK: Number of memrefs in loop: 30
-; CHECK: Skipping unroll & jam for loop as the number of memrefs exceeds threshold!
+; CHECK: Skipping unroll & jam for loop and all its parents as the number of memrefs exceeds threshold!
 
-; CHECK: Number of memrefs in loop: 36
-; CHECK: Skipping unroll & jam for loop as the number of memrefs exceeds threshold!
+; i1 loop is already throttled.
+; CHECK-NOT: Skipping unroll & jam
 
 ; CHECK-NOT: modified
 
