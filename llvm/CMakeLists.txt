@@ -1804,10 +1804,16 @@ if (CMAKE_SYSTEM_NAME MATCHES "OS390")
   add_compile_definitions(_OPEN_SYS_FILE_EXT) # Needed for EBCDIC I/O.
 endif()
 
+# INTEL_CUSTOMIZATION)
+# JIRA: CMPLRLLVM-52386, CMPLRLLVM-42781
+# This flag will not impact any x86_64, and will help solve runtime problems
+# with i386 on zsc16(or any systems that have too many files)
 # Build with _FILE_OFFSET_BITS=64 on Solaris to match g++ >= 9.
-if (UNIX AND ${CMAKE_SYSTEM_NAME} MATCHES "SunOS")
-          add_compile_definitions(_FILE_OFFSET_BITS=64)
+if (CMAKE_SYSTEM_NAME MATCHES "Linux" 
+    OR (UNIX AND ${CMAKE_SYSTEM_NAME} MATCHES "SunOS"))
+  add_compile_definitions(_FILE_OFFSET_BITS=64)
 endif()
+# end INTEL_CUSTOMIZATION
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
