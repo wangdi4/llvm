@@ -1147,12 +1147,14 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
     // TODO: refine unroll factor using extra cache lines accessed by
     // unrolling?
     unsigned NumMemRefs = 0;
-    if (!HIRLoopLocality::hasTemporalLocality(Lp, UnrollFactor - 1, true, true,
-                                              nullptr, &NumMemRefs)) {
-      LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop does not have "
-                           "temporal locality!\n");
-      HUAJ.throttle(Lp);
-      return;
+
+    HIRLoopLocality::LocalityRefGatherer::MapTy MemRefMap;
+
+    HIRLoopLocality::LocalityRefGatherer::gatherRange(
+        Lp->child_begin(), Lp->child_end(), MemRefMap);
+
+    for (auto &Entry : MemRefMap) {
+      NumMemRefs += Entry.second.size();
     }
 
     LLVM_DEBUG(dbgs() << "Number of memrefs in loop: " << NumMemRefs << "\n");
@@ -1160,8 +1162,16 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
     // Unrolling loop with too many memrefs can result in memory stalls by
     // increasing presure on memory banks.
     if (NumMemRefs > MaxLoopMemRefsThreshold) {
-      LLVM_DEBUG(dbgs() << "Skipping unroll & jam for loop as the number of "
-                           "memrefs exceeds threshold!\n");
+      LLVM_DEBUG(dbgs() << "Skipping unroll & jam for loop and all its parents "
+                           "as the number of memrefs exceeds threshold!\n");
+      HUAJ.throttleRecursively(Lp);
+      return;
+    }
+
+    if (!HIRLoopLocality::hasTemporalLocality(Lp, UnrollFactor - 1, MemRefMap,
+                                              true, true)) {
+      LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop does not have "
+                           "temporal locality!\n");
       HUAJ.throttle(Lp);
       return;
     }
