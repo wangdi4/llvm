@@ -25,7 +25,7 @@ constexpr unsigned int recordThresh = 10;
 constexpr size_t tN = TN;
 
 #define MCACHE1 32
-#define NCACHE1 (SG_SZ * 4)
+#define NCACHE1 (TN * 4)
 #define KCACHE1 16
 
 #define MCACHE2 256
