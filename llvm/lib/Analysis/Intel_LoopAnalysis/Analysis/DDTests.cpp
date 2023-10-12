@@ -3011,6 +3011,11 @@ bool DDTest::refineLinearizedMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     return false;
   }
 
+  // Do not refine non-innermost dimension.
+  if (!LCALoop || !LCALoop->isInnermost()) {
+    return false;
+  }
+
   // Refine only (* * * *) or (* * * <>)
   for (unsigned II = 1; II < CommonLevels; ++II) {
     if (Result.getDirection(II) != DVKind::ALL) {
