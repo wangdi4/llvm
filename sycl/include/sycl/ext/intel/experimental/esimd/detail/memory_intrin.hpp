@@ -48,7 +48,6 @@ __ESIMD_INTRIN void __esimd_sbarrier(__ESIMD_ENS::split_barrier_action flag)
 #endif // __SYCL_DEVICE_ONLY__
 
 // Create an explicit data and GPU scoreboard dependency.
-<<<<<<< HEAD
 __ESIMD_INTRIN void __esimd_wait(uint16_t value)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
@@ -56,9 +55,6 @@ __ESIMD_INTRIN void __esimd_wait(uint16_t value)
 {
   __ESIMD_UNSUPPORTED_ON_HOST;
 }
-=======
-__ESIMD_INTRIN void __esimd_wait(uint16_t value);
->>>>>>> 1f564e60e8cfec05ab7f7b45b6385b62d4e0b7dd
 #endif // __SYCL_DEVICE_ONLY__
 
 /* INTEL_CUSTOMIZATION */
