@@ -36,6 +36,11 @@
 #include "CGCXXABI.h"
 #include "clang/AST/StmtOpenMP.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif // INTEL_CUSTOMIZATION
+
 namespace clang {
 
 class OMPCaptureNoInitAttr;
@@ -66,6 +71,19 @@ class OpenMPLateOutliner {
   StringRef BundleString;
   SmallVector<llvm::Value*, 8> BundleValues;
   void clearBundleTemps() { BundleString = ""; BundleValues.clear(); }
+
+#if INTEL_CUSTOMIZATION
+  /// An OptReportOptions instance to control adding opt-report remarks.
+  ///
+  /// This isn't ideal since we can't use the immutable analysis in the frontend
+  /// like we normally would in optimization passes, but it does get
+  /// automatically initialized based on the user's command-line options which
+  /// is the most important part.
+  const llvm::OptReportOptions OROptions{false};
+
+  /// Opt-report metadata that should be attached to this directive.
+  llvm::OptReport DirectiveOptReport;
+#endif // INTEL_CUSTOMIZATION
 
   struct DirectiveIntrinsicSet final {
     OpenMPDirectiveKind DKind;
@@ -479,7 +497,7 @@ class OpenMPLateOutliner {
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
   llvm::DenseMap<const VarDecl *, Address> LocalDeclMaps;
 #if INTEL_CUSTOMIZATION
-  llvm::MapVector<const VarDecl *, std::string> OptRepFPMapInfos;
+  llvm::MapVector<const VarDecl *, PresumedLoc> OptRepFPMapLocs;
 #endif  // INTEL_CUSTOMIZATION
 
   std::vector<std::pair<llvm::WeakTrackingVH, llvm::Type *>> DefinedValues;
@@ -542,7 +560,12 @@ public:
     PrivateScope.Privatize();
   }
 #if INTEL_CUSTOMIZATION
-  void emitRemark(std::string Str);
+  llvm::OptReport getOrCreateOptReport();
+  void emitImplicitMapRemark(const ValueDecl *Var,
+                             ImplicitParamDecl *CXXABIThisDecl,
+                             OpenMPMapClauseKind MapType,
+                             bool IsCaptureByLambda, SourceLocation Loc);
+  void emitImplicitFirstPrivateRemark(const ValueDecl *Var, PresumedLoc PLoc);
 #endif // INTEL_CUSTOMIZATION
   bool isImplicitTask(OpenMPDirectiveKind K);
   bool isImplicitTaskgroup(OpenMPDirectiveKind K);
