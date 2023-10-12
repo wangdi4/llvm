@@ -16,6 +16,8 @@
 //
 
 #include "llvm/ADT/SCCIterator.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
@@ -25,7 +27,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
@@ -43,6 +44,11 @@ cl::opt<bool> DisableDist("disable-hir-loop-distribute",
                           cl::desc("Disable HIR Loop Distribution"), cl::Hidden,
                           cl::init(false));
 
+cl::opt<unsigned> MaxDistributedChunks(
+    "hir-loop-distribute-max-chunks",
+    cl::desc("Maximum number of chunks into which loop can be distributed."),
+    cl::Hidden, cl::init(25));
+
 cl::opt<unsigned> MaxMemResourceToDistribute(
     "hir-loop-distribute-max-mem",
     cl::desc("Number of memory references to be placed into new distributed "
@@ -54,6 +60,11 @@ cl::opt<unsigned> ScalarExpansionCost(
     cl::desc(
         "Number of mem operations in loop when to enable scalar expansion."),
     cl::Hidden, cl::init(20));
+
+cl::opt<unsigned> MaxScalarExpandedTemps(
+    "hir-loop-distribute-max-scalar-expanded-temps",
+    cl::desc("Maximum number of temps allowed to be scalar expanded."),
+    cl::Hidden, cl::init(50));
 
 cl::opt<bool> AlwaysStripmine(
     "hir-loop-distribute-always-stripmine",
@@ -230,7 +241,7 @@ bool HIRLoopDistribution::run() {
       continue;
     }
 
-    if (NewOrdering.size() > 1 && NewOrdering.size() < MaxDistributedLoop) {
+    if (NewOrdering.size() > 1 && NewOrdering.size() < MaxDistributedChunks) {
       SmallVector<HLDDNodeList, 8> DistributedLoops;
       SmallVector<MergedPiBlockTy, 6> MergedPiBlocks;
 
@@ -253,10 +264,11 @@ bool HIRLoopDistribution::run() {
       // were no control dependencies - in this case processPiBlocksToHLNodes()
       // already made irreversible changes to HIR.
       if (!PG->hasControlDependences() &&
-          SCEX.getNumTempsRequired() > MaxArrayTempsAllowed) {
+          SCEX.getNumTempsRequired() > MaxScalarExpandedTemps) {
         LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
-                          << "Number of temps required for distribution exceed "
-                             "MaxArrayTempsAllowed\n");
+                          << "Number of temps required for distribution ("
+                          << SCEX.getNumTempsRequired()
+                          << ") exceed MaxScalarExpandedTemps\n");
         continue;
       }
 
@@ -1129,13 +1141,15 @@ void HIRLoopDistribution::distributeLoop(
     HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
     ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
     bool StripmineRequiresExtraSetup, bool ForDirective) {
-  assert(DistributedLoops.size() < MaxDistributedLoop &&
+  assert(DistributedLoops.size() < MaxDistributedChunks &&
          "Number of distributed chunks exceed threshold. Expected the caller "
          "to check before calling this function.");
 
   unsigned LoopCount = DistributedLoops.size();
   assert(LoopCount > 1 && "Invalid loop distribution");
-  std::array<HLLoop *, MaxDistributedLoop> NewLoops = {};
+  SmallVector<HLLoop *, 8> NewLoops;
+  NewLoops.resize(LoopCount);
+
   LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION : " << LoopCount
                     << " way distributed\n");
 
@@ -1510,6 +1524,99 @@ bool HIRLoopDistribution::loopIsCandidate(HLLoop *Lp) const {
   return true;
 }
 
+// Analyzes vectorization info for a PiBlock and populates info in \p CVI.
+struct VectorizationAnalyzer : public HLNodeVisitorBase {
+  const TargetLibraryInfo &TLI;
+  HIRSafeReductionAnalysis &SRA;
+  DDGraph &DDG;
+  const std::unique_ptr<PiGraph> &PGraph;
+  PiBlock *Blk;
+  const HLLoop *Lp;
+  unsigned LoopLevel;
+  ChunkVectorizationInfo &CVI;
+
+  VectorizationAnalyzer(const TargetLibraryInfo &TLI,
+                        HIRSafeReductionAnalysis &SRA, DDGraph &DDG,
+                        const std::unique_ptr<PiGraph> &PGraph, PiBlock *Blk,
+                        const HLLoop *Lp, ChunkVectorizationInfo &CVI)
+      : TLI(TLI), SRA(SRA), DDG(DDG), PGraph(PGraph), Blk(Blk), Lp(Lp),
+        LoopLevel(Lp->getNestingLevel()), CVI(CVI) {}
+
+  void visit(HLInst *Inst) {
+
+    if (Inst->isCallInst()) {
+      if (!Inst->isVectorizableCall(TLI)) {
+        CVI.IsLegal = false;
+        CVI.IsLegalAfterDistribution = false;
+        return;
+      } else {
+        ++CVI.NumCalls;
+      }
+    } else if (isa<FPMathOperator>(Inst->getLLVMInstruction())) {
+      ++CVI.NumFPOperations;
+    }
+
+    visit(cast<HLDDNode>(Inst));
+  }
+
+  void visit(HLDDNode *Node) {
+
+    for (auto *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+
+      if (Ref->isTerminalRef()) {
+        unsigned RedOpcode = 0;
+        // Skip rval temps as checking outgoing edges out of lval temps is
+        // sufficient.
+        // Skip non-livein/reduction temps as they don't prevent vectorization.
+        if (Ref->isRval() || !Lp->isLiveIn(Ref->getSymbase()) ||
+            SRA.isReductionRef(Ref, RedOpcode))
+          continue;
+
+      } else if (Ref->isMemRef()) {
+
+        bool IsNegStride = false;
+        if (Ref->isUnitStride(LoopLevel, IsNegStride)) {
+          ++CVI.NumUnitStrideRefs;
+        } else {
+          ++CVI.NumNonUnitStrideRefs;
+        }
+      }
+
+      for (auto *Edge : DDG.outgoing(Ref)) {
+        if (!Edge->preventsVectorization(LoopLevel))
+          continue;
+
+        LLVM_DEBUG(dbgs() << "Edge preventing vectorization: "; Edge->dump());
+        CVI.IsLegal = false;
+
+        bool BackwardEdgeConvertedToForwardEdge = false;
+        // Check if this Edge is one of the outgoing edges of PiBlock. If so,
+        // this PiBlock can become vectorizable after distribution as
+        // distribution can convert backward edge into forward edge.
+        for (auto *PiEdge : PGraph->outgoing(Blk)) {
+          for (auto *DDEdge : PiEdge->getDDEdges()) {
+            if (Edge == DDEdge) {
+              BackwardEdgeConvertedToForwardEdge = true;
+              break;
+            }
+          }
+        }
+
+        LLVM_DEBUG(dbgs() << "Can vectorize after distributing for edge: ");
+        LLVM_DEBUG(
+            dbgs() << (BackwardEdgeConvertedToForwardEdge ? "yes\n" : "no\n"));
+
+        CVI.IsLegalAfterDistribution = BackwardEdgeConvertedToForwardEdge;
+      }
+    }
+  }
+
+  void visit(HLNode *) {}
+  void postVisit(HLNode *) {}
+
+  bool isDone() const { return !CVI.IsLegal && !CVI.IsLegalAfterDistribution; }
+};
+
 // Right now we are checking whether this PiBlock contains any sparse
 // array reduction instructions. Later we may want to modify to match more
 // patterns like in 435.gromacs
@@ -1781,7 +1888,7 @@ PragmaReturnCode HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
         if (HNode->isDistributePoint()) {
           HNode->setDistributePoint(false);
           DistLoopNum++;
-          if (DistLoopNum >= MaxDistributedLoop) {
+          if (DistLoopNum >= MaxDistributedChunks) {
             UnsupportedRC = TooManyDistributePoints;
             return;
           }
@@ -1949,6 +2056,7 @@ bool HIRLoopDistributionLegacyPass::runOnFunction(Function &F) {
 
   return HIRLoopDistribution(
              getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+             getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
              getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
              getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
              getAnalysis<HIRSparseArrayReductionAnalysisWrapperPass>()
