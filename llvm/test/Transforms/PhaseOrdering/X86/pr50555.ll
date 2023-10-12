@@ -5,6 +5,7 @@
 define void @trunc_through_one_add(ptr noalias %0, ptr noalias readonly %1) {
 ; INTEL_CUSTOMIZATION
 ; SSE-LABEL: @trunc_through_one_add(
+<<<<<<< HEAD
 ; SSE-NEXT:    [[COALESCEDLOAD:%.*]] = load <16 x i8>, ptr [[TMP1:%.*]], align 1
 ; SSE-NEXT:    [[LOADCOALESCINGSHUFFLE_:%.*]] = shufflevector <16 x i8> [[COALESCEDLOAD]], <16 x i8> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; SSE-NEXT:    [[LOADCOALESCINGSHUFFLE_1:%.*]] = shufflevector <16 x i8> [[COALESCEDLOAD]], <16 x i8> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
@@ -19,16 +20,32 @@ define void @trunc_through_one_add(ptr noalias %0, ptr noalias readonly %1) {
 ; SSE-NEXT:    [[TMP12:%.*]] = add nuw nsw <8 x i16> [[TMP11]], [[TMP10]]
 ; SSE-NEXT:    [[TMP13:%.*]] = lshr <8 x i16> [[TMP12]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
 ; SSE-NEXT:    store <8 x i16> [[TMP13]], ptr [[TMP9:%.*]], align 2
+=======
+; SSE-NEXT:    [[TMP3:%.*]] = load <8 x i8>, ptr [[TMP1:%.*]], align 1
+; SSE-NEXT:    [[TMP4:%.*]] = zext <8 x i8> [[TMP3]] to <8 x i16>
+; SSE-NEXT:    [[TMP5:%.*]] = lshr <8 x i16> [[TMP4]], <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
+; SSE-NEXT:    [[TMP6:%.*]] = add nuw nsw <8 x i16> [[TMP5]], [[TMP4]]
+; SSE-NEXT:    [[TMP7:%.*]] = lshr <8 x i16> [[TMP6]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
+; SSE-NEXT:    store <8 x i16> [[TMP7]], ptr [[TMP0:%.*]], align 2
+; SSE-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i8, ptr [[TMP1]], i64 8
+; SSE-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i16, ptr [[TMP0]], i64 8
+; SSE-NEXT:    [[TMP10:%.*]] = load <8 x i8>, ptr [[TMP8]], align 1
+; SSE-NEXT:    [[TMP11:%.*]] = zext <8 x i8> [[TMP10]] to <8 x i16>
+; SSE-NEXT:    [[TMP12:%.*]] = lshr <8 x i16> [[TMP11]], <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
+; SSE-NEXT:    [[TMP13:%.*]] = add nuw nsw <8 x i16> [[TMP12]], [[TMP11]]
+; SSE-NEXT:    [[TMP14:%.*]] = lshr <8 x i16> [[TMP13]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
+; SSE-NEXT:    store <8 x i16> [[TMP14]], ptr [[TMP9]], align 2
+>>>>>>> 30240e428f0ec7d4a6d1b84f9f807ce12b46cfd1
 ; SSE-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
 ;
 ; AVX-LABEL: @trunc_through_one_add(
-; AVX-NEXT:    [[TMP4:%.*]] = load <16 x i8>, ptr [[TMP1:%.*]], align 1
-; AVX-NEXT:    [[TMP5:%.*]] = zext <16 x i8> [[TMP4]] to <16 x i16>
-; AVX-NEXT:    [[TMP6:%.*]] = lshr <16 x i16> [[TMP5]], <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
-; AVX-NEXT:    [[TMP7:%.*]] = add nuw nsw <16 x i16> [[TMP6]], [[TMP5]]
-; AVX-NEXT:    [[TMP8:%.*]] = lshr <16 x i16> [[TMP7]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
-; AVX-NEXT:    store <16 x i16> [[TMP8]], ptr [[TMP0:%.*]], align 2
+; AVX-NEXT:    [[TMP3:%.*]] = load <16 x i8>, ptr [[TMP1:%.*]], align 1
+; AVX-NEXT:    [[TMP4:%.*]] = zext <16 x i8> [[TMP3]] to <16 x i16>
+; AVX-NEXT:    [[TMP5:%.*]] = lshr <16 x i16> [[TMP4]], <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
+; AVX-NEXT:    [[TMP6:%.*]] = add nuw nsw <16 x i16> [[TMP5]], [[TMP4]]
+; AVX-NEXT:    [[TMP7:%.*]] = lshr <16 x i16> [[TMP6]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
+; AVX-NEXT:    store <16 x i16> [[TMP7]], ptr [[TMP0:%.*]], align 2
 ; AVX-NEXT:    ret void
 ;
   %3 = load i8, ptr %1, align 1
@@ -179,6 +196,7 @@ define void @trunc_through_one_add(ptr noalias %0, ptr noalias readonly %1) {
 define void @trunc_through_two_adds(ptr noalias %0, ptr noalias readonly %1, ptr noalias readonly %2) {
 ; INTEL_CUSTOMIZATION
 ; SSE-LABEL: @trunc_through_two_adds(
+<<<<<<< HEAD
 ; SSE-NEXT:    [[COALESCEDLOAD:%.*]] = load <16 x i8>, ptr [[TMP1:%.*]], align 1
 ; SSE-NEXT:    [[LOADCOALESCINGSHUFFLE_:%.*]] = shufflevector <16 x i8> [[COALESCEDLOAD]], <16 x i8> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; SSE-NEXT:    [[TMP5:%.*]] = zext <8 x i8> [[LOADCOALESCINGSHUFFLE_]] to <8 x i16>
@@ -200,19 +218,42 @@ define void @trunc_through_two_adds(ptr noalias %0, ptr noalias readonly %1, ptr
 ; SSE-NEXT:    [[TMP18:%.*]] = add nuw nsw <8 x i16> [[TMP17]], [[TMP16]]
 ; SSE-NEXT:    [[TMP19:%.*]] = lshr <8 x i16> [[TMP18]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
 ; SSE-NEXT:    store <8 x i16> [[TMP19]], ptr [[TMP13:%.*]], align 2
+=======
+; SSE-NEXT:    [[TMP4:%.*]] = load <8 x i8>, ptr [[TMP1:%.*]], align 1
+; SSE-NEXT:    [[TMP5:%.*]] = zext <8 x i8> [[TMP4]] to <8 x i16>
+; SSE-NEXT:    [[TMP6:%.*]] = load <8 x i8>, ptr [[TMP2:%.*]], align 1
+; SSE-NEXT:    [[TMP7:%.*]] = zext <8 x i8> [[TMP6]] to <8 x i16>
+; SSE-NEXT:    [[TMP8:%.*]] = add nuw nsw <8 x i16> [[TMP7]], [[TMP5]]
+; SSE-NEXT:    [[TMP9:%.*]] = lshr <8 x i16> [[TMP8]], <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
+; SSE-NEXT:    [[TMP10:%.*]] = add nuw nsw <8 x i16> [[TMP9]], [[TMP8]]
+; SSE-NEXT:    [[TMP11:%.*]] = lshr <8 x i16> [[TMP10]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
+; SSE-NEXT:    store <8 x i16> [[TMP11]], ptr [[TMP0:%.*]], align 2
+; SSE-NEXT:    [[TMP12:%.*]] = getelementptr inbounds i8, ptr [[TMP1]], i64 8
+; SSE-NEXT:    [[TMP13:%.*]] = getelementptr inbounds i8, ptr [[TMP2]], i64 8
+; SSE-NEXT:    [[TMP14:%.*]] = getelementptr inbounds i16, ptr [[TMP0]], i64 8
+; SSE-NEXT:    [[TMP15:%.*]] = load <8 x i8>, ptr [[TMP12]], align 1
+; SSE-NEXT:    [[TMP16:%.*]] = zext <8 x i8> [[TMP15]] to <8 x i16>
+; SSE-NEXT:    [[TMP17:%.*]] = load <8 x i8>, ptr [[TMP13]], align 1
+; SSE-NEXT:    [[TMP18:%.*]] = zext <8 x i8> [[TMP17]] to <8 x i16>
+; SSE-NEXT:    [[TMP19:%.*]] = add nuw nsw <8 x i16> [[TMP18]], [[TMP16]]
+; SSE-NEXT:    [[TMP20:%.*]] = lshr <8 x i16> [[TMP19]], <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
+; SSE-NEXT:    [[TMP21:%.*]] = add nuw nsw <8 x i16> [[TMP20]], [[TMP19]]
+; SSE-NEXT:    [[TMP22:%.*]] = lshr <8 x i16> [[TMP21]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
+; SSE-NEXT:    store <8 x i16> [[TMP22]], ptr [[TMP14]], align 2
+>>>>>>> 30240e428f0ec7d4a6d1b84f9f807ce12b46cfd1
 ; SSE-NEXT:    ret void
 ; end INTEL_CUSTOMIZATION
 ;
 ; AVX-LABEL: @trunc_through_two_adds(
-; AVX-NEXT:    [[TMP5:%.*]] = load <16 x i8>, ptr [[TMP1:%.*]], align 1
-; AVX-NEXT:    [[TMP6:%.*]] = zext <16 x i8> [[TMP5]] to <16 x i16>
-; AVX-NEXT:    [[TMP8:%.*]] = load <16 x i8>, ptr [[TMP2:%.*]], align 1
-; AVX-NEXT:    [[TMP9:%.*]] = zext <16 x i8> [[TMP8]] to <16 x i16>
-; AVX-NEXT:    [[TMP10:%.*]] = add nuw nsw <16 x i16> [[TMP9]], [[TMP6]]
-; AVX-NEXT:    [[TMP11:%.*]] = lshr <16 x i16> [[TMP10]], <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
-; AVX-NEXT:    [[TMP12:%.*]] = add nuw nsw <16 x i16> [[TMP11]], [[TMP10]]
-; AVX-NEXT:    [[TMP13:%.*]] = lshr <16 x i16> [[TMP12]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
-; AVX-NEXT:    store <16 x i16> [[TMP13]], ptr [[TMP0:%.*]], align 2
+; AVX-NEXT:    [[TMP4:%.*]] = load <16 x i8>, ptr [[TMP1:%.*]], align 1
+; AVX-NEXT:    [[TMP5:%.*]] = zext <16 x i8> [[TMP4]] to <16 x i16>
+; AVX-NEXT:    [[TMP6:%.*]] = load <16 x i8>, ptr [[TMP2:%.*]], align 1
+; AVX-NEXT:    [[TMP7:%.*]] = zext <16 x i8> [[TMP6]] to <16 x i16>
+; AVX-NEXT:    [[TMP8:%.*]] = add nuw nsw <16 x i16> [[TMP7]], [[TMP5]]
+; AVX-NEXT:    [[TMP9:%.*]] = lshr <16 x i16> [[TMP8]], <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
+; AVX-NEXT:    [[TMP10:%.*]] = add nuw nsw <16 x i16> [[TMP9]], [[TMP8]]
+; AVX-NEXT:    [[TMP11:%.*]] = lshr <16 x i16> [[TMP10]], <i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2, i16 2>
+; AVX-NEXT:    store <16 x i16> [[TMP11]], ptr [[TMP0:%.*]], align 2
 ; AVX-NEXT:    ret void
 ;
   %4 = load i8, ptr %1, align 1
