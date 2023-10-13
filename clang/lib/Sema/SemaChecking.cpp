@@ -6466,10 +6466,22 @@ bool Sema::CheckX86BuiltinTileDuplicate(CallExpr *TheCall,
   // to represent the usage of them in bitset<32>.
   std::bitset<32> ArgValues;
   for (int ArgNum : ArgNums) {
+<<<<<<< HEAD
     llvm::APSInt Arg;
     SemaBuiltinConstantArg(TheCall, ArgNum, Arg);
     int ArgExtValue = Arg.getExtValue();
     assert((ArgExtValue >= 0 || ArgExtValue < 32) &&
+=======
+    Expr *Arg = TheCall->getArg(ArgNum);
+    if (Arg->isTypeDependent() || Arg->isValueDependent())
+      continue;
+
+    llvm::APSInt Result;
+    if (SemaBuiltinConstantArg(TheCall, ArgNum, Result))
+      return true;
+    int ArgExtValue = Result.getExtValue();
+    assert((ArgExtValue >= TileRegLow && ArgExtValue <= TileRegHigh) &&
+>>>>>>> 411ceacf4351bd3af9db75b859063864b19e71e1
            "Incorrect tile register num.");
     if (ArgValues.test(ArgExtValue))
       return Diag(TheCall->getBeginLoc(),
