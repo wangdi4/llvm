@@ -20,6 +20,9 @@
 ///   \file Legality.h
 ///   VPlan vectorizer legality analysis.
 ///
+///   Defines the base class LegalityBase that is the superclass of
+///   LegalityLLVM and LegalityHIR.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LEGALITY_H
@@ -44,7 +47,20 @@ extern bool EnableHIRPrivateArrays;
 extern bool EnableF90DVSupport;
 extern bool EnableHIRF90DVSupport;
 
+/// \class LegalityBase
+///
+/// LegalityBase uses subclass awareness for the purpose of static type
+/// polymorphism, so that the same logic can be performed on Value objects
+/// (LLVM IR) and DDRef objects (HIR).  The primary service provided by
+/// LegalityBase is the EnterExplicitData method, which imports explicit
+/// loop entities (reductions, inductions, privates, etc.) from the provided
+/// WRNVecLoopNode object, and bails out for any characteristics of these
+/// entities that the vectorizer is currently unable to support.
+///
 template <typename LegalityTy> class LegalityBase {
+  /// Infer the IR kind for use in static type polymorphism.  This variable
+  /// should not be tested to enable IR-specific logic.  Use virtual functions
+  /// instead.
   static constexpr IRKind IR = std::is_same<LegalityTy, LegalityLLVM>::value
                                    ? IRKind::LLVMIR
                                    : IRKind::HIR;
@@ -65,8 +81,11 @@ public:
 
 protected:
   LegalityBase(LLVMContext *C) : Context(C) {}
+
   LegalityBase(const LegalityBase &) noexcept = delete;
+
   LegalityBase &operator=(const LegalityBase &) = delete;
+
   virtual ~LegalityBase() = default;
 
   /// Import explicit data from WRLoop.
@@ -129,7 +148,7 @@ protected:
   }
 
 private:
-  /// Imports any SIMD loop private amd listprivate information into Legality
+  /// Import any SIMD loop private amd lastprivate information into Legality.
   /// Return true on success.
   bool visitPrivates(const WRNVecLoopNode *WRLp) {
     for (LastprivateItem *Item : WRLp->getLpriv().items()) {
@@ -158,7 +177,7 @@ private:
     }
     return true;
   }
-  /// Import information about loop linears to Legality
+  /// Import information about loop linears to Legality.
   /// Returns true (always success).
   bool visitLinears(const WRNVecLoopNode *WRLp) {
     for (LinearItem *Item : WRLp->getLinear().items())
@@ -166,7 +185,7 @@ private:
     return true;
   }
 
-  /// Import information about loop reductions into Legality
+  /// Import information about loop reductions into Legality.
   /// Return true on success.
   bool visitReductions(const WRNVecLoopNode *WRLp) {
     auto IsSupportedReduction = [this, WRLp](const ReductionItem *Item) {
@@ -203,7 +222,7 @@ private:
     return true;
   }
 
-  /// Figures recurrence kind given a reduction and type.
+  /// Produces recurrence kind given a reduction and type.
   static RecurKind getReductionRecurKind(const ReductionItem *Item,
                                          const Type *ElType) {
     switch (Item->getType()) {
@@ -233,9 +252,9 @@ private:
     }
   };
 
-  // When NumElements is null (aka 1 element) return ElType.
-  // When it is a constant, construct an array type <NumElements x ElType>
-  // Otherwise return nullptr.
+  /// When NumElements is null (aka 1 element) return ElType.
+  /// When it is a constant, construct an array type <NumElements x ElType>.
+  /// Otherwise return nullptr.
   Type *adjustTypeIfArray(Type *ElType, const Value *NumElements) {
     if (!NumElements)
       return ElType;
@@ -246,7 +265,7 @@ private:
     // zeroinitializer, i32 2520) will give us [2520 x [10 x i32]] array
     // type. Another way of representing an array:
     // "QUAL.OMP.PRIVATE:TYPED"([10 x i32]* %20, [10 x i32] zeroinitializer,
-    // i32 1) will give us [10 x i32] array type( is likely to be deprecated).
+    // i32 1) will give us [10 x i32] array type (is likely to be deprecated).
     // The resulting array then will be vectorized by our algorithms.
     // Usually it will be transformed into [VF x ElType] array (unless SOA
     // transformation is applied to it).
@@ -257,7 +276,7 @@ private:
     return nullptr;
   }
 
-  /// Register an explicit private variable
+  /// Register an explicit private variable.
   /// Return true if successfully consumed.
   bool visitPrivate(const PrivateItem *Item) {
     Type *PrivType = nullptr;
@@ -295,7 +314,7 @@ private:
     return true;
   }
 
-  /// Register an explicit last private variable
+  /// Register an explicit last private variable.
   /// Return true if successfully consumed.
   bool visitLastPrivate(const LastprivateItem *Item) {
     Type *LPrivType = nullptr;
@@ -342,14 +361,15 @@ private:
     return true;
   }
 
-  /// Register explicit linear variable
+  /// Register explicit linear variable.
   void visitLinear(const LinearItem *Item) {
     Type *PointeeTy = nullptr;
     Type *LinType = nullptr;
     Value *NumElements = nullptr;
     std::tie(LinType, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
-    // TODO: Move to VPOParoptUtils::getItemInfo
+    // TODO: Move to VPOParoptUtils::getItemInfo.  Tracked in
+    // CMPLRLLVM-52295.
     if (Item->getIsTyped() && Item->getIsPointerToPointer()) {
       PointeeTy = Item->getPointeeElementTypeFromIR();
     }
@@ -367,7 +387,7 @@ private:
     addLinear(Val, LinType, PointeeTy, Step, IsIV);
   }
 
-  /// Register explicit reduction variable
+  /// Register explicit reduction variable.
   /// Return true if successfully consumed.
   bool visitReduction(const ReductionItem *Item, const WRNVecLoopNode *WRLp) {
     Type *RedType = nullptr;
@@ -424,12 +444,8 @@ private:
     // We currently don't support mul/div reduction of complex types. TODO:
     // Remove this bailout when complex intrinsics are enabled by default in FE
     // and VPlan CGs are updated to emit these intrinsics during finalization.
+    // Tracked by CMPLRLLVM-29705.
     if (Item->getIsComplex() && Kind == RecurKind::FMul)
-      // TODO: Better is to add a medium remark of type VecFailBadComplexFloatOp
-      // or VecFailBadComplexDoubleOp, depending on the underlying type.  These
-      // remarks also require passing a string identifying the reduction kind.
-      // There's some complexity in getting this information from "Item" for
-      // all possible cases.
       return bailout(
           OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
           INTERNAL("Complex mul/div type reductions are not supported."));
@@ -463,24 +479,29 @@ private:
     return true;
   }
 
+  // Thunk to call subclass method to add a loop private.
   void addLoopPrivate(ValueTy *Val, Type *Ty, Function *Constr, Function *Destr,
                       Function *CopyAssign, PrivateKindTy Kind, bool IsF90) {
     return static_cast<LegalityTy *>(this)->addLoopPrivate(
         Val, Ty, Constr, Destr, CopyAssign, Kind, IsF90);
   }
 
+  // Thunk to call subclass method to add a loop private for Fortran 90
+  // dope vectors.
   void addLoopPrivate(ValueTy *Val, Type *Ty, PrivateKindTy Kind,
                       Type *F90DVElementType) {
     return static_cast<LegalityTy *>(this)->addLoopPrivate(Val, Ty, Kind,
                                                            F90DVElementType);
   }
 
+  // Thunk to call subclass method to add a loop linear.
   void addLinear(ValueTy *Val, Type *Ty, Type *PointeeType, ValueTy *Step,
                  bool IsIV) {
     return static_cast<LegalityTy *>(this)->addLinear(Val, Ty, PointeeType,
                                                       Step, IsIV);
   }
 
+  // Thunk to call subclass method to add a loop reduction.
   void addReduction(ValueTy *V, Type *Ty, RecurKind Kind,
                     std::optional<InscanReductionKind> InscanRedKind,
                     bool IsComplex) {
@@ -488,6 +509,7 @@ private:
         V, Ty, Kind, InscanRedKind, IsComplex);
   }
 
+  // Thunk to call subclass method to add a user-defined loop reduction.
   void addReduction(ValueTy *V, Type *Ty, Function *Combiner,
                     Function *Initializer, Function *Constr, Function *Destr,
                     std::optional<InscanReductionKind> InscanRedKind) {
