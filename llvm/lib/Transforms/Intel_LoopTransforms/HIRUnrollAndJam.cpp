@@ -1999,6 +1999,15 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
   if (RemainderLoop) {
     *RemainderLoop = NeedRemainderLoop ? Loop : nullptr;
   }
+
+  // If we are unrolling only and the loop is multi-exit, then we need to
+  // check if the parent loop is multi-exit too. In that case, we need to
+  // update the number of exits for all parent loops.
+  if (!LoopMap && Loop->isMultiExit()) {
+    auto *ParLoop = MainLoop->getParentLoop();
+    if (ParLoop && ParLoop->isMultiExit())
+      HLNodeUtils::updateNumLoopExits(MainLoop->getOutermostParentLoop());
+  }
 }
 
 PreservedAnalyses HIRUnrollAndJamPass::runImpl(

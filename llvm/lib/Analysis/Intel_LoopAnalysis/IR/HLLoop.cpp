@@ -1284,6 +1284,12 @@ void HLLoop::verify() const {
          "Found mismatched SIMD entry and exit intrinsics");
   (void)SIMDEntry;
   (void)SIMDExit;
+
+  // Verify that the number of exits set in the loop match the number of gotos
+  // exiting the loop.
+  SmallVector<const HLGoto *, 16> Gotos;
+  populateEarlyExits(Gotos);
+  (void)Gotos;
 }
 
 static inline bool nodeIsDirective(const HLNode *Node, int DirectiveID) {
@@ -2039,26 +2045,29 @@ bool HLLoop::hasFusionDisablingPragma() const {
   return getLoopStringMetadata("llvm.loop.fusion.disable");
 }
 
-struct EarlyExitCollector final : public HLNodeVisitorBase {
-  SmallVectorImpl<HLGoto *> &Gotos;
+// Visitor class that traverse through the loop and find the Gotos. GotoType
+// needs to be HLGoto *, const or non-const.
+template <typename GotoType>
+class EarlyExitCollector final : public HLNodeVisitorBase {
+  SmallVectorImpl<GotoType> &Gotos;
   unsigned MaxTopSortNum;
 
 public:
-  EarlyExitCollector(SmallVectorImpl<HLGoto *> &Gotos, HLLoop *Lp)
+  EarlyExitCollector(SmallVectorImpl<GotoType> &Gotos, const HLLoop *Lp)
       : Gotos(Gotos) {
     assert(Lp && "Lp cannot be null\n");
     MaxTopSortNum = Lp->getMaxTopSortNum();
   }
 
-  void visit(HLGoto *Goto) {
+  void visit(GotoType Goto) {
     if (Goto->isExternal() ||
         Goto->getTargetLabel()->getTopSortNum() > MaxTopSortNum) {
       Gotos.push_back(Goto);
     }
-  };
+  }
 
-  void visit(HLNode *Node){};
-  void postVisit(HLNode *Node){};
+  void visit(const HLNode *Node){};
+  void postVisit(const HLNode *Node){};
 };
 
 void HLLoop::shiftLoopBodyRegDDRefs(int64_t Amount) {
@@ -2386,17 +2395,35 @@ HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
   return PeelLoop;
 }
 
-void HLLoop::populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos) {
-  if (getNumExits() == 1) {
+// Traverse through the input loop and collect the gotos. GotoType needs to be
+// HLGoto * (const or non-const), and LoopType needs to be HLLoop * (const or
+// non-const).
+template <typename GotoType, typename LoopType>
+void static populateEarlyExitsImpl(SmallVectorImpl<GotoType> &Gotos,
+                                   LoopType Lp) {
+
+  // We can ignore single-exit loops, even if the loop was transformed and the
+  // exits hasn't been recomputed. The reason is because we don't transform
+  // single-exit loops to multi-exit loops.
+  if (Lp->getNumExits() == 1) {
     return;
   }
 
   // Collect Gotos in the Loop
-  EarlyExitCollector EEC(Gotos, this);
+  EarlyExitCollector<GotoType> EEC(Gotos, Lp);
 
-  HLNodeUtils::visitRange(EEC, getFirstChild(), getLastChild());
+  HLNodeUtils::visitRange(EEC, Lp->getFirstChild(), Lp->getLastChild());
 
-  assert((Gotos.size() == getNumExits() - 1) && "Mismatch in number of exits!");
+  assert((Gotos.size() == Lp->getNumExits() - 1) &&
+         "Mismatch in number of exits!");
+}
+
+void HLLoop::populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos) {
+  populateEarlyExitsImpl<HLGoto *, HLLoop *>(Gotos, this);
+}
+
+void HLLoop::populateEarlyExits(SmallVectorImpl<const HLGoto *> &Gotos) const {
+  populateEarlyExitsImpl<const HLGoto *, const HLLoop *>(Gotos, this);
 }
 
 OptReport OptReportTraits<HLLoop>::getOrCreatePrevOptReport(
