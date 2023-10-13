@@ -42,6 +42,7 @@
 
 // CHECK-FULL-O0: Running analysis: InnerAnalysisManagerProxy ;INTEL
 // CHECK-FULL-O0-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
+// CHECK-FULL-O0-NEXT: Running pass: InlineReportSetupPass ;INTEL
 // CHECK-FULL-O0-NEXT: Running pass: InlineForceInlinePass ;INTEL
 // CHECK-FULL-O0-NEXT: Running pass: InlineListsPass ;INTEL
 // CHECK-FULL-O0-NEXT: Running pass: AlwaysInlinerPass ;INTEL
@@ -53,11 +54,14 @@
 // CHECK-FULL-O0-NEXT: Running pass: AnnotationRemarksPass
 // CHECK-FULL-O0-NEXT: Running analysis: TargetLibraryAnalysis
 // CHECK-FULL-O0-NEXT: Running pass: Intel_DebugPass
+// CHECK-FULL-O0-NEXT: Running pass: InlineReportMakeCurrentPass ;INTEL
+// CHECK-FULL-O0-NEXT: Running pass: InlineReportEmitterPass ;INTEL
 // CHECK-FULL-O0-NEXT: Running pass: VerifierPass
 // CHECK-FULL-O0-NEXT: Running pass: BitcodeWriterPass
 
 // CHECK-THIN-O0: Running analysis: InnerAnalysisManagerProxy ;INTEL
 // CHECK-THIN-O0-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
+// CHECK-THIN-O0-NEXT: Running pass: InlineReportSetupPass ;INTEL
 // CHECK-THIN-O0-NEXT: Running pass: InlineForceInlinePass ;INTEL
 // CHECK-THIN-O0-NEXT: Running pass: InlineListsPass ;INTEL
 // CHECK-THIN-O0-NEXT: Running pass: AlwaysInlinerPass ;INTEL

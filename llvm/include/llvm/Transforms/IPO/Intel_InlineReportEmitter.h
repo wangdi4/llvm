@@ -27,6 +27,7 @@ class InlineReportEmitterPass : public PassInfoMixin<InlineReportEmitterPass> {
   bool PrepareForLTO = false;
 
 public:
+  static bool isRequired() { return true; }
   InlineReportEmitterPass(unsigned OL = 0, unsigned SL = 0,
                           bool PrepForLTO = false)
       : OptLevel(OL), SizeLevel(SL), PrepareForLTO(PrepForLTO) {}

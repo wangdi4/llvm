@@ -52,6 +52,7 @@
 ;CHECK-NEXT: Running pass: VPOParoptPreparePass on foo
 ; INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo
+;CHECK-NEXT: Running pass: InlineReportSetupPass on [module]
 ; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running pass: InlineForceInlinePass on [module]
 ;CHECK-NEXT: Running pass: InlineListsPass on [module]

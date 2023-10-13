@@ -805,6 +805,7 @@ class InlineReportMakeCurrentPass
   static char PassID;
 
 public:
+  static bool isRequired() { return true; }
   InlineReportMakeCurrentPass(void);
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
