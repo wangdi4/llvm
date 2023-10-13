@@ -18,6 +18,7 @@ namespace llvm {
 
 class OptReportEmitterPass : public PassInfoMixin<OptReportEmitterPass> {
 public:
+  static bool isRequired() { return true; }
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 

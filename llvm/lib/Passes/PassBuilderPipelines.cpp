@@ -3314,6 +3314,11 @@ ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
   }
 
   if (Level == OptimizationLevel::O0) {
+
+#if INTEL_CUSTOMIZATION
+    MPM.addPass(InlineReportSetupPass());
+#endif // INTEL_CUSTOMIZATION
+
     // Run a second time to clean up any type tests left behind by WPD for use
     // in ICP.
     MPM.addPass(LowerTypeTestsPass(nullptr, nullptr, true));
@@ -3322,6 +3327,16 @@ ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
     // globals in the object file.
     MPM.addPass(EliminateAvailableExternallyPass());
     MPM.addPass(GlobalDCEPass());
+
+#if INTEL_CUSTOMIZATION
+    if (IntelOptReportEmitter == OptReportOptions::IR)
+      MPM.addPass(createModuleToFunctionPassAdaptor(OptReportEmitterPass()));
+    MPM.addPass(
+        createModuleToFunctionPassAdaptor(InlineReportMakeCurrentPass()));
+    MPM.addPass(InlineReportEmitterPass(Level.getSpeedupLevel(),
+                                        Level.getSizeLevel(), false));
+#endif // INTEL_CUSTOMIZATION
+
     return MPM;
   }
 
@@ -3366,6 +3381,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   if (Level == OptimizationLevel::O0) {
 #if INTEL_CUSTOMIZATION
+    MPM.addPass(InlineReportSetupPass());
     vpo::VPlanDriverPass::setRunForO0(EnableO0Vectorization);
     if (EnableWPA) {
       // Set the optimization level
@@ -3388,6 +3404,15 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
     // Emit annotation remarks.
     addAnnotationRemarksPass(MPM);
+
+#if INTEL_CUSTOMIZATION
+    if (IntelOptReportEmitter == OptReportOptions::IR)
+      MPM.addPass(createModuleToFunctionPassAdaptor(OptReportEmitterPass()));
+    MPM.addPass(
+        createModuleToFunctionPassAdaptor(InlineReportMakeCurrentPass()));
+    MPM.addPass(InlineReportEmitterPass(Level.getSpeedupLevel(),
+                                        Level.getSizeLevel(), false));
+#endif // INTEL_CUSTOMIZATION
 
     return MPM;
   }
@@ -4112,6 +4137,7 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
   // which is just that always inlining occurs. Further, disable generating
   // lifetime intrinsics to avoid enabling further optimizations during
   // code generation.
+  MPM.addPass(InlineReportSetupPass()); // INTEL
   MPM.addPass(InlineForceInlinePass()); // INTEL
   MPM.addPass(InlineListsPass()); // INTEL
   MPM.addPass(AlwaysInlinerPass(
@@ -4199,6 +4225,11 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
   MPM.addPass(Intel_DebugPass(TM));
+  if (IntelOptReportEmitter == OptReportOptions::IR)
+    MPM.addPass(createModuleToFunctionPassAdaptor(OptReportEmitterPass()));
+  MPM.addPass(createModuleToFunctionPassAdaptor(InlineReportMakeCurrentPass()));
+  MPM.addPass(InlineReportEmitterPass(Level.getSpeedupLevel(),
+                                      Level.getSizeLevel(), LTOPreLink));
 #endif // INTEL_CUSTOMIZATION
 
   return MPM;

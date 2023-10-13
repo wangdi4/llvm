@@ -26,6 +26,7 @@ class InlineReportSetupPass : public PassInfoMixin<InlineReportSetupPass> {
   InlineReportBuilder *MDIR;
 
 public:
+  static bool isRequired() { return true; }
   InlineReportSetupPass();
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   InlineReportBuilder *getMDReport() { return MDIR; }
