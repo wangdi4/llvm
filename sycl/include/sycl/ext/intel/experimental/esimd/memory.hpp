@@ -968,12 +968,14 @@ wait(__ESIMD_NS::simd_view<T, RegionT> value) {
 /// @} sycl_esimd_memory_nbarrier
 
 /* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
 
 // Wait for source val to be ready
-__ESIMD_API void wait(uint16_t val) { __esimd_wait(val); }
+__ESIMD_API void wait(uint16_t val) {
+#ifdef __SYCL_DEVICE_ONLY__
+  __esimd_wait(val);
+#endif // __SYCL_DEVICE_ONLY__
+}
 
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
 /// @defgroup sycl_esimd_memory_lsc LSC memory access APIs.
