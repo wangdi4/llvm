@@ -5176,8 +5176,14 @@ SROAPass::runOnAlloca(AllocaInst &AI) {
   if (AS.isEscaped())
     return {Changed, CFGChanged};
 
-  if (std::distance(AS.begin(), AS.end()) > SROAMaxAllocaSlices)
-    return {Changed, CFGChanged};
+#if INTEL_CUSTOMIZATION
+  if (std::distance(AS.begin(), AS.end()) > SROAMaxAllocaSlices) {
+    LLVM_DEBUG(dbgs() << "SROA: Hit slice limit\n");
+    if (!IgnoreSliceLimit)
+      return {Changed, CFGChanged};
+    LLVM_DEBUG(dbgs() << "Ignoring limit, -x option seen\n");
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Delete all the dead users of this alloca before splitting and rewriting it.
   for (Instruction *DeadUser : AS.getDeadUsers()) {
@@ -5316,6 +5322,13 @@ PreservedAnalyses SROAPass::runImpl(Function &F, DomTreeUpdater &RunDTU,
   DTU = &RunDTU;
   AC = &RunAC;
 
+#if INTEL_CUSTOMIZATION
+  // For performance compiles (e.g. 507.cactus), we want to fully scalar
+  // replace all possible structures. (The actual number is about 500K)
+  // No pointers are used in this statement.
+  IgnoreSliceLimit =
+      F.getFnAttribute("loopopt-pipeline").getValueAsString() == "full";
+#endif // INTEL_CUSTOMIZATION
   const DataLayout &DL = F.getParent()->getDataLayout();
   BasicBlock &EntryBB = F.getEntryBlock();
   for (BasicBlock::iterator I = EntryBB.begin(), E = std::prev(EntryBB.end());
