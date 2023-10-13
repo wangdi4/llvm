@@ -424,14 +424,15 @@ public:
   void operator()(ReductionDescr &Descriptor,
                   const UDRList::value_type &CurValue) {
     Descriptor.clear();
-    assertIsSingleElementAlloca(CurValue->getRef()->stripPointerCasts());
-    VPValue *StartVal =
-        Builder.getOrCreateVPOperand(CurValue->getRef()->stripPointerCasts());
+    auto *OrigV = CurValue->getRef();
+    VPValue *StartVal = Builder.getOrCreateVPOperand(OrigV);
     Descriptor.setStart(StartVal);
     Descriptor.setKind(CurValue->getKind());
-    auto *AI = cast<AllocaInst>(CurValue->getRef()->stripPointerCasts());
-    collectMemoryAliases(Descriptor, AI);
-    Descriptor.setRecType(AI->getAllocatedType());
+    // TODO: If OrigV is not alloca, we can potentially have a different value
+    // using the same base pointer that is used in the loop instead.
+    // collectMemoryAliases should be updated to account for such possibilities.
+    collectMemoryAliases(Descriptor, OrigV);
+    Descriptor.setRecType(CurValue->getType());
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(StartVal);
     Descriptor.setCombiner(CurValue->getCombiner());
