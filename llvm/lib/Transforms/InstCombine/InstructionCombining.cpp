@@ -3472,6 +3472,7 @@ Instruction *InstCombinerImpl::visitFree(CallInst &FI, Value *Op) {
 }
 
 Instruction *InstCombinerImpl::visitReturnInst(ReturnInst &RI) {
+<<<<<<< HEAD
   Value *RetVal = RI.getReturnValue();
   if (!RetVal || !AttributeFuncs::isNoFPClassCompatibleType(RetVal->getType()))
     return nullptr;
@@ -3496,6 +3497,10 @@ Instruction *InstCombinerImpl::visitReturnInst(ReturnInst &RI) {
     return nullptr;
 
   return ReturnInst::Create(RI.getContext(), Simplified);
+=======
+  // Nothing for now.
+  return nullptr;
+>>>>>>> ef388334ee5a3584255b9ef5b3fefdb244fa3fd7
 }
 
 // WARNING: keep in sync with SimplifyCFGOpt::simplifyUnreachable()!
