@@ -118,6 +118,7 @@ static bool isOrHasScalableTy(Type *InTy) {
   return false;
 }
 
+/// Check that the instruction's type doesn't preclude vectorization.
 static bool isSupportedInstructionType(const Instruction &I) {
   Type *Ty = I.getType();
 
@@ -160,6 +161,9 @@ static bool hasOutsideLoopUser(const Loop *TheLoop, Instruction *Inst,
   return false;
 }
 
+/// A somewhat misnamed function, this either converts a pointer to the
+/// same-size integer type, or widens a short integer type to 32 bits,
+/// or otherwise leaves the type alone.
 static Type *convertPointerToIntegerType(const DataLayout &DL, Type *Ty) {
   if (Ty->isPointerTy())
     return DL.getIntPtrType(Ty);
@@ -172,6 +176,8 @@ static Type *convertPointerToIntegerType(const DataLayout &DL, Type *Ty) {
   return Ty;
 }
 
+/// Return the wider of two types.  Note that short integer types are
+/// widened to 32 bits before the comparison.
 static Type *getWiderType(const DataLayout &DL, Type *Ty0, Type *Ty1) {
   Ty0 = convertPointerToIntegerType(DL, Ty0);
   Ty1 = convertPointerToIntegerType(DL, Ty1);
@@ -281,6 +287,7 @@ bool LegalityLLVM::doesReductionUsePhiNodes(Value *RedVarPtr,
           // TODO: Handle more complex cases like masked reductions which will
           // have multiple updating instructions. Try to templatize
           // ReductionDescr::tryToCompleteByVPlan from VPLoopAnalysis.
+          // Tracked in CMPLRLLVM-52295.
           if (!isa<PHINode>(Op))
             continue;
 
@@ -578,7 +585,8 @@ void LegalityLLVM::addReduction(
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
 
-  // TODO: Support min/max scan reductions as well.
+  // TODO: Support min/max scan reductions as well.  Tracked in
+  // CMPLRLLVM-52293.
   if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind)) {
     parseMinMaxReduction(RedVarPtr, Kind, InscanRedKind, Ty);
     return;

@@ -1,4 +1,4 @@
-//===-LegalityLLVM.h---------------------------------------------*- C++ -*-===//
+//===- LegalityLLVM.h -------------------------------------------*- C++ -*-===//
 //
 //   INTEL CONFIDENTIAL
 //
@@ -22,6 +22,9 @@
 ///
 ///   Split from Legality.h on 2023-09-27.
 ///
+///   Defines the LegalityLLVM class, which performs loop entity import and
+///   legality testing on an LLVM IR loop.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LLVM_LEGALITYLLVM_H
@@ -39,12 +42,31 @@ class PredicatedScalarEvolution;
 
 namespace vpo {
 
+/// \class LegalityLLVM
+///
+/// This class has the following purposes:
+///
+///   1) To import loop entities (such as reductions, inductions, and
+///      privates) from the WRNVecLoopNode associated with an lLVM IR loop.
+///   2) To perform legality testing on these entities.  If any entity
+///      has characteristics that the VPlan vectorizer cannot currently
+///      support, VPlan will bail out and provide a reason in the
+///      optimization report.
+///   3) To perform additional legality testing regarding the loop
+///      control flow, possible unsafe aliasing, unvectorizable data
+///      data types, and so forth.
+///
+/// These operations are performed by the canVectorize method.  Afterwards,
+/// accessor methods provided by LegalityLLVM can be used to examine the
+/// imported entities.
+///
 class LegalityLLVM final : public LegalityBase<LegalityLLVM> {
   // Explicit vpo:: to workaround gcc bug
   // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52625
   template <typename LegalityTy> friend class vpo::LegalityBase;
 
 public:
+  // Constructor.
   LegalityLLVM(Loop *L, PredicatedScalarEvolution &PSE, Function *F,
                LLVMContext *C)
       : LegalityBase(C), TheLoop(L), PSE(PSE), Induction(nullptr),
@@ -180,22 +202,28 @@ public:
 private:
   /// The loop that we evaluate.
   Loop *TheLoop;
+
   /// A wrapper around ScalarEvolution used to add runtime SCEV checks.
   /// Applies dynamic knowledge to simplify SCEV expressions in the context
   /// of existing SCEV assumptions. The analysis will also add a minimal set
   /// of new predicates if this is required to enable vectorization and
   /// unrolling.
   PredicatedScalarEvolution &PSE;
+
   /// Holds the integer induction variable. This is the counter of the
   /// loop.
   PHINode *Induction;
+
   /// Holds the reduction variables.
   ReductionList Reductions;
+
   /// Holds the explicitly-specified reduction variables.
   ExplicitReductionList ExplicitReductions;
+
   /// Holds the explicitly-specified reduction variables that
   /// calculated in loop using memory.
   InMemoryReductionList InMemoryReductions;
+
   /// Holds descriptors that describe user-defined reduction variables.
   UDRList UserDefinedReductions;
 
@@ -210,49 +238,52 @@ private:
   /// A set of Phi nodes that may be used outside the loop.
   SmallPtrSet<Value *, 4> AllowedExit;
 
-  /// Vector of in memory loop private values(allocas)
+  /// Vector of in-memory loop private values (allocas).
   PrivatesListTy Privates;
 
   /// List of explicit linears.
   LinearListTy Linears;
 
-  /// Map of pointer values and stride
+  /// Map of pointer values and stride.
   DenseMap<Value *, int> PtrStrides;
 
+  /// Is this an explicit SIMD loop?
   bool IsSimdLoop = false;
 
 public:
   /// Add stride information for pointer \p Ptr.
-  // Used for a temporary solution of teaching legality based on DA.
-  // TODO: Is it okay to overwrite existing stride value?
+  /// Used for a temporary solution of teaching legality based on DA.
+  // TODO: Is it okay to overwrite existing stride value?  Tracked in
+  // CMPLRLLVM-52295.
   void addPtrStride(Value *Ptr, int Stride) { PtrStrides[Ptr] = Stride; }
 
   /// Erase pointer \p Ptr from the stride information map.
-  // Used for a temporary solution of teaching legality based on DA.
+  /// Used for a temporary solution of teaching legality based on DA.
   void erasePtrStride(Value *Ptr) { PtrStrides.erase(Ptr); }
 
+  /// Test whether this \p Phi is associated with an explicit reduction.
   bool isExplicitReductionPhi(PHINode *Phi);
 
-  // Return True if the specified value \p Val is reduction variable that
-  // is written to the memory in each iteration.
+  /// Return true if the specified value \p Val is a reduction variable that
+  /// is written to the memory in each iteration.
   bool isInMemoryReduction(Value *Val) const;
 
-  // Return true if the specified value \p Val is private.
+  /// Return true if the specified value \p Val is private.
   bool isLoopPrivate(Value *Val) const;
 
-  // Return pointer to Linears map
+  /// Return pointer to Linears map.
   LinearListTy *getLinears() { return &Linears; }
 
-  // Analyze all instruction between the SIMD clause and the loop to identify
-  // any aliasing variables to the explicit SIMD descriptors.
+  /// Analyze all instructions between the SIMD clause and the loop to identify
+  /// any aliasing variables to the explicit SIMD descriptors.
   void collectPreLoopDescrAliases();
 
-  // Analyze all instructions in loop post-exit to identify any aliasing
-  // variables to the explicit SIMD descriptor.
+  /// Analyze all instructions in loop post-exit to identify any aliasing
+  /// variables to the explicit SIMD descriptor.
   void collectPostExitLoopDescrAliases();
 
-  // Return the iterator-range to the list of privates loop-entities.
-  // TODO: Windows compiler explicitly doesn't allow for const type specifier.
+  /// Return the iterator-range to the list of privates loop-entities.
+  // Note: Windows compiler explicitly doesn't allow for const type specifier.
   inline decltype(auto) privates() const {
     return map_range(
         make_range(Privates.begin(), Privates.end()), [](auto &PrivatePair) {
@@ -260,13 +291,13 @@ public:
         });
   }
 
-  // Return the iterator-range to the list of privates loop-entities values.
+  /// Return the iterator-range to the list of privates loop-entities values.
   inline decltype(auto) privateVals() const {
     return make_first_range(Privates);
   }
 
-  // Return the iterator-range to the list of explicit reduction variables which
-  // are of 'Pointer Type'.
+  /// Return the iterator-range to the list of explicit reduction variables
+  /// which are of 'Pointer Type'.
   inline decltype(auto) explicitReductionVals() const {
     return make_filter_range(
         map_range(make_second_range(ExplicitReductions),
@@ -274,27 +305,28 @@ public:
         [](auto *Val) { return Val->getType()->isPointerTy(); });
   }
 
-  // Return the iterator-range to the list of in-memory reduction variables.
+  /// Return the iterator-range to the list of in-memory reduction variables.
   inline decltype(auto) inMemoryReductionVals() const {
     return make_first_range(InMemoryReductions);
   }
 
-  // Return the iterator-range to the list of user-defined reduction variables.
+  /// Return the iterator-range to the list of user-defined reduction variables.
   inline decltype(auto) userDefinedReductions() const {
     return make_range(UserDefinedReductions.begin(),
                       UserDefinedReductions.end());
   }
 
-  // Return the iterator-range to the list of 'linear' variables.
+  /// Return the iterator-range to the list of 'linear' variables.
   inline decltype(auto) linearVals() const { return make_first_range(Linears); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// Debug print utility to display contents of the descriptor lists.
   void dump(raw_ostream &OS) const;
   void dump() const { dump(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
-  /// Add an in memory non-POD private to the vector of private values.
+  /// Add an in-memory non-POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
                       Function *Destr, Function *CopyAssign, PrivateKindTy Kind,
                       bool IsF90) {
@@ -303,7 +335,7 @@ private:
                                   CopyAssign)});
   }
 
-  /// Add an in memory POD private to the vector of private values.
+  /// Add an in-memory POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, Type *PrivTy, PrivateKindTy Kind,
                       Type *F90DVElementType) {
     if (F90DVElementType)
@@ -314,7 +346,7 @@ private:
                                     PrivVal, PrivTy, Kind, false /* isF90 */)});
   }
 
-  /// Add linear value to Linears map
+  /// Add linear value to Linears map.
   void addLinear(Value *LinearVal, Type *EltTy, Type *EltPointeeTy,
                  Value *StepValue, bool IsIV) {
     assert(TheLoop->isLoopInvariant(StepValue) &&
@@ -341,6 +373,7 @@ private:
   void parseMinMaxReduction(Value *V, RecurKind Kind,
                             std::optional<InscanReductionKind> InscanRedKind,
                             Type *Ty);
+
   /// Parsing arithmetic reduction patterns.
   void parseBinOpReduction(Value *V, RecurKind Kind,
                            std::optional<InscanReductionKind> InscanRedKind,

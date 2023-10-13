@@ -44,9 +44,26 @@ class DDRef;
 
 namespace vpo {
 
-// High-level class to capture and provide loop vectorization legality analysis
-// for incoming HIR. Currently various loop entities like reductions, inductions
-// and privates are identified and stored within this class.
+/// \class LegalityHIR
+///
+/// This class has the following purposes:
+///
+///  1) To import loop entities (such as reductions, inductions, and
+///     privates) from the WRNVecLoopNode associated with an HIR loop.
+///  2) To perform legality testing on those entities.  If any entity
+///     has characteristics that the VPlan vectorizer cannot currently
+///     support, VPlan will bail out and provide a reason in the
+///     optimization report.
+///
+/// These operations are performed by the canVectorize method.  Afterwards,
+/// accessor methods provided by LegalityHIR can be used to examine the
+/// imported entities.
+///
+/// In contrast with the LegalityLLVM class, there is no need to perform
+/// additional legality testing concerning control flow, possibly unsafe
+/// aliasing, unvectorizable data types, and so on, because this has
+/// already been done prior to invoking the vectorizer.
+///
 class LegalityHIR final : public LegalityBase<LegalityHIR> {
   // Explicit vpo:: to workaround gcc bug
   // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52625
@@ -74,9 +91,9 @@ public:
   using PrivatesListTy = SmallVector<PrivDescrTy, 8>;
   using PrivatesNonPODListTy = SmallVector<PrivDescrNonPODTy, 8>;
   using PrivatesF90DVListTy = SmallVector<PrivDescrF90DVTy, 8>;
-  // Specialized class to represent linear descriptors specified explicitly via
-  // SIMD linear clause. The linear's Step value is also stored within this
-  // class.
+  /// Specialized class to represent linear descriptors specified explicitly via
+  /// SIMD linear clause. The linear's Step value is also stored within this
+  /// class.
   struct LinearDescr : public DescrWithInitValueTy {
     LinearDescr(RegDDRef *RegV, Type *LinearTyV, Type *PointeeTyV,
                 const RegDDRef *StepV)
@@ -91,10 +108,12 @@ public:
   };
   using LinearListTy = SmallVector<LinearDescr, 8>;
 
-  // Delete copy/assignment/move operations
   LegalityHIR(const LegalityHIR &) = delete;
+
   LegalityHIR &operator=(const LegalityHIR &) = delete;
+
   LegalityHIR(LegalityHIR &&) = delete;
+
   LegalityHIR &operator=(LegalityHIR &&) = delete;
 
   LegalityHIR(const TargetTransformInfo *TTI,
@@ -131,35 +150,61 @@ public:
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize(const WRNVecLoopNode *WRLp);
 
+  /// Returns the safe reduction analysis object.
   HIRSafeReductionAnalysis *getSRA() const { return SRA; }
+
+  /// Returns vector idioms determined by analysis.
   const HIRVectorIdioms *getVectorIdioms(HLLoop *Loop) const;
 
+  /// Returns list of privates in the loop.
   const PrivatesListTy &getPrivates() const { return PrivatesList; }
+
+  /// Returns list of non-POD private in the loop.
   const PrivatesNonPODListTy &getNonPODPrivates() const {
     return PrivatesNonPODList;
   }
+
+  /// Returns list of Fortran 90 dope vector privates in the loop.
   const PrivatesF90DVListTy &getF90DVPrivates() const {
     return PrivatesF90DVList;
   }
+
+  /// Returns list of linears in the loop.
   const LinearListTy &getLinears() const { return LinearList; }
+
+  /// Returns list of reductions in the loop.
   const ReductionListTy &getReductions() const { return ReductionList; }
+
+  /// Returns list of user-defined reductions in the loop.
   const UDRListTy &getUDRs() const { return UDRList; }
 
+  /// Returns a descriptor for the private \p Ref.
   PrivDescrTy *getPrivateDescr(const DDRef *Ref) const {
     return findDescr<PrivDescrTy>(PrivatesList, Ref);
   }
+
+  /// Returns a descriptor for the non-POD private \p Ref.
   PrivDescrNonPODTy *getPrivateDescrNonPOD(const DDRef *Ref) const {
     return findDescr<PrivDescrNonPODTy>(PrivatesNonPODList, Ref);
   }
+
+  /// Returns a descriptor for the Fortran 90 dope vector private \p Ref.
   PrivDescrF90DVTy *getPrivateDescrF90DV(const DDRef *Ref) const {
     return findDescr<PrivDescrF90DVTy>(PrivatesF90DVList, Ref);
   }
+
+  /// Returns a descriptor for the linear \p Ref.
   LinearDescr *getLinearDescr(const DDRef *Ref) const {
     return findDescr<LinearDescr>(LinearList, Ref);
   }
+
+  /// Returns a descriptor for the reduction associated with \p Ref.
   RedDescrTy *getReductionDescr(const DDRef *Ref) const {
     return findDescr<RedDescrTy>(ReductionList, Ref);
   }
+
+  /// Returns a descriptor for the user-defined reduction associated
+  /// with \p Ref.
   RedDescrUDRTy *getUDRDescr(const DDRef *Ref) const {
     return findDescr<RedDescrUDRTy>(UDRList, Ref);
   }
@@ -169,7 +214,7 @@ public:
   bool isMinMaxIdiomTemp(const DDRef *Ref, HLLoop *HLoop) const;
 
   /// Identify any DDRefs in the \p HLoop's pre/post-loop nodes which alias the
-  /// OMP SIMD clause descriptor DDRefs
+  /// OMP SIMD clause descriptor DDRefs.
   void findAliasDDRefs(HLNode *BeginNode, HLNode *EndNode, HLLoop *HLoop);
 
   /// Check if the given DDRef \p Ref corresponds to any linear/reduction
@@ -186,14 +231,13 @@ public:
   void recordPotentialSIMDDescrUpdate(HLInst *UpdateInst);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// Debug print utility to display contents of the descriptor lists
+  /// Debug print utility to display contents of the descriptor lists.
   void dump(raw_ostream &OS) const;
   void dump() const { dump(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
-  /// Add an explicit non-POD private to PrivatesList
-  /// TODO: Use Constr, Destr and CopyAssign for non-POD privates.
+  /// Add an explicit non-POD private to PrivatesList.
   void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, Function *Constr,
                       Function *Destr, Function *CopyAssign, PrivateKindTy Kind,
                       bool IsF90) {
@@ -202,7 +246,7 @@ private:
                                     CopyAssign);
   }
 
-  /// Add an explicit POD private to PrivatesList
+  /// Add an explicit POD private to PrivatesList or PrivatesF90DVList.
   void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, PrivateKindTy Kind,
                       Type *F90DVElementType) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
@@ -218,15 +262,18 @@ private:
     assert(LinearVal->isAddressOf() && "Linear ref is not address of type.");
     LinearList.emplace_back(LinearVal, LinearTy, PointeeTy, Step);
   }
-  /// Add an explicit reduction variable
+
+  /// Add an explicit reduction variable.
   void addReduction(RegDDRef *V, Type *Ty, RecurKind Kind,
                     std::optional<InscanReductionKind> InscanDescr,
                     bool IsComplex) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
+    // Following TODO is tracked in CMPLRLLVM-52293.
     assert(!InscanDescr && "TODO: Inscan for HIR is not supported!");
 
     // TODO: Consider removing IsSigned field from RedDescr struct since it is
-    // unused and can basically be deducted from the recurrence kind.
+    // unused and can basically be deduced from the recurrence kind.  Tracked
+    // in CMPLRLLVM-52295.
     ReductionList.emplace_back(V, Kind, false /*IsSigned*/, IsComplex, Ty);
   }
 
@@ -245,18 +292,19 @@ private:
 
   /// Check if the given \p Ref is an explicit SIMD descriptor variable of type
   /// \p DescrType in the list \p List, if yes then return the descriptor object
-  /// corresponding to it, else nullptr
+  /// corresponding to it, else nullptr.
   template <typename DescrType>
   DescrType *findDescr(ArrayRef<DescrType> List, const DDRef *Ref) const {
     for (auto &Descr : List) {
-      // TODO: try to avoid returning the non-const ptr.
+      // TODO: try to avoid returning the non-const ptr.  Tracked in
+      // CMPLRLLVM-52295.
       DescrType *CurrentDescr = const_cast<DescrType *>(&Descr);
       assert(isa<RegDDRef>(CurrentDescr->getRef()) &&
              "The original SIMD descriptor Ref is not a RegDDRef.");
       if (isSIMDDescriptorDDRef(cast<RegDDRef>(CurrentDescr->getRef()), Ref))
         return CurrentDescr;
 
-      // Check if Ref matches any aliases of current descriptor's ref
+      // Check if Ref matches any aliases of current descriptor's ref.
       if (CurrentDescr->findAlias(Ref))
         return CurrentDescr;
     }

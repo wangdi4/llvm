@@ -65,7 +65,7 @@ void LegalityHIR::dump(raw_ostream &OS) const {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 /// Check if the incoming \p Ref matches the original SIMD descriptor DDRef \p
-/// DescrRef
+/// DescrRef.
 bool LegalityHIR::isSIMDDescriptorDDRef(const RegDDRef *DescrRef,
                                         const DDRef *Ref) const {
   assert(DescrRef->isAddressOf() &&
@@ -141,6 +141,7 @@ void LegalityHIR::recordPotentialSIMDDescrUse(DDRef *Ref) {
   if (isSIMDDescriptorDDRef(cast<RegDDRef>(Descr->getRef()), Ref)) {
     // Ref refers to the original descriptor
     // TODO: should we assert that InitVPValue is not set already?
+    // Tracked in CMPLRLLVM-52295.
     Descr->setInitValue(Ref);
   } else {
     // Ref is an alias to the original descriptor
@@ -262,6 +263,7 @@ void LegalityHIR::findAliasDDRefs(HLNode *BeginNode, HLNode *EndNode,
     // TODO: Check whether we really can have HLoop, HLIf, or other-non-HInst
     // things here (between the simd-region begin statement and the loop). If
     // so we need a special processing for them. Same for the postloop nodes.
+    // Tracked in CMPLRLLVM-52295.
     if (!HInst)
       continue;
     RegDDRef *RVal = HInst->getRvalDDRef();
@@ -301,6 +303,7 @@ void LegalityHIR::findAliasDDRefs(HLNode *BeginNode, HLNode *EndNode,
     assert(RVal && "HLInst in the postexit does not have an Rval.");
     // TODO: extend to non-terminals. That might be useful for inductions.
     // Currently, we can bailout on non-recognized phi for such entities.
+    // Tracked in CMPLRLLVM-52295.
     if (RVal->isTerminalRef())
       addAlias(Descr, RVal);
   }
