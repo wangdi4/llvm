@@ -28,7 +28,6 @@ if (NOT DEFINED UNIFIED_RUNTIME_LIBRARY OR NOT DEFINED UNIFIED_RUNTIME_INCLUDE_D
   #        [UR][L0] Copy prebuilt L0 to avoid leaking shared folder path
   set(UNIFIED_RUNTIME_TAG b38855ed815ffd076bfde5e5e06170ca4f723dc1)
 
-<<<<<<< HEAD
   if(INTEL_CUSTOMIZATION)
     # 1Source policy is to use internal mirrors as much as possible.
     if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
@@ -37,12 +36,9 @@ if (NOT DEFINED UNIFIED_RUNTIME_LIBRARY OR NOT DEFINED UNIFIED_RUNTIME_INCLUDE_D
     endif()
   endif(INTEL_CUSTOMIZATION)
 
-  set(UR_BUILD_ADAPTER_L0 ON)
-=======
   if ("level_zero" IN_LIST SYCL_ENABLE_PLUGINS)
     set(UR_BUILD_ADAPTER_L0 ON)
   endif()
->>>>>>> 8fad0424e64835ffa6904197a06d2ad8607cbe3b
 
   if ("cuda" IN_LIST SYCL_ENABLE_PLUGINS)
     set(UR_BUILD_ADAPTER_CUDA ON)
