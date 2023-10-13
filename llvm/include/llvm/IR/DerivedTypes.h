@@ -734,7 +734,7 @@ public:
     return get(PT->getContext(), AddressSpace);
   }
 
-  [[deprecated("Always returns true")]] bool isOpaque() const { return true; }
+  bool isOpaque() const { return true; }
 
   /// Return true if the specified type is valid as a element type.
   static bool isValidElementType(Type *ElemTy);
