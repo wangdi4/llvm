@@ -889,8 +889,6 @@ bool HIROptVarPredicate::run() {
       HIRInvalidationUtils::invalidateNonLoopRegion(cast<HLRegion>(Node));
     }
     HLNodeUtils::removeRedundantNodes(Node, false);
-    // TODO: update exits for multiexit loops
-    // HLNodeUtils::updateNumLoopExits(Node);
   }
 
   return Modified;

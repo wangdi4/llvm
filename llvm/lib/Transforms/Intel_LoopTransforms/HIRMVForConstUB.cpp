@@ -205,6 +205,14 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop,
 
   HLNodeUtils::moveAsFirstElseChild(LastIf, Loop);
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(LastIf);
+
+  // If the new condition is inside a loop, then we need to check if the
+  // parent loop is multi-exit. If so, then we need to update the number
+  // of exits since it may change.
+  auto *ParentLoop = LastIf->getParentLoop();
+  if (Loop->isMultiExit() && ParentLoop && ParentLoop->isMultiExit())
+    HLNodeUtils::updateNumLoopExits(LastIf->getOutermostParentLoop());
+
   LoopsMultiversioned++;
 }
 
@@ -230,6 +238,13 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
   propagateConstant(Loop, TempIndex, Constant, true /*Remove parent*/);
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(If);
+
+  // If the new condition is inside a loop, then we need to check if the
+  // parent loop is multi-exit. If so, then we need to update the number
+  // of exits since it may change.
+  auto *ParentLoop = If->getParentLoop();
+  if (Loop->isMultiExit() && ParentLoop && ParentLoop->isMultiExit())
+    HLNodeUtils::updateNumLoopExits(If->getOutermostParentLoop());
 
   LoopsMultiversioned++;
 }
@@ -315,6 +330,13 @@ void HIRMVForConstUB::transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop,
   // Move original node range into else branch.
   HLNodeUtils::moveAsLastElseChildren(If, FromLoop->getIterator(),
                                       std::next(ToLoop->getIterator()));
+
+  // If the new condition is inside a loop, then we need to check if the
+  // parent loop is multi-exit. If so, then we need to update the number
+  // of exits since it may change.
+  auto *ParentLoop = If->getParentLoop();
+  if (ParentLoop && ParentLoop->isMultiExit())
+    HLNodeUtils::updateNumLoopExits(If->getOutermostParentLoop());
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(If);
 

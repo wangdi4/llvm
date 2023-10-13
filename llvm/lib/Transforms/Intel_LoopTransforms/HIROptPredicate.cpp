@@ -579,7 +579,7 @@ private:
   /// This routine will loop through the candidate loop to look
   /// for HLIf candidates. If all conditions are met, it will transform
   /// the loop. Returns true if transformation happened.
-  bool processOptPredicate(bool &HasMultiexitLoop);
+  bool processOptPredicate();
 
   /// Returns the deepest level at which any of the If/Ref operands is defined.
   unsigned getPossibleDefLevel(const HLIf *If, PUContext &PUC);
@@ -2154,15 +2154,10 @@ bool HIROptPredicate::run() {
     LLVM_DEBUG(dumpCandidates());
 
     bool MustCodeGen = mustCodeGen();
-    bool HasMultiexitLoop;
-    if (processOptPredicate(HasMultiexitLoop)) {
+    if (processOptPredicate()) {
       if (MustCodeGen)
         Region->setGenCode();
       HLNodeUtils::removeRedundantNodes(Region, false);
-
-      if (HasMultiexitLoop) {
-        HLNodeUtils::updateNumLoopExits(Region);
-      }
       Modified = true;
     }
 
@@ -2403,9 +2398,8 @@ void HIROptPredicate::clearOptReportState() {
 
 /// processOptPredicate - Main routine to perform opt predicate
 /// transformation.
-bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
+bool HIROptPredicate::processOptPredicate() {
   bool Modified = false;
-  HasMultiexitLoop = false;
 
   while (!Candidates.empty()) {
     HoistCandidate &Candidate = Candidates.back();
@@ -2420,11 +2414,6 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
 
     HLLoop *ParentLoop = PilotIfOrSwitch->getParentLoop();
     assert(ParentLoop && "Candidate should have a parent loop");
-
-    if (ParentLoop->isMultiExit()) {
-      // It will be used in the caller to update exit counts.
-      HasMultiexitLoop = true;
-    }
 
     LLVM_DEBUG(dbgs() << "Unswitching loop <" << ParentLoop->getNumber()
                       << ">:\n");

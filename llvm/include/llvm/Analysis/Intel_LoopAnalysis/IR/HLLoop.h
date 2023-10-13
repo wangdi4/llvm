@@ -1437,6 +1437,7 @@ public:
 
   // Collects all HLGotos which exit the loop.
   void populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos);
+  void populateEarlyExits(SmallVectorImpl<const HLGoto *> &Gotos) const;
 
   HLLoopParallelTraits *getParallelTraits() const { return ParTraits.get(); }
   void setParallelTraits(HLLoopParallelTraits *CT) {

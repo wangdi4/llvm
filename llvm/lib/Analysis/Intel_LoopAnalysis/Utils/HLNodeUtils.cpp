@@ -5429,6 +5429,11 @@ public:
 
     // The loop will stay attached - handle as regular node.
     postVisitImpl(Loop);
+
+    // We need to update the number of exits since gotos could have been
+    // removed or optimized.
+    if (Loop->isMultiExit())
+      HLNodeUtils::updateNumLoopExits(Loop);
   }
 
   // Remove nodes after IF-stmt if it does not fall through.

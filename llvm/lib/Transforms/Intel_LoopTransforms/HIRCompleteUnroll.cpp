@@ -3590,6 +3590,8 @@ void HIRCompleteUnroll::transformLoops() {
     }
 
     HLLoop *ParentLoop = Loop->getParentLoop();
+    if (Loop->isMultiExit() && ParentLoop && ParentLoop->isMultiExit())
+      ParentLoop = Loop->getOutermostParentLoop();
     HLNode *ParentNode = ParentLoop;
 
     if (!ParentNode) {
