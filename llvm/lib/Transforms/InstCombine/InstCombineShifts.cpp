@@ -1492,14 +1492,6 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
       Value *And = Builder.CreateAnd(BoolX, BoolY);
       return new ZExtInst(And, Ty);
     }
-<<<<<<< HEAD
-
-    // If the shifted-out value is known-zero, then this is an exact shift.
-    if (!I.isExact() &&
-        MaskedValueIsZero(Op0, APInt::getLowBitsSet(BitWidth, ShAmtC), 0, &I)) {
-      I.setIsExact();
-      return &I;
-    }
 
 #if INTEL_CUSTOMIZATION
     BinaryOperator *Op0BO;
@@ -1573,8 +1565,6 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
       } // switch
     }   // if
 #endif  // INTEL_CUSTOMIZATION
-=======
->>>>>>> 2dd52b4527667837cc525aa48435ab5cbfa30a0b
   }
 
   const SimplifyQuery Q = SQ.getWithInstruction(&I);
