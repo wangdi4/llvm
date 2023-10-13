@@ -514,6 +514,7 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
     {OptRemarkID::VectorizedIntrinsics, "vectorized intrinsic functions: %s"},
     {OptRemarkID::VecWindowsAtomic,
      "%s was not vectorized: Windows atomic %s idiom detected in loop"},
+    {OptRemarkID::VecFailFence, "%s was not vectorized: fence encountered"},
 
     {OptRemarkID::TotalLinesPrefetched, "Total number of lines prefetched=%d"},
     {OptRemarkID::NumSpatialPrefetches,

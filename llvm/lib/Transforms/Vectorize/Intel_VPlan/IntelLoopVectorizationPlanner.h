@@ -839,6 +839,9 @@ private:
 
   void runInitialVecSpecificTransforms(VPlanVector *Plan);
 
+  /// Check for fences after initial transforms and bail out if found.
+  bool fencesFound(VPlan *Plan);
+
   /// Main function that canonicalizes the CFG and applyies loop massaging
   /// transformations like mergeLoopExits transform.
   void doLoopMassaging(VPlanVector *Plan);
@@ -913,6 +916,9 @@ private:
   /// Internal loop number. The loops are numbered sequentially throughout
   /// one compilation. The loop numbers can be used for debugging.
   static int VPlanOrderNumber;
+
+  /// True iff fences were detected during canProcessLoopBody().
+  mutable bool FencesInInput = false;
 };
 
 } // namespace vpo

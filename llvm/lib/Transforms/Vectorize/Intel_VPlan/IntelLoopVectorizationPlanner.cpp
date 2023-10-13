@@ -754,6 +754,16 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   // 2. emitVecSpecifics
   runInitialVecSpecificTransforms(Plan.get());
 
+  // Bail out if we still have any fence instructions at this time.  We will
+  // have removed expected fences associated with in-scan reductions by now,
+  // so any remaining fences are bad news.
+  if (FencesInInput && fencesFound(Plan.get())) {
+    bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailFence,
+            WRLp && WRLp->isOmpSIMDLoop() ? AuxRemarkID::SimdLoop
+                                          : AuxRemarkID::Loop);
+    return 0;
+  }
+
   createLiveInOutLists(*Plan.get());
 
   // CFG canonicalization transform (merge loop exits).
@@ -2454,6 +2464,14 @@ void LoopVectorizationPlanner::clearWrapFlagsForReductions(VPlanVector *Plan) {
   VPLAN_DUMP(ClearReductionWrapFlagsDumpControl, Plan);
 }
 
+bool LoopVectorizationPlanner::fencesFound(VPlan *Plan) {
+  for (auto &Inst : vpinstructions(*Plan))
+    if (Inst.getOpcode() == Instruction::Fence)
+      return true;
+
+  return false;
+}
+
 void LoopVectorizationPlanner::exchangeExclusiveScanLoopInputScanPhases(
     VPlanVector *Plan) {
   if (!WRLp)
@@ -3189,6 +3207,12 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
             return false;
           }
         }
+        // Detect presence of fences.  We expect to see them for in-scan
+        // reductions, but other fences are forbidden.  If fences are
+        // detected here, we will later scan to see if any remain after
+        // reductions are processed.
+        if (Inst.getOpcode() == Instruction::Fence)
+          FencesInInput = true;
     }
 
   return true;
