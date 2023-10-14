@@ -562,6 +562,12 @@ void InlineReport::beginSCC(LazyCallGraph::SCC &SCC, void *Inliner) {
     initFunction(&Node.getFunction());
 }
 
+void InlineReport::beginModule(void *Inliner) {
+  ActiveInliners.insert(Inliner);
+}
+
+void InlineReport::endModule(void) { makeAllNotCurrent(); }
+
 void InlineReport::endSCC(void) {
   if (!isClassicIREnabled())
     return;

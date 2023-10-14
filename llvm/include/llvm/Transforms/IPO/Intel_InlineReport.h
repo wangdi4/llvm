@@ -407,8 +407,14 @@ public:
   // SCC of the CG.
   void beginSCC(LazyCallGraph::SCC &SCC, void *Inliner);
 
+  // Indicate that we have begun inlining functions in the current Module.
+  void beginModule(void *Inliner);
+
   // Indicate that we are done inlining functions in the current SCC.
   void endSCC();
+
+  // Indicate that we are done inlining functions in the current Module.
+  void endModule(void);
 
   void beginUpdate(CallBase *Call) {
     if (!isClassicIREnabled())

@@ -57,6 +57,9 @@ class AlwaysInlinerPass : public PassInfoMixin<AlwaysInlinerPass> {
 
 public:
   AlwaysInlinerPass(bool InsertLifetime = true);
+#if INTEL_CUSTOMIZATION
+  ~AlwaysInlinerPass();
+#endif // INTEL_CUSTOMIZATION
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
 
