@@ -69,9 +69,11 @@ sycl/doc/extensions/ @intel-restricted/llvm-reviewers-runtime
 sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 
 # OpenCL deps
+# JIRA: CMPLRLLVM->OCL CPU RT
 opencl/ @intel-restricted/llvm-reviewers-runtime
 
 # OpenCL runtime
+# JIRA: CMPLRLLVM->OCL CPU RT
 opencl-intel/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 /llvm/lib/ExecutionEngine/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 /llvm/include/llvm/ExecutionEngine/ @intel-restricted/cmplrllvm-ocl-cpu-rt
@@ -441,7 +443,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/tools/llvm-profdata/ @robertcox-github @pvbattin
 
 # COMPONENT: OpenCL CPU RT
-# JIRA: ???
+# JIRA: CMPLRLLVM->OCL CPU Optimizer
 /llvm/include/llvm/Transforms/SYCLTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 /llvm/lib/Transforms/SYCLTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 /llvm/test/Transforms/SYCLTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
@@ -467,6 +469,8 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/unittests/Transforms/Utils/VFABIUtils.cpp @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR @intel-restricted/cmplrllvm-llvm-vectorizer
 
+# COMPONENT: OpenCL CPU RT
+# JIRA: CMPLRLLVM->OCL CPU Optimizer
 /llvm/include/llvm/Transforms/SYCLTransforms/Intel_SYCLKernelVecClone.h @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/include/llvm/Transforms/SYCLTransforms/Intel_SYCLPrepareKernelForVecClone.h @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/lib/Transforms/SYCLTransforms/Intel_SYCLKernelVecClone.cpp @intel-restricted/cmplrllvm-ocl-cpu-rt @intel-restricted/cmplrllvm-llvm-vectorizer
