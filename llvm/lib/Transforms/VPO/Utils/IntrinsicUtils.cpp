@@ -823,8 +823,12 @@ static BasicBlock *getFirstBodyBBForLoop(Loop *L) {
 
   auto *LoopBodyBB = BI->getSuccessor(0);
   auto *ExitBB = BI->getSuccessor(1);
-  if (L->contains(ExitBB))
+  if (L->contains(ExitBB)) {
     std::swap(LoopBodyBB, ExitBB);
+    // Check for conditional branch in the rotated loop
+    if (L->contains(ExitBB))
+      return LpHeader;
+  }
   assert(LoopBodyBB && "Loop is not expected to be empty!");
 
   return LoopBodyBB;
