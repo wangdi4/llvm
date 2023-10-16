@@ -272,6 +272,7 @@ void foo1()
 
   //expected-warning@+1{{is already applied}}
   __attribute__((doublepump))  __attribute__((__doublepump__))
+  //expected-note@-1{{previous attribute is here}}
   unsigned int dp_two[64];
 
   //expected-error@+2{{attributes are not compatible}}
@@ -288,6 +289,7 @@ void foo1()
 
   //expected-warning@+1{{is already applied}}
   __attribute__((singlepump))  __attribute__((__singlepump__))
+  //expected-note@-1{{previous attribute is here}}
   unsigned int sp_two[64];
 
   //expected-error@+2{{attributes are not compatible}}
@@ -299,6 +301,7 @@ void foo1()
   // **register
   //expected-warning@+1{{is already applied}}
   __attribute__((register)) __attribute__((__register__))
+  //expected-note@-1{{previous attribute is here}}
   unsigned int reg_one[64];
 
   //expected-error@+2{{attributes are not compatible}}
