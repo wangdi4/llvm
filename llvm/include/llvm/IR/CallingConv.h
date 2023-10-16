@@ -262,6 +262,7 @@ namespace CallingConv {
     /// placement. Preserves active lane values for input VGPRs.
     AMDGPU_CS_ChainPreserve = 105,
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     /// Calling convention for SVML functions. Callee-saved registers are
     /// different for 128-bit, 256-bit and 512-bit SVML functions. We use
@@ -298,6 +299,10 @@ namespace CallingConv {
     SVML_AVX_AVX_Impl = 116,
 #endif  // INTEL_CUSTOMIZATION
 
+=======
+    /// Used for M68k rtd-based CC (similar to X86's stdcall).
+    M68k_RTD = 106,
+>>>>>>> fd84b1a99dfe37d4212be8afba2a93209679bc7f
 
     /// The highest possible ID. Must be some 2^k - 1.
     MaxID = 1023
