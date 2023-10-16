@@ -87,6 +87,39 @@ defvar work_group_inclusive_function_op_mask64 = [{
     return acc;
   }];
 
+defvar work_group_inclusive_bitwise_op_mask = [{
+    $Arg0VarName &= $Arg1VarName;
+    $Arg1VarName = ~$Arg1VarName & __builtin_astype(($Arg0ugentype)($VAL), $Arg0Type);
+    $Arg0VarName |= $Arg1VarName;
+    $Arg0Type acc = $FUNC($Arg0VarName, *$Arg2VarName);
+    *$Arg2VarName = acc;
+    return acc;
+  }];
+
+defvar work_group_inclusive_bitwise_op_mask32 = [{
+    $Arg0VarName &= $Arg1VarName;
+    $Arg1VarName = ~$Arg1VarName & __builtin_astype(($Arg0ugentype)($VAL), $Arg0Type);
+    $Arg0VarName |= $Arg1VarName;
+    $Arg0Type acc;
+    acc.lo = $FUNC($Arg0VarName.lo, (*$Arg2VarName).lo);
+    acc.hi = $FUNC($Arg0VarName.hi, (*$Arg2VarName).hi);
+    *$Arg2VarName = acc;
+    return acc;
+  }];
+
+defvar work_group_inclusive_bitwise_op_mask64 = [{
+    $Arg0VarName &= $Arg1VarName;
+    $Arg1VarName = ~$Arg1VarName & __builtin_astype(($Arg0ugentype)($VAL), $Arg0Type);
+    $Arg0VarName |= $Arg1VarName;
+    $Arg0Type acc;
+    acc.lo.lo = $FUNC($Arg0VarName.lo.lo, (*$Arg2VarName).lo.lo);
+    acc.lo.hi = $FUNC($Arg0VarName.lo.hi, (*$Arg2VarName).lo.hi);
+    acc.hi.lo = $FUNC($Arg0VarName.hi.lo, (*$Arg2VarName).hi.lo);
+    acc.hi.hi = $FUNC($Arg0VarName.hi.hi, (*$Arg2VarName).hi.hi);
+    *$Arg2VarName = acc;
+    return acc;
+  }];
+
 //-----------------------------------------------
 // 2. Non-uniform result
 //-----------------------------------------------

@@ -61,6 +61,9 @@ let NeedForwardDecl = 1, VectorAttrs = [KERNEL_CALL_ONCE] in {
     def work_group_reduce_logical_and         : OclBuiltin<"work_group_reduce_logical_and",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
     def work_group_reduce_logical_or         : OclBuiltin<"work_group_reduce_logical_or",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
     def work_group_reduce_logical_xor         : OclBuiltin<"work_group_reduce_logical_xor",    (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+    def work_group_reduce_logical_and_mask : OclBuiltin<"work_group_reduce_logical_and",    (outs gentype:$ret), (ins gentype:$src, gentype:$mask), [], [], 1, 0>;
+    def work_group_reduce_logical_or_mask : OclBuiltin<"work_group_reduce_logical_or", (outs gentype:$ret), (ins gentype:$src, gentype:$mask), [], [], 1, 0>;
+    def work_group_reduce_logical_xor_mask : OclBuiltin<"work_group_reduce_logical_xor", (outs gentype:$ret), (ins gentype:$src, gentype:$mask), [], [], 1, 0>;
   }
 
   let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
@@ -90,6 +93,9 @@ let NeedForwardDecl = 1, VectorAttrs = [KERNEL_CALL_ONCE] in {
   }
   let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64], [1, 4, 8, 16, 32, 64]>.Tout,
       Attrs = [OVERLOADABLE] in {
+    def work_group_reduce_bitwise_and_mask : OclBuiltin<"work_group_reduce_bitwise_and", (outs gentype:$ret), (ins gentype:$src, gentype:$mask), [], [], 1, 0>;
+    def work_group_reduce_bitwise_or_mask : OclBuiltin<"work_group_reduce_bitwise_or", (outs gentype:$ret), (ins gentype:$src, gentype:$mask), [], [], 1, 0>;
+    def work_group_reduce_bitwise_xor_mask : OclBuiltin<"work_group_reduce_bitwise_xor", (outs gentype:$ret), (ins gentype:$src, gentype:$mask), [], [], 1, 0>;
     def work_group_scan_exclusive_bitwise_and_mask : OclBuiltin<"work_group_scan_exclusive_bitwise_and",    (outs gentype:$ret), (ins gentype:$src, gentype:$mask), [], [], 1, 0>;
     def work_group_scan_exclusive_bitwise_or_mask  : OclBuiltin<"work_group_scan_exclusive_bitwise_or",    (outs gentype:$ret), (ins gentype:$src, gentype:$mask), [], [], 1, 0>;
     def work_group_scan_exclusive_bitwise_xor_mask : OclBuiltin<"work_group_scan_exclusive_bitwise_xor",    (outs gentype:$ret), (ins gentype:$src, gentype:$mask), [], [], 1, 0>;
@@ -146,12 +152,16 @@ let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64]
 let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
   foreach op = ["bitwise_and", "bitwise_or", "bitwise_xor"] in {
     def : VectInfo<[], !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op)>;
+    defvar mask_builtin = !cast<OclBuiltin>("work_group_reduce_"#op#"_mask");
+    def : VectInfo<[], !cast<OclBuiltin>("work_group_reduce_"#op), mask_builtin, mask_builtin, mask_builtin, mask_builtin, mask_builtin>;
   }
 }
 
 let Types = [v1i32] in {
   foreach op = ["logical_and", "logical_or", "logical_xor"] in {
     def : VectInfo<[], !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op), !cast<OclBuiltin>("work_group_reduce_"#op)>;
+    defvar mask_builtin = !cast<OclBuiltin>("work_group_reduce_"#op#"_mask");
+    def work_group_#func#_#op#_mask_vect_info : VectInfo<[], !cast<OclBuiltin>("work_group_reduce_"#op), mask_builtin, mask_builtin, mask_builtin, mask_builtin, mask_builtin>;
   }
 }
 
@@ -260,6 +270,8 @@ foreach op = ["logical_and", "logical_or", "logical_xor"] in {
       Attrs = [OVERLOADABLE] in {
     def work_group_reduce_#op#_helper :
       OclBuiltin<"work_group_reduce_"#op, (outs gentype:$ret), (ins gentype:$src, ppgentype:$accum), [], [], 1, 0>;
+    def work_group_reduce_#op#_helper_mask :
+      OclBuiltin<"work_group_reduce_"#op, (outs gentype:$ret), (ins gentype:$src, gentype:$mask, ppgentype:$accum), [], [], 1, 0>;
   }
 }
 
@@ -314,6 +326,9 @@ let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v
   def work_group_reduce_bitwise_and_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_bitwise_and", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
   def work_group_reduce_bitwise_or_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_bitwise_or", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
   def work_group_reduce_bitwise_xor_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_bitwise_xor", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+  def work_group_reduce_bitwise_and_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_bitwise_and", (outs gentype:$ret), (ins gentype:$accum, gentype:$dummy_mask), [], [], 1, 0>;
+  def work_group_reduce_bitwise_or_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_bitwise_or", (outs gentype:$ret), (ins gentype:$accum, gentype:$dummy_mask), [], [], 1, 0>;
+  def work_group_reduce_bitwise_xor_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_bitwise_xor", (outs gentype:$ret), (ins gentype:$accum, gentype:$dummy_mask), [], [], 1, 0>;
 }
 
 let Types = ExpandTypesByVFAndFlatten<[v1i32], [1, 4, 8, 16, 32, 64]>.Tout,
@@ -321,4 +336,7 @@ let Types = ExpandTypesByVFAndFlatten<[v1i32], [1, 4, 8, 16, 32, 64]>.Tout,
   def work_group_reduce_logical_and_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_logical_and", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
   def work_group_reduce_logical_or_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_logical_or", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
   def work_group_reduce_logical_xor_finalize_helper : OclBuiltin<"__finalize_work_group_reduce_logical_xor", (outs gentype:$ret), (ins gentype:$accum), [], [], 1, 0>;
+  def work_group_reduce_logical_and_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_logical_and", (outs gentype:$ret), (ins gentype:$accum, gentype:$dummy_mask), [], [], 1, 0>;
+  def work_group_reduce_logical_or_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_logical_or", (outs gentype:$ret), (ins gentype:$accum, gentype:$dummy_mask), [], [], 1, 0>;
+  def work_group_reduce_logical_xor_finalize_helper_mask : OclBuiltin<"__finalize_work_group_reduce_logical_xor", (outs gentype:$ret), (ins gentype:$accum, gentype:$dummy_mask), [], [], 1, 0>;
 }

@@ -1585,6 +1585,19 @@ std::string OclBuiltinDB::rewritePattern(
         } else {
           llvm_unreachable("Unexpected base type!");
         }
+      } else if ("$UMaxVal" == pat) {
+        std::string baseType = OT->getBaseCType();
+        if (baseType == "char" || baseType == "uchar") {
+          val = "UCHAR_MAX";
+        } else if (baseType == "short" || baseType == "ushort") {
+          val = "USHRT_MAX";
+        } else if (baseType == "int" || baseType == "uint") {
+          val = "UINT_MAX";
+        } else if (baseType == "long" || baseType == "ulong") {
+          val = "ULONG_MAX";
+        } else {
+          llvm_unreachable("Unexpected base type!");
+        }
       } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 9 &&
                  "Type" == pat.substr(5)) {
         unsigned i = pat[4] - '0';
