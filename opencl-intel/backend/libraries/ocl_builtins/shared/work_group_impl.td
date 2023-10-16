@@ -38,6 +38,7 @@ foreach name = ["add", "mul"] in {
 }
 
 foreach name = ["bitwise_and", "bitwise_or", "bitwise_xor"] in {
+  def wg_reduce_#name#_scalar_impl : OclBuiltinImpl<!cast<OclBuiltin>("work_group_reduce_" # name # "_helper"), work_group_v1_types_i, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_" # name # "_util"]]>;
   foreach clusive = ["exclusive", "inclusive"] in {
     defvar scalar_code = !cond(!eq(clusive, "exclusive") : work_group_scan_exclusive_function_op_scalar, true : work_group_inclusive_function_op_scalar);
     def wg_scan_#clusive#_#name#_scalar_impl : OclBuiltinImpl<!cast<OclBuiltin>("work_group_scan_" # clusive # "_" # name # "_helper"), work_group_v1_types, 0, scalar_code, [["$FUNC", "work_group_" # name # "_util"]]>;
@@ -116,6 +117,32 @@ foreach vf = [4, 8, 16, 32, 64] in {
     defvar finalize_helper_mask = !cast<OclBuiltin>("work_group_reduce_" # name # "_finalize_helper_mask");
     def wg_reduce_#name#vf#_finalizer_mask_impl : OclBuiltinImpl<finalize_helper_mask, types_i, 0, finalize_code, [["$FUNC", name]]>;
     def wg_reduce_#name#vf#_finalizer_mask_f_impl : OclBuiltinImpl<finalize_helper_mask, types_f, 0, finalize_code, [["$FUNC", "f" # name]]>;
+  }
+
+  foreach name = ["bitwise_and", "bitwise_or", "bitwise_xor"] in {
+    defvar types = ExpandTypesByVFAndFlatten<work_group_v1_types, [vf]>.Tout;
+    defvar func = "work_group_" # name # "_util";
+    defvar bitwise_mask_code = !cond(!eq(vf, 64) : work_group_inclusive_bitwise_op_mask64,
+                               !eq(vf, 32) : work_group_inclusive_bitwise_op_mask32,
+                               true : work_group_inclusive_bitwise_op_mask);
+    defvar val = !cond(!eq(name, "bitwise_and") : "$UMaxVal", true : "0");
+
+    def : OclBuiltinImpl<!cast<OclBuiltin>("work_group_reduce_" # name # "_helper"), types, 0, vector_code, [["$FUNC", func]]>;
+    def : OclBuiltinImpl<!cast<OclBuiltin>("work_group_reduce_" # name # "_helper_mask"), types, 0, bitwise_mask_code, [["$FUNC", func], ["$VAL", val]]>;
+    def : OclBuiltinImpl<!cast<OclBuiltin>("work_group_reduce_" # name # "_finalize_helper"), types, 0, finalize_code, [["$FUNC", func]]>;
+    def : OclBuiltinImpl<!cast<OclBuiltin>("work_group_reduce_" # name # "_finalize_helper_mask"), types, 0, finalize_code, [["$FUNC", func]]>;
+  }
+
+  foreach name = ["logical_and", "logical_or", "logical_xor"] in {
+    defvar types = ExpandTypesByVFAndFlatten<[v1i32], [vf]>.Tout;
+    defvar func = "work_group_" # name # "_util";
+
+    def : OclBuiltinImpl<!cast<OclBuiltin>("work_group_reduce_" # name # "_helper"), types, 0, vector_code, [["$FUNC", "work_group_" # name # "_util"]]>;
+    defvar val = !cond(!eq(name, "logical_and") : "1", true : "0");
+    def : OclBuiltinImpl<!cast<OclBuiltin>("work_group_reduce_" # name # "_helper_mask"), types, 0, mask_code, [["$FUNC", "work_group_" # name # "_util"], ["$VAL", val]]>;
+
+    def : OclBuiltinImpl<!cast<OclBuiltin>("work_group_reduce_" # name # "_finalize_helper"), types, 0, finalize_code, [["$FUNC", func]]>;
+    def : OclBuiltinImpl<!cast<OclBuiltin>("work_group_reduce_" # name # "_finalize_helper_mask"), types, 0, finalize_code, [["$FUNC", func]]>;
   }
 }
 
