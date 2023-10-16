@@ -591,17 +591,14 @@ enum OpcodeType {
   XOPA_MAP      = 6,
   THREEDNOW_MAP = 7,
   MAP5          = 8,
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
   MAP6          = 9,
+#if INTEL_CUSTOMIZATION
   MAP8          = 10,
   MAP4          = 11,
   MAP7          = 12
-#endif // INTEL_CUSTOMIZATION
-=======
-  MAP6          = 9,
+#else
   MAP7          = 10
->>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
+#endif // INTEL_CUSTOMIZATION
 };
 
 // The following structs are used for the hierarchical decode table.  After

@@ -63,17 +63,15 @@ private:
   /// [7] 3dnow map opcode
   /// [8] fixed length MAP5 opcode
   /// [9] fixed length MAP6 opcode
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// [10] fixed length opcodes of the form MAP8 __
   /// [11] fixed length opcodes of the form MAP4
   /// [12] fixed length opcodes of the form MAP7
   std::unique_ptr<ContextDecision> Tables[13];
-#endif // INTEL_CUSTOMIZATION
-=======
+#else
   /// [10] fixed length MAP7 opcode
   std::unique_ptr<ContextDecision> Tables[11];
->>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
+#endif // INTEL_CUSTOMIZATION
 
   // Table of ModRM encodings.
   typedef std::map<std::vector<unsigned>, unsigned> ModRMMapTy;

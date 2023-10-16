@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_umsr
 // RUN: llvm-mc -triple x86_64 --show-encoding %s | FileCheck %s
 
 // CHECK: urdmsr $123, %r9

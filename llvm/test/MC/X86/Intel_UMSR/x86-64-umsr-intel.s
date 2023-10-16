@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_umsr
 // RUN: llvm-mc -triple x86_64 -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
 
 // CHECK: urdmsr r9, 123

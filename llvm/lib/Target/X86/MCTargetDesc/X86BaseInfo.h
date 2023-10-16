@@ -994,16 +994,14 @@ namespace X86II {
     // MAP5, MAP6, MAP7 - Prefix after the 0x0F prefix.
     T_MAP5 = 8 << OpMapShift,
     T_MAP6 = 9 << OpMapShift,
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // MAP8 - Prefix after the 0x0F prefix.
     T_MAP8 = 10 << OpMapShift,
     T_MAP4 = 11 << OpMapShift,
     T_MAP7 = 12 << OpMapShift,
-#endif // INTEL_CUSTOMIZATION
-=======
+#else
     T_MAP7 = 10 << OpMapShift,
->>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
+#endif // INTEL_CUSTOMIZATION
 
     //===------------------------------------------------------------------===//
     // REX_W - REX prefixes are instruction prefixes used in 64-bit mode.

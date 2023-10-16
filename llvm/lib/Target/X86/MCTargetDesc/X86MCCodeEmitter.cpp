@@ -1205,7 +1205,6 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   case X86II::T_MAP6:
     Prefix.set5M(0x6);
     break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case X86II::T_MAP8:
     Prefix.set5M(0x8);
@@ -1213,15 +1212,10 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   case X86II::T_MAP4:
     Prefix.set5M(0x4);
     break;
-  case X86II::T_MAP7:
-    Prefix.set5M(0x7);
-    break;
 #endif // INTEL_CUSTOMIZATION
-=======
   case X86II::T_MAP7:
     Prefix.set5M(0x7);
     break;
->>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
   }
 
   Prefix.setL(TSFlags & X86II::VEX_L);
