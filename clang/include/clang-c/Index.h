@@ -3017,10 +3017,14 @@ enum CXCallingConv {
   CXCallingConv_AArch64VectorCall = 16,
   CXCallingConv_SwiftAsync = 17,
   CXCallingConv_AArch64SVEPCS = 18,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   CXCallingConv_IntelOclBiccAVX = 19,
   CXCallingConv_IntelOclBiccAVX512 = 20,
 #endif /* INTEL_CUSTOMIZATION */
+=======
+  CXCallingConv_M68kRTD = 19,
+>>>>>>> fd4f96290ac99bf8b9284d3b32743cac0bb135ea
 
   CXCallingConv_Invalid = 100,
   CXCallingConv_Unexposed = 200
