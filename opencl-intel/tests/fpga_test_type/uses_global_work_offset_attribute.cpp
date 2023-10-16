@@ -17,29 +17,44 @@
 #include "gtest_wrapper.h"
 #include <string>
 
-// FIXME: This test suite will randomly fail in ocl shutdown process. In order
-// not to impact pre-CI, We temporarily disable them here util we figure out the
-// real cause or refine the whole shutdown process.
-#if 0
 const size_t num_dims = 1;
 const size_t work_size[num_dims] = {128};
 const size_t work_offset[num_dims] = {1};
 
-class TestCanUseGlobalWorkOffsetBase : public OCLFPGABaseFixture {};
+class TestCanUseGlobalWorkOffsetBase : public OCLFPGABaseFixture {
+protected:
+  void SetUp() override {
+    OCLFPGABaseFixture::SetUp();
+
+    context = createContext(device());
+    ASSERT_NE(nullptr, context) << "createContext failed";
+
+    queue = createCommandQueue(context, device());
+    ASSERT_NE(nullptr, queue) << "createCommandQueue failed";
+  }
+
+  void TearDown() override {
+    if (queue) {
+      cl_int err = clFinish(queue);
+      ASSERT_EQ(CL_SUCCESS, err)
+          << "clFinish failed with error " << ErrToStr(err);
+    }
+
+    OCLFPGABaseFixture::TearDown();
+  }
+
+protected:
+  cl_context context = nullptr;
+  cl_command_queue queue = nullptr;
+};
 
 TEST_F(TestCanUseGlobalWorkOffsetBase, AttributeNotSpecifiedParameterNull) {
   const std::string programSources = "\n\
   __kernel void k1() {}               \n\
   ";
 
-  cl_context context = createContext(device());
-  ASSERT_NE(nullptr, context) << "createContext failed";
-
   cl_program program = createAndBuildProgram(context, programSources);
   ASSERT_NE(nullptr, program) << "createAndBuildProgram failed";
-
-  cl_command_queue queue = createCommandQueue(context, device());
-  ASSERT_NE(nullptr, queue) << "createCommandQueue failed";
 
   cl_kernel kernel = createKernel(program, "k1");
   ASSERT_NE(nullptr, kernel) << "createKernel failed";
@@ -56,14 +71,8 @@ TEST_F(TestCanUseGlobalWorkOffsetBase, AttributeNotSpecifiedParameterNonNull) {
   __kernel void k1() {}               \n\
   ";
 
-  cl_context context = createContext(device());
-  ASSERT_NE(nullptr, context) << "createContext failed";
-
   cl_program program = createAndBuildProgram(context, programSources);
   ASSERT_NE(nullptr, program) << "createAndBuildProgram failed";
-
-  cl_command_queue queue = createCommandQueue(context, device());
-  ASSERT_NE(nullptr, queue) << "createCommandQueue failed";
 
   cl_kernel kernel = createKernel(program, "k1");
   ASSERT_NE(nullptr, kernel) << "createKernel failed";
@@ -81,14 +90,8 @@ TEST_F(TestCanUseGlobalWorkOffsetBase, AttributeFalseParameterNull) {
   __kernel void k1() {}                       \n\
   ";
 
-  cl_context context = createContext(device());
-  ASSERT_NE(nullptr, context) << "createContext failed";
-
   cl_program program = createAndBuildProgram(context, programSources);
   ASSERT_NE(nullptr, program) << "createAndBuildProgram failed";
-
-  cl_command_queue queue = createCommandQueue(context, device());
-  ASSERT_NE(nullptr, queue) << "createCommandQueue failed";
 
   cl_kernel kernel = createKernel(program, "k1");
   ASSERT_NE(nullptr, kernel) << "createKernel failed";
@@ -106,14 +109,8 @@ TEST_F(TestCanUseGlobalWorkOffsetBase, AttributeFalseParameterNonNull) {
   __kernel void k1() {}                       \n\
   ";
 
-  cl_context context = createContext(device());
-  ASSERT_NE(nullptr, context) << "createContext failed";
-
   cl_program program = createAndBuildProgram(context, programSources);
   ASSERT_NE(nullptr, program) << "createAndBuildProgram failed";
-
-  cl_command_queue queue = createCommandQueue(context, device());
-  ASSERT_NE(nullptr, queue) << "createCommandQueue failed";
 
   cl_kernel kernel = createKernel(program, "k1");
   ASSERT_NE(nullptr, kernel) << "createKernel failed";
@@ -147,14 +144,8 @@ TEST_P(CanUseGlobalWorkOffsetParamBase, AttributeTrueParameterNull) {
   __kernel void k1() {}               \n\
   ";
 
-  cl_context context = createContext(device());
-  ASSERT_NE(nullptr, context) << "createContext failed";
-
   cl_program program = createAndBuildProgram(context, programSources);
   ASSERT_NE(nullptr, program) << "createAndBuildProgram failed";
-
-  cl_command_queue queue = createCommandQueue(context, device());
-  ASSERT_NE(nullptr, queue) << "createCommandQueue failed";
 
   cl_kernel kernel = createKernel(program, "k1");
   ASSERT_NE(nullptr, kernel) << "createKernel failed";
@@ -174,14 +165,8 @@ TEST_P(CanUseGlobalWorkOffsetParamBase, AttributeTrueParameterNonNull) {
   __kernel void k1() {}               \n\
   ";
 
-  cl_context context = createContext(device());
-  ASSERT_NE(nullptr, context) << "createContext failed";
-
   cl_program program = createAndBuildProgram(context, programSources);
   ASSERT_NE(nullptr, program) << "createAndBuildProgram failed";
-
-  cl_command_queue queue = createCommandQueue(context, device());
-  ASSERT_NE(nullptr, queue) << "createCommandQueue failed";
 
   cl_kernel kernel = createKernel(program, "k1");
   ASSERT_NE(nullptr, kernel) << "createKernel failed";
@@ -196,4 +181,3 @@ TEST_P(CanUseGlobalWorkOffsetParamBase, AttributeTrueParameterNonNull) {
 INSTANTIATE_TEST_SUITE_P(TestCanUseGlobalWorkOffsetParam,
                          CanUseGlobalWorkOffsetParamBase,
                          ::testing::Values(1, 31));
-#endif

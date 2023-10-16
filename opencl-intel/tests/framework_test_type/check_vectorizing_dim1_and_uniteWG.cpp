@@ -174,6 +174,8 @@ __kernel void test(__global int *dst, ulong size)
 
   err = clEnqueueUnmapMemObject(m_queue, buffer, mapped, 0, nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueUnmapMemObject");
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
 
   err = clReleaseMemObject(buffer);
   ASSERT_OCL_SUCCESS(err, "clReleaseMemObject");
