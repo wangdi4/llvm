@@ -1,3 +1,4 @@
+
 //===- X86RecognizableInstr.cpp - Disassembler instruction spec --*- C++ -*-===//
 // INTEL_CUSTOMIZATION
 //
@@ -1088,8 +1089,8 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::T_MAP8:    opcodeType = MAP8;          break;
 #endif // INTEL_FEATURE_ISA_DSPV1
   case X86Local::T_MAP4:    opcodeType = MAP4;          break;
-  case X86Local::T_MAP7:    opcodeType = MAP7;          break;
 #endif // INTEL_CUSTOMIZATION
+  case X86Local::T_MAP7:    opcodeType = MAP7;          break;
   }
 
   std::unique_ptr<ModRMFilter> filter;

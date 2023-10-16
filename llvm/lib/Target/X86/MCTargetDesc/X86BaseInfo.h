@@ -991,7 +991,7 @@ namespace X86II {
     /// this flag to indicate that the encoder should do the wacky 3DNow! thing.
     ThreeDNow = 7 << OpMapShift,
 
-    // MAP5, MAP6 - Prefix after the 0x0F prefix.
+    // MAP5, MAP6, MAP7 - Prefix after the 0x0F prefix.
     T_MAP5 = 8 << OpMapShift,
     T_MAP6 = 9 << OpMapShift,
 #if INTEL_CUSTOMIZATION
@@ -999,6 +999,8 @@ namespace X86II {
     T_MAP8 = 10 << OpMapShift,
     T_MAP4 = 11 << OpMapShift,
     T_MAP7 = 12 << OpMapShift,
+#else
+    T_MAP7 = 10 << OpMapShift,
 #endif // INTEL_CUSTOMIZATION
 
     //===------------------------------------------------------------------===//

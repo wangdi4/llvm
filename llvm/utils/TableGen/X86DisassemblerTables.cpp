@@ -1118,6 +1118,8 @@ void DisassemblerTables::emitContextDecisions(raw_ostream &o1, raw_ostream &o2,
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[10], MAP8_STR);
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[11], MAP4_STR);
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[12], MAP7_STR);
+#else
+  emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[10], MAP7_STR);
 #endif // INTEL_CUSTOMIZATION
 }
 
