@@ -161,10 +161,11 @@ static bool hasOutsideLoopUser(const Loop *TheLoop, Instruction *Inst,
   return false;
 }
 
-/// A somewhat misnamed function, this either converts a pointer to the
-/// same-size integer type, or widens a short integer type to 32 bits,
-/// or otherwise leaves the type alone.
-static Type *convertPointerToIntegerType(const DataLayout &DL, Type *Ty) {
+/// This converts the input type \p Ty to an integer type that's wide
+/// enough to avoid overflow when computing the loop's trip count.
+/// \p Ty is expected to be either a pointer or an integral type.
+static Type *convertToSufficientlyWideIntegerType(const DataLayout &DL,
+                                                  Type *Ty) {
   if (Ty->isPointerTy())
     return DL.getIntPtrType(Ty);
 
@@ -179,8 +180,8 @@ static Type *convertPointerToIntegerType(const DataLayout &DL, Type *Ty) {
 /// Return the wider of two types.  Note that short integer types are
 /// widened to 32 bits before the comparison.
 static Type *getWiderType(const DataLayout &DL, Type *Ty0, Type *Ty1) {
-  Ty0 = convertPointerToIntegerType(DL, Ty0);
-  Ty1 = convertPointerToIntegerType(DL, Ty1);
+  Ty0 = convertToSufficientlyWideIntegerType(DL, Ty0);
+  Ty1 = convertToSufficientlyWideIntegerType(DL, Ty1);
   if (Ty0->getScalarSizeInBits() > Ty1->getScalarSizeInBits())
     return Ty0;
   return Ty1;
@@ -988,7 +989,7 @@ void LegalityLLVM::addInductionPhi(PHINode *Phi, const InductionDescriptor &ID,
   // Get the widest type.
   if (!PhiTy->isFloatingPointTy()) {
     if (!WidestIndTy)
-      WidestIndTy = convertPointerToIntegerType(DL, PhiTy);
+      WidestIndTy = convertToSufficientlyWideIntegerType(DL, PhiTy);
     else
       WidestIndTy = getWiderType(DL, PhiTy, WidestIndTy);
   }
