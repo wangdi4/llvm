@@ -7495,7 +7495,35 @@ static bool unfoldLoad(const MachineInstr &MI) {
     return false;
   }
 }
-#endif
+#if INTEL_FEATURE_ISA_APX_F
+// Include this to find if instructions could do memory fold between ND
+// instruction and X86 RMW instructions.
+struct X86EvexToVexCompressTableEntry {
+  uint16_t EvexOpcode;
+  uint16_t VexOpcode;
+
+  bool operator<(const X86EvexToVexCompressTableEntry &RHS) const {
+    return EvexOpcode < RHS.EvexOpcode;
+  }
+
+  friend bool operator<(const X86EvexToVexCompressTableEntry &TE,
+                        unsigned Opc) {
+    return TE.EvexOpcode < Opc;
+  }
+};
+#include "X86GenEVEX2VEXTables.inc"
+
+// Instructions could fold from ND to RMW instrs need to be ND instrs listed in
+// ND2NonNDCompressTable.
+static unsigned getCompressedNDOpcode(const MachineInstr &MI) {
+  ArrayRef<X86EvexToVexCompressTableEntry> Table(ND2NonNDCompressTable);
+  auto Entry = llvm::lower_bound(Table, MI.getOpcode());
+  if (Entry != Table.end() && MI.getOpcode() == Entry->EvexOpcode)
+    return Entry->VexOpcode;
+  return 0;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
     MachineFunction &MF, MachineInstr &MI, unsigned OpNum,
@@ -7554,12 +7582,31 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   // Folding a memory location into the two-address part of a two-address
   // instruction is different than folding it other places.  It requires
   // replacing the *two* registers with the memory location.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  // ND instructions could also be folded to RMW instructions if src reg and dst
+  // reg are same, this situation always occur after reg spill.
+  unsigned FoldedNDOpc = 0;
+  if (Subtarget.hasNDD())
+    FoldedNDOpc = getCompressedNDOpcode(MI);
+  bool IsND2RMW = FoldedNDOpc != 0;
+  if ((isTwoAddr || IsND2RMW) && NumOps >= 2 && OpNum < 2 &&
+      MI.getOperand(0).isReg() && MI.getOperand(1).isReg() &&
+      MI.getOperand(0).getReg() == MI.getOperand(1).getReg()) {
+    unsigned FoldingOpcode = MI.getOpcode();
+    // If ND instr, find RMW instrs by compressed NonND version, for example:
+    //        compressTable          MemFoldTable
+    // ADD64rr_ND   ---->    ADD64rr    ---->    ADD64mr
+    if (IsND2RMW)
+      FoldingOpcode = FoldedNDOpc;
+    I = lookupTwoAddrFoldTable(FoldingOpcode);
+#else  // INTEL_FEATURE_ISA_APX_F
   if (isTwoAddr && NumOps >= 2 && OpNum < 2 && MI.getOperand(0).isReg() &&
       MI.getOperand(1).isReg() &&
       MI.getOperand(0).getReg() == MI.getOperand(1).getReg()) {
     I = lookupTwoAddrFoldTable(MI.getOpcode());
+#endif // INTEL_FEATURE_ISA_APX_F
 
-#if INTEL_CUSTOMIZATION
     // RMW as load with registers remain not MRNable.
     if (Subtarget.hasMRN() && SpillStage && unfoldRMW(MI))
       if (findDefInDistance(MF, *MI.getParent(), ++MI.getReverseIterator(),
@@ -7773,6 +7820,15 @@ X86InstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
     Alignment =
         std::min(Alignment, Subtarget.getFrameLowering()->getStackAlign());
   if (Ops.size() == 2 && Ops[0] == 0 && Ops[1] == 1) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (Subtarget.hasNDD() && getCompressedNDOpcode(MI) != 0)
+      return foldMemoryOperandImpl(
+          MF, MI, Ops[0], MachineOperand::CreateFI(FrameIndex), InsertPt, Size,
+          Alignment, /*AllowCommute=*/true,
+          /*SpillStage*/ LIS != nullptr);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     unsigned NewOpc = 0;
     unsigned RCSize = 0;
     switch (MI.getOpcode()) {
