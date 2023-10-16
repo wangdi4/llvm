@@ -181,7 +181,7 @@ bool X86TransformToLibmSinCosCallPass::runOnFunction(Function &F) {
   }
   // Process sincos calls in the worklist
   for (auto II : Worklist) {
-    CallInst *CI = dyn_cast<CallInst>(&*II);
+    CallInst *CI = cast<CallInst>(&*II);
     MadeChange |= ProcessSinCosCall(CI);
   }
   return MadeChange;
