@@ -262,7 +262,9 @@ namespace CallingConv {
     /// placement. Preserves active lane values for input VGPRs.
     AMDGPU_CS_ChainPreserve = 105,
 
-<<<<<<< HEAD
+    /// Used for M68k rtd-based CC (similar to X86's stdcall).
+    M68k_RTD = 106,
+
 #if INTEL_CUSTOMIZATION
     /// Calling convention for SVML functions. Callee-saved registers are
     /// different for 128-bit, 256-bit and 512-bit SVML functions. We use
@@ -270,24 +272,24 @@ namespace CallingConv {
     /// When creating SVML calls, the 128-bit calling convention is used since
     /// it's the most conservative one. MapIntrinToIml will choose the optimal
     /// convention during legalization.
-    SVML = 106,
-    SVML_AVX = 107,
-    SVML_AVX512 = 108,
+    SVML = 107,
+    SVML_AVX = 108,
+    SVML_AVX512 = 109,
     /// \brief Calling convention for functions only touch AVX2 vector registers
-    X86_AVX2_C = 109,
+    X86_AVX2_C = 110,
     /// Intel_OCL_BI_AVX - Calling conventions for Intel OpenCL AVX built-ins
-    Intel_OCL_BI_AVX = 110,
+    Intel_OCL_BI_AVX = 111,
     /// Intel_OCL_BI_AVX512 - Calling conventions for Intel OpenCL AVX512
     /// built-ins
-    Intel_OCL_BI_AVX512 = 111,
+    Intel_OCL_BI_AVX512 = 112,
 
     /// Unified SVML calling conventions.
-    SVML_Unified = 112,
-    SVML_Unified_256 = 113,
-    SVML_Unified_512 = 114,
+    SVML_Unified = 113,
+    SVML_Unified_256 = 114,
+    SVML_Unified_512 = 115,
 
     /// Used for feature init functions in libirc.
-    Intel_Features_Init = 115,
+    Intel_Features_Init = 116,
     // An SVML function may be dispatched to different implementations using
     // various ISAs. Calling an 256-bit SVML functions on an AVX-512 supported
     // machine running 64-bit Linux may end up calling an implementation using
@@ -296,13 +298,8 @@ namespace CallingConv {
     // these registers as callee-saved registers, and is used when we statically
     // dispatch to an AVX/AVX2 implementation to save some register spills in
     // the caller.
-    SVML_AVX_AVX_Impl = 116,
+    SVML_AVX_AVX_Impl = 117,
 #endif  // INTEL_CUSTOMIZATION
-
-=======
-    /// Used for M68k rtd-based CC (similar to X86's stdcall).
-    M68k_RTD = 106,
->>>>>>> fd84b1a99dfe37d4212be8afba2a93209679bc7f
 
     /// The highest possible ID. Must be some 2^k - 1.
     MaxID = 1023
