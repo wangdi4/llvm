@@ -1,6 +1,5 @@
 ; REQUIRES: x86_64-linux
-; RUN: llvm-as %p/work-group-builtins-64.ll -o %t.lib.bc
-; RUN: opt -S -sycl-kernel-builtin-lib=%t.lib.bc -passes=sycl-kernel-group-builtin %s | FileCheck %s
+; RUN: opt -S -sycl-kernel-builtin-lib=%p/work-group-builtins-64.rtl -passes=sycl-kernel-group-builtin %s | FileCheck %s
 
 declare i32 @_Z20work_group_broadcastim(i32 %src, i64 %local_id)
 declare <4 x i32> @_Z20work_group_broadcastDv4_im(<4 x i32> %src, i64 %local_id)

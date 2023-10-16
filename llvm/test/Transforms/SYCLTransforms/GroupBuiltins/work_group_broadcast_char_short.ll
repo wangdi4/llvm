@@ -1,6 +1,5 @@
-; RUN: llvm-as %p/work-group-builtins-64.ll -o %t.lib.bc
-; RUN: opt -S -sycl-kernel-builtin-lib=%t.lib.bc -passes=sycl-kernel-group-builtin %s | FileCheck %s
-; RUN: opt -S -sycl-kernel-builtin-lib=%t.lib.bc -passes=sycl-kernel-group-builtin %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -S -sycl-kernel-builtin-lib=%p/work-group-builtins-64.rtl -passes=sycl-kernel-group-builtin %s | FileCheck %s
+; RUN: opt -S -sycl-kernel-builtin-lib=%p/work-group-builtins-64.rtl -passes=sycl-kernel-group-builtin %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 declare signext i8 @_Z20work_group_broadcastcm(i8, i64)
 declare <64 x i16> @_Z20work_group_broadcastDv64_tm(<64 x i16>, i64)
