@@ -10,7 +10,7 @@ target triple = "x86_64-pc-linux"
 @test.i = external addrspace(3) global i32, !dbg !0
 @__pLocalMemBase = linkonce_odr thread_local global ptr addrspace(3) undef, align 8
 
-; CHECK-NOT: @test.i = external addrspace(3) global i32,
+; CHECK: @test.i = external addrspace(3) global i32,
 ; CHECK: @__pLocalMemBase = linkonce_odr thread_local global ptr addrspace(3) undef, align 8
 
 define internal fastcc void @foo() {

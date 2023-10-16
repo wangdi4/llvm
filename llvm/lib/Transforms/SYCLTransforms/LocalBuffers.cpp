@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/SYCLTransforms/LocalBuffers.h"
 
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
@@ -77,12 +78,24 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
 
   updateDICompileUnitGlobals();
 
-  // Safely erase local variable GVs.
+  // Most of local variable GVs are already handled. Erase them.
   for (GlobalVariable &GV : make_early_inc_range(M.globals())) {
     if (cast<PointerType>(GV.getType())->getAddressSpace() ==
         CompilationUtils::ADDRESS_SPACE_LOCAL) {
-      assert(GV.use_empty() && "local variable isn't handled");
-      GV.eraseFromParent();
+      GV.removeDeadConstantUsers();
+      // May still have use in another global variable.
+      [[maybe_unused]] auto HasOnlyConstantUser = [](GlobalVariable &GV) {
+        for (User *U : GV.users()) {
+          for (auto It = df_begin(U), E = df_end(U); It != E; ++It)
+            if (!isa<Constant>(*It))
+              return false;
+        }
+        return true;
+      };
+      assert((GV.use_empty() || HasOnlyConstantUser(GV)) &&
+             "local variable isn't handled");
+      if (GV.use_empty() && GV.isDiscardableIfUnused())
+        GV.eraseFromParent();
     }
   }
 
