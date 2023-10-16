@@ -1,4 +1,6 @@
-; RUN: llc < %s -print-after=finalize-isel -o /dev/null 2>&1 | FileCheck %s
+; Check that splitting of critical edges from switch instruction doesn't affect branch annotation.
+; RUN: llc -cgp-split-switch-critical-edge=true < %s -print-after=finalize-isel -o /dev/null 2>&1 | FileCheck %s -check-prefix=SPLIT-SWITCH-CE
+
 
 ; Hexagon runs passes that renumber the basic blocks, causing this test
 ; to fail.
@@ -18,14 +20,15 @@ entry:
     i64 5, label %sw.bb1
     i64 15, label %sw.bb
   ], !prof !0
-; CHECK: bb.0.entry:
-; CHECK: successors: %bb.1(0x75f8ebf2), %bb.4(0x0a07140e)
-; CHECK: bb.4.entry:
-; CHECK: successors: %bb.2(0x60606068), %bb.5(0x1f9f9f98)
-; CHECK: bb.5.entry:
-; CHECK: successors: %bb.1(0x3cf3cf4b), %bb.6(0x430c30b5)
-; CHECK: bb.6.entry:
-; CHECK: successors: %bb.1(0x2e8ba2d7), %bb.3(0x51745d29)
+; New BB is created on a critical edge, BB numbering is changed.
+; SPLIT-SWITCH-CE: bb.0.entry:
+; SPLIT-SWITCH-CE: successors: %bb.1(0x75f8ebf2), %bb.5(0x0a07140e)
+; SPLIT-SWITCH-CE: bb.5.entry:
+; SPLIT-SWITCH-CE: successors: %bb.2(0x60606068), %bb.6(0x1f9f9f98)
+; SPLIT-SWITCH-CE: bb.6.entry:
+; SPLIT-SWITCH-CE: successors: %bb.1(0x3cf3cf4b), %bb.7(0x430c30b5)
+; SPLIT-SWITCH-CE: bb.7.entry:
+; SPLIT-SWITCH-CE: successors: %bb.1(0x2e8ba2d7), %bb.3(0x51745d29)
 
 sw.bb:
 ; this call will prevent simplifyCFG from optimizing the block away in ARM/AArch64.
