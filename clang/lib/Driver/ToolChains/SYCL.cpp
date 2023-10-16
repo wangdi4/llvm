@@ -904,6 +904,7 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
     C.addCommand(std::move(Cmd));
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void SYCL::gen::BackendCompiler::constructOclocConcatCommand(Compilation &C,
     const JobAction &JA, const InputInfo &Output, const InputInfoList &Inputs,
@@ -1286,6 +1287,8 @@ static std::optional<std::string> getOclocLocation(Compilation &C) {
   return std::nullopt;
 }
 
+=======
+>>>>>>> 8e5275af77af1ec5da25b1a58f341108cfb5223a
 StringRef SYCL::gen::getGenGRFFlag(StringRef GRFMode) {
   return llvm::StringSwitch<StringRef>(GRFMode)
       .Case("auto", "-ze-intel-enable-auto-large-GRF-mode")
@@ -1294,8 +1297,11 @@ StringRef SYCL::gen::getGenGRFFlag(StringRef GRFMode) {
       .Default("");
 }
 
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 8e5275af77af1ec5da25b1a58f341108cfb5223a
 void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
                                               const JobAction &JA,
                                               const InputInfo &Output,
@@ -1975,6 +1981,40 @@ void SYCLToolChain::AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
     if (Arg *A = Args.getLastArg(options::OPT_O_Group))
       if (A->getOption().matches(options::OPT_O0))
         BeArgs.push_back("-cl-opt-disable");
+  StringRef RegAllocModeOptName = "-ftarget-register-alloc-mode=";
+  if (Arg *A = Args.getLastArg(options::OPT_ftarget_register_alloc_mode_EQ)) {
+    StringRef RegAllocModeVal = A->getValue(0);
+    auto ProcessElement = [&](StringRef Ele) {
+      auto [DeviceName, RegAllocMode] = Ele.split(':');
+      StringRef BackendOptName = SYCL::gen::getGenGRFFlag(RegAllocMode);
+      bool IsDefault = RegAllocMode.equals("default");
+      if (RegAllocMode.empty() || !DeviceName.equals("pvc") ||
+          (BackendOptName.empty() && !IsDefault)) {
+        getDriver().Diag(diag::err_drv_unsupported_option_argument)
+            << A->getSpelling() << Ele;
+      }
+      // "default" means "provide no specification to the backend", so
+      // we don't need to do anything here.
+      if (IsDefault)
+        return;
+      if (IsGen) {
+        // For AOT, Use ocloc's per-device options flag with the correct ocloc
+        // option to honor the user's specification.
+        PerDeviceArgs.push_back(
+            {DeviceName, Args.MakeArgString("-options " + BackendOptName)});
+      } else if (Triple.isSPIR() &&
+                 Triple.getSubArch() == llvm::Triple::NoSubArch) {
+        // For JIT, pass -ftarget-register-alloc-mode=Device:BackendOpt to
+        // clang-offload-wrapper to be processed by the runtime.
+        BeArgs.push_back(Args.MakeArgString(RegAllocModeOptName + DeviceName +
+                                            ":" + BackendOptName));
+      }
+    };
+    llvm::SmallVector<StringRef, 16> RegAllocModeArgs;
+    RegAllocModeVal.split(RegAllocModeArgs, ',');
+    for (StringRef Elem : RegAllocModeArgs)
+      ProcessElement(Elem);
+  }
   if (IsGen) {
     // For GEN (spir64_gen) we have implied -device settings given usage
     // of intel_gpu_ as a target.  Handle those here, and also check that no
