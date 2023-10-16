@@ -2937,8 +2937,8 @@ static void updateGlobalArraysUses(AbstractCallSite &ACS) {
   }
 }
 
-using SameArgSet = std::unique_ptr<SmallVectorImpl<unsigned>>;
-using SameArgSetCollection = std::unique_ptr<SmallVectorImpl<SameArgSet>>;
+using SameArgSet = SmallVector<unsigned, 8>;
+using SameArgSetCollection = SmallVector<SameArgSet, 8>;
 // The function gathers formal argument sets from a function.
 // These gathered sets specifically include formal arguments that accept
 // identical actual arguments, allowing for potential merging.
@@ -2971,14 +2971,14 @@ static SameArgSetCollection getSameArgSets(Function *F) {
     dbgs() << ")\n";
   });
 
-  SameArgSetCollection Result = std::make_unique<SmallVector<SameArgSet, 16>>();
+  SameArgSetCollection Result;
   constexpr size_t NARGS = 64;
   SmallVector<std::bitset<NARGS>> CurrSets;
   bool FirstIter = true;
   for (auto &U : F->uses()) {
     AbstractCallSite ACS(&U);
     if (!ACS)
-      return Result;
+      return std::move(Result);
 
     SmallDenseMap<Value *, std::bitset<NARGS>> TmpArgSetMap;
     for (auto &FormalA : F->args()) {
@@ -3014,28 +3014,28 @@ static SameArgSetCollection getSameArgSets(Function *F) {
   for (auto &S : CurrSets) {
     if (S.count() < 2)
       continue;
-    Result->push_back(std::make_unique<SmallVector<unsigned, 4>>());
+    Result.emplace_back();
     for (size_t I = 0; I < S.size(); I++)
       if (S.test(I))
-        Result->back()->push_back(I);
+        Result.back().push_back(I);
   }
 
   LLVM_DEBUG({
-    if (Result->empty())
+    if (Result.empty())
       dbgs() << "[IP_CLONING][ARG merge]: No mergeable arguments detected.\n";
     else
-      dbgs() << "[IP_CLONING][ARG merge]: Detected " << Result->size()
+      dbgs() << "[IP_CLONING][ARG merge]: Detected " << Result.size()
              << " mergeable argument sets.\n";
 
-    for (unsigned I = 0; I < Result->size(); I++) {
+    for (unsigned I = 0; I < Result.size(); I++) {
       dbgs() << "  [" << I + 1 << "]: ";
-      for (auto ArgNo : *(*Result)[I]) {
+      for (auto ArgNo : Result[I]) {
         dbgs() << ArgNo << " ";
       }
       dbgs() << "\n";
     }
   });
-  return Result;
+  return std::move(Result);
 }
 
 // Auxilary function to define if attribute refers to memory
@@ -3115,12 +3115,12 @@ static void updateMemAccessAttr(std::optional<Attribute::AttrKind> &A,
 // parameter.
 static std::tuple<bool, std::optional<Attribute::AttrKind>>
 getMergedAttributeSet(Function *F, const SameArgSet &SAS) {
-  if (SAS->empty())
+  if (SAS.empty())
     return {false, std::nullopt};
-  unsigned BaseArgNo = SAS->front();
+  unsigned BaseArgNo = SAS.front();
   auto [AB, MemAccessTypeAttr] = splitAttributes(F, BaseArgNo);
   auto ArgTy = F->getArg(BaseArgNo)->getType();
-  for (unsigned ArgNo : *SAS) {
+  for (unsigned ArgNo : SAS) {
     if (ArgNo == BaseArgNo)
       continue;
     if (ArgTy != F->getArg(ArgNo)->getType())
@@ -3139,12 +3139,12 @@ static void mergeArgs() {
 
   for (auto *F : ClonedFunctionList) {
     auto SameArgsSetCollection = getSameArgSets(F);
-    for (auto &AS : *SameArgsSetCollection) {
+    for (auto &AS : SameArgsSetCollection) {
       auto [Mergeable, MemAttr] = getMergedAttributeSet(F, AS);
       if (!Mergeable)
         continue;
       // Pick the first arg as base
-      unsigned BaseArgNo = AS->front();
+      unsigned BaseArgNo = AS.front();
       auto *BaseArg = F->getArg(BaseArgNo);
       if (MemAttr) {
         BaseArg->removeAttr(Attribute::ReadNone);
@@ -3160,7 +3160,7 @@ static void mergeArgs() {
         });
       }
       // Replace all other args with the base
-      for (unsigned ArgNo : *AS) {
+      for (unsigned ArgNo : AS) {
         if (ArgNo == BaseArgNo)
           continue;
         auto Arg = F->getArg(ArgNo);
