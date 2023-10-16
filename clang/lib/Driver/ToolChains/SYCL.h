@@ -144,13 +144,7 @@ private:
 
 StringRef resolveGenDevice(StringRef DeviceName);
 SmallString<64> getGenDeviceMacro(StringRef DeviceName);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
 StringRef getGenGRFFlag(StringRef GRFMode);
-#endif // INTEL_CUSTOMIZATION
-=======
-StringRef getGenGRFFlag(StringRef GRFMode);
->>>>>>> 8e5275af77af1ec5da25b1a58f341108cfb5223a
 
 // // Prefix for GPU specific targets used for -fsycl-targets
 constexpr char IntelGPU[] = "intel_gpu_";

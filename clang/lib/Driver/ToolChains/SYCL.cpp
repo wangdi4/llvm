@@ -904,7 +904,6 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
     C.addCommand(std::move(Cmd));
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void SYCL::gen::BackendCompiler::constructOclocConcatCommand(Compilation &C,
     const JobAction &JA, const InputInfo &Output, const InputInfoList &Inputs,
@@ -1287,8 +1286,8 @@ static std::optional<std::string> getOclocLocation(Compilation &C) {
   return std::nullopt;
 }
 
-=======
->>>>>>> 8e5275af77af1ec5da25b1a58f341108cfb5223a
+#endif // INTEL_CUSTOMIZATION
+
 StringRef SYCL::gen::getGenGRFFlag(StringRef GRFMode) {
   return llvm::StringSwitch<StringRef>(GRFMode)
       .Case("auto", "-ze-intel-enable-auto-large-GRF-mode")
@@ -1297,11 +1296,6 @@ StringRef SYCL::gen::getGenGRFFlag(StringRef GRFMode) {
       .Default("");
 }
 
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-
-=======
->>>>>>> 8e5275af77af1ec5da25b1a58f341108cfb5223a
 void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
                                               const JobAction &JA,
                                               const InputInfo &Output,
