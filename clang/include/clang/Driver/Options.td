@@ -4423,11 +4423,6 @@ def fsycl_pstl_offload : Flag<["-"], "fsycl-pstl-offload">,
 def fno_sycl_pstl_offload : Flag<["-"], "fno-sycl-pstl-offload">,
   Alias<fsycl_pstl_offload_EQ>, AliasArgs<["off"]>, HelpText<"Disable "
   "offloading of C++ standard parallel algorithms.">;
-def ftarget_register_alloc_mode_EQ : Joined<["-"], "ftarget-register-alloc-mode=">,
-Visibility<[ClangOption, CLOption, DXCOption]>,
-HelpText<"Specify a register allocation mode for specific hardware for use by supported "
-"target backends. The default is -ftarget-register-alloc-mode=pvc:auto on Linux and "
-"-ftarget-register-alloc-mode=pvc:default on Windows.">;
 def fsycl_target_loopopt : Flag<["-"], "fsycl-target-loopopt">,
   Flags<[HelpHidden]>, Group<f_Group>,
   HelpText<"Enable loop optimizer and auto-vectorization for SYCL based target "
@@ -4444,6 +4439,10 @@ def ftarget_export_symbols : Flag<["-"], "ftarget-export-symbols">,
   "target library to allow for visibilty to other modules.">;
 def fno_target_export_symbols : Flag<["-"], "fno-target-export-symbols">,
   Visibility<[ClangOption, CLOption, DXCOption]>;
+def ftarget_register_alloc_mode_EQ : Joined<["-"], "ftarget-register-alloc-mode=">,
+  Visibility<[ClangOption, CLOption, DXCOption]>,
+  HelpText<"Specify a register allocation mode for specific hardware for use by supported "
+  "target backends.">;
 def : Flag<["-"], "fsycl-rdc">, Visibility<[ClangOption, CLOption, DXCOption]>, Alias<fgpu_rdc>;
 def : Flag<["-"], "fno-sycl-rdc">, Visibility<[ClangOption, CLOption, DXCOption]>, Alias<fno_gpu_rdc>;
 def fsycl_optimize_non_user_code : Flag<["-"], "fsycl-optimize-non-user-code">,
