@@ -179,6 +179,7 @@ static InstrUID decode(OpcodeType type, InstructionContext insnContext,
   case MAP6:
     dec = &MAP6_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
     break;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case MAP8:
     dec = &MAP8_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
@@ -190,6 +191,11 @@ static InstrUID decode(OpcodeType type, InstructionContext insnContext,
     dec = &MAP7_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
     break;
 #endif // INTEL_CUSTOMIZATION
+=======
+  case MAP7:
+    dec = &MAP7_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
+    break;
+>>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
   }
 
   switch (dec->modrm_type) {
@@ -1208,6 +1214,7 @@ static bool readOpcode(struct InternalInstruction *insn) {
     case VEX_LOB_MAP6:
       insn->opcodeType = MAP6;
       return consume(insn, insn->opcode);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     case VEX_LOB_MAP8:
       insn->opcodeType = MAP8;
@@ -1216,6 +1223,11 @@ static bool readOpcode(struct InternalInstruction *insn) {
       insn->opcodeType = MAP7;
       return consume(insn, insn->opcode);
 #endif // INTEL_CUSTOMIZATION
+=======
+    case VEX_LOB_MAP7:
+      insn->opcodeType = MAP7;
+      return consume(insn, insn->opcode);
+>>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
     }
   } else if (insn->vectorExtensionType == TYPE_VEX_2B) {
     insn->opcodeType = TWOBYTE;
@@ -1373,6 +1385,7 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
   case MAP6:
     decision = &MAP6_SYM;
     break;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case MAP8:
     decision = &MAP8_SYM;
@@ -1384,6 +1397,11 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
     decision = &MAP7_SYM;
     break;
 #endif // INTEL_CUSTOMIZATION
+=======
+  case MAP7:
+    decision = &MAP7_SYM;
+    break;
+>>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
   }
 
   if (decision->opcodeDecisions[insnCtx]

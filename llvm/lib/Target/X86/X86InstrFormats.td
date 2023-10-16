@@ -214,11 +214,15 @@ def XOPA      : Map<6>;
 def ThreeDNow : Map<7>;
 def T_MAP5    : Map<8>;
 def T_MAP6    : Map<9>;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def T_MAP8    : Map<10>;
 def T_MAP4    : Map<11>;
 def T_MAP7    : Map<12>;
 #endif // INTEL_CUSTOMIZATION
+=======
+def T_MAP7    : Map<10>;
+>>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
 
 // Class specifying the encoding
 class Encoding<bits<2> val> {
@@ -281,6 +285,7 @@ class T_MAP6PS : T_MAP6 { Prefix OpPrefix = PS; }
 class T_MAP6PD : T_MAP6 { Prefix OpPrefix = PD; }
 class T_MAP6XS : T_MAP6 { Prefix OpPrefix = XS; }
 class T_MAP6XD : T_MAP6 { Prefix OpPrefix = XD; }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 class T_MAP8     { Map OpMap = T_MAP8; }
 class T_MAP8PS : T_MAP8 { Prefix OpPrefix = PS; } // none
@@ -291,6 +296,11 @@ class OBXD   { Prefix OpPrefix = XD; }
 class T_MAP7XS : T_MAP7 { Prefix OpPrefix = XS; } // 0xF3
 class T_MAP7XD : T_MAP7 { Prefix OpPrefix = XD; } // 0xF2
 #endif // INTEL_CUSTOMIZATION
+=======
+class T_MAP7     { Map OpMap = T_MAP7; }
+class T_MAP7XS : T_MAP7 { Prefix OpPrefix = XS; } // 0xF3
+class T_MAP7XD : T_MAP7 { Prefix OpPrefix = XD; } // 0xF2
+>>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
 class OBXS   { Prefix OpPrefix = XS; }
 class PS   : TB { Prefix OpPrefix = PS; }
 class PD   : TB { Prefix OpPrefix = PD; }

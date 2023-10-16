@@ -121,6 +121,7 @@ class X86OpcodePrefixHelper {
   //  0b00100: Reserved for future use
   //  0b00101: VEX MAP5
   //  0b00110: VEX MAP6
+  //  0b00111: VEX MAP7
   //  0b00111-0b11111: Reserved for future use
   //  0b01000: XOP map select - 08h instructions with imm byte
   //  0b01001: XOP map select - 09h instructions with no imm byte
@@ -1204,6 +1205,7 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   case X86II::T_MAP6:
     Prefix.set5M(0x6);
     break;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case X86II::T_MAP8:
     Prefix.set5M(0x8);
@@ -1215,6 +1217,11 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     Prefix.set5M(0x7);
     break;
 #endif // INTEL_CUSTOMIZATION
+=======
+  case X86II::T_MAP7:
+    Prefix.set5M(0x7);
+    break;
+>>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
   }
 
   Prefix.setL(TSFlags & X86II::VEX_L);

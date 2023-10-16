@@ -949,12 +949,17 @@ enum VEXLeadingOpcodeByte {
   VEX_LOB_0F38 = 0x2,
   VEX_LOB_0F3A = 0x3,
   VEX_LOB_MAP5 = 0x5,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   VEX_LOB_MAP6 = 0x6,
   VEX_LOB_MAP8 = 0x8,
   VEX_LOB_MAP4 = 0x4,
   VEX_LOB_MAP7 = 0x7
 #endif // INTEL_CUSTOMIZATION
+=======
+  VEX_LOB_MAP6 = 0x6,
+  VEX_LOB_MAP7 = 0x7
+>>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
 };
 
 enum XOPMapSelect {

@@ -50,6 +50,7 @@ namespace X86Disassembler {
 #define THREEDNOW_MAP_SYM x86Disassembler3DNowOpcodes
 #define MAP5_SYM          x86DisassemblerMap5Opcodes
 #define MAP6_SYM          x86DisassemblerMap6Opcodes
+#define MAP7_SYM          x86DisassemblerMap7Opcodes
 
 #if INTEL_CUSTOMIZATION
 #define MAP8_SYM          x86DisassemblerMap8Opcodes
@@ -69,6 +70,7 @@ namespace X86Disassembler {
 #define THREEDNOW_MAP_STR "x86Disassembler3DNowOpcodes"
 #define MAP5_STR          "x86DisassemblerMap5Opcodes"
 #define MAP6_STR          "x86DisassemblerMap6Opcodes"
+#define MAP7_STR          "x86DisassemblerMap7Opcodes"
 
 #if INTEL_CUSTOMIZATION
 #define MAP8_STR          "x86DisassemblerMap8Opcodes"
@@ -589,12 +591,17 @@ enum OpcodeType {
   XOPA_MAP      = 6,
   THREEDNOW_MAP = 7,
   MAP5          = 8,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   MAP6          = 9,
   MAP8          = 10,
   MAP4          = 11,
   MAP7          = 12
 #endif // INTEL_CUSTOMIZATION
+=======
+  MAP6          = 9,
+  MAP7          = 10
+>>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
 };
 
 // The following structs are used for the hierarchical decode table.  After

@@ -458,9 +458,13 @@ def WRMSRLIST : I<0x01, MRM_C6, (outs), (ins), "wrmsrlist", []>, XS;
 def RDMSRLIST : I<0x01, MRM_C6, (outs), (ins), "rdmsrlist", []>, XD;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_UMSR
 let Predicates = [HasUMSR], mayLoad = 1 in {
+=======
+let Predicates = [HasUSERMSR], mayLoad = 1 in {
+>>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
   def URDMSRrr : I<0xf8, MRMSrcReg, (outs GR64:$dst), (ins GR64:$src),
                 "urdmsr\t{$src, $dst|$dst, $src}",
                 [(set GR64:$dst, (int_x86_urdmsr GR64:$src))]>, T8XD;
@@ -468,7 +472,11 @@ let Predicates = [HasUMSR], mayLoad = 1 in {
                 "urdmsr\t{$imm, $dst|$dst, $imm}",
                 [(set GR64:$dst, (int_x86_urdmsr i64immSExt32_su:$imm))]>, T_MAP7XD, VEX;
 }
+<<<<<<< HEAD
 let Predicates = [HasUMSR], mayStore = 1 in {
+=======
+let Predicates = [HasUSERMSR], mayStore = 1 in {
+>>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
   def UWRMSRrr : I<0xf8, MRMSrcReg, (outs), (ins GR64:$src1, GR64:$src2),
                 "uwrmsr\t{$src1, $src2|$src2, $src1}",
                 [(int_x86_uwrmsr GR64:$src1, GR64:$src2)]>, T8XS;
@@ -476,9 +484,12 @@ let Predicates = [HasUMSR], mayStore = 1 in {
                 "uwrmsr\t{$src, $imm|$imm, $src}",
                 [(int_x86_uwrmsr GR64:$src, i64immSExt32_su:$imm)]>, T_MAP7XS, VEX;
 }
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_UMSR
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 819ac45d1c1b7a2d784b2606c84de46ce714f278
 let Defs = [RAX, RDX], Uses = [ECX] in
 def RDPMC : I<0x33, RawFrm, (outs), (ins), "rdpmc", []>, TB;
 
