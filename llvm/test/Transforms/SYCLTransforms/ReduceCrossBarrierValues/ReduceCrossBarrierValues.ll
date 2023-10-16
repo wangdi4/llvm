@@ -1,5 +1,6 @@
 ; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes="sycl-kernel-reduce-cross-barrier-values,adce" %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes="sycl-kernel-reduce-cross-barrier-values,adce" %s | FileCheck %s
+; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes=sycl-kernel-reduce-cross-barrier-values %s -pass-remarks=sycl-kernel-reduce-cross-barrier-values -disable-output 2>&1 | FileCheck -check-prefix=REMARK %s
 ; TODO: Remove -adce pass when this pass can eliminate dead instructions.
 
 declare void @_Z7barrierj(i32)
@@ -430,6 +431,13 @@ attributes #0 = { convergent nounwind readnone willreturn }
 
 !0 = !{!"char*"}
 !1 = !{ptr null}
+
+; REMARK: remark: {{.*}} 2 cross-barrier uses are erased in function test_basic
+; REMARK: remark: {{.*}} 8 cross-barrier uses are erased in function test_barrier_region
+; REMARK: remark: {{.*}} 3 cross-barrier uses are erased in function test_multiple_uses
+; REMARK: remark: {{.*}} 2 cross-barrier uses are erased in function test_phi
+; REMARK: remark: {{.*}} 3 cross-barrier uses are erased in function test_dom_frontier
+; REMARK: remark: {{.*}} 3 cross-barrier uses are erased in function test_dom_frontier_in_loop
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: WARNING: Missing line 1

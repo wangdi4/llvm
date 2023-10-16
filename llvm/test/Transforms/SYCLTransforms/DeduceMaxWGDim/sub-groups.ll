@@ -1,6 +1,5 @@
-; RUN: llvm-as %S/builtin-lib.rtl -o %t.rtl.bc
-; RUN: opt -passes=sycl-kernel-deduce-max-dim -sycl-kernel-builtin-lib=%t.rtl.bc -S %s | FileCheck %s
-; RUN: opt -passes=sycl-kernel-deduce-max-dim -sycl-kernel-builtin-lib=%t.rtl.bc -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-deduce-max-dim -sycl-kernel-builtin-lib=%S/builtin-lib.rtl -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-deduce-max-dim -sycl-kernel-builtin-lib=%S/builtin-lib.rtl -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

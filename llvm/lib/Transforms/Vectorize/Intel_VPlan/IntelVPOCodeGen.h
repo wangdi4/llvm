@@ -545,8 +545,8 @@ private:
   /// Holds a mapping between the VPPHINode and the corresponding vector/scalar
   /// LLVM IR PHI node that needs fix up. The operands of the VPPHINode are used
   /// to setup the operands of the LLVM IR PHI node.
-  DenseMap<PHINode *,
-           std::pair<VPPHINode *, int /*Lane will be -1 for vectorized PHI*/>>
+  MapVector<PHINode *,
+            std::pair<VPPHINode *, int /*Lane will be -1 for vectorized PHI*/>>
       PhisToFix;
 
   // Map of scalar VPValue and widened LLVM IR value.

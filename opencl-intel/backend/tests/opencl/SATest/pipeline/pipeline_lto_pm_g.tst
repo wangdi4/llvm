@@ -58,6 +58,7 @@
 ; CHECK:      Running pass: LoopUnrollPass
 ; CHECK:      Running pass: DeduceMaxWGDimPass
 ; CHECK:      Running analysis: CallGraphAnalysis
+; CHECK:      Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: MathFuncSelectPass
 ; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
