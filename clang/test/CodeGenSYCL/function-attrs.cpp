@@ -4,12 +4,6 @@
 
 int foo();
 
-<<<<<<< HEAD
-// CHECK: define dso_local spir_func void @_Z3barv() [[BAR:#[0-9]+]]
-// CHECK: attributes [[BAR]] =
-// CHECK-SAME: convergent
-// CHECK-SAME: nounwind
-=======
 // CHECK-LABEL: define {{.*}}spir_func void @_Z3barv(
 // CHECK-SAME: ) #[[ATTR0:[0-9]+]] {
 // CHECK-NEXT:  entry:
@@ -19,7 +13,6 @@ int foo();
 // CHECK-NEXT:    store i32 [[CALL]], ptr addrspace(4) [[A_ASCAST]], align 4
 // CHECK-NEXT:    ret void
 //
->>>>>>> 2c4808626a828819e32c9f65dab97681af3a1f09
 void bar() {
   int a = foo();
 }
