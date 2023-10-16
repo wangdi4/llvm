@@ -244,10 +244,9 @@
 ; CHECK-NEXT: Running analysis: WIRelatedValueAnalysis
 ; CHECK-NEXT: Running analysis: DominanceFrontierAnalysis
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running pass: VerifierPass
-; CHECK-NEXT: Running pass: KernelBarrier
-; CHECK-NEXT: Running pass: VerifierPass
-; CHECK-NEXT: Running pass: PromotePass
+
+; CHECK:      Running pass: KernelBarrier
+; CHECK:      Running pass: PromotePass
 
 ; CHECK:      Running pass: LoopSimplifyPass
 

@@ -73,12 +73,6 @@ class ReduceCrossBarrierValuesPass
     : public PassInfoMixin<ReduceCrossBarrierValuesPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
-
-  // Glue for old PM.
-  bool runImpl(Module &M, BuiltinLibInfo *BLI, DataPerValue *DPV,
-               WIRelatedValue *WIRV, DataPerBarrier *DPB,
-               function_ref<DominanceFrontier &(Function &)> GetDF,
-               function_ref<DominatorTree &(Function &)> GetDT);
 };
 
 } // namespace llvm

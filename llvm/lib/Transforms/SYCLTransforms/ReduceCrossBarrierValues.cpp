@@ -10,6 +10,8 @@
 
 #include "llvm/Transforms/SYCLTransforms/ReduceCrossBarrierValues.h"
 #include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
@@ -25,31 +27,6 @@ using namespace llvm;
 
 static cl::opt<unsigned> SYCLBarrierCopyInstructionThreshold(
     "sycl-barrier-copy-instruction-threshold", cl::init(15), cl::Hidden);
-
-PreservedAnalyses
-ReduceCrossBarrierValuesPass::run(Module &M, ModuleAnalysisManager &MAM) {
-  auto *BLI = &MAM.getResult<BuiltinLibInfoAnalysis>(M);
-  auto *DPV = &MAM.getResult<DataPerValueAnalysis>(M);
-  auto *WIRV = &MAM.getResult<WIRelatedValueAnalysis>(M);
-  auto *DPB = &MAM.getResult<DataPerBarrierAnalysis>(M);
-
-  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto GetDF = [&FAM](Function &F) -> DominanceFrontier & {
-    return FAM.getResult<DominanceFrontierAnalysis>(F);
-  };
-  auto GetDT = [&FAM](Function &F) -> DominatorTree & {
-    return FAM.getResult<DominatorTreeAnalysis>(F);
-  };
-  if (!runImpl(M, BLI, DPV, WIRV, DPB, GetDF, GetDT))
-    return PreservedAnalyses::all();
-  PreservedAnalyses PA;
-  PA.preserveSet<CFGAnalyses>();
-  PA.preserve<DataPerBarrierAnalysis>();
-  PA.preserve<DominanceFrontierAnalysis>();
-  PA.preserve<DominatorTreeAnalysis>();
-  PA.preserve<WIRelatedValueAnalysis>();
-  return PA;
-}
 
 using UseSet = DataPerValue::UseSet;
 using InstMap = DenseMap<Instruction *, Instruction *>;
@@ -264,7 +241,8 @@ static void copyAndReplaceUses(
 
 static bool runOnFunction(Function &F, BuiltinLibInfo *BLI, DataPerValue *DPV,
                           WIRelatedValue *WIRV, DataPerBarrier *DPB,
-                          DominanceFrontier *DF, DominatorTree *DT) {
+                          DominanceFrontier *DF, DominatorTree *DT,
+                          OptimizationRemarkEmitter *ORE) {
   const auto *CrossBarrierUseMap = DPV->getCrossBarrierUses(&F);
   if (!CrossBarrierUseMap || CrossBarrierUseMap->empty())
     return false;
@@ -315,6 +293,7 @@ static bool runOnFunction(Function &F, BuiltinLibInfo *BLI, DataPerValue *DPV,
     return BRI.compare(LBB, RBB);
   });
 
+  unsigned NumReduced = 0;
   for (Use *TheUse : CrossBarrierUses) {
     auto *UserInst = cast<Instruction>(TheUse->getUser());
     LLVM_DEBUG(dbgs() << "Handle instruction"; UserInst->dump());
@@ -342,21 +321,46 @@ static bool runOnFunction(Function &F, BuiltinLibInfo *BLI, DataPerValue *DPV,
 
     copyAndReplaceUses(Uses, RegionHeader, InsertPt, CopiedInsts,
                        CopyToOriginMap, WIRV, &BRI);
+    NumReduced++;
     Changed = true;
   }
+
+  if (Changed)
+    ORE->emit([&]() {
+      return OptimizationRemark(DEBUG_TYPE, "ReduceCrossBarrierValues", &F)
+             << Twine(NumReduced).str()
+             << " cross-barrier uses are erased in function " << F.getName();
+    });
 
   return Changed;
 }
 
-bool ReduceCrossBarrierValuesPass::runImpl(
-    Module &M, BuiltinLibInfo *BLI, DataPerValue *DPV, WIRelatedValue *WIRV,
-    DataPerBarrier *DPB, function_ref<DominanceFrontier &(Function &)> GetDF,
-    function_ref<DominatorTree &(Function &)> GetDT) {
+PreservedAnalyses
+ReduceCrossBarrierValuesPass::run(Module &M, ModuleAnalysisManager &MAM) {
+  auto *BLI = &MAM.getResult<BuiltinLibInfoAnalysis>(M);
+  auto *DPV = &MAM.getResult<DataPerValueAnalysis>(M);
+  auto *WIRV = &MAM.getResult<WIRelatedValueAnalysis>(M);
+  auto *DPB = &MAM.getResult<DataPerBarrierAnalysis>(M);
+
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
   bool Changed = false;
   for (auto &F : M) {
     if (F.hasOptNone() || F.isDeclaration())
       continue;
-    Changed |= runOnFunction(F, BLI, DPV, WIRV, DPB, &GetDF(F), &GetDT(F));
+    auto &DF = FAM.getResult<DominanceFrontierAnalysis>(F);
+    auto &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(F);
+    Changed |= runOnFunction(F, BLI, DPV, WIRV, DPB, &DF, &DT, &ORE);
   }
-  return Changed;
+
+  if (!Changed)
+    return PreservedAnalyses::all();
+  PreservedAnalyses PA;
+  PA.preserveSet<CFGAnalyses>();
+  PA.preserve<DataPerBarrierAnalysis>();
+  PA.preserve<DominanceFrontierAnalysis>();
+  PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<WIRelatedValueAnalysis>();
+  return PA;
 }
