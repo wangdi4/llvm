@@ -440,6 +440,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Transforms/SampleProfile/ @robertcox-github @pvbattin
 /llvm/tools/llvm-cov/ @robertcox-github @pvbattin
 /llvm/tools/llvm-profdata/ @robertcox-github @pvbattin
+/llvm/test/tools/llvm-cov/ @robertcox-github @pvbattin
 /llvm/test/tools/llvm-profdata/ @robertcox-github @pvbattin
 
 # COMPONENT: OpenCL CPU RT
