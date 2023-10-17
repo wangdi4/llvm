@@ -2778,8 +2778,6 @@ static unsigned mutateLongDoubleBuiltin(unsigned BuiltinID) {
   }
 }
 
-<<<<<<< HEAD
-=======
 static Value *tryUseTestFPKind(CodeGenFunction &CGF, unsigned BuiltinID,
                                Value *V) {
   if (CGF.Builder.getIsFPConstrained() &&
@@ -2804,7 +2802,6 @@ static RValue EmitHipStdParUnsupportedBuiltin(CodeGenFunction *CGF,
   return RValue::get(CGF->Builder.CreateCall(UBF, Args));
 }
 
->>>>>>> dd5d65adb6413122a5ba1ed04c5c2c0b4951b76c
 RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                                         const CallExpr *E,
                                         ReturnValueSlot ReturnValue) {
