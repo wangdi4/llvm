@@ -225,7 +225,8 @@ bool ClassInfo::isAccessingFieldOfArgClass(const GetElementPtrInst *GEP,
     GEPOp = G->getOperand(0);
   if (GEPOp != Obj)
     return false;
-  assert(isa<StructType>(GEP->getSourceElementType()) && "Expected StructType");
+  if (!isa<StructType>(GEP->getSourceElementType()))
+    return false;
   if (GEP->getNumIndices() != 2 || !GEP->hasAllConstantIndices())
     return false;
   if (!cast<Constant>(GEP->getOperand(1))->isZeroValue())
@@ -247,7 +248,8 @@ bool ClassInfo::isAccessingVTableFieldInBaseClass(const GetElementPtrInst *GEP,
                                                   Argument *Obj) {
   if (GEP->getOperand(0) != Obj)
     return false;
-  assert(isa<StructType>(GEP->getSourceElementType()) && "Expected StructType");
+  if (!isa<StructType>(GEP->getSourceElementType()))
+    return false;
   if (GEP->getNumIndices() != 3)
     return false;
   if (!GEP->hasAllZeroIndices())
