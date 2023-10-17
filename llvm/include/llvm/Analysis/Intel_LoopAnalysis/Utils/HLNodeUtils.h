@@ -1369,6 +1369,11 @@ public:
                                      const HLNode *FirstNode,
                                      const HLNode *LastNode);
 
+  /// Returns true if \p Node is between \p NodeA and \p NodeB irrespective of
+  /// whether NodeA precedes NodeB or vice versa.
+  static bool isBetweenNodes(const HLNode *Node, const HLNode *NodeA,
+                             const HLNode *NodeB);
+
   /// Returns the first lexical child of the parent w.r.t Node. For example, if
   /// parent is a loop and Node lies in postexit, the function will return the
   /// first postexit node. If Node is null, it returns the absolute first/last
@@ -1428,8 +1433,12 @@ public:
 
   /// Returns true if Parent contains Node. IncludePrePostHdr indicates whether
   /// loop should be considered to contain preheader/postexit nodes.
+  /// If \p AvoidTopSortNum is true, instead of using top sort number, the
+  /// utility uses the slower method of traversing the parent chain to return
+  /// the result.
   static bool contains(const HLNode *Parent, const HLNode *Node,
-                       bool IncludePrePostHdr = false);
+                       bool IncludePrePostHdr = false,
+                       bool AvoidTopSortNum = false);
 
   /// Gathers the innermost loops across regions and stores them into the loop
   /// vector. If Node is not specified, it will search for all Regions

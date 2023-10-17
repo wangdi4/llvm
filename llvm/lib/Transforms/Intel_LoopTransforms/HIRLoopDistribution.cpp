@@ -431,12 +431,16 @@ void HIRLoopDistribution::processPiBlocksToHLNodes(
         //
         // Do not move the node if it's already a child of the ControlNode.
         // It may happen if ControlNode is an original HLIf.
-        if (!ControlNode->isThenChild(Node)) {
+        if (!HLNodeUtils::contains(ControlNode, Node,
+                                   false /*IncludePrePostHdr*/,
+                                   true /*AvoidTopSortNum*/)) {
           HLNodeUtils::moveAsLastThenChild(ControlNode, Node);
         }
       } else {
         // Node should be placed under "false" branch of the control node.
-        if (!ControlNode->isElseChild(Node)) {
+        if (!HLNodeUtils::contains(ControlNode, Node,
+                                   false /*IncludePrePostHdr*/,
+                                   true /*AvoidTopSortNum*/)) {
           HLNodeUtils::moveAsLastElseChild(ControlNode, Node);
         }
       }

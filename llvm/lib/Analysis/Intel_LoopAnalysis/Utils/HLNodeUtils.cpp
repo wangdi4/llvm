@@ -2671,6 +2671,8 @@ bool HLNodeUtils::isInTopSortNumRangeImpl(const HLNode *Node,
   unsigned LastNum =
       IsMaxMode ? LastNode->getMaxTopSortNum() : LastNode->getTopSortNum();
 
+  assert(FirstNum <= LastNum && "Invalid top sort number range!");
+
   return (Num >= FirstNum && Num <= LastNum);
 }
 
@@ -2684,6 +2686,19 @@ bool HLNodeUtils::isInTopSortNumMaxRange(const HLNode *Node,
                                          const HLNode *FirstNode,
                                          const HLNode *LastNode) {
   return isInTopSortNumRangeImpl<true>(Node, FirstNode, LastNode);
+}
+
+bool HLNodeUtils::isBetweenNodes(const HLNode *Node, const HLNode *NodeA,
+                                 const HLNode *NodeB) {
+  assert(Node && "Node is null!");
+  assert(NodeA && "NodeA is null!");
+  assert(NodeB && "NodeB is null!");
+
+  if (NodeA->getTopSortNum() <= NodeB->getTopSortNum()) {
+    return isInTopSortNumRange(Node, NodeA, NodeB);
+  }
+
+  return isInTopSortNumRange(Node, NodeB, NodeA);
 }
 
 const HLNode *HLNodeUtils::getLexicalChildImpl(const HLNode *Parent,
@@ -3219,7 +3234,7 @@ bool HLNodeUtils::canAccessTogether(const HLNode *Node1, const HLNode *Node2) {
 }
 
 bool HLNodeUtils::contains(const HLNode *Parent, const HLNode *Node,
-                           bool IncludePrePostHdr) {
+                           bool IncludePrePostHdr, bool AvoidTopSortNum) {
   assert(Parent && "Parent is null!");
   assert(Node && "Node is null!");
 
@@ -3233,13 +3248,18 @@ bool HLNodeUtils::contains(const HLNode *Parent, const HLNode *Node,
     }
   }
 
-  // Use top sort num, if available.
-  if (unsigned TSNum = Node->getTopSortNum()) {
-    assert((isa<HLRegion>(Node) || Node->isAttached()) &&
-           "It is illegal to call top sort number "
-           "dependent utility on disconnected node!");
-    return (TSNum >= Parent->getMinTopSortNum() &&
-            TSNum <= Parent->getMaxTopSortNum());
+  // Use top sort num if not asked by the caller to avoid using.
+  if (!AvoidTopSortNum) {
+    // Use top sort num, if available.
+    // Top sort number is zero for new nodes not attached to region. It is also
+    // zero in the loopopt framework phase.
+    if (unsigned TSNum = Node->getTopSortNum()) {
+      assert((isa<HLRegion>(Node) || Node->isAttached()) &&
+             "It is illegal to call top sort number "
+             "dependent utility on disconnected node!");
+      return (TSNum >= Parent->getMinTopSortNum() &&
+              TSNum <= Parent->getMaxTopSortNum());
+    }
   }
 
   while (Node) {

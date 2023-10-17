@@ -77,10 +77,8 @@ bool VPlanSLP::canMoveTo(const VPLoadStoreInst *FromInst,
       HLDDNode *Node = Ref->getHLDDNode();
 
       // Source/sink node is not in between the nodes of interest.
-      if (!HLNodeUtils::isInTopSortNumRange(Node, FromDDNode, ToDDNode) &&
-          !HLNodeUtils::isInTopSortNumRange(Node, ToDDNode, FromDDNode)) {
+      if (!HLNodeUtils::isBetweenNodes(Node, FromDDNode, ToDDNode))
         return false;
-      }
 
       return true;
     };
