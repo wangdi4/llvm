@@ -523,8 +523,7 @@ Instruction *InstCombinerImpl::foldSelectIntoOp(SelectInst &SI, Value *TrueVal,
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-32859: This transformation inhibits AVX512 masking as it
   // inserts an extra zero operand.
-  if (getTargetTransformInfo().isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512)) {
+  if (HasAdvAVX512) {
     if (SI.getType()->isVectorTy())
       return nullptr;
     // CMPLRLLVM-33537: Float types may be vectorized later and cause the
