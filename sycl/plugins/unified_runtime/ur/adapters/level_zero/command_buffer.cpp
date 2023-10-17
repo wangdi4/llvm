@@ -291,7 +291,7 @@ static ur_result_t enqueueCommandBufferMemCopyHelper(
                                   SyncPointWaitList, ZeEventList));
 
   ur_event_handle_t LaunchEvent;
-  UR_CALL(EventCreate(CommandBuffer->Context, nullptr, true, &LaunchEvent));
+  UR_CALL(EventCreate(CommandBuffer->Context, nullptr, false, &LaunchEvent));
   LaunchEvent->CommandType = CommandType;
 
   // Get sync point and register the event with it.
@@ -356,7 +356,7 @@ static ur_result_t enqueueCommandBufferMemCopyRectHelper(
                                   SyncPointWaitList, ZeEventList));
 
   ur_event_handle_t LaunchEvent;
-  UR_CALL(EventCreate(CommandBuffer->Context, nullptr, true, &LaunchEvent));
+  UR_CALL(EventCreate(CommandBuffer->Context, nullptr, false, &LaunchEvent));
   LaunchEvent->CommandType = CommandType;
 
   // Get sync point and register the event with it.
@@ -405,7 +405,7 @@ urCommandBufferCreateExp(ur_context_handle_t Context, ur_device_handle_t Device,
   // Create signal & wait events to be used in the command-list for sync
   // on command-buffer enqueue.
   auto RetCommandBuffer = *CommandBuffer;
-  UR_CALL(EventCreate(Context, nullptr, true, &RetCommandBuffer->SignalEvent));
+  UR_CALL(EventCreate(Context, nullptr, false, &RetCommandBuffer->SignalEvent));
   UR_CALL(EventCreate(Context, nullptr, false, &RetCommandBuffer->WaitEvent));
 
   // Add prefix commands
@@ -435,11 +435,32 @@ urCommandBufferReleaseExp(ur_exp_command_buffer_handle_t CommandBuffer) {
 
 UR_APIEXPORT ur_result_t UR_APICALL
 urCommandBufferFinalizeExp(ur_exp_command_buffer_handle_t CommandBuffer) {
-  // We need to append signal that will indicate that command-buffer has
-  // finished executing.
-  ZE2UR_CALL(
-      zeCommandListAppendSignalEvent,
-      (CommandBuffer->ZeCommandList, CommandBuffer->SignalEvent->ZeEvent));
+
+  // Create a list of events for our signal event to wait on
+  const size_t NumEvents = CommandBuffer->SyncPoints.size();
+  std::vector<ze_event_handle_t> WaitEventList{NumEvents};
+  for (size_t i = 0; i < NumEvents; i++) {
+    WaitEventList[i] = CommandBuffer->SyncPoints[i]->ZeEvent;
+  }
+
+  // Wait for all the user added commands to complete, and signal the
+  // command-buffer signal-event when they are done.
+  ZE2UR_CALL(zeCommandListAppendBarrier,
+             (CommandBuffer->ZeCommandList, CommandBuffer->SignalEvent->ZeEvent,
+              NumEvents, WaitEventList.data()));
+
+  // Reset the wait-event for the UR command-buffer that is signalled when its
+  // submission dependencies have been satisfied.
+  ZE2UR_CALL(zeCommandListAppendEventReset,
+             (CommandBuffer->ZeCommandList, CommandBuffer->WaitEvent->ZeEvent));
+
+  // Reset the L0 events we use for command-buffer internal sync-points to the
+  // non-signalled state
+  for (auto Event : WaitEventList) {
+    ZE2UR_CALL(zeCommandListAppendEventReset,
+               (CommandBuffer->ZeCommandList, Event));
+  }
+
   // Close the command list and have it ready for dispatch.
   ZE2UR_CALL(zeCommandListClose, (CommandBuffer->ZeCommandList));
   return UR_RESULT_SUCCESS;
@@ -495,7 +516,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urCommandBufferAppendKernelLaunchExp(
   UR_CALL(getEventsFromSyncPoints(CommandBuffer, NumSyncPointsInWaitList,
                                   SyncPointWaitList, ZeEventList));
   ur_event_handle_t LaunchEvent;
-  UR_CALL(EventCreate(CommandBuffer->Context, nullptr, true, &LaunchEvent));
+  UR_CALL(EventCreate(CommandBuffer->Context, nullptr, false, &LaunchEvent));
   LaunchEvent->CommandType = UR_COMMAND_KERNEL_LAUNCH;
 
   // Get sync point and register the event with it.
