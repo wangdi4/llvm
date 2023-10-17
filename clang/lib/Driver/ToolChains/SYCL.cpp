@@ -1917,53 +1917,6 @@ void SYCLToolChain::AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
         getDriver().Diag(diag::err_drv_unsupported_option_argument)
             << A->getSpelling() << BufArg;
     }
-    StringRef RegAllocModeOptName = "-ftarget-register-alloc-mode=";
-    if (Arg *A = Args.getLastArg(options::OPT_ftarget_register_alloc_mode_EQ)) {
-      StringRef RegAllocModeVal = A->getValue(0);
-      auto ProcessElement = [&](StringRef Ele) {
-        auto [DeviceName, RegAllocMode] = Ele.split(':');
-        StringRef BackendOptName = SYCL::gen::getGenGRFFlag(RegAllocMode);
-        bool IsDefault = RegAllocMode.equals("default");
-        if (RegAllocMode.empty() || !DeviceName.equals("pvc") ||
-            (BackendOptName.empty() && !IsDefault)) {
-          getDriver().Diag(diag::err_drv_unsupported_option_argument)
-              << A->getSpelling() << Ele;
-        }
-        // "default" means "provide no specification to the backend", so
-        // we don't need to do anything here.
-        if (IsDefault)
-          return;
-        if (IsGen) {
-          // For AOT, Use ocloc's per-device options flag with the correct ocloc
-          // option to honor the user's specification.
-          PerDeviceArgs.push_back(
-              {DeviceName, Args.MakeArgString("-options " + BackendOptName)});
-        } else if (Triple.isSPIR() &&
-                   Triple.getSubArch() == llvm::Triple::NoSubArch) {
-          // For JIT, pass -ftarget-register-alloc-mode=Device:BackendOpt to
-          // clang-offload-wrapper to be processed by the runtime.
-          BeArgs.push_back(Args.MakeArgString(RegAllocModeOptName + DeviceName +
-                                              ":" + BackendOptName));
-        }
-      };
-      llvm::SmallVector<StringRef, 16> RegAllocModeArgs;
-      RegAllocModeVal.split(RegAllocModeArgs, ',');
-      for (StringRef Elem : RegAllocModeArgs)
-        ProcessElement(Elem);
-    } else if (!HostTC.getTriple().isWindowsMSVCEnvironment()) {
-      // If -ftarget-register-alloc-mode is not specified, the default is
-      // pvc:default on Windows and and pvc:auto otherwise.
-      StringRef DeviceName = "pvc";
-      StringRef BackendOptName = SYCL::gen::getGenGRFFlag("auto");
-      if (IsGen)
-        PerDeviceArgs.push_back(
-            {DeviceName, Args.MakeArgString("-options " + BackendOptName)});
-      else if (Triple.isSPIR() &&
-               Triple.getSubArch() == llvm::Triple::NoSubArch) {
-        BeArgs.push_back(Args.MakeArgString(RegAllocModeOptName + DeviceName +
-                                            ":" + BackendOptName));
-      }
-    }
   }
   if (IsMSVCOd )
       BeArgs.push_back("-cl-opt-disable");
@@ -2008,7 +1961,20 @@ void SYCLToolChain::AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
     RegAllocModeVal.split(RegAllocModeArgs, ',');
     for (StringRef Elem : RegAllocModeArgs)
       ProcessElement(Elem);
-  }
+  } else if (!HostTC.getTriple().isWindowsMSVCEnvironment()) {
+      // If -ftarget-register-alloc-mode is not specified, the default is
+      // pvc:default on Windows and and pvc:auto otherwise.
+      StringRef DeviceName = "pvc";
+      StringRef BackendOptName = SYCL::gen::getGenGRFFlag("auto");
+      if (IsGen)
+        PerDeviceArgs.push_back(
+            {DeviceName, Args.MakeArgString("-options " + BackendOptName)});
+      else if (Triple.isSPIR() &&
+               Triple.getSubArch() == llvm::Triple::NoSubArch) {
+        BeArgs.push_back(Args.MakeArgString(RegAllocModeOptName + DeviceName +
+                                            ":" + BackendOptName));
+      }
+    }
   if (IsGen) {
     // For GEN (spir64_gen) we have implied -device settings given usage
     // of intel_gpu_ as a target.  Handle those here, and also check that no
