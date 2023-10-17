@@ -13,6 +13,7 @@
 
 #include "HIRLoopDistribution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForLoopNestPass.h"
@@ -38,6 +39,7 @@ PreservedAnalyses HIRLoopDistributionForLoopNestPass::runImpl(
 
   ModifiedHIR =
       HIRLoopDistribution(HIRF, AM.getResult<TargetLibraryAnalysis>(F),
+                          AM.getResult<TargetIRAnalysis>(F),
                           AM.getResult<HIRDDAnalysisPass>(F),
                           AM.getResult<HIRSafeReductionAnalysisPass>(F),
                           AM.getResult<HIRSparseArrayReductionAnalysisPass>(F),
