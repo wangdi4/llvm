@@ -116,6 +116,7 @@ void Instruction::removeFromParent() {
   getParent()->getInstList().remove(getIterator());
 }
 
+<<<<<<< HEAD
 iplist<Instruction>::iterator Instruction::eraseFromParent() {
 #if INTEL_CUSTOMIZATION
 #ifndef NDEBUG
@@ -135,6 +136,9 @@ iplist<Instruction>::iterator Instruction::eraseFromParent() {
           llvm_unreachable("The deleted OptReport will be missing.");
 #endif  // NDEBUG
 #endif  // INTEL_CUSTOMIZATION
+=======
+BasicBlock::iterator Instruction::eraseFromParent() {
+>>>>>>> 088d272e83259a5d8e577a3d2e62012c42a9f9db
   return getParent()->getInstList().erase(getIterator());
 }
 
@@ -168,8 +172,7 @@ void Instruction::moveAfter(Instruction *MovePos) {
   moveBefore(*MovePos->getParent(), ++MovePos->getIterator());
 }
 
-void Instruction::moveBefore(BasicBlock &BB,
-                             SymbolTableList<Instruction>::iterator I) {
+void Instruction::moveBefore(BasicBlock &BB, InstListType::iterator I) {
   assert(I == BB.end() || I->getParent() == &BB);
   BB.splice(I, getParent(), getIterator());
 }
