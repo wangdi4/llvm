@@ -1961,7 +1961,7 @@ void SYCLToolChain::AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
     RegAllocModeVal.split(RegAllocModeArgs, ',');
     for (StringRef Elem : RegAllocModeArgs)
       ProcessElement(Elem);
-  } else if (!HostTC.getTriple().isWindowsMSVCEnvironment()) {
+  } else if (DeviceOffloadKind == Action::OFK_OpenMP && !HostTC.getTriple().isWindowsMSVCEnvironment()) {
       // If -ftarget-register-alloc-mode is not specified, the default is
       // pvc:default on Windows and and pvc:auto otherwise.
       StringRef DeviceName = "pvc";
