@@ -68,8 +68,8 @@ struct SimplifyQuery {
   // keywords like nsw, which provides conservative results if those cannot
   // be safely used.
   const InstrInfoQuery IIQ;
-  ScalarEvolution *SE; // INTEL
-  LoopInfo *LI;        // INTEL
+  ScalarEvolution *SE = nullptr; // INTEL
+  LoopInfo *LI = nullptr;        // INTEL
   /// Controls whether simplifications are allowed to constrain the range of
   /// possible values for uses of undef. If it is false, simplifications are not
   /// allowed to assume a particular value for a use of undef for example.
