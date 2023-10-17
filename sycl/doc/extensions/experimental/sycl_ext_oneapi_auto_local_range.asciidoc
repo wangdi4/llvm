@@ -20,11 +20,7 @@
 == Notice
 
 [%hardbreaks]
-<<<<<<< HEAD
-Copyright (C) 2022 Intel Corporation.  All rights reserved.
-=======
 Copyright (C) 2022-2023 Intel Corporation.  All rights reserved.
->>>>>>> d17a3f16b84f75ca1ddbe512f2ad68b00db321f6
 
 Khronos(R) is a registered trademark and SYCL(TM) and SPIR(TM) are trademarks
 of The Khronos Group Inc.  OpenCL(TM) is a trademark of Apple Inc. used by
