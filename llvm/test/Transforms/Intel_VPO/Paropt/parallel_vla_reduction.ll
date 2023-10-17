@@ -9,7 +9,7 @@
 ;   ;
 ; }
 
-; CHECK: [[VLASIZEVAR:@[A-Za-z0-9_.]+]] = common thread_local global i64 0
+; CHECK: [[VLASIZEVAR:@[A-Za-z0-9_.]+]] = private thread_local global i64 0
 ; CHECK: define{{.*}}@foo_tree_reduce_2(ptr [[DST:%[A-Za-z0-9_.]+]], ptr [[SRC:%[A-Za-z0-9_.]+]]) {
 ; CHECK: [[VLASIZE:%[A-Za-z0-9_.]+]] = load i64, ptr [[VLASIZEVAR]]
 
