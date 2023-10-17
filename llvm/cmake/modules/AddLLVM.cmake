@@ -445,21 +445,6 @@ function(set_windows_version_resource_properties name resource_file)
                "RC_PRODUCT_VERSION=\"${ARG_VERSION_STRING}\"")
 endfunction(set_windows_version_resource_properties)
 
-# INTEL_CUSTOMIZATION
-# LLVM sets /MT or /MD options globally, and there's no way to change it
-# for a single target. As a workaround, remove /MT flag for every target
-# and set it manually.
-macro(set_msvc_crt_flags name)
-  if (WIN32)
-    if (CMAKE_BUILD_TYPE MATCHES "Debug")
-      target_compile_options(${name} PRIVATE "/MTd")
-    else()
-      target_compile_options(${name} PRIVATE "/MT")
-    endif()
-  endif()
-endmacro()
-# end INTEL_CUSTOMIZATION
-
 # llvm_add_library(name sources...
 #   SHARED;STATIC
 #     STATIC by default w/o BUILD_SHARED_LIBS.
@@ -543,9 +528,6 @@ function(llvm_add_library name)
       ${ALL_FILES}
       )
     llvm_update_compile_flags(${obj_name})
-    # INTEL_CUSTOMIZATION
-    set_msvc_crt_flags(${obj_name})
-    # end INTEL_CUSTOMIZATION
     if(CMAKE_GENERATOR STREQUAL "Xcode")
       set(DUMMY_FILE ${CMAKE_CURRENT_BINARY_DIR}/Dummy.c)
       file(WRITE ${DUMMY_FILE} "// This file intentionally empty\n")
@@ -747,21 +729,7 @@ function(llvm_add_library name)
   #if it forced - override with provided value
   if (ARG_STDLIB)
     if (WIN32)
-      check_cxx_compiler_flag("${ARG_STDLIB}" CXX_COMPILER_SUPPORTS_STL_FLAG)
-      if (CXX_COMPILER_SUPPORTS_STL_FLAG)
-        foreach(flag_var
-            CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-            CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
-            CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
-            CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
-          string(REGEX REPLACE "/MTd" "" ${flag_var} "${${flag_var}}")
-          string(REGEX REPLACE "/MT" "" ${flag_var} "${${flag_var}}")
-          set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
-        endforeach()
-        target_compile_options(${name} PUBLIC "${ARG_STDLIB}")
-        set_property(TARGET ${name} APPEND_STRING PROPERTY
-                    COMPILE_FLAGS " ${ARG_STDLIB}")
-      endif()
+      message(FATAL_ERROR "STDLIB is unsupported on WIN32. Use MSVC_RUNTIME_LIBRARY.")
     else()
       check_cxx_compiler_flag("-stdlib=lib${ARG_STDLIB}"
                               CXX_COMPILER_SUPPORTS_STDLIB)
@@ -772,8 +740,6 @@ function(llvm_add_library name)
                     LINK_FLAGS " -l${ARG_STDLIB}")
       endif()
     endif()
-  else()
-    set_msvc_crt_flags(${name})
   endif()
   # end INTEL_CUSTOMIZATION
 
@@ -976,9 +942,6 @@ macro(generate_llvm_objects name)
     endif()
 
     set_target_properties(${obj_name} PROPERTIES FOLDER "Object Libraries")
-    # INTEL_CUSTOMIZATION
-    set_msvc_crt_flags(${obj_name})
-    # end INTEL_CUSTOMIZATION
   endif()
 
   if (ARG_GENERATE_DRIVER)
@@ -1102,9 +1065,6 @@ macro(add_llvm_executable name)
   endif()
 
   llvm_codesign(${name} ENTITLEMENTS ${ARG_ENTITLEMENTS} BUNDLE_PATH ${ARG_BUNDLE_PATH})
-  # INTEL_CUSTOMIZATION
-  set_msvc_crt_flags(${name})
-  # end INTEL_CUSTOMIZATION
 endmacro(add_llvm_executable name)
 
 # add_llvm_pass_plugin(name [NO_MODULE] ...)
@@ -1738,14 +1698,9 @@ function(add_unittest test_suite test_name)
                  COMPILE_FLAGS " -stdlib=libstdc++")
   elseif (WIN32 AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
     target_link_libraries(${test_name} PRIVATE llvm_gtest_main_dyn llvm_gtest_dyn ${LLVM_PTHREAD_LIB})
-    foreach(flag_var
-        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-      string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
-      set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
-    endforeach()
+    set_property(TARGET ${test_name}
+                 PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   else()
-    set_msvc_crt_flags(${test_name})
     target_link_libraries(${test_name} PRIVATE llvm_gtest_main llvm_gtest ${LLVM_PTHREAD_LIB})
   endif()
   # end INTEL_CUSTOMIZATION

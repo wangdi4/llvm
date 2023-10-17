@@ -34,7 +34,6 @@ clang_target_link_libraries(FrontendTests
 
 #if INTEL_CUSTOMIZATION
 add_library(VfsTestLib SHARED IntelVfsTestLib.cpp)
-set_msvc_crt_flags(VfsTestLib)
 target_link_libraries(VfsTestLib clangBasic LLVMSupport)
 set_target_properties(VfsTestLib
   PROPERTIES PREFIX ""

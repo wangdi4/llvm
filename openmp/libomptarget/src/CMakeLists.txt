@@ -99,14 +99,6 @@ if(INTEL_CUSTOMIZATION)
   # llvm_update_compile_flags properly disables exceptions, so the system
   # headers (which may use EH, e.g MSVC's xlocale) can be properly compiled.
   llvm_update_compile_flags(omptarget)
-  if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
-    # FIXME: we have to use the same C run-time flags (e.g. /MTd) as
-    # the plguins, otherwise standard C++ types will have different
-    # layouts in omptarget.dll and the plugins. We currently have
-    # implicit/opaque C++ interface for ompt between libomptarget
-    # and the plugins: CMPLRLIBS-33675
-    set_msvc_crt_flags(omptarget)
-  endif()
 
 else(INTEL_CUSTOMIZATION)
 add_llvm_library(omptarget
