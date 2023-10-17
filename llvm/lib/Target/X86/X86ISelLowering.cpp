@@ -107,6 +107,10 @@ static cl::opt<bool> ExperimentalUnorderedISEL(
     cl::Hidden);
 
 #if INTEL_CUSTOMIZATION
+static cl::opt<bool> IntelAllowSinCos("intel-sincos-allowed",
+                                      cl::desc("Enable sincos combination."),
+                                      cl::init(false), cl::Hidden);
+
 static cl::opt<bool> EnableForceEmitMemoryFormBasicShuffle(
     "x86-force-emit-mem-form-basic-shuffle",
     cl::desc("Forcely emitting vmov{sl,sh,d}dup from memory."), cl::init(false),
@@ -168,7 +172,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     };
 
 #if INTEL_CUSTOMIZATION
-    if (TM.Options.IntelLibMAllowed) {
+    if (TM.Options.IntelLibMAllowed || IntelAllowSinCos) {
       setLibcallName(RTLIB::SINCOS_F32, "sincosf");
       setLibcallName(RTLIB::SINCOS_F64, "sincos");
       setLibcallName(RTLIB::SINCOS_F80, "sincosl");

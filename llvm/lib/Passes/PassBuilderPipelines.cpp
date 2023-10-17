@@ -3913,6 +3913,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(IntelIPODeadArgEliminationPass());
 #endif // INTEL_CUSTOMIZATION
   FunctionPassManager MainFPM;
+#if INTEL_CUSTOMIZATION
+  if (Level.getSpeedupLevel() > 2)
+    MainFPM.addPass(GVNHoistPass());
+#endif // INTEL_CUSTOMIZATION
   MainFPM.addPass(createFunctionToLoopPassAdaptor(
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                /*AllowSpeculation=*/true),

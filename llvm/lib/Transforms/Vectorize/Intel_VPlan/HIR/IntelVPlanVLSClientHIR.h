@@ -141,10 +141,9 @@ public:
       // then the sink r3 is relevant, but the sink r0 and r6 are not relevant.
       // FIXME: Probably this check holds only for straight line code? may need
       // a stronger check for the general case
-      if (!HLNodeUtils::isInTopSortNumRange(Node, FromDDNode, ToDDNode) &&
-          !HLNodeUtils::isInTopSortNumRange(Node, ToDDNode, FromDDNode)) {
+      if (!HLNodeUtils::isBetweenNodes(Node, FromDDNode, ToDDNode))
         return false;
-      }
+
       // Lastly: Check the dependence edge.
       if (Edge->getSrc() == Edge->getSink())
         return false;

@@ -121,6 +121,7 @@ struct ChunkVectorizationInfo {
   unsigned NumUnitStrideRefs;
   unsigned NumNonUnitStrideRefs;
   unsigned NumFPOperations;
+  unsigned NumIntOperations;
   unsigned NumCalls;
 
   bool IsLegal;
@@ -128,18 +129,34 @@ struct ChunkVectorizationInfo {
   // across PiBlocks so it can be converted into forward edge with distribution
   // mmaking vectorization legal.
   bool IsLegalAfterDistribution;
+  bool HasSafeReductions;
+  bool HasVConflictIdioms;
 
   // Default constructor for empty chunks. Empty chunk is vectorizable.
   ChunkVectorizationInfo()
       : NumUnitStrideRefs(0), NumNonUnitStrideRefs(0), NumFPOperations(0),
-        NumCalls(0), IsLegal(true), IsLegalAfterDistribution(true) {}
+        NumIntOperations(0), NumCalls(0), IsLegal(true),
+        IsLegalAfterDistribution(true), HasSafeReductions(false),
+        HasVConflictIdioms(false) {}
 
   bool isLegal() const { return (IsLegal || IsLegalAfterDistribution); }
 
-  // Disable vectorization when there are too many non-unit stride refs in
-  // comparison to number of unit stride refs.
+  bool isTrivial() const {
+    return !HasSafeReductions && !HasVConflictIdioms && !NumCalls &&
+           ((NumFPOperations + NumIntOperations == 0) ||
+            ((NumUnitStrideRefs < 2) &&
+             (NumFPOperations + NumIntOperations == 1)));
+  }
+
+  // Disable vectorization if the chunk is trivial or when there are too many
+  // non-unit stride refs in comparison to number of unit stride refs. Trivial
+  // chunks are not profitable as we increase loop overhead (especially if
+  // scalar expansion is needed) without having a chunk which has enough
+  // computation for vectorization.
   bool isProfitable() const {
-    return (NumUnitStrideRefs >= (2 * NumNonUnitStrideRefs));
+    assert(isLegal() && "Checking profitability of illegal chunk!");
+    return !isTrivial() && (HasVConflictIdioms ||
+                            (NumUnitStrideRefs >= (2 * NumNonUnitStrideRefs)));
   }
 
   // Accumulate results of CVI into this object.
@@ -147,27 +164,45 @@ struct ChunkVectorizationInfo {
     NumUnitStrideRefs += CVI.NumUnitStrideRefs;
     NumNonUnitStrideRefs += CVI.NumNonUnitStrideRefs;
     NumFPOperations += CVI.NumFPOperations;
+    NumIntOperations += CVI.NumIntOperations;
     NumCalls += CVI.NumCalls;
 
     IsLegal = IsLegal && CVI.IsLegal;
     IsLegalAfterDistribution =
         IsLegalAfterDistribution && CVI.IsLegalAfterDistribution;
-  }
 
-  // Returns true if the chunk contains substantial computation to consider
-  // vectorization even if it requires many scalar-expanded temps.
-  bool hasSubstantialComputation() const {
-    return (isLegal() && (2 * NumCalls + NumFPOperations) > 25);
+    HasSafeReductions = HasSafeReductions || CVI.HasSafeReductions;
+    HasVConflictIdioms = HasVConflictIdioms || CVI.HasVConflictIdioms;
   }
 
   void clear() {
     NumUnitStrideRefs = 0;
     NumNonUnitStrideRefs = 0;
     NumFPOperations = 0;
+    NumIntOperations = 0;
     NumCalls = 0;
     IsLegal = true;
     IsLegalAfterDistribution = true;
+    HasSafeReductions = false;
+    HasVConflictIdioms = false;
   }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD void dump() {
+    dbgs() << "NumUnitStrideRefs: " << NumUnitStrideRefs << "\n";
+    dbgs() << "NumNonUnitStrideRefs: " << NumNonUnitStrideRefs << "\n";
+    dbgs() << "NumFPOperations: " << NumFPOperations << "\n";
+    dbgs() << "NumIntOperations: " << NumIntOperations << "\n";
+    dbgs() << "NumCalls: " << NumCalls << "\n";
+    dbgs() << "IsLegal: " << (IsLegal ? "yes" : "no") << "\n";
+    dbgs() << "IsLegalAfterDistribution: "
+           << (IsLegalAfterDistribution ? "yes" : "no") << "\n";
+    dbgs() << "HasSafeReductions: " << (HasSafeReductions ? "yes" : "no")
+           << "\n";
+    dbgs() << "HasVConflictIdioms: " << (HasVConflictIdioms ? "yes" : "no")
+           << "\n";
+  }
+#endif
 };
 
 class ScalarExpansion {
@@ -333,11 +368,12 @@ class HIRLoopDistribution {
 
 public:
   HIRLoopDistribution(HIRFramework &HIRF, const TargetLibraryInfo &TLI,
-                      HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
+                      const TargetTransformInfo &TTI, HIRDDAnalysis &DDA,
+                      HIRSafeReductionAnalysis &SRA,
                       HIRSparseArrayReductionAnalysis &SARA,
                       HIRLoopResource &HLR, HIRLoopLocality &HLL,
                       DistHeuristics DistCostModel)
-      : HIRF(HIRF), TLI(TLI), DDA(DDA), SRA(SRA), SARA(SARA),
+      : HIRF(HIRF), TLI(TLI), TTI(TTI), DDA(DDA), SRA(SRA), SARA(SARA),
         HNU(HIRF.getHLNodeUtils()), HLR(HLR), HLL(HLL),
         DistCostModel(DistCostModel) {}
 
@@ -346,6 +382,7 @@ public:
 private:
   HIRFramework &HIRF;
   const TargetLibraryInfo &TLI;
+  const TargetTransformInfo &TTI;
   HIRDDAnalysis &DDA;
   HIRSafeReductionAnalysis &SRA;
   HIRSparseArrayReductionAnalysis &SARA;
@@ -359,6 +396,10 @@ private:
       DistDirectiveNodeMap;
 
   SmallDenseMap<const HLDDNode *, std::pair<LoopNum, LoopNum>, 16> IfNodeMap;
+
+  // Stores vectorization info for each of the chunks distribution is proposing
+  // to distribute the loop into.
+  SmallVector<ChunkVectorizationInfo, 8> ChunkVecInfos;
 
 private:
   void findDistPoints(const HLLoop *L, std::unique_ptr<PiGraph> const &PGraph,
@@ -429,6 +470,10 @@ private:
                            SmallVectorImpl<HLDDNodeList> &DistributedLoops);
 
   void invalidateLoop(HLLoop *Loop) const;
+
+  // Scales threshold for scalar expanded temps based on how profitable the
+  // distributed chunks looks like for vectorization.
+  unsigned getScaledScalarExpandedTempThreshold() const;
 };
 
 class HIRLoopDistributionLegacyPass : public HIRTransformPass {

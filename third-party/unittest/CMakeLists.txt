@@ -87,11 +87,6 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   )
 endif()
 if (WIN32)
-  if (${CMAKE_BUILD_TYPE} MATCHES Debug)
-    set(_STL_LIB "/MDd")
-  else()
-    set(_STL_LIB "/MD")
-  endif()
   add_llvm_library(llvm_gtest_dyn
     googletest/src/gtest-all.cc
     googlemock/src/gmock-all.cc
@@ -104,11 +99,10 @@ if (WIN32)
 
     # This is a library meant only for the build tree.
     BUILDTREE_ONLY
-
-    STDLIB
-    ${_STL_LIB}
   )
 
+  set_property(TARGET llvm_gtest_dyn
+               PROPERTY MSVC_RUNTIME_LIBRARY  "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   target_include_directories(llvm_gtest_dyn
     PUBLIC googletest/include googlemock/include
     PRIVATE googletest googlemock

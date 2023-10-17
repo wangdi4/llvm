@@ -20,11 +20,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsertPass.h"
 #include "ParVecDirectiveInsertion.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsertPass.h"
 
 #define DEBUG_TYPE "parvec-transform"
 
@@ -119,9 +120,20 @@ namespace loopopt {
 PreservedAnalyses HIRVecDirInsertPass::runImpl(Function &F,
                                                FunctionAnalysisManager &AM,
                                                HIRFramework &HIRF) {
+  ModifiedHIR = false;
+
+  // Don't bother inserting directives if the target doesn't support
+  // vector registers.
+  auto TTI = &AM.getResult<TargetIRAnalysis>(F);
+  if (!TTI->getNumberOfRegisters(
+          TTI->getRegisterClassForType(/*Vector*/ true))) {
+    LLVM_DEBUG(dbgs() << "Vec Directive Insertion disabled"
+                         " for target lacking vector registers.\n");
+    return PreservedAnalyses::all();
+  }
+
   auto HPVA = &AM.getResult<HIRParVecAnalysisPass>(F);
   const bool OuterVec = this->OuterVec && !OuterVecDisabled;
-  ModifiedHIR = false;
   if (shouldRunOnFunction(F, OuterVec)) {
     ModifiedHIR = ParVecDirectiveInsertion(
                       OuterVec ? ParVecInfo::VectorForVectorizer

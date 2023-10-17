@@ -55,11 +55,6 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   target_link_libraries(LLVMTestingSupport_stdcpp PRIVATE llvm_gtest_stdcpp)
 endif()
 if (WIN32)
-  if (${CMAKE_BUILD_TYPE} MATCHES Debug)
-    set(_STL_LIB "/MDd")
-  else()
-    set(_STL_LIB "/MD")
-  endif()
   add_llvm_library(LLVMTestingSupport_dyn
     Error.cpp
     SupportHelpers.cpp
@@ -71,10 +66,9 @@ if (WIN32)
 
     LINK_COMPONENTS
     Support_dyn
-
-    STDLIB
-    ${_STL_LIB}
   )
+  set_property(TARGET LLVMTestingSupport_dyn
+               PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   target_link_libraries(LLVMTestingSupport_dyn PRIVATE llvm_gtest_dyn)
 endif()
 # end INTEL_CUSTOMIZATION

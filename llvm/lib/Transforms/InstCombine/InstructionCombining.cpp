@@ -2844,8 +2844,7 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   if (preserveForDTrans())
     return nullptr;
 
-  if (getTargetTransformInfo().isAdvancedOptEnabled(
-      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42))
+  if (HasAdvSSE42)
     if (auto SimplifiedGEP = simplifySplatGEPIndex(GEP, Builder))
       return SimplifiedGEP;
 
@@ -5185,6 +5184,15 @@ static bool combineInstructionsOverFunction(
                         EnableFcmpMinMaxCombine, PreserveAddrCompute,
                         EnableUpCasting, EnableCanonicalizeSwap, AA, AC, TLI,
                         TTI, DT, ORE, BFI, PSI, DL, LI);
+    if (F.getParent()->getTargetTriple().find("86") != std::string::npos) {
+      // TTI may not be fully initialized in internal lit-testing
+      IC.HasAdvSSE42 = TTI.isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42);
+      IC.HasAdvAVX2 = TTI.isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);
+      IC.HasAdvAVX512 = TTI.isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512);
+    }
 #endif // INTEL_CUSTOMIZATION
     IC.MaxArraySizeForCombine = MaxArraySize;
     bool MadeChangeInThisIteration = IC.prepareWorklist(F, RPOT);

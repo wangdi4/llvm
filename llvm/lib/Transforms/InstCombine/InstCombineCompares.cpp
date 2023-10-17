@@ -2907,11 +2907,9 @@ Instruction *InstCombinerImpl::foldICmpSubConstant(ICmpInst &Cmp,
   //       for a loop test. If the backend could undo this (and possibly
   //       subsequent transforms), we would not need this hack.
 #if INTEL_CUSTOMIZATION
-  bool AVX512 = getTargetTransformInfo().isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512);
   // For AVX512, make sure there is only one use.
   // This transform may cause suboptimal X86 instruction selection.
-  if ((!AVX512 || Sub->hasOneUse()) && Cmp.isEquality() && C.isZero() &&
+  if ((!HasAdvAVX512 || Sub->hasOneUse()) && Cmp.isEquality() && C.isZero() &&
 #endif // INTEL_CUSTOMIZATION
       none_of((Sub->users()), [](const User *U) { return isa<PHINode>(U); }))
     return new ICmpInst(Pred, X, Y);
@@ -4070,8 +4068,16 @@ Instruction *InstCombinerImpl::foldICmpInstWithConstantNotInt(ICmpInst &I) {
           Constant::getNullValue(LHSI->getOperand(0)->getType()));
     break;
   case Instruction::PHI:
-    if (Instruction *NV = foldOpIntoPhi(I, cast<PHINode>(LHSI)))
-      return NV;
+#if INTEL_CUSTOMIZATION
+    // (restored from llorg. Let our multi-block jump threading take care of
+    // these cases)
+    // Only fold icmp into the PHI if the phi and icmp are in the same
+    // block.  If in the same block, we're encouraging jump threading.  If
+    // not, we are just pessimizing the code by making an i1 phi.
+    if (LHSI->getParent() == I.getParent() || !HasAdvAVX2)
+      if (Instruction *NV = foldOpIntoPhi(I, cast<PHINode>(LHSI)))
+        return NV;
+#endif // INTEL_CUSTOMIZATION
     break;
   case Instruction::IntToPtr:
     // icmp pred inttoptr(X), null -> icmp pred X, 0
@@ -8085,8 +8091,16 @@ Instruction *InstCombinerImpl::visitFCmpInst(FCmpInst &I) {
   if (match(Op0, m_Instruction(LHSI)) && match(Op1, m_Constant(RHSC))) {
     switch (LHSI->getOpcode()) {
     case Instruction::PHI:
-      if (Instruction *NV = foldOpIntoPhi(I, cast<PHINode>(LHSI)))
-        return NV;
+#if INTEL_CUSTOMIZATION
+      // (restored from llorg. Let our multi-block jump threading take care of
+      // these cases)
+      // Only fold fcmp into the PHI if the phi and fcmp are in the same
+      // block.  If in the same block, we're encouraging jump threading.  If
+      // not, we are just pessimizing the code by making an i1 phi.
+      if (LHSI->getParent() == I.getParent() || !HasAdvAVX2)
+        if (Instruction *NV = foldOpIntoPhi(I, cast<PHINode>(LHSI)))
+          return NV;
+#endif // INTEL_CUSTOMIZATION
       break;
     case Instruction::SIToFP:
     case Instruction::UIToFP:

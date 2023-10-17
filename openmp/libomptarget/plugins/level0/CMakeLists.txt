@@ -70,12 +70,6 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
                                -Wno-deprecated-declarations)
       endif()
       set_property(TARGET omptarget.sycl.wrap PROPERTY CXX_STANDARD 17)
-
-      if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
-        # Statically link C run-time library on Windows.
-        # Otherwise, we cannot use LLVMObject and LLVMSupport.
-        set_msvc_crt_flags(omptarget.rtl.level0)
-      endif()
     endif(INTEL_CUSTOMIZATION)
 
     if(NOT OPENMP_STANDALONE_BUILD)

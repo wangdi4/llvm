@@ -13,6 +13,7 @@
 
 #include "HIRLoopDistribution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForMemRecPass.h"
@@ -36,13 +37,13 @@ PreservedAnalyses HIRLoopDistributionForMemRecPass::runImpl(
   }
 
   ModifiedHIR =
-      HIRLoopDistribution(HIRF, AM.getResult<TargetLibraryAnalysis>(F),
-                          AM.getResult<HIRDDAnalysisPass>(F),
-                          AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                          AM.getResult<HIRSparseArrayReductionAnalysisPass>(F),
-                          AM.getResult<HIRLoopResourceAnalysis>(F),
-                          AM.getResult<HIRLoopLocalityAnalysis>(F),
-                          DistHeuristics::BreakMemRec)
+      HIRLoopDistribution(
+          HIRF, AM.getResult<TargetLibraryAnalysis>(F),
+          AM.getResult<TargetIRAnalysis>(F), AM.getResult<HIRDDAnalysisPass>(F),
+          AM.getResult<HIRSafeReductionAnalysisPass>(F),
+          AM.getResult<HIRSparseArrayReductionAnalysisPass>(F),
+          AM.getResult<HIRLoopResourceAnalysis>(F),
+          AM.getResult<HIRLoopLocalityAnalysis>(F), DistHeuristics::BreakMemRec)
           .run();
 
   return PreservedAnalyses::all();

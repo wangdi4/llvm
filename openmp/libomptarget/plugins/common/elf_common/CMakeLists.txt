@@ -37,12 +37,6 @@ else()
 endif()
 
 target_link_libraries(elf_common PUBLIC ${llvm_libs} ${OPENMP_PTHREAD_LIB})
-# Statically link C run-time library on Windows.
-# Otherwise, we cannot use LLVMObject and LLVMSupport.
-# Alternatively we can link LLVMSupport_dyn (which we already build)
-# and LLVMObject_dyn (yet another component library to be built
-# in two flavors).
-set_msvc_crt_flags(elf_common)
 
 # Build elf_common with PIC to be able to link it with plugin shared libraries.
 set_property(TARGET elf_common PROPERTY POSITION_INDEPENDENT_CODE ON)

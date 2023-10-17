@@ -45,6 +45,10 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include "llvm/Transforms/Utils/Local.h"
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#endif // INTEL_COLLAB
 #include <cassert>
 
 #define DEBUG_TYPE "instcombine"
@@ -157,6 +161,12 @@ public:
   Instruction *recognizePopcnt(BinaryOperator &I);
   Instruction *OptimizeICmpInstSize(ICmpInst &ICI, Value *Op0, Value *Op1);
 
+  // computed at runtime in combineInstructionsOverFunction.
+  // True if the -xNNN is enabled for that architecture or above
+  // (-xCORE-AVX512 will have HasAdvAVX2 also)
+  bool HasAdvSSE42{false};
+  bool HasAdvAVX512{false};
+  bool HasAdvAVX2{false};
   bool hasUnsafeFPMathAttrSet(Instruction &I) {
     const Function &F = I.getParent()->getParent()->getFunction();
     if (F.hasFnAttribute("unsafe-fp-math")) {
@@ -171,14 +181,8 @@ public:
     // Suppress min/max: for AVX2 always, and AVX512 before loopopt. Avoids
     // vectorization cases that don't produce optimal codegen.
     // CMPLRLLVM-36522,37173,37342
-    auto HasAVX512 =
-        TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
-    auto HasAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
-    auto &TTI = getTargetTransformInfo();
-    return TTI.isAdvancedOptEnabled(HasAVX2) &&
-               !TTI.isAdvancedOptEnabled(HasAVX512) ||
-           TTI.isAdvancedOptEnabled(HasAVX512) &&
-               I->getFunction()->isPreLoopOpt();
+    return HasAdvAVX2 && !HasAdvAVX512 ||
+           HasAdvAVX512 && I->getFunction()->isPreLoopOpt();
   }
 #endif // INTEL_CUSTOMIZATION
   Instruction *FoldShiftByConstant(Value *Op0, Constant *Op1,
@@ -528,6 +532,13 @@ public:
     assert(I.use_empty() && "Cannot erase instruction that is used!");
     salvageDebugInfo(I);
 
+#if INTEL_COLLAB
+    // If the dead instruction is an OMP end directive, the corresponding
+    // begin must be deleted also.
+    CallInst *BeginDir = nullptr;
+    if (vpo::VPOAnalysisUtils::isEndDirective(&I))
+      BeginDir = dyn_cast<CallInst>(I.getOperand(0));
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
     //
     // CMPLRLLVM-21632: If 'I' is a CallBase feeding a potentially dead
@@ -563,6 +574,11 @@ public:
 #endif // INTEL_CUSTOMIZATION
     for (Value *Op : Ops)
       Worklist.handleUseCountDecrement(Op);
+#if INTEL_COLLAB
+    // Recursive call is OK, max 1 level
+    if (BeginDir)
+      eraseInstFromFunction(*BeginDir);
+#endif // INTEL_COLLAB
     MadeIRChange = true;
     return nullptr; // Don't do anything with FI
   }

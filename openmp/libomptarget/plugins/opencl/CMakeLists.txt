@@ -56,14 +56,6 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
       ${LIBOMPTARGET_LLVM_INCLUDE_DIRS}
     )
 
-    if(INTEL_CUSTOMIZATION)
-      if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
-        # Statically link C run-time library on Windows.
-        # Otherwise, we cannot use LLVMObject and LLVMSupport.
-        set_msvc_crt_flags(omptarget.rtl.opencl)
-      endif()
-    endif(INTEL_CUSTOMIZATION)
-
     if (NOT OPENMP_STANDALONE_BUILD)
       # We have to disable EH for Windows compilation.
       # For standalone OpenMP build, we need to come up

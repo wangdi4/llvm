@@ -487,13 +487,16 @@ ResolveSubGroupWICallPass::replaceSubGroupBarrier(Instruction *InsertBefore,
 // while other slice builtins will assume VF == RowSliceLength == 1.
 Value *ResolveSubGroupWICallPass::replaceGetSubGroupSliceLength(
     Instruction *InsertBefore, Value *VFVal, int32_t) {
+  IRBuilder<> Builder(InsertBefore);
   auto *CI = cast<CallInst>(InsertBefore);
-  unsigned VF = cast<ConstantInt>(VFVal)->getZExtValue();
   unsigned TotalElementCount =
       cast<ConstantInt>(CI->getArgOperand(0))->getZExtValue();
-  assert(VF != 0);
-  // ceil(TotalElementCount / VF)
-  return ConstantInt::get(CI->getType(), (TotalElementCount + VF - 1) / VF);
+  assert(TotalElementCount != 0 && "Matrix size is zero!");
+  // ceil(TotalElementCount / VF) == ((TotalElementCount - 1 + VF) / VF)
+  auto *Add = Builder.CreateAdd(
+      VFVal, ConstantInt::get(VFVal->getType(), TotalElementCount - 1), "",
+      true, true);
+  return Builder.CreateUDiv(Add, VFVal);
 }
 
 void ResolveSubGroupWICallPass::resolveGetSubGroupRowSliceId(

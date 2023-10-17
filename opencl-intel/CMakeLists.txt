@@ -26,6 +26,14 @@ else()
   set(OPENCL_INTREE_BUILD ON)
 endif()
 
+# This is a workaround for the following CMake bug:
+# https://gitlab.kitware.com/cmake/cmake/-/issues/21462
+# A fix was merged and will seemingly be in 3.24+.
+set(CMAKE_ASM_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreaded         "")
+set(CMAKE_ASM_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreadedDLL      "")
+set(CMAKE_ASM_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreadedDebug    "")
+set(CMAKE_ASM_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreadedDebugDLL "")
+
 # Project-wise options
 option(GIT_REVISIONS "Make package version from git revision" ON)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)

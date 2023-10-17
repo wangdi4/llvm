@@ -1835,6 +1835,11 @@ bool HLLoop::normalize(bool AllowExplicitBoundInst,
 
         // Add livein symbases to parent loops used in current loop lower bound.
         if (NodeModified && !LowerRefSymbases.empty()) {
+          // It is possible that the lower bound of one of the children loops
+          // was modified, but none of its instructions was changed. We still
+          // need to add LowerRefSymbases to that child loop as live-in.
+          if (auto *Lp = dyn_cast<HLLoop>(Node))
+            Lp->addLiveInTemp(LowerRefSymbases);
           for (auto *ParentLoop = Node->getParentLoop(); ParentLoop != this;
                ParentLoop = ParentLoop->getParentLoop()) {
             ParentLoop->addLiveInTemp(LowerRefSymbases);

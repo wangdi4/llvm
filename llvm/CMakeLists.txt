@@ -57,12 +57,6 @@ endif()
 
 set(INTEL_CUSTOMIZATION ON)
 
-if (INTEL_CUSTOMIZATION)
-# CMP0091 introduces a new "MSVC_RUNTIME_LIBRARY" abstraction to select the
-# MSVC runtime library, but various subprojects are not yet aware of this.
-cmake_policy(SET CMP0091 OLD)
-endif (INTEL_CUSTOMIZATION)
-
 if ((CMAKE_GENERATOR MATCHES "Visual Studio") AND (MSVC_TOOLSET_VERSION LESS 142) AND (CMAKE_GENERATOR_TOOLSET STREQUAL ""))
   message(WARNING "Visual Studio generators use the x86 host compiler by "
                   "default, even for 64-bit targets. This can result in linker "
@@ -999,30 +993,16 @@ set(LLVM_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
 if (UWD_BUILD)
   add_definitions( -DWINDOWS_ONECORE )
   if (CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(LLVM_USE_CRT_RELEASE "MT" CACHE STRING "Link rintime library statically" FORCE)
     set(CMAKE_STANDARD_LIBRARIES "OneCore.lib libcmt.lib libvcruntime.lib libucrt.lib"
         CACHE STRING "Building with OneCore.lib" FORCE)
   elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(LLVM_USE_CRT_DEBUG "MTd" CACHE STRING "Link rintime library statically" FORCE)
     set(CMAKE_STANDARD_LIBRARIES "OneCore.lib libcmtd.lib libvcruntimed.lib libucrtd.lib"
         CACHE STRING "Building with OneCore.lib" FORCE)
   endif()
-  if (LLVM_BUILD_32_BITS)
-    # FIXME: This is a workaround to make sure "/MD[d]" are replaced by "/MT[d]"
-    # for windows 32bit build. Because upstream clean up old code for handling MSVC
-    # runtime setting in commit 9f4dfcb795bb. 
-    # CMP0091 policy introduces a new "MSVC_RUNTIME_LIBRARY" abstraction to select the
-    # MSVC runtime library. After it is enabled, this should be
-    # removed, and use CMAKE_MSVC_RUNTIME_LIBRARY to set MSVC runtime flag.
-    foreach(flag_var
-      CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
-      CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
-      CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-      CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-      string(REGEX REPLACE "[/-]MDd" "/MTd" ${flag_var} "${${flag_var}}")
-      string(REGEX REPLACE "[/-]MD" "/MT" ${flag_var} "${${flag_var}}")
-    endforeach()
-  endif()
+
+  # Choose (static) MultiThreaded unless the build configuration is "Debug", in
+  # which case we choose MultiThreadedDebug.
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 #end INTEL_CUSTOMIZATION
 if(WIN32 OR CYGWIN)

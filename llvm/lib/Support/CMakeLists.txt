@@ -328,14 +328,9 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
                PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
 endif()
 if (WIN32)
-  if (${CMAKE_BUILD_TYPE} MATCHES Debug)
-    set(_STL_FLAG "/MDd")
-  else()
-    set(_STL_FLAG "/MD")
-  endif()
   add_llvm_component_library(LLVMSupport_dyn ${SUPPORT_SOURCES}
-                             LINK_COMPONENTS Demangle
-                             STDLIB "${_STL_FLAG}")
+                             LINK_COMPONENTS Demangle)
+  set_property(TARGET LLVMSupport_dyn PROPERTY MSVC_RUNTIME_LIBRARY  "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   set_property(TARGET LLVMSupport_dyn
                PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
 endif()

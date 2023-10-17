@@ -17,6 +17,7 @@
 
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
@@ -72,6 +73,18 @@ cl::opt<bool> AlwaysStripmine(
         "Forces HIR Loop Distribution to always allow stripmine if possible."),
     cl::Hidden, cl::init(false));
 
+cl::opt<bool> SkipVectorizationProfitabilityCheck(
+    "hir-loop-distribute-skip-vectorization-profitability-check",
+    cl::desc("Skips checks to see whether a PiBlock is profitable for "
+             "vectorization."),
+    cl::Hidden, cl::init(false));
+
+cl::opt<unsigned> SubstantialComputationThreshold(
+    "hir-loop-distribute-substantial-computation-threshold",
+    cl::desc("Threshold for what classifies as substantial computation. It is "
+             "used to scale allowed scalar expanded temps."),
+    cl::Hidden, cl::init(25));
+
 const std::string DistributeLoopnestEnable =
     "intel.loop.distribute.loopnest.enable";
 
@@ -113,6 +126,28 @@ mergeAndSortPiBlocks(ArrayRef<PiBlockList> GroupsOfPiBlocks,
   }
 }
 
+// Scale the threshold by some factor if vectorizable chunks have substantial
+// computation.
+unsigned HIRLoopDistribution::getScaledScalarExpandedTempThreshold() const {
+  unsigned ScaledThreshold = MaxScalarExpandedTemps;
+
+  for (auto &CVI : make_range(ChunkVecInfos.begin(), ChunkVecInfos.end())) {
+    if (!CVI.isLegal())
+      continue;
+
+    unsigned ComputationEstimate = (2 * CVI.NumCalls + CVI.NumFPOperations);
+
+    if (ComputationEstimate > (2 * SubstantialComputationThreshold)) {
+      ScaledThreshold = 3 * MaxScalarExpandedTemps;
+      break;
+    } else if (ComputationEstimate > SubstantialComputationThreshold) {
+      ScaledThreshold = 2 * MaxScalarExpandedTemps;
+    }
+  }
+
+  return ScaledThreshold;
+}
+
 bool HIRLoopDistribution::run() {
   if (DisableDist) {
     LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: Transform disabled\n");
@@ -144,6 +179,8 @@ bool HIRLoopDistribution::run() {
                     "heuristics \n");
       continue;
     }
+
+    ChunkVecInfos.clear();
 
     if (Lp->hasDistributePoint()) {
       PragmaReturnCode RC = distributeLoopForDirective(Lp);
@@ -394,12 +431,16 @@ void HIRLoopDistribution::processPiBlocksToHLNodes(
         //
         // Do not move the node if it's already a child of the ControlNode.
         // It may happen if ControlNode is an original HLIf.
-        if (!ControlNode->isThenChild(Node)) {
+        if (!HLNodeUtils::contains(ControlNode, Node,
+                                   false /*IncludePrePostHdr*/,
+                                   true /*AvoidTopSortNum*/)) {
           HLNodeUtils::moveAsLastThenChild(ControlNode, Node);
         }
       } else {
         // Node should be placed under "false" branch of the control node.
-        if (!ControlNode->isElseChild(Node)) {
+        if (!HLNodeUtils::contains(ControlNode, Node,
+                                   false /*IncludePrePostHdr*/,
+                                   true /*AvoidTopSortNum*/)) {
           HLNodeUtils::moveAsLastElseChild(ControlNode, Node);
         }
       }
@@ -1524,9 +1565,69 @@ bool HIRLoopDistribution::loopIsCandidate(HLLoop *Lp) const {
   return true;
 }
 
+// Returns true for a pattern like this-
+// %0 = B[i1];
+// %t = A[%0] + 5;
+// A[%0] = %t;
+//
+// This resembles a VConflict idiom which can be handled by vectorizer.
+// Exact checks are too complicated so we perform approximate checks.
+// Note that this is also a sparse array reduction. We don't need to
+// distribute loops with sparse array reductions if VConflict idiom is
+// supported.
+// The pattern detection is started with the store inst \p SInst.
+static bool isLikeVConflictIdiom(const HLInst *SInst, DDGraph &DDG) {
+  if (!isa<StoreInst>(SInst->getLLVMInstruction()))
+    return false;
+
+  auto *StoreRef = SInst->getLvalDDRef();
+  const BlobDDRef *SingleNonLinearBlobRef = nullptr;
+
+  // Multi-dimensional ref not supported by vectorizer.
+  if (!StoreRef->isNonLinear() || (StoreRef->getNumDimensions() > 1) ||
+      StoreRef->getBaseCE()->isNonLinear() ||
+      !(SingleNonLinearBlobRef = StoreRef->getSingleNonLinearBlobRef()))
+    return false;
+
+  auto *PrevInst = dyn_cast_or_null<HLInst>(SInst->getPrevNode());
+  if (!PrevInst)
+    return false;
+
+  auto *PrevLLVMInst = PrevInst->getLLVMInstruction();
+  if (!isa<BinaryOperator>(PrevLLVMInst))
+    return false;
+
+  if (!DDRefUtils::areEqual(StoreRef, PrevInst->getOperandDDRef(1)) &&
+      (!Instruction::isCommutative(PrevLLVMInst->getOpcode()) ||
+       !DDRefUtils::areEqual(StoreRef, PrevInst->getOperandDDRef(2))))
+    return false;
+
+  if (DDG.getNumIncomingEdges(SingleNonLinearBlobRef) != 1)
+    return false;
+
+  // Verify that the defining inst for the blob is a load inst and the symbase
+  // of the load is different than the store.
+  auto *SrcInst =
+      cast<HLInst>((*DDG.incoming_edges_begin(SingleNonLinearBlobRef))
+                       ->getSrc()
+                       ->getHLDDNode());
+
+  if (!isa<LoadInst>(SrcInst->getLLVMInstruction()))
+    return false;
+
+  if (StoreRef->getSymbase() == SrcInst->getRvalDDRef()->getSymbase())
+    return false;
+
+  LLVM_DEBUG(dbgs() << "Found VConflict like idiom:\n");
+  LLVM_DEBUG(SInst->dump());
+
+  return true;
+}
+
 // Analyzes vectorization info for a PiBlock and populates info in \p CVI.
 struct VectorizationAnalyzer : public HLNodeVisitorBase {
   const TargetLibraryInfo &TLI;
+  const TargetTransformInfo &TTI;
   HIRSafeReductionAnalysis &SRA;
   DDGraph &DDG;
   const std::unique_ptr<PiGraph> &PGraph;
@@ -1536,13 +1637,16 @@ struct VectorizationAnalyzer : public HLNodeVisitorBase {
   ChunkVectorizationInfo &CVI;
 
   VectorizationAnalyzer(const TargetLibraryInfo &TLI,
+                        const TargetTransformInfo &TTI,
                         HIRSafeReductionAnalysis &SRA, DDGraph &DDG,
                         const std::unique_ptr<PiGraph> &PGraph, PiBlock *Blk,
                         const HLLoop *Lp, ChunkVectorizationInfo &CVI)
-      : TLI(TLI), SRA(SRA), DDG(DDG), PGraph(PGraph), Blk(Blk), Lp(Lp),
-        LoopLevel(Lp->getNestingLevel()), CVI(CVI) {}
+      : TLI(TLI), TTI(TTI), SRA(SRA), DDG(DDG), PGraph(PGraph), Blk(Blk),
+        Lp(Lp), LoopLevel(Lp->getNestingLevel()), CVI(CVI) {}
 
   void visit(HLInst *Inst) {
+
+    auto *LLVMInst = Inst->getLLVMInstruction();
 
     if (Inst->isCallInst()) {
       if (!Inst->isVectorizableCall(TLI)) {
@@ -1552,32 +1656,80 @@ struct VectorizationAnalyzer : public HLNodeVisitorBase {
       } else {
         ++CVI.NumCalls;
       }
-    } else if (isa<FPMathOperator>(Inst->getLLVMInstruction())) {
+    } else if (!isa<FCmpInst>(LLVMInst) && isa<FPMathOperator>(LLVMInst)) {
       ++CVI.NumFPOperations;
+    } else if (isa<BinaryOperator>(LLVMInst)) {
+      ++CVI.NumIntOperations;
     }
 
-    visit(cast<HLDDNode>(Inst));
+    // Ignore VClonflict like stores when performing legality checks.
+    if (TTI.hasCDI() && isLikeVConflictIdiom(Inst, DDG))
+      CVI.HasVConflictIdioms = true;
+    else
+      visit(cast<HLDDNode>(Inst));
   }
 
   void visit(HLDDNode *Node) {
+    auto *Inst = dyn_cast<HLInst>(Node);
+
+    bool SkipRednCheck = false;
+
+    if (Inst) {
+      bool IsSingleStmtRedn = false;
+      bool HasUnsafeAlgebra = false;
+
+      bool IsReduction =
+          SRA.isSafeReduction(Inst, &IsSingleStmtRedn, &HasUnsafeAlgebra);
+
+      // Vectorizer does not handle reduction chain for selects or with unsafe
+      // algebra.
+      SkipRednCheck =
+          !IsReduction || HasUnsafeAlgebra ||
+          (isa<SelectInst>(Inst->getLLVMInstruction()) && !IsSingleStmtRedn);
+    }
 
     for (auto *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
 
       if (Ref->isTerminalRef()) {
-        unsigned RedOpcode = 0;
-        // Skip rval temps as checking outgoing edges out of lval temps is
-        // sufficient.
-        // Skip non-livein/reduction temps as they don't prevent vectorization.
-        if (Ref->isRval() || !Lp->isLiveIn(Ref->getSymbase()) ||
-            SRA.isReductionRef(Ref, RedOpcode))
+        // The problem with acumulating statistics for HLIfs is that we don't
+        // know whether they will go into vectorizable or non-vectorizable
+        // chunks due to control dependence. Ignore them for now.
+        if (!Inst)
           continue;
 
-      } else if (Ref->isMemRef()) {
+        // Skip rval temps as checking outgoing edges out of lval temps is
+        // sufficient.
+        if (Ref->isRval()) {
+          if (Ref->isNonLinear())
+            CVI.NumIntOperations +=
+                Ref->getSingleCanonExpr()->getNumOperations();
+
+          continue;
+        }
+
+        // Skip non-livein/reduction temps as they don't prevent vectorization.
+        if (!Lp->isLiveIn(Ref->getSymbase()))
+          continue;
+
+        unsigned RedOpcode = 0;
+        if (!SkipRednCheck && SRA.isReductionRef(Ref, RedOpcode)) {
+          CVI.HasSafeReductions = true;
+          continue;
+        }
+
+      } else if (Ref->isMemRef() && Inst) {
 
         bool IsNegStride = false;
         if (Ref->isUnitStride(LoopLevel, IsNegStride)) {
           ++CVI.NumUnitStrideRefs;
-        } else {
+        } else if (!Ref->isStructurallyInvariantAtLevel(LoopLevel)) {
+          // We ignore structurally invariant refs. In real cases these should
+          // mostly be moved out of the loop unless they are inside
+          // conditions. The lit tests seem to have many memrefs of the form
+          // undef[0] which we want to avoid analyzing as non-unit stride refs.
+          // Note that if there were dependencies preventing this memref from
+          // being moved out of the loop, the chunk would likely not be
+          // vectorizable.
           ++CVI.NumNonUnitStrideRefs;
         }
       }
@@ -1615,7 +1767,30 @@ struct VectorizationAnalyzer : public HLNodeVisitorBase {
   void postVisit(HLNode *) {}
 
   bool isDone() const { return !CVI.IsLegal && !CVI.IsLegalAfterDistribution; }
+
+  // Main function to trigger analysis;
+  void analyze();
 };
+
+// Checks if current PiBlock is legally vectorizable and collects statistics for
+// evaluating vectorization's profitability.
+void VectorizationAnalyzer::analyze() {
+
+  for (auto *DistPPNode :
+       make_range(Blk->dist_node_begin(), Blk->dist_node_end())) {
+
+    // Skip recursive traversal for control nodes as they are just if conditions
+    // by themselves. Inner nodes are in a separate pi block.
+    if (DistPPNode->isControlNode()) {
+      HLNodeUtils::visit<false>(*this, DistPPNode->getNode());
+    } else {
+      HLNodeUtils::visit(*this, DistPPNode->getNode());
+    }
+
+    if (isDone())
+      break;
+  }
+}
 
 // Right now we are checking whether this PiBlock contains any sparse
 // array reduction instructions. Later we may want to modify to match more
@@ -2057,6 +2232,7 @@ bool HIRLoopDistributionLegacyPass::runOnFunction(Function &F) {
   return HIRLoopDistribution(
              getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
              getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
+             getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
              getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
              getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
              getAnalysis<HIRSparseArrayReductionAnalysisWrapperPass>()

@@ -1637,7 +1637,8 @@ HIRIdiomAnalyzer::collectLoadsStores(const SetVector<HLInst *> &Increments) {
 
         DDEdge *NonLinBlobEdge = *DDG.incoming_edges_begin(BlobRef);
         HLDDNode *NonLinBlobDefNode = NonLinBlobEdge->getSrc()->getHLDDNode();
-        if (HLNodeUtils::isInTopSortNumRange(NonLinBlobDefNode, Node, SinkNode))
+        if ((Node->getTopSortNum() <= SinkNode->getTopSortNum()) &&
+            HLNodeUtils::isInTopSortNumRange(NonLinBlobDefNode, Node, SinkNode))
           return Failure("Data-dependency on redefined index found", SinkRef);
       }
 
