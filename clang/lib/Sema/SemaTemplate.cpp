@@ -4999,7 +4999,7 @@ ExprResult Sema::BuildTemplateIdExpr(const CXXScopeSpec &SS,
       return ExprError();
     }
   }
-
+  bool KnownDependent = false;
   // In C++1y, check variable template ids.
   if (R.getAsSingle<VarTemplateDecl>()) {
     ExprResult Res = CheckVarTemplateId(SS, R.getLookupNameInfo(),
@@ -5008,6 +5008,7 @@ ExprResult Sema::BuildTemplateIdExpr(const CXXScopeSpec &SS,
     if (Res.isInvalid() || Res.isUsable())
       return Res;
     // Result is dependent. Carry on to build an UnresolvedLookupEpxr.
+    KnownDependent = true;
   }
 
   if (R.getAsSingle<ConceptDecl>()) {
@@ -5019,13 +5020,10 @@ ExprResult Sema::BuildTemplateIdExpr(const CXXScopeSpec &SS,
   // We don't want lookup warnings at this point.
   R.suppressDiagnostics();
 
-  UnresolvedLookupExpr *ULE
-    = UnresolvedLookupExpr::Create(Context, R.getNamingClass(),
-                                   SS.getWithLocInContext(Context),
-                                   TemplateKWLoc,
-                                   R.getLookupNameInfo(),
-                                   RequiresADL, TemplateArgs,
-                                   R.begin(), R.end());
+  UnresolvedLookupExpr *ULE = UnresolvedLookupExpr::Create(
+      Context, R.getNamingClass(), SS.getWithLocInContext(Context),
+      TemplateKWLoc, R.getLookupNameInfo(), RequiresADL, TemplateArgs,
+      R.begin(), R.end(), KnownDependent);
 
   return ULE;
 }
