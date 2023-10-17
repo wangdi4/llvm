@@ -45,6 +45,10 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include "llvm/Transforms/Utils/Local.h"
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#endif // INTEL_COLLAB
 #include <cassert>
 
 #define DEBUG_TYPE "instcombine"
@@ -528,6 +532,13 @@ public:
     assert(I.use_empty() && "Cannot erase instruction that is used!");
     salvageDebugInfo(I);
 
+#if INTEL_COLLAB
+    // If the dead instruction is an OMP end directive, the corresponding
+    // begin must be deleted also.
+    CallInst *BeginDir = nullptr;
+    if (vpo::VPOAnalysisUtils::isEndDirective(&I))
+      BeginDir = dyn_cast<CallInst>(I.getOperand(0));
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
     //
     // CMPLRLLVM-21632: If 'I' is a CallBase feeding a potentially dead
@@ -563,6 +574,11 @@ public:
 #endif // INTEL_CUSTOMIZATION
     for (Value *Op : Ops)
       Worklist.handleUseCountDecrement(Op);
+#if INTEL_COLLAB
+    // Recursive call is OK, max 1 level
+    if (BeginDir)
+      eraseInstFromFunction(*BeginDir);
+#endif // INTEL_COLLAB
     MadeIRChange = true;
     return nullptr; // Don't do anything with FI
   }
