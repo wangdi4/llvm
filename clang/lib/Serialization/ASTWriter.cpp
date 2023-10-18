@@ -7357,6 +7357,15 @@ void OMPClauseWriter::VisitOMPXDynCGroupMemClause(OMPXDynCGroupMemClause *C) {
   Record.AddSourceLocation(C->getLParenLoc());
 }
 
+#if INTEL_CUSTOMIZATION
+void OMPClauseWriter::VisitOMPXRegisterAllocModeClause(
+    OMPXRegisterAllocModeClause *C) {
+  Record.writeEnum(C->getModeKind());
+  Record.AddSourceLocation(C->getLParenLoc());
+  Record.AddSourceLocation(C->getModeKindLoc());
+}
+#endif // INTEL_CUSTOMIZATION
+
 void OMPClauseWriter::VisitOMPDoacrossClause(OMPDoacrossClause *C) {
   Record.push_back(C->varlist_size());
   Record.push_back(C->getNumLoops());

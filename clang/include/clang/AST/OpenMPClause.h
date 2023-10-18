@@ -9959,6 +9959,83 @@ public:
   Expr *getSize() const { return getStmtAs<Expr>(); }
 };
 
+#if INTEL_CUSTOMIZATION
+/// This represents 'ompx_register_alloc_mode' clause in the
+/// '#pragma omp target ...' directive.
+///
+/// \code
+/// #pragma omp target [...] ompx_register_alloc_mode(mode)
+/// \endcode
+class OMPXRegisterAllocModeClause final : public OMPClause {
+  friend class OMPClauseReader;
+
+  /// Location of '('
+  SourceLocation LParenLoc;
+
+  /// The mode kind of 'ompx_register_alloc_mode' clause.
+  OpenMPXRegisterAllocModeKind Kind = OMPC_REGISTER_ALLOC_MODE_unknown;
+
+  /// Start location of the kind in source code.
+  SourceLocation KindLoc;
+
+  /// Set the locatoin of '('.
+  void setLParentLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  /// Set the mode kind.
+  void setModeKind(OpenMPXRegisterAllocModeKind K) { Kind = K; }
+
+  /// Set the mode kind location.
+  void setModeKindLoc(SourceLocation KLoc) { KindLoc = KLoc; }
+
+public:
+  /// Build 'ompx_register_alloc_mode' clause with kind \a K ('default',
+  /// 'auto', 'small', 'large').
+  ///
+  /// \param K mode kind of the clause ('default', 'auto', 'small', 'large').
+  /// \param KLoc Starting location of the mode kind.
+  /// \param StartLoc starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  OMPXRegisterAllocModeClause(OpenMPXRegisterAllocModeKind K,
+                              SourceLocation KLoc, SourceLocation StartLoc,
+                              SourceLocation LParenLoc, SourceLocation EndLoc)
+      : OMPClause(llvm::omp::OMPC_ompx_register_alloc_mode, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), Kind(K), KindLoc(KLoc) {}
+
+  /// Build an empty clause.
+  OMPXRegisterAllocModeClause()
+      : OMPClause(llvm::omp::OMPC_ompx_register_alloc_mode, SourceLocation(),
+                  SourceLocation()) {}
+
+  /// Returns the location of '('.
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+
+  /// Return the mode Kind.
+  OpenMPXRegisterAllocModeKind getModeKind() const { return Kind; }
+
+  /// Returns location of clause kind.
+  SourceLocation getModeKindLoc() const { return KindLoc; }
+  child_range children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_ompx_register_alloc_mode;
+  }
+};
+#endif // INTEL_CUSTOMIZATION
+
 /// This represents the 'doacross' clause for the '#pragma omp ordered'
 /// directive.
 ///

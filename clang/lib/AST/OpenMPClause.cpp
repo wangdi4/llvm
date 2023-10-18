@@ -149,6 +149,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
   case OMPC_ompx_assert:
+  case OMPC_ompx_register_alloc_mode:
 #endif // INTEL_CUSTOMIZATION
   case OMPC_private:
   case OMPC_shared:
@@ -316,6 +317,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
   case OMPC_ompx_assert:
+  case OMPC_ompx_register_alloc_mode:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -2850,6 +2852,16 @@ void OMPClausePrinter::VisitOMPXDynCGroupMemClause(
   Node->getSize()->printPretty(OS, nullptr, Policy, 0);
   OS << ")";
 }
+
+#if INTEL_CUSTOMIZATION
+void OMPClausePrinter::VisitOMPXRegisterAllocModeClause(
+    OMPXRegisterAllocModeClause *Node) {
+  OS << "ompx_register_alloc_mode("
+     << getOpenMPSimpleClauseTypeName(OMPC_ompx_register_alloc_mode,
+                                      unsigned(Node->getModeKind()))
+     << ")";
+}
+#endif // INTEL_CUSTOMIZATION
 
 void OMPClausePrinter::VisitOMPDoacrossClause(OMPDoacrossClause *Node) {
   OS << "doacross(";

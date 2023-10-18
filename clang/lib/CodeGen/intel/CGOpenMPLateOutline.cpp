@@ -3185,6 +3185,10 @@ void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *Cl) {
   assert(false && "clauses handled in emitOMPAllAffinityClauses");
 }
+#if INTEL_CUSTOMIZATION
+void OpenMPLateOutliner::emitOMPXRegisterAllocModeClause(
+    const OMPXRegisterAllocModeClause *C) {}
+#endif // INTEL_CUSTOMIZATION
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
 void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
