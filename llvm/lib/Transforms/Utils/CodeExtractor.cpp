@@ -313,19 +313,15 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              bool AggregateArgs, BlockFrequencyInfo *BFI,
                              BranchProbabilityInfo *BPI, AssumptionCache *AC,
                              bool AllowVarArgs, bool AllowAlloca,
-<<<<<<< HEAD
 #if INTEL_COLLAB
                              BasicBlock *AllocationBlock, std::string Suffix,
                              bool AllowEHTypeID, bool AllowUnreachableBlocks,
                              const OrderedArgs *TgtClauseArgs,
                              bool SimdPrivatization)
 #else  // INTEL_COLLAB
-                             BasicBlock *AllocationBlock, std::string Suffix)
-#endif // INTEL_COLLAB
-=======
                              BasicBlock *AllocationBlock, std::string Suffix,
                              bool ArgsInZeroAddressSpace)
->>>>>>> eee8dd90887cbf86fa0fea1ff770377a87af0257
+#endif // INTEL_COLLAB
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
       BPI(BPI), AC(AC), AllocationBlock(AllocationBlock),
       AllowVarArgs(AllowVarArgs),
@@ -336,12 +332,9 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
       DeclLoc(),
 #else  // INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
-<<<<<<< HEAD
+      ArgsInZeroAddressSpace(ArgsInZeroAddressSpace)
 #endif // INTEL_COLLAB
       Suffix(Suffix) {}
-=======
-      Suffix(Suffix), ArgsInZeroAddressSpace(ArgsInZeroAddressSpace) {}
->>>>>>> eee8dd90887cbf86fa0fea1ff770377a87af0257
 
 CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
                              BlockFrequencyInfo *BFI,
