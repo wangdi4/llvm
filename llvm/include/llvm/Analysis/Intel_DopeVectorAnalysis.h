@@ -84,8 +84,8 @@ using UplevelDVField = std::pair<Value *, uint64_t>;
 
 // Helper routine for checking and getting a constant integer from a GEP
 // operand. If the value is not a constant, returns an empty object.
-extern std::optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
-                                           unsigned int OpNum);
+extern std::optional<uint64_t> getConstGEPIndex(GEPOperator &GEP,
+                                                unsigned int OpNum);
 
 // Helper routine to get the argument index corresponding to \p Val within the
 // call \p CI. If the operand is not passed to the function, or is in more than
@@ -199,16 +199,19 @@ public:
     for (StoreInst *SI : stores()) {
       if (auto CI = dyn_cast<ConstantInt>(SI->getValueOperand()))
         if (CI->isZero())
-          if (numFieldAddrs() == 1)
-            if (SI->getPrevNonDebugInstruction() == getFieldAddr(0))
-              continue;
+          if (SI->getPointerOperand() == SI->getPrevNonDebugInstruction())
+            continue;
       if (RSI)
         return nullptr;
       RSI = SI;
     }
     return RSI ? RSI->getValueOperand() : nullptr;
   }
-  void addFieldAddr(Value *V, bool IsNotForDVCP = false) {
+  // Add 'V' as a field address. If 'IsNotForDVCP', this is not for
+  // dope vector constant propagation. If 'SubsOnly', only look
+  // through subscript uses of 'V' to find loads and stores.
+  void addFieldAddr(Value *V, bool IsNotForDVCP = false,
+                    bool SubsOnly = false) {
     // If AllowMultipleFieldAddresses is disabled then only one
     // value should access the current field.
     if (!AllowMultipleFieldAddresses &&
@@ -217,6 +220,8 @@ public:
     FieldAddr.insert(V);
     if (IsNotForDVCP)
       NotForDVCPFieldAddr.insert(V);
+    if (SubsOnly)
+      SubsOnlyFieldAddr.insert(V);
   }
 
   // Check if the field address has been set.
@@ -319,10 +324,13 @@ public:
   // to assign FieldVector[1], ..., FieldVector[Rank]. See the example under
   // analyzeUsesWithDims() above.
   bool analyzeLoadStoreOrSubscriptWithDims(
-      Value *V, Value *Pointer, bool IsNotForDVCP,
+      Value *V, Value *Pointer, bool IsNotForDVCP, bool SubsOnly,
       SmallVector<DopeVectorFieldUse, 4> &FieldVector, uint64_t DimIndex);
   bool isAddrNotForDVCP(Value* Addr) const {
     return NotForDVCPFieldAddr.contains(Addr);
+  }
+  bool isAddrSubsOnly(Value *Addr) const {
+    return SubsOnlyFieldAddr.contains(Addr);
   }
 
   LoadInstSet &getLoadsSet() { return Loads; }
@@ -340,6 +348,8 @@ private:
   // SetVector that contains the addresses for the field that should not
   // be used for dope vector constant propagation.
   SetVector<Value *> NotForDVCPFieldAddr;
+
+  SetVector<Value *> SubsOnlyFieldAddr;
 
   // Set of locations the field is written to. Used to check what
   // value(s) is stored.
@@ -634,18 +644,70 @@ public:
   //
   // The default value is 0.
   static DopeVectorFieldType
-  identifyDopeVectorField(const GEPOperator &GEP, uint64_t DopeVectorIndex = 0);
+  identifyDopeVectorField(GEPOperator &GEP, uint64_t DopeVectorIndex = 0);
 
-  // Similar to identifyDopeVectorField(), but set the value of 'DimIndex'
-  // to indicate which dimension of the dimension vector is being indexed
-  // by 'GEP'. This is particularly useful in the when GEP collapsing is
-  // performed after InstCombine. For example, if 'GEP' is:
-  //   %"var$236_fetch.2590.fca.6.1.0.gep" =
-  //       getelementptr inbounds %"QNCA_a0$float*$rank2$",
-  //           ptr %"evlrnf_$UTRSBT", i64 0, i32 6, i64 1, i32 0
-  // 'DimIndex" is set to 1.
-  static DopeVectorFieldType identifyDopeVectorFieldWithDimIndex(
-      const GEPOperator &GEP, uint64_t &DimIndex, uint64_t DopeVectorIndex = 0);
+  // A 4-tuple representing a GEPOperator for a DimIndex for a specific
+  // DopeVectorFieldType which is either extent, stride, or lower bound,
+  // and a bool which indicates whether only the users of the subscript users
+  // of the GEPOperator should be searched to find loads and stores of
+  // the extent, stride, and lower bounds of the dope vector.
+  using DVQuad = std::tuple<GEPOperator *, unsigned, DopeVectorFieldType, bool>;
+
+  // Similar to identifyDopeVectorField(),create a list of DVQuads each of
+  // which contains a GEPOperator whose users are searched to find loads
+  // and stores of the extent, stride, and lower bounds of a dope vector.
+  // If 'CheckNestedGEPsAndSubs' is 'true', we check for the following
+  // patterns which can appear after InstCombine:
+  //
+  // Pattern 1:
+  //   %"var$236_fetch.2589.fca.6.0.0.gep" = getelementptr inbounds
+  //     %"QNCA_a0$float*$rank2$", ptr %"evlrnf_$DTRSBT",
+  //     i64 0, i32 6, i64 0, i32 0
+  //   (F:0,EX)  store i64 0, ptr %"var$236_fetch.2589.fca.6.0.0.gep", align 8
+  //   %"evlrnf_$DTRSBT.dim_info$.extent$[]" = call ptr
+  //     @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24,
+  //     ptr nonnull elementtype(i64) %"var$236_fetch.2589.fca.6.0.0.gep",
+  //     i32 0)
+  //   (R:0,EX) store i64 %slct.42, ptr %"evlrnf_$DTRSBT.dim_info$.extent$[]",
+  //     align 1
+  //   %"evlrnf_$DTRSBT.dim_info$.extent$[]873" = call ptr
+  //     @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24,
+  //     ptr nonnull elementtype(i64) %"var$236_fetch.2589.fca.6.0.0.gep",
+  //     i32 1)
+  //   (R:1,EX)  store i64 %slct.42, ptr
+  //     %"evlrnf_$DTRSBT.dim_info$.extent$[]873", align 1
+  //
+  // Pattern 2:
+  //   %"var$236_fetch.2589.fca.6.0.0.gep" = getelementptr inbounds
+  //      %"QNCA_a0$float*$rank2$", ptr %"evlrnf_$DTRSBT",
+  //      i64 0, i32 6, i64 0, i32 0
+  //   (F:0,EX) store i64 0, ptr %"var$236_fetch.2589.fca.6.0.0.gep", align 1
+  //   %"evlrnf_$DTRSBT.dim_info$.lower_bound$863" = getelementptr inboundsi
+  //      { i64, i64, i64 }, ptr %"var$236_fetch.2589.fca.6.0.0.gep",
+  //      i64 0, i32 2
+  //   %"evlrnf_$DTRSBT.dim_info$.lower_bound$[]864" = call ptr
+  //      @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24,
+  //      ptr nonnull elementtype(i64)
+  //      %"evlrnf_$DTRSBT.dim_info$.lower_bound$863", i32 0)
+  //   (R:0,LB) store i64 1, ptr %"evlrnf_$DTRSBT.dim_info$.lower_bound$[]864",
+  //      align 1
+  //   %"evlrnf_$DTRSBT.dim_info$.lower_bound$[]870" = call ptr
+  //      @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24,
+  //      ptr nonnull elementtype(i64)
+  //      %"evlrnf_$DTRSBT.dim_info$.lower_bound$863", i32 1)
+  //   (R:1,LB) store i64 1, ptr %"evlrnf_$DTRSBT.dim_info$.lower_bound$[]870",
+  //      align 1
+  //
+  // In the annotation ([F,R]:Dim,Type)
+  // F means a 'fake' store (just there for initialization) while R means
+  // a 'real' store. 'Dim' is the 'DimIndex' and 'Type' is the type, which is
+  // either EX (extent), S (stride), or LB (lower bound)
+  //
+  static bool identifyDopeVectorFieldTypes(GEPOperator &GEP,
+                                           SmallVectorImpl<DVQuad> &GUV,
+                                           uint64_t DopeVectorIndex = 0,
+                                           bool CheckNestedGEPsAndSubs = false,
+                                           unsigned Rank = 0);
 
   // For the per-dimension array, we expect to find a sequence of the following
   // form that gets the address of the per-dimensional fields: (This is the GEP
@@ -669,8 +731,8 @@ public:
   //           i64 0, i32 2
   //
   enum FindResult { FR_Invalid, FR_Valid };
-  std::pair<GetElementPtrInst *, FindResult>
-  findPerDimensionArrayFieldGEP(GetElementPtrInst &GEP,
+  std::pair<GEPOperator *, FindResult>
+  findPerDimensionArrayFieldGEP(GEPOperator &GEP,
                                 DopeVectorRankFields RankFieldType);
   //
   // Find the object that holds the address for the element of the variable
@@ -699,7 +761,7 @@ public:
   //                     i8 0, i64 0, i32 24, i64* %STRIDE, i32 1)
   // %130 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(
   //                     i8 0, i64 0, i32 24, i64* %STRIDE, i32 0)
-  Value *findPerDimensionArrayFieldPtr(GetElementPtrInst &FieldGEP,
+  Value *findPerDimensionArrayFieldPtr(GEPOperator &FieldGEP,
                                        unsigned Dimension);
 
   // Check that the subscript calls are using stride values from the dope
