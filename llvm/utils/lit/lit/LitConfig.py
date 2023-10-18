@@ -38,6 +38,7 @@ class LitConfig(object):
         parallelism_groups={},
         show_final_subst = False, #INTEL
         per_test_coverage=False,
+        disableGTestSharding=False,
     ):
         # The name of the test runner.
         self.progname = progname
@@ -89,6 +90,7 @@ class LitConfig(object):
         self.parallelism_groups = parallelism_groups
         self.show_final_subst = show_final_subst #INTEL
         self.per_test_coverage = per_test_coverage
+        self.disableGTestSharding = bool(disableGTestSharding)
 
     @property
     def maxIndividualTestTime(self):
