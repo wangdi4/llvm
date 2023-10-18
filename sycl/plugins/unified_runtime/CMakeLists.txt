@@ -75,7 +75,6 @@ if(SYCL_PI_UR_USE_FETCH_CONTENT)
   #        [UR][L0] Copy prebuilt L0 to avoid leaking shared folder path
   set(UNIFIED_RUNTIME_TAG b38855ed815ffd076bfde5e5e06170ca4f723dc1)
 
-<<<<<<< HEAD
   if(INTEL_CUSTOMIZATION)
     # 1Source policy is to use internal mirrors as much as possible.
     if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
@@ -84,15 +83,11 @@ if(SYCL_PI_UR_USE_FETCH_CONTENT)
     endif()
   endif(INTEL_CUSTOMIZATION)
 
-  if ("level_zero" IN_LIST SYCL_ENABLE_PLUGINS)
-    set(UR_BUILD_ADAPTER_L0 ON)
-=======
   if(SYCL_PI_UR_OVERRIDE_FETCH_CONTENT_REPO)
     set(UNIFIED_RUNTIME_REPO "${SYCL_PI_UR_OVERRIDE_FETCH_CONTENT_REPO}")
   endif()
   if(SYCL_PI_UR_OVERRIDE_FETCH_CONTENT_TAG)
     set(UNIFIED_RUNTIME_TAG "${SYCL_PI_UR_OVERRIDE_FETCH_CONTENT_TAG}")
->>>>>>> 139b1317278fc777aa36f71096d6639fe6fd3ff0
   endif()
 
   message(STATUS "Will fetch Unified Runtime from ${UNIFIED_RUNTIME_REPO}")
