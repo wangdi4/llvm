@@ -25,7 +25,7 @@
 ; RUN: opt -S -passes="vplan-vec" -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=IR,CHECK
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-entities-dump -vplan-print-legality -vplan-print-after-vpentity-instrs -vplan-force-vf=2 < %s 2>&1 | FileCheck %s -check-prefixes=HIR,CHECK
 ; RUN: opt -disable-output -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPT
-; RUN: opt -disable-output -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPT
+; RUN: opt -disable-output -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPT
 ; REQUIRES: asserts
 
 ; ------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -vplan-nested-simd-strategy=bailout < %s 2>&1 | FileCheck %s
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -disable-output -vplan-nested-simd-strategy=bailout -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -disable-output -vplan-nested-simd-strategy=bailout -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 ;
 ; We currently have a compiler crash when we see a nested begin directive in the
 ; VPlan HIR path. LLVM IR path bails out for such cases. Until we properly

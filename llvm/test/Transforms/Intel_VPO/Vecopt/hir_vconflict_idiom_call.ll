@@ -5,7 +5,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
 ; RUN: opt -S -passes=hir-ssa-deconstruction,hir-vec-dir-insert -hir-cost-model-throttling=0 -debug-only=parvec-analysis -aa-pipeline=tbaa < %s 2>&1 | FileCheck %s
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-optreport-emitter -hir-cost-model-throttling=0 -aa-pipeline=tbaa -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTREPORT
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-cg,simplifycfg,intel-ir-optreport-emitter -hir-cost-model-throttling=0 -aa-pipeline=tbaa -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTREPORT
 declare void @foo(ptr ) #1
 
 ;<0>          BEGIN REGION { }

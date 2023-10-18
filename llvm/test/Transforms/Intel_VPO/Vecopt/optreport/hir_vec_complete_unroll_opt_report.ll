@@ -1,7 +1,7 @@
 ; Check that opt-report is consistent with outgoing code emitted by vectorizer
 ; when vector loop is completely unrolled.
 
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-optreport-emitter" -intel-opt-report=medium -vplan-force-vf=2 -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=medium -vplan-force-vf=2 -disable-output 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Function: full_unroll_vec_report
 ; CHECK:       BEGIN REGION { modified }
@@ -15,7 +15,7 @@
 ; CHECK-NEXT:        %hits.010 = @llvm.vector.reduce.add.v2i32(%.vec2);
 ; CHECK-NEXT:  END REGION
 
-; CHECK-LABEL: Report from: HIR Loop optimizations framework for : full_unroll_vec_report
+; CHECK-LABEL: Global optimization report for : full_unroll_vec_report
 ; CHECK:       LOOP BEGIN
 ; CHECK-NEXT:      remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:      remark #15305: vectorization support: vector length 2

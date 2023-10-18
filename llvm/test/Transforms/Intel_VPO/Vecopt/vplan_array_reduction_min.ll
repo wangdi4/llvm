@@ -19,7 +19,7 @@
 ; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -vplan-entities-dump -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,IR
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,HIR
 ; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPT
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPT
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPT
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

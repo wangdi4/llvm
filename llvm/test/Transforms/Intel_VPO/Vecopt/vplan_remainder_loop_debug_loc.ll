@@ -4,7 +4,7 @@
 ;
 ; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -disable-output -intel-opt-report=high -vplan-vec-scenario='n0;v4;m4' < %s 2>&1 | FileCheck %s
 ;
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -disable-output -intel-opt-report=high -vplan-vec-scenario='n0;v4;m4' < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -disable-output -intel-opt-report=high -vplan-vec-scenario='n0;v4;m4' < %s 2>&1 | FileCheck %s
 ;
 ; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -disable-output -intel-opt-report=high -vplan-vec-scenario='n0;v4;m4' < %s 2>&1 | FileCheck %s
 ;

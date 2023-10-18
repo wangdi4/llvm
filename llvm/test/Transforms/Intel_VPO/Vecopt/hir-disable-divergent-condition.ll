@@ -3,9 +3,9 @@
 ; SPGO sampling needs to avoid collapsing the loop's internal control flow
 ; into straight-line masked operations.
 
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -vplan-enable-divergent-branches=0 -intel-opt-report=medium -disable-output %s 2>&1 | FileCheck %s --check-prefix=DISABLE
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-enable-divergent-branches=0 -intel-opt-report=medium -disable-output %s 2>&1 | FileCheck %s --check-prefix=DISABLE
 
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -vplan-enable-divergent-branches=1 -intel-opt-report=medium -disable-output %s 2>&1 | FileCheck %s --check-prefix=ENABLE
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-enable-divergent-branches=1 -intel-opt-report=medium -disable-output %s 2>&1 | FileCheck %s --check-prefix=ENABLE
 
 ; DISABLE: remark #15436: loop was not vectorized: The loop contains a divergent conditional branch, and the user has suppressed vectorization of such loops.
 

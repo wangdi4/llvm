@@ -1,4 +1,4 @@
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter' -intel-opt-report=high -disable-output -intel-opt-report-file=stdout < %s | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter' -intel-opt-report=high -disable-output -intel-opt-report-file=stdout < %s | FileCheck %s
 
 ; Generating this remark used to cause an assert fail; this is a regression test
 ; to ensure this remark can be emitted correctly.

@@ -1,7 +1,7 @@
 ; This test is checking if we correctly bailout vectorization for double nested SIMD loops.
 
 ; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec -debug-only=LoopVectorizationPlanner -disable-output -vplan-nested-simd-strategy=bailout < %s 2>&1 | FileCheck %s
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -disable-output -vplan-nested-simd-strategy=bailout -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -disable-output -vplan-nested-simd-strategy=bailout -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 
 ; CHECK: Unsupported nested OpenMP (simd) loop or region.
 ; OPTRPTMED: remark #15574: HIR: simd loop was not vectorized: unsupported nested OpenMP (simd) loop or region.

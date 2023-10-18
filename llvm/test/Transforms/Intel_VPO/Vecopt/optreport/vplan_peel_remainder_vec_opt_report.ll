@@ -2,8 +2,8 @@
 ; different types of peel and remainder loops are utilized by VPlan.
 
 ; RUN: opt -vplan-vec-scenario="n0;v4;v2s1" -disable-output -passes=vplan-vec,intel-ir-optreport-emitter -vplan-enable-peeling -intel-opt-report=low %s 2>&1 | FileCheck %s --check-prefix=SCEN1
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-vec-scenario="n0;v4;v2s1" -disable-output -vplan-enable-peeling -intel-opt-report=low -vplan-enable-masked-variant-hir %s 2>&1 | FileCheck %s --check-prefix=SCEN1
-; SCEN1-LABEL: {{Global optimization report|Report from: HIR Loop optimizations framework}} for : test_store
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-vec-scenario="n0;v4;v2s1" -disable-output -vplan-enable-peeling -intel-opt-report=low -vplan-enable-masked-variant-hir %s 2>&1 | FileCheck %s --check-prefix=SCEN1
+; SCEN1-LABEL: Global optimization report for : test_store
 ; SCEN1-EMPTY:
 ; SCEN1-NEXT: LOOP BEGIN
 ; SCEN1-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
@@ -21,8 +21,8 @@
 ; SCEN1-NEXT: LOOP END
 
 ; RUN: opt -vplan-vec-scenario="n0;v4;m2" -disable-output -passes=vplan-vec,intel-ir-optreport-emitter -vplan-enable-peeling -intel-opt-report=low %s 2>&1 | FileCheck %s --check-prefix=SCEN2
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-vec-scenario="n0;v4;m2" -disable-output -vplan-enable-peeling -intel-opt-report=low -vplan-enable-masked-variant-hir %s 2>&1 | FileCheck %s --check-prefix=SCEN2
-; SCEN2-LABEL: {{Global optimization report|Report from: HIR Loop optimizations framework}} for : test_store
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-vec-scenario="n0;v4;m2" -disable-output -vplan-enable-peeling -intel-opt-report=low -vplan-enable-masked-variant-hir %s 2>&1 | FileCheck %s --check-prefix=SCEN2
+; SCEN2-LABEL: Global optimization report for : test_store
 ; SCEN2-EMPTY:
 ; SCEN2-NEXT: LOOP BEGIN
 ; SCEN2-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
@@ -36,8 +36,8 @@
 ; SCEN2-NEXT: LOOP END
 
 ; RUN: opt -vplan-vec-scenario="s1;v4;v2s1" -disable-output -passes=vplan-vec,intel-ir-optreport-emitter -vplan-enable-peeling -intel-opt-report=low %s 2>&1 | FileCheck %s --check-prefix=SCEN3
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-vec-scenario="s1;v4;v2s1" -disable-output -vplan-enable-peeling -intel-opt-report=low -vplan-enable-masked-variant-hir %s 2>&1 | FileCheck %s --check-prefix=SCEN3
-; SCEN3-LABEL: {{Global optimization report|Report from: HIR Loop optimizations framework}} for : test_store
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-vec-scenario="s1;v4;v2s1" -disable-output -vplan-enable-peeling -intel-opt-report=low -vplan-enable-masked-variant-hir %s 2>&1 | FileCheck %s --check-prefix=SCEN3
+; SCEN3-LABEL: Global optimization report for : test_store
 ; SCEN3-EMPTY:
 ; SCEN3-NEXT: LOOP BEGIN
 ; SCEN3-NEXT: <Peeled loop for vectorization>
