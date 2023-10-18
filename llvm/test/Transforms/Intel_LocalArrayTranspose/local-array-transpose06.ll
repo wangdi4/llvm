@@ -1,19 +1,21 @@
 ; REQUIRES: asserts
 ; RUN: opt -passes=local-array-transpose -debug-only=local-array-transpose -S < %s 2>&1 | FileCheck %s
 
+; Test local array transpose after fixing CMPLRLLVM-52391
+
 ; Check that ACOX is not transposed because its subscripts include both (I,J) and (J,I) indexing.
 
 ; CHECK: LocalArrayTranspose: BEGIN Valid Candidates for foo_
-; CHECK:  %"foo_$ACOX" = alloca %"QNCA_a0$float*$rank2$", align 8, !llfort.type_idx !2
+; CHECK: %"foo_$ACOX" = alloca %"QNCA_a0$float*$rank2$", align 8, !llfort.type_idx !2
 ; CHECK: LocalArrayTranspose: END Valid Candidates for foo_
 ; CHECK: LocalArrayTranspose: No Profitable Candidates for foo_
 
 ; Check that the subscripting of ACOX remains unchanged.
 
-; CHECK: %indvars.iv197 = phi i64 [ 1,
-; CHECK: %indvars.iv = phi i64 [ 1
-; CHECK: %"foo_$ACOX.addr_a0$_fetch.26[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %"foo_$ACOX.dim_info$.lower_bound$[]_fetch.30", i64 %"foo_$ACOX.dim_info$.spacing$[]_fetch.29", ptr elementtype(float) %"foo_$ACOX.addr_a0$113_fetch.71.pre", i64 %indvars.iv)
-; CHECK: %"foo_$ACOX.addr_a0$_fetch.26[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %"foo_$ACOX.dim_info$.lower_bound$[]_fetch.27", i64 4, ptr elementtype(float) %"foo_$ACOX.addr_a0$_fetch.26[]", i64 %indvars.iv197)
+; CHECK: %indvars.iv197 = phi
+; CHECK: %indvars.iv = phi
+; CHECK: %"foo_$ACOX.addr_a0$_fetch.26[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %"foo_$ACOX.dim_info$.lower_bound$[]_fetch.30", i64 %"foo_$ACOX.dim_info$.spacing$[]_fetch.29", ptr elementtype(float) %"foo_$ACOX.addr_a0$113_fetch.71.pre", i64 %indvars.iv), !llfort.type_idx !30
+; CHECK: %"foo_$ACOX.addr_a0$_fetch.26[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %"foo_$ACOX.dim_info$.lower_bound$[]_fetch.27", i64 4, ptr elementtype(float) %"foo_$ACOX.addr_a0$_fetch.26[]", i64 %indvars.iv197), !llfort.type_idx !30
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -26,29 +28,29 @@ alloca_0:
   %"foo_$ACOX" = alloca %"QNCA_a0$float*$rank2$", align 8, !llfort.type_idx !2
   %"var$4" = alloca i64, align 8, !llfort.type_idx !3
   %"var$2_fetch.1.fca.0.gep" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$ACOX", i64 0, i32 0
-  store ptr null, ptr %"var$2_fetch.1.fca.0.gep", align 8, !tbaa !4
+  store ptr null, ptr %"var$2_fetch.1.fca.0.gep", align 1, !tbaa !4
   %"var$2_fetch.1.fca.1.gep" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$ACOX", i64 0, i32 1
-  store i64 0, ptr %"var$2_fetch.1.fca.1.gep", align 8, !tbaa !4
+  store i64 0, ptr %"var$2_fetch.1.fca.1.gep", align 1, !tbaa !4
   %"var$2_fetch.1.fca.2.gep" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$ACOX", i64 0, i32 2
-  store i64 0, ptr %"var$2_fetch.1.fca.2.gep", align 8, !tbaa !4
+  store i64 0, ptr %"var$2_fetch.1.fca.2.gep", align 1, !tbaa !4
   %"var$2_fetch.1.fca.3.gep" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$ACOX", i64 0, i32 3
-  store i64 128, ptr %"var$2_fetch.1.fca.3.gep", align 8, !tbaa !4
+  store i64 128, ptr %"var$2_fetch.1.fca.3.gep", align 1, !tbaa !4
   %"var$2_fetch.1.fca.4.gep" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$ACOX", i64 0, i32 4
-  store i64 2, ptr %"var$2_fetch.1.fca.4.gep", align 8, !tbaa !4
+  store i64 2, ptr %"var$2_fetch.1.fca.4.gep", align 1, !tbaa !4
   %"var$2_fetch.1.fca.5.gep" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$ACOX", i64 0, i32 5
-  store i64 0, ptr %"var$2_fetch.1.fca.5.gep", align 8, !tbaa !4
+  store i64 0, ptr %"var$2_fetch.1.fca.5.gep", align 1, !tbaa !4
   %"var$2_fetch.1.fca.6.0.0.gep" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$ACOX", i64 0, i32 6, i64 0, i32 0
-  store i64 0, ptr %"var$2_fetch.1.fca.6.0.0.gep", align 8, !tbaa !4
+  store i64 0, ptr %"var$2_fetch.1.fca.6.0.0.gep", align 1, !tbaa !4
   %"var$2_fetch.1.fca.6.0.1.gep" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$ACOX", i64 0, i32 6, i64 0, i32 1
-  store i64 0, ptr %"var$2_fetch.1.fca.6.0.1.gep", align 8, !tbaa !4
+  store i64 0, ptr %"var$2_fetch.1.fca.6.0.1.gep", align 1, !tbaa !4
   %"var$2_fetch.1.fca.6.0.2.gep" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$ACOX", i64 0, i32 6, i64 0, i32 2
-  store i64 0, ptr %"var$2_fetch.1.fca.6.0.2.gep", align 8, !tbaa !4
+  store i64 0, ptr %"var$2_fetch.1.fca.6.0.2.gep", align 1, !tbaa !4
   %"var$2_fetch.1.fca.6.1.0.gep" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$ACOX", i64 0, i32 6, i64 1, i32 0
-  store i64 0, ptr %"var$2_fetch.1.fca.6.1.0.gep", align 8, !tbaa !4
+  store i64 0, ptr %"var$2_fetch.1.fca.6.1.0.gep", align 1, !tbaa !4
   %"var$2_fetch.1.fca.6.1.1.gep" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$ACOX", i64 0, i32 6, i64 1, i32 1
-  store i64 0, ptr %"var$2_fetch.1.fca.6.1.1.gep", align 8, !tbaa !4
+  store i64 0, ptr %"var$2_fetch.1.fca.6.1.1.gep", align 1, !tbaa !4
   %"var$2_fetch.1.fca.6.1.2.gep" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$ACOX", i64 0, i32 6, i64 1, i32 2
-  store i64 0, ptr %"var$2_fetch.1.fca.6.1.2.gep", align 8, !tbaa !4
+  store i64 0, ptr %"var$2_fetch.1.fca.6.1.2.gep", align 1, !tbaa !4
   store i64 133, ptr %"var$2_fetch.1.fca.3.gep", align 8, !tbaa !8
   store i64 0, ptr %"var$2_fetch.1.fca.5.gep", align 8, !tbaa !11
   store i64 4, ptr %"var$2_fetch.1.fca.1.gep", align 8, !tbaa !12
@@ -56,20 +58,23 @@ alloca_0:
   store i64 0, ptr %"var$2_fetch.1.fca.2.gep", align 8, !tbaa !14
   %"foo_$N_fetch.3" = load i32, ptr %"foo_$N", align 1, !tbaa !15
   %int_sext = sext i32 %"foo_$N_fetch.3" to i64, !llfort.type_idx !3
-  %"foo_$ACOX.dim_info$.lower_bound$[]22" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"var$2_fetch.1.fca.6.0.2.gep", i32 0), !llfort.type_idx !18
+  %"foo_$ACOX.dim_info$.lower_bound$21" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$2_fetch.1.fca.6.0.0.gep", i64 0, i32 2, !llfort.type_idx !18
+  %"foo_$ACOX.dim_info$.lower_bound$[]22" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"foo_$ACOX.dim_info$.lower_bound$21", i32 0), !llfort.type_idx !18
   store i64 1, ptr %"foo_$ACOX.dim_info$.lower_bound$[]22", align 1, !tbaa !19
   %rel.1 = icmp sgt i64 %int_sext, 0
   %slct.1 = select i1 %rel.1, i64 %int_sext, i64 0
-  %"foo_$ACOX.dim_info$.extent$[]" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"var$2_fetch.1.fca.6.0.0.gep", i32 0), !llfort.type_idx !20
+  %"foo_$ACOX.dim_info$.extent$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$2_fetch.1.fca.6.0.0.gep", i64 0, i32 0, !llfort.type_idx !20
+  %"foo_$ACOX.dim_info$.extent$[]" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"foo_$ACOX.dim_info$.extent$", i32 0), !llfort.type_idx !20
   store i64 %slct.1, ptr %"foo_$ACOX.dim_info$.extent$[]", align 1, !tbaa !21
-  %"foo_$ACOX.dim_info$.spacing$[]" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"var$2_fetch.1.fca.6.0.1.gep", i32 0), !llfort.type_idx !22
+  %"foo_$ACOX.dim_info$.spacing$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$2_fetch.1.fca.6.0.0.gep", i64 0, i32 1, !llfort.type_idx !22
+  %"foo_$ACOX.dim_info$.spacing$[]" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"foo_$ACOX.dim_info$.spacing$", i32 0), !llfort.type_idx !22
   store i64 4, ptr %"foo_$ACOX.dim_info$.spacing$[]", align 1, !tbaa !23
   %mul.1 = shl nuw nsw i64 %slct.1, 2
-  %"foo_$ACOX.dim_info$.lower_bound$[]28" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"var$2_fetch.1.fca.6.0.2.gep", i32 1), !llfort.type_idx !18
+  %"foo_$ACOX.dim_info$.lower_bound$[]28" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"foo_$ACOX.dim_info$.lower_bound$21", i32 1), !llfort.type_idx !18
   store i64 1, ptr %"foo_$ACOX.dim_info$.lower_bound$[]28", align 1, !tbaa !19
-  %"foo_$ACOX.dim_info$.extent$[]31" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"var$2_fetch.1.fca.6.0.0.gep", i32 1), !llfort.type_idx !20
+  %"foo_$ACOX.dim_info$.extent$[]31" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"foo_$ACOX.dim_info$.extent$", i32 1), !llfort.type_idx !20
   store i64 %slct.1, ptr %"foo_$ACOX.dim_info$.extent$[]31", align 1, !tbaa !21
-  %"foo_$ACOX.dim_info$.spacing$[]34" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"var$2_fetch.1.fca.6.0.1.gep", i32 1), !llfort.type_idx !22
+  %"foo_$ACOX.dim_info$.spacing$[]34" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"foo_$ACOX.dim_info$.spacing$", i32 1), !llfort.type_idx !22
   store i64 %mul.1, ptr %"foo_$ACOX.dim_info$.spacing$[]34", align 1, !tbaa !23
   %func_result = call i32 (ptr, i32, ...) @for_check_mult_overflow64(ptr nonnull %"var$4", i32 3, i64 %slct.1, i64 %slct.1, i64 4) #3, !llfort.type_idx !24
   %"var$4_fetch.5" = load i64, ptr %"var$4", align 8, !tbaa !25, !llfort.type_idx !3
@@ -100,8 +105,8 @@ do.body9.preheader:                               ; preds = %alloca_0
   %wide.trip.count199 = sext i32 %0 to i64
   br label %do.body9
 
-do.body9:                                         ; preds = %do.body9.preheader, %do.end_do14
-  %indvars.iv197 = phi i64 [ 1, %do.body9.preheader ], [ %indvars.iv.next198, %do.end_do14 ]
+do.body9:                                         ; preds = %do.body9.preheader, %do.end_do14.loopexit
+  %indvars.iv197 = phi i64 [ 1, %do.body9.preheader ], [ %indvars.iv.next198, %do.end_do14.loopexit ]
   %"foo_$INPUT.addr_a0$_fetch.16[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %"foo_$INPUT.dim_info$.lower_bound$[]_fetch.20", i64 %"foo_$INPUT.dim_info$.spacing$[]_fetch.19", ptr elementtype(float) %"foo_$INPUT.addr_a0$_fetch.16", i64 %indvars.iv197), !llfort.type_idx !30
   br label %do.body13
 
@@ -114,14 +119,14 @@ do.body13:                                        ; preds = %do.body9, %do.body1
   store float %"foo_$INPUT.addr_a0$_fetch.16[][]_fetch.25", ptr %"foo_$ACOX.addr_a0$_fetch.26[][]", align 4, !tbaa !36
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count199
-  br i1 %exitcond, label %do.end_do14, label %do.body13
+  br i1 %exitcond, label %do.end_do14.loopexit, label %do.body13
 
-do.end_do14:                                      ; preds = %do.body13
+do.end_do14.loopexit:                             ; preds = %do.body13
   %indvars.iv.next198 = add nuw nsw i64 %indvars.iv197, 1
   %exitcond200 = icmp eq i64 %indvars.iv.next198, %wide.trip.count199
   br i1 %exitcond200, label %do.body18.preheader, label %do.body9
 
-do.body18.preheader:                              ; preds = %do.end_do14
+do.body18.preheader:                              ; preds = %do.end_do14.loopexit
   %"foo_$RESULT.addr_a0$" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$RESULT", i64 0, i32 0, !llfort.type_idx !38
   %"foo_$RESULT.addr_a0$_fetch.55" = load ptr, ptr %"foo_$RESULT.addr_a0$", align 1, !tbaa !39, !llfort.type_idx !30
   %"foo_$RESULT.dim_info$.lower_bound$" = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"foo_$RESULT", i64 0, i32 6, i64 0, i32 2
@@ -134,8 +139,8 @@ do.body18.preheader:                              ; preds = %do.end_do14
   %"foo_$RESULT.dim_info$.lower_bound$[]_fetch.59" = load i64, ptr %"foo_$RESULT.dim_info$.lower_bound$[]99", align 1, !tbaa !41
   br label %do.body18
 
-do.body18:                                        ; preds = %do.body18.preheader, %do.end_do23
-  %indvars.iv205 = phi i64 [ 1, %do.body18.preheader ], [ %indvars.iv.next206, %do.end_do23 ]
+do.body18:                                        ; preds = %do.body18.preheader, %do.end_do23.loopexit
+  %indvars.iv205 = phi i64 [ 1, %do.body18.preheader ], [ %indvars.iv.next206, %do.end_do23.loopexit ]
   %"foo_$ACOX.addr_a0$_fetch.45[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %"foo_$ACOX.dim_info$.lower_bound$[]_fetch.30", i64 %"foo_$ACOX.dim_info$.spacing$[]_fetch.29", ptr elementtype(float) %"foo_$ACOX.addr_a0$113_fetch.71.pre", i64 %indvars.iv205), !llfort.type_idx !30
   br label %do.body22
 
@@ -148,14 +153,14 @@ do.body22:                                        ; preds = %do.body18, %do.body
   store float %"foo_$ACOX.addr_a0$_fetch.45[][]_fetch.54", ptr %"foo_$RESULT.addr_a0$_fetch.55[][]", align 1, !tbaa !43
   %indvars.iv.next202 = add nuw nsw i64 %indvars.iv201, 1
   %exitcond204 = icmp eq i64 %indvars.iv.next202, %wide.trip.count199
-  br i1 %exitcond204, label %do.end_do23, label %do.body22
+  br i1 %exitcond204, label %do.end_do23.loopexit, label %do.body22
 
-do.end_do23:                                      ; preds = %do.body22
+do.end_do23.loopexit:                             ; preds = %do.body22
   %indvars.iv.next206 = add nuw nsw i64 %indvars.iv205, 1
   %exitcond208 = icmp eq i64 %indvars.iv.next206, %wide.trip.count199
   br i1 %exitcond208, label %do.end_do19.loopexit, label %do.body18
 
-do.end_do19.loopexit:                             ; preds = %do.end_do23
+do.end_do19.loopexit:                             ; preds = %do.end_do23.loopexit
   br label %do.end_do19
 
 do.end_do19:                                      ; preds = %do.end_do19.loopexit, %alloca_0
@@ -233,7 +238,7 @@ declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 ; Function Attrs: nofree
 declare !llfort.intrin_id !48 i32 @for_dealloc_allocatable_handle(ptr nocapture readonly, i32, ptr) local_unnamed_addr #2
 
-attributes #0 = { nounwind uwtable "denormal-fp-math"="preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cmov,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" }
+attributes #0 = { nounwind uwtable "denormal-fp-math"="preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cmov,+crc32,+cx16,+cx8,+evex512,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 attributes #1 = { mustprogress nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none) }
 attributes #2 = { nofree "intel-lang"="fortran" }
 attributes #3 = { nounwind }

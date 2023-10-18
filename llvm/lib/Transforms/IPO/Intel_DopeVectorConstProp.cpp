@@ -164,13 +164,13 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   // bound, extent, and stride information.
   auto ReplaceField = [&](SmallVectorImpl<std::optional<uint64_t>> &Values,
                           DopeVectorAnalyzer::DopeVectorRankFields RFT,
-                          GetElementPtrInst &GEP) -> bool {
+                          GEPOperator &GEP) -> bool {
     bool Change = false;
     // Get the base of the lower bound, stride, or extent array.
     auto FR = DVAFormal.findPerDimensionArrayFieldGEP(GEP, RFT);
-    GetElementPtrInst *GEP2 = FR.first;
+    GEPOperator *GEP2 = FR.first;
     if (!GEP2 || FR.second == DopeVectorAnalyzer::FindResult::FR_Invalid)
-       return Change;
+      return Change;
     for (unsigned I = 0; I < ArrayRank; I++) {
       if (!Values[I].has_value())
         continue;
@@ -207,12 +207,12 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   // vector, use 'DVAFormal' and the lower bound 'LB', stride 'ST', and
   // extent 'EX' to replace loads of these fields with constants.  Return
   // 'true' if at least one field is replaced.
-  auto ReplaceFieldsForGEP = [&ReplaceField]
-                             (GetElementPtrInst *GEP,
-                              SmallVectorImpl<std::optional<uint64_t>> &LB,
-                              SmallVectorImpl<std::optional<uint64_t>> &ST,
-                              SmallVectorImpl<std::optional<uint64_t>> &EX,
-                              DopeVectorAnalyzer &DVAFormal) -> bool {
+  auto ReplaceFieldsForGEP =
+      [&ReplaceField](GEPOperator *GEP,
+                      SmallVectorImpl<std::optional<uint64_t>> &LB,
+                      SmallVectorImpl<std::optional<uint64_t>> &ST,
+                      SmallVectorImpl<std::optional<uint64_t>> &EX,
+                      DopeVectorAnalyzer &DVAFormal) -> bool {
     bool Change = false;
     // Find the GEP accessing the array of lower bounds, strides, and extents
     // in the dope vector.
@@ -233,7 +233,7 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   // is a dummy argument that is a pointer to a dope vector.
   bool Change = false;
   for (User *U : Arg.users()) {
-    auto GEP = dyn_cast<GetElementPtrInst>(U);
+    auto GEP = dyn_cast<GEPOperator>(U);
     if (!GEP)
       continue;
     // If GEP points at the dope vector per dimension array, replace
@@ -283,7 +283,7 @@ static bool replaceDopeVectorConstants(Argument &Arg,
         if (!LI || LI->getPointerOperand() != GEP)
           continue;
         for (User *X : LI->users()) {
-          auto GEPDV = dyn_cast<GetElementPtrInst>(X);
+          auto GEPDV = dyn_cast<GEPOperator>(X);
           if (!GEPDV)
             continue;
           // If GEPDV points at the dope vector per dimension array, replace
