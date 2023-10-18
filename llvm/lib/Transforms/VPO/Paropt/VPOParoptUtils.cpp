@@ -7527,7 +7527,7 @@ VPOParoptUtils::storeIntToThreadLocalGlobal(Value *V, Instruction *InsertBefore,
   Module *M = InsertBefore->getModule();
 
   GlobalVariable *GV = new GlobalVariable(
-      *M, V->getType(), false, GlobalValue::CommonLinkage,
+      *M, V->getType(), false, GlobalValue::PrivateLinkage,
       Builder.getIntN(V->getType()->getIntegerBitWidth(), 0), VarName, nullptr,
       GlobalVariable::ThreadLocalMode::GeneralDynamicTLSModel);
   Builder.CreateStore(V, GV);

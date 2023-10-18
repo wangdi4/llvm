@@ -32,7 +32,7 @@
 ; CHECK-NOT: %struct.fast_red_t = type <{ %"QNCA_a0$ptr$rank3$" }>
 
 ; Check that no global is created to store the number of elements in the dv.
-; CHECK-NOT: @{{[^ ]+}} = common thread_local global i64 0
+; CHECK-NOT: @{{[^ ]+}} = private thread_local global i64 0
 
 ; Check the code generated inside the outlined function for the parallel region.
 ; CHECK-LABEL: define internal void @foo{{[^ ]*}}DIR.OMP.PARALLEL{{[^ ]*}}(ptr {{[^ ,]+}}, ptr {{[^ ,]+}}, ptr %"foo_$A")

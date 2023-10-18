@@ -32,7 +32,7 @@
 ; CHECK: %struct.fast_red_t = type <{ %"QNCA_a0$%complex_128bit*$rank2$" }>
 
 ; Check that a global is created to store the number of elements in the dv.
-; CHECK: [[NUM_ELEMENTS_GV:[^ ]+]] = common thread_local global i64 0
+; CHECK: [[NUM_ELEMENTS_GV:[^ ]+]] = private thread_local global i64 0
 
 ; Check that the fast reduction callback loads the num_elements global for the F90 DV.
 ; CHECK-LABEL: define internal void @MAIN{{[^ ]+}}tree_reduce{{[^ ]+}}(ptr %dst, ptr %src)
