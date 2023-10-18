@@ -169,6 +169,10 @@ public:
     // label, if non-empty, otherwise "extracted".
     std::string Suffix;
 
+    // If true, the outlined function has aggregate argument in zero address
+    // space.
+    bool ArgsInZeroAddressSpace;
+
   public:
     /// Create a code extractor for a sequence of blocks.
     ///
@@ -195,6 +199,9 @@ public:
     /// corresponding zext/trunc instructions are emitted before/after
     /// store/load of them.
 #endif // INTEL_COLLAB
+    /// If ArgsInZeroAddressSpace param is set to true, then the aggregate
+    /// param pointer of the outlined function is declared in zero address
+    /// space.
     CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT = nullptr,
                   bool AggregateArgs = false, BlockFrequencyInfo *BFI = nullptr,
                   BranchProbabilityInfo *BPI = nullptr,
@@ -208,7 +215,7 @@ public:
                   const OrderedArgs *TgtClauseArgs = nullptr,
                   bool SimdPrivatization = false);
 #else // INTEL_COLLAB
-                  std::string Suffix = "");
+                  std::string Suffix = "", bool ArgsInZeroAddressSpace = false);
 #endif // INTEL_COLLAB
 
     /// Create a code extractor for a loop body.

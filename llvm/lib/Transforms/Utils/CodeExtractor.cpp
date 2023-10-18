@@ -319,7 +319,8 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              const OrderedArgs *TgtClauseArgs,
                              bool SimdPrivatization)
 #else  // INTEL_COLLAB
-                             BasicBlock *AllocationBlock, std::string Suffix)
+                             BasicBlock *AllocationBlock, std::string Suffix,
+                             bool ArgsInZeroAddressSpace)
 #endif // INTEL_COLLAB
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
       BPI(BPI), AC(AC), AllocationBlock(AllocationBlock),
@@ -331,6 +332,7 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
       DeclLoc(),
 #else  // INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
+      ArgsInZeroAddressSpace(ArgsInZeroAddressSpace)
 #endif // INTEL_COLLAB
       Suffix(Suffix) {}
 
@@ -1258,7 +1260,8 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   StructType *StructTy = nullptr;
   if (AggregateArgs && !AggParamTy.empty()) {
     StructTy = StructType::get(M->getContext(), AggParamTy);
-    ParamTy.push_back(PointerType::get(StructTy, DL.getAllocaAddrSpace()));
+    ParamTy.push_back(PointerType::get(
+        StructTy, ArgsInZeroAddressSpace ? 0 : DL.getAllocaAddrSpace()));
   }
 
   LLVM_DEBUG({
@@ -1648,8 +1651,15 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
         StructArgTy, DL.getAllocaAddrSpace(), nullptr, "structArg",
         AllocationBlock ? &*AllocationBlock->getFirstInsertionPt()
                         : &codeReplacer->getParent()->front().front());
-    params.push_back(Struct);
 
+    if (ArgsInZeroAddressSpace && DL.getAllocaAddrSpace() != 0) {
+      auto *StructSpaceCast = new AddrSpaceCastInst(
+          Struct, PointerType ::get(Context, 0), "structArg.ascast");
+      StructSpaceCast->insertAfter(Struct);
+      params.push_back(StructSpaceCast);
+    } else {
+      params.push_back(Struct);
+    }
     // Store aggregated inputs in the struct.
     for (unsigned i = 0, e = StructValues.size(); i != e; ++i) {
       if (inputs.contains(StructValues[i])) {
