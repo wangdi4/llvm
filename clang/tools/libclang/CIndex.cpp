@@ -2817,6 +2817,10 @@ void OMPClauseEnqueue::VisitOMPXDynCGroupMemClause(
   VisitOMPClauseWithPreInit(C);
   Visitor->AddStmt(C->getSize());
 }
+#if INTEL_CUSTOMIZATION
+void OMPClauseEnqueue::VisitOMPXRegisterAllocModeClause(
+    const OMPXRegisterAllocModeClause *C) {}
+#endif // INTEL_CUSTOMIZATION
 void OMPClauseEnqueue::VisitOMPDoacrossClause(const OMPDoacrossClause *C) {
   VisitOMPClauseList(C);
 }

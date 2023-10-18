@@ -113,6 +113,15 @@ enum OpenMPMapModifierKind {
   OMPC_MAP_MODIFIER_last
 };
 
+#if INTEL_CUSTOMIZATION
+/// OpenMP mode kind for 'ompx_register_alloc_mode' clause.
+enum OpenMPXRegisterAllocModeKind {
+#define OPENMPX_REGISTER_ALLOC_MODE_KIND(NAME) OMPC_REGISTER_ALLOC_MODE_##NAME,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_REGISTER_ALLOC_MODE_unknown
+};
+#endif // INTEL_CUSTOMIZATION
+
 /// Number of allowed map-type-modifiers.
 static constexpr unsigned NumberOfOMPMapClauseModifiers =
     OMPC_MAP_MODIFIER_last - OMPC_MAP_MODIFIER_unknown - 1;

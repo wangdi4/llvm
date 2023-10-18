@@ -4020,6 +4020,14 @@ bool RecursiveASTVisitor<Derived>::VisitOMPXDynCGroupMemClause(
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPXRegisterAllocModeClause(
+    OMPXRegisterAllocModeClause *C) {
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPDoacrossClause(
     OMPDoacrossClause *C) {

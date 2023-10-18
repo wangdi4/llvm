@@ -1017,6 +1017,10 @@ void OMPClauseProfiler::VisitOMPXDynCGroupMemClause(
   if (Expr *Size = C->getSize())
     Profiler->VisitStmt(Size);
 }
+#if INTEL_CUSTOMIZATION
+void OMPClauseProfiler::VisitOMPXRegisterAllocModeClause(
+    const OMPXRegisterAllocModeClause *C) {}
+#endif // INTEL_CUSTOMIZATION
 void OMPClauseProfiler::VisitOMPDoacrossClause(const OMPDoacrossClause *C) {
   VisitOMPClauseList(C);
 }
