@@ -4,13 +4,8 @@
 define i8 @test_i8(i32 %a, i8 %f, i8 %t) {
 ; ALL-LABEL: test_i8:
 ; ALL:       # %bb.0: # %entry
-<<<<<<< HEAD
 ; ALL-NEXT:    movl %esi, %eax ;INTEL
-; ALL-NEXT:    xorl %ecx, %ecx
-; ALL-NEXT:    cmpl %ecx, %edi
-=======
 ; ALL-NEXT:    cmpl $0, %edi
->>>>>>> 760e7d00d142ba85fcf48c00e0acc14a355da7c3
 ; ALL-NEXT:    setg %cl
 ; ALL-NEXT:    testb $1, %cl
 ; ALL-NEXT:    je .LBB0_1 ;INTEL
@@ -39,13 +34,8 @@ cond.end:                                         ; preds = %cond.false, %cond.t
 define i16 @test_i16(i32 %a, i16 %f, i16 %t) {
 ; ALL-LABEL: test_i16:
 ; ALL:       # %bb.0: # %entry
-<<<<<<< HEAD
 ; ALL-NEXT:    movl %esi, %eax ;INTEL
-; ALL-NEXT:    xorl %ecx, %ecx
-; ALL-NEXT:    cmpl %ecx, %edi
-=======
 ; ALL-NEXT:    cmpl $0, %edi
->>>>>>> 760e7d00d142ba85fcf48c00e0acc14a355da7c3
 ; ALL-NEXT:    setg %cl
 ; ALL-NEXT:    testb $1, %cl
 ; ALL-NEXT:    je .LBB1_1 ;INTEL
