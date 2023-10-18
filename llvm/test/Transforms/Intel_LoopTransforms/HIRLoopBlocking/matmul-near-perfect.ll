@@ -1,6 +1,6 @@
 
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sinking-for-perfect-loopnest,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sinking-for-perfect-loopnest,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s --check-prefix=NOLIBIRC
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sinking-for-perfect-loopnest,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s -disable-output | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sinking-for-perfect-loopnest,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s -disable-output | FileCheck %s --check-prefix=NOLIBIRC
 
 
 ; DEFAULT: Function: matmul

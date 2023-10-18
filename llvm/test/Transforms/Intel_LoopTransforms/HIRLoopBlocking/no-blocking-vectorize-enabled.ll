@@ -1,4 +1,4 @@
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-blocking,print<hir>" 2>&1 < %s -disable-output | FileCheck %s
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,print<hir>,hir-loop-blocking,print<hir>" 2>&1 < %s -disable-output | FileCheck %s
 
 ; Verify that the innermost loop's blocking is prevented by vector pragma (e.g. #pragma vector always)
 ; Verify futher that the outermost loop is not blocked when it is the only loop to be stripmined.
@@ -6,6 +6,23 @@
 ; Thus, no real effect of transformation as execution order did not change, but only may hinder
 ; loop vectorization after unit-strided loop is unroll and jammed.
 
+; Before loop blocking after sinking for perfect loopnest
+;
+; CHECK: Function: ludcmp
+;
+; CHECK:         BEGIN REGION { }
+; CHECK:               + DO i1 = 0, zext.i32.i64(%n) + -1 * %indvars.iv74, 1   <DO_LOOP>  <MAX_TC_EST = 103>
+; CHECK:               |   + DO i2 = 0, %indvars.iv74 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 102>  <LEGAL_MAX_TC = 102> <vectorize>
+; CHECK:               |   |   %w.065 = (@a)[0][%indvars.iv80 + 1][i1 + %indvars.iv74];
+; CHECK:               |   |   %mul = (@a)[0][i2][i1 + %indvars.iv74]  *  (@a)[0][%indvars.iv80 + 1][i2];
+; CHECK:               |   |   %w.065 = %w.065  -  %mul;
+; CHECK:               |   |   (@a)[0][%indvars.iv80 + 1][i1 + %indvars.iv74] = %w.065;
+; CHECK:               |   + END LOOP
+; CHECK:               + END LOOP
+; CHECK:         END REGION
+
+; After loop blocking
+;
 ; CHECK: Function: ludcmp
 ;
 ; CHECK:         BEGIN REGION { }

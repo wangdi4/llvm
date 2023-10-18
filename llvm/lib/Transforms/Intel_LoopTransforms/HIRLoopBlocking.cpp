@@ -181,6 +181,11 @@ static cl::opt<bool> DisableLoopDepthCheck(
     "disable-" OPT_SWITCH "-loop-depth-check", cl::init(true), cl::Hidden,
     cl::desc("Disable loop depth check in " OPT_DESC " pass"));
 
+static cl::opt<bool> DisableStrideProfitablity(
+    "disable-" OPT_SWITCH "-stride-profit", cl::init(false), cl::Hidden,
+    cl::desc("Disable profitablity check based on small stride in " OPT_DESC
+             " pass"));
+
 // matmul: block as many loops as possible. Will block all 3 levels
 //         for typical matrix multiplications. Showed the best performance
 //         for skx performance machines with following options:
@@ -223,13 +228,6 @@ static cl::opt<unsigned>
     MajorityStencilGroupThreshold(OPT_SWITCH "-stencil-group-threshold",
                                   cl::init(4), cl::Hidden,
                                   cl::desc(" " OPT_DESC " pass"));
-
-// Upperbound for small stride in bytes.
-// This knob is mainly for KAndR algorithm.
-// Does not greatly affect global behavior of hir loop blocking.
-static cl::opt<int> LoopBlockingStrideThreshold(OPT_SWITCH "-stride-threshold",
-                                                cl::init(32), cl::Hidden,
-                                                cl::desc(" " OPT_DESC " pass"));
 
 static cl::opt<bool> OldVersion(OPT_SWITCH "-old-ver", cl::init(true),
                                 cl::Hidden, cl::desc("Old " OPT_DESC " pass"));
@@ -559,6 +557,7 @@ HLLoop *stripmineSelectedLoops(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
   // Once it is hoisted, def@level has to be updated.
   for (auto &CurLoopInfo : CurLoopNests) {
     HLLoop *CurLoop = CurLoopInfo.first;
+
     auto It = LoopMap.find(CurLoop);
     if (It == LoopMap.end() || It->second == 0) {
       continue;
@@ -1263,6 +1262,7 @@ private:
 // Returns true if the argument has changed.
 // \p RelaxNormalization will allow normalization util to relax CE typecheck
 bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap,
+                                           const HLLoop *OutermostLoop,
                                            bool RelaxNormalization = false) {
   if (StripmineCandidateMap.empty()) {
     LLVM_DEBUG_DIAG_DETAIL(dbgs() << "LoopMap is empty.\n");
@@ -1289,6 +1289,14 @@ bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap,
     }
   }
 
+  if (StripmineCandidateMap.size() == 1 &&
+      StripmineCandidateMap.count(OutermostLoop)) {
+    StripmineCandidateMap.clear();
+    LLVM_DEBUG(
+        dbgs() << "No loop can be stripmined except for outermost loop.\n"
+               << "Blocking only the outermost loop is not profitable.\n");
+  }
+
   return IsUpdated;
 }
 
@@ -1297,11 +1305,12 @@ bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap,
 class KAndRChecker {
 public:
   KAndRChecker(const MemRefGatherer::VectorTy &Refs, StringRef Func,
+               const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
                bool Advanced)
       : Refs(Refs), Func(Func), Advanced(Advanced) {
     NumRefsWithSmallStrides.resize(MaxLoopNestLevel + 1, 0);
     NumRefsMissingAtLevel.resize(MaxLoopNestLevel + 1, 0);
-    countProBlockingRefs(Refs);
+    countProBlockingRefs(Refs, InnermostLoop, OutermostLoop);
   }
 
   void check(const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
@@ -1331,29 +1340,34 @@ public:
   }
 
 private:
-  void countProBlockingRefs(ArrayRef<RegDDRef *> Refs) {
+  void countProBlockingRefs(ArrayRef<RegDDRef *> Refs,
+                            const HLLoop *InnermostLoop,
+                            const HLLoop *OutermostLoop) {
+
+    const int64_t SmallStrideThreshold = 2;
+
+    unsigned InnermostLevel = InnermostLoop->getNestingLevel();
+    unsigned OutermostLevel = OutermostLoop->getNestingLevel();
+    for (const RegDDRef *Ref : Refs) {
+      const auto *InnermostDim = Ref->getDimensionIndex(1);
+      for (auto OuterLevel = InnermostLevel - 1; OuterLevel >= OutermostLevel;
+           OuterLevel--) {
+        int64_t Coeff = 0;
+        unsigned BlobIndex = InvalidBlobIndex;
+        InnermostDim->getIVCoeff(OuterLevel, &BlobIndex, &Coeff);
+        if (BlobIndex != InvalidBlobIndex || Coeff == 0)
+          continue;
+
+        if (Coeff > std::llabs(SmallStrideThreshold))
+          continue;
+
+        NumRefsWithSmallStrides[OuterLevel]++;
+      }
+    }
 
     for (const RegDDRef *Ref : Refs) {
       for (auto Level :
            make_range(AllLoopLevelRange::begin(), AllLoopLevelRange::end())) {
-#if 0
-        // Commented out for now because of getConstStrideAtLevel
-        // does not work on detached RegDDRefs.
-        // We could have detached "de-linearized" DDRefs.
-        // TODO: extend getConstStrideAtLevel() to work on
-        //       detached RegDDRefs and enable this part again.
-        int64_t Stride = 0;
-        if (Ref->getConstStrideAtLevel(Level, &Stride) && Stride >= 1 &&
-            // TODO: Adjust LoopBlockigStrideThreshold by
-            //       the element type size if needed
-            Stride <= LoopBlockingStrideThreshold) {
-          // This logic is for implementing finding a loop level
-          // whose subscript is found in contiguous dimension of a ref.
-          // After all, this is a heuristic.
-
-          NumRefsWithSmallStrides[Level]++;
-        }
-#endif
 
         // TODO: Consider using isInvariantAt..
         // Do we want to check Ref->isInvariantAtLevel() instead?
@@ -1428,20 +1442,28 @@ private:
 
     assert(StripmineCandidateMap.empty());
 
-    unsigned InnerLevel = InnermostLoop->getNestingLevel();
-    unsigned OuterLevel = OutermostLoop->getNestingLevel();
+    unsigned InnermostLevel = InnermostLoop->getNestingLevel();
+    unsigned OutermostLevel = OutermostLoop->getNestingLevel();
+
+    // Book-keeping of Level to Loop
+    SmallVector<const HLLoop *, MaxLoopNestLevel + 1> LvToLoop(
+        MaxLoopNestLevel + 1, nullptr);
+    LvToLoop[InnermostLevel] = InnermostLoop;
+    unsigned NumProfitableLoopsByMissingIVs = 0;
 
     // Stripmining from the parent of the innermost
     // Scan from inner to outer, and choose loops to stripmine
     // based on NumRefsMissingAtLevel and NumRefsWithSmallStridesAtLevel
-    unsigned Level = InnerLevel - 1;
-    unsigned NumTotalLoops = InnerLevel;
-    bool IsCandFound = false;
+    unsigned Level = InnermostLevel - 1;
+    unsigned NumTotalLoops = InnermostLevel;
     for (const HLLoop *Lp = InnermostLoop->getParentLoop(),
                       *ELp = OutermostLoop->getParentLoop(),
                       *InnerLp = InnermostLoop;
          Lp != ELp && NumTotalLoops < MaxLoopNestLevel;
          InnerLp = Lp, Lp = Lp->getParentLoop(), Level = Level - 1) {
+
+      // Bookkeeping of Level to Loop
+      LvToLoop[Level] = Lp;
 
       if (Lp->hasVectorizeEnablingPragma())
         continue;
@@ -1454,8 +1476,7 @@ private:
       LLVM_DEBUG(dbgs() << "NumRefsWithSmallStrides " << Level << ": "
                         << NumRefsWithSmallStrides[Level] << "\n");
 
-      if (NumRefsMissingAtLevel[Level] > 0 ||
-          NumRefsWithSmallStrides[Level] > 0) {
+      if (NumRefsMissingAtLevel[Level] > 0) {
 
         NumTotalLoops++;
 
@@ -1464,33 +1485,75 @@ private:
                                   ? const_cast<HLLoop *>(InnerLp)
                                   : const_cast<HLLoop *>(Lp);
         LLVM_DEBUG(dbgs() << "Loop at Level " << ToStripmine->getNestingLevel()
-                          << " will be stripmined\n");
+                          << " will be stripmined by missing IV.\n");
 
         markAsToStripmine(ToStripmine, StripmineCandidateMap);
 
-        IsCandFound = true;
+        NumProfitableLoopsByMissingIVs++;
       }
     }
-
-    if (!IsCandFound)
-      return false;
 
     // Look into the innermost loop again for blocking when algo is MatMul.
     // Experiments in skx showed blocking all three levels of matrix
     // multiplication gives best performance.
-    if (!InnermostLoop->hasVectorizeEnablingPragma() &&
+    if (NumProfitableLoopsByMissingIVs &&
+        !InnermostLoop->hasVectorizeEnablingPragma() &&
         NumTotalLoops < MaxLoopNestLevel && LoopBlockingAlgorithm == MatMul &&
-        (std::any_of(std::next(NumRefsMissingAtLevel.begin(), OuterLevel),
-                     std::next(NumRefsMissingAtLevel.begin(), InnerLevel + 1),
-                     [](int Num) { return Num > 0; }))) {
+        (std::any_of(
+            std::next(NumRefsMissingAtLevel.begin(), OutermostLevel),
+            std::next(NumRefsMissingAtLevel.begin(), InnermostLevel + 1),
+            [](int Num) { return Num > 0; }))) {
 
       LLVM_DEBUG(dbgs() << "* Loop at Level "
                         << InnermostLoop->getNestingLevel()
-                        << " will be stripmined\n");
+                        << " will be stripmined by missing IV.\n");
 
       markAsToStripmine(InnermostLoop, StripmineCandidateMap);
-      IsCandFound = true;
     }
+
+    // All loops are already blocked.
+    if (NumProfitableLoopsByMissingIVs == (InnermostLevel - OutermostLevel + 1))
+      return true;
+
+    bool HasProfitableLoopsBySmallStride = false;
+    if (!DisableStrideProfitablity) {
+      // When (NumRefsWithSmallStrides[Level] > 0),
+      // block all inner levels of Level, i.e., [Level + 1, Innermost Level]
+      // That means, (1) find the max of levels, where
+      // NumRefsWithSmallStrides[level] > 0 (2) Mark to block all levels [max
+      // level + 1, Innermost level]
+      unsigned OutermostSeenLevel = InnermostLevel;
+      for (unsigned OuterLevel = OutermostLevel;
+           OuterLevel <= InnermostLevel - 1; OuterLevel++)
+        if (NumRefsWithSmallStrides[OuterLevel] > 0) {
+          OutermostSeenLevel = OuterLevel;
+          break;
+        }
+
+      if (OutermostSeenLevel < InnermostLevel) {
+        for (unsigned
+                 Lv = OutermostSeenLevel,
+                 LastLv = ((LoopBlockingAlgorithm == Outer) ? InnermostLevel - 1
+                                                            : InnermostLevel);
+             Lv <= LastLv; Lv++) {
+          assert(LvToLoop[Lv] && "Lv cannot be null.");
+
+          if (LvToLoop[Lv]->hasVectorizeEnablingPragma())
+            continue;
+
+          markAsToStripmine(LvToLoop[Lv], StripmineCandidateMap);
+          HasProfitableLoopsBySmallStride = true;
+
+          LLVM_DEBUG(
+              dbgs()
+              << "** Loop at Level " << Lv << " will be stripmined \n"
+              << "  by outer IV in small stride in contiguous direction.\n");
+        }
+      }
+    }
+
+    bool IsProfitable =
+        NumProfitableLoopsByMissingIVs || HasProfitableLoopsBySmallStride;
 
     if (StripmineCandidateMap.size() == 1 &&
         StripmineCandidateMap.count(OutermostLoop)) {
@@ -1498,12 +1561,13 @@ private:
           dbgs()
           << "Loop blocking only the outermost loop is not profitable.\n");
       StripmineCandidateMap.clear();
-      IsCandFound = false;
+      IsProfitable = false;
     }
 
-    LLVM_DEBUG(dbgs() << "determineProfitableStipmineLoop result: "
-                      << IsCandFound << "\n");
-    return IsCandFound;
+    LLVM_DEBUG(dbgs() << "determineProfitableStripmineLoop result: "
+                      << IsProfitable << "\n");
+
+    return IsProfitable;
   }
 
 private:
@@ -1524,7 +1588,10 @@ public:
     // TODO: OutermostLoop is not used.
     //       Dummy for conforming to a format
     pullFixedStripmineSize(StripmineSizes, LoopMap);
-    updateLoopMapByStripmineApplicability(LoopMap);
+
+    // TODO: I don't recall the rationale this function
+    //       is called here. Reconsider its call site.
+    updateLoopMapByStripmineApplicability(LoopMap, OutermostLoop);
   }
 
 private:
@@ -1651,7 +1718,7 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
                                      StencilProfitability.getStencilType());
     // If we reach here, we want to always stripmine, so we add extra
     // normalization flag, see normalize()
-    updateLoopMapByStripmineApplicability(LoopMap, true);
+    updateLoopMapByStripmineApplicability(LoopMap, Lp, true);
 
     if (LoopMap.empty()) {
       // Even with inner loop nest, it will be unlikely to
@@ -1681,7 +1748,8 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
 
   // Try K&R + fixed stripmine sizes
   // Just use existing logic for now to avoid regression
-  KAndRChecker KAndRProfitability(Refs, Func, Advanced);
+  KAndRChecker KAndRProfitability(Refs, Func, InnermostLoop, OutermostLoop,
+                                  Advanced);
   LoopMapTy StripmineSizes;
   adjustBlockSize(LoopNestTC, StripmineSizes);
 
@@ -2248,13 +2316,16 @@ struct HIRLoopBlocking {
   bool run(bool Pragma);
 
   void doTransformation(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
-                        LoopMapTy &LoopToBS);
+                        LoopMapTy &LoopToBS, bool ByPragma);
 };
 
 // Do stripmine & interchange
 void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
                                        HLLoop *OutermostLoop,
-                                       LoopMapTy &LoopToBS) {
+                                       LoopMapTy &LoopToBS, bool ByPragma) {
+  assert((ByPragma || LoopToBS.size() != 1 || !LoopToBS.count(OutermostLoop)) &&
+         "Attempting loop blocking only the outermost loop, which is not "
+         "profitable");
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PrintBlockedLoops) {
@@ -2397,7 +2468,8 @@ bool HIRLoopBlocking::run(bool ForPragma) {
     LLVM_DEBUG(dbgs() << "Loop to Block: \n");
     LLVM_DEBUG(OutermostLoop->dump());
 
-    doTransformation(InnermostLoop, OutermostLoop, LoopMap);
+    doTransformation(InnermostLoop, OutermostLoop, LoopMap,
+                     ForPragma && HasPragma);
 
     Changed = true;
   }

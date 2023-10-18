@@ -3,9 +3,9 @@
 ; 2. Outer two levels of matmul are blocked using Outer algorithm (prefix OUTER)
 ; 3. All three levels are blocked using default algorithm (prefix DEFAULT)
 ;
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-loop-blocking-algo=kandr 2>&1 < %s | FileCheck %s --check-prefix=KANDR
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa"  2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>,print<hir-dd-analysis>" -aa-pipeline="basic-aa"  -hir-loop-blocking-algo=outer -hir-dd-analysis-verify=Region 2>&1 < %s | FileCheck %s --check-prefix=OUTER
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-loop-blocking-algo=kandr 2>&1 < %s -disable-output | FileCheck %s --check-prefix=KANDR
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa"  2>&1 < %s -disable-output | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>,print<hir-dd-analysis>" -aa-pipeline="basic-aa"  -hir-loop-blocking-algo=outer -hir-dd-analysis-verify=Region 2>&1 < %s -disable-output | FileCheck %s --check-prefix=OUTER
 
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,hir-loop-blocking" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 
