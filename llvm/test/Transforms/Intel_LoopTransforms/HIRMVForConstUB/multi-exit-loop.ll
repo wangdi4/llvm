@@ -1,4 +1,5 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-mv-const-ub,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-mv-const-ub,print<hir>" -disable-output < %s 2>&1 | FileCheck %s --check-prefix=NOOPT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-mv-const-ub,print<hir>" -disable-hir-mv-const-ub-for-multi-exit-loops=false -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test case checks that the multi-exit for the outermost loop is updated
 ; after the transformation is applied, and the HIR verifier doesn't produce an
@@ -27,8 +28,13 @@
 ;       + END LOOP
 ; END REGION
 
-; HIR after transformation
 
+; This optimization is disabled by default:
+; NOOPT:  BEGIN REGION { }
+; NOOPT-NOT: else
+
+
+; HIR after transformation when it is enabled:
 ; CHECK: BEGIN REGION { }
 ; CHECK:       + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647>
 ; CHECK:       |   %0 = (@b)[0][i1];

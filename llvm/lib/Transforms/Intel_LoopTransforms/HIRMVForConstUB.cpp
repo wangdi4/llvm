@@ -41,6 +41,10 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESCR "."));
 
+static cl::opt<bool> DisableMultiExitLoops(
+    "disable-" OPT_SWITCH "-for-multi-exit-loops", cl::init(true), cl::Hidden,
+    cl::desc("Disable " OPT_DESCR " for multi-exit loops."));
+
 STATISTIC(LoopsMultiversioned,
           "Number of loops multiversioned by MV for const UB");
 
@@ -355,6 +359,10 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
     return true;
   }
 
+  // Multiversioning of the multi-exit loops is non-profitable.
+  if (DisableMultiExitLoops && Loop->isMultiExit())
+    return false;
+
   RegDDRef *Ref = Loop->getUpperDDRef();
   CanonExpr *CE = Ref->getSingleCanonExpr();
 
@@ -448,6 +456,11 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
   for (auto *Parent = Loop->getParentLoop();
        Parent && (Parent->getNestingLevel() > DefAtLvl);
        Parent = Parent->getParentLoop()) {
+
+    // Multiversioning of the multi-exit loops is non-profitable.
+    if (DisableMultiExitLoops && Parent->isMultiExit())
+      return false;
+
     auto *TCCanonExpr = Parent->getTripCountCanonExpr();
     if (TCCanonExpr &&
         TCCanonExpr->replaceTempBlobByConstant(BlobIndex, NewBlobValue)) {
