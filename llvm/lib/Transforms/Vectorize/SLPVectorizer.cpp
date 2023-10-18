@@ -11039,6 +11039,7 @@ BoUpSLP::isGatherShuffledEntry(const TreeEntry *TE, ArrayRef<Value *> VL,
   // blocks.
   if (auto *PHI = dyn_cast<PHINode>(TEUseEI.UserTE->getMainOp())) {
     TEInsertBlock = PHI->getIncomingBlock(TEUseEI.EdgeIdx);
+    TEInsertPt = TEInsertBlock->getTerminator();
   } else {
     TEInsertBlock = TEInsertPt->getParent();
   }
@@ -11102,9 +11103,10 @@ BoUpSLP::isGatherShuffledEntry(const TreeEntry *TE, ArrayRef<Value *> VL,
       const Instruction *InsertPt =
           UserPHI ? UserPHI->getIncomingBlock(UseEI.EdgeIdx)->getTerminator()
                   : &getLastInstructionInBundle(UseEI.UserTE);
-      if (!UserPHI && TEInsertPt == InsertPt) {
-        // If 2 gathers are operands of the same non-PHI entry,
-        // compare operands indices, use the earlier one as the base.
+      if (TEInsertPt == InsertPt) {
+        // If 2 gathers are operands of the same entry (regardless of wether
+        // user is PHI or else), compare operands indices, use the earlier one
+        // as the base.
         if (TEUseEI.UserTE == UseEI.UserTE && TEUseEI.EdgeIdx < UseEI.EdgeIdx)
           continue;
         // If the user instruction is used for some reason in different
@@ -12138,7 +12140,7 @@ ResTy BoUpSLP::processBuildVector(const TreeEntry *E, Args &...Params) {
   inversePermutation(E->ReorderIndices, ReorderMask);
   if (!ReorderMask.empty())
     reorderScalars(GatheredScalars, ReorderMask);
-  auto FindReusedSplat = [&](SmallVectorImpl<int> &Mask) {
+  auto FindReusedSplat = [&](MutableArrayRef<int> Mask) {
     if (!isSplat(E->Scalars) || none_of(E->Scalars, [](Value *V) {
           return isa<UndefValue>(V) && !isa<PoisonValue>(V);
         }))

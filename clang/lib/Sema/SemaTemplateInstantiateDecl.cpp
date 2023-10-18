@@ -5281,7 +5281,8 @@ bool Sema::InstantiateDefaultArgument(SourceLocation CallLoc, FunctionDecl *FD,
   // template<typename T>
   // A<T> Foo(int a = A<T>::FooImpl());
   MultiLevelTemplateArgumentList TemplateArgs = getTemplateInstantiationArgs(
-      FD, /*Final=*/false, nullptr, /*RelativeToPrimary=*/true);
+      FD, FD->getLexicalDeclContext(), /*Final=*/false, nullptr,
+      /*RelativeToPrimary=*/true);
 
   if (SubstDefaultArgument(CallLoc, Param, TemplateArgs, /*ForCallExpr*/ true))
     return true;
@@ -5320,7 +5321,8 @@ void Sema::InstantiateExceptionSpec(SourceLocation PointOfInstantiation,
   LocalInstantiationScope Scope(*this);
 
   MultiLevelTemplateArgumentList TemplateArgs = getTemplateInstantiationArgs(
-      Decl, /*Final=*/false, nullptr, /*RelativeToPrimary*/ true);
+      Decl, Decl->getLexicalDeclContext(), /*Final=*/false, nullptr,
+      /*RelativeToPrimary*/ true);
 
   // FIXME: We can't use getTemplateInstantiationPattern(false) in general
   // here, because for a non-defining friend declaration in a class template,
@@ -5762,7 +5764,8 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
     SetDeclDefaulted(Function, PatternDecl->getLocation());
   } else {
     MultiLevelTemplateArgumentList TemplateArgs = getTemplateInstantiationArgs(
-        Function, /*Final=*/false, nullptr, false, PatternDecl);
+        Function, Function->getLexicalDeclContext(), /*Final=*/false, nullptr,
+        false, PatternDecl);
 
     // Substitute into the qualifier; we can get a substitution failure here
     // through evil use of alias templates.

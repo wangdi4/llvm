@@ -373,7 +373,6 @@ public:
 
   bool hasSectionsCommand = false;
   bool seenDataAlign = false;
-  bool seenDiscard = false;
   bool seenRelroEnd = false;
   bool errorOnMissingSection = false;
   std::string backwardDotErr;
