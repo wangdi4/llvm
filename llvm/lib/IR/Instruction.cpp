@@ -116,8 +116,7 @@ void Instruction::removeFromParent() {
   getParent()->getInstList().remove(getIterator());
 }
 
-<<<<<<< HEAD
-iplist<Instruction>::iterator Instruction::eraseFromParent() {
+BasicBlock::iterator Instruction::eraseFromParent() {
 #if INTEL_CUSTOMIZATION
 #ifndef NDEBUG
   // Deleting a terminator instruction with an attached opt-report metadata
@@ -136,9 +135,6 @@ iplist<Instruction>::iterator Instruction::eraseFromParent() {
           llvm_unreachable("The deleted OptReport will be missing.");
 #endif  // NDEBUG
 #endif  // INTEL_CUSTOMIZATION
-=======
-BasicBlock::iterator Instruction::eraseFromParent() {
->>>>>>> 088d272e83259a5d8e577a3d2e62012c42a9f9db
   return getParent()->getInstList().erase(getIterator());
 }
 
