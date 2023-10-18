@@ -1588,6 +1588,7 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
     return replaceInstUsesWith(I, Constant::getNullValue(I.getType()));
 
   // A+B --> A|B iff A and B have no bits set in common.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (haveNoCommonBitsSet(LHS, RHS, SQ.getWithInstruction(&I))) {
     // Don't replace add with or if CodeGen can fold it into a memory operand.
@@ -1614,6 +1615,11 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
       return BinaryOperator::CreateOr(LHS, RHS);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  WithCache<const Value *> LHSCache(LHS), RHSCache(RHS);
+  if (haveNoCommonBitsSet(LHSCache, RHSCache, SQ.getWithInstruction(&I)))
+    return BinaryOperator::CreateOr(LHS, RHS);
+>>>>>>> be57381a4a08b0b6a89d5b5fdec0880b202e99f4
 
   if (Instruction *Ext = narrowMathIfNoOverflow(I))
     return Ext;
@@ -1707,11 +1713,12 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
   // willNotOverflowUnsignedAdd to reduce the number of invocations of
   // computeKnownBits.
   bool Changed = false;
-  if (!I.hasNoSignedWrap() && willNotOverflowSignedAdd(LHS, RHS, I)) {
+  if (!I.hasNoSignedWrap() && willNotOverflowSignedAdd(LHSCache, RHSCache, I)) {
     Changed = true;
     I.setHasNoSignedWrap(true);
   }
-  if (!I.hasNoUnsignedWrap() && willNotOverflowUnsignedAdd(LHS, RHS, I)) {
+  if (!I.hasNoUnsignedWrap() &&
+      willNotOverflowUnsignedAdd(LHSCache, RHSCache, I)) {
     Changed = true;
     I.setHasNoUnsignedWrap(true);
   }
