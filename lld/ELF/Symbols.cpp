@@ -336,12 +336,13 @@ void elf::maybeWarnUnorderableSymbol(const Symbol *sym) {
   if (!config->warnSymbolOrdering)
     return;
 
-  // If UnresolvedPolicy::Ignore is used, no "undefined symbol" error/warning
-  // is emitted. It makes sense to not warn on undefined symbols.
+  // If UnresolvedPolicy::Ignore is used, no "undefined symbol" error/warning is
+  // emitted. It makes sense to not warn on undefined symbols (excluding those
+  // demoted by demoteSymbols).
   //
   // Note, ld.bfd --symbol-ordering-file= does not warn on undefined symbols,
   // but we don't have to be compatible here.
-  if (sym->isUndefined() &&
+  if (sym->isUndefined() && !cast<Undefined>(sym)->discardedSecIdx &&
       config->unresolvedSymbols == UnresolvedPolicy::Ignore)
     return;
 
@@ -350,9 +351,12 @@ void elf::maybeWarnUnorderableSymbol(const Symbol *sym) {
 
   auto report = [&](StringRef s) { warn(toString(file) + s + sym->getName()); };
 
-  if (sym->isUndefined())
-    report(": unable to order undefined symbol: ");
-  else if (sym->isShared())
+  if (sym->isUndefined()) {
+    if (cast<Undefined>(sym)->discardedSecIdx)
+      report(": unable to order discarded symbol: ");
+    else
+      report(": unable to order undefined symbol: ");
+  } else if (sym->isShared())
     report(": unable to order shared symbol: ");
   else if (d && !d->section)
     report(": unable to order absolute symbol: ");
