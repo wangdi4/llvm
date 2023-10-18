@@ -17,7 +17,7 @@
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-output -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 ; RUN: opt -disable-output -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
-; RUN: opt -disable-output -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-optreport-emitter -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI-HIR
+; RUN: opt -disable-output -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI-HIR
 ; REQUIRES: asserts
 
 ; CHECK: A user-defined reduction or scan has been registerized, and cannot be vectorized.

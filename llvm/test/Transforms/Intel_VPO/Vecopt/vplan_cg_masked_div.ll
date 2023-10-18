@@ -3,13 +3,13 @@
 ; RUN: opt < %s -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high -disable-output -vplan-enable-int-divrem-blend-with-safe-value=0 2>&1 | FileCheck %s -check-prefixes=OPTREPORT
 
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -vplan-force-vf=2 -print-after=hir-vplan-vec -vplan-enable-int-divrem-blend-with-safe-value=0 -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-optreport-emitter" -vplan-force-vf=2   -intel-opt-report=high -vplan-enable-int-divrem-blend-with-safe-value=0 -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR-OPTREPORT
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -vplan-force-vf=2   -intel-opt-report=high -vplan-enable-int-divrem-blend-with-safe-value=0 -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR-OPTREPORT
 
 ; RUN: opt < %s -passes=vplan-vec -vplan-force-vf=2  -S | FileCheck %s -check-prefixes=BLENDED
 ; RUN: opt < %s -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high -disable-output  2>&1 | FileCheck %s -check-prefixes=OPTREPORT-BLENDED
 
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -vplan-force-vf=2 -print-after=hir-vplan-vec  -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR-BLENDED
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-optreport-emitter" -vplan-force-vf=2   -intel-opt-report=high  -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR-OPTREPORT-BLENDED
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -vplan-force-vf=2   -intel-opt-report=high  -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR-OPTREPORT-BLENDED
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -107,7 +107,7 @@ define void @masked_divergent_div(ptr %p, i64 %n) {
 ; HIR-BLENDED-NEXT:        |   (<2 x i32>*)([[P0:%.*]])[i1] = [[DOTVEC70]], Mask = @{[[DOTVEC50]]}
 ; HIR-BLENDED-NEXT:        + END LOOP
 ;
-; HIR-OPTREPORT-BLENDED-LABEL:  Report from: HIR Loop optimizations framework for : masked_divergent_div
+; HIR-OPTREPORT-BLENDED-LABEL:  Global optimization report for : masked_divergent_div
 ; HIR-OPTREPORT-BLENDED:       =================================================================
 ;
 entry:
@@ -221,7 +221,7 @@ define void @masked_uniform_div(ptr %p, i64 %n, i32 %val) {
 ; HIR-BLENDED-NEXT:        |   (<2 x i32>*)([[P0:%.*]])[i1] = [[DOTSCAL0]], Mask = @{[[DOTVEC80:%.*]]}
 ; HIR-BLENDED-NEXT:        + END LOOP
 ;
-; HIR-OPTREPORT-BLENDED-LABEL:  Report from: HIR Loop optimizations framework for : masked_uniform_div
+; HIR-OPTREPORT-BLENDED-LABEL:  Global optimization report for : masked_uniform_div
 ; HIR-OPTREPORT-BLENDED:       =================================================================
 ;
 entry:
@@ -299,7 +299,7 @@ define void @masked_safe_speculation_div(ptr %p, i64 %n, i32 %m) {
 ; HIR-BLENDED-NEXT:        |   (<2 x i32>*)([[P0]])[i1] = [[DOTVEC60]], Mask = @{[[DOTVEC50]]}
 ; HIR-BLENDED-NEXT:        + END LOOP
 ;
-; HIR-OPTREPORT-BLENDED-LABEL:  Report from: HIR Loop optimizations framework for : masked_safe_speculation_div
+; HIR-OPTREPORT-BLENDED-LABEL:  Global optimization report for : masked_safe_speculation_div
 ; HIR-OPTREPORT-BLENDED:       =================================================================
 ;
 entry:
@@ -424,7 +424,7 @@ define void @masked_unsafe_speculation_div(ptr %p, i64 %n, i32 %m) {
 ; HIR-BLENDED-NEXT:        |   (<2 x i32>*)([[P0:%.*]])[i1] = [[DOTVEC70]], Mask = @{[[DOTVEC50]]}
 ; HIR-BLENDED-NEXT:        + END LOOP
 ;
-; HIR-OPTREPORT-BLENDED-LABEL:  Report from: HIR Loop optimizations framework for : masked_unsafe_speculation_div
+; HIR-OPTREPORT-BLENDED-LABEL:  Global optimization report for : masked_unsafe_speculation_div
 ; HIR-OPTREPORT-BLENDED:       =================================================================
 ;
 entry:

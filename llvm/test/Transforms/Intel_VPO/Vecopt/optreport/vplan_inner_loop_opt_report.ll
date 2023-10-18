@@ -2,7 +2,7 @@
 ; outer loopnest with nested inner loop.
 
 ; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace --check-prefixes=CHECK,IR
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace --check-prefixes=CHECK,HIR
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace --check-prefixes=CHECK,HIR
 
 ; CHECK:      LOOP BEGIN
 ; CHECK-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED

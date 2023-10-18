@@ -14,7 +14,7 @@
 ; ModuleID = 't1.c'
 ;RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg,mem2reg' -vplan-force-vf=8 -S %s 2>&1 | FileCheck %s
 ;
-;RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=8 -disable-output -intel-opt-report=high %s 2>&1 | FileCheck %s --check-prefix=OPTRPT
+;RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-force-vf=8 -disable-output -intel-opt-report=high %s 2>&1 | FileCheck %s --check-prefix=OPTRPT
 ;
 ; CHECK:           BEGIN REGION { modified }
 ; CHECK:           %red.init = 0;

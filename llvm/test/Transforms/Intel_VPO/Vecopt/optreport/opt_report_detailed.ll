@@ -2,7 +2,7 @@
 
 ; RUN: opt -passes='vplan-vec,intel-ir-optreport-emitter' -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-opt-report=high -enable-intel-advanced-opts -vplan-vls-level=always -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=LLVM
 
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-optreport-emitter' -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-opt-report=high -enable-intel-advanced-opts -vplan-vls-level=always -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>,hir-cg,simplifycfg,intel-ir-optreport-emitter' -vector-library=SVML -vplan-force-vf=4 -vplan-enable-all-zero-bypass-non-loops=false -intel-opt-report=high -enable-intel-advanced-opts -vplan-vls-level=always -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace -check-prefixes=HIR
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -44,7 +44,7 @@ define void @test_serialized(ptr nocapture %arr) local_unnamed_addr {
 ; HIR:             ret ;
 ; HIR-NEXT:  END REGION
 
-; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_serialized
+; HIR-LABEL: Global optimization report for : test_serialized
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
 ; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
@@ -107,7 +107,7 @@ define void @test_vector_variant(ptr nocapture %arr) local_unnamed_addr {
 ; HIR:             ret ;
 ; HIR-NEXT:  END REGION
 
-; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_vector_variant
+; HIR-LABEL: Global optimization report for : test_vector_variant
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
 ; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
@@ -172,7 +172,7 @@ define void @test_sqrt(ptr nocapture %arr) local_unnamed_addr #1 {
 ; HIR:             ret ;
 ; HIR-NEXT:  END REGION
 
-; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_sqrt
+; HIR-LABEL: Global optimization report for : test_sqrt
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
 ; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
@@ -256,7 +256,7 @@ define void @test_nonvls_mem(ptr %ptr, ptr %ptr2) #1 {
 ; HIR:             ret ;
 ; HIR-NEXT:  END REGION
 
-; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_nonvls_mem
+; HIR-LABEL: Global optimization report for : test_nonvls_mem
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
 ; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
@@ -366,7 +366,7 @@ define void @test_vls_mem(ptr %ptr, ptr %ptr2, ptr %ptr3, ptr %ptr4) #1 {
 ; HIR:            ret ;
 ; HIR-NEXT:  END REGION
 
-; HIR-LABEL: Report from: HIR Loop optimizations framework for : test_vls_mem
+; HIR-LABEL: Global optimization report for : test_vls_mem
 ; HIR-EMPTY:
 ; HIR-NEXT:  LOOP BEGIN
 ; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
