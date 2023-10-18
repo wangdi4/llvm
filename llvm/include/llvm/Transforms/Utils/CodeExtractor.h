@@ -169,6 +169,10 @@ public:
     // label, if non-empty, otherwise "extracted".
     std::string Suffix;
 
+    // If true, the outlined function has aggregate argument in zero address
+    // space.
+    bool ArgsInZeroAddressSpace;
+
   public:
     /// Create a code extractor for a sequence of blocks.
     ///
@@ -183,6 +187,7 @@ public:
     /// Any new allocations will be placed in the AllocationBlock, unless
     /// it is null, in which case it will be placed in the entry block of
     /// the function from which the code is being extracted.
+<<<<<<< HEAD
 #if INTEL_COLLAB
     /// If AllowEHTypeID is true, the safety check for the llvm.eh.typeid.for
     /// intrinsic will be skipped. Exceptions thrown out of the region may
@@ -195,12 +200,18 @@ public:
     /// corresponding zext/trunc instructions are emitted before/after
     /// store/load of them.
 #endif // INTEL_COLLAB
+=======
+    /// If ArgsInZeroAddressSpace param is set to true, then the aggregate
+    /// param pointer of the outlined function is declared in zero address
+    /// space.
+>>>>>>> eee8dd90887cbf86fa0fea1ff770377a87af0257
     CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT = nullptr,
                   bool AggregateArgs = false, BlockFrequencyInfo *BFI = nullptr,
                   BranchProbabilityInfo *BPI = nullptr,
                   AssumptionCache *AC = nullptr, bool AllowVarArgs = false,
                   bool AllowAlloca = false,
                   BasicBlock *AllocationBlock = nullptr,
+<<<<<<< HEAD
 #if INTEL_COLLAB
                   std::string Suffix = "",
                   bool AllowEHTypeID = false,
@@ -210,6 +221,9 @@ public:
 #else // INTEL_COLLAB
                   std::string Suffix = "");
 #endif // INTEL_COLLAB
+=======
+                  std::string Suffix = "", bool ArgsInZeroAddressSpace = false);
+>>>>>>> eee8dd90887cbf86fa0fea1ff770377a87af0257
 
     /// Create a code extractor for a loop body.
     ///
