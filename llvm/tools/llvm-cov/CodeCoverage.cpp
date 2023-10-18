@@ -66,6 +66,9 @@
 #include <optional>
 #include <system_error>
 
+#if INTEL_CUSTOMIZATION
+#include "Intel_CoverageReportXML.h"
+#endif // INTEL_CUSTOMIZATION
 using namespace llvm;
 using namespace coverage;
 
@@ -696,7 +699,9 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
                  clEnumValN(CoverageViewOptions::OutputFormat::HTML, "html",
                             "HTML output"),
                  clEnumValN(CoverageViewOptions::OutputFormat::Lcov, "lcov",
-                            "lcov tracefile output")),
+                            "lcov tracefile output"),               // INTEL
+                 clEnumValN(CoverageViewOptions::OutputFormat::XML, // INTEL
+                            "xml", "XML output")),                  // INTEL
       cl::init(CoverageViewOptions::OutputFormat::Text));
 
   cl::list<std::string> PathRemaps(
@@ -835,6 +840,13 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
         errs() << "Color output cannot be enabled when generating lcov.\n";
       ViewOpts.Colors = false;
       break;
+#if INTEL_CUSTOMIZATION
+    case CoverageViewOptions::OutputFormat::XML:
+      if (UseColor == cl::BOU_TRUE)
+        errs() << "Color output cannot be enabled when generating xml.\n";
+      ViewOpts.Colors = false;
+      break;
+#endif // INTEL_CUSTOMIZATION
     }
 
     if (!PathRemaps.empty()) {
@@ -1032,6 +1044,12 @@ int CodeCoverageTool::doShow(int argc, const char **argv,
     error("lcov format should be used with 'llvm-cov export'.");
     return 1;
   }
+#if INTEL_CUSTOMIZATION
+  if (ViewOpts.Format == CoverageViewOptions::OutputFormat::XML) {
+    error("XML format should be used with 'llvm-cov report'.");
+    return 1;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   ViewOpts.HighCovWatermark = 100.0;
   ViewOpts.LowCovWatermark = 80.0;
@@ -1202,6 +1220,11 @@ int CodeCoverageTool::doReport(int argc, const char **argv,
   cl::opt<bool> ShowFunctionSummaries(
       "show-functions", cl::Optional, cl::init(false),
       cl::desc("Show coverage summaries for each function"));
+#if INTEL_CUSTOMIZATION
+  cl::opt<bool> ShowRegionsInXML(
+      "show-regions-in-xml", cl::Optional, cl::init(false),
+      cl::desc("Show the execution counts for each region in xml reports"));
+#endif // INTEL_CUSTOMIZATION
 
   auto Err = commandLineParser(argc, argv);
   if (Err)
@@ -1225,6 +1248,17 @@ int CodeCoverageTool::doReport(int argc, const char **argv,
   if (!Coverage)
     return 1;
 
+#if INTEL_CUSTOMIZATION
+  if (ViewOpts.Format == CoverageViewOptions::OutputFormat::XML) {
+    ViewOpts.ShowRegionsInXML = ShowRegionsInXML;
+    CoverageReportXML ReportXML(ViewOpts, *Coverage);
+    if (SourceFiles.empty())
+      ReportXML.renderFileReports(llvm::outs(), IgnoreFilenameFilters);
+    else
+      ReportXML.renderFileReports(llvm::outs(), SourceFiles);
+    return 0;
+  }
+#endif // INTEL_CUSTOMIZATION
   CoverageReport Report(ViewOpts, *Coverage);
   if (!ShowFunctionSummaries) {
     if (SourceFiles.empty())
@@ -1302,6 +1336,12 @@ int CodeCoverageTool::doExport(int argc, const char **argv,
     Exporter =
         std::make_unique<CoverageExporterLcov>(*Coverage, ViewOpts, outs());
     break;
+#if INTEL_CUSTOMIZATION
+  case CoverageViewOptions::OutputFormat::XML:
+    // Unreachable because we should have gracefully terminated with an error
+    // above.
+    llvm_unreachable("XML format is not supported!");
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (SourceFiles.empty())
