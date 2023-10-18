@@ -9,8 +9,8 @@
 // Since experimental-relative-c++-abi-vtables is some experimental option, temporary disabling the check for now
 // until we emit proper address spaces (and casts) everywhere.
 
-// VTABLE-INTEL: @_ZTV8Derived1 = linkonce_odr unnamed_addr constant { [3 x ptr addrspace(4)] } zeroinitializer, comdat, align 8
-// VTABLE-INTEL: @_ZTV4Base = linkonce_odr unnamed_addr constant { [3 x ptr addrspace(4)] } zeroinitializer, comdat, align 8
+// VTABLE-INTEL: @_ZTV8Derived1 = linkonce_odr unnamed_addr constant { [3 x ptr addrspace(4)] } { [3 x ptr addrspace(4)] [ptr addrspace(4) null, ptr addrspace(4) null, ptr addrspace(4) addrspacecast (ptr @_ZN8Derived17displayEv to ptr addrspace(4))] }, comdat, align 8
+// VTABLE-INTEL: @_ZTV4Base = linkonce_odr unnamed_addr constant { [3 x ptr addrspace(4)] } { [3 x ptr addrspace(4)] [ptr addrspace(4) null, ptr addrspace(4) null, ptr addrspace(4) addrspacecast (ptr @_ZN4Base7displayEv to ptr addrspace(4))] }, comdat, align 8
 #endif // INTEL_CUSTOMIZATION
 
 // VTABLE: @_ZTV8Derived1 = linkonce_odr unnamed_addr constant { [3 x ptr] } { [3 x ptr] [ptr null, ptr null, ptr @_ZN8Derived17displayEv] }, comdat, align 8
@@ -20,12 +20,16 @@ SYCL_EXTERNAL bool rand();
 
 class Base {
    public:
-    virtual void display() {}
+// if INTEL_CUSTOMIZATION
+    [[intel::device_indirectly_callable]] virtual void display() {}
+// end INTEL_CUSTOMIZATION
 };
 
 class Derived1 : public Base {
    public:
-    void display() {}
+// if INTEL_CUSTOMIZATION
+    [[intel::device_indirectly_callable]] void display() {}
+// end INTEL_CUSTOMIZATION
 };
 
 SYCL_EXTERNAL void test() {
