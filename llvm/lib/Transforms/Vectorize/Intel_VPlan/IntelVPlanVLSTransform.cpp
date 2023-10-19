@@ -583,33 +583,10 @@ VPValue *VLSTransform::adjustBasePtrForReverse(VPValue *Base,
   assert(AbsGroupStrideInGranularityElements ==
              GroupSizeInGranularityElements &&
          "Expected matching stride and size for negative stride group");
-  auto *BaseTy = cast<PointerType>(Base->getType());
-  if (BaseTy->isOpaque()) {
-    auto *Result = Builder.createGEP(
-        GroupGranularityType, GroupGranularityType, Base,
-        {Plan.getVPConstant(-APInt(
-            64, GroupSizeInGranularityElements * (VF - 1), true /* Signed */))},
-        nullptr /* Underlying Instruction */);
-    Result->setName(Base->getName() + ".reverse.adjust");
-    DA.updateDivergence(*Result);
-    return Result;
-  }
-
-  auto *Ty = BaseTy->getNonOpaquePointerElementType();
-  // We rely on no gaps and equal sizes here.
-  assert(DL.getTypeSizeInBits(GroupTy->getElementType()) ==
-             DL.getTypeSizeInBits(Ty) &&
-         "Type combination isn't supported yet.");
-  unsigned Scale = 1;
-  if (auto *VecTy = dyn_cast<FixedVectorType>(Ty))
-    Scale = VecTy->getNumElements();
-
-  // TODO: API boundaries are wacky here.
   auto *Result = Builder.createGEP(
-      FirstMemrefInst->getValueType(), FirstMemrefInst->getValueType(), Base,
-      {Plan.getVPConstant(
-          -APInt(64, GroupSizeInGranularityElements * (VF - 1) / Scale,
-                 true /* Signed */))},
+      GroupGranularityType, GroupGranularityType, Base,
+      {Plan.getVPConstant(-APInt(64, GroupSizeInGranularityElements * (VF - 1),
+                                 true /* Signed */))},
       nullptr /* Underlying Instruction */);
   Result->setName(Base->getName() + ".reverse.adjust");
   DA.updateDivergence(*Result);

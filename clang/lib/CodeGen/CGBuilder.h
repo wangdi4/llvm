@@ -158,12 +158,10 @@ public:
 
   llvm::Value *CreateBitCast(llvm::Value *Ptr, llvm::Type *Ty,
                              const llvm::Twine &Name = "") {
-    if (Ty->isPointerTy() &&
-        Ptr->getType()->getPointerAddressSpace() !=
-            Ty->getPointerAddressSpace()) {
-      Ty = llvm::PointerType::getWithSamePointeeType(
-          llvm::cast<llvm::PointerType>(Ty),
-          Ptr->getType()->getPointerAddressSpace());
+    if (Ty->isPointerTy() && Ptr->getType()->getPointerAddressSpace() !=
+                                 Ty->getPointerAddressSpace()) {
+      Ty = llvm::PointerType::get(Ty->getContext(),
+                                  Ptr->getType()->getPointerAddressSpace());
     }
     return CGBuilderBaseTy::CreateBitCast(Ptr, Ty, Name);
   }

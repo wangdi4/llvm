@@ -559,10 +559,10 @@ OpenMPIRBuilder::getOrCreateRuntimeFunction(Module &M, RuntimeFunction FnID) {
     SmallVector<llvm::Type *, 5> ArgTys = {__VA_ARGS__};                       \
     if (unsigned PointerAS = getPointerAddressSpace(M)) {                      \
       if (auto *PT = dyn_cast<PointerType>(ReturnType))                        \
-        RetTy = PointerType::getWithSamePointeeType(PT, PointerAS);            \
+        RetTy = PointerType::get(PT->getContext(), PointerAS);                 \
       for (unsigned I = 0, E = ArgTys.size(); I < E; ++I)                      \
         if (auto *PT = dyn_cast<PointerType>(ArgTys[I]))                       \
-          ArgTys[I] = PointerType::getWithSamePointeeType(PT, PointerAS);      \
+          ArgTys[I] = PointerType::get(PT->getContext(), PointerAS);           \
     }                                                                          \
     FnTy = FunctionType::get(RetTy, ArgTys, IsVarArg);                         \
     Fn = M.getFunction(Str);                                                   \
@@ -5938,7 +5938,7 @@ void OpenMPIRBuilder::initializeTypes(Module &M) {
       for (unsigned I = 0, E = VarName##Types.size(); I < E; ++I)              \
         if (auto *PT = dyn_cast<PointerType>(VarName##Types[I]))               \
           VarName##Types[I] =                                                  \
-              llvm::PointerType::getWithSamePointeeType(PT, PointerAS);        \
+              llvm::PointerType::get(PT->getContext(), PointerAS);             \
     T = StructType::create(Ctx, VarName##Types, StructName);                   \
   }                                                                            \
   VarName = T;                                                                 \

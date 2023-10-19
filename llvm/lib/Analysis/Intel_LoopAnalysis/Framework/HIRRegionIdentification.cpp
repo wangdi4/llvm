@@ -2876,13 +2876,7 @@ HIRRegionIdentification::findPhiElementType(const PHINode *AddRecPhi) const {
   auto *GEPOp = tracebackToGEPOp(AddRecPhi, VisitedInsts);
 
   if (!GEPOp) {
-    auto *PhiTy = cast<PointerType>(AddRecPhi->getType());
-
-    // This check will try to keep parsing identical for non-opaque ptrs.
-    // Parsing will change in some case with opaque ptrs.
-    // See phi-base-with-bitcast-ptr-element-type.ll for an example.
-    return PhiTy->isOpaque() ? nullptr
-                             : PhiTy->getNonOpaquePointerElementType();
+    return nullptr;
   }
 
   // Valid element types are those where we can represent IVs. These can be

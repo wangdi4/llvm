@@ -1028,9 +1028,6 @@ bool DynCloneImpl<InfoClass>::prunePossibleCandidateFields(void) {
     Type *CalledValueType = CalledValue->getType();
     if (!isa<PointerType>(CalledValueType))
       return false;
-    PointerType *PTy = cast<PointerType>(CalledValueType);
-    if (!PTy->isOpaqueOrPointeeTypeMatches(CI->getFunctionType()))
-      return false;
     if (auto *BC = dyn_cast<BitCastOperator>(CalledValue))
       if (isa<Function>(BC->getOperand(0)))
         return true;

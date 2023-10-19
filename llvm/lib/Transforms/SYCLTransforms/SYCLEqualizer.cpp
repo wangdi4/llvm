@@ -289,8 +289,8 @@ private:
       if (PType && PType->getPointerAddressSpace() !=
                        CompilationUtils::ADDRESS_SPACE_GENERIC) {
         // Get type and value for create or get new builtin function
-        PointerType *NewType = PointerType::getWithSamePointeeType(
-            PType, CompilationUtils::ADDRESS_SPACE_GENERIC);
+        PointerType *NewType = PointerType::get(
+            PType->getContext(), CompilationUtils::ADDRESS_SPACE_GENERIC);
         Value *NewOp =
             Builder.CreateAddrSpaceCast(Arg, NewType, Twine("cast.data"));
         FuncArgValues.push_back(NewOp);

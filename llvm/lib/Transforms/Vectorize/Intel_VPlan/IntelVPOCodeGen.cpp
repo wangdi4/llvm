@@ -229,13 +229,8 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     Type *SourceElementType = VPGEP->getSourceElementType();
     // TODO: SOAMemRef transformations needs to be updated to correctly set
     // SourceElementType which can then be used here.
-    if (!VPGEP->isOpaque()) {
-      SourceElementType = GepBasePtr->getType()
-                              ->getScalarType()
-                              ->getNonOpaquePointerElementType();
-    } else if (isSOAAccess(VPGEP, Plan)) {
+    if (isSOAAccess(VPGEP, Plan))
       SourceElementType = getSOAType(SourceElementType, VF);
-    }
 
     if (VPGEP->isInBounds())
       SerialInst =
@@ -320,16 +315,6 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     assert(Ops.size() == 1 &&
            "BitCast/AddrspaceCast should have only one operand.");
     Type *DestTy = VPInst->getType();
-    // Cast's destination type on operands with SOA accesses need to be set up
-    // with correct type.
-    if (isSOAAccess(VPInst, Plan)) {
-      auto *DestPtrTy = cast<PointerType>(DestTy);
-      if (!DestPtrTy->isOpaque()) {
-        Type *ElemTy = DestPtrTy->getNonOpaquePointerElementType();
-        DestTy = PointerType::get(getSOAType(ElemTy, VF),
-                                  DestPtrTy->getAddressSpace());
-      }
-    }
     SerialInst = Builder.CreateCast(
         static_cast<Instruction::CastOps>(VPInst->getOpcode()), Ops[0], DestTy);
   } else if (VPInst->getOpcode() == Instruction::PHI) {
@@ -1076,13 +1061,9 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     // SourceElementType which can then be used here.
     StringRef GepName =
         isSOAAccess(GEP, Plan) ? "soa_vectorGEP" : "mm_vectorGEP";
-    Type *SourceElementType =
-        GEP->isOpaque() ? isSOAAccess(GEP, Plan)
-                              ? getSOAType(GEP->getSourceElementType(), VF)
-                              : GEP->getSourceElementType()
-                        : WideGepBasePtr->getType()
-                              ->getScalarType()
-                              ->getNonOpaquePointerElementType();
+    Type *SourceElementType = isSOAAccess(GEP, Plan)
+                                  ? getSOAType(GEP->getSourceElementType(), VF)
+                                  : GEP->getSourceElementType();
 
     Value *VectorGEP =
         Builder.CreateGEP(SourceElementType, WideGepBasePtr, OpsV, GepName);
@@ -1706,15 +1687,6 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     Value *CmplxFinVecRedShuf =
         Builder.CreateShuffleVector(CmplxFinVec, UndefValue::get(CmplxFinVecTy),
                                     ShufMask, "cmplx.fin.vec.reduced");
-    // For non-opaque pointers an explicit bitcast from {ElemTy, ElemTy}* to <2
-    // x ElemTy>* is needed.
-    if (!cast<PointerType>(OrigCmplx->getType())->isOpaque()) {
-      OrigCmplx = Builder.CreateBitCast(
-          OrigCmplx,
-          CmplxTyAsVec->getPointerTo(
-              cast<PointerType>(OrigCmplx->getType())->getAddressSpace()),
-          "orig.cmplx.bc");
-    }
     // Reduce the finalized complex value with original and store back the
     // result.
     Value *OrigCmplxLd = Builder.CreateAlignedLoad(CmplxTyAsVec, OrigCmplx,
@@ -3168,16 +3140,14 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
                   : getOptReportStats(VPLoad).UnmaskedGathers);
 
   auto *ScalarPtrTy = cast<PointerType>(GatherAddress->getType()->getScalarType());
-  if (ScalarPtrTy->isOpaque()) {
-    // FIXME: Revisit when community updates the gather intrinsic for opaque
-    // pointers.
-    Type *ElemTy = VPLoad->getValueType()->getScalarType();
-    VectorType *DesiredDataTy = FixedVectorType::get(ElemTy, VF * OriginalVL);
-    GatherAddress = Builder.CreateBitCast(
-        GatherAddress, DesiredDataTy->getWithNewType(
-                        DesiredDataTy->getScalarType()->getPointerTo(
-                            ScalarPtrTy->getAddressSpace())));
-  }
+  // FIXME: Revisit when community updates the gather intrinsic for opaque
+  // pointers.
+  Type *ElemTy = VPLoad->getValueType()->getScalarType();
+  VectorType *DesiredDataTy = FixedVectorType::get(ElemTy, VF * OriginalVL);
+  GatherAddress = Builder.CreateBitCast(
+      GatherAddress, DesiredDataTy->getWithNewType(
+                         DesiredDataTy->getScalarType()->getPointerTo(
+                             ScalarPtrTy->getAddressSpace())));
 
   Type *VecTy =  getWidenedType(LoadType, VF);
   Instruction *NewLI =
@@ -3320,14 +3290,12 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
                   : getOptReportStats(VPStore).UnmaskedScatters);
 
   auto *ScalarPtrTy = cast<PointerType>(ScatterPtr->getType()->getScalarType());
-  if (ScalarPtrTy->isOpaque()) {
-    // FIXME: Revisit when community updates the scatter intrinsic for opaque
-    // pointers.
-    ScatterPtr = Builder.CreateBitCast(
-        ScatterPtr, DesiredDataTy->getWithNewType(
-                        DesiredDataTy->getScalarType()->getPointerTo(
-                            ScalarPtrTy->getAddressSpace())));
-  }
+  // FIXME: Revisit when community updates the scatter intrinsic for opaque
+  // pointers.
+  ScatterPtr = Builder.CreateBitCast(
+      ScatterPtr, DesiredDataTy->getWithNewType(
+                      DesiredDataTy->getScalarType()->getPointerTo(
+                          ScalarPtrTy->getAddressSpace())));
 
   auto *Inst = Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment,
                                            RepMaskValue);
@@ -3903,12 +3871,6 @@ void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
       // bitcast to convert it to i8*. This inserts duplicate bitcasts, but, we
       // expect CSE following up to take care of this.
       Value *PointerArg = getScalarValue(VPCall->getOperand(1), 0);
-      auto *PointerArgType = cast<PointerType>(PointerArg->getType());
-      if (!PointerArgType->isOpaque() &&
-          !PointerArgType->getNonOpaquePointerElementType()->isIntegerTy(8))
-        PointerArg = Builder.CreateBitCast(
-            PointerArg, Type::getInt8PtrTy(*Plan->getLLVMContext()));
-
       SmallVector<Value *, 3> ScalarArgs = {
           Size, PointerArg, getScalarValue(VPCall->getOperand(2), 0)};
       auto *ScalarInstrinsic = generateSerialInstruction(VPCall, ScalarArgs);
@@ -4065,14 +4027,6 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
       VectorValue = joinVectors(Parts, Builder);
     } else {
       Type *NewTy = V->getType();
-      if (isSOAAccess(V, Plan)) {
-        auto *NewPtrTy = cast<PointerType>(NewTy);
-        if (!NewPtrTy->isOpaque()) {
-          Type *ElemTy = NewTy->getNonOpaquePointerElementType();
-          NewTy = PointerType::get(getSOAType(ElemTy, VF),
-                                   NewPtrTy->getAddressSpace());
-        }
-      }
       VectorValue = UndefValue::get(FixedVectorType::get(NewTy, VF));
       for (unsigned Lane = 0; Lane < VF; ++Lane) {
         Value *ScalarValue = VPScalarMap[V][Lane];
@@ -4556,18 +4510,6 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   }
 
   PHINode *NewPhi;
-  // PHI-arguments with SOA accesses need to be set up with correct-types.
-  // For SOAConverted we have a usual pointer (actually vector of pointers),
-  // so should process them as usual.
-  if (isSOAAccess(VPPhi, Plan) &&
-      !Plan->getVPlanDA()->hasBeenSOAConverted(VPPhi)) {
-    auto *PhiPtrTy = cast<PointerType>(PhiTy);
-    if (!PhiPtrTy->isOpaque()) {
-      Type *ElemTy = PhiTy->getNonOpaquePointerElementType();
-      PhiTy =
-          PointerType::get(getSOAType(ElemTy, VF), PhiPtrTy->getAddressSpace());
-    }
-  }
   // FIXME: Replace with proper SVA.
   bool EmitScalarOnly = !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
   if (needScalarCode(VPPhi) || EmitScalarOnly || isSOAUnitStride(VPPhi, Plan)) {

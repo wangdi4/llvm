@@ -334,7 +334,7 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
             !hasAnyVectorIndices()) {
           auto *PtrTy = dyn_cast<PointerType>(BitCastTy);
           // Printing '*' adjacent to 'ptr' doesn't make sense.
-          if (!PtrTy || !PtrTy->isOpaque()) {
+          if (!PtrTy) {
             OS << "*";
           }
         }
@@ -528,9 +528,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
         assert(isSelfMemRef(true) && "Self memref expected!");
         // For now we return i8 type for self fake refs in the presence of
         // opaque ptrs. Not sure if we can do better.
-        return cast<PointerType>(BasePtrTy)->isOpaque()
-                   ? Type::getInt8Ty(BasePtrTy->getContext())
-                   : BasePtrTy->getNonOpaquePointerElementType();
+        return Type::getInt8Ty(BasePtrTy->getContext());
 
       } else {
         assert(isSelfAddressOf(true) && "Self AddressOf ref expected!");
