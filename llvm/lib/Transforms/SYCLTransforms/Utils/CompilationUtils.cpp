@@ -787,19 +787,6 @@ void getArrayTypeDimensions(const ArrayType *ArrTy,
   } while ((InnerArrTy = dyn_cast<ArrayType>(InnerArrTy->getElementType())));
 }
 
-ArrayType *createMultiDimArray(Type *Ty, const ArrayRef<size_t> &Dimensions) {
-  assert(Dimensions.size() > 0 && "Invalid dimension of MultiDimArray");
-  ArrayType *MDArrayTy = nullptr;
-  for (int i = Dimensions.size() - 1; i >= 0; --i) {
-    if (!MDArrayTy)
-      MDArrayTy = ArrayType::get(Ty, Dimensions[i]);
-    else
-      MDArrayTy = ArrayType::get(MDArrayTy, Dimensions[i]);
-  }
-
-  return MDArrayTy;
-}
-
 StructType *getStructByName(StringRef Name, const Module *M) {
   std::vector<StructType *> StructTys = M->getIdentifiedStructTypes();
 

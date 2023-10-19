@@ -7,7 +7,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-@a = addrspace(1) global target("spirv.Channel") zeroinitializer, align 8, !packet_size !0, !packet_align !0
+@a = addrspace(1) global ptr addrspace(1) null, align 8, !packet_size !0, !packet_align !0
 
 define dso_local void @test() #0 !arg_type_null_val !2 {
 entry:
@@ -48,10 +48,10 @@ attributes #2 = { convergent nounwind }
 !2 = !{}
 !3 = !{target("spirv.Channel") zeroinitializer}
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __pipe_global_ctor --  call void @__pipe_init_fpga(ptr addrspace(1) @a.pipe.bs, i32 4, i32 0, i32 0)
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __pipe_global_ctor --  store ptr addrspace(1) @a.pipe.bs, ptr addrspace(1) @a.pipe, align 8
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __pipe_global_ctor --  ret void
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo --  %write.src = alloca i32, align 4
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __pipe_global_ctor --  call void @__pipe_init_fpga(ptr addrspace(1) @a.bs, i32 4, i32 0, i32 0)
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __pipe_global_ctor --  store ptr addrspace(1) @a.bs, ptr addrspace(1) @a, align 8
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __pipe_global_ctor --  ret void
 ; DEBUGIFY: WARNING: Missing line 6
 ; DEBUGIFY: WARNING: Missing line 7
 ; DEBUGIFY-NOT: WARNING

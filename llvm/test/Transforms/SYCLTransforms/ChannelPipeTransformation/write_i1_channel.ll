@@ -45,15 +45,15 @@
 ;-----------------------------------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL1.2
 ; ----------------------------------------------------
-; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s --implicit-check-not write_channel_intel --implicit-check-not read_channel_nb_intel
+
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s --implicit-check-not write_channel_intel --implicit-check-not read_channel_nb_intel
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-@bitchannel = addrspace(1) global [2 x target("spirv.Channel")] zeroinitializer, align 1, !packet_size !0, !packet_align !0
-@intch = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !1, !packet_align !1
+@bitchannel = addrspace(1) global [2 x ptr addrspace(1)] zeroinitializer, align 1, !packet_size !0, !packet_align !0
+@intch = addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !1, !packet_align !1
 
 ; CHECK: %write.src{{.*}} = alloca i1
 ; CHECK: store i1 false, ptr %write.src{{.*}}
@@ -93,7 +93,7 @@ while.body:                                       ; preds = %while.cond
   call void @llvm.lifetime.start.p0(i64 1, ptr %valid) #4
   store i8 0, ptr %valid, align 1, !tbaa !21
   call void @llvm.lifetime.start.p0(i64 1, ptr %tmp) #4
-  %2 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([2 x target("spirv.Channel")], ptr addrspace(1) @bitchannel, i64 0, i64 1), align 1, !tbaa !20
+  %2 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([2 x ptr addrspace(1)], ptr addrspace(1) @bitchannel, i64 0, i64 1), align 1, !tbaa !20
   %call = call zeroext i1 @_Z21read_channel_nb_intel11ocl_channelbPb(ptr addrspace(1) %2, ptr noundef %valid) #3
   %frombool = zext i1 %call to i8
   store i8 %frombool, ptr %tmp, align 1, !tbaa !21
@@ -238,7 +238,7 @@ for.inc:                                          ; preds = %for.body
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond.cleanup
-  %11 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([2 x target("spirv.Channel")], ptr addrspace(1) @bitchannel, i64 0, i64 1), align 1, !tbaa !20
+  %11 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([2 x ptr addrspace(1)], ptr addrspace(1) @bitchannel, i64 0, i64 1), align 1, !tbaa !20
   call void @_Z19write_channel_intel11ocl_channelbb(ptr addrspace(1) %11, i1 noundef zeroext true) #3
   %12 = load i32, ptr %inval, align 4, !tbaa !18
   %13 = load ptr addrspace(1), ptr %invalid.addr, align 8, !tbaa !14
