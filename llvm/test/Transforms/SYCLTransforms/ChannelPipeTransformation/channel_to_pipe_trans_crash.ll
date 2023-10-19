@@ -9,14 +9,14 @@
 ; ----------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
 ; ----------------------------------------------------
-; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes="function(instcombine),sycl-kernel-channel-pipe-transformation" %s -S | FileCheck %s
+
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes="function(instcombine),sycl-kernel-channel-pipe-transformation" %s -S | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-@chanin = addrspace(1) global [8 x target("spirv.Channel")] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
-; CHECK: @chanin.pipe = addrspace(1) global [8 x ptr addrspace(1)] zeroinitializer
+@chanin = addrspace(1) global [8 x ptr addrspace(1)] zeroinitializer, align 8, !packet_size !0, !packet_align !0, !depth !1
+; CHECK: @chanin = addrspace(1) global [8 x ptr addrspace(1)] zeroinitializer
 
 ; Function Attrs: convergent norecurse nounwind
 define dso_local void @test() #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !3 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !3 !kernel_arg_host_accessible !3 !kernel_arg_pipe_depth !3 !kernel_arg_pipe_io !3 !kernel_arg_buffer_location !3 !arg_type_null_val !3 {

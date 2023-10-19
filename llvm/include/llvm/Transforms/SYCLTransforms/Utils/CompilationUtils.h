@@ -331,8 +331,6 @@ Type *getArrayElementType(const ArrayType *ArrTy);
 void getArrayTypeDimensions(const ArrayType *ArrTy,
                             SmallVectorImpl<size_t> &Dimensions);
 
-ArrayType *createMultiDimArray(Type *Ty, const ArrayRef<size_t> &Dimensions);
-
 /// Return true if string is name of work-item pipe builtin.
 bool isWorkItemPipeBuiltin(StringRef S);
 

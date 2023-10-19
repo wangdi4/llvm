@@ -23,20 +23,17 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-@EXTERNAL_STREAM_B_ready = addrspace(1) global [3 x target("spirv.Channel")] zeroinitializer, align 1, !packet_size !0, !packet_align !0
-@EXTERNAL_STREAM_B = addrspace(1) global [4 x target("spirv.Channel")] zeroinitializer, align 8, !packet_size !1, !packet_align !1
-@EXTERNAL_STREAM_B_processed = addrspace(1) global [2 x target("spirv.Channel")] zeroinitializer, align 1, !packet_size !0, !packet_align !0
+@EXTERNAL_STREAM_B_ready = addrspace(1) global [3 x ptr addrspace(1)] zeroinitializer, align 8, !packet_size !0, !packet_align !0
+@EXTERNAL_STREAM_B = addrspace(1) global [4 x ptr addrspace(1)] zeroinitializer, align 8, !packet_size !1, !packet_align !1
+@EXTERNAL_STREAM_B_processed = addrspace(1) global [2 x ptr addrspace(1)] zeroinitializer, align 8, !packet_size !0, !packet_align !0
 
-; CHECK: @EXTERNAL_STREAM_B_ready = internal
-; CHECK: @EXTERNAL_STREAM_B = internal
-; CHECK: @EXTERNAL_STREAM_B_processed = internal
+; CHECK: @EXTERNAL_STREAM_B_ready = addrspace(1) global [3 x ptr addrspace(1)] zeroinitializer, align 8, !packet_size {{.*}}, !packet_align
+; CHECK: @EXTERNAL_STREAM_B_ready.bs = addrspace(1) global [1350 x i8] zeroinitializer, align 1
+; CHECK: @EXTERNAL_STREAM_B = addrspace(1) global [4 x ptr addrspace(1)] zeroinitializer, align 8, !packet_size {{.*}}, !packet_align
+; CHECK: @EXTERNAL_STREAM_B.bs = addrspace(1) global [1856 x i8] zeroinitializer, align 8
+; CHECK: @EXTERNAL_STREAM_B_processed = addrspace(1) global [2 x ptr addrspace(1)] zeroinitializer, align 8, !packet_size {{.*}}, !packet_align
+; CHECK: @EXTERNAL_STREAM_B_processed.bs = addrspace(1) global [900 x i8] zeroinitializer, align 1
 ; CHECK: @llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 65535, ptr @__pipe_global_ctor, ptr null }]
-; CHECK: @EXTERNAL_STREAM_B_ready.pipe = addrspace(1) global [3 x ptr addrspace(1)] zeroinitializer, align 16, !packet_size {{.*}}, !packet_align
-; CHECK: @EXTERNAL_STREAM_B_ready.pipe.bs = addrspace(1) global [1350 x i8] zeroinitializer, align 1
-; CHECK: @EXTERNAL_STREAM_B.pipe = addrspace(1) global [4 x ptr addrspace(1)] zeroinitializer, align 16, !packet_size {{.*}}, !packet_align
-; CHECK: @EXTERNAL_STREAM_B.pipe.bs = addrspace(1) global [1856 x i8] zeroinitializer, align 8
-; CHECK: @EXTERNAL_STREAM_B_processed.pipe = addrspace(1) global [2 x ptr addrspace(1)] zeroinitializer, align 8, !packet_size {{.*}}, !packet_align
-; CHECK: @EXTERNAL_STREAM_B_processed.pipe.bs = addrspace(1) global [900 x i8] zeroinitializer, align 1
 
 ; Function Attrs: convergent nounwind willreturn memory(none)
 declare i64 @_Z12get_local_idj(i32 noundef) #0
@@ -45,16 +42,16 @@ declare i64 @_Z12get_local_idj(i32 noundef) #0
 define dso_local void @stream_reader_B0(ptr addrspace(1) noundef align 8 %in_stream) #1 !kernel_arg_addr_space !0 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !arg_type_null_val !12 {
 entry:
 ; CHECK-LABEL: define dso_local void @stream_reader_B0(
-; CHECK: [[LI0:%[0-9]+]] = load ptr addrspace(1), ptr addrspace(1) @EXTERNAL_STREAM_B_ready.pipe, align 8, !tbaa
-; CHECK: [[LI1:%[0-9]+]] = load ptr addrspace(1), ptr addrspace(1) @EXTERNAL_STREAM_B.pipe, align 8, !tbaa
-; CHECK: [[LI2:%[0-9]+]] = load ptr addrspace(1), ptr addrspace(1) @EXTERNAL_STREAM_B_processed.pipe, align 8, !tbaa
+; CHECK: [[LI0:%[0-9]+]] = load ptr addrspace(1), ptr addrspace(1) @EXTERNAL_STREAM_B_ready, align 8, !tbaa
+; CHECK: [[LI1:%[0-9]+]] = load ptr addrspace(1), ptr addrspace(1) @EXTERNAL_STREAM_B, align 8, !tbaa
+; CHECK: [[LI2:%[0-9]+]] = load ptr addrspace(1), ptr addrspace(1) @EXTERNAL_STREAM_B_processed, align 8, !tbaa
 ; CHECK: call void @stream_reader(ptr addrspace(1) noundef %0, ptr addrspace(1) [[LI0]], ptr addrspace(1) [[LI1]], ptr addrspace(1) [[LI2]])
   %in_stream.addr = alloca ptr addrspace(1), align 8
   store ptr addrspace(1) %in_stream, ptr %in_stream.addr, align 8, !tbaa !13
   %0 = load ptr addrspace(1), ptr %in_stream.addr, align 8, !tbaa !13
-  %1 = load ptr addrspace(1), ptr addrspace(1) @EXTERNAL_STREAM_B_ready, align 1, !tbaa !17
+  %1 = load ptr addrspace(1), ptr addrspace(1) @EXTERNAL_STREAM_B_ready, align 8, !tbaa !17
   %2 = load ptr addrspace(1), ptr addrspace(1) @EXTERNAL_STREAM_B, align 8, !tbaa !17
-  %3 = load ptr addrspace(1), ptr addrspace(1) @EXTERNAL_STREAM_B_processed, align 1, !tbaa !17
+  %3 = load ptr addrspace(1), ptr addrspace(1) @EXTERNAL_STREAM_B_processed, align 8, !tbaa !17
   call void @stream_reader(ptr addrspace(1) noundef %0, ptr addrspace(1) %1, ptr addrspace(1) %2, ptr addrspace(1) %3) #4
   ret void
 }
@@ -63,21 +60,21 @@ entry:
 define dso_local void @stream_reader(ptr addrspace(1) noundef %in_stream, ptr addrspace(1) %ready, ptr addrspace(1) %stream, ptr addrspace(1) %processed) #2 !arg_type_null_val !18 {
 entry:
 ; CHECK-LABEL: define dso_local void @stream_reader(
-; CHECK: [[PIPE_READY:%.*]] = load ptr addrspace(1), ptr %pipe.ready.addr,
+; CHECK: [[PIPE_READY:%.*]] = load ptr addrspace(1), ptr %ready.addr,
 ; CHECK: call i32 @__read_pipe_2_bl_fpga(ptr addrspace(1) [[PIPE_READY]], ptr addrspace(4) {{.*}}, i32 1, i32 1)
-; CHECK: [[PIPE_STREAM:%.*]] = load ptr addrspace(1), ptr %pipe.stream.addr,
+; CHECK: [[PIPE_STREAM:%.*]] = load ptr addrspace(1), ptr %stream.addr,
 ; CHECK: call i32 @__write_pipe_2_bl_fpga(ptr addrspace(1) [[PIPE_STREAM]], ptr addrspace(4) {{.*}}, i32 8, i32 8)
-; CHECK: [[PIPE_PROCESSED:%.*]] = load ptr addrspace(1), ptr %pipe.processed.addr,
+; CHECK: [[PIPE_PROCESSED:%.*]] = load ptr addrspace(1), ptr %processed.addr,
 ; CHECK: call i32 @__write_pipe_2_bl_fpga(ptr addrspace(1) [[PIPE_PROCESSED]], ptr addrspace(4) {{.*}}, i32 1, i32 1)
   %in_stream.addr = alloca ptr addrspace(1), align 8
-  %ready.addr = alloca ptr addrspace(1), align 1
+  %ready.addr = alloca ptr addrspace(1), align 8
   %stream.addr = alloca ptr addrspace(1), align 8
-  %processed.addr = alloca ptr addrspace(1), align 1
+  %processed.addr = alloca ptr addrspace(1), align 8
   store ptr addrspace(1) %in_stream, ptr %in_stream.addr, align 8, !tbaa !13
-  store ptr addrspace(1) %ready, ptr %ready.addr, align 1, !tbaa !17
+  store ptr addrspace(1) %ready, ptr %ready.addr, align 8, !tbaa !17
   store ptr addrspace(1) %stream, ptr %stream.addr, align 8, !tbaa !17
-  store ptr addrspace(1) %processed, ptr %processed.addr, align 1, !tbaa !17
-  %0 = load ptr addrspace(1), ptr %ready.addr, align 1, !tbaa !17
+  store ptr addrspace(1) %processed, ptr %processed.addr, align 8, !tbaa !17
+  %0 = load ptr addrspace(1), ptr %ready.addr, align 8, !tbaa !17
   %call = call zeroext i8 @_Z18read_channel_intel11ocl_channelh(ptr addrspace(1) %0) #4
   %1 = load ptr addrspace(1), ptr %stream.addr, align 8, !tbaa !17
   %2 = load ptr addrspace(1), ptr %in_stream.addr, align 8, !tbaa !13
@@ -85,7 +82,7 @@ entry:
   %arrayidx = getelementptr inbounds <2 x i32>, ptr addrspace(1) %2, i64 %call1
   %3 = load <2 x i32>, ptr addrspace(1) %arrayidx, align 8, !tbaa !17
   call void @_Z19write_channel_intel11ocl_channelDv2_jS_(ptr addrspace(1) %1, <2 x i32> noundef %3) #4
-  %4 = load ptr addrspace(1), ptr %processed.addr, align 1, !tbaa !17
+  %4 = load ptr addrspace(1), ptr %processed.addr, align 8, !tbaa !17
   call void @_Z19write_channel_intel11ocl_channelhh(ptr addrspace(1) %4, i8 noundef zeroext 1) #4
   ret void
 }
@@ -132,7 +129,7 @@ attributes #5 = { convergent nounwind willreturn memory(none) }
 !17 = !{!15, !15, i64 0}
 !18 = !{ptr addrspace(1) null, target("spirv.Channel") zeroinitializer, target("spirv.Channel") zeroinitializer, target("spirv.Channel") zeroinitializer}
 
-; DEBUGIFY-COUNT-12: WARNING: Instruction with empty DebugLoc in function __pipe_global_ctor
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function stream_reader --  %write.{{.*}} = alloca <2 x i32>, align 8
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function stream_reader --  %write.{{.*}} = alloca i8, align 1
+; DEBUGIFY-COUNT-13: WARNING: Instruction with empty DebugLoc in function __pipe_global_ctor
 ; DEBUGIFY-NOT: WARNING
