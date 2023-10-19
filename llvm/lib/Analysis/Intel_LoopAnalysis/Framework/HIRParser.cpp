@@ -2089,9 +2089,31 @@ bool HIRParser::parseAddRec(const SCEVAddRecExpr *RecSCEV, CanonExpr *CE,
       std::unique_ptr<CanonExpr> NewCE(getCanonExprUtils().createExtCanonExpr(
           CE->getSrcType(), CE->getDestType(), CE->isSExt()));
 
-      if (!parseRecursive(NewSC, NewCE.get(), Level, false, true, true) ||
-          !CanonExprUtils::add(CE, NewCE.get())) {
+      if (!parseRecursive(NewSC, NewCE.get(), Level, false, true, true)) {
         return parseBlob(RecSCEV, CE, Level, 0, IndicateFailure);
+      }
+
+      int64_t Denom = CE->getDenominator();
+
+      // Temporarily set the denominator to 1 for the add operation below
+      // because we want to merge NewCE into CE's numerator. Merge operation is
+      // not an add operation in the mathematical sense. For example, if CE =
+      // (n/4) and NewCE = 2, we want resulting CE = (n+2)/4 but if we call
+      // add() with the denominator set to 4, it will result in CE = (n + 2 *
+      // 4)/4 = (n + 8)/4.
+      if (Denom != 1) {
+        CE->setDenominator(1);
+      }
+
+      if (!CanonExprUtils::add(CE, NewCE.get())) {
+        CE->setDenominator(Denom);
+        return parseBlob(RecSCEV, CE, Level, 0, IndicateFailure);
+      }
+
+      if (Denom != 1) {
+        CE->setDenominator(Denom);
+        // Need to simplify if both numerator and denominator are const.
+        CE->simplify(true, false);
       }
 
     } else {
