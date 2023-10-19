@@ -6,4 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-_CLC_DEF _CLC_OVERLOAD uint __spirv_SubgroupMaxSize();
+// Make sure we can generate no tests at all
+
+// RUN: :
