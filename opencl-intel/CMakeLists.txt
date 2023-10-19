@@ -41,7 +41,6 @@ option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device" ON)
 option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of
                                using pre-installed binaries" OFF)
 option(LLVM_BUILD_OCL_CPU_BACKEND "Build OpenCL CPU backend DLL." ON)
-option(USE_GPA "Enable GPA support" OFF) # INTEL
 option(USE_ITT "Enable ITT support" ON)
 
 # validation
