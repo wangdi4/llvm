@@ -295,6 +295,23 @@ static cl::list<ForceVFTy, bool /* Use internal storage */, VPlanLoopVFParser>
             "supported at this moment - use the option multiple times to force "
             "vector factors for multiple loops."));
 
+static cl::list<ForceVFTy, bool /* Use internal storage */, VPlanLoopVFParser>
+    ForceLoopUF(
+        "vplan-force-loop-uf", cl::Hidden, cl::ZeroOrMore,
+        cl::value_desc("LoopID:UF"),
+        cl::desc(
+            "Debug option to force unroll factor of a particular "
+            "loop that we are going to vectorize. This applies to the main "
+            "part of vector loop only and not to peel/remainder. This option "
+            "is *NOT* thread-safe and might not have "
+            "production quality! Loops order is also implementation-defined "
+            "and might not match the order of the loops in the input. Refer to "
+            "-debug-only=LoopVectorizationPlanner to see the mapping. It is "
+            "expected to be deterministic between multiple runs of the same "
+            "compiler invocation though. Comma separated list of pairs isn't "
+            "supported at this moment - use the option multiple times to force "
+            "unroll factors for multiple loops."));
+
 namespace {
 // Descriptor of vectorization range.
 struct VPlanVecRange {
@@ -1110,6 +1127,17 @@ unsigned LoopVectorizationPlanner::getLoopUnrollFactor(bool *Forced) {
       if (Forced)
         *Forced = true;
       return *UnrollCount;
+    }
+
+    // Capture any UF forced through ForceLoopUF option.
+    auto ForcedLoopUFIter =
+        llvm::find_if(ForceLoopUF, [](const ForceVFTy &Pair) {
+          return Pair.first == LoopVectorizationPlanner::getVPlanOrderNumber();
+        });
+    if (ForcedLoopUFIter != ForceLoopUF.end()) {
+      if (Forced)
+        *Forced = true;
+      return ForcedLoopUFIter->second;
     }
 
     if (Forced)
