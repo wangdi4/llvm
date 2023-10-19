@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -passes="print<hir-region-identification>" -xmain-opt-level=3 -hir-loop-inst-threshold=1 -debug-only=hir-region-identification  2>&1 | FileCheck %s --check-prefix=CHECK-O3
+; RUN: opt < %s -passes="print<hir-region-identification>" -xmain-opt-level=3 -hir-loop-or-bb-inst-threshold=1 -debug-only=hir-region-identification  2>&1 | FileCheck %s --check-prefix=CHECK-O3
 
-; RUN: opt < %s -passes="print<hir-region-identification>" -hir-loop-inst-threshold=1 -debug-only=hir-region-identification  2>&1 | FileCheck %s --check-prefix=CHECK-O2
+; RUN: opt < %s -passes="print<hir-region-identification>" -hir-loop-or-bb-inst-threshold=1 -debug-only=hir-region-identification  2>&1 | FileCheck %s --check-prefix=CHECK-O2
 
 ; Verify that we form the region with the loop by skipping the instruction
 ; threshold at O3 because it is a single bblock countable loop with a single phi.
