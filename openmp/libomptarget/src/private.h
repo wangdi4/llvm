@@ -337,6 +337,17 @@ struct TargetMemcpyArgsTy {
         DstDimensions(DstDimensions), SrcDimensions(SrcDimensions){};
 #endif // INTEL_COLLAB
 };
+
+struct TargetMemsetArgsTy {
+  // Common attributes of a memset operation
+  void *Ptr;
+  int C;
+  size_t N;
+  int DeviceNum;
+
+  // no constructors defined, because this is a PoD
+};
+
 // Invalid GTID as defined by libomp; keep in sync
 #define KMP_GTID_DNE (-2)
 #ifdef __cplusplus
