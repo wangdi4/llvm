@@ -411,9 +411,9 @@ constexpr ProcInfo Processors[] = {
   { {"pentium3m"}, CK_Pentium3, ~0U, FeaturesPentium3, 'H', false },
   { {"pentium_iii"}, CK_Pentium3, ~0U, FeaturesPentium3, 'H', true },
   { {"pentium_iii_no_xmm_regs"}, CK_Pentium3, ~0U, FeaturesPentium3, 'H', true },
-  { {"pentium-m"}, CK_PentiumM, ~0U, FeaturesPentium4, '\0', false },
+  { {"pentium-m"}, CK_PentiumM, ~0U, FeaturesPentium4, 'k', false }, // INTEL
   { {"pentium_m"}, CK_PentiumM, ~0U, FeaturesPentium4, 'K', true },
-  { {"c3-2"}, CK_C3_2, ~0U, FeaturesPentium3, '\0', false },
+  { {"c3-2"}, CK_C3_2, ~0U, FeaturesPentium3, 'H', false }, // INTEL
   { {"yonah"}, CK_Yonah, ~0U, FeaturesPrescott, 'L', false },
   // Netburst microarchitecture based processors.
   { {"pentium4"}, CK_Pentium4, ~0U, FeaturesPentium4, 'J', false },
@@ -435,7 +435,7 @@ constexpr ProcInfo Processors[] = {
   { {"atom_sse4_2"}, CK_Nehalem, FEATURE_SSE4_2, FeaturesNehalem, 'c', true },
   { {"atom_sse4_2_movbe"}, CK_Goldmont, FEATURE_SSE4_2, FeaturesGoldmont, 'd', true },
   { {"goldmont"}, CK_Goldmont, FEATURE_SSE4_2, FeaturesGoldmont, 'i', false },
-  { {"goldmont-plus"}, CK_GoldmontPlus, FEATURE_SSE4_2, FeaturesGoldmontPlus, '\0', false },
+  { {"goldmont-plus"}, CK_GoldmontPlus, FEATURE_SSE4_2, FeaturesGoldmontPlus, 'd', false }, // INTEL
   { {"goldmont_plus"}, CK_GoldmontPlus, FEATURE_SSE4_2, FeaturesGoldmontPlus, 'd', true },
   { {"tremont"}, CK_Tremont, FEATURE_SSE4_2, FeaturesTremont, 'd', false },
   // Nehalem microarchitecture based processors.
@@ -448,11 +448,11 @@ constexpr ProcInfo Processors[] = {
   // Sandy Bridge microarchitecture based processors.
   { {"sandybridge"}, CK_SandyBridge, FEATURE_AVX, FeaturesSandyBridge, 'R', false },
   { {"core_2nd_gen_avx"}, CK_SandyBridge, FEATURE_AVX, FeaturesSandyBridge, 'R', true },
-  { {"corei7-avx"}, CK_SandyBridge, FEATURE_AVX, FeaturesSandyBridge, '\0', false },
+  { {"corei7-avx"}, CK_SandyBridge, FEATURE_AVX, FeaturesSandyBridge, 'R', false }, // INTEL
   // Ivy Bridge microarchitecture based processors.
   { {"ivybridge"}, CK_IvyBridge, FEATURE_AVX, FeaturesIvyBridge, 'S', false },
   { {"core_3rd_gen_avx"}, CK_IvyBridge, FEATURE_AVX, FeaturesIvyBridge, 'S', true },
-  { {"core-avx-i"}, CK_IvyBridge, FEATURE_AVX, FeaturesIvyBridge, '\0', false },
+  { {"core-avx-i"}, CK_IvyBridge, FEATURE_AVX, FeaturesIvyBridge, 'S', false }, // INTEL
   // Haswell microarchitecture based processors.
   { {"haswell"}, CK_Haswell, FEATURE_AVX2, FeaturesHaswell, 'V', false },
   { {"core-avx2"}, CK_Haswell, FEATURE_AVX2, FeaturesHaswell, 'V', false }, // INTEL
@@ -494,7 +494,7 @@ constexpr ProcInfo Processors[] = {
   { {"meteorlake"}, CK_Meteorlake, FEATURE_AVX2, FeaturesAlderlake, 'p', false },
   // Arrowlake microarchitecture based processors.
   { {"arrowlake"}, CK_Arrowlake, FEATURE_AVX2, FeaturesSierraforest, 'p', false },
-  { {"arrowlake-s"}, CK_ArrowlakeS, FEATURE_AVX2, FeaturesArrowlakeS, '\0', false },
+  { {"arrowlake-s"}, CK_ArrowlakeS, FEATURE_AVX2, FeaturesArrowlakeS, 'p', false }, // INTEL
   { {"arrowlake_s"}, CK_ArrowlakeS, FEATURE_AVX2, FeaturesArrowlakeS, 'p', true },
   // Lunarlake microarchitecture based processors.
   { {"lunarlake"}, CK_Lunarlake, FEATURE_AVX2, FeaturesArrowlakeS, 'p', false },
@@ -507,7 +507,7 @@ constexpr ProcInfo Processors[] = {
   // Granite Rapids microarchitecture based processors.
   { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512BF16, FeaturesGraniteRapids, 'n', false },
   // Granite Rapids D microarchitecture based processors.
-  { {"graniterapids-d"}, CK_GraniterapidsD, FEATURE_AVX512BF16, FeaturesGraniteRapids | FeatureAMX_COMPLEX, '\0', false },
+  { {"graniterapids-d"}, CK_GraniterapidsD, FEATURE_AVX512BF16, FeaturesGraniteRapids | FeatureAMX_COMPLEX, 'n', false }, // INTEL
   { {"graniterapids_d"}, CK_GraniterapidsD, FEATURE_AVX512BF16, FeaturesGraniteRapids | FeatureAMX_COMPLEX, 'n', true },
   // Emerald Rapids microarchitecture based processors.
   { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512BF16, FeaturesSapphireRapids, 'n', false },
