@@ -308,13 +308,6 @@ OclEventState QueueEvent::SetEventState(OclEventState newColor) {
   if (EVENT_STATE_READY_TO_EXECUTE == newColor) {
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA)) {
       if (m_pGPAData->cStatusMarkerFlags & ITT_SHOW_SUBMITTED_MARKER) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-        // Write this data to the thread track
-        __itt_set_track(NULL);
-#endif
-#endif // end INTEL_CUSTOMIZATION
-
         char strMarkerString[ITT_TASK_NAME_LEN];
         SPRINTF_S(strMarkerString, ITT_TASK_NAME_LEN, "Ready To Execute - %s",
                   m_pCommand->GetCommandName());

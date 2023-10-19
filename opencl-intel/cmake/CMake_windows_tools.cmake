@@ -46,13 +46,6 @@ if(NOT DEFINED INTEL_COMPILER)
   set(ADD_C_FLAGS_RELEASE "${ADD_C_FLAGS_RELEASE} /GS")
 endif()
 
-# INTEL_CUSTOMIZATION
-# ITT/GPA/VTUNE integration
-if(USE_GPA)
-  add_definitions(-DUSE_GPA)
-  include_directories(${CMAKE_SOURCE_DIR}/externals/Intel-gpa/include)
-endif(USE_GPA)
-# end INTEL_CUSTOMIZATION
 # Linker switches
 set(ADD_LINKER_FLAGS "/INCREMENTAL:NO /DYNAMICBASE /NXCOMPAT /IGNORE:4199")
 
