@@ -984,36 +984,6 @@ Value *VecCloneImpl::Factory::generateStrideForArgument(
   IRBuilder<> Builder(InsertPt);
 
   if (auto *ArgTy = dyn_cast<PointerType>(Arg->getType())) {
-    // For pointer types the stride is specified in bytes!
-    if (!ArgTy->isOpaque()) {
-      // For pointer args with variable stride, cast the Stride to the same
-      // type as the loop index Phi.
-      Value *StrideCast = Stride;
-      if (Stride->getType() != Phi->getType()) {
-        StrideCast = Builder.CreateCast(
-            CastInst::getCastOpcode(Stride, false /* SrcIsSigned */,
-                                    Phi->getType(), false /* DestIsSigned */),
-            Stride, Phi->getType(), "stride.cast");
-      }
-      // Try to make compute nicely looking without byte arithmetic. Purely for
-      // aesthetic purposes.
-      auto *Mul = Builder.CreateMul(StrideCast, Phi, "stride.mul");
-
-      // Linear updates to pointer arguments involves an address calculation,
-      // so use gep. To properly update linear pointers we only need to
-      // multiply the loop index and stride since gep is indexed starting at 0
-      // from the base address passed to the vector function.
-
-      // Mul is always generated as i32 since it is calculated using the i32
-      // loop phi that is inserted by this pass. No cast on Mul is necessary
-      // because gep can use a base address of one type with an index of
-      // another type.
-      Value *LinearArgGep =
-          Builder.CreateGEP(ArgTy->getNonOpaquePointerElementType(), Arg, Mul,
-                            Arg->getName() + ".gep");
-
-      return LinearArgGep;
-    }
     Value *ByteStride = Stride;
     if (Parm.isVariableStride()) {
       // If stride is a variable for opaque pointer, then it is specified as
@@ -1338,15 +1308,6 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
       if (Parm.isConstantStrideLinear()) {
         int Stride = Parm.getStride();
         if (auto *PtrTy = dyn_cast<PointerType>(Arg->getType())) {
-          // For pointer types with constant stride, the gep index is the same
-          // type as the phi (loop index), which is i32.
-          if (!PtrTy->isOpaque()) {
-            unsigned PointeeEltSize =
-                DL.getTypeAllocSize(PtrTy->getNonOpaquePointerElementType());
-            assert(Stride % PointeeEltSize == 0 &&
-                   "Stride is expected to be a multiple of element size!");
-            Stride /= PointeeEltSize;
-          }
           // For opaque pointers with constant stride, the pointee type
           // information is already "baked" into the variant encoding because
           // since the stride is specified in bytes and we will generate an i8*

@@ -731,9 +731,6 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   if (Ref->isRval()) {
     // If memory reference is an RVal, then it corresponds to a load. Create a
     // new load VPInstruction to represent it.
-    assert(cast<PointerType>(MemOpVPI->getType())
-               ->isOpaqueOrPointeeTypeMatches(Ref->getDestType()) &&
-           "Incompatible types!");
     MemOpVPI = Builder.createLoad(Ref->getDestType(), MemOpVPI);
 
     // Copy metadata for the created load instruction.

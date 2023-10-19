@@ -2342,12 +2342,8 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       assert(NumArgs == 1 && "NUM_TEAMS must have one argument.");
       setNumTeams(Args[0]);
       Type *ItemTy = Args[0]->getType();
-      if (auto *PtrTy = dyn_cast<PointerType>(ItemTy)) {
-        // OPAQUEPOINTER: replace this with llvm_unreachable.
-        assert(!PtrTy->isOpaque() &&
-               "NUM_TEAMS must be typed, when opaque pointers are enabled.");
-        ItemTy = PtrTy->getNonOpaquePointerElementType();
-      }
+      if (auto *PtrTy = dyn_cast<PointerType>(ItemTy))
+        llvm_unreachable("NUM_TEAMS must be typed");
       setNumTeamsType(ItemTy);
       break;
     }
@@ -2360,12 +2356,8 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       assert(NumArgs == 1 && "THREAD_LIMIT must have one argument.");
       setThreadLimit(Args[0]);
       Type *ItemTy = Args[0]->getType();
-      if (auto *PtrTy = dyn_cast<PointerType>(ItemTy)) {
-        // OPAQUEPOINTER: replace this with llvm_unreachable.
-        assert(!PtrTy->isOpaque() &&
-               "THREAD_LIMIT must be typed, when opaque pointers are enabled.");
-        ItemTy = PtrTy->getNonOpaquePointerElementType();
-      }
+      if (auto *PtrTy = dyn_cast<PointerType>(ItemTy))
+        llvm_unreachable("THREAD_LIMIT must be typed!");
       setThreadLimitType(ItemTy);
       break;
     }

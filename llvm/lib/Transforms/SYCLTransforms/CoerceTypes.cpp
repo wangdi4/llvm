@@ -612,8 +612,8 @@ void CoerceTypesPass::moveFunctionBody(Function *OldF, Function *NewF,
                           << PDataLayout->getAllocaAddrSpace() << " to "
                           << OldArgT->getAddressSpace() << "\n");
         return Builder.CreateAddrSpaceCast(
-            AllocaRes, PointerType::getWithSamePointeeType(
-                           OldArgT, OldArgT->getAddressSpace()));
+            AllocaRes, PointerType::get(OldArgT->getContext(),
+                                        OldArgT->getAddressSpace()));
       }
       return AllocaRes;
     }();

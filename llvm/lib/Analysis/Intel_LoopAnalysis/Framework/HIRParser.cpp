@@ -4281,19 +4281,6 @@ static void setSelfRefElementTypeAndStride(RegDDRef *Ref, Type *ElementTy) {
   // type passed in by the caller (i32) because any element type works with
   // opaque ptrs.
   //
-  // But for non opaque ptrs, we need to set matching element type (i64) to the
-  // base ptr type (i64*) otherwise some of the existing utilities will assert
-  // on mismatched type. Hence, we extract the element type from the base ptr
-  // itself.
-  if (Ref->getBitCastDestVecOrElemType()) {
-    auto *BaseCETy = Ref->getBaseCE()->getDestType()->getScalarType();
-    auto *PtrBaseCETy = cast<PointerType>(BaseCETy);
-
-    if (!PtrBaseCETy->isOpaque()) {
-      ElementTy = BaseCETy->getNonOpaquePointerElementType();
-    }
-  }
-
   Ref->setBasePtrElementType(ElementTy);
 
   // We cannot set stride for non-sized types.
@@ -4391,8 +4378,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   // Incoming IR may be bitcasting the GEP before loading/storing into it. If so
   // we store the type of the GEP in BaseCE src type and the eventual load/store
   // type is stored in BitCastDestVecOrElemTy.
-  Type *DestTy = GEPVal->getType();
-  bool HasDestTy = false;
 
   clearTempBlobLevelMap();
 
@@ -4412,7 +4397,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
       break;
     }
 
-    HasDestTy = true;
     GEPVal = Opnd;
   }
 
@@ -4438,10 +4422,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     Ref = createRegularGEPDDRef(GEPOp, Level);
   } else {
     Ref = createSingleElementGEPDDRef(GEPVal, Level, LoadOrStoreTy);
-  }
-
-  if (HasDestTy && !cast<PointerType>(DestTy)->isOpaque()) {
-    Ref->setBitCastDestVecOrElemType(DestTy->getNonOpaquePointerElementType());
   }
 
   populateBlobDDRefs(Ref, Level);
