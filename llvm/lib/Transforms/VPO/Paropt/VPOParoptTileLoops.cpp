@@ -191,7 +191,7 @@ public:
       : LoopDepthIndex(LoopDepthIndex), TileSize(TileSize), W(W),
         IndVarTy(W->getWRNLoopInfo().getNormIVElemTy(LoopDepthIndex)),
         FloorLB(nullptr), FloorUB(nullptr), FloorIV(nullptr),
-        OrigUpperBound(nullptr) {
+        ClonedOrigUpperBound(nullptr) {
     assert(IndVarTy == W->getWRNLoopInfo().getNormUBElemTy(LoopDepthIndex) &&
            "IV and UB types are should be the same");
   }
@@ -230,8 +230,10 @@ private:
   AllocaInst *FloorUB;
   AllocaInst *FloorIV;
 
-  // This is a copy of Orig UB. Needed because the orig ub is reused as tile ub.
-  AllocaInst *OrigUpperBound;
+  // This is a copy of Orig UB, which will perserve the original value. Needed
+  // because the orig ub(e.g. %norm.pdo.norm.um) is reused as tile ub after
+  // tiling and doenn't continueto contain the original UB val.
+  AllocaInst *ClonedOrigUpperBound;
 };
 
 // Top-level handler of tiling per WRegionNode, i.e. per omp tile pragma.
@@ -456,6 +458,65 @@ static std::pair<int, int> getOverlapIVs(WRegionNode *WTile,
   }
 
   return {NumberOfOverlappingIVs, OverlapIVIdx};
+}
+
+static bool isSIMDLoop(const WRegionNode *WNode) {
+  if (const WRNVecLoopNode *VecLoop = dyn_cast<WRNVecLoopNode>(WNode))
+    return VecLoop->isOmpSIMDLoop();
+
+  return false;
+}
+
+// Find the outermost WRN associated with the same loop with LoopNode.
+// LoopNode is a WRN that is associated with a loop.
+// Roughly speaking, this is the immediate parent WRN of LoopNode with
+// overlapping IVs. (Refer to the examples of function getOverlapIVs().
+// In case when the immediate parent is a SIMD node, the parent of the
+// SIMD node can be the outermose WRN of the interest.
+//
+// Refer to the following examples.
+//
+// #pragma omp for simd // "dir.omp.for" "normalized.iv"(%iv)
+//                      // "dir.omp.simd" // no normalized.ivs/ubs here
+// #pragma omp tile     // "dir.omp.tile" "normalized.iv"(%iv)
+// omp-for is the outermost
+//
+// #pragma omp simd // "dir.omp.simd" "normalized.iv"(%iv)
+// #pragma omp tile // "dir.omp.tile" "normalized.iv"(%iv)
+// simd is the outermost
+//
+// For now, back-to-back tiles for one loop are NOT considered.
+static WRegionNode *findOutermostWRNLoopNode(WRegionNode *TileLoopNode) {
+  WRegionNode *CandidateWOutermost = TileLoopNode->getParent();
+  if (!CandidateWOutermost)
+    return TileLoopNode;
+
+  WRegionNode *CurrWOutermost = TileLoopNode;
+
+  while (CandidateWOutermost) {
+
+    bool IsSIMDParent = isSIMDLoop(CandidateWOutermost);
+    if (IsSIMDParent &&
+        CandidateWOutermost->getWRNLoopInfo().getNormIVSize() == 0) {
+      // SIMD - without norm IVs
+      CandidateWOutermost = CandidateWOutermost->getParent();
+      assert(CandidateWOutermost &&
+             CandidateWOutermost->getWRNLoopInfo().getNormIVSize() != 0 &&
+             "SIMD directive's parent not found.");
+      continue;
+    }
+
+    const auto [NumOverlappingIVs, DummyIndex] =
+        getOverlapIVs(TileLoopNode, CandidateWOutermost);
+
+    if (!NumOverlappingIVs)
+      break;
+
+    CurrWOutermost = CandidateWOutermost;
+    CandidateWOutermost = CandidateWOutermost->getParent();
+  }
+
+  return CurrWOutermost;
 }
 
 // Copy existing type bundles or make it typed if they were not
@@ -778,36 +839,43 @@ Stripminer::addFloorLoopIVBounds(Instruction *InsertPos) {
   LLVM_DEBUG(dbgs() << "FloorLB: "; FloorLB->dump());
 
   AllocaBuilder.CreateStore(Zero, FloorLB);
+
   FloorUB = AllocaBuilder.CreateAlloca(IndVarTy, nullptr, "floor_ub");
 
   // Get the Original UB
   // Currently no-optimization, just load from memory
   // Can be replaced with value stored to NormUB bar
   auto *OrigUB = WLoopInfo.getNormUB(LoopDepthIndex);
-  assert(OrigUB && "Missing Normalized upper bound!");
 
+  assert(OrigUB && "Missing Normalized upper bound!");
   LLVM_DEBUG(dbgs() << "OrigUB: "; OrigUB->dump());
 
+  // TODO: new insertion point
   auto *OrigUBLoad =
       AllocaBuilder.CreateLoad(IndVarTy, OrigUB, "norm.orig.ub.val");
 
   // floorUB  =  OrigUBLoad / TileSize
   // Notice possibility of type mismatch
   // e.g.) OrigUBLoad - 64bit, TileSize - 32 bit.
+
+  // TODO: new insertion point
   TileSize = AllocaBuilder.CreateSExtOrTrunc(TileSize, IndVarTy, ".sext");
+  // TODO: new insertion point
   auto *NormFloorUB =
       AllocaBuilder.CreateSDiv(OrigUBLoad, TileSize, "norm.floor.ub.val");
 
   LLVM_DEBUG(dbgs() << "NormFloorUB: "; NormFloorUB->dump());
   LLVM_DEBUG(dbgs() << "FloorUB: "; FloorUB->dump());
 
+  // TODO: new insertion point
   AllocaBuilder.CreateStore(NormFloorUB, FloorUB);
+
   FloorIV = AllocaBuilder.CreateAlloca(IndVarTy, nullptr, "floor_iv");
 
-  auto *FloorLBLoad = AllocaBuilder.CreateLoad(IndVarTy, FloorLB, "floor.lb");
-  AllocaBuilder.CreateStore(FloorLBLoad, FloorIV);
-  OrigUpperBound = AllocaBuilder.CreateAlloca(IndVarTy, nullptr, "orig_ub");
-  AllocaBuilder.CreateStore(OrigUBLoad, OrigUpperBound);
+  ClonedOrigUpperBound =
+      AllocaBuilder.CreateAlloca(IndVarTy, nullptr, "cloned_orig_ub");
+  // TODO: new insertion point
+  AllocaBuilder.CreateStore(OrigUBLoad, ClonedOrigUpperBound);
 
   return {FloorIV, FloorLB, FloorUB};
 }
@@ -827,7 +895,7 @@ void Stripminer::addTileLoopBounds(Instruction *InsertPos) {
 
   // Compute tile.ub.val = min(tile.lb + TileSize - 1, OrigUB)
   auto *LoadOrigUB =
-      Builder.CreateLoad(IndVarTy, OrigUpperBound, "norm.orig.ub.val");
+      Builder.CreateLoad(IndVarTy, ClonedOrigUpperBound, "norm.orig.ub.val");
   auto *Add = Builder.CreateAdd(TileLB, TileSize, "add");
   auto *Dec = Builder.CreateSub(
       Add, Builder.getIntN(cast<IntegerType>(IndVarTy)->getBitWidth(), 1),
