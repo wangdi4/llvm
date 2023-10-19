@@ -2714,6 +2714,7 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
           true /* AllowConditionalReductionSinking */));
       if (RunVPOOpt) {
         if (EnableVPlanDriverHIR) {
+          FPM.addPass(HIRLoopIndependentScalarReplPass());
           FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3),
                       LoopOptLimiter::LoopOpt);
           bool WillRunLLVMIRVPlan =
