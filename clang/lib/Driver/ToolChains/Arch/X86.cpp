@@ -492,11 +492,7 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
       continue;
     }
 
-<<<<<<< HEAD
-=======
     StringRef AVX512Name = Name;
-    bool IsNegative = Name.startswith("no-");
->>>>>>> cfbf0a500f173b532f64fcb856af2fb0cb7ba725
     if (IsNegative)
       Name = Name.substr(3);
     if (HasAVX10 && (Name.startswith("avx512") || Name == "evex512")) {
