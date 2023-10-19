@@ -248,27 +248,8 @@ public:
   // testing, if not 'nullptr'.
   void analyzeUses(CallBase *CB = nullptr);
 
-  // Similar to analyzeUses() with CB == nullptr, but accounts for cases where
-  // 'this' is FieldVector[0] and used to assign FieldVector[I] where I ranges
-  // from 1 to Rank.
-  //
-  // For example:
-  // %"var$236_fetch.2590.fca.6.0.0.gep" =
-  //     getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %"evlrnf_$UTRSBT",
-  //     //         i64 0, i32 6, i64 0, i32 0
-  // ...
-  // %"evlrnf_$UTRSBT.dim_info$.extent$[]" =
-  //     call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24,
-  //         ptr nonnull elementtype(i64) %"var$236_fetch.2590.fca.6.0.0.gep",
-  //         i32 0)
-  //  store i64 %slct.42, ptr %"evlrnf_$UTRSBT.dim_info$.extent$[]", align 1
-  // %"evlrnf_$UTRSBT.dim_info$.extent$[]745" =
-  //     call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24,
-  //         ptr nonnull elementtype(i64) %"var$236_fetch.2590.fca.6.0.0.gep",
-  //         i32 1)
-  //  store i64 %slct.42, ptr %"evlrnf_$UTRSBT.dim_info$.extent$[]745", align 1
-  void analyzeUsesWithDims(SmallVector<DopeVectorFieldUse, 4> &FieldVector,
-                           uint64_t DimIndex);
+  // Similar to 'analyzeUses' but only targeting 'this' with this 'DimIndex'.
+  void analyzeUsesWithDims(uint64_t DimIndex);
 
   // Collect the load and store instructions that access the field address
   // through a subscript.
@@ -323,9 +304,9 @@ public:
   // cases where this = FieldVector[DimIndex], but is also used as a base
   // to assign FieldVector[1], ..., FieldVector[Rank]. See the example under
   // analyzeUsesWithDims() above.
-  bool analyzeLoadStoreOrSubscriptWithDims(
-      Value *V, Value *Pointer, bool IsNotForDVCP, bool SubsOnly,
-      SmallVector<DopeVectorFieldUse, 4> &FieldVector, uint64_t DimIndex);
+  bool analyzeLoadStoreOrSubscriptWithDims(Value *V, Value *Pointer,
+                                           bool IsNotForDVCP, bool SubsOnly,
+                                           uint64_t DimIndex);
   bool isAddrNotForDVCP(Value* Addr) const {
     return NotForDVCPFieldAddr.contains(Addr);
   }
