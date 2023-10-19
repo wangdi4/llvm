@@ -2399,7 +2399,7 @@ bool Type::isIncompleteType(NamedDecl **Def) const {
 }
 
 bool Type::isSizelessBuiltinType() const {
-  if (isSVESizelessBuiltinType() || isRVVSizelessBuiltinType())
+  if (isSizelessVectorType())
     return true;
 
   if (const BuiltinType *BT = getAs<BuiltinType>()) {
@@ -2432,6 +2432,10 @@ bool Type::isWebAssemblyTableType() const {
 }
 
 bool Type::isSizelessType() const { return isSizelessBuiltinType(); }
+
+bool Type::isSizelessVectorType() const {
+  return isSVESizelessBuiltinType() || isRVVSizelessBuiltinType();
+}
 
 bool Type::isSVESizelessBuiltinType() const {
   if (const BuiltinType *BT = getAs<BuiltinType>()) {

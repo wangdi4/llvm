@@ -638,6 +638,7 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       CPU = "clearwaterforest";
       *Type = INTEL_COREI7;
       *Subtype = INTEL_CLEARWATERFOREST;
+      break;
 
     case 0x57:
       CPU = "knl";
