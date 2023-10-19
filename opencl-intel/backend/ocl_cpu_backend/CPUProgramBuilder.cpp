@@ -413,12 +413,6 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program *pProgram) const {
                 CompilationUtils::ADDRESS_SPACE_GENERIC) {
           DeviceImageScope = true;
         }
-
-        // FIXME: SYCL runtime hopes us to temporarily ignore host-access hint
-        // if device global containing a pointer util they have a final decision
-        // on how to handle such case.
-        if (DeviceGlobalTy->isPointerTy())
-          HostAccessMode = HOST_ACCESS_READ_WRITE;
       }
 
       GlobalVariables.push_back({STRDUP(GV.getName().str().c_str()),
