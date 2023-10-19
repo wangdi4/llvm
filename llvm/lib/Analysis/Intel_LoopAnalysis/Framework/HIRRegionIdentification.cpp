@@ -94,10 +94,10 @@ static cl::opt<unsigned> LexicalInsertionFuncSizeThreshold(
 static cl::opt<unsigned> HugeLoopSize("hir-huge-loop-size", cl::init(42),
                                       cl::Hidden,
                                       cl::desc("Threshold for huge loop size"));
-static cl::opt<unsigned>
-    MaxInstThresholdOption("hir-loop-inst-threshold", cl::init(0), cl::Hidden,
-                           cl::desc("Threshold for maximum number of "
-                                    "instructions allowed in a HIR loop"));
+static cl::opt<unsigned> MaxInstThresholdOption(
+    "hir-loop-or-bb-inst-threshold", cl::init(0), cl::Hidden,
+    cl::desc("Threshold for maximum number of "
+             "instructions allowed in a HIR loop or a non-loop basic block"));
 
 static cl::opt<unsigned> MaxIfThresholdOption(
     "hir-loop-if-threshold", cl::init(0), cl::Hidden,
@@ -2012,6 +2012,29 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   return true;
 }
 
+// Returns true if the size of \p BB exceeds threshold.
+// Note: The threshold check should be kept in sync with the CostModelAnalyzer
+// and ideally use the CostModelAnalyzer itself.
+static bool isTooLarge(const BasicBlock *BB, unsigned OptLevel) {
+
+  unsigned MaxInstThreshold = 0;
+
+  if (MaxInstThresholdOption.getNumOccurrences() != 0) {
+    MaxInstThreshold = MaxInstThresholdOption;
+  } else {
+    MaxInstThreshold = (OptLevel > 2) ? O3MaxInstThreshold : O2MaxInstThreshold;
+  }
+
+  if (BB->size() > MaxInstThreshold) {
+    LLVM_DEBUG(dbgs() << "Excluding basic block: ");
+    LLVM_DEBUG(BB->printAsOperand(dbgs(), false));
+    LLVM_DEBUG(dbgs() << " as it is too big ");
+    return true;
+  }
+
+  return false;
+}
+
 void HIRRegionIdentification::createRegion(
     const ArrayRef<const Loop *> &Loops,
     const SmallPtrSetImpl<const BasicBlock *> *IntermediateBlocks) {
@@ -2025,6 +2048,7 @@ void HIRRegionIdentification::createRegion(
   IRRegion::RegionBBlocksTy BBlocks;
   IRRegion::RegionBBlocksTy NonLoopBBlocks;
 
+  // TODO: perform size check on all non-loop bblocks.
   if (IntermediateBlocks) {
     NonLoopBBlocks.append(IntermediateBlocks->begin(),
                           IntermediateBlocks->end());
@@ -2058,7 +2082,8 @@ void HIRRegionIdentification::createRegion(
     // contain allocas which can get eliminated by SROA after complete unroll.
     if ((PreheaderBB != &PreheaderBB->getParent()->getEntryBlock()) &&
         !AllLoopBasedRegionsBBlocks.count(PreheaderBB) &&
-        !isLoopWithDirective(*FirstLp) && isGenerable(PreheaderBB, nullptr)) {
+        !isLoopWithDirective(*FirstLp) && isGenerable(PreheaderBB, nullptr) &&
+        !isTooLarge(PreheaderBB, OptLevel)) {
       EntryBB = PreheaderBB;
       NonLoopBBlocks.push_back(PreheaderBB);
     }
