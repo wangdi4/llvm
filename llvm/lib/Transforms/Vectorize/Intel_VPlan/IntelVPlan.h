@@ -1570,12 +1570,6 @@ public:
     addOperand(Ptr);
     for (const auto &Idx : IdxList)
       addOperand(Idx);
-    assert(cast<PointerType>(getOperand(0)->getType()->getScalarType())
-               ->isOpaqueOrPointeeTypeMatches(SourceElementType) &&
-           "SourceElemenType doesn't match non-opaque pointer base!");
-    assert(cast<PointerType>(getType()->getScalarType())
-               ->isOpaqueOrPointeeTypeMatches(ResultElementType) &&
-           "ResultElementType doesn't match non-opaque result ponter!");
   }
 
   /// Setter and getter functions for InBounds.
@@ -1587,15 +1581,6 @@ public:
 
   Type *getSourceElementType() const { return SourceElementType; }
   Type *getResultElementType() const { return ResultElementType; }
-
-  /// Check if pointer operand is opaque.
-  ///
-  /// Temporary helper method to reduce boilerplate code. We should delete it
-  /// after transition to opaque ptrs is finished.
-  bool isOpaque() const {
-    return cast<PointerType>(getPointerOperand()->getType()->getScalarType())
-        ->isOpaque();
-  }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {

@@ -7636,16 +7636,18 @@ public:
           CharUnits TypeSize = CGF.getContext().getTypeSizeInChars(
               I->getAssociatedExpression()->getType());
           Address HB = CGF.Builder.CreateConstGEP(
-              CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(LowestElem,
+              CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
+                  LowestElem,
 #if INTEL_COLLAB
                   CGF.CGM.getLangOpts().OpenMPLateOutline
-                      ? llvm::PointerType::getWithSamePointeeType(CGF.VoidPtrTy,
+                      ? llvm::PointerType::get(CGF.getLLVMContext(),
                                                LowestElem.getPointer()
                                                    ->getType()
                                                    ->getPointerAddressSpace())
                       :
 #endif  // INTEL_COLLAB
-                        CGF.VoidPtrTy, CGF.Int8Ty),
+                      CGF.VoidPtrTy,
+                  CGF.Int8Ty),
               TypeSize.getQuantity() - 1);
           PartialStruct.HighestElem = {
               std::numeric_limits<decltype(
@@ -9849,9 +9851,8 @@ void CGOpenMPRuntime::emitUserDefinedMapper(const OMPDeclareMapperDecl *D,
         (CGM.getCodeGenOpts().getDebugInfo() ==
          llvm::codegenoptions::NoDebugInfo)
 #if INTEL_COLLAB
-            ? llvm::ConstantPointerNull::get(
-                  llvm::PointerType::getWithSamePointeeType(CGM.VoidPtrTy,
-                      CGM.getEffectiveAllocaAddrSpace()))
+            ? llvm::ConstantPointerNull::get(llvm::PointerType::get(
+                  CGM.getLLVMContext(), CGM.getEffectiveAllocaAddrSpace()))
 #else  // INTEL_COLLAB
             ? llvm::ConstantPointerNull::get(CGM.VoidPtrTy)
 #endif // INTEL_COLLAB

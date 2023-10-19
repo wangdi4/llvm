@@ -1565,64 +1565,6 @@ void SCCPInstVisitor::visitCmpInst(CmpInst &I) {
   markOverdefined(&I);
 }
 
-#if INTEL_CUSTOMIZATION
-// If the input value 'VPtr' is a pointer to the beginning of an array,
-// then return the ArrayType.
-static ArrayType *getArrayFromPointerCast(Value *VPtr) {
-  if (!EnableCallbacks)
-    return nullptr;
-
-  if (!VPtr)
-    return nullptr;
-
-  PointerType *ArrPtr =
-      dyn_cast<PointerType>(VPtr->stripPointerCasts()->getType());
-  if (!ArrPtr || ArrPtr->isOpaque())
-    return nullptr;
-
-  return dyn_cast<ArrayType>(ArrPtr->getNonOpaquePointerElementType());
-}
-
-// Return true if the type of the input ArrayVal doesn't match with the type
-// of the input PtrVal, but both types matches after the casts are removed.
-// This function will be used later to decide if a casting is needed between
-// the constant and the variable in order to apply the propagation.
-static bool isCastingNeeded(Value *ArrayVal, Value *PtrVal) {
-  if (!EnableCallbacks)
-    return false;
-
-  if (!ArrayVal || !PtrVal)
-    return false;
-
-  auto ArrValTy = ArrayVal->getType();
-  auto PtrValTy = PtrVal->getType();
-  if (ArrValTy == PtrValTy)
-    return false;
-
-  auto *ArrTy = getArrayFromPointerCast(ArrayVal);
-  if (!ArrTy)
-    return false;
-
-  auto *PtrTy = dyn_cast<PointerType>(PtrValTy);
-  if (!PtrTy || PtrTy->isOpaque())
-    return false;
-
-  auto *ElemType = PtrTy->getNonOpaquePointerElementType();
-
-  // CMPLRLLVM-22930: If the constant is casted from an array to a pointer,
-  // then we need to collect the actual array and check if the types matches.
-  if (ArrTy == ElemType)
-    return true;
-
-  // CMPLRLLVM-24186: If the constant is casted from a pointer to an array, then
-  // we need to make sure that the types matches.
-  if (ArrTy->getElementType() == ElemType)
-    return true;
-
-  return false;
-}
-#endif // INTEL_CUSTOMIZATION
-
 // Handle getelementptr instructions.  If all operands are constants then we
 // can turn this into a getelementptr ConstantExpr.
 void SCCPInstVisitor::visitGetElementPtrInst(GetElementPtrInst &I) {
@@ -1648,23 +1590,7 @@ void SCCPInstVisitor::visitGetElementPtrInst(GetElementPtrInst &I) {
     return (void)markOverdefined(&I);
   }
 
-  Constant *Ptr = Operands[0];
   auto Indices = ArrayRef(Operands.begin() + 1, Operands.end());
-
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-22930: If the constant is an array and the value is a pointer,
-  // or vice-versa, then we need to cast it and replace the uses.
-  Value *GEPOperand = I.getPointerOperand();
-  if (isCastingNeeded(Ptr, GEPOperand) || isCastingNeeded(GEPOperand, Ptr)) {
-    auto *BC = new BitCastInst(Ptr, GEPOperand->getType(), "bc_const", &I);
-    // NOTE: We won't use replaceAllUsesWith since there is a chance that the
-    // GEP pointer operand is used in another instruction. If we need to create
-    // another BitCast instruction with the same constant then the instruction
-    // simplify pass will take care of cleaning the IR.
-    I.setOperand(0, BC);
-    return (void)markOverdefined(&I);
-  }
-#endif // INTEL_CUSTOMIZATION
 
   if (Constant *C = ConstantFoldInstOperands(&I, Operands, DL))
     markConstant(&I, C);
@@ -1802,31 +1728,7 @@ void SCCPInstVisitor::handleCallOverdefined(CallBase &CB) {
 
 void SCCPInstVisitor::handleCallArguments(CallBase &CB) {
 #if INTEL_CUSTOMIZATION
-  // Return true if there is some casting in the input Values VPtr and VArr
-  // but the casting mismatches. Else return false.
-  auto BadArrToPtrCast = [](Value *VArr, Value *VPtr) -> bool {
-    if (!VArr || !VPtr)
-      return false;
-
-    if (!EnableCallbacks)
-      return false;
-
-    // Check if the pointer is casted from one type to another type and then
-    // it is accessed with a GEP.
-    Value *TempVPtr = VPtr;
-    if (GEPOperator *GEPOp = dyn_cast<GEPOperator>(VPtr))
-      TempVPtr = GEPOp->getPointerOperand();
-
-    if(!isa<BitCastOperator>(TempVPtr))
-      return false;
-
-    // Check if there is some casting in the input VPtr and VArr, but the
-    // types between the pointer and the array doesn't matches
-    return (getArrayFromPointerCast(VArr) && !isCastingNeeded(VArr, VPtr));
-  };
-
-  auto HandleArgs = [this, BadArrToPtrCast](auto &CB, bool IsCallback,
-                                             auto GetArgOperand) {
+  auto HandleArgs = [this](auto &CB, bool IsCallback, auto GetArgOperand) {
     Function *F = CB.getCalledFunction();
     // If this is a local function that doesn't have its address taken, mark its
     // entry block executable and merge in the actual arguments to the call into
@@ -1852,14 +1754,6 @@ void SCCPInstVisitor::handleCallArguments(CallBase &CB) {
         if (auto *C = dyn_cast<Constant>(V)) {
           // Thread dependent values cannot be propagated to callbacks.
           if (IsCallback && C->isThreadDependent()) {
-            markOverdefined(&A);
-            continue;
-          }
-
-          // CMPLRLLVM-22930 and CMPLRLLVM-24186: If the constant is casted
-          // from an array to a pointer, or vice-versa, then we need to make
-          // sure that the types matches between the array and the pointer.
-          if (BadArrToPtrCast(C, V) || BadArrToPtrCast(V, C)) {
             markOverdefined(&A);
             continue;
           }

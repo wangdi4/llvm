@@ -101,12 +101,6 @@ static cl::opt<bool> DumpVPlanLiveInsLiveOuts(
     cl::desc("Print live-ins and live-outs of main loop"));
 
 static cl::opt<bool>
-    VPGEPPrintSrcElemType("vpgep-print-src-elem-type", cl::init(false),
-                          cl::Hidden,
-                          cl::desc("Print VPGEPInstruction's SourceElementType "
-                                   "even for non-opaque pointers."));
-
-static cl::opt<bool>
     VPlanDumpDAShapes("vplan-dump-da-shapes", cl::init(false), cl::Hidden,
                       cl::desc("Print VPlan instructions' DA shape "
                                "instead of simple Uni/Div."));
@@ -547,15 +541,10 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   case Instruction::GetElementPtr: {
     auto *GEP = cast<const VPGEPInstruction>(this);
     PrintOpcodeWithInBounds(GEP);
-    if (GEP->isOpaque() || VPGEPPrintSrcElemType) {
-      // We only print it for opaque so that we won't have to update all the
-      // tests twice - right now and when all the GEPs will have to be
-      // transitioned to be opaque.
-      O << " ";
-      GEP->getSourceElementType()->print(O, false /*IsForDebug*/,
-                                         true /*NoDetails*/);
-      O << ",";
-    }
+    O << " ";
+    GEP->getSourceElementType()->print(O, false /*IsForDebug*/,
+                                       true /*NoDetails*/);
+    O << ",";
     break;
   }
   case VPInstruction::Subscript:
