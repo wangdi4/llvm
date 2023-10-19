@@ -26,11 +26,11 @@ namespace llvm {
 
 enum class OptRemarkID {
   /// ID to represent invalid remarks i.e. remarks which are not present in
-  /// Diags table.
+  /// Diags table. All remarks have been added to the Diags table now, so use of
+  /// this value is an error.
   InvalidRemarkID = 0,
 
-  /// Named constants for commonly used remarks.  This will be converted
-  /// to an enum class after we have identifiers for all remark IDs.
+  /// Named constants for commonly used remarks.
 
   /// Vectorizer remarks from 15300-15552 match those in ICC.
   LoopVectorized = 15300,
@@ -194,14 +194,6 @@ enum class OptRemarkID {
   LoopHasSimdReduction = 25588,
   HoistedConditionalLoads = 25589,
   SunkConditionalStores = 25590,
-  OpenMPOutlinedParLoop = 25591,
-  OpenMPOutlinedEnclosedParLoop = 25592,
-  OpenMPWorkSharingLoop = 25593,
-  OpenMPRedundantClause = 25594,
-  OpenMPClauseHasBeenChanged = 25595,
-  OpenMPClauseCanBeChanged = 25596,
-  OpenMPParLoopPipelined = 25597,
-  OpenMPWorkShareLoopPipelined = 25598,
   TightLoopFound = 25599,
   TightLoopValue = 25600,
 #if INTEL_INTERNAL_BUILD
@@ -212,12 +204,24 @@ enum class OptRemarkID {
   LLORGUnrolledBy = 25604,
   LLORGRemainderLoop = 25605,
   LLORGPeeledBy = 25606,
-  OpenMPConstructTransformed = 25607,
-  OpenMPConstructUserIgnored = 25608,
-  OpenMPConstructUnreachable = 25609,
-  OpenMPConstructIgnored = 25610,
-  OpenMPClangImplicitMap = 25611,
-  OpenMPClangImplicitFirstPrivate = 25612,
+
+  // Paropt/OpenMP remarks start at 30000.
+  OpenMPOutlinedParLoop = 30000,
+  OpenMPOutlinedEnclosedParLoop = 30001,
+  OpenMPWorkSharingLoop = 30002,
+  OpenMPRedundantClause = 30003,
+  OpenMPClauseHasBeenChanged = 30004,
+  OpenMPClauseCanBeChanged = 30005,
+#if INTEL_FEATURE_CSA
+  OpenMPParLoopPipelined = 30006,
+  OpenMPWorkShareLoopPipelined = 30007,
+#endif // INTEL_FEATURE_CSA
+  OpenMPConstructTransformed = 30008,
+  OpenMPConstructUserIgnored = 30009,
+  OpenMPConstructUnreachable = 30010,
+  OpenMPConstructIgnored = 30011,
+  OpenMPClangImplicitMap = 30012,
+  OpenMPClangImplicitFirstPrivate = 30013,
 
   DummyRemarkForTesting = 99999,
 };

@@ -61,23 +61,23 @@
 
 ; OPTREPORT: Global optimization report for : _Z3barv
 
-; OPTREPORT-NOT:     remark #25608: Construct 3 (single) ignored at user's direction
+; OPTREPORT-NOT:     remark #30009: Construct 3 (single) ignored at user's direction
 
 ; OPTREPORT: OMP CRITICAL BEGIN
-; OPTREPORT:     remark #25608: Construct 4 (critical) ignored at user's direction
+; OPTREPORT:     remark #30009: Construct 4 (critical) ignored at user's direction
 ; OPTREPORT: OMP CRITICAL END
 
 ; OPTREPORT: Global optimization report for : _Z3foov
 
 ; OPTREPORT: OMP PARALLEL BEGIN
-; OPTREPORT:     remark #25608: Construct 8 (parallel) ignored at user's direction
+; OPTREPORT:     remark #30009: Construct 8 (parallel) ignored at user's direction
 ; OPTREPORT: OMP PARALLEL END
 
 ; OPTREPORT: OMP MASKED BEGIN
-; OPTREPORT:     remark #25608: Construct 9 (masked) ignored at user's direction
+; OPTREPORT:     remark #30009: Construct 9 (masked) ignored at user's direction
 ; OPTREPORT: OMP MASKED END
 
-; OPTREPORT-NOT:     remark #25608: Construct 10 (barrier) ignored at user's direction
+; OPTREPORT-NOT:     remark #30009: Construct 10 (barrier) ignored at user's direction
 
 ; Note that the region numbers are like this because collapse pass and
 ; prepare pass, both build WRGraph, and each invocation increases the node

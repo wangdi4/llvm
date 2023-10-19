@@ -19,8 +19,10 @@
 using namespace llvm;
 
 /// NOTE:
-/// Vec-report ID starts at 15300. 15552 and below are vectorizer remarks from
-/// ICC, the rest is xmain-specific. Loop-report ID starts at 25045.
+/// Vec-report ID starts at 15300 (LoopVectorized). 15552 and below are
+/// vectorizer remarks from ICC, the rest is xmain-specific. Loop-report ID
+/// starts at 25045 (FusedLoops). Paropt/OpenMP ID starts at 30000
+/// (OpenMPOutlinedParLoop).
 
 /// Remarks whose keys are raw constants (such as 15302) are not currently
 /// emitted anywhere in the compiler.  If you add code to emit such a remark,
@@ -427,6 +429,7 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
     {OptRemarkID::VecFailCannotAutoVecOuterLoop,
      "loop was not vectorized: outer loop is not an auto-vectorization "
      "candidate."},
+
     // Four entries below semantically belong to "vector loop memory reference
     // summary". Be sure to update their mentiones under respective section
     // above.
@@ -442,6 +445,7 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
     {OptRemarkID::MaskedVLSStores,
      "Masked VLS-optimized stores (each part of the group counted "
      "separately): %s"},
+
     // Entries below semantically belong to  "vector loop cost summary".
     // Remarks for reasons of generated serialized code and scalar instructions.
     {OptRemarkID::CallSerializedNoVecVariants,
@@ -464,6 +468,7 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
      "Masked Extract/Insert element instruction is serialized."},
     {OptRemarkID::DivisionSerializedFpModel,
      "'%s': division was scalarized due to fp-model requirements."},
+
     // Entries below semantically belong to "vector loop memory reference
     // summary".
     // Remarks for reasons of generated gather/scatter instructions.
@@ -479,6 +484,7 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
     {OptRemarkID::VectorizerScalarTripCount,
      "using scalar loop trip count: %s"},
     // End "vector loop memory reference summary" entries.
+
     {OptRemarkID::VecFailUnknownRecurrence,
      "%s was not vectorized: loop contains a recurrent computation "
      "that could not be identified as an induction or reduction.  "
@@ -521,6 +527,7 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
      "Number of spatial prefetches=%d, default dist=%d"},
     {OptRemarkID::NumIndirectPrefetches,
      "Number of indirect prefetches=%d, default dist=%d"},
+
     {OptRemarkID::FusedLoops, "Fused Loops: %s"},
     {OptRemarkID::LoopLostInFusion, "Loop lost in Fusion"},
     {OptRemarkID::DirectivePrefetchSpatialMemRef,
@@ -662,21 +669,6 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
      "in loop"},
     {OptRemarkID::SunkConditionalStores,
      "%d stores sunk out of If at line %d to make them unconditional in loop"},
-    {OptRemarkID::OpenMPOutlinedParLoop, "OpenMP: Outlined parallel loop"},
-    {OptRemarkID::OpenMPOutlinedEnclosedParLoop,
-     "OpenMP: Enclosed parallel loop was outlined"},
-    {OptRemarkID::OpenMPWorkSharingLoop, "OpenMP: Worksharing loop"},
-    {OptRemarkID::OpenMPRedundantClause,
-     "OpenMP: %s clause for variable '%s' is redundant"},
-    {OptRemarkID::OpenMPClauseHasBeenChanged,
-     "OpenMP: %s clause for variable '%s' has been changed to %s"},
-    {OptRemarkID::OpenMPClauseCanBeChanged,
-     "OpenMP: %s clause for variable '%s' can be changed to %s to "
-     "reduce mapping overhead"},
-    {OptRemarkID::OpenMPParLoopPipelined,
-     "CSA: OpenMP parallel loop will be pipelined"},
-    {OptRemarkID::OpenMPWorkShareLoopPipelined,
-     "CSA: OpenMP worksharing loop will be pipelined"},
     {OptRemarkID::TightLoopFound, "Tight cycle found for Loop %s"},
     {OptRemarkID::TightLoopValue, "%s"},
 #if INTEL_INTERNAL_BUILD
@@ -693,6 +685,24 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
      "Remainder loop for LLVM LoopUnroll partial unrolling"},
     {OptRemarkID::LLORGPeeledBy,
      "Loop has been peeled by %d iterations by LLVM LoopUnroll"},
+
+    {OptRemarkID::OpenMPOutlinedParLoop, "OpenMP: Outlined parallel loop"},
+    {OptRemarkID::OpenMPOutlinedEnclosedParLoop,
+     "OpenMP: Enclosed parallel loop was outlined"},
+    {OptRemarkID::OpenMPWorkSharingLoop, "OpenMP: Worksharing loop"},
+    {OptRemarkID::OpenMPRedundantClause,
+     "OpenMP: %s clause for variable '%s' is redundant"},
+    {OptRemarkID::OpenMPClauseHasBeenChanged,
+     "OpenMP: %s clause for variable '%s' has been changed to %s"},
+    {OptRemarkID::OpenMPClauseCanBeChanged,
+     "OpenMP: %s clause for variable '%s' can be changed to %s to "
+     "reduce mapping overhead"},
+#if INTEL_FEATURE_CSA
+    {OptRemarkID::OpenMPParLoopPipelined,
+     "CSA: OpenMP parallel loop will be pipelined"},
+    {OptRemarkID::OpenMPWorkShareLoopPipelined,
+     "CSA: OpenMP worksharing loop will be pipelined"},
+#endif // INTEL_FEATURE_CSA
     {OptRemarkID::OpenMPConstructTransformed, "%s construct transformed"},
     {OptRemarkID::OpenMPConstructUserIgnored,
      "Construct %d (%s) ignored at user's direction"},
@@ -704,6 +714,7 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
     {OptRemarkID::OpenMPClangImplicitFirstPrivate,
      "\"%s\" has an implicit clause \"firstprivate(%s)\" because it is a "
      "scalar variable referenced at line:[%d:%d]"},
+
     {OptRemarkID::DummyRemarkForTesting, "Dummy remark for testing"},
 };
 

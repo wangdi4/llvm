@@ -24,12 +24,12 @@
 ; OPTREPORT: Global optimization report for : foo
 
 ; OPTREPORT: OMP PARALLEL BEGIN
-; OPTREPORT:     remark #25607: parallel construct transformed
+; OPTREPORT:     remark #30008: parallel construct transformed
 ; OPTREPORT: OMP PARALLEL END
 
 ; OPTREPORT: OMP PARALLEL BEGIN
-; OPTREPORT:     remark #25609: parallel construct is unreachable from function entry
-; OPTREPORT:     remark #25610: parallel construct ignored
+; OPTREPORT:     remark #30010: parallel construct is unreachable from function entry
+; OPTREPORT:     remark #30011: parallel construct ignored
 ; OPTREPORT: OMP PARALLEL END
 
 ; Check that the first parallel construct is outlined, and the fork call

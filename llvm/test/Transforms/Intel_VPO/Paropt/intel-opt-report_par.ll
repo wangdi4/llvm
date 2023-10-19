@@ -22,10 +22,10 @@
 ; CHECK: Global optimization report for : foo.DIR.OMP.PARALLEL.[[#]]
 
 ; CHECK: OMP PARALLEL BEGIN
-; CHECK:     remark #25607: parallel construct transformed
+; CHECK:     remark #30008: parallel construct transformed
 
 ; CHECK:     OMP MASKED BEGIN
-; CHECK:         remark #25607: masked construct transformed
+; CHECK:         remark #30008: masked construct transformed
 ; CHECK:     OMP MASKED END
 ; CHECK: OMP PARALLEL END
 
