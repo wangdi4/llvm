@@ -1,6 +1,5 @@
-; RUN: opt -S -passes="sycl-kernel-reduce-cross-barrier-values,adce" %s | FileCheck %s
-; RUN: opt -S -passes="sycl-kernel-reduce-cross-barrier-values,adce" %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; TODO: Remove -adce pass when this pass can eliminate dead instructions.
+; RUN: opt -S -passes=sycl-kernel-reduce-cross-barrier-values %s | FileCheck %s
+; RUN: opt -S -passes=sycl-kernel-reduce-cross-barrier-values %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ; Checks that the freeze inst is also copied.
 

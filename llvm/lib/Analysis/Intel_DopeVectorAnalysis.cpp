@@ -30,9 +30,8 @@ using namespace llvm;
 #if INTEL_FEATURE_SW_ADVANCED
 // If true then we are going to relax some conditions to enable a more
 // aggressive DVCP.
-static cl::opt<bool> EnableAgressiveDVCPOpt("intel-dvcp-aggressive",
-                                              cl::init(true),
-                                              cl::ReallyHidden);
+static cl::opt<bool> EnableAggressiveDVCPOpt("intel-dvcp-aggressive",
+                                             cl::init(true), cl::ReallyHidden);
 
 static cl::opt<bool> CheckOutOfBoundsOK("dva-check-dtrans-outofboundsok",
                                         cl::init(true),
@@ -1013,9 +1012,15 @@ bool DopeVectorAnalyzer::getAllValuesHoldingFieldValue(
 
 bool DopeVectorFieldUse::analyzeLoadStoreOrSubscriptWithDims(
     Value *V, Value *Pointer, bool IsNotForDVCP, bool SubsOnly,
-    SmallVector<DopeVectorFieldUse, 4> &FieldVector, uint64_t DimIndex) {
+    uint64_t DimIndex) {
   if (!V)
     return false;
+  // Each GEPOperator ahould appear as the base in the GUV. If we see one
+  // here, it means it was encountered as a user of another GEPOperator.
+  // Skip the processing of this GEPOperator, because it will appear as
+  // the base in another element of the GUV. Returning 'true' allows the
+  // processing of the original GEPOperator base to continue without
+  // giving up.
   if (isa<GEPOperator>(V))
     return true;
   if (!SubsOnly && analyzeLoadOrStoreInstruction(V, Pointer, IsNotForDVCP))
@@ -1039,8 +1044,9 @@ bool DopeVectorFieldUse::analyzeLoadStoreOrSubscriptWithDims(
   if (!CI4)
     return false;
   uint64_t SBIV = CI4->getZExtValue();
-  if (SBIV >= FieldVector.size())
-    return false;
+  // In the caller, we are walking through a chain of SubscriptInsts
+  // with different 'DimIndex' values. Give up here without ending
+  // the search by returning 'true', if there is not an index match.
   if (SBIV != DimIndex)
     return true;
   for (User *U : SBI->users())
@@ -1049,8 +1055,7 @@ bool DopeVectorFieldUse::analyzeLoadStoreOrSubscriptWithDims(
   return true;
 }
 
-void DopeVectorFieldUse::analyzeUsesWithDims(
-    SmallVector<DopeVectorFieldUse, 4> &FieldVector, uint64_t DimIndex) {
+void DopeVectorFieldUse::analyzeUsesWithDims(uint64_t DimIndex) {
   if (IsBottom)
     return;
 
@@ -1062,7 +1067,7 @@ void DopeVectorFieldUse::analyzeUsesWithDims(
     bool SubsOnly = SubsOnlyFieldAddr.contains(FAddr);
     for (auto *U : FAddr->users()) {
       if (!analyzeLoadStoreOrSubscriptWithDims(U, FAddr, IsNotForDVCP, SubsOnly,
-                                               FieldVector, DimIndex)) {
+                                               DimIndex)) {
         IsBottom = true;
         break;
       }
@@ -1412,7 +1417,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV,
       if (ExtentBase) {
         if (AfterInstCombine) {
           DopeVectorFieldUse &ExtentField = ExtentAddr[Dim];
-          ExtentField.analyzeUsesWithDims(ExtentAddr, Dim);
+          ExtentField.analyzeUsesWithDims(Dim);
         } else {
           Value *Ptr = findPerDimensionArrayFieldPtr(*ExtentBase, Dim);
           if (Ptr) {
@@ -1429,7 +1434,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV,
       if (StrideBase) {
         if (AfterInstCombine) {
           DopeVectorFieldUse &StrideField = StrideAddr[Dim];
-          StrideField.analyzeUsesWithDims(StrideAddr, Dim);
+          StrideField.analyzeUsesWithDims(Dim);
         } else {
           Value *Ptr = findPerDimensionArrayFieldPtr(*StrideBase, Dim);
           if (Ptr) {
@@ -1446,7 +1451,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV,
       if (LowerBoundBase) {
         if (AfterInstCombine) {
           DopeVectorFieldUse &LowerBoundField = LowerBoundAddr[Dim];
-          LowerBoundField.analyzeUsesWithDims(LowerBoundAddr, Dim);
+          LowerBoundField.analyzeUsesWithDims(Dim);
         } else {
           Value *Ptr = findPerDimensionArrayFieldPtr(*LowerBoundBase, Dim);
           if (Ptr) {
@@ -4298,7 +4303,7 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
   // Aggressive DVCP is turned on by default, collect the option from opt if
   // it is turned off.
   if (EnableAggressiveDVCP)
-    EnableAggressiveDVCP = EnableAgressiveDVCPOpt;
+    EnableAggressiveDVCP = EnableAggressiveDVCPOpt;
 #endif // INTEL_FEATURE_SW_ADVANCED
 
   for (auto &Use : Glob->uses()) {

@@ -118,7 +118,8 @@ static bool collectDependencies(Use *TheUse, size_t Threshold,
 static void copyAndReplaceUses(
     SmallVectorImpl<Use *> &Uses, BasicBlock *RegionHeader,
     Instruction *InsertPt, DenseMap<BasicBlock *, InstMap> &OriginToCopyMaps,
-    InstMap &CopyToOriginMap, WIRelatedValue *WIRV, BarrierRegionInfo *BRI) {
+    InstMap &CopyToOriginMap, SmallPtrSetImpl<Instruction *> &RemoveCandidates,
+    WIRelatedValue *WIRV, BarrierRegionInfo *BRI) {
 
   auto IsDomFrontier = [](BasicBlock *RegionHeader) {
     return !BarrierUtils::isBarrierOrDummyBarrierCall(&*RegionHeader->begin());
@@ -187,6 +188,8 @@ static void copyAndReplaceUses(
     CopyToOriginMap[Clone] = OrigInst;
     Clone->setName(OrigInst->getName() + ".copy");
     WIRV->setWIRelated(Clone, true);
+    // Cloned instruction may have no use.
+    RemoveCandidates.insert(Clone);
   }
 
   // Query from CopyToOriginMap and OriginToCopyMap to get the unique copy of
@@ -219,11 +222,7 @@ static void copyAndReplaceUses(
   unsigned OpIdx = U->getOperandNo();
   Instruction *Inst = cast<Instruction>(U->get());
   UserInst->setOperand(OpIdx, GetTheUniqueCopyOfInst(Inst));
-  // TODO: Erasing the dead instruction here can lead to invalid values in
-  // CopyToOriginMap and assertion failures. So I just leave dead instructions
-  // to DCE pass until there's a better solution.
-  // if (Inst->use_empty())
-  //   Inst->eraseFromParent();
+  RemoveCandidates.insert(Inst);
 
   // 3. Fix operands for all cloned instructions
   for (auto II = Uses.rbegin() + 1, EE = Uses.rend(); II != EE; ++II) {
@@ -234,8 +233,7 @@ static void copyAndReplaceUses(
     OpIdx = U->getOperandNo();
     Inst = cast<Instruction>(U->get());
     UserInst->setOperand(OpIdx, GetTheUniqueCopyOfInst(Inst));
-    // if (Inst->use_empty())
-    //   Inst->eraseFromParent();
+    RemoveCandidates.insert(Inst);
   }
 }
 
@@ -294,6 +292,7 @@ static bool runOnFunction(Function &F, BuiltinLibInfo *BLI, DataPerValue *DPV,
   });
 
   unsigned NumReduced = 0;
+  SmallPtrSet<Instruction *, 16> RemoveCandidates;
   for (Use *TheUse : CrossBarrierUses) {
     auto *UserInst = cast<Instruction>(TheUse->getUser());
     LLVM_DEBUG(dbgs() << "Handle instruction"; UserInst->dump());
@@ -320,17 +319,30 @@ static bool runOnFunction(Function &F, BuiltinLibInfo *BLI, DataPerValue *DPV,
     }
 
     copyAndReplaceUses(Uses, RegionHeader, InsertPt, CopiedInsts,
-                       CopyToOriginMap, WIRV, &BRI);
+                       CopyToOriginMap, RemoveCandidates, WIRV, &BRI);
     NumReduced++;
     Changed = true;
   }
 
-  if (Changed)
+  if (Changed) {
+    bool Removed;
+    do {
+      Removed = false;
+      for (Instruction *I : make_early_inc_range(RemoveCandidates)) {
+        if (I->use_empty()) {
+          I->eraseFromParent();
+          RemoveCandidates.erase(I);
+          Removed = true;
+        }
+      }
+    } while (Removed);
+
     ORE->emit([&]() {
       return OptimizationRemark(DEBUG_TYPE, "ReduceCrossBarrierValues", &F)
              << Twine(NumReduced).str()
              << " cross-barrier uses are erased in function " << F.getName();
     });
+  }
 
   return Changed;
 }

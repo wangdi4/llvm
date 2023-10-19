@@ -994,12 +994,6 @@ cl_err_code MapMemObjCommand::PostfixExecute() {
     SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "Sync Data Postfix - %s",
               GetCommandName());
     __itt_string_handle *pMarker = __itt_string_handle_create(pMarkerString);
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    // Start Sync Data GPA task
-    __itt_set_track(nullptr);
-#endif
-#endif // end INTEL_CUSTOMIZATION
     __itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
 
     // Add region metadata to the Sync Data task
@@ -1015,12 +1009,6 @@ cl_err_code MapMemObjCommand::PostfixExecute() {
 
 #if defined(USE_ITT)
   if ((nullptr != pGPAData) && (pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    // End Sync Data GPA task
-    __itt_set_track(nullptr);
-#endif
-#endif // end INTEL_CUSTOMIZATION
     __itt_task_end(pGPAData->pDeviceDomain);
 
     __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
@@ -1213,12 +1201,6 @@ cl_err_code UnmapMemObjectCommand::PrefixExecute() {
               GetCommandName());
     __itt_string_handle *pMarker = __itt_string_handle_create(pMarkerString);
 
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    // Start Sync Data GPA task
-    __itt_set_track(nullptr);
-#endif
-#endif // end INTEL_CUSTOMIZATION
     __itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
 
     // Add region metadata to the Sync Data task
@@ -1234,12 +1216,7 @@ cl_err_code UnmapMemObjectCommand::PrefixExecute() {
 
 #if defined(USE_ITT)
   if ((nullptr != pGPAData) && (pGPAData->bUseGPA)) {
-// End Sync Data GPA task
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // end INTEL_CUSTOMIZATION
+    // End Sync Data GPA task
     __itt_task_end(pGPAData->pDeviceDomain);
 
     __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
@@ -1879,60 +1856,6 @@ cl_err_code NDRangeKernelCommand::CommandDone() {
 
   return CL_SUCCESS;
 }
-
-/******************************************************************
- *
- ******************************************************************/
-void NDRangeKernelCommand::GPA_WriteCommandMetadata() {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-  ocl_gpa_data *pGPAData = m_pCommandQueue->GetGPAData();
-
-  if ((nullptr != pGPAData) && (pGPAData->bUseGPA)) {
-    // Set custom track
-    __itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
-    __itt_metadata_add(pGPAData->pContextDomain, m_pGpaCommand->m_CmdId,
-                       pGPAData->pWorkDimensionHandle, __itt_metadata_u32, 1,
-                       &m_uiWorkDim);
-
-    GPA_WriteWorkMetadata(m_cpszGlobalWorkSize,
-                          pGPAData->pGlobalWorkSizeHandle);
-    GPA_WriteWorkMetadata(m_cpszLocalWorkSize, pGPAData->pLocalWorkSizeHandle);
-    GPA_WriteWorkMetadata(m_cpszGlobalWorkOffset,
-                          pGPAData->pGlobalWorkOffsetHandle);
-  }
-#endif // GPA
-#endif // end INTEL_CUSTOMIZATION
-}
-/******************************************************************
- *
- ******************************************************************/
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-void NDRangeKernelCommand::GPA_WriteWorkMetadata(
-    const size_t *pWorkMetadata, __itt_string_handle *keyStrHandle) const {
-  ocl_gpa_data *pGPAData = m_pCommandQueue->GetGPAData();
-
-  if ((nullptr != pGPAData) && (pGPAData->bUseGPA) &&
-      (pWorkMetadata != nullptr)) {
-    ocl_gpa_data *pGPAData = m_pCommandQueue->GetGPAData();
-
-    // Set custom track
-    __itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
-
-    // Make sure all metadata is 64 bit, and not platform dependant (size_t)
-    cl_ulong metaData64[MAX_WORK_DIM];
-    for (unsigned int i = 1; i < m_uiWorkDim; ++i) {
-      metaData64[i] = pWorkMetadata[i];
-    }
-
-    // Write Metadata to trace
-    __itt_metadata_add(pGPAData->pContextDomain, __itt_null, keyStrHandle,
-                       __itt_metadata_u64, m_uiWorkDim, metaData64);
-  }
-}
-#endif // GPA
-#endif // end INTEL_CUSTOMIZATION
 
 ReadHostPipeIntelFPGACommand::ReadHostPipeIntelFPGACommand(
     const SharedPtr<IOclCommandQueueBase> &cmdQueue, void *pDst, void *pipeBS,

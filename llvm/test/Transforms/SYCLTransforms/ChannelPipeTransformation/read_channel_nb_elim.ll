@@ -38,9 +38,9 @@
 ; ----------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
 ; ----------------------------------------------------
-; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck --implicit-check-not read_channel_nb_intel %s
+
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck --implicit-check-not read_channel_nb_intel %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
@@ -50,11 +50,11 @@ target triple = "spir64-unknown-unknown-intelfpga"
 @__const.foo.st = private unnamed_addr addrspace(2) constant %struct.Foo { i32 0, i64 1 }, align 8
 @foo.l_valid = internal addrspace(3) global i8 undef, align 1
 @g_valid = addrspace(1) global i8 0, align 1
-@bar = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
-@far = addrspace(1) global target("spirv.Channel") zeroinitializer, align 1, !packet_size !2, !packet_align !2, !depth !3
-@star = addrspace(1) global target("spirv.Channel") zeroinitializer, align 8, !packet_size !4, !packet_align !5
-@bar_arr = addrspace(1) global [5 x target("spirv.Channel")] zeroinitializer, align 4, !packet_size !0, !packet_align !0
-@far_arr = addrspace(1) global [5 x [4 x target("spirv.Channel")]] zeroinitializer, align 1, !packet_size !2, !packet_align !2
+@bar = addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !0, !packet_align !0, !depth !1
+@far = addrspace(1) global ptr addrspace(1) null, align 1, !packet_size !2, !packet_align !2, !depth !3
+@star = addrspace(1) global ptr addrspace(1) null, align 8, !packet_size !4, !packet_align !5
+@bar_arr = addrspace(1) global [5 x ptr addrspace(1)] zeroinitializer, align 4, !packet_size !0, !packet_align !0
+@far_arr = addrspace(1) global [5 x [4 x ptr addrspace(1)]] zeroinitializer, align 1, !packet_size !2, !packet_align !2
 
 ; CHECK: @[[PIPE_BAR:.*]] = addrspace(1) global ptr addrspace(1)
 ; CHECK: @[[PIPE_FAR:.*]] = addrspace(1) global ptr addrspace(1)
@@ -149,12 +149,12 @@ entry:
   call void @_Z21read_channel_nb_intel11ocl_channel3FooPU3AS4b(ptr sret(%struct.Foo) align 8 %tmp, ptr addrspace(1) %3, ptr addrspace(4) noundef %5) #5
   call void @llvm.memcpy.p0.p0.i64(ptr align 8 %st, ptr align 8 %tmp, i64 16, i1 false), !tbaa.struct !17
   call void @llvm.lifetime.end.p0(i64 16, ptr %tmp) #4
-  %6 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([5 x target("spirv.Channel")], ptr addrspace(1) @bar_arr, i64 0, i64 3), align 4, !tbaa !14
+  %6 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([5 x ptr addrspace(1)], ptr addrspace(1) @bar_arr, i64 0, i64 3), align 4, !tbaa !14
   %7 = load ptr addrspace(3), ptr %p_to_l_valid, align 8, !tbaa !15
   %8 = addrspacecast ptr addrspace(3) %7 to ptr addrspace(4)
   %call3 = call i32 @_Z21read_channel_nb_intel11ocl_channeliPU3AS4b(ptr addrspace(1) %6, ptr addrspace(4) noundef %8) #5
   store i32 %call3, ptr %i, align 4, !tbaa !10
-  %9 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([5 x [4 x target("spirv.Channel")]], ptr addrspace(1) @far_arr, i64 0, i64 3, i64 2), align 1, !tbaa !14
+  %9 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([5 x [4 x ptr addrspace(1)]], ptr addrspace(1) @far_arr, i64 0, i64 3, i64 2), align 1, !tbaa !14
   %10 = load ptr, ptr %p_to_p_valid, align 8, !tbaa !15
   %11 = addrspacecast ptr %10 to ptr addrspace(4)
   %call4 = call signext i8 @_Z21read_channel_nb_intel11ocl_channelcPU3AS4b(ptr addrspace(1) %9, ptr addrspace(4) noundef %11) #5

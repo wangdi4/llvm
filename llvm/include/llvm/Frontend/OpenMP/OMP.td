@@ -502,6 +502,13 @@ def OMPC_OMPX_DynCGroupMem : Clause<"ompx_dyn_cgroup_mem"> {
   let flangClass = "ScalarIntExpr";
 }
 
+#if INTEL_CUSTOMIZATION
+def OMPC_OMPX_RegisterAllocMode : Clause<"ompx_register_alloc_mode"> {
+  let clangClass = "OMPXRegisterAllocModeClause";
+  let flangClass = "ScalarIntExpr";
+}
+#endif // INTEL_CUSTOMIZATION
+
 def OMPC_Doacross : Clause<"doacross"> {
   let clangClass = "OMPDoacrossClause";
 }
@@ -752,6 +759,9 @@ def OMP_Target : Directive<"target"> {
     VersionedClause<OMPC_ThreadLimit, 51>,
     VersionedClause<OMPC_DefaultMap>,
     VersionedClause<OMPC_NoWait>,
+#if INTEL_CUSTOMIZATION
+    VersionedClause<OMPC_OMPX_RegisterAllocMode>,
+#endif // INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
@@ -874,6 +884,9 @@ def OMP_TargetParallel : Directive<"target parallel"> {
 #endif // INTEL_COLLAB
     VersionedClause<OMPC_NumThreads>,
     VersionedClause<OMPC_ProcBind>,
+#if INTEL_CUSTOMIZATION
+    VersionedClause<OMPC_OMPX_RegisterAllocMode>,
+#endif // INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
     VersionedClause<OMPC_ThreadLimit, 51>,
   ];
@@ -914,6 +927,9 @@ def OMP_TargetParallelFor : Directive<"target parallel for"> {
     VersionedClause<OMPC_OMPX_Attribute>,
   ];
   let allowedOnceClauses = [
+#if INTEL_CUSTOMIZATION
+    VersionedClause<OMPC_OMPX_RegisterAllocMode>,
+#endif // INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
     VersionedClause<OMPC_ThreadLimit, 51>,
   ];
@@ -1459,6 +1475,7 @@ def OMP_TargetParallelForSimd : Directive<"target parallel for simd"> {
   let allowedOnceClauses = [
 #if INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OmpxAssert>,
+    VersionedClause<OMPC_OMPX_RegisterAllocMode>,
 #endif // INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
     VersionedClause<OMPC_ThreadLimit, 51>,
@@ -1539,6 +1556,9 @@ def OMP_TargetSimd : Directive<"target simd"> {
 #endif // INTEL_COLLAB
     VersionedClause<OMPC_DefaultMap>,
     VersionedClause<OMPC_Schedule>,
+#if INTEL_CUSTOMIZATION
+    VersionedClause<OMPC_OMPX_RegisterAllocMode>,
+#endif // INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
     VersionedClause<OMPC_Order, 50>,
     VersionedClause<OMPC_ThreadLimit, 51>,
@@ -1736,6 +1756,9 @@ def OMP_TargetTeams : Directive<"target teams"> {
     VersionedClause<OMPC_Default>,
     VersionedClause<OMPC_NumTeams>,
     VersionedClause<OMPC_ThreadLimit>,
+#if INTEL_CUSTOMIZATION
+    VersionedClause<OMPC_OMPX_RegisterAllocMode>,
+#endif // INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
     VersionedClause<OMPC_OMX_Bare>,
   ];
@@ -1772,6 +1795,9 @@ def OMP_TargetTeamsDistribute : Directive<"target teams distribute"> {
     VersionedClause<OMPC_ThreadLimit>,
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_DistSchedule>,
+#if INTEL_CUSTOMIZATION
+    VersionedClause<OMPC_OMPX_RegisterAllocMode>,
+#endif // INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
@@ -1814,6 +1840,9 @@ def OMP_TargetTeamsDistributeParallelFor :
     VersionedClause<OMPC_OMPX_Attribute>,
   ];
   let allowedOnceClauses = [
+#if INTEL_CUSTOMIZATION
+    VersionedClause<OMPC_OMPX_RegisterAllocMode>,
+#endif // INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }
@@ -1896,6 +1925,7 @@ def OMP_TargetTeamsDistributeParallelForSimd :
   let allowedOnceClauses = [
 #if INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OmpxAssert>,
+    VersionedClause<OMPC_OMPX_RegisterAllocMode>,
 #endif // INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
@@ -1981,6 +2011,9 @@ def OMP_TargetTeamsDistributeSimd :
     VersionedClause<OMPC_DistSchedule>,
     VersionedClause<OMPC_SafeLen>,
     VersionedClause<OMPC_SimdLen>,
+#if INTEL_CUSTOMIZATION
+    VersionedClause<OMPC_OMPX_RegisterAllocMode>,
+#endif // INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
     VersionedClause<OMPC_Order, 50>
   ];
@@ -2428,6 +2461,9 @@ def OMP_target_teams_loop : Directive<"target teams loop"> {
     VersionedClause<OMPC_NumTeams>,
     VersionedClause<OMPC_Order>,
     VersionedClause<OMPC_ThreadLimit>,
+#if INTEL_CUSTOMIZATION
+    VersionedClause<OMPC_OMPX_RegisterAllocMode>,
+#endif // INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OMPX_DynCGroupMem>,
   ];
 }

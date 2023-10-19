@@ -311,7 +311,7 @@ void CoverageReportXML::XMLTag::renderClose(raw_ostream &OS) {
 }
 
 void CoverageReportXML::XMLTag::addAttribute(StringRef Name, StringRef Value) {
-  Attributes.push_back({Name, replaceSpecialCharaters(Value)});
+  Attributes.push_back({Name, replaceSpecialCharacters(Value)});
 }
 
 void CoverageReportXML::XMLTag::addAttribute(StringRef Name, uint64_t Value) {
@@ -319,7 +319,7 @@ void CoverageReportXML::XMLTag::addAttribute(StringRef Name, uint64_t Value) {
 }
 
 std::string
-CoverageReportXML::XMLTag::replaceSpecialCharaters(StringRef Value) {
+CoverageReportXML::XMLTag::replaceSpecialCharacters(StringRef Value) {
   size_t From = 0;
   size_t Index;
   std::string Result;

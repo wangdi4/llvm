@@ -296,24 +296,10 @@ bool ReadWriteMemObject::Execute() {
   // Execute copy routine
 #if defined(USE_ITT)
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
-
     __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
                      (CL_DEV_CMD_READ == m_pCmd->type
                           ? m_pGPAData->pReadHandle
                           : m_pGPAData->pWriteHandle));
-
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    TAL_SetNamedTaskColor((CL_DEV_CMD_READ == m_pCmd->type ? "Read" : "Write"),
-                          255, 0, 0);
-#endif
-#endif // INTEL_CUSTOMIZATION
     // Copy dimensions to 64 bit, for uniformity.
     cl_ulong copyParams64[MAX_WORK_DIM];
     copyParams64[0] = sCpyParam.vRegion[0];
@@ -330,11 +316,6 @@ bool ReadWriteMemObject::Execute() {
 
 #if defined(USE_ITT)
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
     __itt_task_end(m_pGPAData->pDeviceDomain);
   }
 #endif // ITT
@@ -465,19 +446,8 @@ bool CopyMemObject::Execute() {
 #if defined(USE_ITT)
   // Execute copy routine
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
     __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
                      m_pGPAData->pCopyHandle);
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    TAL_SetNamedTaskColor("Copy", 255, 0, 0);
-#endif
-#endif // INTEL_CUSTOMIZATION
-
     // Copy dimensions to 64 bit, for uniformity.
     cl_ulong copyParams64[MAX_WORK_DIM];
     copyParams64[0] = sCpyParam.vRegion[0];
@@ -495,11 +465,6 @@ bool CopyMemObject::Execute() {
 
 #if defined(USE_ITT)
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
     __itt_task_end(m_pGPAData->pDeviceDomain);
   }
 #endif
@@ -642,26 +607,11 @@ bool MapMemObject::Execute() {
 #if defined(USE_ITT)
   // Write Map task to ITT trace
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
     __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
                      m_pGPAData->pMapHandle);
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    TAL_SetNamedTaskColor("Map", 255, 0, 0);
-#endif
-#endif // INTEL_CUSTOMIZATION
   }
 
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
     __itt_task_end(m_pGPAData->pDeviceDomain);
   }
 #endif
@@ -1581,12 +1531,6 @@ bool NativeKernelTask::Execute() {
 #if defined(USE_ITT)
   // Start execution task
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
-
     __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
                      pEntry->ittTaskNameHandle);
   }
@@ -1616,11 +1560,6 @@ bool NativeKernelTask::Execute() {
 
 #if defined(USE_ITT)
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
     __itt_task_end(m_pGPAData->pDeviceDomain);
   }
 #endif // ITT

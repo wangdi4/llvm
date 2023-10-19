@@ -3875,6 +3875,9 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_at:
   case OMPC_severity:
   case OMPC_bind:
+#if INTEL_CUSTOMIZATION
+  case OMPC_ompx_register_alloc_mode:
+#endif // INTEL_CUSTOMIZATION
     // OpenMP [2.14.3.1, Restrictions]
     //  Only a single default clause may be specified on a parallel, task or
     //  teams directive.

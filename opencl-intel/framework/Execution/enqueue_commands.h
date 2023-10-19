@@ -185,7 +185,6 @@ public:
   virtual ocl_gpa_command *GPA_GetCommand() { return m_pGpaCommand; }
   virtual void GPA_InitCommand();
   virtual void GPA_DestroyCommand();
-  virtual void GPA_WriteCommandMetadata() {}
   virtual const char *GPA_GetCommandName() const {
     return getCommandNameGPA(m_commandType);
   }
@@ -1119,7 +1118,6 @@ public:
                ? m_pKernel->GetName()
                : Command::GPA_GetCommandName();
   }
-  virtual void GPA_WriteCommandMetadata() override;
 
   using CommandCallBackFn = std::function<void(cl_event)>;
 

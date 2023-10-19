@@ -217,43 +217,9 @@ cl_err_code OclCommandQueue::Initialize() {
 
 cl_int OclCommandQueue::GetContextId() const { return m_pContext->GetId(); }
 
-cl_err_code OclCommandQueue::GPA_InitializeQueue() {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-  if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) &&
-      (m_pGPAData->bEnableContextTracing)) {
-    m_pOclGpaQueue = new ocl_gpa_queue();
+cl_err_code OclCommandQueue::GPA_InitializeQueue() { return CL_SUCCESS; }
 
-    std::stringstream ssQueueTrackName;
-    ssQueueTrackName << (m_bOutOfOrderEnabled ? "Out Of Order Queue (CPU)"
-                                              : "In Order Queue (CPU)")
-                     << std::endl;
-    ssQueueTrackName << "Queue id: " << m_iId << std::endl;
-    ssQueueTrackName << "Queue handle: " << (int)&m_handle;
-
-    m_pOclGpaQueue->m_pStrHndl =
-        __itt_string_handle_createA(ssQueueTrackName.str().c_str());
-
-    m_pOclGpaQueue->m_pTrack =
-        __itt_track_create(m_pGPAData->pContextTrackGroup,
-                           m_pOclGpaQueue->m_pStrHndl, __itt_track_type_queue);
-  }
-#endif
-#endif // end INTEL_CUSTOMIZATION
-  return CL_SUCCESS;
-}
-
-cl_err_code OclCommandQueue::GPA_ReleaseQueue() {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-  if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) &&
-      (m_pGPAData->bEnableContextTracing)) {
-    delete m_pOclGpaQueue;
-  }
-#endif
-#endif // end INTEL_CUSTOMIZATION
-  return CL_SUCCESS;
-}
+cl_err_code OclCommandQueue::GPA_ReleaseQueue() { return CL_SUCCESS; }
 
 ocl_gpa_data *OclCommandQueue::GetGPAData() const {
   return m_pContext->GetGPAData();

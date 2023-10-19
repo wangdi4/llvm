@@ -101,11 +101,8 @@ bool CreateReleaseOOOQueueTest() {
    * Check if GPA/ITT is active
    */
   std::string strUseGPAVal;
-  Intel::OpenCL::Utils::getEnvVar(strUseGPAVal, "CL_CONFIG_USE_GPA");
-  bool bUseGPA =
-      Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(strUseGPAVal);
   Intel::OpenCL::Utils::getEnvVar(strUseGPAVal, "CL_CONFIG_USE_ITT");
-  bUseGPA |=
+  bool bUseGPA =
       Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(strUseGPAVal);
   if (bUseGPA) {
     numOfInterations = REDUCED_ITERATION_COUNT;

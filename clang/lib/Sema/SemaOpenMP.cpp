@@ -18917,6 +18917,13 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
     Res = ActOnOpenMPBindClause(static_cast<OpenMPBindClauseKind>(Argument),
                                 ArgumentLoc, StartLoc, LParenLoc, EndLoc);
     break;
+#if INTEL_CUSTOMIZATION
+  case OMPC_ompx_register_alloc_mode:
+    Res = ActOnOpenMPXRegisterAllocModeClause(
+        static_cast<OpenMPXRegisterAllocModeKind>(Argument), ArgumentLoc,
+        StartLoc, LParenLoc, EndLoc);
+    break;
+#endif // INTEL_CUSTOMIZATION
   case OMPC_at:
     Res = ActOnOpenMPAtClause(static_cast<OpenMPAtClauseKind>(Argument),
                               ArgumentLoc, StartLoc, LParenLoc, EndLoc);
@@ -19680,6 +19687,7 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
+  case OMPC_ompx_register_alloc_mode:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -26841,6 +26849,24 @@ OMPClause *Sema::ActOnOpenMPXDynCGroupMemClause(Expr *Size,
   return new (Context) OMPXDynCGroupMemClause(
       ValExpr, HelperValStmt, CaptureRegion, StartLoc, LParenLoc, EndLoc);
 }
+
+#if INTEL_CUSTOMIZATION
+OMPClause *Sema::ActOnOpenMPXRegisterAllocModeClause(
+    OpenMPXRegisterAllocModeKind Kind, SourceLocation KindLoc,
+    SourceLocation StartLoc, SourceLocation LParenLoc, SourceLocation EndLoc) {
+  if (Kind == OMPC_REGISTER_ALLOC_MODE_unknown) {
+    Diag(KindLoc, diag::err_omp_unexpected_clause_value)
+        << getListOfPossibleValues(
+               OMPC_ompx_register_alloc_mode, /*First=*/0,
+               /*Last=*/unsigned(OMPC_REGISTER_ALLOC_MODE_unknown))
+        << getOpenMPClauseName(OMPC_ompx_register_alloc_mode);
+    return nullptr;
+  }
+
+  return new (Context)
+      OMPXRegisterAllocModeClause(Kind, KindLoc, StartLoc, LParenLoc, EndLoc);
+}
+#endif // INTEL_CUSTOMIZATION
 
 OMPClause *Sema::ActOnOpenMPDoacrossClause(
     OpenMPDoacrossClauseModifier DepType, SourceLocation DepLoc,

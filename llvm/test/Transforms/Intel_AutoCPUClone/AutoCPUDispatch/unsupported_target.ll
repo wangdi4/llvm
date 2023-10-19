@@ -32,4 +32,4 @@ attributes #0 = { nofree norecurse noreturn nosync nounwind memory(none) uwtable
 !llvm.module.flags = !{!0}
 
 !0 = !{i32 7, !"openmp", i32 50}
-!1 = !{!"corei7-avx"}
+!1 = !{!"znver4"}

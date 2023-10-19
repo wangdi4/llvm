@@ -10609,6 +10609,11 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_ompx_dyn_cgroup_mem:
     C = new (Context) OMPXDynCGroupMemClause();
     break;
+#if INTEL_CUSTOMIZATION
+  case llvm::omp::OMPC_ompx_register_alloc_mode:
+    C = new (Context) OMPXRegisterAllocModeClause();
+    break;
+#endif // INTEL_CUSTOMIZATION
   case llvm::omp::OMPC_doacross: {
     unsigned NumVars = Record.readInt();
     unsigned NumLoops = Record.readInt();
@@ -11778,6 +11783,15 @@ void OMPClauseReader::VisitOMPXDynCGroupMemClause(OMPXDynCGroupMemClause *C) {
   C->setSize(Record.readSubExpr());
   C->setLParenLoc(Record.readSourceLocation());
 }
+
+#if INTEL_CUSTOMIZATION
+void OMPClauseReader::VisitOMPXRegisterAllocModeClause(
+    OMPXRegisterAllocModeClause *C) {
+  C->setModeKind(Record.readEnum<OpenMPXRegisterAllocModeKind>());
+  C->setLParentLoc(Record.readSourceLocation());
+  C->setModeKindLoc(Record.readSourceLocation());
+}
+#endif // INTEL_CUSTOMIZATION
 
 void OMPClauseReader::VisitOMPDoacrossClause(OMPDoacrossClause *C) {
   C->setLParenLoc(Record.readSourceLocation());

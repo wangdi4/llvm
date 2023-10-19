@@ -3420,6 +3420,15 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
   if (!IntrData) {
     switch (Intrinsic) {
 #if INTEL_CUSTOMIZATION
+    case Intrinsic::x86_sse3_ldu_dq:
+    case Intrinsic::x86_avx_ldu_dq_256: {
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.ptrVal = I.getArgOperand(0);
+      Info.memVT = MVT::getVT(I.getType());
+      Info.align = Align(1);
+      Info.flags |= MachineMemOperand::MOLoad;
+      return true;
+    }
 #if INTEL_FEATURE_ISA_AVX512_MOVRS
     case Intrinsic::x86_avx2_vmovadvisew_load_128:
     case Intrinsic::x86_avx2_vmovadvisew_load_256:
@@ -28952,6 +28961,17 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
                          Operation.getValue(1));
     }
 #if INTEL_CUSTOMIZATION
+    case Intrinsic::x86_sse3_ldu_dq:
+    case Intrinsic::x86_avx_ldu_dq_256: {
+      // LDDQU is only useful for legacy microarchitectures and is only present
+      // in legacy code. Emit a regular load if we're targeting anything modern
+      // which can be better optimized (e.g. fold with other instructions)
+      if (!Subtarget.hasSSSE3())
+        return SDValue();
+      return DAG.getLoad(Op.getValueType(), Op, Op.getOperand(0),
+                         Op.getOperand(2),
+                         cast<MemIntrinsicSDNode>(Op)->getMemOperand());
+    }
 #if INTEL_FEATURE_ISA_AVX512_RAO_FP
     case Intrinsic::x86_mask_vaaddpd128:
     case Intrinsic::x86_mask_vaaddpd256:
@@ -50448,8 +50468,7 @@ static SDValue combineSetCCMOVMSK(SDValue EFLAGS, X86::CondCode &CC,
         MVT ORVT1 = Pack1.getSimpleValueType();
         if (ORVT0 == ORVT1) {
           bool OrLeaf = true;
-          if (Pack0.getOpcode() == X86ISD::VPERMI
-              || Pack0.getOpcode() == ISD::VECTOR_SHUFFLE) {
+          if (Pack0.getOpcode() == X86ISD::VPERMI) {
             // This transformation is used for cmp(concat_vect(a,b), 0),
             // but not cmp(concat_vect(a,b), CONST).
             // So there is no need to care about what order of concat_vect(a,b).
@@ -50484,8 +50503,7 @@ static SDValue combineSetCCMOVMSK(SDValue EFLAGS, X86::CondCode &CC,
               OrLeaf = false;
             }
           }
-          if (Pack1.getOpcode() == X86ISD::VPERMI
-              || Pack1.getOpcode() == ISD::VECTOR_SHUFFLE) {
+          if (Pack1.getOpcode() == X86ISD::VPERMI) {
             SmallVector<int, 64> Mask;
             SmallVector<SDValue, 2> Ops;
             if (!getTargetShuffleMask(Pack1.getNode(), ORVT1, false, Ops,

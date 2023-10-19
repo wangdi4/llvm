@@ -13185,6 +13185,15 @@ public:
                                             SourceLocation LParenLoc,
                                             SourceLocation EndLoc);
 
+#if INTEL_CUSTOMIZATION
+  /// Called on a well-formed 'ompx_register_alloc_mode' clause.
+  OMPClause *ActOnOpenMPXRegisterAllocModeClause(OpenMPXRegisterAllocModeKind K,
+                                                 SourceLocation KindLoc,
+                                                 SourceLocation StartLoc,
+                                                 SourceLocation LParenLoc,
+                                                 SourceLocation EndLoc);
+#endif // INTEL_CUSTOMIZATION
+
   /// Called on well-formed 'doacross' clause.
   OMPClause *
   ActOnOpenMPDoacrossClause(OpenMPDoacrossClauseModifier DepType,

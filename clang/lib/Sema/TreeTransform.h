@@ -2532,6 +2532,20 @@ public:
                                                     EndLoc);
   }
 
+#if INTEL_CUSTOMIZATION
+  /// Build a new OpenMP 'ompx_register_alloc__mode' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPXRegisterAllocModeClause(
+      OpenMPXRegisterAllocModeKind Kind, SourceLocation KindLoc,
+      SourceLocation StartLoc, SourceLocation LParenLoc,
+      SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPXRegisterAllocModeClause(
+        Kind, KindLoc, StartLoc, LParenLoc, EndLoc);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Build a new OpenMP 'ompx_attribute' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -11181,6 +11195,16 @@ OMPClause *TreeTransform<Derived>::TransformOMPXDynCGroupMemClause(
   return getDerived().RebuildOMPXDynCGroupMemClause(
       Size.get(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
 }
+
+#if INTEL_CUSTOMIZATION
+template <typename Derived>
+OMPClause *TreeTransform<Derived>::TransformOMPXRegisterAllocModeClause(
+    OMPXRegisterAllocModeClause *C) {
+  return getDerived().RebuildOMPXRegisterAllocModeClause(
+      C->getModeKind(), C->getModeKindLoc(), C->getBeginLoc(),
+      C->getLParenLoc(), C->getEndLoc());
+}
+#endif // INTEL_CUSTOMIZATION
 
 template <typename Derived>
 OMPClause *
