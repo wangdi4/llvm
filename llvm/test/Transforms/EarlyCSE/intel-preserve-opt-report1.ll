@@ -16,10 +16,10 @@
 
 ; CHECK:      Global optimization report for : foo{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (3, 1)
-; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'X' is redundant
+; CHECK-NEXT:     remark #30003: OpenMP: FIRSTPRIVATE clause for variable 'X' is redundant
 ; CHECK-NEXT: OMP TARGET END{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (5, 1)
-; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'Y' is redundant
+; CHECK-NEXT:     remark #30003: OpenMP: FIRSTPRIVATE clause for variable 'Y' is redundant
 ; CHECK-NEXT: OMP TARGET END
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -176,7 +176,7 @@ attributes #2 = { nounwind }
 !26 = !DILocation(line: 3, column: 1, scope: !19)
 !27 = !{!"intel.optreport.title", !"OMP TARGET"}
 !28 = !{!"intel.optreport.remarks", !29}
-!29 = !{!"intel.optreport.remark", i32 25594, !"FIRSTPRIVATE", !"X"}
+!29 = !{!"intel.optreport.remark", i32 30003, !"FIRSTPRIVATE", !"X"}
 !30 = distinct !DISubprogram(name: "foo.DIR.OMP.TARGET.7.split.split.split", scope: !1, file: !1, line: 5, type: !9, scopeLine: 5, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
 !31 = distinct !{!"intel.optreport.rootnode", !32}
 !32 = distinct !{!"intel.optreport", !33}
@@ -186,4 +186,4 @@ attributes #2 = { nounwind }
 !36 = !{!"intel.optreport.debug_location", !37}
 !37 = !DILocation(line: 5, column: 1, scope: !30)
 !38 = !{!"intel.optreport.remarks", !39}
-!39 = !{!"intel.optreport.remark", i32 25594, !"FIRSTPRIVATE", !"Y"}
+!39 = !{!"intel.optreport.remark", i32 30003, !"FIRSTPRIVATE", !"Y"}

@@ -127,11 +127,11 @@ void xoo() {
     //OPTREPORT: Global optimization report for : __omp_offloading_{{.*}}__Z3xoov_l137
 
     //OPTREPORT: OMP TARGET BEGIN at {{.*}}omp-opt-report-implicit-map.cpp (137, 3)
-    //OPTREPORT:     remark #25611: "B" has an implicit clause "map(tofrom : B)" because it is a non-scalar variable referenced at line:[139:11]
-    //OPTREPORT:     remark #25611: "fn" has an implicit clause "map(to : fn)" because it is a non-scalar variable referenced at line:[140:11]
-    //OPTREPORT:     remark #25611: "x" (captured by lambda) has an implicit clause "map(tofrom : x)" because a lambda referenced inside the construct captures it at line:[50:15]
-    //OPTREPORT:     remark #25611: "j" has an implicit clause "map(tofrom : j)" because it is a non-scalar variable referenced at line:[140:17]
-    //OPTREPORT:     remark #25611: "s" has an implicit clause "map(tofrom : s)" because it is a non-scalar variable referenced at line:[141:11]
+    //OPTREPORT:     remark #30012: "B" has an implicit clause "map(tofrom : B)" because it is a non-scalar variable referenced at line:[139:11]
+    //OPTREPORT:     remark #30012: "fn" has an implicit clause "map(to : fn)" because it is a non-scalar variable referenced at line:[140:11]
+    //OPTREPORT:     remark #30012: "x" (captured by lambda) has an implicit clause "map(tofrom : x)" because a lambda referenced inside the construct captures it at line:[50:15]
+    //OPTREPORT:     remark #30012: "j" has an implicit clause "map(tofrom : j)" because it is a non-scalar variable referenced at line:[140:17]
+    //OPTREPORT:     remark #30012: "s" has an implicit clause "map(tofrom : s)" because it is a non-scalar variable referenced at line:[141:11]
     //OPTREPORT: OMP TARGET END
 
   #pragma omp target reduction(+:j)
@@ -173,8 +173,8 @@ class A {
     //OPTREPORT: Global optimization report for : __omp_offloading_{{.*}}__ZN1AC1Ev_l180
 
     //OPTREPORT: OMP TARGET BEGIN at {{.*}}omp-opt-report-implicit-map.cpp (180, 5)
-    //OPTREPORT:     remark #25611: "lambda" has an implicit clause "map(to : lambda)" because it is a non-scalar variable referenced at line:[181:5]
-    //OPTREPORT:     remark #25611: "lambda" has an implicit clause "map(tofrom : lambda)" because it is a non-scalar variable referenced at line:[181:5]
+    //OPTREPORT:     remark #30012: "lambda" has an implicit clause "map(to : lambda)" because it is a non-scalar variable referenced at line:[181:5]
+    //OPTREPORT:     remark #30012: "lambda" has an implicit clause "map(tofrom : lambda)" because it is a non-scalar variable referenced at line:[181:5]
     //OPTREPORT: OMP TARGET END
 
     #pragma omp target
@@ -233,9 +233,9 @@ class A {
     //OPTREPORT: Global optimization report for : __omp_offloading_{{.*}}__ZN1A3zooEPi_l241
 
     //OPTREPORT: OMP TARGET BEGIN at {{.*}}omp-opt-report-implicit-map.cpp (241, 5)
-    //OPTREPORT:     remark #25611: "nlocal" has an implicit clause "map(tofrom : nlocal)" because it is a non-scalar field referenced at line:[242:25]
-    //OPTREPORT:     remark #25611: "dt" has an implicit clause "map(tofrom : dt)" because it is a non-scalar field referenced at line:[243:7]
-    //OPTREPORT:     remark #25611: "a" has an implicit clause "map(tofrom : a[:0])" because it is a pointer variable referenced at line:[243:21]
+    //OPTREPORT:     remark #30012: "nlocal" has an implicit clause "map(tofrom : nlocal)" because it is a non-scalar field referenced at line:[242:25]
+    //OPTREPORT:     remark #30012: "dt" has an implicit clause "map(tofrom : dt)" because it is a non-scalar field referenced at line:[243:7]
+    //OPTREPORT:     remark #30012: "a" has an implicit clause "map(tofrom : a[:0])" because it is a pointer variable referenced at line:[243:21]
     //OPTREPORT: OMP TARGET END
 
     #pragma omp target
@@ -264,7 +264,7 @@ class A {
     //OPTREPORT: Global optimization report for : __omp_offloading_{{.*}}__ZN1A3zooEPi_l270
 
     //OPTREPORT: OMP TARGET BEGIN at {{.*}}omp-opt-report-implicit-map.cpp (270, 5)
-    //OPTREPORT:     remark #25611: "dt" has an implicit clause "map(tofrom : dt)" because it is a non-scalar field referenced at line:[271:7]
+    //OPTREPORT:     remark #30012: "dt" has an implicit clause "map(tofrom : dt)" because it is a non-scalar field referenced at line:[271:7]
     //OPTREPORT: OMP TARGET END
 
     #pragma omp target
@@ -292,7 +292,7 @@ class A {
     //OPTREPORT: Global optimization report for : __omp_offloading_{{.*}}__ZN1A3zooEPi_l298
 
     //OPTREPORT: OMP TARGET BEGIN at {{.*}}omp-opt-report-implicit-map.cpp (298, 5)
-    //OPTREPORT:     remark #25611: "nlocal" has an implicit clause "map(tofrom : nlocal)" because it is a non-scalar field referenced at line:[299:27]
+    //OPTREPORT:     remark #30012: "nlocal" has an implicit clause "map(tofrom : nlocal)" because it is a non-scalar field referenced at line:[299:27]
     //OPTREPORT: OMP TARGET END
 
     #pragma omp target map(a)
@@ -321,7 +321,7 @@ class A {
     //OPTREPORT: Global optimization report for : __omp_offloading_{{.*}}__ZN1A3zooEPi_l327
 
     //OPTREPORT: OMP TARGET BEGIN at {{.*}}omp-opt-report-implicit-map.cpp (327, 5)
-    //OPTREPORT:     remark #25611: "this" has an implicit clause "map(tofrom : this[:1])" because "this" is referenced at line:[328:22]
+    //OPTREPORT:     remark #30012: "this" has an implicit clause "map(tofrom : this[:1])" because "this" is referenced at line:[328:22]
     //OPTREPORT: OMP TARGET END
 
     #pragma omp target
@@ -348,7 +348,7 @@ class A {
     //OPTREPORT: Global optimization report for : __omp_offloading_{{.*}}__ZN1A3zooEPi_l354
 
     //OPTREPORT: OMP TARGET BEGIN at {{.*}}omp-opt-report-implicit-map.cpp (354, 5)
-    //OPTREPORT:     remark #25612: "m" has an implicit clause "firstprivate(m)" because it is a scalar variable referenced at line:[355:8]
+    //OPTREPORT:     remark #30013: "m" has an implicit clause "firstprivate(m)" because it is a scalar variable referenced at line:[355:8]
     //OPTREPORT: OMP TARGET END
 
     #pragma omp target
