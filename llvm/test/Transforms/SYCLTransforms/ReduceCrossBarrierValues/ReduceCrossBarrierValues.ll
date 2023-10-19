@@ -1,7 +1,6 @@
-; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes="sycl-kernel-reduce-cross-barrier-values,adce" %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes="sycl-kernel-reduce-cross-barrier-values,adce" %s | FileCheck %s
+; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes=sycl-kernel-reduce-cross-barrier-values %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes=sycl-kernel-reduce-cross-barrier-values %s | FileCheck %s
 ; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes=sycl-kernel-reduce-cross-barrier-values %s -pass-remarks=sycl-kernel-reduce-cross-barrier-values -disable-output 2>&1 | FileCheck -check-prefix=REMARK %s
-; TODO: Remove -adce pass when this pass can eliminate dead instructions.
 
 declare void @_Z7barrierj(i32)
 declare i64 @_Z13get_global_idj(i32) #0
