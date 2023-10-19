@@ -11,12 +11,12 @@
 
 ; Basic inlining tests for the module inliner.
 
-; CHECK: COMPILE FUNC: callee1
-; CHECK-MD: COMPILE FUNC: callee2
+; CHECK: COMPILE FUNC: callee2
+; CHECK-MD: COMPILE FUNC: callee1
 ; CHECK: COMPILE FUNC: caller
-; CHECK: INLINE: callee1 {{.*}}Callee is single basic block
 ; CHECK: callee2 {{.*}}Callee has noinline attribute
-; CHECK-CL: COMPILE FUNC: callee2
+; CHECK: INLINE: callee1 {{.*}}Callee is single basic block
+; CHECK-CL: COMPILE FUNC: callee1
 
 define i32 @callee1(i32 %a) {
 entry:
