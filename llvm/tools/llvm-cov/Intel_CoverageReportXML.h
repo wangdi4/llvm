@@ -175,7 +175,7 @@ private:
   private:
     // Return a string that has replaced the special characters '<', '>', '&'
     // with the escape sequences needed for XML.
-    std::string replaceSpecialCharaters(StringRef Value);
+    std::string replaceSpecialCharacters(StringRef Value);
 
     StringRef TagName;
     XMLTag *Parent;
