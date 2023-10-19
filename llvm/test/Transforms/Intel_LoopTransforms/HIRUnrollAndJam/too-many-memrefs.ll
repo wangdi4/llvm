@@ -255,8 +255,8 @@ DIR.PRAGMA.BLOCK_LOOP.4.preheader:                ; preds = %DIR.OMP.PARALLEL.LO
   store i32 0, ptr %lower.bnd, align 4
   store i32 %t0, ptr %upper.bnd, align 4
   store i32 1, ptr %stride, align 4
-  %lb.new = load i32, ptr %lower.bnd, align 4, !range !141
-  %ub.new = load i32, ptr %upper.bnd, align 4, !range !141
+  %lb.new = load i32, ptr %lower.bnd, align 4, !range !137
+  %ub.new = load i32, ptr %upper.bnd, align 4, !range !137
   %omp.ztt.not = icmp ugt i32 %lb.new, %ub.new
   br i1 %omp.ztt.not, label %loop.region.exit, label %DIR.PRAGMA.BLOCK_LOOP.5.preheader
 
@@ -428,11 +428,7 @@ attributes #1 = { nocallback nofree norecurse nosync nounwind speculatable willr
 !131 = distinct !{!131, !9, !"OMPAliasScope"}
 !132 = distinct !{!132, !9, !"OMPAliasScope"}
 !133 = distinct !{!133, !9, !"OMPAliasScope"}
-!134 = distinct !{!134, !135, !139, !140}
-!135 = distinct !{!"intel.optreport.rootnode", !136}
-!136 = distinct !{!"intel.optreport", !137}
-!137 = !{!"intel.optreport.remarks", !138}
-!138 = !{!"intel.optreport.remark", i32 25591, !"OpenMP: Outlined parallel loop"}
-!139 = !{!"llvm.loop.vectorize.ivdep_loop", i32 0}
-!140 = !{!"llvm.loop.parallel_accesses", !1}
-!141 = !{i32 0, i32 2147483647}
+!134 = distinct !{!134, !135, !136}
+!135 = !{!"llvm.loop.vectorize.ivdep_loop", i32 0}
+!136 = !{!"llvm.loop.parallel_accesses", !1}
+!137 = !{i32 0, i32 2147483647}
