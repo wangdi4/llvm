@@ -50367,8 +50367,7 @@ static SDValue combineSetCCMOVMSK(SDValue EFLAGS, X86::CondCode &CC,
         MVT ORVT1 = Pack1.getSimpleValueType();
         if (ORVT0 == ORVT1) {
           bool OrLeaf = true;
-          if (Pack0.getOpcode() == X86ISD::VPERMI
-              || Pack0.getOpcode() == ISD::VECTOR_SHUFFLE) {
+          if (Pack0.getOpcode() == X86ISD::VPERMI) {
             // This transformation is used for cmp(concat_vect(a,b), 0),
             // but not cmp(concat_vect(a,b), CONST).
             // So there is no need to care about what order of concat_vect(a,b).
@@ -50403,8 +50402,7 @@ static SDValue combineSetCCMOVMSK(SDValue EFLAGS, X86::CondCode &CC,
               OrLeaf = false;
             }
           }
-          if (Pack1.getOpcode() == X86ISD::VPERMI
-              || Pack1.getOpcode() == ISD::VECTOR_SHUFFLE) {
+          if (Pack1.getOpcode() == X86ISD::VPERMI) {
             SmallVector<int, 64> Mask;
             SmallVector<SDValue, 2> Ops;
             if (!getTargetShuffleMask(Pack1.getNode(), ORVT1, false, Ops,
