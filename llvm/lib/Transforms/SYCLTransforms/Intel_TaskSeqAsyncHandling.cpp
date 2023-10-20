@@ -64,6 +64,7 @@ public:
 
   bool run() {
     findAllAsyncBuiltins();
+    updateCreateAndAsyncBuiltins();
     collectTaskFuncs();
     lowerAllFunctionsSRetArgToReturnType();
     createBlockLiteralTypes();
@@ -75,6 +76,25 @@ public:
 
 private:
   void findAllAsyncBuiltins();
+  /// Make sure every task function is used in different
+  /// __spirv_TaskSequenceCreateINTEL and __spirv_TaskSequenceAsyncINTEL
+  /// builtins. Task functions with different function type can be used in same
+  /// __spirv_TaskSequenceCreateINTEL builtin, which has problem when updating
+  /// sret task function users and generating builtin body.
+  /// case 1: when generating __spirv_TaskSequenceCreateINTEL body, we need to
+  /// obtain user task function return type size. There can be different return
+  /// size for task functions.
+  /// case 2: when there is task function with sret parameter, we need to lower
+  /// sret arg to return type and update builtin function type. There can be
+  /// several different task functions used in same
+  /// __spirv_TaskSequenceAsyncINTEL builtin.
+  /// Easiest way to fix the issue is that make sure every task function is used
+  /// in different __spirv_TaskSequenceCreateINTEL and
+  /// __spirv_TaskSequenceAsyncINTEL.
+  /// TODO: It's not necessary to update builtin function type every time when
+  /// updating sret task function users and also we can generate only a
+  /// __spirv_TaskSequenceCreateINTEL builtin like block_invoke_mapper.
+  void updateCreateAndAsyncBuiltins();
   void createBlockLiteralTypes();
   void createTaskFunctionInvokes();
   FunctionCallee getBackendCreateTaskSeq();
@@ -153,6 +173,11 @@ private:
     return (F->getName() + ".block_invoke_mapper").str();
   }
 
+  /// A map between user task function to __spirv_TaskSequenceAsync.
+  DenseMap<Function *, Function *> CreateBuiltinMap;
+  /// A map between user task function to __spirv_TaskSequenceCreate.
+  DenseMap<Function *, Function *> AsyncBuiltinMap;
+
   /// A map between __spirv_TaskSequenceAsync template instances and task
   /// functions (the 2nd arg) passed to them.
   DenseMap<Function *, SmallVector<Function *>> AsyncBuiltinToTaskFuncMap;
@@ -183,6 +208,38 @@ void Impl::findAllAsyncBuiltins() {
     else if (FName.startswith(BuiltinReleaseTaskSeqPattern))
       Releases.push_back(&F);
   }
+}
+
+void Impl::updateCreateAndAsyncBuiltins() {
+  auto UpdateBuiltin = [](FunctionVector &Builtins,
+                          DenseMap<Function *, Function *> &BuiltinMap) {
+    std::vector<Function *> NewBuiltins;
+    for (auto *Builtin : Builtins) {
+      std::vector<User *> BuiltinUsers(Builtin->users().begin(),
+                                       Builtin->users().end());
+      for (unsigned int I = 0; I < BuiltinUsers.size(); ++I) {
+        auto *CI = cast<CallInst>(BuiltinUsers[I]);
+        if (CI->getCalledFunction() == Builtin) {
+          auto *TaskFunc =
+              cast<Function>(CI->getArgOperand(1)->stripPointerCasts());
+          if (I == 0)
+            BuiltinMap[TaskFunc] = Builtin;
+          else if ((!BuiltinMap.count(TaskFunc))) {
+            ValueToValueMapTy VMap;
+            Function *Cloned = CloneFunction(Builtin, VMap);
+            BuiltinUsers[I]->replaceUsesOfWith(Builtin, Cloned);
+            NewBuiltins.push_back(Cloned);
+            BuiltinMap[TaskFunc] = Cloned;
+          } else
+            BuiltinUsers[I]->replaceUsesOfWith(Builtin, BuiltinMap[TaskFunc]);
+        }
+      }
+    }
+    for (auto *Func : NewBuiltins)
+      Builtins.push_back(Func);
+  };
+  UpdateBuiltin(Creates, CreateBuiltinMap);
+  UpdateBuiltin(Asyncs, AsyncBuiltinMap);
 }
 
 void Impl::collectTaskFunctionsWithSRetArg(
