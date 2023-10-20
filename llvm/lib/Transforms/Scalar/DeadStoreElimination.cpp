@@ -886,11 +886,7 @@ struct DSEState {
   DSEState(Function &F, AliasAnalysis &AA, MemorySSA &MSSA, DominatorTree &DT,
            PostDominatorTree &PDT, AssumptionCache &AC,
            const TargetLibraryInfo &TLI, const LoopInfo &LI)
-<<<<<<< HEAD
-      : F(F), AA(AA), EI(DT, &LI, EphValues), BatchAA(AA, &EI), MSSA(MSSA), // INTEL
-=======
       : F(F), AA(AA), EI(DT, &LI, &EphValues), BatchAA(AA, &EI), MSSA(MSSA),
->>>>>>> 3bfd1f09136915b5f6bc85079425ffc07efd13e6
         DT(DT), PDT(PDT), TLI(TLI), DL(F.getParent()->getDataLayout()), LI(LI) {
     // Collect blocks with throwing instructions not modeled in MemorySSA and
     // alloc-like objects.
