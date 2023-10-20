@@ -1495,7 +1495,7 @@ public:
     /// The APOs across each lane.
     SmallVector<bool> APOs;
 #endif // INTEL_CUSTOMIZATION
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) //INTEL
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
     friend inline raw_ostream &operator<<(raw_ostream &OS,
                                           const BoUpSLP::EdgeInfo &EI) {
       EI.dump(OS);
@@ -3846,10 +3846,12 @@ private:
                                ArrayRef<Value *> VectorizedVals,
                                SmallPtrSetImpl<Value *> &CheckedExtracts);
 
+#if INTEL_CUSTOMIZATION
   /// Recursively build the multinode.
   void buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE, unsigned Depth,
                           const EdgeInfo &UserTreeIdx,
                           BoUpSLP::BlockScheduling &BS);
+#endif // INTEL_CUSTOMIZATION
 
   /// This is the recursive part of buildTree.
   void buildTree_rec(ArrayRef<Value *> Roots, unsigned Depth,
@@ -4156,7 +4158,7 @@ private:
     void setOperand(unsigned OpIdx, ArrayRef<Value *> OpVL) {
       if (Operands.size() < OpIdx + 1)
         Operands.resize(OpIdx + 1);
-      Operands[OpIdx].clear();
+      Operands[OpIdx].clear(); // INTEL
       assert(OpVL.size() <= Scalars.size() &&
              "Number of operands is greater than the number of scalars.");
       Operands[OpIdx].resize(OpVL.size());
@@ -4290,7 +4292,7 @@ private:
                           SmallVectorImpl<Value *> *OpScalars = nullptr,
                           SmallVectorImpl<Value *> *AltScalars = nullptr) const;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) //INTEL
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
     /// Debug printer.
     LLVM_DUMP_METHOD void dump() const {
       dbgs() << Idx << ".\n";
@@ -5572,7 +5574,6 @@ static bool canVectorizeSplitLoads(
 }
 #endif // INTEL_CUSTOMIZATION
 
-
 namespace {
 /// Tracks the state we can represent the loads in the given sequence.
 #if INTEL_CUSTOMIZATION
@@ -5640,8 +5641,10 @@ static LoadsState canVectorizeLoads(
     ++POIter;
   }
 
-  bool CandidateForGatherLoad = false; // INTEL
+#if INTEL_CUSTOMIZATION
+  bool CandidateForGatherLoad = false;
   bool IsPossibleStrided = false;
+#endif // INTEL_CUSTOMIZATION
   Order.clear();
   // Check the order of pointer operands or that all pointers are the same.
   bool IsSorted = sortPtrAccesses(PointerOps, ScalarTy, DL, SE, Order);
@@ -8116,7 +8119,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
       return;
     }
     case Instruction::GetElementPtr: {
-
       TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                                    ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of GEPs.\n");
@@ -12935,7 +12937,6 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E, bool PostponedPHIs) {
 
       LoadInst *LI = cast<LoadInst>(VL0);
       Instruction *NewLI;
-
       Value *PO = LI->getPointerOperand();
       if (E->State == TreeEntry::Vectorize) {
         NewLI = Builder.CreateAlignedLoad(VecTy, PO, LI->getAlign());
@@ -13114,7 +13115,8 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E, bool PostponedPHIs) {
       VecValue = FinalShuffle(VecValue, E);
 
       Value *Ptr = SI->getPointerOperand();
-      StoreInst *ST = Builder.CreateAlignedStore(VecValue, Ptr, SI->getAlign());
+      StoreInst *ST =
+          Builder.CreateAlignedStore(VecValue, Ptr, SI->getAlign());
 
       // The pointer operand uses an in-tree scalar, so add the new StoreInst to
       // ExternalUses to make sure that an extract will be generated in the
@@ -15203,7 +15205,6 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
   R.buildTree(Chain);
   if (R.isTreeTinyAndNotFullyVectorizable())
     return false;
-
   if (R.isLoadCombineCandidate())
     return false;
   R.reorderTopToBottom();
@@ -15478,7 +15479,7 @@ void SLPVectorizerPass::collectSeedInstructions(BasicBlock *BB) {
   }
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 static bool isHighRegPressureFMALoop(BasicBlock *BB, LoopInfo *LI,
                                      ArrayRef<Value *> &VL) {
   Loop *Lp = LI->getLoopFor(BB);
@@ -15513,9 +15514,9 @@ static bool isHighRegPressureFMALoop(BasicBlock *BB, LoopInfo *LI,
 }
 #endif // INTEL_CUSTOMIZATION
 
-#ifdef INTEL_COLLAB
-void SLPVectorizerPass::adjustForFMAs(InstructionCost &Cost,
-                                      ArrayRef<Value *> &VL) {
+#if INTEL_CUSTOMIZATION
+static void adjustCostForFMAs(const TargetTransformInfo *TTI, LoopInfo *LI,
+                              InstructionCost &Cost, ArrayRef<Value *> &VL) {
   FastMathFlags FMF;
   FMF.set();
 
@@ -15523,10 +15524,8 @@ void SLPVectorizerPass::adjustForFMAs(InstructionCost &Cost,
   // exactly one floating add/subtract, and contracts are enabled.
   for (Value *U : VL) {
     auto *FPMO = dyn_cast<FPMathOperator>(U);
-    if (!(FPMO &&
-          FPMO->getOpcode() == Instruction::FMul &&
-          FPMO->hasAllowContract() &&
-          FPMO->hasOneUse()))
+    if (!(FPMO && FPMO->getOpcode() == Instruction::FMul &&
+          FPMO->hasAllowContract() && FPMO->hasOneUse()))
       return;
     auto *I = dyn_cast<Instruction>(FPMO->user_back());
     if (!(I &&
@@ -15540,7 +15539,6 @@ void SLPVectorizerPass::adjustForFMAs(InstructionCost &Cost,
   InstructionCost FMASavings = TTI->getFMACostSavings(VL[0]->getType(), FMF);
 
   if (FMASavings > 0) {
-#ifdef INTEL_CUSTOMIZATION
     // CMPLRLLVM-38484: Before doing anything rash, check whether we think
     // this is the critical loop in 508.namd_r.  This is characterized by a
     // single-block loop that contains loop-carried memory preloads and is
@@ -15548,16 +15546,15 @@ void SLPVectorizerPass::adjustForFMAs(InstructionCost &Cost,
     // can worsen the register pressure here, so leave the cost alone if it
     // looks like namd.  The critical loop is the first loop (the for loop)
     // in _Z22pairlist_from_pairlistddddPK8CompAtomPKtiPtdPd.
-    if (isHighRegPressureFMALoop(cast<Instruction>(VL[0])->getParent(),
-                                 LI, VL))
+    if (isHighRegPressureFMALoop(cast<Instruction>(VL[0])->getParent(), LI, VL))
       return;
-#endif // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "SLP: Adding cost " << VL.size() * FMASavings
-               << " for vectorization that breaks " << VL.size() << " FMAs\n");
+                      << " for vectorization that breaks " << VL.size()
+                      << " FMAs\n");
     Cost += FMASavings * VL.size();
   }
 }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
                                            bool MaxVFOnly) {
@@ -15662,9 +15659,9 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
 
       R.computeMinimumValueSizes();
       InstructionCost Cost = R.getTreeCost();
-#ifdef INTEL_COLLAB
-      adjustForFMAs(Cost, Ops);
-#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+      adjustCostForFMAs(TTI, LI, Cost, Ops);
+#endif // INTEL_CUSTOMIZATION
       CandidateFound = true;
       MinCost = std::min(MinCost, Cost);
 
@@ -16670,7 +16667,6 @@ public:
                    << " and threshold "
                    << ore::NV("Threshold", -SLPCostThreshold);
           });
-
           if (!AdjustReducedVals())
             V.analyzedReductionVals(VL);
           continue;

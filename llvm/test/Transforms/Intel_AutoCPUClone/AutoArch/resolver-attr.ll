@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone -disable-selective-mv < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -acd-enable-all < %s -S | FileCheck %s
 
 ; This lit test checks that a resolver function's "target-cpu" and "tune-cpu" attributes
 ; are set to the "target-cpu" and "tune-cpu" attributes of the cloned function respectively.

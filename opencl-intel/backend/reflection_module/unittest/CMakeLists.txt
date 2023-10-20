@@ -13,11 +13,15 @@ include_directories(
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/Volcano
   ${OCL_SOURCE_DIR}/tests/test_utils/export)
 
-add_opencl_executable(${TARGET_NAME} EXCLUDE_FROM_ALL_BUILD
-                      TestBuiltinKeeper.cpp)
-
-target_link_libraries(${TARGET_NAME} BuiltinLibInfo OclBackendUtils
-                      reflection_module llvm_gtest ${LLVM_MODULE_LIBS})
+add_opencl_executable(${TARGET_NAME}
+  EXCLUDE_FROM_ALL_BUILD
+  TestBuiltinKeeper.cpp
+  LINK_LIBS
+  BuiltinLibInfo
+  OclBackendUtils
+  reflection_module
+  llvm_gtest
+  ${LLVM_MODULE_LIBS})
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
                                                 ${BACKEND_TESTS_FOLDER_NAME})

@@ -21,10 +21,10 @@ include_directories(
 
 link_directories(${OCL_OUTPUT_LIBRARY_DIR})
 
-add_opencl_executable(${TARGET_NAME} EXCLUDE_FROM_ALL_BUILD main.cpp)
-
-target_link_libraries(
-  ${TARGET_NAME}
+add_opencl_executable(${TARGET_NAME}
+  EXCLUDE_FROM_ALL_BUILD
+  main.cpp
+  LINK_LIBS
   DataManager
   REFALU
   NEAT
