@@ -3420,7 +3420,7 @@ class OMPAtomicDirective : public OMPExecutableDirective {
 #if INTEL_COLLAB
     POS_Expected,
     POS_Result,
-#endif
+#endif // INTEL_COLLAB
   };
 
   /// Set 'x' part of the associated expression/statement.

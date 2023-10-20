@@ -2259,12 +2259,12 @@ static bool checkOpenMPExtension(Parser &P, OpenMPDirectiveKind DKind,
 ///         annot_pragma_openmp 'threadprivate' simple-variable-list
 ///         annot_pragma_openmp_end
 ///
-///    // INTEL_COLLAB
+#if INTEL_COLLAB
 ///       groupprivate-directive:
 ///         annot_pragma_openmp 'groupprivate' simple-variable-list
 ///         annot_pragma_openmp_end
-///    // INTEL_COLLAB
 ///
+#endif // INTEL_COLLAB
 ///       allocate-directive:
 ///         annot_pragma_openmp 'allocate' simple-variable-list [<clause>]
 ///         annot_pragma_openmp_end
@@ -2829,12 +2829,8 @@ bool Parser::isIgnoredOpenMPDirective() {
       (InTBBSubset && getLangOpts().OpenMPTBBDisabled)) {
     DisallowedDirective = true;
   }
-#if INTEL_COLLAB
   if (getLangOpts().OpenMPLateOutline && DKind == OMPD_scan &&
       !getCurScope()->isOpenMPSimdOnlyDirectiveScope()) {
-#else  // INTEL_COLLAB
-  if (getLangOpts().OpenMPLateOutline && DKind == OMPD_scan) {
-#endif  // INTEL_COLLAB
     Diag(Tok, diag::warn_pragma_omp_unimplemented)
         << getOpenMPDirectiveName(DKind);
     Skipped = true;
@@ -2909,12 +2905,11 @@ bool Parser::isIgnoredOpenMPDirective() {
 ///         teams distribute parallel for' | 'target teams distribute parallel
 #if INTEL_COLLAB
 ///         for simd' | 'target teams distribute simd' | 'masked' | 'scope' |
-///         'parallel masked' {clause}
+///         'parallel masked' {clause} annot_pragma_openmp_end
 #else // INTEL_COLLAB
 ///         for simd' | 'target teams distribute simd' | 'masked' |
-///         'parallel masked' {clause}
+///         'parallel masked' {clause} annot_pragma_openmp_end
 #endif // INTEL_COLLAB
-///         annot_pragma_openmp_end
 ///
 StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective) {

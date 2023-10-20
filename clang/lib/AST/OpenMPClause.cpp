@@ -145,7 +145,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
 #if INTEL_COLLAB
   case OMPC_data:
   case OMPC_need_device_ptr:
-#endif // INTEL_COLLAB`
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
   case OMPC_ompx_assert:
@@ -293,7 +293,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_has_device_addr:
 #if INTEL_COLLAB
   case OMPC_need_device_ptr:
-#endif
+#endif // INTEL_COLLAB
   case OMPC_unified_address:
   case OMPC_unified_shared_memory:
   case OMPC_reverse_offload:

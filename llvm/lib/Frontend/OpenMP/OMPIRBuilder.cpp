@@ -4386,7 +4386,6 @@ void OpenMPIRBuilder::emitTargetRegionFunction(
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
-
   std::string EntryFnIDName =
       Config.isTargetDevice()
           ? std::string(EntryFnName)
@@ -6271,14 +6270,14 @@ OpenMPIRBuilder::getTargetEntryUniqueInfo(FileIdentifierInfoCallbackTy CallBack,
 #if INTEL_CUSTOMIZATION
                                           StringRef ParentName,
                                           bool IsOpenMPStableFileID) {
-#else  // INTEL_CUSTOMIZATION
-                                          StringRef ParentName) {
 #endif // INTEL_CUSTOMIZATION
   sys::fs::UniqueID ID;
   auto FileIDInfo = CallBack();
   if (auto EC = sys::fs::getUniqueID(std::get<0>(FileIDInfo), ID)) {
-    assert(!EC &&
-           "Unable to get unique ID for file during getTargetEntryUniqueInfo");
+    report_fatal_error(("Unable to get unique ID for file, during "
+                        "getTargetEntryUniqueInfo, error message: " +
+                        EC.message())
+                           .c_str());
   }
 #if INTEL_CUSTOMIZATION
   if (IsOpenMPStableFileID) {
