@@ -133,7 +133,6 @@ static RTLDeviceInfoTy DeviceInfo(NUMBER_OF_DEVICES);
 extern "C" {
 #endif
 
-EXTERN
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
 // If we don't have a valid ELF ID we can just fail.
 #if TARGET_ELF_ID < 1
@@ -143,13 +142,10 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
 #endif
 }
 
-EXTERN
 int32_t __tgt_rtl_number_of_devices() { return NUMBER_OF_DEVICES; }
 
-EXTERN
 int32_t __tgt_rtl_init_device(int32_t DeviceId) { return OFFLOAD_SUCCESS; }
 
-EXTERN
 __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
                                           __tgt_device_image *Image) {
 
@@ -279,7 +275,6 @@ void __tgt_rtl_print_device_info(int32_t DeviceId) {
   printf("    This is a generic-elf-64bit device\n");
 }
 
-EXTERN
 // Sample implementation of explicit memory allocator. For this plugin all kinds
 // are equivalent to each other.
 void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
@@ -304,21 +299,18 @@ void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
   return Ptr;
 }
 
-EXTERN
 int32_t __tgt_rtl_data_submit(int32_t DeviceId, void *TgtPtr, void *HstPtr,
                               int64_t Size) {
   memcpy(TgtPtr, HstPtr, Size);
   return OFFLOAD_SUCCESS;
 }
 
-EXTERN
 int32_t __tgt_rtl_data_retrieve(int32_t DeviceId, void *HstPtr, void *TgtPtr,
                                 int64_t Size) {
   memcpy(HstPtr, TgtPtr, Size);
   return OFFLOAD_SUCCESS;
 }
 
-EXTERN
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t) {
   free(TgtPtr);
 
@@ -398,6 +390,24 @@ void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HstPtr,
   if (AllocOpt == ALLOC_OPT_REDUCTION_COUNTER)
     (void)memset(TgtPtr, 0, Size);
   return TgtPtr;
+}
+
+int32_t __tgt_rtl_get_mem_resources(int32_t NumDevices,
+                                    const int32_t *DeviceIds,
+                                    int32_t HostAccess,
+                                    omp_memspace_handle_t MemSpace,
+                                    int32_t *ResourceIds) {
+  if (ResourceIds)
+    ResourceIds[0] = 0;
+  return 1;
+}
+
+void *__tgt_rtl_omp_alloc(size_t Size, omp_allocator_handle_t Allocator) {
+  return malloc(Size);
+}
+
+void __tgt_rtl_omp_free(void *Ptr, omp_allocator_handle_t Allocator) {
+  free(Ptr);
 }
 #ifdef __cplusplus
 }

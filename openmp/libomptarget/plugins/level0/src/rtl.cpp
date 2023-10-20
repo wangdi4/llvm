@@ -3730,6 +3730,56 @@ struct RTLDeviceInfoTy {
     }
     return OFFLOAD_SUCCESS;
   }
+
+  /// Offload backend defines a list of unique resource IDs to support OpenMP
+  /// 6.0 target memory management API routines. The resource IDs are stored in
+  /// the memory space object created by the host runtime and submemspace
+  /// inherits a subset of its parent's resource IDs. Backend must be able to
+  /// determine the associated device ID from a resource ID.
+  /// As initial support for this feature, we use the following rules to
+  /// determine memory resources from the resource IDs and to return available
+  /// resources to the host runtime; we can revisit if further refinement or
+  /// extension is needed.
+  ///
+  /// 1. Host, device, and shared USM is available as single-device memory space
+  ///    without host access requirement.
+  /// 2. Host and shared USM is available as single-device memory space with
+  ///    host access requirement.
+  /// 3. Only host usm is available as multi-device memory space with/without
+  ///    host access requirement.
+  /// 4. Resource IDs are defined as follows.
+  ///    a. 0 <= ID < NumDevices: Device USM
+  ///    b. NumDevices <= ID < 2 * NumDevices: Shared USM
+  ///    c. ID == 2 * NumDevices: Host USM
+
+  /// Return the resource ID associated with the device ID and allocation kind.
+  int32_t getResource(int32_t DeviceId, int32_t AllocKind) {
+    if (AllocKind == TARGET_ALLOC_DEVICE)
+      return DeviceId;
+    if (AllocKind == TARGET_ALLOC_SHARED)
+      return NumRootDevices + DeviceId;
+    if (AllocKind == TARGET_ALLOC_HOST)
+      return 2 * NumRootDevices;
+    return -1; // Invalid
+  }
+
+  /// Return the device ID associated with a resource ID.
+  int32_t getDeviceFromResource(int32_t ResourceId) {
+    if (ResourceId < 0 || ResourceId > 2 * NumRootDevices)
+      return -1; // Invalid
+    return ResourceId % NumRootDevices;
+  }
+
+  /// Return the allocation kind associated with a resource ID.
+  int32_t getAllocKindFromResource(int32_t ResourceId) {
+    if (ResourceId < 0 || ResourceId > 2 * NumRootDevices)
+      return -1; // Invalid
+    if (ResourceId < NumRootDevices)
+      return TARGET_ALLOC_DEVICE;
+    if (ResourceId < 2 * NumRootDevices)
+      return TARGET_ALLOC_SHARED;
+    return TARGET_ALLOC_HOST;
+  }
 };
 
 static RTLDeviceInfoTy *DeviceInfo = nullptr;
@@ -8289,4 +8339,70 @@ int32_t __tgt_rtl_memcpy_rect_3d(int32_t DeviceId, void *Dst, const void *Src,
   return OFFLOAD_SUCCESS;
 }
 #endif // INTEL_CUSTOMIZATION
+
+int32_t __tgt_rtl_get_mem_resources(int32_t NumDevices,
+                                    const int32_t *DeviceIds,
+                                    int32_t HostAccess,
+                                    omp_memspace_handle_t MemSpace,
+                                    int32_t *ResourceIds) {
+  // NumDevice and DeviceIds are valid (checked by omptarget)
+  int32_t NumResources = 0;
+
+  if (NumDevices == 1) {
+    if (!HostAccess) {
+      if (ResourceIds)
+        ResourceIds[NumResources] =
+            DeviceInfo->getResource(DeviceIds[0], TARGET_ALLOC_DEVICE);
+      NumResources++;
+    }
+    if (ResourceIds)
+      ResourceIds[NumResources] =
+          DeviceInfo->getResource(DeviceIds[0], TARGET_ALLOC_SHARED);
+    NumResources++;
+  }
+  if (ResourceIds)
+    ResourceIds[NumResources] =
+        DeviceInfo->getResource(DeviceIds[0], TARGET_ALLOC_HOST);
+  NumResources++;
+
+  return NumResources;
+}
+
+void *__tgt_rtl_omp_alloc(size_t Size, omp_allocator_handle_t Allocator) {
+  // It is assumed that the allocator has valid memory space handle.
+  auto *MemAlloc = reinterpret_cast<kmp_allocator_t *>(Allocator);
+  auto *MemSpace = reinterpret_cast<kmp_memspace_t *>(MemAlloc->memspace);
+
+  // We have at least one resources at this point.
+  int32_t *ResourceIds = MemSpace->resources;
+  int32_t DeviceId = DeviceInfo->getDeviceFromResource(ResourceIds[0]);
+  int32_t AllocKind = DeviceInfo->getAllocKindFromResource(ResourceIds[0]);
+  if (DeviceId < 0 || AllocKind < 0) {
+    DP("Unknown resource requested in the memory space\n");
+    return nullptr;
+  }
+
+  return DeviceInfo->dataAlloc(DeviceId, Size, 0 /* Align */, AllocKind,
+                               0 /* Offset */, true /* UserAlloc */);
+}
+
+void __tgt_rtl_omp_free(void *Ptr, omp_allocator_handle_t Allocator) {
+  // It is assumed that the allocator has valid memory space handle.
+  auto *MemAlloc = reinterpret_cast<kmp_allocator_t *>(Allocator);
+  auto *MemSpace = reinterpret_cast<kmp_memspace_t *>(MemAlloc->memspace);
+
+  // We have at least one resources at this point.
+  int32_t *ResourceIds = MemSpace->resources;
+  int32_t DeviceId = DeviceInfo->getDeviceFromResource(ResourceIds[0]);
+  int32_t AllocKind = DeviceInfo->getAllocKindFromResource(ResourceIds[0]);
+  if (DeviceId < 0 || AllocKind < 0) {
+    DP("Unknown resource requested in the memory space\n");
+    return;
+  }
+
+  auto RC = DeviceInfo->dataDelete(DeviceId, Ptr);
+  if (RC != OFFLOAD_SUCCESS) {
+    DP("Failed to release memory allocated with OMP allocator\n");
+  }
+}
 #endif // INTEL_COLLAB

@@ -37,6 +37,7 @@ EXPORTS
     __tgt_rtl_get_interop_property_info
     __tgt_rtl_get_interop_property_value
     __tgt_rtl_get_interop_rc_desc
+    __tgt_rtl_get_mem_resources
     __tgt_rtl_get_num_interop_properties
     __tgt_rtl_init_device
     __tgt_rtl_init_ompt
@@ -51,6 +52,8 @@ EXPORTS
     __tgt_rtl_manifest_data_for_region
     __tgt_rtl_notify_indirect_access
     __tgt_rtl_number_of_devices
+    __tgt_rtl_omp_alloc
+    __tgt_rtl_omp_free
     __tgt_rtl_register_lib
     __tgt_rtl_release_interop
     __tgt_rtl_requires_mapping

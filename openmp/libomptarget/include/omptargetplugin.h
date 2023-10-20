@@ -399,6 +399,21 @@ int __tgt_rtl_memcpy_rect_3d(int32_t ID, void *Dst, const void *Src,
                              const size_t *SrcOffsets, const size_t *DstDims,
                              const size_t *SrcDims);
 #endif // INTEL_CUSTOMIZATION
+
+/// Returns number of resources and list of unique resource IDs for the given
+/// device information and base memory space. If "ResourceIds" is null, it
+/// only returns number of available resources.
+int32_t __tgt_rtl_get_mem_resources(int32_t NumDevices,
+                                    const int32_t *DeviceIds,
+                                    int32_t HostAccess,
+                                    omp_memspace_handle_t MemSpace,
+                                    int32_t *ResourceIds);
+
+/// Allocates memory with the specified OMP allocator
+void *__tgt_rtl_omp_alloc(size_t Size, omp_allocator_handle_t Allocator);
+
+/// Releases memory with the specified OMP allocator
+void __tgt_rtl_omp_free(void *Ptr, omp_allocator_handle_t Allocator);
 #endif // INTEL_COLLAB
 
 #ifdef __cplusplus

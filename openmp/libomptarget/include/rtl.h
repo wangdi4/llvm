@@ -127,6 +127,10 @@ struct RTLInfoTy {
   typedef int(get_device_from_ptr_ty)(const void *);
   typedef int32_t(get_groups_shape_ty)(int32_t, int32_t, int32_t, void *,
                                        void *, void *, void *);
+  typedef int32_t(get_mem_resources_ty)(int32_t, const int32_t *, int32_t,
+                                        omp_memspace_handle_t, int32_t *);
+  typedef void *(omp_alloc_ty)(size_t, omp_allocator_handle_t);
+  typedef void(omp_free_ty)(void *, omp_allocator_handle_t);
 #endif // INTEL_COLLAB
   typedef int32_t(query_async_ty)(int32_t, __tgt_async_info *);
   typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
@@ -229,6 +233,9 @@ struct RTLInfoTy {
   prefetch_shared_mem_ty *prefetch_shared_mem = nullptr;
   get_device_from_ptr_ty *get_device_from_ptr = nullptr;
   get_groups_shape_ty *get_groups_shape = nullptr;
+  get_mem_resources_ty *get_mem_resources = nullptr;
+  omp_alloc_ty *omp_alloc = nullptr;
+  omp_free_ty *omp_free = nullptr;
 #endif // INTEL_COLLAB
   query_async_ty *query_async = nullptr;
   register_lib_ty register_lib = nullptr;

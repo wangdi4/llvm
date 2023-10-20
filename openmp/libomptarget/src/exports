@@ -116,6 +116,9 @@ VERS1.0 {
     __tgt_task_completed;
     __tgt_interop_use_async;
 # end INTEL_CUSTOMIZATION
+    __tgt_get_mem_resources;
+    __tgt_omp_alloc;
+    __tgt_omp_free;
 # end INTEL_COLLAB
   local:
     *;

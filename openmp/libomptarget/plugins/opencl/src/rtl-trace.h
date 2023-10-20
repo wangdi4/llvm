@@ -1013,13 +1013,12 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
   } while (0)
 
 /// Call extension function, return nothing
-#define CALL_CL_EXT_VOID(DeviceId, Name, ...)                                  \
+#define CALL_CL_EXT_VOID(RTL, DeviceId, Name, ...)                             \
   do {                                                                         \
     Name##_fn Fn = reinterpret_cast<Name##_fn>(                                \
-        DeviceInfo->getExtensionFunctionPtr(DeviceId, Name##Id));              \
+        RTL->getExtensionFunctionPtr(DeviceId, Name##Id));                     \
     if (DebugLevel > 1) {                                                      \
-      DPCALL("CL_CALLER: %s %s\n",                                             \
-           TO_STRING(Name), TO_STRING(( __VA_ARGS__ )));                       \
+      DPCALL("CL_CALLER: %s %s\n", TO_STRING(Name), TO_STRING((__VA_ARGS__))); \
       TRACE_FN(Name)(Fn, __VA_ARGS__);                                         \
     } else {                                                                   \
       (*Fn)(__VA_ARGS__);                                                      \
