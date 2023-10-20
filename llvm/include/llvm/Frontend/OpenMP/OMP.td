@@ -1053,11 +1053,11 @@ def OMP_ParallelForSimd : Directive<"parallel for simd"> {
     VersionedClause<OMPC_Order, 50>,
     VersionedClause<OMPC_OMPX_Attribute>,
   ];
-  let allowedOnceClauses = [
 #if INTEL_CUSTOMIZATION
+  let allowedOnceClauses = [
     VersionedClause<OMPC_OmpxAssert>
-#endif // INTEL_CUSTOMIZATION
   ];
+#endif // INTEL_CUSTOMIZATION
 }
 def OMP_ParallelDoSimd : Directive<"parallel do simd"> {
   let allowedClauses = [
@@ -1157,11 +1157,11 @@ def OMP_ForSimd : Directive<"for simd"> {
     VersionedClause<OMPC_NonTemporal, 50>,
     VersionedClause<OMPC_Order, 50>
   ];
-  let allowedOnceClauses = [
 #if INTEL_CUSTOMIZATION
+  let allowedOnceClauses = [
     VersionedClause<OMPC_OmpxAssert>
-#endif // INTEL_CUSTOMIZATION
   ];
+#endif // INTEL_CUSTOMIZATION
 }
 def OMP_DoSimd : Directive<"do simd"> {
   let allowedClauses = [
@@ -1173,6 +1173,7 @@ def OMP_DoSimd : Directive<"do simd"> {
     VersionedClause<OMPC_Reduction>
   ];
   let allowedOnceClauses = [
+    VersionedClause<OMPC_If>,
 #if INTEL_CUSTOMIZATION
     VersionedClause<OMPC_OmpxAssert>,
 #endif // INTEL_CUSTOMIZATION
@@ -1368,11 +1369,11 @@ def OMP_DistributeParallelForSimd : Directive<"distribute parallel for simd"> {
     VersionedClause<OMPC_Order, 50>,
     VersionedClause<OMPC_OMPX_Attribute>,
   ];
-  let allowedOnceClauses = [
 #if INTEL_CUSTOMIZATION
+  let allowedOnceClauses = [
     VersionedClause<OMPC_OmpxAssert>
-#endif // INTEL_CUSTOMIZATION
   ];
+#endif // INTEL_CUSTOMIZATION
 }
 def OMP_DistributeParallelDoSimd : Directive<"distribute parallel do simd"> {
   let allowedClauses = [
@@ -1397,11 +1398,11 @@ def OMP_DistributeParallelDoSimd : Directive<"distribute parallel do simd"> {
     VersionedClause<OMPC_NonTemporal>,
     VersionedClause<OMPC_Order, 50>
   ];
-  let allowedOnceClauses = [
 #if INTEL_CUSTOMIZATION
+  let allowedOnceClauses = [
     VersionedClause<OMPC_OmpxAssert>
-#endif // INTEL_CUSTOMIZATION
   ];
+#endif // INTEL_CUSTOMIZATION
 }
 def OMP_DistributeSimd : Directive<"distribute simd"> {
   let allowedClauses = [
@@ -1511,11 +1512,11 @@ def OMP_TargetParallelDoSimd : Directive<"target parallel do simd"> {
     VersionedClause<OMPC_Order, 50>,
     VersionedClause<OMPC_UsesAllocators>
   ];
-  let allowedOnceClauses = [
 #if INTEL_CUSTOMIZATION
+  let allowedOnceClauses = [
     VersionedClause<OMPC_OmpxAssert>
-#endif // INTEL_CUSTOMIZATION
   ];
+#endif // INTEL_CUSTOMIZATION
 }
 def OMP_TargetSimd : Directive<"target simd"> {
   let allowedClauses = [
@@ -1639,11 +1640,11 @@ def OMP_TeamsDistributeParallelForSimd :
     VersionedClause<OMPC_Order, 50>,
     VersionedClause<OMPC_OMPX_Attribute>,
   ];
-  let allowedOnceClauses = [
 #if INTEL_CUSTOMIZATION
+  let allowedOnceClauses = [
     VersionedClause<OMPC_OmpxAssert>
-#endif // INTEL_CUSTOMIZATION
   ];
+#endif // INTEL_CUSTOMIZATION
 }
 def OMP_TeamsDistributeParallelDoSimd :
     Directive<"teams distribute parallel do simd"> {
@@ -2324,7 +2325,7 @@ def OMP_scope : Directive<"scope"> {
     VersionedClause<OMPC_FirstPrivate, 52>,
     VersionedClause<OMPC_Allocate, 52>,
 #endif // INTEL_COLLAB
-    VersionedClause<OMPC_Reduction, 51>
+    VersionedClause<OMPC_Reduction, 51>,
   ];
   let allowedOnceClauses = [
     VersionedClause<OMPC_NoWait, 51>
