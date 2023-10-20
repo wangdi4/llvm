@@ -579,9 +579,9 @@ public:
                     VPlanPeelingVariant *PeelingVariant = nullptr,
                     raw_ostream *OS = nullptr, StringRef RangeName = "") final {
     // Assume no peeling if it is not specified.
-    SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
+    SaveAndRestore<VPlanPeelingVariant *> RestoreOnExit(
         DefaultPeelingVariant,
-        PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
+        PeelingVariant ? PeelingVariant : &VPlanNoPeeling::NoPeelLoop);
 
     VPInstructionCost Cost = getRangeCost(sese_depth_first(Begin, End), OS);
     CM_DEBUG(OS,
@@ -601,7 +601,7 @@ public:
     // Assume no peeling if it is not specified.
     SaveAndRestore<VPlanPeelingVariant *> RestoreOnExit(
         DefaultPeelingVariant,
-        PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
+        PeelingVariant ? PeelingVariant : &VPlanNoPeeling::NoPeelLoop);
 
     // Initialize heuristics VPlan level data for each VPlan level getCost
     // call.

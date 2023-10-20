@@ -623,7 +623,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
     // TODO: remove this hack after getGuaranteedPeeling is fixed.
     const auto *GuaranteedPeeling = LVP.peelWasSelected()
                                         ? Plan->getGuaranteedPeeling(VF)
-                                        : &VPlanStaticPeeling::NoPeelLoop;
+                                        : &VPlanNoPeeling::NoPeelLoop;
 
     // Note, the loop is executed only when new cfg merger is enabled.
     for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
@@ -1333,8 +1333,9 @@ void VPlanDriverImpl::addOptReportRemarksForVecPeel(
 
   OptRptStats.GeneralRemarks.emplace_back(
       C,
-      isa<VPlanStaticPeeling>(Variant) ? OptRemarkID::VectorizerStaticPeeling
-                                       : OptRemarkID::VectorizerDynamicPeeling,
+      isa<VPlanStaticPeeling>(Variant) || isa<VPlanNoPeeling>(Variant)
+          ? OptRemarkID::VectorizerStaticPeeling
+          : OptRemarkID::VectorizerDynamicPeeling,
       OptReportVerbosity::High);
 
   OptRptStats.GeneralRemarks.emplace_back(
@@ -1357,8 +1358,9 @@ void VPlanDriverImpl::addOptReportRemarksForScalPeel(
 
   ScalarLpI->addGeneralRemark(RemarkRecord{
       C,
-      isa<VPlanStaticPeeling>(Variant) ? OptRemarkID::VectorizerStaticPeeling
-                                       : OptRemarkID::VectorizerDynamicPeeling,
+      isa<VPlanStaticPeeling>(Variant) || isa<VPlanNoPeeling>(Variant)
+          ? OptRemarkID::VectorizerStaticPeeling
+          : OptRemarkID::VectorizerDynamicPeeling,
       OptReportVerbosity::High});
 
   ScalarLpI->addGeneralRemark(RemarkRecord{

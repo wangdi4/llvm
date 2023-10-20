@@ -1021,15 +1021,15 @@ EXTERN int __tgt_print_device_info(int64_t DeviceId) {
 typedef void* (*omp_create_task_fptr)(int);
 typedef void (*omp_complete_task_fptr)(int, void *);
 
-EXTERN void __tgt_register_ptask_services ( omp_create_task_fptr createf, 
-                                            omp_complete_task_fptr completef)
-{
-    DP("Callback to __tgt_register_ptask_services with handlers " DPxMOD " " DPxMOD "\n",DPxPTR(createf),DPxPTR(completef));
+EXTERN void __tgt_register_ptask_services(omp_create_task_fptr createf,
+                                          omp_complete_task_fptr completef) {
+  DP("Callback to __tgt_register_ptask_services with handlers " DPxMOD
+     " " DPxMOD "\n",
+     DPxPTR(createf), DPxPTR(completef));
 }
 
-EXTERN void __tgt_task_completed ( void * task )
-{
-    DP("Callback to _tgt_task_completed task=" DPxMOD "\n",DPxPTR(task));
+EXTERN void __tgt_task_completed(void *task) {
+  DP("Callback to _tgt_task_completed task=" DPxMOD "\n", DPxPTR(task));
 }
 #endif
 
@@ -1074,3 +1074,79 @@ EXTERN void __tgt_target_nowait_query(void **AsyncHandle) {
   delete AsyncInfo;
   *AsyncHandle = nullptr;
 }
+
+#if INTEL_COLLAB
+EXTERN int __tgt_get_mem_resources(int32_t NumDevices, const int32_t *DeviceIds,
+                                   int32_t HostAccess,
+                                   omp_memspace_handle_t MemSpace,
+                                   int32_t *ResourceIds) {
+  // Check if input is correct.
+  int32_t RTLNumDevices = __tgt_get_num_devices();
+  if (NumDevices > RTLNumDevices) {
+    DP("Invalid number of devices requested\n");
+    return 0;
+  }
+  for (int32_t I = 0; I < NumDevices; I++) {
+    if (DeviceIds[I] >= RTLNumDevices || !deviceIsReady(DeviceIds[I])) {
+      DP("Device %" PRId32 " is invalid or not ready\n", DeviceIds[I]);
+      return 0;
+    }
+  }
+  auto *RTL = PM->Devices[DeviceIds[0]]->RTL;
+  if (!RTL->get_mem_resources)
+    return 0;
+  return RTL->get_mem_resources(NumDevices, DeviceIds, HostAccess, MemSpace,
+                                ResourceIds);
+}
+
+EXTERN void *__tgt_omp_alloc(size_t Size, omp_allocator_handle_t Allocator) {
+  if (Allocator <= kmp_max_mem_alloc) {
+    DP("Predefined allocator is not allowed here\n");
+    return nullptr;
+  }
+  // Assume the allocator is tied to a memory space with a list of resources.
+  auto *MemAlloc = reinterpret_cast<kmp_allocator_t *>(Allocator);
+  auto *MemSpace = reinterpret_cast<kmp_memspace_t *>(MemAlloc->memspace);
+  if (!MemSpace || MemSpace->num_resources <= 0 || !MemSpace->resources) {
+    DP("Invalid memory space\n");
+    return nullptr;
+  }
+  // Check if all devices are ready.
+  int32_t NumDevices = __tgt_get_num_devices();
+  for (int32_t I = 0; I < NumDevices; I++) {
+    if (!deviceIsReady(I)) {
+      DP("Device %" PRId32 " is not ready\n", I);
+      return nullptr;
+    }
+  }
+  auto *RTL = PM->Devices[0]->RTL;
+  if (RTL->omp_alloc)
+    return RTL->omp_alloc(Size, Allocator);
+  return nullptr;
+}
+
+EXTERN void __tgt_omp_free(void *Ptr, omp_allocator_handle_t Allocator) {
+  if (Allocator <= kmp_max_mem_alloc) {
+    DP("Predefined allocator is not allowed here\n");
+    return;
+  }
+  // Assume the allocator is tied to a memory space with a list of resources.
+  auto *MemAlloc = reinterpret_cast<kmp_allocator_t *>(Allocator);
+  auto *MemSpace = reinterpret_cast<kmp_memspace_t *>(MemAlloc->memspace);
+  if (!MemSpace || MemSpace->num_resources <= 0 || !MemSpace->resources) {
+    DP("Invalid memory space\n");
+    return;
+  }
+  // Check if all devices are ready.
+  int32_t NumDevices = __tgt_get_num_devices();
+  for (int32_t I = 0; I < NumDevices; I++) {
+    if (!deviceIsReady(I)) {
+      DP("Device %" PRId32 " is not ready\n", I);
+      return;
+    }
+  }
+  auto *RTL = PM->Devices[0]->RTL;
+  if (RTL->omp_free)
+    RTL->omp_free(Ptr, Allocator);
+}
+#endif // INTEL_COLLAB

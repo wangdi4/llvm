@@ -42,6 +42,10 @@
 
 #include "llvm/ADT/SmallVector.h"
 
+#if INTEL_COLLAB
+#include "omp-allocator.h"
+#endif // INTEL_COLLAB
+
 #define OFFLOAD_SUCCESS (0)
 #define OFFLOAD_FAIL (~0)
 
@@ -769,6 +773,19 @@ int __tgt_get_num_devices(void);
 // Return target memory information
 int __tgt_get_target_memory_info(void *InteropObj, int32_t NumPtrs, void *Ptrs,
                                  void *PtrInfo);
+
+/// Returns number of resources and list of unique resource IDs for the given
+/// device information and base memory space. If "ResourceIds" is null, it
+/// only returns number of available resources.
+int __tgt_get_mem_resources(int32_t NumDevices, const int32_t *DeviceIds,
+                            int32_t HostAccess, omp_memspace_handle_t MemSpace,
+                            int32_t *ResourceIds);
+
+/// Allocates memory with the specified OMP allocator
+void *__tgt_omp_alloc(size_t Size, omp_allocator_handle_t Allocator);
+
+/// Releases memory with the specified OMP allocator
+void __tgt_omp_free(void *Ptr, omp_allocator_handle_t Allocator);
 #endif // INTEL_COLLAB
 
 #ifdef __cplusplus

@@ -102,10 +102,13 @@ VPlanCostPair VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan,
 // equal to MainLoopVF-1. If the trip count is not available at compile-time,
 // then we set the trip count to MainLoopVF-1.
 unsigned VPlanPeelEvaluator::getScalarPeelTripCount(unsigned MainLoopVF) const {
-  if (PeelingVariant)
+  if (PeelingVariant) {
+    if (PeelingVariant->getKind() == VPPK_NoPeeling)
+      return 0;
     return PeelingVariant->getKind() == VPPK_StaticPeeling
                ? cast<VPlanStaticPeeling>(PeelingVariant)->peelCount()
                : MainLoopVF - 1;
+  }
   return 0;
 }
 
@@ -182,6 +185,10 @@ void VPlanPeelEvaluator::dump(raw_ostream &OS) const {
   StringRef PeelLoopModeStr = "";
   StringRef TripCountStr = "";
   if (PeelingVariant) {
+    if (isa<VPlanNoPeeling>(PeelingVariant)) {
+      PeelLoopModeStr = "(disabled)";
+      TripCountStr = "known";
+    }
     if (isa<VPlanStaticPeeling>(PeelingVariant)) {
       PeelLoopModeStr = "(static)";
       TripCountStr = "known";
