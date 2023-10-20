@@ -49,7 +49,6 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   )
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 set(INTEL_SOURCE_FILES_TO_BUILD)
 intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
@@ -68,7 +67,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   )
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
-=======
+
 # Workaround for MSVC ARM64 performance regression:
 # https://developercommunity.visualstudio.com/t/Compiling-a-specific-code-for-ARM64-with/10444970
 # Since /O1 and /O2 represent a set of optimizations,
@@ -88,7 +87,6 @@ if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES Clang
     set_source_files_properties(CGBuiltin.cpp PROPERTIES COMPILE_OPTIONS "${opt_flags}")
   endif()
 endif()
->>>>>>> c6f0f8810db5ce4de4bd326950b644e846a1497e
 
 add_clang_library(clangCodeGen
   ABIInfo.cpp
