@@ -18,7 +18,7 @@
 
 ;; Index based WPD
 ; RUN: ld.lld %t1.o %t2.o -o %t3_index -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s
@@ -26,7 +26,7 @@
 
 ;; Hybrid WPD
 ; RUN: ld.lld %t1_hybrid.o %t2.o -o %t3_hybrid -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s
@@ -34,7 +34,7 @@
 
 ;; Regular LTO WPD
 ; RUN: ld.lld %t1_regular.o %t2.o -o %t3_regular -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s

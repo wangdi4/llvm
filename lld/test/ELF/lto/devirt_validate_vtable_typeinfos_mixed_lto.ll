@@ -11,7 +11,7 @@
 ;; --lto-whole-program-visibility when there's split ThinLTO and a RegularLTO with summary optimizes
 ;; using the combined index.
 ; RUN: ld.lld %t1.o %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -21,7 +21,7 @@
 ;; --lto-validate-all-vtables-have-type-infos when there's split ThinLTO and a RegularLTO with summary behaves the same
 ;; as everything is present in the combined index.
 ; RUN: ld.lld %t1.o %t2.o -o %t3 -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
