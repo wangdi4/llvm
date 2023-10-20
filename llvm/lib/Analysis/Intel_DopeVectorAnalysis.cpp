@@ -4050,28 +4050,23 @@ extern bool FindDVTypeName(const StringRef &Name,
   return true;
 }
 
-// The function parses Fortran QNCA encoded dope vector types when the type
-// is a struct type. With opaque pointers the pointer to data has no type and
-// the type of element is inferred from QNCA type name.
-// For example: %"QNCA_a0$%PHYSICS_TYPES$.btPHYSICS_STATE*$rank1$" will return
-// the type "%PHYSICS_TYPES$.btPHYSICS_STATE".
-static std::unique_ptr<std::tuple<Type*, unsigned>>
-parseQNCAStructDopeVectorElementType(const StructType* Ty) {
-  if (!Ty)
-    return nullptr;
-  unsigned SIdx = 0;
-  unsigned Size = 0;
-  bool IsPointer = false; 
-  const StringRef &Name = Ty->getStructName();
-  if (!FindDVTypeName(Name, SIdx, Size, IsPointer))
-    return nullptr; 
-  const auto ETName = Name.substr(SIdx, Size);
-  Type *ETy = StructType::getTypeByName(Ty->getContext(), ETName);
-  if (!ETy)
-    return nullptr;
-  unsigned PtrLevel = (!IsPointer)? 0u : 1u;
-  auto Res = std::make_unique<std::tuple<Type*, unsigned>>(ETy, PtrLevel);
-  return std::move(Res);
+// Infer the type of what 'GV' points to by looking at
+// the inferred types of LoadInsts dereferencing it.
+// Return 'nullptr' if the types encountered are not
+// consistent.
+Type *findDVGlobalType(GlobalVariable *GV) {
+  Type *TyResult = nullptr;
+  for (User *U : GV->users())
+    if (auto LI = dyn_cast<LoadInst>(U))
+      if (LI->getPointerOperand() == GV) {
+        Type *TyLocal = inferPtrElementType(*LI);
+        if (!TyLocal)
+          return nullptr;
+        if (TyResult && TyResult != TyLocal)
+          return nullptr;
+        TyResult = TyLocal;
+      }
+  return TyResult;
 }
 
 // Return true if the pointer address of the current global dope vector is a
@@ -4083,14 +4078,9 @@ bool GlobalDopeVector::isCandidateForNestedDopeVectors(const DataLayout &DL) {
 
   StructType *DVStruct = GlobalDVInfo->getLLVMStructType();
   assert(DVStruct && "Analyzing dope vector without the proper structure");
-
-  auto PR = parseQNCAStructDopeVectorElementType(DVStruct);
-  if (!PR)
+  Type *Ty = findDVGlobalType(Glob);
+  if (!Ty)
     return false;
-
-  Type *Ty;
-  unsigned Level;
-  std::tie(Ty, Level) = *PR;
 
   PointerType *PtrAddr = dyn_cast<PointerType>(DVStruct->getElementType(0));
   if (!PtrAddr)
