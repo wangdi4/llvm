@@ -37,7 +37,10 @@ add_opencl_executable(
   TableGen.cpp
   CodeFormatter.cpp
   ConversionParser.cpp
-  ClangUtils.cpp)
+  ClangUtils.cpp
+  LINK_LIBS
+  ${LLVM_MODULE_LIBS}
+  LLVMTableGen)
 
 if(OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME} intrinsics_gen)
@@ -46,7 +49,5 @@ if(OPENCL_INTREE_BUILD)
   # ocl-tblgen, add clang dependency here.
   add_dependencies(${TARGET_NAME} clang)
 endif()
-
-target_link_libraries(${TARGET_NAME} ${LLVM_MODULE_LIBS} LLVMTableGen)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Backend")
