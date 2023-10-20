@@ -1,10 +1,22 @@
+// Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 // vim:ts=2:sw=2:et:
 
 include "GENERIC/GENERIC_CPU.td"
 
 
 // auxiliary functions used in atomic.td
-let Types = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64],
+let Types = [v1f16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64],
     Attrs = [OVERLOADABLE, INLINE],
     NeedForwardDecl = 1  in {
     def ocl20_add : OclBuiltin<"__ocl20_add", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
