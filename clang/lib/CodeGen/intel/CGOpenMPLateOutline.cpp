@@ -3187,7 +3187,13 @@ void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *Cl) {
 }
 #if INTEL_CUSTOMIZATION
 void OpenMPLateOutliner::emitOMPXRegisterAllocModeClause(
-    const OMPXRegisterAllocModeClause *C) {}
+    const OMPXRegisterAllocModeClause *C) {
+  ClauseEmissionHelper CEH(*this, OMPC_ompx_register_alloc_mode,
+                           "QUAL.OMP.REGISTER.ALLOC.MODE");
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  addArg(CSB.getString());
+  addArg(CGF.Builder.getInt32(C->getModeKind()));
+}
 #endif // INTEL_CUSTOMIZATION
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
