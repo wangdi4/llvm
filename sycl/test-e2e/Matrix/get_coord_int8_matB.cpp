@@ -9,10 +9,6 @@
 
 // RUN: %{build} -o %t.out -DSYCL_EXT_ONEAPI_MATRIX_VERSION=4
 // RUN: %{run} %t.out
-<<<<<<< HEAD
-// end INTEL_CUSTOMIZATION
-=======
->>>>>>> e522faf3920ce883d33b2461c7f6588f94c77fba
 // XFAIL: *
 
 #include "common.hpp"
