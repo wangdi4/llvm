@@ -1470,7 +1470,7 @@ public:
   /// Register vtable when emiiting code for the host.
   virtual void registerTargetVtableGlobalVar(StringRef VarName,
                                              llvm::Constant *Addr);
-#endif /// INTEL_COLLAB
+#endif // INTEL_COLLAB
 
   /// Emit the global \a GD if it is meaningful for the target. Returns
   /// if it was emitted successfully.

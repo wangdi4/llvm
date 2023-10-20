@@ -2888,7 +2888,7 @@ OMPTargetParallelGenericLoopDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
-#ifdef INTEL_COLLAB
+#if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
   Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
   Dir->setLateOutlineLinearCounterIncrement(

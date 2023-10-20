@@ -1560,9 +1560,7 @@ convertDeviceClause(const VarDecl *VD) {
   if (!DevTy)
     return llvm::OffloadEntriesInfoManager::OMPTargetDeviceClauseNone;
 
-#if INTEL_COLLAB
   switch ((int)*DevTy) { // Avoid -Wcovered-switch-default
-#endif // INTEL_COLLAB
   case OMPDeclareTargetDeclAttr::DT_Host:
     return llvm::OffloadEntriesInfoManager::OMPTargetDeviceClauseHost;
     break;
@@ -1584,7 +1582,7 @@ convertCaptureClause(const VarDecl *VD) {
       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
   if (!MapType)
     return llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryNone;
-  switch (*MapType) {
+  switch ((int)*MapType) { // Avoid -Wcovered-switch-default
   case OMPDeclareTargetDeclAttr::MapTypeTy::MT_To:
     return llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo;
     break;
@@ -1616,11 +1614,9 @@ static llvm::TargetRegionEntryInfo getEntryInfoFromPresumedLoc(
     return std::pair<std::string, uint64_t>(PLoc.getFilename(), PLoc.getLine());
   };
 #if INTEL_CUSTOMIZATION
-  return  OMPBuilder.getTargetEntryUniqueInfo(
-          FileInfoCallBack, ParentName,
-          CGM.getContext().getLangOpts().OpenMPStableFileID);
-#else // INTEL_CUSTOMIZATION
-  return OMPBuilder.getTargetEntryUniqueInfo(FileInfoCallBack, ParentName);
+  return OMPBuilder.getTargetEntryUniqueInfo(
+      FileInfoCallBack, ParentName,
+      CGM.getContext().getLangOpts().OpenMPStableFileID);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1973,15 +1969,15 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       llvm::Constant *AddrInAS0 = Addr;
       if (Addr->getAddressSpace() != 0)
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
-            Addr,
-            llvm::PointerType::get(
-                CGM.getLLVMContext(),
 #if INTEL_COLLAB
-                CGM.getLangOpts().OpenMPLateOutline
-                    ? CGM.getTypes().getTargetAddressSpace(VD->getType())
-                    :
+            Addr, llvm::PointerType::get(
+                      CGM.getLLVMContext(),
+                      CGM.getLangOpts().OpenMPLateOutline
+                          ? CGM.getTypes().getTargetAddressSpace(VD->getType())
+                          : 0));
+#else  // INTEL_COLLAB
+            Addr, llvm::PointerType::get(CGM.getLLVMContext(), 0));
 #endif // INTEL_COLLAB
-                    0));
       DtorCGF.emitDestroy(Address(AddrInAS0, Addr->getValueType(),
                                   CGM.getContext().getDeclAlign(VD)),
                           ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),
@@ -7637,17 +7633,18 @@ public:
               I->getAssociatedExpression()->getType());
           Address HB = CGF.Builder.CreateConstGEP(
               CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
-                  LowestElem,
 #if INTEL_COLLAB
+                  LowestElem,
                   CGF.CGM.getLangOpts().OpenMPLateOutline
                       ? llvm::PointerType::get(CGF.getLLVMContext(),
                                                LowestElem.getPointer()
                                                    ->getType()
                                                    ->getPointerAddressSpace())
-                      :
-#endif  // INTEL_COLLAB
-                      CGF.VoidPtrTy,
+                      : CGF.VoidPtrTy,
                   CGF.Int8Ty),
+#else  // INTEL_COLLAB
+                  LowestElem, CGF.VoidPtrTy, CGF.Int8Ty),
+#endif // INTEL_COLLAB
               TypeSize.getQuantity() - 1);
           PartialStruct.HighestElem = {
               std::numeric_limits<decltype(
