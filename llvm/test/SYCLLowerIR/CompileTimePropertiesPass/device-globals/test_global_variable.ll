@@ -75,7 +75,7 @@ attributes #6 = { "sycl-unique-id"="6da74a122db9f35d____ZL7no_dg_int1" "sycl-dev
 ; CHECK-IR-DAG: ![[#MN4]] = !{![[#MN5:]], ![[#MN6:]], ![[#MN7:]]}
 ; CHECK-IR-DAG: ![[#MN5]] = !{i32 6148, i32 0}
 ; CHECK-IR-DAG: ![[#MN6]] = !{i32 6147, i32 1}
-; CHECK-IR-DAG: ![[#MN7]] = !{i32 6168, i32 2, !"7da74a1187b9f35d____ZL7dg_int2"}
+; CHECK-IR-DAG: ![[#MN7]] = !{i32 6168, i32 3, !"7da74a1187b9f35d____ZL7dg_int2"}
 
 ; CHECK-IR-DAG: ![[#MN8]] = !{![[#MN1]], ![[#MN2]], ![[#MN9:]]}
 ; CHECK-IR-DAG: ![[#MN9]] = !{i32 6168, i32 0, !"9d329ad59055e972____ZL8dg_bool3"}

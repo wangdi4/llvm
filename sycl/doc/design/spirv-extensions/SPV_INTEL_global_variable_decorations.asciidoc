@@ -88,9 +88,9 @@ GlobalVariableDecorationsINTEL
 [grid="rows"]
 |====
 |GlobalVariableDecorationsINTEL | 6146
-|HostAccessINTEL | 6168
-|InitModeINTEL | 6147
-|ImplementInRegisterMapINTEL | 6148
+|HostAccessINTEL | 6147
+|InitModeINTEL | 6148
+|ImplementInCSRINTEL | 6149
 |====
 --
 
@@ -106,7 +106,7 @@ Modify Section 3.20, Decoration, adding these rows to the Decoration table:
 2+^| Decoration 2+^| Extra Operands | Enabling Capabilities
 
 // --- ROW BREAK ---
-| 6168
+| 6147
 a|
 *HostAccessINTEL* +
 Only valid on global (module scope) *OpVariable*.
@@ -139,7 +139,7 @@ _Name_
 | *GlobalVariableDecorationsINTEL*
 
 // --- ROW BREAK ---
-| 6147
+| 6148
 a|
 *InitModeINTEL* +
 Only valid on global (module scope) *OpVariable* which has an _Initializer_
@@ -167,9 +167,9 @@ _Trigger_
 | *GlobalVariableDecorationsINTEL*
 
 // --- ROW BREAK ---
-| 6148
+| 6149
 a|
-*ImplementInRegisterMapINTEL* +
+*ImplementInCSRINTEL* +
 Only valid on global (module scope) *OpVariable*.
 
 This decoration only has an effect when the consumer is an FPGA or similar
@@ -182,7 +182,7 @@ Legal values of _Value_:
 * 1 [True] - Access to this memory is through a CSR interface shared with the
   kernel arguments.
 
-If a global *OpVariable* is not decorated with *ImplementInRegisterMapINTEL*, the
+If a global *OpVariable* is not decorated with *ImplementInCSRINTEL*, the
 interface for the variable is implementation defined.
 
 2+| Literal Number +
