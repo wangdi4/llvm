@@ -194,7 +194,11 @@ public:
 /// approximation to a precise "captures before" analysis.
 class EarliestEscapeInfo final : public CaptureInfo {
   DominatorTree &DT;
+<<<<<<< HEAD
   const LoopInfo *LI; // INTEL
+=======
+  const LoopInfo *LI;
+>>>>>>> 3bfd1f09136915b5f6bc85079425ffc07efd13e6
 
   /// Map from identified local object to an instruction before which it does
   /// not escape, or nullptr if it never escapes. The "earliest" instruction
@@ -206,11 +210,16 @@ class EarliestEscapeInfo final : public CaptureInfo {
   /// This is used for cache invalidation purposes.
   DenseMap<Instruction *, TinyPtrVector<const Value *>> Inst2Obj;
 
-  const SmallPtrSetImpl<const Value *> &EphValues;
+  const SmallPtrSetImpl<const Value *> *EphValues;
 
 public:
+<<<<<<< HEAD
   EarliestEscapeInfo(DominatorTree &DT, const LoopInfo *LI,            // INTEL
                      const SmallPtrSetImpl<const Value *> &EphValues)
+=======
+  EarliestEscapeInfo(DominatorTree &DT, const LoopInfo *LI = nullptr,
+                     const SmallPtrSetImpl<const Value *> *EphValues = nullptr)
+>>>>>>> 3bfd1f09136915b5f6bc85079425ffc07efd13e6
       : DT(DT), LI(LI), EphValues(EphValues) {}
 
 #if INTEL_CUSTOMIZATION
