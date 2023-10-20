@@ -25,6 +25,7 @@ EXPORTS
     __tgt_get_device_rtl_name
     __tgt_get_interop_obj
     __tgt_get_interop_property
+    __tgt_get_mem_resources
     __tgt_get_num_devices
     __tgt_get_target_memory_info
     __tgt_init_all_rtls
@@ -35,6 +36,8 @@ EXPORTS
     __tgt_is_device_available
     __tgt_mapper_num_components
     __tgt_offload_proxy_task_complete_ooo
+    __tgt_omp_alloc
+    __tgt_omp_free
     __tgt_print_device_info
     __tgt_push_code_location
     __tgt_push_mapper_component

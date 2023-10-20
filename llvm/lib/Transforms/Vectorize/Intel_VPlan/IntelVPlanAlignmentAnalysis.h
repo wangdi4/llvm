@@ -29,7 +29,11 @@ class VPlanValueTracking;
 class VPLoadStoreInst;
 
 /// Supported peeling kinds.
-enum VPlanPeelingKind { VPPK_StaticPeeling, VPPK_DynamicPeeling };
+enum VPlanPeelingKind {
+  VPPK_NoPeeling,
+  VPPK_StaticPeeling,
+  VPPK_DynamicPeeling
+};
 
 /// A single peeling variant.
 /// This is an empty base class.
@@ -60,9 +64,28 @@ private:
   VPlanPeelingKind Kind;
 };
 
+/// No peeling class variant.
+class VPlanNoPeeling final : public VPlanPeelingVariant {
+public:
+  VPlanNoPeeling() : VPlanPeelingVariant(VPPK_NoPeeling) {}
+
+  int maxPeelCount() const override { return 0; }
+
+  bool isGuaranteedToExecuteBeforeMainLoop() const override { return false; }
+
+  static VPlanNoPeeling NoPeelLoop;
+
+  static bool classof(const VPlanPeelingVariant *Peeling) {
+    return Peeling->getKind() == VPPK_NoPeeling;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS) const final { OS << "VPlanNoPeeling\n"; }
+#endif
+};
+
 /// Static peeling is fully described with a single number that is the number of
-/// iterations to peel. Notice that "no peeling" is actually a "static peeling
-/// with PeelCount = 0".
+/// iterations to peel.
 class VPlanStaticPeeling final : public VPlanPeelingVariant {
 public:
   VPlanStaticPeeling(int PeelCount)
@@ -72,9 +95,6 @@ public:
   int maxPeelCount() const override { return peelCount(); }
 
   bool isGuaranteedToExecuteBeforeMainLoop() const override { return true; }
-
-  // VPlanStaticPeeling{0}
-  static VPlanStaticPeeling NoPeelLoop;
 
   static bool classof(const VPlanPeelingVariant *Peeling) {
     return Peeling->getKind() == VPPK_StaticPeeling;
@@ -247,11 +267,11 @@ public:
   selectBestPeelingVariant(int VF, VPlanPeelingCostModel &CM,
                            bool EnableDynamic);
 
-  /// Returns best static peeling variant and its profit. The algorithm for
-  /// selecting best peeling variant always succeeds. In the worst case
-  /// {StaticPeeling(0), 0} is returned.
-  std::pair<VPlanStaticPeeling, VPInstructionCost>
-  selectBestStaticPeelingVariant(int VF, VPlanPeelingCostModel &CM);
+  /// Returns best static peeling value and its profit. The algorithm for
+  /// selecting best peeling value always succeeds. In the worst case
+  /// {0, 0} is returned.
+  std::pair<int, VPInstructionCost>
+  selectBestStaticPeelCount(int VF, VPlanPeelingCostModel &CM);
 
   /// Returns best dynamic peeling variant and its profit. None is returned when
   /// there's no analyzable memrefs in the loop.
@@ -355,7 +375,7 @@ public:
 
 private:
   Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
-                                   const VPlanStaticPeeling &SP) const;
+                                   const VPlanPeelingVariant &P) const;
 
   Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
                                    const VPlanDynamicPeeling &DP) const;
