@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone -disable-selective-mv < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -acd-enable-all < %s -S | FileCheck %s
 
 ; This lit test checks that the resolvers of ifuncs in user code
 ; are never multi-versioned.

@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone,inline,globaldce -disable-selective-mv < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone,inline,globaldce -acd-enable-all < %s -S | FileCheck %s
 
 
 ; CHECK:      @llvm.global_ctors = appending global [2 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 500, ptr @__intel.acd.resolver, ptr null }, { i32, ptr, ptr } { i32 0, ptr @__intel_cpu_features_init_x, ptr null }]
