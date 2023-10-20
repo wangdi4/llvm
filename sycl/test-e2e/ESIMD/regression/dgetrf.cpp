@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+<<<<<<< HEAD
 // TODO: remove fno-fast-math option once the issue is investigated and the test
 // is fixed.
 // UNSUPPORTED: esimd_emulator
@@ -16,6 +17,9 @@
 // DEFINE: %{noinlineflags} = %if cl_options %{/clang:-fno-inline-functions%} %else %{-fno-inline-functions%}
 // RUN: %{build} %{mathflags} %{noinlineflags} -I%S/.. -O2 -o %t.out
 // end INTEL_CUSTOMIZATION
+=======
+// RUN: %{build} -I%S/.. -o %t.out
+>>>>>>> 9698767dfee6acde192d5e06d6f47b7abf97cea2
 // RUN: %{run} %t.out 3 2 1
 //
 // This test checks the correctness of ESIMD program for batched LU
