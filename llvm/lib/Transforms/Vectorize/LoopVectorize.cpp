@@ -407,7 +407,7 @@ static cl::opt<bool> VectorizeNonReadonlyLibCalls(
     "vectorize-non-readonly-libcalls", cl::init(true), cl::Hidden,
     cl::desc(
         "Vectorize library calls even if they don't have readonly attribute."));
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> PrintVPlansInDotFormat(
     "vplan-print-in-dot-format", cl::Hidden,
@@ -3370,7 +3370,53 @@ LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
     InstructionCost IntrinsicCost = getVectorIntrinsicCost(CI, VF);
     return std::min(ScalarCallCost, IntrinsicCost);
   }
+<<<<<<< HEAD
   return ScalarCallCost;
+=======
+#endif // INTEL_CUSTOMIZATION
+  VFShape Shape = VFShape::get(*CI, VF, MaskRequired);
+  if (NeedsMask)
+    *NeedsMask = MaskRequired;
+  Function *VecFunc = VFDatabase(*CI).getVectorizedFunction(Shape);
+  // If we want an unmasked vector function but can't find one matching the VF,
+  // maybe we can find vector function that does use a mask and synthesize
+  // an all-true mask.
+  if (!VecFunc && !MaskRequired) {
+    Shape = VFShape::get(*CI, VF, /*HasGlobalPred=*/true);
+    VecFunc = VFDatabase(*CI).getVectorizedFunction(Shape);
+    // If we found one, add in the cost of creating a mask
+    if (VecFunc) {
+      if (NeedsMask)
+        *NeedsMask = true;
+      MaskCost = TTI.getShuffleCost(
+          TargetTransformInfo::SK_Broadcast,
+          VectorType::get(
+              IntegerType::getInt1Ty(VecFunc->getFunctionType()->getContext()),
+              VF));
+    }
+  }
+
+  // We don't support masked function calls yet, but we can scalarize a
+  // masked call with branches (unless VF is scalable).
+  if (!TLI || CI->isNoBuiltin() || !VecFunc)
+    return VF.isScalable() ? InstructionCost::getInvalid() : Cost;
+
+#if INTEL_CUSTOMIZATION
+  // Use vector library call if scalar call is known to read memory only. This
+  // is non-default behavior.
+  if (!VectorizeNonReadonlyLibCalls && !CI->onlyReadsMemory())
+    return Cost;
+#endif // INTEL_CUSTOMIZATION
+
+  // If the corresponding vector cost is cheaper, return its cost.
+  InstructionCost VectorCallCost =
+      TTI.getCallInstrCost(nullptr, RetTy, Tys, CostKind) + MaskCost;
+  if (VectorCallCost < Cost) {
+    *Variant = VecFunc;
+    Cost = VectorCallCost;
+  }
+  return Cost;
+>>>>>>> b8245d12cfb5b18467a32bc160e5cf24de50218e
 }
 
 static Type *MaybeVectorizeType(Type *Elt, ElementCount VF) {
@@ -7632,15 +7678,15 @@ LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC,
 
   // Populate the set of Vectorization Factor Candidates.
   ElementCountSet VFCandidates;
+#if INTEL_CUSTOMIZATION
   for (auto I = ElementCount::getFixed(1);
        ElementCount::isKnownLE(I, MaxFactors.FixedVF); I *= 2)
-    if (llvm::is_contained(VFs, I) || VFs.size() == 0) // INTEL_CUSTOMIZATION
-      VFCandidates.insert(I);                          // INTEL_CUSTOMIZATION
+    if (llvm::is_contained(VFs, I) || VFs.size() == 0)
+      VFCandidates.insert(I);
 
   // The cost model should always be able to decide not to vectorize if
   // vectorization is not forced
   VFCandidates.insert(ElementCount::getFixed(1));
-#if INTEL_CUSTOMIZATION
   if(llvm::is_contained(VFs, ElementCount::getFixed(0)))
     VFCandidates.insert(ElementCount::getFixed(1));
   if(!VFCandidates.size())
@@ -10384,7 +10430,7 @@ bool LoopVectorizePass::processLoop(Loop *L) {
   MDNode *RemainderLoopWithoutOptReport = OptReport::eraseOptReportFromLoopID(
       L->getLoopID(), L->getLoopID()->getContext());
   L->setLoopID(RemainderLoopWithoutOptReport);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   assert(!verifyFunction(*L->getHeader()->getParent(), &dbgs()));
   return true;

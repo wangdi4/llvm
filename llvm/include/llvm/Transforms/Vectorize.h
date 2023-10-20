@@ -35,10 +35,10 @@
 
 namespace llvm {
 class Pass;
-class Function; // INTEL
+#if INTEL_CUSTOMIZATION
+class Function;
 
 namespace vpo {
-#if INTEL_CUSTOMIZATION
 // Enum indicating vectorization error kind.
 enum class VecErrorKind {
   // Means that a loop in the function was not vectorized by any reason, the
