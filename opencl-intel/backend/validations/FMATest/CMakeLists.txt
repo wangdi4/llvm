@@ -21,15 +21,19 @@ include_directories(
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
   ${OCL_SOURCE_DIR}/tests/test_utils/export)
-add_opencl_executable(${TARGET_NAME} EXCLUDE_FROM_ALL_BUILD FusedMAtest.cpp)
 
 if(NOT WIN32)
-  set(LIBRARIES OclBackendUtils llvm_gtest pthread)
-else(NOT WIN32)
-  set(LIBRARIES OclBackendUtils llvm_gtest)
-endif(NOT WIN32)
+  set(LINK_LIBRARIES pthread)
+endif()
 
-target_link_libraries(${TARGET_NAME} ${LIBRARIES} OpenCL-ICD)
+add_opencl_executable(${TARGET_NAME}
+  EXCLUDE_FROM_ALL_BUILD
+  FusedMAtest.cpp
+  LINK_LIBS
+  OclBackendUtils
+  llvm_gtest
+  OpenCL-ICD
+  ${LINK_LIBRARIES})
 
 install(
   TARGETS ${TARGET_NAME}

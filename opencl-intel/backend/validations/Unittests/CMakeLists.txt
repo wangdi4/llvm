@@ -55,6 +55,10 @@ endif()
 
 link_directories(${OCL_OUTPUT_LIBRARY_DIR})
 
+if(HAVE_LIBPTHREAD)
+  set(LINK_LIBRARIES pthread)
+endif()
+
 add_opencl_executable(
   ${TARGET_NAME}
   EXCLUDE_FROM_ALL_BUILD
@@ -76,10 +80,8 @@ add_opencl_executable(
   NEATALUImageTest.cpp
   SourceRecorder.cpp
   ClangSA.cpp
-  OCLKernelDataGeneratorTest.cpp)
-
-target_link_libraries(
-  ${TARGET_NAME}
+  OCLKernelDataGeneratorTest.cpp
+  LINK_LIBS
   ${COMMON_CLANG_LIB}
   ${LLVM_MODULE_LIBS}
   CLElfLib
@@ -107,11 +109,9 @@ target_link_libraries(
   dynamic_load
   llvm_gtest
   reflection_module
-  tinyxml_STL)
-
-if(HAVE_LIBPTHREAD)
-  target_link_libraries(${TARGET_NAME} pthread)
-endif()
+  tinyxml_STL
+  ${LINK_LIBRARIES}
+  )
 
 add_dependencies(${TARGET_NAME} cl_sys_utils)
 
