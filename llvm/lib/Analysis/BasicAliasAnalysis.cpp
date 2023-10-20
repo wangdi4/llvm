@@ -346,9 +346,7 @@ bool EarliestEscapeInfo::isNotCapturedBeforeOrAt(const Value *Object,
     return true;
 
   return I != Iter.first->second &&
-#if INTEL_CUSTOMIZATION
          !isPotentiallyReachable(Iter.first->second, I, nullptr, &DT, LI);
-#endif // INTEL_CUSTOMIZATION
 }
 
 void EarliestEscapeInfo::removeInstruction(Instruction *I) {
