@@ -141,9 +141,7 @@ TEST_F(VPlanPeelingAnalysisTest, NoPeeling_NoUnitStride) {
   for (auto VF : VFs) {
     std::unique_ptr<VPlanPeelingVariant> PV =
         VPPA->selectBestPeelingVariant(VF, CM, true);
-    ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV));
-    VPlanStaticPeeling &SP = cast<VPlanStaticPeeling>(*PV);
-    EXPECT_EQ(SP.peelCount(), 0);
+    ASSERT_TRUE(isa<VPlanNoPeeling>(*PV));
   }
 }
 
@@ -203,9 +201,7 @@ TEST_F(VPlanPeelingAnalysisTest, NoPeeling_Misalign) {
   for (auto VF : VFs) {
     std::unique_ptr<VPlanPeelingVariant> PV =
         VPPA->selectBestPeelingVariant(VF, CM, true);
-    ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV));
-    VPlanStaticPeeling &SP = cast<VPlanStaticPeeling>(*PV);
-    EXPECT_EQ(SP.peelCount(), 0);
+    ASSERT_TRUE(isa<VPlanNoPeeling>(*PV));
   }
 }
 
@@ -355,7 +351,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
   // disabled.
   std::unique_ptr<VPlanPeelingVariant> PV4_s =
       VPPA->selectBestPeelingVariant(4, CM, false);
-  EXPECT_TRUE(isa<VPlanStaticPeeling>(*PV4_s));
+  EXPECT_TRUE(isa<VPlanNoPeeling>(*PV4_s));
 
   // VF = 4.
   // Best alignment:
@@ -555,9 +551,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_DoubleLoad) {
 
   std::unique_ptr<VPlanPeelingVariant> PV2 =
       VPPA->selectBestPeelingVariant(2, CM, true);
-  ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV2));
-  VPlanStaticPeeling &SP2 = cast<VPlanStaticPeeling>(*PV2);
-  EXPECT_EQ(SP2.peelCount(), 0); // Make loads aligned by 2.
+  ASSERT_TRUE(isa<VPlanNoPeeling>(*PV2));
 
   std::unique_ptr<VPlanPeelingVariant> PV4 =
       VPPA->selectBestPeelingVariant(4, CM, true);
@@ -673,9 +667,8 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //   %p4: 2 -> 2 (cost -= 0)
   //   %p5: 4 -> 4 (cost -= 0)
   //   %p6: 8 -> 8 (cost -= 0)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P2 =
-      VPPA->selectBestStaticPeelingVariant(2, CM);
-  EXPECT_EQ(P2.first.peelCount(), 0);
+  std::pair<int, VPInstructionCost> P2 = VPPA->selectBestStaticPeelCount(2, CM);
+  EXPECT_EQ(P2.first, 0);
   EXPECT_EQ(P2.second, 3);
 
   // VF = 4. Best PeelCount = 2.
@@ -686,9 +679,8 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //   %p4: 2 ->  2 (cost -= 0)
   //   %p5: 4 ->  4 (cost -= 0)
   //   %p6: 8 ->  8 (cost -= 0)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P4 =
-      VPPA->selectBestStaticPeelingVariant(4, CM);
-  EXPECT_EQ(P4.first.peelCount(), 2);
+  std::pair<int, VPInstructionCost> P4 = VPPA->selectBestStaticPeelCount(4, CM);
+  EXPECT_EQ(P4.first, 2);
   EXPECT_EQ(P4.second, 5);
 
   // VF = 8. Best PeelCount = 7.
@@ -699,9 +691,8 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //  %p4: 2 -> 16 (cost -= 3)
   //  %p5: 4 ->  8 (cost -= 1)
   //  %p6: 8 -> 64 (cost -= 3)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P8 =
-      VPPA->selectBestStaticPeelingVariant(8, CM);
-  EXPECT_EQ(P8.first.peelCount(), 7);
+  std::pair<int, VPInstructionCost> P8 = VPPA->selectBestStaticPeelCount(8, CM);
+  EXPECT_EQ(P8.first, 7);
   EXPECT_EQ(P8.second, 7);
 
   // VF = 16. Best PeelCount = 7.
@@ -712,9 +703,9 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //  %p4: 2 ->  16 (cost -= 3)
   //  %p5: 4 ->   8 (cost -= 1)
   //  %p6: 8 -> 128 (cost -= 4)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P16 =
-      VPPA->selectBestStaticPeelingVariant(16, CM);
-  EXPECT_EQ(P16.first.peelCount(), 7);
+  std::pair<int, VPInstructionCost> P16 =
+      VPPA->selectBestStaticPeelCount(16, CM);
+  EXPECT_EQ(P16.first, 7);
   EXPECT_EQ(P16.second, 8);
 }
 
@@ -803,9 +794,8 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->  4 (cost -= 1)
   //  %p5: 4 ->  4 (cost -= 0)
   //  %p6: 8 -> 16 (cost -= 1)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P2 =
-      VPPA->selectBestStaticPeelingVariant(2, CM);
-  EXPECT_EQ(P2.first.peelCount(), 1);
+  std::pair<int, VPInstructionCost> P2 = VPPA->selectBestStaticPeelCount(2, CM);
+  EXPECT_EQ(P2.first, 1);
   EXPECT_EQ(P2.second, 5);
 
   // VF = 4. Best PeelCount = 3.
@@ -816,9 +806,8 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->  8 (cost -= 1)
   //  %p5: 4 ->  4 (cost -= 0)
   //  %p6: 8 -> 32 (cost -= 2)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P4 =
-      VPPA->selectBestStaticPeelingVariant(4, CM);
-  EXPECT_EQ(P4.first.peelCount(), 3);
+  std::pair<int, VPInstructionCost> P4 = VPPA->selectBestStaticPeelCount(4, CM);
+  EXPECT_EQ(P4.first, 3);
   EXPECT_EQ(P4.second, 8);
 
   // VF = 8. Best PeelCount = 7.
@@ -829,9 +818,8 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->  8 (cost -= 1)
   //  %p5: 4 ->  4 (cost -= 0)
   //  %p6: 8 -> 64 (cost -= 3)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P8 =
-      VPPA->selectBestStaticPeelingVariant(8, CM);
-  EXPECT_EQ(P8.first.peelCount(), 7);
+  std::pair<int, VPInstructionCost> P8 = VPPA->selectBestStaticPeelCount(8, CM);
+  EXPECT_EQ(P8.first, 7);
   EXPECT_EQ(P8.second, 10);
 
   // VF = 16. Best PeelCount = 7.
@@ -842,9 +830,9 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->   8 (cost -= 1)
   //  %p5: 4 ->   4 (cost -= 0)
   //  %p6: 8 -> 128 (cost -= 4)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P16 =
-      VPPA->selectBestStaticPeelingVariant(16, CM);
-  EXPECT_EQ(P16.first.peelCount(), 7);
+  std::pair<int, VPInstructionCost> P16 =
+      VPPA->selectBestStaticPeelCount(16, CM);
+  EXPECT_EQ(P16.first, 7);
   EXPECT_EQ(P16.second, 11);
 
   // VF = 32. Best PeelCount = 23.
@@ -855,9 +843,9 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->   8 (cost -= 1)
   //  %p5: 4 ->   4 (cost -= 0)
   //  %p6: 8 -> 256 (cost -= 5)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P32 =
-      VPPA->selectBestStaticPeelingVariant(32, CM);
-  EXPECT_EQ(P32.first.peelCount(), 23);
+  std::pair<int, VPInstructionCost> P32 =
+      VPPA->selectBestStaticPeelCount(32, CM);
+  EXPECT_EQ(P32.first, 23);
   EXPECT_EQ(P32.second, 12);
 
   // VF = 64. Best PeelCount = 23.
@@ -868,9 +856,9 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->   8 (cost -= 1)
   //  %p5: 4 ->   4 (cost -= 0)
   //  %p6: 8 -> 256 (cost -= 5)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P64 =
-      VPPA->selectBestStaticPeelingVariant(64, CM);
-  EXPECT_EQ(P64.first.peelCount(), 23);
+  std::pair<int, VPInstructionCost> P64 =
+      VPPA->selectBestStaticPeelCount(64, CM);
+  EXPECT_EQ(P64.first, 23);
   EXPECT_EQ(P64.second, 12);
 }
 
@@ -1230,29 +1218,35 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignmentPropagation) {
     LS.setAlignment(OrigAlign);
   };
 
+  // No peel tests
+  {
+    // Format is {VF, Peel, ExpectedAlign}
+    const std::tuple<unsigned, VPlanNoPeeling, uint64_t> InputAndExpecteds[] = {
+        {1, VPlanNoPeeling::NoPeelLoop, 4},
+        {2, VPlanNoPeeling::NoPeelLoop, 8},
+        {4, VPlanNoPeeling::NoPeelLoop, 16},
+        {8, VPlanNoPeeling::NoPeelLoop, 16},
+    };
+    for (const auto &[VF, Peel, ExpectedAlign] : InputAndExpecteds) {
+      ResetAlign(LS);
+      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, &Peel);
+      EXPECT_EQ(LS.getAlignment().value(), ExpectedAlign)
+          << ", VF = " << VF << " (disabled)";
+    }
+  }
+
   // Static peel tests
   {
     // Format is {VF, Peel, ExpectedAlign}
     const std::tuple<unsigned, VPlanStaticPeeling, uint64_t>
         InputAndExpecteds[] = {
-            {1, VPlanStaticPeeling::NoPeelLoop, 4},
-            {1, VPlanStaticPeeling{0}, 4},
-            {2, VPlanStaticPeeling::NoPeelLoop, 8},
-            {2, VPlanStaticPeeling{0}, 8},
-            {2, VPlanStaticPeeling{1}, 4},
-            {4, VPlanStaticPeeling::NoPeelLoop, 16},
-            {4, VPlanStaticPeeling{0}, 16},
-            {4, VPlanStaticPeeling{1}, 4},
-            {4, VPlanStaticPeeling{2}, 8},
-            {4, VPlanStaticPeeling{3}, 4},
-            {8, VPlanStaticPeeling::NoPeelLoop, 16},
-            {8, VPlanStaticPeeling{0}, 16},
-            {8, VPlanStaticPeeling{1}, 4},
-            {8, VPlanStaticPeeling{2}, 8},
-            {8, VPlanStaticPeeling{4}, 16},
-            {8, VPlanStaticPeeling{5}, 4},
-            {8, VPlanStaticPeeling{6}, 8},
-            {8, VPlanStaticPeeling{7}, 4},
+            {1, VPlanStaticPeeling{0}, 4},  {2, VPlanStaticPeeling{0}, 8},
+            {2, VPlanStaticPeeling{1}, 4},  {4, VPlanStaticPeeling{0}, 16},
+            {4, VPlanStaticPeeling{1}, 4},  {4, VPlanStaticPeeling{2}, 8},
+            {4, VPlanStaticPeeling{3}, 4},  {8, VPlanStaticPeeling{0}, 16},
+            {8, VPlanStaticPeeling{1}, 4},  {8, VPlanStaticPeeling{2}, 8},
+            {8, VPlanStaticPeeling{4}, 16}, {8, VPlanStaticPeeling{5}, 4},
+            {8, VPlanStaticPeeling{6}, 8},  {8, VPlanStaticPeeling{7}, 4},
         };
     for (const auto &[VF, Peel, ExpectedAlign] : InputAndExpecteds) {
       ResetAlign(LS);

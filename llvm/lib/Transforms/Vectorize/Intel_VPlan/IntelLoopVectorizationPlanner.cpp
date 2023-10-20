@@ -1619,7 +1619,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       // Peeling is not supported for non-normalized loops.
       VPLoop *L = Plan->getMainLoop(true);
       if (!L->hasNormalizedInduction())
-        PeelingVariant = &VPlanStaticPeeling::NoPeelLoop;
+        PeelingVariant = &VPlanNoPeeling::NoPeelLoop;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       OS = is_contained(VPlanCostModelPrintAnalysisForVF, VF) ? &outs()
@@ -1648,17 +1648,18 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       assert(MainLoopIterationCost >= 0 && MainLoopOverhead >= 0 &&
              "Loop costs must be non-negative");
       LLVM_DEBUG(
-          dbgs() << "Selected peeling: "; 
-          if (PeelingVariant) {
-            if (isa<VPlanDynamicPeeling>(PeelingVariant))
-              dbgs() << "Dynamic\n";
-            else
-              dbgs() << "Static("
-                     << cast<VPlanStaticPeeling>(PeelingVariant)->peelCount()
-                     << ")\n";
-          } else { 
-            dbgs() << "None\n"; 
-          }
+        dbgs() << "Selected peeling: ";
+        if (PeelingVariant) {
+          if (isa<VPlanDynamicPeeling>(PeelingVariant))
+            dbgs() << "Dynamic\n";
+          else if (isa<VPlanNoPeeling>(PeelingVariant))
+            dbgs() << "Disabled\n";
+          else
+            dbgs() << "Static("
+                   << cast<VPlanStaticPeeling>(PeelingVariant)->peelCount()
+                   << ")\n";
+        } else
+            dbgs() << "None\n";
       );
 
       // Calculate the total cost of peel loop if there is one.
@@ -1934,15 +1935,13 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
       // If peel was forced, ensure we have a valid peel variant selected
       const auto *Peel = MPlan->getPreferredPeeling(VF);
-      auto *StaticPeel = dyn_cast_or_null<VPlanStaticPeeling>(Peel);
-      if (!Peel || (StaticPeel && StaticPeel->peelCount() == 0)) {
+      if (!Peel || dyn_cast_or_null<VPlanNoPeeling>(Peel))
         MPlan->setPreferredPeeling(VF, std::make_unique<VPlanStaticPeeling>(1));
-      }
     } else {
       // Peel was disabled: ensure peeling is unselected for all VFs.
       for (auto VF : UsedVFs) {
-        MPlan->setPreferredPeeling(VF, std::make_unique<VPlanStaticPeeling>(
-                                           VPlanStaticPeeling::NoPeelLoop));
+        MPlan->setPreferredPeeling(
+            VF, std::make_unique<VPlanNoPeeling>(VPlanNoPeeling::NoPeelLoop));
       }
     }
   }
