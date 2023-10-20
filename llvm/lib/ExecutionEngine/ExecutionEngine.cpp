@@ -645,10 +645,7 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
             getConstantValue(UndefValue::get(ATy->getElementType()));
       }
       break;
-#endif // INTEL_CUSTOMIZATION
-      case Type::ScalableVectorTyID:
-        report_fatal_error(
-            "Scalable vector support not yet implemented in ExecutionEngine");
+#else
       case Type::ArrayTyID: {
         auto *ArrTy = cast<ArrayType>(C->getType());
         Type *ElemTy = ArrTy->getElementType();
@@ -660,6 +657,10 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
                 APInt(ElemTy->getPrimitiveSizeInBits(), 0);
         break;
       }
+#endif // INTEL_CUSTOMIZATION
+      case Type::ScalableVectorTyID:
+        report_fatal_error(
+            "Scalable vector support not yet implemented in ExecutionEngine");
       case Type::FixedVectorTyID: {
         // if the whole vector is 'undef' just reserve memory for the value.
         auto *VTy = cast<FixedVectorType>(C->getType());
