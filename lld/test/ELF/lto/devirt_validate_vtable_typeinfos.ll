@@ -26,7 +26,7 @@
 
 ;; Index based WPD
 ; RUN: ld.lld %t1.o %t2.o -o %t3_index -save-temps --lto-whole-program-visibility \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -34,7 +34,7 @@
 
 ;; Hybrid WPD
 ; RUN: ld.lld %t1_hybrid.o %t2.o -o %t3_hybrid -save-temps --lto-whole-program-visibility \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -42,7 +42,7 @@
 
 ;; Regular LTO WPD
 ; RUN: ld.lld %t1_regular.o %t2.o -o %t3_regular -save-temps --lto-whole-program-visibility \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -57,7 +57,7 @@
 
 ;; Index based WPD
 ; RUN: ld.lld %t1.o %t2.o -o %t4_index -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=VALIDATE
@@ -65,7 +65,7 @@
 
 ;; Hybrid WPD
 ; RUN: ld.lld %t1_hybrid.o %t2.o -o %t4_hybrid -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=VALIDATE
@@ -73,7 +73,7 @@
 
 ;; Regular LTO WPD
 ; RUN: ld.lld %t1_regular.o %t2.o -o %t4_regular -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=VALIDATE
@@ -83,7 +83,7 @@
 
 ;; Index based WPD
 ; RUN: ld.lld %t1.o %t2.so -o %t5_index -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=VALIDATE
@@ -91,7 +91,7 @@
 
 ;; Hybrid WPD
 ; RUN: ld.lld %t1_hybrid.o %t2.so -o %t5_hybrid -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=VALIDATE
@@ -99,7 +99,7 @@
 
 ;; Regular LTO WPD
 ; RUN: ld.lld %t1_regular.o %t2.so -o %t5_regular -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=VALIDATE
@@ -114,7 +114,7 @@
 
 ;; Index based WPD
 ; RUN: ld.lld %t1.o %t2_nortti.o -o %t6_index -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=NO-RTTI
@@ -122,7 +122,7 @@
 
 ;; Hybrid WPD
 ; RUN: ld.lld %t1_hybrid.o %t2_nortti.o -o %t6_hybrid -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=NO-RTTI
@@ -130,7 +130,7 @@
 
 ;; Regular LTO WPD
 ; RUN: ld.lld %t1_regular.o %t2_nortti.o -o %t6_regular -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=NO-RTTI
@@ -140,7 +140,7 @@
 
 ;; Index based WPD
 ; RUN: ld.lld %t1.o %t2_nortti.so -o %t7_index -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=NO-RTTI
@@ -148,7 +148,7 @@
 
 ;; Hybrid WPD
 ; RUN: ld.lld %t1_hybrid.o %t2_nortti.so -o %t7_hybrid -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=NO-RTTI
@@ -156,7 +156,7 @@
 
 ;; Regular LTO WPD
 ; RUN: ld.lld %t1_regular.o %t2_nortti.so -o %t7_regular -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=NO-RTTI
@@ -170,7 +170,7 @@
 
 ;; Index based WPD
 ; RUN: ld.lld %t1.o %t2_nortti.o -o %t8_index -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   --lto-known-safe-vtables=_ZTV6Native -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -178,7 +178,7 @@
 
 ;; Hybrid WPD
 ; RUN: ld.lld %t1_hybrid.o %t2_nortti.o -o %t8_hybrid -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   --lto-known-safe-vtables=_ZTV6Native -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -186,7 +186,7 @@
 
 ;; Regular LTO WPD
 ; RUN: ld.lld %t1_regular.o %t2_nortti.o -o %t8_regular -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   --lto-known-safe-vtables=_ZTV6Native -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -197,7 +197,7 @@
 
 ;; Index based WPD
 ; RUN: ld.lld %t1.o %t2_undef.o -o %t9_index -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -205,7 +205,7 @@
 
 ;; Hybrid WPD
 ; RUN: ld.lld %t1_hybrid.o %t2_undef.o -o %t9_hybrid -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -213,7 +213,7 @@
 
 ;; Regular LTO WPD
 ; RUN: ld.lld %t1_regular.o %t2_undef.o -o %t9_regular -save-temps --lto-whole-program-visibility --lto-validate-all-vtables-have-type-infos \
-; INTEL_CUSTOMIZATON
+; INTEL_CUSTOMIZATION
 ; RUN:   %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
