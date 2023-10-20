@@ -129,7 +129,7 @@ TEST_F(VFABIParserTest, OnlyValidNames) {
   // Missing parameters.
 #if INTEL_CUSTOMIZATION
   EXPECT_TRUE(invokeParser("_ZGVnN2_foo"));
-#endif
+#endif // INTEL_CUSTOMIZATION
   // Missing _ZGV prefix.
   EXPECT_FALSE(invokeParser("_ZVnN2v_foo"));
   // Missing <isa>.

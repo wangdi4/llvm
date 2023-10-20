@@ -86,10 +86,10 @@ enum class RecurKind {
 /// special case of chains of recurrences (CR). See ScalarEvolution for CR
 /// references.
 
-/// This struct holds information about recurrence, kind, type, etc // INTEL.
-class RecurrenceDescriptorData { // INTEL
-public:
 #if INTEL_CUSTOMIZATION
+/// This struct holds information about recurrence, kind, type, etc
+class RecurrenceDescriptorData {
+public:
   RecurKind getRecurrenceKind() const { return Kind; }
   FastMathFlags getFastMathFlags() const { return FMF; }
 
@@ -210,7 +210,7 @@ class RecurrenceDescriptor
       RecurrenceDescriptorTempl<Value, Instruction, DescriptorValueStorage>;
 
 public:
-#endif
+#endif // INTEL_CUSTOMIZATION
   RecurrenceDescriptor() = default;
 
   RecurrenceDescriptor(Value *Start, Instruction *Exit, StoreInst *Store,
@@ -222,14 +222,13 @@ public:
       : RDTempl(Start, Exit, K, FMF, RT, Signed, Ordered),
         IntermediateStore(Store), ExactFPMathInst(ExactFP),
         MinWidthCastToRecurrenceType(MinWidthCastToRecurTy) {
-#endif
+#endif // INTEL_CUSTOMIZATION
     CastInsts.insert(CI.begin(), CI.end());
   }
 
-  /// Returns identity corresponding to the RecurrenceKind.
 #if INTEL_CUSTOMIZATION
+  /// Returns identity corresponding to the RecurrenceKind.
   Value *getRecurrenceIdentity(RecurKind K, Type *Tp, FastMathFlags FMF) const {
-#endif
     switch (K) {
     case RecurKind::IAnyOf:
     case RecurKind::FAnyOf:
@@ -238,6 +237,7 @@ public:
       return getConstRecurrenceIdentity(K, Tp, FMF);
     }
   }
+#endif // INTEL_CUSTOMIZATION
 
   /// This POD struct holds information about a potential recurrence operation.
   class InstDesc {
@@ -451,7 +451,7 @@ protected:
 class InductionDescriptor
     : public InductionDescriptorTempl<Value, BinaryOperator,
                                      DescriptorValueStorage> {
-#endif
+#endif // INTEL_CUSTOMIZATION
 public:
   /// Default constructor - creates an invalid induction.
   InductionDescriptor() = default;
@@ -459,11 +459,11 @@ public:
 #if !INTEL_CUSTOMIZATION
   Value *getStartValue() const { return StartValue; }
   InductionKind getKind() const { return IK; }
-#endif
+#endif // INTEL_CUSTOMIZATION
   const SCEV *getStep() const { return Step; }
 #if !INTEL_CUSTOMIZATION
   BinaryOperator *getInductionBinOp() const { return InductionBinOp; }
-#endif
+#endif // INTEL_CUSTOMIZATION
   ConstantInt *getConstIntStepValue() const;
 
   /// Returns true if \p Phi is an induction in the loop \p L. If \p Phi is an
@@ -478,8 +478,10 @@ public:
   static bool
   isInductionPHI(PHINode *Phi, const Loop *L, ScalarEvolution *SE,
                  InductionDescriptor &D, const SCEV *Expr = nullptr,
+#if INTEL_CUSTOMIZATION
                  SmallVectorImpl<Instruction *> *CastsToIgnore = nullptr,
-                 bool OnlyConstPtrStep = true); // INTEL
+                 bool OnlyConstPtrStep = true);
+#endif // INTEL_CUSTOMIZATION
 
   /// Returns true if \p Phi is a floating point induction in the loop \p L.
   /// If \p Phi is an induction, the induction descriptor \p D will contain
@@ -495,8 +497,10 @@ public:
   /// induction.
   static bool isInductionPHI(PHINode *Phi, const Loop *L,
                              PredicatedScalarEvolution &PSE,
+#if INTEL_CUSTOMIZATION
                              InductionDescriptor &D, bool Assume = false,
-                             bool OnlyConstPtrStep = true); // INTEL
+                             bool OnlyConstPtrStep = true);
+#endif // INTEL_CUSTOMIZATION
 
   /// Returns floating-point induction operator that does not allow
   /// reassociation (transforming the induction requires an override of normal
@@ -514,7 +518,7 @@ public:
     return InductionBinOp ? InductionBinOp->getOpcode()
                           : Instruction::BinaryOpsEnd;
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// Returns a reference to the type cast instructions in the induction
   /// update chain, that are redundant when guarded with a runtime
@@ -534,13 +538,13 @@ private:
   TrackingVH<Value> StartValue;
   /// Induction kind.
   InductionKind IK = IK_NoInduction;
-#endif
+#endif // INTEL_CUSTOMIZATION
   /// Step value.
   const SCEV *Step = nullptr;
 #if !INTEL_CUSTOMIZATION
   // Instruction that advances induction variable.
   BinaryOperator *InductionBinOp = nullptr;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Instructions used for type-casts of the induction variable,
   // that are redundant when guarded with a runtime SCEV overflow check.
