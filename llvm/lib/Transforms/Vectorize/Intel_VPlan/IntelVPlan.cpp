@@ -37,7 +37,6 @@
 #include "HIR/IntelVPOCodeGenHIR.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPAssumptionCache.h"
-#include "IntelVPOCodeGen.h"
 #include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanClone.h"
@@ -46,6 +45,7 @@
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "ScalarEvolution.h"
+#include "LLVM/CodeGenLLVM.h"
 
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/BasicBlock.h"
