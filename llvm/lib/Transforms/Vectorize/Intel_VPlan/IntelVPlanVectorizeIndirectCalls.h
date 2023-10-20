@@ -12,8 +12,8 @@
 //   IntelVectorizeIndirectCall.h -- LLVM IR Code generation
 //
 //===----------------------------------------------------------------------===//
-#include "IntelVPOCodeGen.h"
 #include "IntelVPlan.h"
+#include "LLVM/CodeGenLLVM.h"
 #include "llvm/Analysis/VectorUtils.h"
 
 #ifndef INTEL_VPLAN_VECTORIZE_INDIRECT_CALL_H

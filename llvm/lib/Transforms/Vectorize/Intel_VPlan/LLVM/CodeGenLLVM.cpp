@@ -9,17 +9,17 @@
 //
 //   Source file:
 //   ------------
-//   IntelVPOCodeGen.cpp -- VPValue-based LLVM IR code generation from VPlan.
+//   CodeGenLLVM.cpp -- VPValue-based LLVM IR code generation from VPlan.
 //
 //===----------------------------------------------------------------------===//
 
-#include "IntelVPOCodeGen.h"
-#include "IntelVPlan.h"
-#include "IntelVPlanCallVecDecisions.h"
-#include "IntelVPlanUtils.h"
-#include "IntelVPlanVLSAnalysis.h"
-#include "IntelVPlanVectorizeIndirectCalls.h"
-#include "LLVM/LegalityLLVM.h"
+#include "CodeGenLLVM.h"
+#include "../IntelVPlan.h"
+#include "../IntelVPlanCallVecDecisions.h"
+#include "../IntelVPlanUtils.h"
+#include "../IntelVPlanVLSAnalysis.h"
+#include "../IntelVPlanVectorizeIndirectCalls.h"
+#include "LegalityLLVM.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
