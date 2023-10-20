@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone,function-attrs,inline  -disable-selective-mv < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone,function-attrs,inline  -acd-enable-all < %s -S | FileCheck %s
 
 ; The test checks that main()'s versions have their attributes modified/updated
 ; by those phases that modify/update main()'s attributes.

@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone -disable-selective-mv < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -acd-enable-all < %s -S | FileCheck %s
 
 ; Calling convention on functions/calls must be consistent after the
 ; transformation (because mismatch is UB and DCE'd later).

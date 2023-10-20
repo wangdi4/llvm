@@ -4,7 +4,7 @@
 ; Assertion `I->Mangling != '\0' && "Processor dooesn't support function multiversion!"'
 ; When target CPU does not support multiversioning.
 
-; RUN: opt < %s -passes=auto-cpu-clone -disable-selective-mv -S 2>&1 |  FileCheck %s
+; RUN: opt < %s -passes=auto-cpu-clone -acd-enable-all -S 2>&1 |  FileCheck %s
 
 source_filename = "test.f90"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
