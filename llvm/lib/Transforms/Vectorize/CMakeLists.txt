@@ -36,7 +36,6 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPAssumptionCache.cpp
   Intel_VPlan/IntelVPBasicBlock.cpp
   Intel_VPlan/IntelVPLoopAnalysis.cpp
-  Intel_VPlan/IntelVPOCodeGen.cpp
   Intel_VPlan/IntelVPlan.cpp
   Intel_VPlan/IntelVPlanAlignmentAnalysis.cpp
   Intel_VPlan/IntelVPlanAllZeroBypass.cpp
@@ -93,6 +92,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/HIR/IntelVPlanVerifierHIR.cpp
   Intel_VPlan/HIR/LegalityHIR.cpp
   Intel_VPlan/Legality.cpp
+  Intel_VPlan/LLVM/CodeGenLLVM.cpp
   Intel_VPlan/LLVM/LegalityLLVM.cpp
   Intel_VPlan/LLVM/ScalarEvolutionLLVM.cpp
 # end INTEL_CUSTOMIZATION

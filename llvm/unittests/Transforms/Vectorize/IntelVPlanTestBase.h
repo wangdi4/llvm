@@ -16,10 +16,10 @@
 #define LLVM_UNITTESTS_TRANSFORMS_VECTORIZE_INTELVPLANTESTBASE_H
 
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationPlanner.h"
-#include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPOCodeGen.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCFGBuilder.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanHCFGBuilder.h"
+#include "../lib/Transforms/Vectorize/Intel_VPlan/LLVM/CodeGenLLVM.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/LLVM/LegalityLLVM.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"

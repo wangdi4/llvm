@@ -9,16 +9,16 @@
 //
 //   Source file:
 //   ------------
-//   IntelLoopVectorizerCodeGen.h -- LLVM IR Code generation
+//   CodeGenLLVM.h -- LLVM IR Code generation
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 
-#include "IntelLoopVectorizationPlanner.h"
-#include "IntelVPlan.h"
-#include "IntelVPlanOptrpt.h"
+#include "../IntelLoopVectorizationPlanner.h"
+#include "../IntelVPlan.h"
+#include "../IntelVPlanOptrpt.h"
 
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallSet.h"

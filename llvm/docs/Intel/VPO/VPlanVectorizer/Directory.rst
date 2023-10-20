@@ -758,8 +758,8 @@ VPlan code generation is implemented in the following files:
 
 * `.../Intel_VPlan/IntelVPlanVectorizeIndirectCalls.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVectorizeIndirectCalls.h>`_
 * `.../Intel_VPlan/IntelVPlanVectorizeIndirectCalls.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVectorizeIndirectCalls.cpp>`_
-* `.../Intel_VPlan/IntelVPOCodeGen.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPOCodeGen.h>`_
-* `.../Intel_VPlan/IntelVPOCodeGen.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPOCodeGen.cpp>`_
+* `.../Intel_VPlan/LLVM/CodeGenLLVM.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/LLVM/CodeGenLLVM.h>`_
+* `.../Intel_VPlan/LLVM/CodeGenLLVM.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/LLVM/CodeGenLLVM.cpp>`_
 * `.../HIR/IntelVPOCodeGenHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPOCodeGenHIR.h>`_
 * `.../HIR/IntelVPOCodeGenHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/HIR/IntelVPOCodeGenHIR.cpp>`_
 
