@@ -197,19 +197,12 @@ define ptr @test7(ptr %a) {
 }
 
 define ptr @test8(ptr %a) {
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; FNATTRS-NO-SS-LABEL: define nonnull ptr @test8
-; FNATTRS-NO-SS-SAME: (ptr readnone [[A:%.*]]) #[[ATTR0]] {
+; FNATTRS-NO-SS-LABEL: define nonnull ptr @test8(
+; FNATTRS-NO-SS-SAME: ptr readnone [[A:%.*]]) #[[ATTR0]] {
 ; FNATTRS-NO-SS-NEXT:    [[B:%.*]] = getelementptr inbounds i8, ptr [[A]], i64 1
 ; FNATTRS-NO-SS-NEXT:    ret ptr [[B]]
 ; end INTEL_CUSTOMIZATION
-=======
-; FNATTRS-LABEL: define nonnull ptr @test8(
-; FNATTRS-SAME: ptr readnone [[A:%.*]]) #[[ATTR0]] {
-; FNATTRS-NEXT:    [[B:%.*]] = getelementptr inbounds i8, ptr [[A]], i64 1
-; FNATTRS-NEXT:    ret ptr [[B]]
->>>>>>> 2ad41fa73688cd94ad28497a1fdc8841123f8a6f
 ;
 ; ATTRIBUTOR-LABEL: define nonnull ptr @test8(
 ; ATTRIBUTOR-SAME: ptr nofree readnone [[A:%.*]]) #[[ATTR0]] {
@@ -228,19 +221,12 @@ define ptr @test8(ptr %a) {
 }
 
 define ptr @test9(ptr %a, i64 %n) {
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; FNATTRS-NO-SS-LABEL: define ptr @test9
-; FNATTRS-NO-SS-SAME: (ptr readnone [[A:%.*]], i64 [[N:%.*]]) #[[ATTR0]] {
+; FNATTRS-NO-SS-LABEL: define ptr @test9(
+; FNATTRS-NO-SS-SAME: ptr readnone [[A:%.*]], i64 [[N:%.*]]) #[[ATTR0]] {
 ; FNATTRS-NO-SS-NEXT:    [[B:%.*]] = getelementptr inbounds i8, ptr [[A]], i64 [[N]]
 ; FNATTRS-NO-SS-NEXT:    ret ptr [[B]]
 ; end INTEL_CUSTOMIZATION
-=======
-; FNATTRS-LABEL: define ptr @test9(
-; FNATTRS-SAME: ptr readnone [[A:%.*]], i64 [[N:%.*]]) #[[ATTR0]] {
-; FNATTRS-NEXT:    [[B:%.*]] = getelementptr inbounds i8, ptr [[A]], i64 [[N]]
-; FNATTRS-NEXT:    ret ptr [[B]]
->>>>>>> 2ad41fa73688cd94ad28497a1fdc8841123f8a6f
 ;
 ; ATTRIBUTOR-LABEL: define ptr @test9(
 ; ATTRIBUTOR-SAME: ptr nofree readnone [[A:%.*]], i64 [[N:%.*]]) #[[ATTR0]] {
@@ -261,23 +247,14 @@ define ptr @test9(ptr %a, i64 %n) {
 declare void @llvm.assume(i1)
 ; FIXME: missing nonnull
 define ptr @test10(ptr %a, i64 %n) {
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; FNATTRS-NO-SS-LABEL: define ptr @test10
-; FNATTRS-NO-SS-SAME: (ptr readnone [[A:%.*]], i64 [[N:%.*]]) #[[ATTR3:[0-9]+]] {
+; FNATTRS-NO-SS-LABEL: define ptr @test10(
+; FNATTRS-NO-SS-SAME: ptr readnone [[A:%.*]], i64 [[N:%.*]]) #[[ATTR3:[0-9]+]] {
 ; FNATTRS-NO-SS-NEXT:    [[CMP:%.*]] = icmp ne i64 [[N]], 0
 ; FNATTRS-NO-SS-NEXT:    call void @llvm.assume(i1 [[CMP]])
 ; FNATTRS-NO-SS-NEXT:    [[B:%.*]] = getelementptr inbounds i8, ptr [[A]], i64 [[N]]
 ; FNATTRS-NO-SS-NEXT:    ret ptr [[B]]
 ; end INTEL_CUSTOMIZATION
-=======
-; FNATTRS-LABEL: define ptr @test10(
-; FNATTRS-SAME: ptr readnone [[A:%.*]], i64 [[N:%.*]]) #[[ATTR3:[0-9]+]] {
-; FNATTRS-NEXT:    [[CMP:%.*]] = icmp ne i64 [[N]], 0
-; FNATTRS-NEXT:    call void @llvm.assume(i1 [[CMP]])
-; FNATTRS-NEXT:    [[B:%.*]] = getelementptr inbounds i8, ptr [[A]], i64 [[N]]
-; FNATTRS-NEXT:    ret ptr [[B]]
->>>>>>> 2ad41fa73688cd94ad28497a1fdc8841123f8a6f
 ;
 ; ATTRIBUTOR-LABEL: define ptr @test10(
 ; ATTRIBUTOR-SAME: ptr nofree readnone [[A:%.*]], i64 [[N:%.*]]) #[[ATTR3:[0-9]+]] {
@@ -405,10 +382,9 @@ declare nonnull ptr @nonnull()
 
 define internal ptr @f1(ptr %arg) {
 ; FIXME: missing nonnull It should be nonnull @f1(ptr nonnull readonly %arg)
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; FNATTRS-NO-SS-LABEL: define internal nonnull ptr @f1
-; FNATTRS-NO-SS-SAME: (ptr readonly [[ARG:%.*]]) #[[ATTR4:[0-9]+]] {
+; FNATTRS-NO-SS-LABEL: define internal nonnull ptr @f1(
+; FNATTRS-NO-SS-SAME: ptr readonly [[ARG:%.*]]) #[[ATTR4:[0-9]+]] {
 ; FNATTRS-NO-SS-NEXT:  bb:
 ; FNATTRS-NO-SS-NEXT:    [[TMP:%.*]] = icmp eq ptr [[ARG]], null
 ; FNATTRS-NO-SS-NEXT:    br i1 [[TMP]], label [[BB9:%.*]], label [[BB1:%.*]]
@@ -428,28 +404,6 @@ define internal ptr @f1(ptr %arg) {
 ; FNATTRS-NO-SS-NEXT:    [[TMP10:%.*]] = phi ptr [ [[TMP5C]], [[BB4]] ], [ inttoptr (i64 4 to ptr), [[BB:%.*]] ]
 ; FNATTRS-NO-SS-NEXT:    ret ptr [[TMP10]]
 ; end INTEL_CUSTOMIZATION
-=======
-; FNATTRS-LABEL: define internal nonnull ptr @f1(
-; FNATTRS-SAME: ptr readonly [[ARG:%.*]]) #[[ATTR4:[0-9]+]] {
-; FNATTRS-NEXT:  bb:
-; FNATTRS-NEXT:    [[TMP:%.*]] = icmp eq ptr [[ARG]], null
-; FNATTRS-NEXT:    br i1 [[TMP]], label [[BB9:%.*]], label [[BB1:%.*]]
-; FNATTRS:       bb1:
-; FNATTRS-NEXT:    [[TMP2:%.*]] = load i32, ptr [[ARG]], align 4
-; FNATTRS-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[TMP2]], 0
-; FNATTRS-NEXT:    br i1 [[TMP3]], label [[BB6:%.*]], label [[BB4:%.*]]
-; FNATTRS:       bb4:
-; FNATTRS-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[ARG]], i64 1
-; FNATTRS-NEXT:    [[TMP5B:%.*]] = tail call ptr @f3(ptr [[TMP5]])
-; FNATTRS-NEXT:    [[TMP5C:%.*]] = getelementptr inbounds i32, ptr [[TMP5B]], i64 -1
-; FNATTRS-NEXT:    br label [[BB9]]
-; FNATTRS:       bb6:
-; FNATTRS-NEXT:    [[TMP7:%.*]] = tail call ptr @f2(ptr [[ARG]])
-; FNATTRS-NEXT:    ret ptr [[TMP7]]
-; FNATTRS:       bb9:
-; FNATTRS-NEXT:    [[TMP10:%.*]] = phi ptr [ [[TMP5C]], [[BB4]] ], [ inttoptr (i64 4 to ptr), [[BB:%.*]] ]
-; FNATTRS-NEXT:    ret ptr [[TMP10]]
->>>>>>> 2ad41fa73688cd94ad28497a1fdc8841123f8a6f
 ;
 ; ATTRIBUTOR-LABEL: define internal ptr @f1(
 ; ATTRIBUTOR-SAME: ptr nofree readonly [[ARG:%.*]]) #[[ATTR5:[0-9]+]] {
@@ -1036,19 +990,12 @@ exc:
 }
 
 define ptr @gep1(ptr %p) {
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; FNATTRS-NO-SS-LABEL: define nonnull ptr @gep1
-; FNATTRS-NO-SS-SAME: (ptr readnone [[P:%.*]]) #[[ATTR0]] {
+; FNATTRS-NO-SS-LABEL: define nonnull ptr @gep1(
+; FNATTRS-NO-SS-SAME: ptr readnone [[P:%.*]]) #[[ATTR0]] {
 ; FNATTRS-NO-SS-NEXT:    [[Q:%.*]] = getelementptr inbounds i32, ptr [[P]], i32 1
 ; FNATTRS-NO-SS-NEXT:    ret ptr [[Q]]
 ; end INTEL_CUSTOMIZATION
-=======
-; FNATTRS-LABEL: define nonnull ptr @gep1(
-; FNATTRS-SAME: ptr readnone [[P:%.*]]) #[[ATTR0]] {
-; FNATTRS-NEXT:    [[Q:%.*]] = getelementptr inbounds i32, ptr [[P]], i32 1
-; FNATTRS-NEXT:    ret ptr [[Q]]
->>>>>>> 2ad41fa73688cd94ad28497a1fdc8841123f8a6f
 ;
 ; ATTRIBUTOR-LABEL: define nonnull ptr @gep1(
 ; ATTRIBUTOR-SAME: ptr nofree readnone [[P:%.*]]) #[[ATTR0]] {
@@ -1068,19 +1015,12 @@ define ptr @gep1(ptr %p) {
 
 define ptr @gep1_no_null_opt(ptr %p) #0 {
 ; Should't be able to derive nonnull based on gep.
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; FNATTRS-NO-SS-LABEL: define ptr @gep1_no_null_opt
-; FNATTRS-NO-SS-SAME: (ptr readnone [[P:%.*]]) #[[ATTR8:[0-9]+]] {
+; FNATTRS-NO-SS-LABEL: define ptr @gep1_no_null_opt(
+; FNATTRS-NO-SS-SAME: ptr readnone [[P:%.*]]) #[[ATTR8:[0-9]+]] {
 ; FNATTRS-NO-SS-NEXT:    [[Q:%.*]] = getelementptr inbounds i32, ptr [[P]], i32 1
 ; FNATTRS-NO-SS-NEXT:    ret ptr [[Q]]
 ; end INTEL_CUSTOMIZATION
-=======
-; FNATTRS-LABEL: define ptr @gep1_no_null_opt(
-; FNATTRS-SAME: ptr readnone [[P:%.*]]) #[[ATTR8:[0-9]+]] {
-; FNATTRS-NEXT:    [[Q:%.*]] = getelementptr inbounds i32, ptr [[P]], i32 1
-; FNATTRS-NEXT:    ret ptr [[Q]]
->>>>>>> 2ad41fa73688cd94ad28497a1fdc8841123f8a6f
 ;
 ; ATTRIBUTOR-LABEL: define ptr @gep1_no_null_opt(
 ; ATTRIBUTOR-SAME: ptr nofree readnone [[P:%.*]]) #[[ATTR9:[0-9]+]] {
@@ -1099,19 +1039,12 @@ define ptr @gep1_no_null_opt(ptr %p) #0 {
 }
 
 define ptr addrspace(3) @gep2(ptr addrspace(3) %p) {
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; FNATTRS-NO-SS-LABEL: define ptr addrspace(3) @gep2
-; FNATTRS-NO-SS-SAME: (ptr addrspace(3) readnone [[P:%.*]]) #[[ATTR0]] {
+; FNATTRS-NO-SS-LABEL: define ptr addrspace(3) @gep2(
+; FNATTRS-NO-SS-SAME: ptr addrspace(3) readnone [[P:%.*]]) #[[ATTR0]] {
 ; FNATTRS-NO-SS-NEXT:    [[Q:%.*]] = getelementptr inbounds i32, ptr addrspace(3) [[P]], i32 1
 ; FNATTRS-NO-SS-NEXT:    ret ptr addrspace(3) [[Q]]
 ; end INTEL_CUSTOMIZATION
-=======
-; FNATTRS-LABEL: define ptr addrspace(3) @gep2(
-; FNATTRS-SAME: ptr addrspace(3) readnone [[P:%.*]]) #[[ATTR0]] {
-; FNATTRS-NEXT:    [[Q:%.*]] = getelementptr inbounds i32, ptr addrspace(3) [[P]], i32 1
-; FNATTRS-NEXT:    ret ptr addrspace(3) [[Q]]
->>>>>>> 2ad41fa73688cd94ad28497a1fdc8841123f8a6f
 ;
 ; ATTRIBUTOR-LABEL: define ptr addrspace(3) @gep2(
 ; ATTRIBUTOR-SAME: ptr addrspace(3) nofree readnone [[P:%.*]]) #[[ATTR0]] {
@@ -1482,10 +1415,9 @@ declare void @sink(ptr)
 
 ; FIXME: the sink argument should be marked nonnull as in @PR43833_simple.
 define void @PR43833(ptr %0, i32 %1) {
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; FNATTRS-NO-SS-LABEL: define void @PR43833
-; FNATTRS-NO-SS-SAME: (ptr [[TMP0:%.*]], i32 [[TMP1:%.*]]) {
+; FNATTRS-NO-SS-LABEL: define void @PR43833(
+; FNATTRS-NO-SS-SAME: ptr [[TMP0:%.*]], i32 [[TMP1:%.*]]) {
 ; FNATTRS-NO-SS-NEXT:    [[TMP3:%.*]] = icmp sgt i32 [[TMP1]], 1
 ; FNATTRS-NO-SS-NEXT:    br i1 [[TMP3]], label [[TMP4:%.*]], label [[TMP7:%.*]]
 ; FNATTRS-NO-SS:       4:
@@ -1535,24 +1467,6 @@ define void @PR43833(ptr %0, i32 %1) {
 ; FNATTRS-SS-NEXT:    [[TMP11:%.*]] = icmp eq i32 [[TMP10]], [[TMP1]]
 ; FNATTRS-SS-NEXT:    br i1 [[TMP11]], label [[TMP7]], label [[TMP8]]
 ; end INTEL_CUSTOMIZATION
-=======
-; COMMON-LABEL: define void @PR43833(
-; COMMON-SAME: ptr [[TMP0:%.*]], i32 [[TMP1:%.*]]) {
-; COMMON-NEXT:    [[TMP3:%.*]] = icmp sgt i32 [[TMP1]], 1
-; COMMON-NEXT:    br i1 [[TMP3]], label [[TMP4:%.*]], label [[TMP7:%.*]]
-; COMMON:       4:
-; COMMON-NEXT:    [[TMP5:%.*]] = zext i32 [[TMP1]] to i64
-; COMMON-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, ptr [[TMP0]], i64 [[TMP5]]
-; COMMON-NEXT:    br label [[TMP8:%.*]]
-; COMMON:       7:
-; COMMON-NEXT:    ret void
-; COMMON:       8:
-; COMMON-NEXT:    [[TMP9:%.*]] = phi i32 [ 1, [[TMP4]] ], [ [[TMP10:%.*]], [[TMP8]] ]
-; COMMON-NEXT:    tail call void @sink(ptr [[TMP6]])
-; COMMON-NEXT:    [[TMP10]] = add nuw nsw i32 [[TMP9]], 1
-; COMMON-NEXT:    [[TMP11:%.*]] = icmp eq i32 [[TMP10]], [[TMP1]]
-; COMMON-NEXT:    br i1 [[TMP11]], label [[TMP7]], label [[TMP8]]
->>>>>>> 2ad41fa73688cd94ad28497a1fdc8841123f8a6f
 ;
   %3 = icmp sgt i32 %1, 1
   br i1 %3, label %4, label %7
@@ -1575,10 +1489,9 @@ define void @PR43833(ptr %0, i32 %1) {
 
 ; Adjusted from PR43833
 define void @PR43833_simple(ptr %0, i32 %1) {
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; FNATTRS-NO-SS-LABEL: define void @PR43833_simple
-; FNATTRS-NO-SS-SAME: (ptr [[TMP0:%.*]], i32 [[TMP1:%.*]]) {
+; FNATTRS-NO-SS-LABEL: define void @PR43833_simple(
+; FNATTRS-NO-SS-SAME: ptr [[TMP0:%.*]], i32 [[TMP1:%.*]]) {
 ; FNATTRS-NO-SS-NEXT:    [[TMP3:%.*]] = icmp ne i32 [[TMP1]], 0
 ; FNATTRS-NO-SS-NEXT:    br i1 [[TMP3]], label [[TMP4:%.*]], label [[TMP7:%.*]]
 ; FNATTRS-NO-SS:       4:
@@ -1628,24 +1541,6 @@ define void @PR43833_simple(ptr %0, i32 %1) {
 ; FNATTRS-SS-NEXT:    [[TMP11:%.*]] = icmp eq i32 [[TMP10]], [[TMP1]]
 ; FNATTRS-SS-NEXT:    br i1 [[TMP11]], label [[TMP7]], label [[TMP8]]
 ; end INTEL_CUSTOMIZATION
-=======
-; COMMON-LABEL: define void @PR43833_simple(
-; COMMON-SAME: ptr [[TMP0:%.*]], i32 [[TMP1:%.*]]) {
-; COMMON-NEXT:    [[TMP3:%.*]] = icmp ne i32 [[TMP1]], 0
-; COMMON-NEXT:    br i1 [[TMP3]], label [[TMP4:%.*]], label [[TMP7:%.*]]
-; COMMON:       4:
-; COMMON-NEXT:    [[TMP5:%.*]] = zext i32 [[TMP1]] to i64
-; COMMON-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, ptr [[TMP0]], i64 [[TMP5]]
-; COMMON-NEXT:    br label [[TMP8:%.*]]
-; COMMON:       7:
-; COMMON-NEXT:    ret void
-; COMMON:       8:
-; COMMON-NEXT:    [[TMP9:%.*]] = phi i32 [ 1, [[TMP4]] ], [ [[TMP10:%.*]], [[TMP8]] ]
-; COMMON-NEXT:    tail call void @sink(ptr [[TMP6]])
-; COMMON-NEXT:    [[TMP10]] = add nuw nsw i32 [[TMP9]], 1
-; COMMON-NEXT:    [[TMP11:%.*]] = icmp eq i32 [[TMP10]], [[TMP1]]
-; COMMON-NEXT:    br i1 [[TMP11]], label [[TMP7]], label [[TMP8]]
->>>>>>> 2ad41fa73688cd94ad28497a1fdc8841123f8a6f
 ;
   %3 = icmp ne i32 %1, 0
   br i1 %3, label %4, label %7
