@@ -33,9 +33,9 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
-#include "llvm/IR/IRBuilder.h"           // INTEL
+#include "llvm/IR/IRBuilder.h" // INTEL
 #include "llvm/Support/CheckedArithmetic.h"
-#include <optional>
+#include <optional> // INTEL
 
 namespace llvm {
 class TargetLibraryInfo;
@@ -328,8 +328,8 @@ struct VFShape {
 
     return {EC, Parameters};
   }
-  /// Validation check on the Parameters in the VFShape,
 #if INTEL_CUSTOMIZATION
+  /// Validation check on the Parameters in the VFShape,
   /// with an added parameter that controls whether to accept variable-strided
   /// params which point to themselves. This is necessary to allow certain
   /// vector variants that we generate during call vec decisions.

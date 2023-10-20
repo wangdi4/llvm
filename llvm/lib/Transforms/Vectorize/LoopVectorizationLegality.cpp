@@ -926,7 +926,7 @@ bool LoopVectorizationLegality::canVectorizeInstrs() {
       //   * Are debug info intrinsics.
       //   * Have a mapping to an IR intrinsic.
       //   * Have a vector version available.
-      //   * Are not glibc sincos. //INTEL
+      //   * Are not glibc sincos. // INTEL
       auto *CI = dyn_cast<CallInst>(&I);
 
       if (CI && !getVectorIntrinsicIDForCall(CI, TLI) &&

@@ -900,8 +900,9 @@ bool Vectorizer::vectorizeChain(Chain &C) {
 
     // Chain is in offset order, so C[0] is the instr with the lowest offset,
     // i.e. the root of the vector.
-    VecInst = Builder.CreateAlignedLoad(
-        VecTy, getLoadStorePointerOperand(C[0].Inst), Alignment);
+    VecInst = Builder.CreateAlignedLoad(VecTy,
+                                        getLoadStorePointerOperand(C[0].Inst),
+                                        Alignment);
 
     unsigned VecIdx = 0;
     for (const ChainElem &E : C) {
@@ -974,7 +975,9 @@ bool Vectorizer::vectorizeChain(Chain &C) {
     // Chain is in offset order, so C[0] is the instr with the lowest offset,
     // i.e. the root of the vector.
     VecInst = Builder.CreateAlignedStore(
-        Vec, getLoadStorePointerOperand(C[0].Inst), Alignment);
+        Vec,
+        getLoadStorePointerOperand(C[0].Inst),
+        Alignment);
   }
   propagateMetadata(VecInst, C);
 

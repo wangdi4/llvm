@@ -407,7 +407,7 @@ static cl::opt<bool> VectorizeNonReadonlyLibCalls(
     "vectorize-non-readonly-libcalls", cl::init(true), cl::Hidden,
     cl::desc(
         "Vectorize library calls even if they don't have readonly attribute."));
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> PrintVPlansInDotFormat(
     "vplan-print-in-dot-format", cl::Hidden,
@@ -3381,7 +3381,7 @@ InstructionCost LoopVectorizationCostModel::getVectorCallCost(
   // is non-default behavior.
   if (!VectorizeNonReadonlyLibCalls && !CI->onlyReadsMemory())
     return Cost;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // If the corresponding vector cost is cheaper, return its cost.
   InstructionCost VectorCallCost =
@@ -7530,15 +7530,15 @@ LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC,
 
   // Populate the set of Vectorization Factor Candidates.
   ElementCountSet VFCandidates;
+#if INTEL_CUSTOMIZATION
   for (auto I = ElementCount::getFixed(1);
        ElementCount::isKnownLE(I, MaxFactors.FixedVF); I *= 2)
-    if (llvm::is_contained(VFs, I) || VFs.size() == 0) // INTEL_CUSTOMIZATION
-      VFCandidates.insert(I);                          // INTEL_CUSTOMIZATION
+    if (llvm::is_contained(VFs, I) || VFs.size() == 0)
+      VFCandidates.insert(I);
 
   // The cost model should always be able to decide not to vectorize if
   // vectorization is not forced
   VFCandidates.insert(ElementCount::getFixed(1));
-#if INTEL_CUSTOMIZATION
   if(llvm::is_contained(VFs, ElementCount::getFixed(0)))
     VFCandidates.insert(ElementCount::getFixed(1));
   if(!VFCandidates.size())
@@ -10277,7 +10277,7 @@ bool LoopVectorizePass::processLoop(Loop *L) {
   MDNode *RemainderLoopWithoutOptReport = OptReport::eraseOptReportFromLoopID(
       L->getLoopID(), L->getLoopID()->getContext());
   L->setLoopID(RemainderLoopWithoutOptReport);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   assert(!verifyFunction(*L->getHeader()->getParent(), &dbgs()));
   return true;
