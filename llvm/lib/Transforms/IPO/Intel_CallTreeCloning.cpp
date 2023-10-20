@@ -2603,8 +2603,9 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
     }
   }
   assert(NewArgs.size() == (NumArgs - NumConstArgs) && "arg num mismatch");
-  assert(!Call->hasOperandBundles() && "TODO: support operand bundles");
-  CallInst *NewCall = CallInst::Create(Clone, NewArgs, "", Call);
+  SmallVector<OperandBundleDef, 1> OpBundles;
+  Call->getOperandBundlesAsDefs(OpBundles);
+  CallInst *NewCall = CallInst::Create(Clone, NewArgs, OpBundles, "", Call);
   getInlineReport()->replaceCallBaseWithCallBase(Call, NewCall);
   getMDInlineReport()->replaceCallBaseWithCallBase(Call, NewCall);
   NewCall->setCallingConv(Call->getCallingConv());
