@@ -44,5 +44,5 @@ void llvm::initializeVectorization(PassRegistry &Registry) {
   initializeVPlanPragmaOmpOrderedSimdExtractPass(Registry);
   initializeVPlanPragmaOmpSimdIfPass(Registry);
   initializeVPlanFunctionVectorizerLegacyPassPass(Registry);
-#endif
+#endif // INTEL_CUSTOMIZATION
 }

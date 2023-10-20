@@ -30,7 +30,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringExtras.h" // INTEL
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
@@ -2562,7 +2562,7 @@ bool VFShape::hasValidParameterList(bool Permissive) const { // INTEL
         // this case should be disallowed again.
         return true;
       }
-#endif
+#endif // INTEL_CUSTOMIZATION
       // The linear step parameter must be marked as uniform.
       if (Parameters[Parameters[Pos].LinearStepOrPos].ParamKind !=
           VFParamKind::OMP_Uniform)
