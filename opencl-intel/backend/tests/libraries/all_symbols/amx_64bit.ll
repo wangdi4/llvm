@@ -184,6 +184,7 @@
 ; CHECK-NEXT: _Z11GetImagePtr26ocl_image2d_array_depth_rwi
 ; CHECK-NEXT: _Z11GetImagePtr26ocl_image2d_array_depth_wof
 ; CHECK-NEXT: _Z11GetImagePtr26ocl_image2d_array_depth_woi
+; CHECK-NEXT: _Z11__ocl20_addDhDh
 ; CHECK-NEXT: _Z11__ocl20_adddd
 ; CHECK-NEXT: _Z11__ocl20_addff
 ; CHECK-NEXT: _Z11__ocl20_addii
@@ -209,6 +210,7 @@
 ; CHECK-NEXT: _Z11__ocl20_minlm
 ; CHECK-NEXT: _Z11__ocl20_minml
 ; CHECK-NEXT: _Z11__ocl20_minmm
+; CHECK-NEXT: _Z11__ocl20_subDhDh
 ; CHECK-NEXT: _Z11__ocl20_subdd
 ; CHECK-NEXT: _Z11__ocl20_subff
 ; CHECK-NEXT: _Z11__ocl20_subii
@@ -1676,6 +1678,7 @@
 ; CHECK-NEXT: _Z15vstore_half_rtzfmPU3AS4Dh
 ; CHECK-NEXT: _Z15write_mem_fencej
 ; CHECK-NEXT: _Z16ProjectToEdgeIntP15_image_aux_dataDv4_i
+; CHECK-NEXT: _Z16atomic_fetch_addPU3AS1VU7_AtomicDhDh
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS1VU7_Atomicdd
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS1VU7_Atomicff
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS1VU7_Atomicii
@@ -1683,6 +1686,7 @@
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS1VU7_Atomicll
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS1VU7_Atomicml
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS1VU7_Atomicmm
+; CHECK-NEXT: _Z16atomic_fetch_addPU3AS3VU7_AtomicDhDh
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS3VU7_Atomicdd
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS3VU7_Atomicff
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS3VU7_Atomicii
@@ -1690,6 +1694,7 @@
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS3VU7_Atomicll
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS3VU7_Atomicml
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS3VU7_Atomicmm
+; CHECK-NEXT: _Z16atomic_fetch_addPU3AS4VU7_AtomicDhDh
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS4VU7_Atomicdd
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS4VU7_Atomicff
 ; CHECK-NEXT: _Z16atomic_fetch_addPU3AS4VU7_Atomicii
@@ -1769,6 +1774,7 @@
 ; CHECK-NEXT: _Z16atomic_fetch_minPU3AS4VU7_Atomiclm
 ; CHECK-NEXT: _Z16atomic_fetch_minPU3AS4VU7_Atomicml
 ; CHECK-NEXT: _Z16atomic_fetch_minPU3AS4VU7_Atomicmm
+; CHECK-NEXT: _Z16atomic_fetch_subPU3AS1VU7_AtomicDhDh
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS1VU7_Atomicdd
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS1VU7_Atomicff
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS1VU7_Atomicii
@@ -1776,6 +1782,7 @@
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS1VU7_Atomicll
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS1VU7_Atomicml
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS1VU7_Atomicmm
+; CHECK-NEXT: _Z16atomic_fetch_subPU3AS3VU7_AtomicDhDh
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS3VU7_Atomicdd
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS3VU7_Atomicff
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS3VU7_Atomicii
@@ -1783,6 +1790,7 @@
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS3VU7_Atomicll
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS3VU7_Atomicml
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS3VU7_Atomicmm
+; CHECK-NEXT: _Z16atomic_fetch_subPU3AS4VU7_AtomicDhDh
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS4VU7_Atomicdd
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS4VU7_Atomicff
 ; CHECK-NEXT: _Z16atomic_fetch_subPU3AS4VU7_Atomicii
@@ -4202,6 +4210,8 @@
 ; CHECK-NEXT: _Z25__finalize_work_group_anyDv64_iS_
 ; CHECK-NEXT: _Z25__finalize_work_group_anyDv8_i
 ; CHECK-NEXT: _Z25__finalize_work_group_anyDv8_iS_
+; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS1VU7_AtomicDhDh12memory_order
+; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS1VU7_AtomicDhDh12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS1VU7_Atomicdd12memory_order
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS1VU7_Atomicdd12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS1VU7_Atomicff12memory_order
@@ -4216,6 +4226,8 @@
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS1VU7_Atomicml12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS1VU7_Atomicmm12memory_order
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS1VU7_Atomicmm12memory_order12memory_scope
+; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS3VU7_AtomicDhDh12memory_order
+; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS3VU7_AtomicDhDh12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS3VU7_Atomicdd12memory_order
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS3VU7_Atomicdd12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS3VU7_Atomicff12memory_order
@@ -4230,6 +4242,8 @@
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS3VU7_Atomicml12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS3VU7_Atomicmm12memory_order
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS3VU7_Atomicmm12memory_order12memory_scope
+; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS4VU7_AtomicDhDh12memory_order
+; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS4VU7_AtomicDhDh12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS4VU7_Atomicdd12memory_order
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS4VU7_Atomicdd12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_add_explicitPU3AS4VU7_Atomicff12memory_order
@@ -4388,6 +4402,8 @@
 ; CHECK-NEXT: _Z25atomic_fetch_min_explicitPU3AS4VU7_Atomicml12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_min_explicitPU3AS4VU7_Atomicmm12memory_order
 ; CHECK-NEXT: _Z25atomic_fetch_min_explicitPU3AS4VU7_Atomicmm12memory_order12memory_scope
+; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS1VU7_AtomicDhDh12memory_order
+; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS1VU7_AtomicDhDh12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS1VU7_Atomicdd12memory_order
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS1VU7_Atomicdd12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS1VU7_Atomicff12memory_order
@@ -4402,6 +4418,8 @@
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS1VU7_Atomicml12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS1VU7_Atomicmm12memory_order
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS1VU7_Atomicmm12memory_order12memory_scope
+; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS3VU7_AtomicDhDh12memory_order
+; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS3VU7_AtomicDhDh12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS3VU7_Atomicdd12memory_order
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS3VU7_Atomicdd12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS3VU7_Atomicff12memory_order
@@ -4416,6 +4434,8 @@
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS3VU7_Atomicml12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS3VU7_Atomicmm12memory_order
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS3VU7_Atomicmm12memory_order12memory_scope
+; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS4VU7_AtomicDhDh12memory_order
+; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS4VU7_AtomicDhDh12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS4VU7_Atomicdd12memory_order
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS4VU7_Atomicdd12memory_order12memory_scope
 ; CHECK-NEXT: _Z25atomic_fetch_sub_explicitPU3AS4VU7_Atomicff12memory_order
