@@ -989,6 +989,21 @@ TRACE_FN_DEF(zeModuleGetKernelNames)(
 #define CALL_ZE_RET_ZERO(Fn, ...) CALL_ZE_RET(0, Fn, __VA_ARGS__)
 #define CALL_ZE_RET_VOID(Fn, ...) CALL_ZE_RET(, Fn, __VA_ARGS__)
 
+#define CALL_ZE_RET_FAIL_MSG(Fn, Dev, ...)                                     \
+  do {                                                                         \
+    ze_result_t rc;                                                            \
+    CALL_ZE(rc, Fn, __VA_ARGS__);                                              \
+    if (rc != ZE_RESULT_SUCCESS) {                                             \
+      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,    \
+         getZeErrorName(rc));                                                  \
+      const char *err_str = nullptr;                                           \
+      rc = zeDriverGetLastErrorDescription(                                    \
+          DeviceInfo->DriverInfo[Dev]->Driver, &err_str);                      \
+      fprintf(stderr, "Error: %s:%s failed with %s\n", __func__, #Fn,          \
+              err_str);                                                        \
+    }                                                                          \
+  } while (0)
+
 #define CALL_ZE_EXIT_FAIL(Fn, ...)                                             \
   do {                                                                         \
     ze_result_t rc;                                                            \
