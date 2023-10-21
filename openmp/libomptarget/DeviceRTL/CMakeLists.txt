@@ -100,6 +100,7 @@ endif()
 list(REMOVE_DUPLICATES LIBOMPTARGET_DEVICE_ARCHITECTURES)
 
 set(include_files
+  ${include_directory}/Allocator.h
   ${include_directory}/Configuration.h
   ${include_directory}/Debug.h
   ${include_directory}/Interface.h
@@ -112,6 +113,7 @@ set(include_files
 )
 
 set(src_files
+  ${source_directory}/Allocator.cpp
   ${source_directory}/Configuration.cpp
   ${source_directory}/Debug.cpp
   ${source_directory}/Kernel.cpp
