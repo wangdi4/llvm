@@ -1126,6 +1126,7 @@ class SlotIndexUpdateDelegate : public MachineFunction::Delegate {
 private:
   MachineFunction &MF;
   SlotIndexes *Indexes;
+  SmallSetVector<MachineInstr *, 2> Insertions;
 
 public:
   SlotIndexUpdateDelegate(MachineFunction &MF, SlotIndexes *Indexes)
@@ -1133,15 +1134,20 @@ public:
     MF.setDelegate(this);
   }
 
-  ~SlotIndexUpdateDelegate() { MF.resetDelegate(this); }
+  ~SlotIndexUpdateDelegate() {
+    MF.resetDelegate(this);
+    for (auto MI : Insertions)
+      Indexes->insertMachineInstrInMaps(*MI);
+  }
 
   void MF_HandleInsertion(MachineInstr &MI) override {
+    // This is called before MI is inserted into block so defer index update.
     if (Indexes)
-      Indexes->insertMachineInstrInMaps(MI);
+      Insertions.insert(&MI);
   }
 
   void MF_HandleRemoval(MachineInstr &MI) override {
-    if (Indexes)
+    if (Indexes && !Insertions.remove(&MI))
       Indexes->removeMachineInstrFromMaps(MI);
   }
 };
