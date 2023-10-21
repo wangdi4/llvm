@@ -156,11 +156,13 @@ void foo4() {
     // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_32:[0-9]+]]
   }
   #pragma vector nodynamic_align
+  #pragma vector unaligned
   #pragma vector novecremainder
   for(int i = 0;i < n; ++i) {
     // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_33:[0-9]+]]
   }
   #pragma vector always assert
+  #pragma vector unaligned
   for(int i = 0;i < n; ++i) {
     // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_34:[0-9]+]]
   }
@@ -196,9 +198,10 @@ void foo4() {
 // CHECK: ![[LOOP_32]] = distinct !{![[LOOP_32]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[VALIGNED]], ![[DYNAMICALIGN:[0-9]+]], ![[VECREMAINDER:[0-9]+]]}
 // CHECK: ![[DYNAMICALIGN]] = !{!"llvm.loop.intel.vector.dynamic_align", !"true"}
 // CHECK: ![[VECREMAINDER]] = !{!"llvm.loop.intel.vector.vecremainder", !"true"}
-// CHECK: ![[LOOP_33]] = distinct !{![[LOOP_33]], ![[LOOP_MUSTPROGRESS]], ![[NODYNAMICALIGN:[0-9]+]], ![[NOVECREMAINDER:[0-9]+]]}
+// CHECK: ![[LOOP_33]] = distinct !{![[LOOP_33]], ![[LOOP_MUSTPROGRESS]], ![[UNALIGNED:[0-9]+]], ![[NODYNAMICALIGN:[0-9]+]], ![[NOVECREMAINDER:[0-9]+]]}
+// CHECK: ![[UNALIGNED]] = !{!"llvm.loop.intel.vector.unaligned"}
 // CHECK: ![[NODYNAMICALIGN]] = !{!"llvm.loop.intel.vector.nodynamic_align", !"true"}
 // CHECK: ![[NOVECREMAINDER]] = !{!"llvm.loop.intel.vector.novecremainder", !"true"}
-// CHECK: ![[LOOP_34]] = distinct !{![[LOOP_34]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[ALWAYSASSERT:[0-9]+]]}
+// CHECK: ![[LOOP_34]] = distinct !{![[LOOP_34]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[ALWAYSASSERT:[0-9]+]], ![[UNALIGNED]]}
 // CHECK: ![[ALWAYSASSERT]] = !{!"llvm.loop.intel.vector.assert"}
 // CHECK: ![[LOOP_35]] = distinct !{![[LOOP_35]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[ALWAYSASSERT]], ![[VALIGNED]]}

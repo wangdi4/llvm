@@ -119,6 +119,9 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.vector.aligned.enable metadata.
   bool VectorizeAlignedEnable;
 
+  /// Value for llvm.loop.intel.vector.unaligned.enable metadata.
+  bool VectorizeUnAlignedEnable;
+
   /// Value for llvm.loop.intel.vector.dynamic_align.enable metadata.
   bool VectorizeDynamicAlignEnable;
 
@@ -481,6 +484,10 @@ public:
     StagedAttrs.VectorizeAlignedEnable = true;
   }
 
+  /// Set next pushed loop  'vector.unaligned.enable'
+  void setVectorizeUnAlignedEnable() {
+    StagedAttrs.VectorizeUnAlignedEnable = true;
+  }
 
   /// Set next pushed loop  'vector.dynamic_aligned.enable'
   void setVectorizeDynamicAlignEnable() {

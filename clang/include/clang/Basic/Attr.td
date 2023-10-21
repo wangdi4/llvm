@@ -4977,7 +4977,7 @@ def LoopHint : Attr {
                            "min_ii_at_target_fmax",
                            "force_hyperopt",
                            "distribute_point", "fusion",
-                           "novector", "always", "aligned",
+                           "novector", "always", "aligned", "unaligned",
                            "dynamic_align","nodynamic_align",
                            "vecremainder","novecremainder", "assert",
                            "temporal", "nontemporal", "vectorlength",
@@ -4994,6 +4994,7 @@ def LoopHint : Attr {
                            "IIAtMost", "IIAtLeast", "MinIIAtFmax",
                            "ForceHyperopt", "Distribute", "Fusion", "Vectorize",
                            "VectorizeAlways", "VectorizeAligned",
+                           "VectorizeUnAligned",
                            "VectorizeDynamicAlign", "VectorizeNoDynamicAlign",
                            "VectorizeVecremainder", "VectorizeNoVecremainder",
                            "VectorizeAlwaysAssert", "VectorizeTemporal",
@@ -5030,6 +5031,7 @@ def LoopHint : Attr {
 // INTEL_CUSTOMIZATION
     case VectorizeAlways: return "always";
     case VectorizeAligned: return "aligned";
+    case VectorizeUnAligned: return "unaligned";
     case VectorizeDynamicAlign: return "dynamic_align";
     case VectorizeNoDynamicAlign: return "nodynamic_align";
     case VectorizeVecremainder: return "vecremainder";
