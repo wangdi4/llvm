@@ -53,6 +53,12 @@ def warn_pragma_vector_invalid_option
               "%select{expected always|always must precede assert qualifier}0 "
               "- ignored">,
       InGroup<IgnoredPragmas>;
+def warn_pragma_vector_conflicting_aligned_unaligned
+    : Warning<"%select{'aligned'|'unaligned'}0 clause conflicts with "
+              "%select{'unaligned'|'aligned'}0 clause">,
+      InGroup<IgnoredPragmas>;
+def note_pragma_vector_conflicting_aligned_unaligned
+    : Note<"%select{'aligned'|'unaligned'}0 is used here">;
 def warn_pragma_block_loop_invalid_option : Warning<
   "invalid option%select{ %1|}0; expected factor, level or private - ignored">,
   InGroup<IgnoredPragmas>;

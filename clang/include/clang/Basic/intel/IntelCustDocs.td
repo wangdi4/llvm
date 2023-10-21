@@ -792,6 +792,7 @@ Syntax:
 
 Currently we only support ``pragma vector``, ``pragma vector always``,
 ``pragma vector aligned``, ``pragma vector dynamic_align``,
+``pragma vector unaligned``,
 ``pragma vector nodynamic_align``, ``pragma vector vecremainder``,
 ``pragma vector novecremainder``, ``pragma vector always assert``,
 ``pragma vector temporal``, ``pragma vecotor nontemporal`` and
@@ -810,6 +811,8 @@ Example:
     #pragma vector always
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
     #pragma vector aligned
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector unaligned
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
     #pragma vector dynamic_align
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
@@ -854,6 +857,10 @@ AST:
   | |-<<<NULL>>>
   | `-<<<NULL>>>
 
+  AttributedStmt 0x2d888a37748 <line:6:11, line:7:46>
+  |-LoopHintAttr 0x2d888a37708 <line:6:11> Implicit vector VectorizeUnAligned Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
 
   AttributedStmt 0x2d888a37748 <line:6:11, line:7:46>
   |-LoopHintAttr 0x2d888a37708 <line:6:11> Implicit vector VectorizeDynamicAlign Enable

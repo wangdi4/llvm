@@ -29,6 +29,26 @@ void zoo()
   #pragma vector aligned aligned
   for(int j=1; j<10; j++) { a[j]=1; }
 
+// expected-error@+1 {{duplicate directives '#pragma vector unaligned' and '#pragma vector unaligned'}}
+  #pragma vector unaligned unaligned
+  for(int j=1; j<10; j++) { a[j]=1; }
+
+// expected-note@+2 {{'aligned' is used here}}
+// expected-warning@+1 {{'unaligned' clause conflicts with 'aligned' clause}}
+  #pragma vector aligned unaligned
+  for(int j=1; j<10; j++) { a[j]=1; }
+
+// expected-note@+2 {{'unaligned' is used here}}
+// expected-warning@+1 {{'aligned' clause conflicts with 'unaligned' clause}}
+  #pragma vector unaligned aligned
+  for(int j=1; j<10; j++) { a[j]=1; }
+
+// expected-error@+3 {{duplicate directives '#pragma vector aligned' and '#pragma vector aligned'}}
+// expected-note@+2 2{{'unaligned' is used here}}
+// expected-warning@+1 2{{'aligned' clause conflicts with 'unaligned' clause}}
+  #pragma vector unaligned aligned aligned
+  for(int j=1; j<10; j++) { a[j]=1; }
+
 // expected-error@+1 {{duplicate directives '#pragma vector dynamic_align' and '#pragma vector dynamic_align'}}
 #pragma vector dynamic_align dynamic_align
   for(int j=1; j<10; j++) { a[j]=1; }
