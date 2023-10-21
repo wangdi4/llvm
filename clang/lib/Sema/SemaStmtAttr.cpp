@@ -712,6 +712,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                  OptionLoc->Ident->getName())
                  .Case("always", LoopHintAttr::VectorizeAlways)
                  .Case("aligned", LoopHintAttr::VectorizeAligned)
+                 .Case("unaligned", LoopHintAttr::VectorizeUnAligned)
                  .Case("dynamic_align", LoopHintAttr::VectorizeDynamicAlign)
                  .Case("nodynamic_align", LoopHintAttr::VectorizeNoDynamicAlign)
                  .Case("vecremainder", LoopHintAttr::VectorizeVecremainder)
@@ -1321,6 +1322,7 @@ CheckForIncompatibleAttributes(Sema &S,
     Fusion,
     VectorAlways,
     VectorAligned,
+    VectorUnAligned,
     VectorDynamicAlign,
     VectorNoDynamicAlign,
     VectorVecremainder,
@@ -1393,6 +1395,9 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     case LoopHintAttr::VectorizeAligned:
       Category = VectorAligned;
+      break;
+    case LoopHintAttr::VectorizeUnAligned:
+      Category = VectorUnAligned;
       break;
     case LoopHintAttr::VectorizeDynamicAlign:
       Category = VectorDynamicAlign;
@@ -1521,6 +1526,7 @@ CheckForIncompatibleAttributes(Sema &S,
                Option == LoopHintAttr::MinIIAtFmax ||
                Option == LoopHintAttr::VectorizeAlways ||
                Option == LoopHintAttr::VectorizeAligned ||
+               Option == LoopHintAttr::VectorizeUnAligned ||
                Option == LoopHintAttr::VectorizeDynamicAlign ||
                Option == LoopHintAttr::VectorizeNoDynamicAlign ||
                Option == LoopHintAttr::VectorizeVecremainder ||
