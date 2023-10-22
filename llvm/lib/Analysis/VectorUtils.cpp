@@ -29,8 +29,11 @@
 
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/ADT/EquivalenceClasses.h"
+<<<<<<< HEAD
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h" // INTEL
+=======
+>>>>>>> 3b7bfeb483e78d355ec3527aa31786e2545470ea
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
