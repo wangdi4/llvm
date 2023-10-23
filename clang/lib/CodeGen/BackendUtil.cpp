@@ -1141,15 +1141,13 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
           });
     }
 
-    const bool PrepareForThinOrUnifiedLTO =
-        PrepareForThinLTO || (PrepareForLTO && CodeGenOpts.UnifiedLTO);
     if (CodeGenOpts.DisableSYCLEarlyOpts) {
       MPM.addPass(PB.buildO0DefaultPipeline(OptimizationLevel::O0,
                                       PrepareForLTO || PrepareForThinLTO));
     } else if (CodeGenOpts.FatLTO) {
       MPM.addPass(PB.buildFatLTODefaultPipeline(
-          Level, PrepareForThinOrUnifiedLTO,
-          PrepareForThinOrUnifiedLTO || shouldEmitRegularLTOSummary()));
+          Level, PrepareForThinLTO,
+          PrepareForThinLTO || shouldEmitRegularLTOSummary()));
     } else if (PrepareForThinLTO) {
       MPM.addPass(PB.buildThinLTOPreLinkDefaultPipeline(Level));
     } else if (PrepareForLTO) {
