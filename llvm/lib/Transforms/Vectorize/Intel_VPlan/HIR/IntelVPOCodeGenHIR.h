@@ -16,7 +16,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 
-#include "../IntelVPlanDriver.h"
+#include "../Driver.h"
 #include "../IntelVPlanIdioms.h"
 #include "../IntelVPlanLoopUnroller.h"
 #include "../IntelVPlanOptrpt.h"

@@ -17,8 +17,8 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZATIONPLANNER_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZATIONPLANNER_H
 
+#include "Driver.h"
 #include "IntelVPlan.h"
-#include "IntelVPlanDriver.h"
 #include "IntelVPlanLoopUnroller.h"
 #include "IntelVPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
