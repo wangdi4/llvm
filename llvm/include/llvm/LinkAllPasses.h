@@ -167,7 +167,6 @@ namespace {
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createLoopRotatePass();
       (void) llvm::createLowerConstantIntrinsicsPass();
-      (void) llvm::createLowerExpectIntrinsicPass();
       (void) llvm::createLowerGlobalDtorsLegacyPass();
       (void) llvm::createLowerInvokePass();
       (void) llvm::createLowerSwitchPass();

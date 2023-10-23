@@ -328,12 +328,6 @@ Pass *createMergeICmpsLegacyPass();
 FunctionPass *createInferAddressSpacesPass(unsigned AddressSpace = ~0u);
 extern char &InferAddressSpacesID;
 
-//===----------------------------------------------------------------------===//
-//
-// LowerExpectIntrinsics - Removes llvm.expect intrinsics and creates
-// "block_weights" metadata.
-FunctionPass *createLowerExpectIntrinsicPass();
-
 #if INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //
