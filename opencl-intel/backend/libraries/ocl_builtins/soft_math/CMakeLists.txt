@@ -18,6 +18,9 @@ set(SOFT_MATH_SOURCE_FILES extendhfsf2.c int_util.c truncdfhf2.c truncsfhf2.c)
 # Convert compile flags to list to facilitate custom command
 string(REPLACE " " ";" SOFT_MATH_CFLAGS ${CMAKE_C_FLAGS})
 
+# Ignore incompatible compiler options from CMAKE_C_FLAGS
+list(APPEND SOFT_MATH_CFLAGS -Wno-unknown-argument)
+
 if(NOT WIN32)
   set(COMPILER ${CLANG_BIN_PATH})
   set(OBJECT_SUFFIX .o)
