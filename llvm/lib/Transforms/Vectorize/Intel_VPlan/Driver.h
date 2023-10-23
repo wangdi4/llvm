@@ -1,20 +1,29 @@
-//===-- IntelVPlanDriver.h ----------------------------------------------===//
+//===-- Driver.h --------------------------------------------------------===//
 //
-//   Copyright (C) 2019 Intel Corporation. All rights reserved.
+//   INTEL CONFIDENTIAL
 //
-//   The information and source code contained herein is the exclusive
-//   property of Intel Corporation and may not be disclosed, examined
-//   or reproduced in whole or in part without explicit written authorization
-//   from the company.
+//   Copyright (C) 2019 Intel Corporation
+//
+//   This software and the related documents are Intel copyrighted materials,
+//   and your use of them is governed by the express license under which they
+//   were provided to you ("License").  Unless the License provides otherwise,
+//   you may not use, modify, copy, publish, distribute, disclose or treansmit
+//   this software or the related documents without Intel's prior written
+//   permission.
+//
+//   This software and the related documents are provided as is, with no
+//   express or implied warranties, other than those that are expressly
+//   stated in the License.
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the VPlan vectorizer driver pass.
+/// \file Driver.h
+/// This file defines the VPlan vectorizer driver pass.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDRIVER_H
-#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDRIVER_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_DRIVER_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_DRIVER_H
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_OptReport/OptReport.h"
@@ -236,4 +245,4 @@ public:
 } // namespace vpo
 } // namespace llvm
 
-#endif
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_DRIVER_H
