@@ -123,11 +123,11 @@ protected:
     return Plan;
   }
 
-  std::unique_ptr<VPOCodeGen> getVPOCodeGen(BasicBlock *LoopHeader, unsigned VF,
-                                            unsigned UF) {
+  std::unique_ptr<CodeGenLLVM> getVPOCodeGen(BasicBlock *LoopHeader,
+                                             unsigned VF, unsigned UF) {
     OptReportBuilder ORBuilder; // Unsetup ORBuilder
     auto Plan = buildHCFG(LoopHeader);
-    auto VPOCG = std::make_unique<VPOCodeGen>(
+    auto VPOCG = std::make_unique<CodeGenLLVM>(
         LI->getLoopFor(LoopHeader), *Ctx.get(), *PSE.get(), LI.get(), DT.get(),
         TLI.get(), TTI.get(), VF, UF, Legal.get(), nullptr /*VLSA*/, Plan.get(),
         ORBuilder);

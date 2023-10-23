@@ -211,7 +211,7 @@ class VPExternalValues {
   friend class VPLiveInOutCreator;
   // Codegen looks through the list of external uses and updates their original
   // operands.
-  friend class VPOCodeGen;
+  friend class CodeGenLLVM;
 
   Module *M = nullptr;
 

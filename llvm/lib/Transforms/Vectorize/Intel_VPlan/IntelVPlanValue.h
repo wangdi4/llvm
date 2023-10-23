@@ -70,7 +70,7 @@ class VPValue {
   friend class VPBasicBlock;
   friend class VPlanPredicator;
   friend class VPlanHCFGBuilder;
-  friend class VPOCodeGen;
+  friend class CodeGenLLVM;
   friend class VPlanDivergenceAnalysis;
   friend class VPVectorShape;
   friend class VPInstruction;
@@ -576,7 +576,7 @@ class VPExternalDef : public VPValue, public FoldingSetNode {
   friend class VPExternalValues;
   friend class VPLiveInOutCreator;
   friend class VPOCodeGenHIR;
-  friend class VPOCodeGen;
+  friend class CodeGenLLVM;
   friend class HIROperandSpecifics;
 
 private:
@@ -675,7 +675,7 @@ class VPExternalUse : public VPUser {
 private:
   friend class VPExternalValues;
   friend class VPLiveInOutCreator;
-  friend class VPOCodeGen;
+  friend class CodeGenLLVM;
   friend class VPOCodeGenHIR;
   friend class VPDecomposerHIR;
   friend class HIROperandSpecifics;

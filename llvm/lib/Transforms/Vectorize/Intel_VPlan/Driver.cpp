@@ -740,8 +740,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: " << Fn.getName()
                     << "\n");
 
-  VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, UF, &LVL,
-                      &VLSA, Plan, ORBuilder, isOmpSIMDLoop, VecErrorHandler);
+  CodeGenLLVM VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, UF, &LVL,
+                       &VLSA, Plan, ORBuilder, isOmpSIMDLoop, VecErrorHandler);
   VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
 
   // Run VLS analysis before IR for the current loop is modified.
@@ -761,7 +761,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
   CandLoopsVectorized++;
 
-  // TODO: Move this to VPOCodeGen::finalizeLoop.
+  // TODO: Move this to CodeGenLLVM::finalizeLoop.
   VCodeGen.lowerVPlanOptReportRemarks();
 
   // Mark source and vector and scalar loops with isvectorized directive so that

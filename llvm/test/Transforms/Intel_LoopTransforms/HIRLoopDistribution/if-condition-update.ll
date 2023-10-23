@@ -1,4 +1,4 @@
-; RUN: opt -xmain-opt-level=3 -disable-output -S -hir-loop-distribute-max-mem=2 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -disable-output -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Check that loop will not be distributed over the IF statement because of condition update "%t.08" inside the loop.
 

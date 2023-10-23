@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-loop-distribute-always-stripmine -hir-loop-distribute-max-mem=3 -hir-loop-distribute-scex-cost=3 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-loop-distribute-always-stripmine -hir-loop-distribute-skip-vectorization-profitability-check=true -hir-loop-distribute-scex-cost=3 < %s 2>&1 | FileCheck %s
 
 ; Verify that distribution succeeds when we need to create a new instruction to redefine
 ; the lower bound temp. i1 is a 32 bit IV but the addition to %s is of type i4 and would

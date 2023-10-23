@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec" -aa-pipeline="basic-aa" -print-after=hir-loop-distribute-memrec -disable-output -hir-loop-distribute-max-mem=3 -hir-loop-distribute-scex-cost=3 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec" -aa-pipeline="basic-aa" -print-after=hir-loop-distribute-memrec -disable-output -hir-loop-distribute-scex-cost=3 < %s 2>&1 | FileCheck %s
 
 ; %fetch.90 is being used inside the if predicate and also defined in the if.
 ; Currently this test checks that we do not do distribution for this loop.

@@ -23,7 +23,7 @@ namespace llvm {
 namespace vpo {
 class IndirectCallCodeGenerator {
 public:
-  IndirectCallCodeGenerator(VPOCodeGen *CodeGen, LoopInfo *LI, unsigned VF,
+  IndirectCallCodeGenerator(CodeGenLLVM *CodeGen, LoopInfo *LI, unsigned VF,
                             VPTransformState *State, Value *MaskValue,
                             const VPlanVector *Plan)
       : CodeGen(CodeGen), LI(LI), VF(VF), State(State), MaskValue(MaskValue),
@@ -33,7 +33,7 @@ public:
   bool vectorize(VPCallInstruction *VPCallInst);
 
 private:
-  VPOCodeGen *CodeGen = nullptr;
+  CodeGenLLVM *CodeGen = nullptr;
   LoopInfo *LI = nullptr;
   unsigned VF = 0;
   VPTransformState *State = nullptr;

@@ -114,7 +114,7 @@ class HLLoop;
 namespace vpo {
 class SyncDependenceAnalysis;
 class VPValue;
-class VPOCodeGen;
+class CodeGenLLVM;
 class VPOCodeGenHIR;
 class LegalityLLVM;
 class VPDominatorTree;
@@ -133,7 +133,7 @@ class VPlanScalarPeel;
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 // Class names mapping to minimize the diff:
-#define InnerLoopVectorizer VPOCodeGen
+#define InnerLoopVectorizer CodeGenLLVM
 #define LoopVectorizationLegality LegalityLLVM
 
 struct TripCountInfo;
@@ -410,7 +410,7 @@ class VPInstruction : public VPUser,
   friend class VPlanValueTrackingLLVM;
   friend class VPlanVLSAnalysis;
   friend class VPlanVerifier;
-  friend class VPOCodeGen;
+  friend class CodeGenLLVM;
   friend class VPCloneUtils;
   friend class VPValueMapper;
   friend class VPLoopEntityList;

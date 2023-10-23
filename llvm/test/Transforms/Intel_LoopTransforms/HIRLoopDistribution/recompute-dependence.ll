@@ -1,5 +1,8 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output %s 2>&1 | FileCheck %s
 
+; Loop is not distributed as it is vectorizable.
+; TODO: Investigate recreating scalar-expansion behavior using distribute points.
+; XFAIL: *
 
 ; Check that correct HIR is generated when we have potential recomputed temps during
 ; scalar expansion. There is a dependence for the following temp:

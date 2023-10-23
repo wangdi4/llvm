@@ -40,7 +40,7 @@ using namespace llvm::loopopt;
 namespace vpo {
 class VPlanVLSAnalysis;
 class WRNVecLoopNode;
-class VPOCodeGen;
+class CodeGenLLVM;
 class LegalityLLVM;
 class WRNVecLoopNode;
 class VPlanHCFGBuilder;
@@ -418,7 +418,7 @@ public:
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
-  void executeBestPlan(VPOCodeGen &LB);
+  void executeBestPlan(CodeGenLLVM &LB);
 
   /// Post VPlan FrontEnd pass to verify that we can process the VPlan that
   /// was constructed. There are some limitations in CG, CM, and other parts of
@@ -897,7 +897,7 @@ private:
   // LoopVectorizationCostModel *CM;
 
   // TODO: Move to base class
-  VPOCodeGen *ILV = nullptr;
+  CodeGenLLVM *ILV = nullptr;
 
   // InnerLoopVectorizer *ILV = nullptr;
 
