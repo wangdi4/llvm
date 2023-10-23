@@ -385,7 +385,6 @@ private:
 #endif
 
 public:
-<<<<<<< HEAD
   MemoryDependenceResults(
       AAResults &AA, AssumptionCache &AC, const TargetLibraryInfo &TLI,
       DominatorTree &DT, unsigned DefaultBlockScanLimit,
@@ -393,18 +392,11 @@ public:
       // TODO: Remove default value once LPM will be removed.
       unsigned OptLevel = 2 /* O2 level */)
 #endif // INTEL_CUSTOMIZATION
-      : AA(AA), AC(AC), TLI(TLI), DT(DT),
+      : AA(AA), AC(AC), TLI(TLI), DT(DT), EII(DT),
         DefaultBlockScanLimit(DefaultBlockScanLimit),
 #if INTEL_CUSTOMIZATION
         OptLevel(OptLevel) {}
 #endif
-=======
-  MemoryDependenceResults(AAResults &AA, AssumptionCache &AC,
-                          const TargetLibraryInfo &TLI, DominatorTree &DT,
-                          unsigned DefaultBlockScanLimit)
-      : AA(AA), AC(AC), TLI(TLI), DT(DT), EII(DT),
-        DefaultBlockScanLimit(DefaultBlockScanLimit) {}
->>>>>>> 2ad9fde41839879d8805d430c2e0857466d9c5d6
 
   /// Handle invalidation in the new PM.
   bool invalidate(Function &F, const PreservedAnalyses &PA,
