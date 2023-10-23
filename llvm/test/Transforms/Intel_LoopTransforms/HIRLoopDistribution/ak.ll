@@ -1,6 +1,7 @@
-;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
-;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-hir-loop-distribute < %s 2>&1 | FileCheck --check-prefix=CHECK-DISABLE %s
-;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec" -print-changed -disable-output  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,hir-vec-dir-insert,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
+
+; Lexically forward loop-carried dependence 10-13 doesn't prevent vectorization.
+; Since the loop is vectorizable, we don't distribute the loop.
 
 ;we want to dist on 10-13 to remove loop carried dep
 ;          BEGIN REGION { }
@@ -16,29 +17,23 @@
 ;<28>         |   + END LOOP
 ;<29>         + END LOOP
 
-; CHECK: BEGIN REGION
-; CHECK: DO i1 = 0, 99998, 1
-; CHECK-NEXT: DO i2 = 0, 99998, 1
-; CHECK: (@A)[0][i1 + 1][i2 + 1] =
-; CHECK-NEXT: END LOOP
+; CHECK-NOT: modified
 
-; CHECK: DO i2 = 0, 99998, 1
-; CHECK: (@A)[0][i1 + 1][i2]
-; CHECK: END LOOP
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: END REGION
-
-;do nothing if disable option is on
-; CHECK-DISABLE-NOT: BEGIN REGION{{.*}}modified
-; CHECK-DISABLE: DO i1 = 0, 99998, 1
-; CHECK-DISABLE-NEXT: DO i2 = 0, 99998, 1
-; CHECK-DISABLE-NOT: DO i1 = 0, 99998, 1
-; CHECK-DISABLE-NOT: DO i2 = 0, 99998, 1
-
-; Verify that pass is dumped with print-changed when it triggers.
-
-; CHECK-CHANGED: Dump Before HIRTempCleanup
-; CHECK-CHANGED: Dump After HIRLoopDistributionForMemRec
+; CHECK: + DO i1 = 0, 99998, 1   <DO_LOOP>
+; CHECK: |   %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+; CHECK: |
+; CHECK: |   + DO i2 = 0, 99998, 1   <DO_LOOP>
+; CHECK: |   |   %0 = (@B)[0][i1 + 1][i2 + 1];
+; CHECK: |   |   %1 = (@C)[0][i1 + 1][i2 + 1];
+; CHECK: |   |   %add = %0  +  %1;
+; CHECK: |   |   (@A)[0][i1 + 1][i2 + 1] = %add;
+; CHECK: |   |   %3 = (@A)[0][i1 + 1][i2];
+; CHECK: |   |   %conv18 = %3  *  2.000000e+00;
+; CHECK: |   |   (@D)[0][i1 + 1][i2 + 1] = %conv18;
+; CHECK: |   + END LOOP
+; CHECK: |
+; CHECK: |   @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
+; CHECK: + END LOOP
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

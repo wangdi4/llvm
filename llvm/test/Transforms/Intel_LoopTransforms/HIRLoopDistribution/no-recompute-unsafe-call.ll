@@ -4,38 +4,70 @@
 ; Previously, distribution was  incorrectly trying to recompute rel.167 by reloading (%"fm413_$IRECN")[0] which was being modified by a call via fake ref, &((%argblock2628)[0]))
 
 ; HIR Before:
-;            + DO i1 = 0, 98, 1
-;            |   %"fm413_$IVCOMP.133.out" = %"fm413_$IVCOMP.133.root";
-;            |   %func_result2611 = @for_read_dir(&((%"$io_ctx")[0]),  0);
-;            |   (%argblock2628)[0].0 = &((%"fm413_$IRECN")[0]);
-;            |   %func_result2631 = @for_read_dir_xmit(&((%"$io_ctx")[0]),  &((%"(&)val$2627")[0]),  &((%argblock2628)[0]));
-;            |   %"fm413_$IRECN_fetch.757" = (%"fm413_$IRECN")[0];
-;            |   %rel.167 = %"fm413_$IRECN_fetch.757" == 2 * i1 + 15;
-;            |   %"fm413_$IVCOMP.133.root" = %"fm413_$IVCOMP.133.root"  +  %rel.167;
-;            + END LOOP
-;      END REGION
+; + DO i1 = 0, 98, 1   <DO_LOOP>
+; |   (null)[0] = 0;
+; |   (null)[0] = 0;
+; |   (null)[0] = 0;
+; |   (null)[0] = 0;
+; |   (null)[0] = 0;
+; |   (null)[0] = null;
+; |   %func_result2611 = @for_read_dir(&((%"$io_ctx")[0]),  0);
+; |   (%argblock2628)[0].0 = &((%"fm413_$IRECN")[0]);
+; |   %func_result2631 = @for_read_dir_xmit(&((%"$io_ctx")[0]),  &((%"(&)val$2627")[0]),  &((%argblock2628)[0]));
+; |   (null)[0] = 0;
+; |   (null)[0] = 0;
+; |   (null)[0] = 0;
+; |   (null)[0] = 0;
+; |   (null)[0] = null;
+; |   (null)[0] = 0;
+; |   (null)[0] = 0;
+; |   (null)[0] = 0;
+; |   (null)[0] = 0;
+; |   (null)[0] = null;
+; |   (null)[0] = 0;
+; |   (null)[0] = 0;
+; |   %rel.167 = (%"fm413_$IRECN")[0] == 2 * i1 + 15;
+; |   %"fm413_$IVCOMP.133.root" = %"fm413_$IVCOMP.133.root"  +  %rel.167;
+; + END LOOP
 
-; CHECK: BEGIN REGION { modified }
-; CHECK:       + DO i1 = 0, 1, 1
-;              |   %min = (-64 * i1 + 98 <= 63) ? -64 * i1 + 98 : 63;
-;              |
-; CHECK:       |   + DO i2 = 0, %min, 1
-;              |   |   %func_result2611 = @for_read_dir(&((%"$io_ctx")[0]),  0);
-;              |   |   (%argblock2628)[0].0 = &((%"fm413_$IRECN")[0]);
-;              |   |   %func_result2631 = @for_read_dir_xmit(&((%"$io_ctx")[0]),  &((%"(&)val$2627")[0]),  &((%argblock2628)[0]));
-; CHECK:       |   |   %rel.167 = (%"fm413_$IRECN")[0] == 128 * i1 + 2 * i2 + 15;
-; CHECK:       |   |   (%.TempArray)[0][i2] = %rel.167;
-;              |   + END LOOP
-;              |
-;              |
-; CHECK:       |   + DO i2 = 0, %min, 1
-; CHECK:       |   |   %rel.167 = (%.TempArray)[0][i2];
-;              |   |   %"fm413_$IVCOMP.133.out" = %"fm413_$IVCOMP.133.root";
-;              |   |   %"fm413_$IVCOMP.133.root" = %"fm413_$IVCOMP.133.root"  +  %rel.167;
-;              |   + END LOOP
-;              + END LOOP
-;        END REGION
 
+; CHECK: modified
+
+; CHECK: + DO i1 = 0, 1, 1   <DO_LOOP>
+; CHECK: |   %min = (-64 * i1 + 98 <= 63) ? -64 * i1 + 98 : 63;
+; CHECK: |
+; CHECK: |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = null;
+; CHECK: |   |   %func_result2611 = @for_read_dir(&((%"$io_ctx")[0]),  0);
+; CHECK: |   |   (%argblock2628)[0].0 = &((%"fm413_$IRECN")[0]);
+; CHECK: |   |   %func_result2631 = @for_read_dir_xmit(&((%"$io_ctx")[0]),  &((%"(&)val$2627")[0]),  &((%argblock2628)[0]));
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = null;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = null;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   (null)[0] = 0;
+; CHECK: |   |   %rel.167 = (%"fm413_$IRECN")[0] == 128 * i1 + 2 * i2 + 15;
+; CHECK: |   |   (%.TempArray)[0][i2] = %rel.167;
+; CHECK: |   + END LOOP
+; CHECK: |
+; CHECK: |
+; CHECK: |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+; CHECK: |   |   %rel.167 = (%.TempArray)[0][i2];
+; CHECK: |   |   %"fm413_$IVCOMP.133.root" = %"fm413_$IVCOMP.133.root"  +  %rel.167;
+; CHECK: |   + END LOOP
+; CHECK: + END LOOP
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -81,7 +113,7 @@ do.body1773:                                      ; preds = %do.body1773, %bb12
   br i1 %exitcond5813.not, label %do.epilog1776, label %do.body1773
 
 do.epilog1776:                                    ; preds = %do.body1773
-  %spec.select5805.lcssa = phi i32 [ %"fm413_$IVCOMP.133", %do.body1773 ]
+  %spec.select5805.lcssa = phi i32 [ %spec.select5805, %do.body1773 ]
   ret void
 }
 

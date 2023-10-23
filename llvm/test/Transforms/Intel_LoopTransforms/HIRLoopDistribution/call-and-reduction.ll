@@ -1,4 +1,8 @@
-; RUN: opt -xmain-opt-level=3 -hir-loop-distribute-scex-cost=2 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -hir-loop-distribute-scex-cost=2 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+
+; RUN: opt -xmain-opt-level=3 -hir-loop-distribute-scex-cost=2 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -disable-hir-loop-distribute < %s 2>&1 | FileCheck --check-prefix=CHECK-DISABLE %s
+
+; RUN: opt -xmain-opt-level=3 -hir-loop-distribute-scex-cost=2 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Check that the loop with a user call may be distributed if another chunk contains no mem refs.
 
@@ -24,6 +28,16 @@
 ; CHECK:      |   %t2.014 = %t2.014  +  %add3;
 ; CHECK:      + END LOOP
 ; CHECK: END REGION
+
+; Verify that we disable transformation with disabling option is passed.
+; CHECK-DISABLE-NOT: modified
+; CHECK-DISABLE: DO i1
+; CHECK-DISABLE-NOT: DO i1
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLoopDistributionForMemRec
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
