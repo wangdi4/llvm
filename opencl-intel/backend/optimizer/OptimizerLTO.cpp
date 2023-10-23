@@ -300,7 +300,6 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
       MPM.addPass(TaskSeqAsyncHandling());
       // Support matrix fill and slice.
       MPM.addPass(ResolveMatrixFillPass());
-      MPM.addPass(ResolveMatrixLayoutPass());
       MPM.addPass(ResolveMatrixWISlicePass());
     }
 #endif // INTEL_CUSTOMIZATION
@@ -419,6 +418,17 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       MPM.addPass(SetVectorizationFactorPass(ISA));
     }
 
+#if INTEL_CUSTOMIZATION
+    if (m_IsSYCL) {
+      // Insert matrix layout transformation helpers after vectorization.
+      // The helpers are implemented as sub-group collective operations on joint
+      // matrices.
+      // Furthermore, we need to create private temporary memory (of matrix
+      // size) to perform the transformation. Vectorizer may widen the temporary
+      // memory (which is unnecessary) if this pass runs before vectorizer.
+      MPM.addPass(ResolveMatrixLayoutPass());
+    }
+#endif // INTEL_CUSTOMIZATION
     MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
 
     FunctionPassManager FPM;
