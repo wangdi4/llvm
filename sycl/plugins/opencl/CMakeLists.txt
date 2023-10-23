@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -22,8 +21,6 @@
 #cmake_policy(SET CMP0057 NEW)
 #include(AddLLVM)
 
-=======
->>>>>>> cf5fc607b1a018df449dbdd2c8f52c6f3f6b58b3
 # Plugin for OpenCL
 # Create Shared library for libpi_opencl.so.
 
