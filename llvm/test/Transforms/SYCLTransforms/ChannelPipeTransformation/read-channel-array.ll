@@ -53,5 +53,5 @@ attributes #1 = { convergent nounwind }
 !1 = !{ptr @test}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test --  %read.dst = alloca i32, align 4
-; DEBUGIFY-COUNT-1026: Instruction with empty DebugLoc in function __pipe_global_ctor
+; DEBUGIFY-COUNT-20: Instruction with empty DebugLoc in function __pipe_global_ctor
 ; DEBUGIFY-NOT: WARNING

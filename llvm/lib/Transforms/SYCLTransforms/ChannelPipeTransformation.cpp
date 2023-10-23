@@ -22,6 +22,7 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/SYCLChannelPipeUtils.h"
+#include <numeric>
 #include <stack>
 
 using namespace llvm;
@@ -105,41 +106,120 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
 
   SmallVector<size_t, 8> Dimensions;
   getArrayTypeDimensions(PipePtrArrayTy, Dimensions);
+  unsigned NumDims = Dimensions.size();
+  assert(NumDims >= 1 && "invalid array type dimensions");
 
   Type *BSIndexTy = Type::getIntNTy(
       M.getContext(),
       M.getDataLayout().getPointerSizeInBits(ADDRESS_SPACE_GLOBAL));
-  Value *ZeroConstantInt = ConstantInt::get(BSIndexTy, 0);
-
-  size_t DimensionsNum = Dimensions.size();
-  SmallVector<size_t, 8> IndicesListForPipeElem(DimensionsNum, 0);
-  SmallVector<Value *, 8> GEPIndicesListForPipeElem(DimensionsNum + 1, 0);
-
+  Value *Zero = ConstantInt::get(BSIndexTy, 0);
   size_t BSItemSize = OpenCLInterface::__pipe_get_total_size_fpga(
       PipeMD.PacketSize, PipeMD.Depth, SYCLChannelDepthEmulationMode);
-  size_t BSItemsCount = getNumElementsOfNestedArray(PipePtrArrayTy);
 
-  // iterate over all elements from backing store
-  for (size_t I = 0; I < BSItemsCount; ++I) {
-    // create GEP from backing store
-    Value *IndexListForBSElem[] = {ZeroConstantInt,
-                                   ConstantInt::get(BSIndexTy, I * BSItemSize)};
-    Value *BSElemPtr = Builder.CreateGEP(
-        BS->getValueType(), BS, ArrayRef<Value *>(IndexListForBSElem, 2));
+  // For small array, there is no need to create loop.
+  constexpr size_t Threshold = 8;
+  size_t BSItemsCount = std::accumulate(Dimensions.begin(), Dimensions.end(), 1,
+                                        std::multiplies<size_t>());
+  if (BSItemsCount <= Threshold) {
+    SmallVector<size_t, 8> IndicesListForPipeElem(NumDims, 0);
+    SmallVector<Value *, 8> GEPIndicesListForPipeElem(NumDims + 1);
+    // Iterate over all elements from backing store.
+    for (size_t I = 0; I < BSItemsCount; ++I) {
+      // Create GEP from backing store.
+      Value *IndexListForBSElem[] = {
+          Zero, ConstantInt::get(BSIndexTy, I * BSItemSize)};
+      Value *BSElemPtr = Builder.CreateGEP(
+          BS->getValueType(), BS, ArrayRef<Value *>(IndexListForBSElem, 2));
 
-    // convert current indices list to GEP indices
-    convertToGEPIndicesList(IndicesListForPipeElem,
-                            GEPIndicesListForPipeElem, M);
-    // increment current indices
-    incrementIndicesList(IndicesListForPipeElem, Dimensions);
+      // Convert current indices list to GEP indices.
+      convertToGEPIndicesList(IndicesListForPipeElem, GEPIndicesListForPipeElem,
+                              M);
+      // Increment current indices.
+      incrementIndicesList(IndicesListForPipeElem, Dimensions);
 
-    // create GEP from pipe array
-    Value *PipeElemPtr =
-        Builder.CreateGEP(PipePtrArrayTy, PipeArrayGlobal,
-                          ArrayRef<Value *>(GEPIndicesListForPipeElem));
-    Builder.CreateStore(Builder.CreateBitCast(BSElemPtr, PipePtrTy),
-                        Builder.CreateBitCast(PipeElemPtr, PipePtrPtrTy));
+      // Create GEP from pipe array.
+      Value *PipeElemPtr =
+          Builder.CreateGEP(PipePtrArrayTy, PipeArrayGlobal,
+                            ArrayRef<Value *>(GEPIndicesListForPipeElem));
+      Builder.CreateStore(Builder.CreateBitCast(BSElemPtr, PipePtrTy),
+                          Builder.CreateBitCast(PipeElemPtr, PipePtrPtrTy));
+    }
+    return;
   }
+
+  BasicBlock *Exit = Builder.GetInsertBlock();
+  auto *Header = Exit->splitBasicBlockBefore(Exit->getTerminator(), "body");
+  auto *Preheader =
+      Header->splitBasicBlockBefore(Header->getTerminator(), "preheader");
+  unsigned NumLatches = NumDims - 1;
+  SmallVector<BasicBlock *, 8> Latches(NumLatches);
+  for (size_t I = 0; I < NumLatches; ++I) {
+    BasicBlock *BB = Exit;
+    Latches[I] = BB->splitBasicBlockBefore(BB->getTerminator(),
+                                           Twine("latch") + Twine(I + 1));
+  }
+
+  Builder.SetInsertPoint(Header->getTerminator());
+  SmallVector<PHINode *, 8> PHIs(NumDims);
+  for (int I = (int)NumDims - 1; I >= 0; --I) {
+    auto *PHI =
+        Builder.CreatePHI(BSIndexTy, NumDims + 1, Twine("i") + Twine(I));
+    PHI->addIncoming(Zero, Preheader);
+    PHI->addIncoming(PHI, Header);
+    for (int I2 = 0; I2 < (int)NumLatches; ++I2) {
+      PHI->addIncoming(I <= I2 ? cast<Value>(Zero) : cast<Value>(PHI),
+                       Latches[I2]);
+    }
+    PHIs[I] = PHI;
+  }
+
+  Value *One = ConstantInt::get(BSIndexTy, 1);
+  PHINode *LinearIdx = nullptr;
+  if (NumDims > 1) {
+    LinearIdx = Builder.CreatePHI(BSIndexTy, NumDims + 1, "j");
+    auto *LinearIdxInc =
+        Builder.CreateAdd(LinearIdx, One, Twine(LinearIdx->getName()) + ".inc");
+    LinearIdx->addIncoming(Zero, Preheader);
+    for (unsigned I = 0; I < NumDims; ++I)
+      LinearIdx->addIncoming(LinearIdxInc, I == 0 ? Header : Latches[I - 1]);
+  }
+
+  SmallVector<Value *, 8> Increments(NumDims);
+  for (unsigned I = 0; I < NumDims; ++I) {
+    BasicBlock *BB = (I == 0) ? Header : Latches[I - 1];
+    auto *OldTerminator = BB->getTerminator();
+    Builder.SetInsertPoint(OldTerminator);
+    Increments[I] =
+        Builder.CreateAdd(PHIs[I], One, Twine(PHIs[I]->getName()) + ".inc");
+    PHIs[I]->setIncomingValue(1 + I, Increments[I]);
+    auto *Cond = Builder.CreateCmp(
+        CmpInst::ICMP_SLT, Increments[I],
+        ConstantInt::get(BSIndexTy, (uint64_t)Dimensions[NumDims - 1 - I]));
+    Builder.CreateCondBr(Cond, Header, I == (NumDims - 1) ? Exit : Latches[I]);
+    OldTerminator->eraseFromParent();
+  }
+
+  Builder.SetInsertPoint(cast<Instruction>(Increments[0]));
+  // Create GEP from backing store.
+  Value *Index = LinearIdx ? LinearIdx : PHIs[0];
+  Value *BSIdx =
+      Builder.CreateMul(Index, ConstantInt::get(BSIndexTy, BSItemSize),
+                        "elem.ind", /*HasNUW*/ true, /*HasNSW*/ true);
+  Value *IndexListForBSElem[] = {Zero, BSIdx};
+  Value *BSElemPtr =
+      Builder.CreateGEP(BS->getValueType(), BS, IndexListForBSElem);
+
+  // Convert current indices list to GEP indices.
+  SmallVector<Value *, 8> GEPIndicesListForPipeElem(NumDims + 1);
+  GEPIndicesListForPipeElem[0] = Zero;
+  for (unsigned I = 0; I < NumDims; ++I)
+    GEPIndicesListForPipeElem[I + 1] = PHIs[I];
+
+  // Create GEP from pipe array.
+  auto *PipeElemPtr = Builder.CreateGEP(PipePtrArrayTy, PipeArrayGlobal,
+                                        GEPIndicesListForPipeElem);
+  Builder.CreateStore(Builder.CreateBitCast(BSElemPtr, PipePtrTy),
+                      Builder.CreateBitCast(PipeElemPtr, PipePtrPtrTy));
 }
 
 static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
@@ -147,14 +227,13 @@ static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
                                       Function *GlobalCtor,
                                       Function *PipeInitArray) {
   auto *BS = SYCLChannelPipeUtils::createPipeBackingStore(PipeGV, MD);
+  auto *Terminator = GlobalCtor->getEntryBlock().getTerminator();
 
-  IRBuilder<> Builder(GlobalCtor->getEntryBlock().getTerminator());
+  IRBuilder<> Builder(Terminator);
 
   Value *PacketSize = Builder.getInt32(MD.PacketSize);
   Value *Depth = Builder.getInt32(MD.Depth);
 
-  // TODO: seems to be a good place to rewrite. Generate loops in IR instead of
-  // generating a huge bunch of GEP instructions
   generateBSItemsToPipeArrayStores(
       *(PipeGV->getParent()), Builder, BS, PipeGV, MD);
 
@@ -163,6 +242,8 @@ static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
   size_t BSNumItems = getNumElementsOfNestedArray(PipePtrArrayTy);
   Value *Mode = Builder.getInt32(SYCLChannelDepthEmulationMode);
 
+  Terminator->getParent()->setName("exit");
+  Builder.SetInsertPoint(Terminator);
   SmallVector<Value *, 6> CallArgs = {
       Builder.CreateBitCast(PipeGV,
                             PipeInitArray->getFunctionType()->getParamType(0)),

@@ -157,5 +157,7 @@ attributes #5 = { convergent nounwind }
 !14 = !{!12, !12, i64 0}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-97: WARNING: Instruction with empty DebugLoc in function
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %write.src1 = alloca i32, align 4
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %write.src = alloca i8, align 1
+; DEBUGIFY-COUNT-42: WARNING: Instruction with empty DebugLoc in function __pipe_global_ctor
 ; DEBUGIFY-NOT: WARNING
