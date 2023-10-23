@@ -35,6 +35,7 @@
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/PointerSumType.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/PredIteratorCache.h"
@@ -44,7 +45,6 @@
 
 namespace llvm {
 
-class AAResults;
 class AssumptionCache;
 class BatchAAResults;
 class DominatorTree;
@@ -373,6 +373,7 @@ private:
   const TargetLibraryInfo &TLI;
   DominatorTree &DT;
   PredIteratorCache PredCache;
+  EarliestEscapeInfo EII;
 
   unsigned DefaultBlockScanLimit;
 
@@ -384,6 +385,7 @@ private:
 #endif
 
 public:
+<<<<<<< HEAD
   MemoryDependenceResults(
       AAResults &AA, AssumptionCache &AC, const TargetLibraryInfo &TLI,
       DominatorTree &DT, unsigned DefaultBlockScanLimit,
@@ -396,6 +398,13 @@ public:
 #if INTEL_CUSTOMIZATION
         OptLevel(OptLevel) {}
 #endif
+=======
+  MemoryDependenceResults(AAResults &AA, AssumptionCache &AC,
+                          const TargetLibraryInfo &TLI, DominatorTree &DT,
+                          unsigned DefaultBlockScanLimit)
+      : AA(AA), AC(AC), TLI(TLI), DT(DT), EII(DT),
+        DefaultBlockScanLimit(DefaultBlockScanLimit) {}
+>>>>>>> 2ad9fde41839879d8805d430c2e0857466d9c5d6
 
   /// Handle invalidation in the new PM.
   bool invalidate(Function &F, const PreservedAnalyses &PA,
