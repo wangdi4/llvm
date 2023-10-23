@@ -17,10 +17,11 @@
 ; CHECK: Running pass: SGRemapWICallPass
 ; CHECK: Running pass: BuiltinCallToInstPass
 ; CHECK: Running pass: DetectRecursionPass
+; INTEL_CUSTOMIZATION
 ; CHECK-SYCL: Running pass: TaskSeqAsyncHandling
 ; CHECK-SYCL: Running pass: ResolveMatrixFillPass
-; CHECK-SYCL: Running pass: ResolveMatrixLayoutPass
 ; CHECK-SYCL: Running pass: ResolveMatrixWISlicePass
+; end INTEL_CUSTOMIZATION
 ; CHECK: Running pass: DuplicateCalledKernelsPass
 ; CHECK: Running pass: SYCLKernelAnalysisPass
 ; CHECK: Running pass: MathFuncSelectPass
@@ -35,6 +36,7 @@
 ; CHECK-O3: Running pass: UpdateCallAttrs
 ; CHECK-O3: Running pass: SYCLKernelPostVecPass
 ; CHECK-O3: Running pass: HandleVPlanMask
+; CHECK-SYCL: Running pass: ResolveMatrixLayoutPass ; INTEL
 ; CHECK: Running pass: ResolveSubGroupWICallPass
 ; CHECK: Running pass: PreventDivCrashesPass
 ; CHECK: Running pass: SYCLKernelWGLoopCreatorPass

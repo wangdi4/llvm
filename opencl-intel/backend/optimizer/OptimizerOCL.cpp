@@ -419,7 +419,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   // Support matrix fill and slice.
   if (m_IsSYCL) {
     MPM.addPass(ResolveMatrixFillPass());
-    MPM.addPass(ResolveMatrixLayoutPass());
     MPM.addPass(ResolveMatrixWISlicePass());
   }
 #endif // INTEL_CUSTOMIZATION
@@ -549,6 +548,17 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   MPM.addPass(VerifierPass());
 #endif
 
+#if INTEL_CUSTOMIZATION
+  if (m_IsSYCL) {
+    // Insert matrix layout transformation helpers after vectorization.
+    // The helpers are implemented as sub-group collective operations on joint
+    // matrices.
+    // Furthermore, we need to create private temporary memory (of matrix size)
+    // to perform the transformation. Vectorizer may widen the temporary memory
+    // (which is unnecessary) if this pass runs before vectorizer.
+    MPM.addPass(ResolveMatrixLayoutPass());
+  }
+#endif // INTEL_CUSTOMIZATION
   MPM.addPass(ResolveSubGroupWICallPass(
       /*ResolveSGBarrier*/ false));
 
