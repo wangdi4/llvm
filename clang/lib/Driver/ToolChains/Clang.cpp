@@ -8543,22 +8543,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                         (!IsWindowsMSVC || IsMSVC2015Compatible)))
     CmdArgs.push_back("-fno-threadsafe-statics");
 
-<<<<<<< HEAD
-  // -fno-delayed-template-parsing is default, except when targeting MSVC.
-  // Many old Windows SDK versions require this to parse.
-  // FIXME: MSVC introduced /Zc:twoPhase- to disable this behavior in their
-  // compiler. We should be able to disable this by default at some point.
-  if (Args.hasFlag(options::OPT_fdelayed_template_parsing,
-                   options::OPT_fno_delayed_template_parsing, IsWindowsMSVC))
-    CmdArgs.push_back("-fdelayed-template-parsing");
-
 #if INTEL_CUSTOMIZATION
   if (D.IsIntelMode() && IsWindowsMSVC)
     CmdArgs.push_back("-fdiagnostics-absolute-paths");
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 366ffbaf627d0b6867299458cf57f8464259e550
   // -fgnu-keywords default varies depending on language; only pass if
   // specified.
   Args.AddLastArg(CmdArgs, options::OPT_fgnu_keywords,
