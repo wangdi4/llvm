@@ -28,8 +28,8 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LEGALITY_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_LEGALITY_H
 
+#include "Driver.h"
 #include "IntelVPlan.h"
-#include "IntelVPlanDriver.h"
 #include "IntelVPlanLegalityDescr.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
