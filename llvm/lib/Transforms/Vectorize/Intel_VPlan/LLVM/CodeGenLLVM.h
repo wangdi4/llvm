@@ -44,15 +44,15 @@ class VPlanVLSAnalysis;
 // LVCodeGen generates vector code by widening of scalars into
 // appropriate length vectors.
 
-class VPOCodeGen {
+class CodeGenLLVM {
 public:
-  VPOCodeGen(Loop *OrigLoop, LLVMContext &Context,
-             PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
-             TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
-             unsigned VecWidth, unsigned UnrollFactor, LegalityLLVM *LVL,
-             VPlanVLSAnalysis *VLSA, const VPlanVector *Plan,
-             OptReportBuilder &ORBuilder, bool IsOmpSIMD = false,
-             VecErrorHandlerTy VecErrorHandler = nullptr)
+  CodeGenLLVM(Loop *OrigLoop, LLVMContext &Context,
+              PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
+              TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
+              unsigned VecWidth, unsigned UnrollFactor, LegalityLLVM *LVL,
+              VPlanVLSAnalysis *VLSA, const VPlanVector *Plan,
+              OptReportBuilder &ORBuilder, bool IsOmpSIMD = false,
+              VecErrorHandlerTy VecErrorHandler = nullptr)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
         Legal(LVL), VLSA(VLSA),
         VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
@@ -60,7 +60,7 @@ public:
         OrigPreHeader(OrigLoop->getLoopPreheader()), ORBuilder(ORBuilder),
         IsOmpSIMD(IsOmpSIMD), VecErrorHandler(VecErrorHandler) {}
 
-  ~VPOCodeGen() { assert(VFStack.empty() && "expected empty VF stack"); }
+  ~CodeGenLLVM() { assert(VFStack.empty() && "expected empty VF stack"); }
 
   /// Initiate the scalar selects set.
   void initOpenCLScalarSelectSet(ArrayRef<const char *> OpenCLScalarSelects);

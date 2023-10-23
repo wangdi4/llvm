@@ -1,6 +1,8 @@
-; RUN: opt -mattr=+avx512f -enable-intel-advanced-opts -passes="hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -mattr=+avx512f -enable-intel-advanced-opts -passes="hir-temp-cleanup,hir-loop-distribute-memrec,hir-vec-dir-insert,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 
-; Check that sparse array reduction is distributed from the rest of the loop.
+; Check that sparse array reduction is distributed from the rest of the loop in
+; function @foo() which doesn't support vconflict idiom but not in @bar() which
+; supports it.
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 63, 1   <DO_LOOP>
@@ -21,7 +23,11 @@
 ;       + END LOOP
 ; END REGION
 
+; CHECK: Function: foo
+
 ; CHECK:  BEGIN REGION { modified }
+; CHECK: %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+
 ; CHECK:       + DO i1 = 0, 63, 1   <DO_LOOP>
 ; CHECK:       |   %mul1 = 2 * i1  *  i1;
 ; CHECK:       |   %conv = uitofp.i64.float(%mul1);
@@ -37,7 +43,10 @@
 ; CHECK:       |   %2 = (%q2)[i1];
 ; CHECK:       + END LOOP
 ;
+; CHECK: @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;
+; CHECK-NOT: @llvm.directive.region.entry();
+
 ; CHECK:       + DO i1 = 0, 63, 1   <DO_LOOP>
 ; CHECK:       |   %add = (%.TempArray)[0][i1];
 ; CHECK:       |   %0 = (%q1)[i1];
@@ -50,11 +59,39 @@
 ; CHECK:       + END LOOP
 ; CHECK:  END REGION
 
+; Verify that we don't do distribution for function @bar which has the same IR
+; because it supports vconflict idiom so sparse array reduction is supported by
+; vectorizer.
+
+; CHECK: Function: bar
+
+; CHECK-NOT: modified
+
+; CHECK: %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+
+; CHECK: + DO i1 = 0, 63, 1   <DO_LOOP>
+; CHECK: |   %mul1 = 2 * i1  *  i1;
+; CHECK: |   %conv = uitofp.i64.float(%mul1);
+; CHECK: |   %add = %conv  +  0x3FB99999A0000000;
+; CHECK: |   %0 = (%q1)[i1];
+; CHECK: |   %add3 = %add  +  (%p1)[%0]; <Sparse Array Reduction>
+; CHECK: |   (%p1)[%0] = %add3; <Sparse Array Reduction>
+; CHECK: |   %mul5 = 3 * i1  *  i1;
+; CHECK: |   %mul6 = %mul5  *  i1;
+; CHECK: |   %add7 = %mul6  +  1;
+; CHECK: |   %conv8 = uitofp.i64.float(%add7);
+; CHECK: |   %add9 = %conv8  +  0x3FC99999A0000000;
+; CHECK: |   %2 = (%q2)[i1];
+; CHECK: |   %add12 = %add9  +  (%p2)[%2]; <Sparse Array Reduction>
+; CHECK: |   (%p2)[%2] = %add12; <Sparse Array Reduction>
+; CHECK: + END LOOP
+
+; CHECK: @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @foo(ptr noalias nocapture %p1, ptr noalias nocapture readonly %q1, ptr noalias nocapture %p2, ptr noalias nocapture readonly %q2, ptr noalias nocapture readnone %p, ptr noalias nocapture readnone %q) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture %p1, ptr noalias nocapture readonly %q1, ptr noalias nocapture %p2, ptr noalias nocapture readonly %q2, ptr noalias nocapture readnone %p, ptr noalias nocapture readnone %q) {
 entry:
   br label %for.body
 
@@ -89,4 +126,42 @@ for.body:                                         ; preds = %for.body, %entry
   %exitcond = icmp eq i64 %inc, 64
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }
+
+define dso_local void @bar(ptr noalias nocapture %p1, ptr noalias nocapture readonly %q1, ptr noalias nocapture %p2, ptr noalias nocapture readonly %q2, ptr noalias nocapture readnone %p, ptr noalias nocapture readnone %q) #0 {
+entry:
+  br label %for.body
+
+for.cond.cleanup:                                 ; preds = %for.body
+  ret void
+
+for.body:                                         ; preds = %for.body, %entry
+  %i.022 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
+  %mul = shl nuw i64 %i.022, 1
+  %mul1 = mul i64 %mul, %i.022
+  %conv = uitofp i64 %mul1 to float
+  %add = fadd float %conv, 0x3FB99999A0000000
+  %arrayidx = getelementptr inbounds i64, ptr %q1, i64 %i.022
+  %0 = load i64, ptr %arrayidx, align 8
+  %arrayidx2 = getelementptr inbounds float, ptr %p1, i64 %0
+  %1 = load float, ptr %arrayidx2, align 4
+  %add3 = fadd float %add, %1
+  store float %add3, ptr %arrayidx2, align 4
+  %mul4 = mul nuw nsw i64 %i.022, 3
+  %mul5 = mul i64 %mul4, %i.022
+  %mul6 = mul i64 %mul5, %i.022
+  %add7 = add nuw nsw i64 %mul6, 1
+  %conv8 = uitofp i64 %add7 to float
+  %add9 = fadd float %conv8, 0x3FC99999A0000000
+  %arrayidx10 = getelementptr inbounds i64, ptr %q2, i64 %i.022
+  %2 = load i64, ptr %arrayidx10, align 8
+  %arrayidx11 = getelementptr inbounds float, ptr %p2, i64 %2
+  %3 = load float, ptr %arrayidx11, align 4
+  %add12 = fadd float %add9, %3
+  store float %add12, ptr %arrayidx11, align 4
+  %inc = add nuw nsw i64 %i.022, 1
+  %exitcond = icmp eq i64 %inc, 64
+  br i1 %exitcond, label %for.cond.cleanup, label %for.body
+}
+
+attributes #0 = { "target-features"="+avx512cd" }
 

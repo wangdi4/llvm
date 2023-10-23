@@ -58,55 +58,6 @@ enum class DistHeuristics : unsigned char {
   BreakMemRec,      // Break recurrence among mem refs ie A[i] -> A[i+i]
 };
 
-struct DistAnalysis {
-  bool MemRef;      // Break loop due to excessive Memref count
-  bool UserCall;    // Distribute User calls to different loop
-  bool SAR;         // Distribute away Sparse Array Reduction from loop
-  bool Recurrence;  // Break recurrence among scalars.
-  bool PreventsVec; // Distribute vectorization-preventing edge from loop
-
-  DistAnalysis() { reset(); }
-
-  void reset() {
-    MemRef = false;
-    UserCall = false;
-    SAR = false;
-    Recurrence = false;
-    PreventsVec = false;
-  }
-
-  bool onlyForMemRefCount() const {
-    return MemRef && !UserCall && !SAR && !Recurrence && !PreventsVec;
-  }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  LLVM_DUMP_METHOD void dumpResult() {
-    bool Distributed = MemRef || UserCall || SAR || Recurrence || PreventsVec;
-    if (!Distributed) {
-      dbgs() << "Loop was not Distributed!\n";
-    } else {
-      dbgs() << "Loop was Distributed due to";
-      if (MemRef) {
-        dbgs() << " - MemRef Count";
-      }
-      if (UserCall) {
-        dbgs() << " - UserCall";
-      }
-      if (SAR) {
-        dbgs() << " - SparseArrayReduction";
-      }
-      if (Recurrence) {
-        dbgs() << " - Recurrence";
-      }
-      if (PreventsVec) {
-        dbgs() << " - Vec Preventing Edge";
-      }
-      dbgs() << "\n";
-    }
-  }
-#endif
-};
-
 typedef SmallVector<DDRef *, 8> DDRefList;
 typedef SmallVector<HLDDNode *, 12> HLDDNodeList;
 typedef SmallVector<PiBlock *, 4> PiBlockList;
@@ -391,7 +342,6 @@ private:
   HIRLoopLocality &HLL;
 
   DistHeuristics DistCostModel;
-  DistAnalysis Analysis;
   SmallDenseMap<const HLDDNode *, std::pair<LoopNum, InsertOrMove>, 16>
       DistDirectiveNodeMap;
 
@@ -405,22 +355,17 @@ private:
   void findDistPoints(const HLLoop *L, std::unique_ptr<PiGraph> const &PGraph,
                       SmallVectorImpl<PiBlockList> &DistPoints);
 
-  // Returns true if this edge contains dd edge with (<) at loop level
-  // Such an edge would be eliminated by distributing the src sink piblocks
-  // into separate loops
-  bool piEdgeIsMemRecurrence(const HLLoop *Lp, const PiGraphEdge &PiEdge) const;
-
   // Loop may be discarded prior to any analysis by some heuristics.
   // For example, the costmodel may consider only innermost loops, no need
   // to do potentially expensive analysis on others
   bool loopIsCandidate(HLLoop *L) const;
 
-  // Breaks up pi graph into loops(loop is formed by a list of piblocks)
-  // according to appropriate "cost model".  Very primitive and missing
-  // important considerations such as trip count, predicted vectorizability
-  void breakPiBlockRecurrences(const HLLoop *L,
-                               std::unique_ptr<PiGraph> const &PiGraph,
-                               SmallVectorImpl<PiBlockList> &DistPoints);
+  // Breaks up PiBlocks into loop chunks to enable vectorization for some of the
+  // chunks.
+  void
+  breakPiBlocksToEnableVectorization(const HLLoop *L,
+                                     std::unique_ptr<PiGraph> const &PiGraph,
+                                     SmallVectorImpl<PiBlockList> &DistPoints);
 
   // Breaks up pigraph with intent to form perfect loop nests, even at cost
   // of skipping creation of potentially vectorizable loops

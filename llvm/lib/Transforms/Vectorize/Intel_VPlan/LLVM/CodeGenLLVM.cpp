@@ -144,8 +144,8 @@ static bool isArrayReductionPrivate(VPAllocatePrivate *Priv) {
          isa<ArrayType>(AllocTy);
 }
 
-Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
-                                             ArrayRef<Value *> Ops) {
+Value *CodeGenLLVM::generateSerialInstruction(VPInstruction *VPInst,
+                                              ArrayRef<Value *> Ops) {
   Value *SerialInst = nullptr;
   if (Instruction::isBinaryOp(VPInst->getOpcode())) {
     assert(Ops.size() == 2 &&
@@ -329,7 +329,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
   return SerialInst;
 }
 
-void VPOCodeGen::createEmptyLoop() {
+void CodeGenLLVM::createEmptyLoop() {
 
   LoopScalarBody = OrigLoop->getHeader();
   BasicBlock *LoopPreHeader = OrigLoop->getLoopPreheader();
@@ -347,13 +347,13 @@ void VPOCodeGen::createEmptyLoop() {
   getOrCreateTripCount(OrigLoop, LBuilder);
 }
 
-void VPOCodeGen::unlinkOrigHeaderPhis() {
+void CodeGenLLVM::unlinkOrigHeaderPhis() {
   BasicBlock *Header = OrigLoop->getHeader();
   for (auto &Phi: Header->phis())
     Phi.removeIncomingValue(OrigPreHeader, false);
 }
 
-void VPOCodeGen::dropExternalValsFromMaps() {
+void CodeGenLLVM::dropExternalValsFromMaps() {
   for (auto V : VPValsToFlushForVF) {
     assert((isa<VPExternalDef>(V) || isa<VPConstant>(V) ||
             isa<VPMetadataAsValue>(V)) &&
@@ -364,7 +364,7 @@ void VPOCodeGen::dropExternalValsFromMaps() {
   }
 }
 
-void VPOCodeGen::finalizeLoop() {
+void CodeGenLLVM::finalizeLoop() {
   // Fix phis.
   fixNonInductionVPPhis();
 
@@ -430,7 +430,7 @@ void VPOCodeGen::finalizeLoop() {
   preserveLoopIDMDs();
 }
 
-void VPOCodeGen::updateAnalysis() {
+void CodeGenLLVM::updateAnalysis() {
   // Forget the original basic block.
   PSE.getSE()->forgetLoop(OrigLoop);
 
@@ -449,7 +449,7 @@ void VPOCodeGen::updateAnalysis() {
   // LLVM_DEBUG(DT->verifyDomTree());
 }
 
-BasicBlock &VPOCodeGen::getFunctionEntryBlock() const {
+BasicBlock &CodeGenLLVM::getFunctionEntryBlock() const {
   return OrigLoop->getHeader()->getParent()->front();
 }
 
@@ -459,7 +459,7 @@ BasicBlock &VPOCodeGen::getFunctionEntryBlock() const {
 /// reversed to <A3, A2, A1, A0>. If the original value was a vector
 /// (OriginalVL > 1), the function will do the following:
 /// <A0, B0, A1, B1, A2, B2, A3, B3> -> <A3, B3, A2, B2, A1, B1, A0, B0>
-Value *VPOCodeGen::reverseVector(Value *Vec, unsigned OriginalVL) {
+Value *CodeGenLLVM::reverseVector(Value *Vec, unsigned OriginalVL) {
   unsigned NumElts = cast<FixedVectorType>(Vec->getType())->getNumElements();
   SmallVector<Constant *, 8> ShuffleMask;
   for (unsigned i = 0; i < NumElts / OriginalVL; i++)
@@ -472,8 +472,8 @@ Value *VPOCodeGen::reverseVector(Value *Vec, unsigned OriginalVL) {
                                      "reverse");
 }
 
-Value *VPOCodeGen::getStepVector(Value *Val, int StartIdx, Value *Step,
-                                 Instruction::BinaryOps BinOp) {
+Value *CodeGenLLVM::getStepVector(Value *Val, int StartIdx, Value *Step,
+                                  Instruction::BinaryOps BinOp) {
   // Create and check the types.
   assert(Val->getType()->isVectorTy() && "Must be a vector");
   int VLen = cast<FixedVectorType>(Val->getType())->getNumElements();
@@ -541,11 +541,11 @@ static bool isOrUsesVPInduction(VPInstruction *VPI) {
 }
 
 // TODO: replace with a query to a real analysis.
-bool VPOCodeGen::needScalarCode(VPInstruction *V) {
+bool CodeGenLLVM::needScalarCode(VPInstruction *V) {
   return isOrUsesVPInduction(V);
 }
 
-bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
+bool CodeGenLLVM::isScalarArgument(StringRef FnName, unsigned Idx) {
   if (isOpenCLReadChannel(FnName) || isOpenCLWriteChannel(FnName)) {
     return (Idx == 0);
   }
@@ -636,10 +636,10 @@ static Loop *cloneLoopBody(BasicBlock *Before, Loop *OrigLoop,
 //
 //
 template <class VPPeelRemainderTy>
-Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
-                                  BasicBlock *NewLoopSucc,
-                                  VPPeelRemainderTy *LoopInst,
-                                  const Twine &Name) {
+Loop *CodeGenLLVM::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
+                                   BasicBlock *NewLoopSucc,
+                                   VPPeelRemainderTy *LoopInst,
+                                   const Twine &Name) {
   // Determine live-out type based on scalar peel/remainder.
   using OrigLiveOutTy = typename std::conditional<
       std::is_same<VPPeelRemainderTy, VPScalarPeel>::value, VPPeelOrigLiveOut,
@@ -697,23 +697,23 @@ Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
   return NewLoop;
 }
 
-template Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP,
-                                           BasicBlock *NewLoopPred,
-                                           BasicBlock *NewLoopSucc,
-                                           VPScalarRemainder *LoopInst,
-                                           const Twine &Name);
-template Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP,
-                                           BasicBlock *NewLoopPred,
-                                           BasicBlock *NewLoopSucc,
-                                           VPScalarPeel *LoopInst,
-                                           const Twine &Name);
+template Loop *CodeGenLLVM::cloneScalarLoop(Loop *OrigLP,
+                                            BasicBlock *NewLoopPred,
+                                            BasicBlock *NewLoopSucc,
+                                            VPScalarRemainder *LoopInst,
+                                            const Twine &Name);
+template Loop *CodeGenLLVM::cloneScalarLoop(Loop *OrigLP,
+                                            BasicBlock *NewLoopPred,
+                                            BasicBlock *NewLoopSucc,
+                                            VPScalarPeel *LoopInst,
+                                            const Twine &Name);
 
-void VPOCodeGen::addMaskToLibCall(Function *OrigF, Value *CallMaskValue,
-                                  AttributeList OrigAttrs,
-                                  SmallVectorImpl<Value *> &VecArgs,
-                                  SmallVectorImpl<Type *> &VecArgTys,
-                                  SmallVectorImpl<AttributeSet> &VecArgAttrs,
-                                  bool IsDevice = false) {
+void CodeGenLLVM::addMaskToLibCall(Function *OrigF, Value *CallMaskValue,
+                                   AttributeList OrigAttrs,
+                                   SmallVectorImpl<Value *> &VecArgs,
+                                   SmallVectorImpl<Type *> &VecArgTys,
+                                   SmallVectorImpl<AttributeSet> &VecArgAttrs,
+                                   bool IsDevice = false) {
   assert(CallMaskValue && "Expected mask to be present");
   bool IsFortranRNGVecFunc = isFortranRNGLibraryFunc(OrigF, TLI);
   FixedVectorType *VecTy = nullptr;
@@ -798,7 +798,7 @@ void VPOCodeGen::addMaskToLibCall(Function *OrigF, Value *CallMaskValue,
   }
 }
 
-void VPOCodeGen::initOpenCLScalarSelectSet(
+void CodeGenLLVM::initOpenCLScalarSelectSet(
     ArrayRef<const char *> ScalarSelects) {
 
   for (const char *SelectFuncName : ScalarSelects) {
@@ -806,12 +806,12 @@ void VPOCodeGen::initOpenCLScalarSelectSet(
   }
 }
 
-bool VPOCodeGen::isOpenCLSelectMask(StringRef FnName, unsigned Idx) {
+bool CodeGenLLVM::isOpenCLSelectMask(StringRef FnName, unsigned Idx) {
   return Idx == 2 && ScalarSelectSet.count(std::string(FnName));
 }
 
-Value *VPOCodeGen::getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize,
-                                       int GroupStride) {
+Value *CodeGenLLVM::getVLSLoadStoreMask(VectorType *WideValueType,
+                                        int GroupSize, int GroupStride) {
   unsigned NumElements = cast<FixedVectorType>(WideValueType)->getNumElements();
   if (!MaskValue) {
     unsigned NumUnmaskedElements = VF * GroupStride + (GroupSize - GroupStride);
@@ -850,7 +850,7 @@ Value *VPOCodeGen::getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize,
   return Builder.CreateShuffleVector(MaskToUse, False, ShuffleMask);
 }
 
-Value *VPOCodeGen::codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW) {
+Value *CodeGenLLVM::codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW) {
   VPlanSCEV *VPScev = SW->getSCEV();
   VPlanScalarEvolutionLLVM *VPSE =
       static_cast<VPlanScalarEvolutionLLVM *>(Plan->getVPSE());
@@ -863,7 +863,7 @@ Value *VPOCodeGen::codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW) {
 }
 
 template <class VPPeelRemainderTy>
-void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainderTy *LoopReuse) {
+void CodeGenLLVM::vectorizeScalarPeelRem(VPPeelRemainderTy *LoopReuse) {
   if (LoopReuse->isCloningRequired()) {
     // Clone before processing if needed.
     VPBasicBlock *ParentSucc = LoopReuse->getParent()->getSingleSuccessor();
@@ -892,7 +892,7 @@ void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainderTy *LoopReuse) {
   OrigLoopUsed = true;
 }
 
-void VPOCodeGen::eraseGuardMemMotionDirsFromScalarLoops() {
+void CodeGenLLVM::eraseGuardMemMotionDirsFromScalarLoops() {
   for (auto &PairIt : OutgoingScalarLoopHeaders) {
     Loop *ScalarLp = nullptr;
     if (auto *ScalarRem = dyn_cast<VPScalarRemainder>(PairIt.first))
@@ -925,7 +925,7 @@ static bool isOpcodeCGSVADriven(VPInstruction *VPInst) {
   }
 }
 
-void VPOCodeGen::processInstruction(VPInstruction *VPInst) {
+void CodeGenLLVM::processInstruction(VPInstruction *VPInst) {
   setBuilderDebugLoc(VPInst->getDebugLocation());
   generateScalarCode(VPInst);
   if (isOpcodeCGSVADriven(VPInst)) {
@@ -939,7 +939,7 @@ void VPOCodeGen::processInstruction(VPInstruction *VPInst) {
   }
 }
 
-void VPOCodeGen::generateScalarCode(VPInstruction *VPInst) {
+void CodeGenLLVM::generateScalarCode(VPInstruction *VPInst) {
   if (!isOpcodeCGSVADriven(VPInst)) {
     LLVM_DEBUG(
         dbgs()
@@ -964,7 +964,7 @@ void VPOCodeGen::generateScalarCode(VPInstruction *VPInst) {
     GenerateScalarInstForLane(VF - 1);
 }
 
-void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
+void CodeGenLLVM::generateVectorCode(VPInstruction *VPInst) {
   auto *SVA = Plan->getVPlanSVA();
 
   // Don't vectorize if VPInst is only used in scalar context.
@@ -2341,7 +2341,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   }
 }
 
-Value *VPOCodeGen::vectorizeExtractLastVectorLane(VPInstruction *VPInst) {
+Value *CodeGenLLVM::vectorizeExtractLastVectorLane(VPInstruction *VPInst) {
   // Without the mask it is just extract from the last lane.
   if (!MaskValue)
     return getScalarValue(VPInst->getOperand(0), VF - 1);
@@ -2352,7 +2352,7 @@ Value *VPOCodeGen::vectorizeExtractLastVectorLane(VPInstruction *VPInst) {
 }
 
 std::pair<PHINode *, BasicBlock *>
-VPOCodeGen::generateKnownTCEmptyLoop(unsigned TC, StringRef LoopName) {
+CodeGenLLVM::generateKnownTCEmptyLoop(unsigned TC, StringRef LoopName) {
   BasicBlock *BBLoop =
       SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT, LI,
                  nullptr /*Memory SSA Updater*/, LoopName);
@@ -2380,9 +2380,9 @@ VPOCodeGen::generateKnownTCEmptyLoop(unsigned TC, StringRef LoopName) {
   return std::make_pair(Phi, BBExit);
 }
 
-BasicBlock *VPOCodeGen::processSOALayout(VPAllocatePrivate *Priv, Value *Orig,
-                                         Type *ElementType,
-                                         Value *ElementPosition) {
+BasicBlock *CodeGenLLVM::processSOALayout(VPAllocatePrivate *Priv, Value *Orig,
+                                          Type *ElementType,
+                                          Value *ElementPosition) {
   assert(LoopPrivateVPWidenMap.count(Priv) > 0 &&
          "Expected widened alloca for SOA last private.");
   Value *Res = LoopPrivateVPWidenMap[Priv];
@@ -2408,8 +2408,8 @@ BasicBlock *VPOCodeGen::processSOALayout(VPAllocatePrivate *Priv, Value *Orig,
   return PhiExitPair.second;
 }
 
-BasicBlock *
-VPOCodeGen::processSOALayoutArrayReduction(VPReductionFinalArray *RedFinalArr) {
+BasicBlock *CodeGenLLVM::processSOALayoutArrayReduction(
+    VPReductionFinalArray *RedFinalArr) {
   auto *PrivArr = cast<VPAllocatePrivate>(RedFinalArr->getOperand(0));
   auto *OrigArr = getScalarValue(RedFinalArr->getOperand(1), 0);
   auto *ArrTy = cast<ArrayType>(PrivArr->getAllocatedType());
@@ -2458,7 +2458,7 @@ VPOCodeGen::processSOALayoutArrayReduction(VPReductionFinalArray *RedFinalArr) {
   return PhiExitPair.second;
 }
 
-Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L, IRBuilder<> &IBuilder) {
+Value *CodeGenLLVM::getOrCreateVectorTripCount(Loop *L, IRBuilder<> &IBuilder) {
   if (VectorTripCount)
     return VectorTripCount;
 
@@ -2469,7 +2469,7 @@ Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L, IRBuilder<> &IBuilder) {
   return VectorTripCount;
 }
 
-Value *VPOCodeGen::getOrCreateTripCount(Loop *L, IRBuilder<> &IBuilder) {
+Value *CodeGenLLVM::getOrCreateTripCount(Loop *L, IRBuilder<> &IBuilder) {
   if (TripCount)
     return TripCount;
 
@@ -2515,7 +2515,7 @@ Value *VPOCodeGen::getOrCreateTripCount(Loop *L, IRBuilder<> &IBuilder) {
   return TripCount;
 }
 
-void VPOCodeGen::predicateInstructions() {
+void CodeGenLLVM::predicateInstructions() {
 
   // For each instruction I marked for predication on value C, split I into its
   // own basic block to form an if-then construct over C. Since I may be fed by
@@ -2644,7 +2644,7 @@ void VPOCodeGen::predicateInstructions() {
 //   %lane = VF - 1 - %lz;
 // Clients can use the index to obtain values in the last active lane:
 //   %last_val = extractelement %exit, %lane ; extract final value
-Value *VPOCodeGen::createLastActiveLaneSequence(Value *VecMask) {
+Value *CodeGenLLVM::createLastActiveLaneSequence(Value *VecMask) {
   Type *IntTy = IntegerType::get(Builder.getContext(), VF);
   Value *CastedMask = Builder.CreateBitCast(VecMask, IntTy);
 
@@ -2657,7 +2657,7 @@ Value *VPOCodeGen::createLastActiveLaneSequence(Value *VecMask) {
   return Lane;
 }
 
-Value *VPOCodeGen::createVectorPrivatePtrs(VPAllocatePrivate *V) {
+Value *CodeGenLLVM::createVectorPrivatePtrs(VPAllocatePrivate *V) {
   assert(LoopPrivateVPWidenMap.count(V) &&
          "Private memory pointer not widened.");
 
@@ -2691,7 +2691,7 @@ Value *VPOCodeGen::createVectorPrivatePtrs(VPAllocatePrivate *V) {
 }
 
 template <typename CastInstTy>
-void VPOCodeGen::vectorizeCast(
+void CodeGenLLVM::vectorizeCast(
     typename std::enable_if<
         std::is_same<CastInstTy, BitCastInst>::value ||
             std::is_same<CastInstTy, AddrSpaceCastInst>::value,
@@ -2721,8 +2721,8 @@ void VPOCodeGen::vectorizeCast(
   VPWidenMap[VPInst] = WidenedCast;
 }
 
-void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
-                                       bool IsMasked) {
+void CodeGenLLVM::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
+                                        bool IsMasked) {
   // If we encounter a call to OpenCL sincos function, i.e., a call to
   // _Z6sincosfPf, the code in Intel_SVMLEmitter.cpp, currently maps that call
   // to _Z6sincosDv<VF>_fPS_ variant. The following code correctly
@@ -2788,13 +2788,11 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
   VPWidenMap[VPCall] = VecCall;
 }
 
-void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
-                                   const VFInfo *VecVariant,
-                                   Intrinsic::ID VectorIntrinID,
-                                   unsigned PumpPart, unsigned PumpFactor,
-                                   SmallVectorImpl<Value *> &VecArgs,
-                                   SmallVectorImpl<Type *> &VecArgTys,
-                                   SmallVectorImpl<AttributeSet> &VecArgAttrs) {
+void CodeGenLLVM::vectorizeCallArgs(
+    VPCallInstruction *VPCall, const VFInfo *VecVariant,
+    Intrinsic::ID VectorIntrinID, unsigned PumpPart, unsigned PumpFactor,
+    SmallVectorImpl<Value *> &VecArgs, SmallVectorImpl<Type *> &VecArgTys,
+    SmallVectorImpl<AttributeSet> &VecArgAttrs) {
   ArrayRef<VFParameter> Parms;
   if (VecVariant) {
     Parms = VecVariant->getParameters();
@@ -2922,9 +2920,9 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   VecArgAttrs.emplace_back();
 }
 
-Value *VPOCodeGen::createVectorMaskArg(VPCallInstruction *VPCall,
-                                       const VFInfo &VecVariant,
-                                       Value *MaskToUse) {
+Value *CodeGenLLVM::createVectorMaskArg(VPCallInstruction *VPCall,
+                                        const VFInfo &VecVariant,
+                                        Value *MaskToUse) {
   // Add the mask parameter for masked simd functions.
   // Mask should already be vectorized as i1 type.
   assert(cast<VectorType>(MaskToUse->getType())
@@ -2944,7 +2942,7 @@ Value *VPOCodeGen::createVectorMaskArg(VPCallInstruction *VPCall,
       VecVariant, MaskToUse);
 }
 
-void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
+void CodeGenLLVM::vectorizeSelectInstruction(VPInstruction *VPInst) {
   // If the selector is loop invariant we can create a select
   // instruction with a scalar condition. Otherwise, use vector-select.
   VPValue *Cond = VPInst->getOperand(0);
@@ -3000,7 +2998,7 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   VPWidenMap[VPInst] = NewSelect;
 }
 
-Align VPOCodeGen::getLoadStoreAlignment(const VPLoadStoreInst *LoadStore) {
+Align CodeGenLLVM::getLoadStoreAlignment(const VPLoadStoreInst *LoadStore) {
   if (LoadStore->getUnderlyingValue() == nullptr)
     return LoadStore->getAlignment();
 
@@ -3012,7 +3010,8 @@ Align VPOCodeGen::getLoadStoreAlignment(const VPLoadStoreInst *LoadStore) {
   return DL.getValueOrABITypeAlignment(LoadStore->getAlignment(), OrigTy);
 }
 
-Align VPOCodeGen::getAlignmentForGatherScatter(const VPLoadStoreInst *LoadStore) {
+Align CodeGenLLVM::getAlignmentForGatherScatter(
+    const VPLoadStoreInst *LoadStore) {
   Align Alignment = getLoadStoreAlignment(LoadStore);
 
   Type *OrigTy = LoadStore->getValueType();
@@ -3029,8 +3028,9 @@ Align VPOCodeGen::getAlignmentForGatherScatter(const VPLoadStoreInst *LoadStore)
   return std::min(EltAlignment, Alignment);
 }
 
-Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
-                                           bool IsNegOneStride, bool IsPvtPtr) {
+Value *CodeGenLLVM::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
+                                            bool IsNegOneStride,
+                                            bool IsPvtPtr) {
   Instruction *WideLoad = nullptr;
   VPValue *Ptr = VPLoad->getPointerOperand();
   Type *LoadType = VPLoad->getValueType();
@@ -3091,8 +3091,8 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
   return WideLoad;
 }
 
-void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
-                                          bool EmitIntrinsic) {
+void CodeGenLLVM::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
+                                           bool EmitIntrinsic) {
   Type *LoadType = VPLoad->getValueType();
   auto *LoadVecType = dyn_cast<FixedVectorType>(LoadType);
   assert((!LoadVecType || LoadVecType->getElementType()->isSingleValueType()) &&
@@ -3158,8 +3158,8 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
   VPWidenMap[VPLoad] = NewLI;
 }
 
-void VPOCodeGen::vectorizeUnitStrideStore(VPLoadStoreInst *VPStore,
-                                          bool IsNegOneStride, bool IsPvtPtr) {
+void CodeGenLLVM::vectorizeUnitStrideStore(VPLoadStoreInst *VPStore,
+                                           bool IsNegOneStride, bool IsPvtPtr) {
   VPValue *Ptr = VPStore->getPointerOperand();
   Value *VecDataOp = getVectorValue(VPStore->getOperand(0));
   Type *StoreType = VPStore->getValueType();
@@ -3222,8 +3222,8 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPLoadStoreInst *VPStore,
   propagateLoadStoreInstAliasMetadata(Store, VPStore);
 }
 
-void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
-                                           bool EmitIntrinsic) {
+void CodeGenLLVM::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
+                                            bool EmitIntrinsic) {
   Type *StoreType = VPStore->getValueType();
   auto *StoreVecType = dyn_cast<FixedVectorType>(StoreType);
   assert(
@@ -3306,8 +3306,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
 // accessed in the vectorized code. These addresses, take the form of a GEP
 // instruction, and this GEP is used as pointer operand of the resulting
 // scatter/gather intrinsic.
-Value *VPOCodeGen::getWidenedAddressForScatterGather(VPValue *VPBasePtr,
-                                                     Type *ScalarAccessType) {
+Value *CodeGenLLVM::getWidenedAddressForScatterGather(VPValue *VPBasePtr,
+                                                      Type *ScalarAccessType) {
   assert(VPBasePtr->getType()->isPointerTy() &&
          "Expect 'VPBasePtr' to be a PointerType");
 
@@ -3362,9 +3362,8 @@ Value *VPOCodeGen::getWidenedAddressForScatterGather(VPValue *VPBasePtr,
 
 // This function return an appropriate BasePtr for cases where we are dealing
 // with load/store to consecutive memory locations
-Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr,
-                                                            Type *ScalarAccessType,
-                                                            bool Reverse) {
+Value *CodeGenLLVM::createWidenedBasePtrConsecutiveLoadStore(
+    VPValue *Ptr, Type *ScalarAccessType, bool Reverse) {
   unsigned AddrSpace = Ptr->getType()->getPointerAddressSpace();
   auto *WideDataTy =
       cast<FixedVectorType>(getWidenedType(ScalarAccessType, VF));
@@ -3415,7 +3414,7 @@ Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr,
 //   2) if ScalarMask == SExt(i1), return widened SExt.
 //   3) Otherwise, return SExt(VectorMask != 0).
 //
-Value *VPOCodeGen::getOpenCLSelectVectorMask(VPValue *ScalarMask) {
+Value *CodeGenLLVM::getOpenCLSelectVectorMask(VPValue *ScalarMask) {
 
   Type *ScTy = ScalarMask->getType();
   assert(!ScTy->isVectorTy() && ScTy->isIntegerTy() &&
@@ -3445,8 +3444,8 @@ Value *VPOCodeGen::getOpenCLSelectVectorMask(VPValue *ScalarMask) {
   return Builder.CreateSExt(Cmp, VecTy);
 }
 
-void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
-                                        Value *CallResult) {
+void CodeGenLLVM::generateStoreForSinCos(VPCallInstruction *VPCall,
+                                         Value *CallResult) {
   // Extract results in the structure returned from SVML sincos call and store
   // into the pointers provided by the scalar call, for example:
   // %sincos = call svml_cc { <16 x float>, <16 x float> } @__svml_sincosf16(
@@ -3504,11 +3503,11 @@ void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
   storeVectorValue(ExtractCosInst, VPCall->getOperand(2), Alignment);
 }
 
-void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
-                                     unsigned PumpFactor, bool IsMasked,
-                                     const VFInfo *MatchedVariant,
-                                     Intrinsic::ID VectorIntrinID,
-                                     SmallVectorImpl<Value *> &CallResults) {
+void CodeGenLLVM::generateVectorCalls(VPCallInstruction *VPCall,
+                                      unsigned PumpFactor, bool IsMasked,
+                                      const VFInfo *MatchedVariant,
+                                      Intrinsic::ID VectorIntrinID,
+                                      SmallVectorImpl<Value *> &CallResults) {
   Function *CalledFunc = VPCall->getCalledFunction();
   assert(CalledFunc && "Unexpected null called function.");
 
@@ -3679,7 +3678,7 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
   }
 }
 
-Value *VPOCodeGen::getCombinedCallResults(ArrayRef<Value *> CallResults) {
+Value *CodeGenLLVM::getCombinedCallResults(ArrayRef<Value *> CallResults) {
   if (CallResults.size() == 1)
     return CallResults[0];
 
@@ -3695,7 +3694,7 @@ Value *VPOCodeGen::getCombinedCallResults(ArrayRef<Value *> CallResults) {
   }
 }
 
-void VPOCodeGen::vectorizeLibraryCall(VPCallInstruction *VPCall) {
+void CodeGenLLVM::vectorizeLibraryCall(VPCallInstruction *VPCall) {
   assert(VPCall->getVectorizationScenario() ==
              VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
          "vectorizeLibraryCall called for mismatched scenario.");
@@ -3786,7 +3785,7 @@ void VPOCodeGen::vectorizeLibraryCall(VPCallInstruction *VPCall) {
   }
 }
 
-void VPOCodeGen::vectorizeTrivialIntrinsic(VPCallInstruction *VPCall) {
+void CodeGenLLVM::vectorizeTrivialIntrinsic(VPCallInstruction *VPCall) {
   assert(VPCall->getVectorizationScenario() ==
              VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic &&
          "vectorizeTrivialIntrinsic called for mismatched scenario.");
@@ -3808,7 +3807,7 @@ void VPOCodeGen::vectorizeTrivialIntrinsic(VPCallInstruction *VPCall) {
   VPWidenMap[VPCall] = getCombinedCallResults(CallResults);
 }
 
-void VPOCodeGen::vectorizeVecVariant(VPCallInstruction *VPCall) {
+void CodeGenLLVM::vectorizeVecVariant(VPCallInstruction *VPCall) {
   assert(VPCall->getVectorizationScenario() ==
              VPCallInstruction::CallVecScenariosTy::VectorVariant &&
          "vectorizeVecVariant called for mismatched scenario.");
@@ -3846,7 +3845,8 @@ void VPOCodeGen::vectorizeVecVariant(VPCallInstruction *VPCall) {
 }
 
 // Widen or Serialize lifetime_start/end intrinsic call.
-void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
+void CodeGenLLVM::vectorizeLifetimeStartEndIntrinsic(
+    VPCallInstruction *VPCall) {
   // If this is a private, determine if the call can be widened with the widened
   // pointer, else serialie.
   if (VPValue *PrivPtr = const_cast<VPValue *>(
@@ -3884,7 +3884,7 @@ void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
   serializeWithPredication(VPCall);
 }
 
-Value *VPOCodeGen::getVectorValueForExternal(VPValue *V, unsigned CurVF) {
+Value *CodeGenLLVM::getVectorValueForExternal(VPValue *V, unsigned CurVF) {
   assert((isa<VPExternalDef>(V) || isa<VPConstant>(V) ||
           isa<VPMetadataAsValue>(V)) &&
          "Unknown external VPValue.");
@@ -3914,7 +3914,7 @@ Value *VPOCodeGen::getVectorValueForExternal(VPValue *V, unsigned CurVF) {
   return Widened;
 }
 
-Value *VPOCodeGen::getVectorValue(VPValue *V) {
+Value *CodeGenLLVM::getVectorValue(VPValue *V) {
   // If we have this scalar in the map, return it.
   if (VPWidenMap.count(V))
     return VPWidenMap[V];
@@ -4057,7 +4057,7 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   return Widened;
 }
 
-Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
+Value *CodeGenLLVM::getScalarValue(VPValue *V, unsigned Lane) {
   if (isa<VPExternalDef>(V) || isa<VPConstant>(V) || isa<VPMetadataAsValue>(V))
     return V->getUnderlyingValue();
 
@@ -4136,7 +4136,7 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
   return ScalarV;
 }
 
-void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
+void CodeGenLLVM::vectorizeExtractElement(VPInstruction *VPInst) {
   // Vector operand will be first operand of extractelement, index will be
   // second operand.
   Value *ExtrFrom = getVectorValue(VPInst->getOperand(0));
@@ -4204,7 +4204,7 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
       ExtrFrom, UndefValue::get(VTy), ShufMask, "wide.extract");
 }
 
-void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
+void CodeGenLLVM::vectorizeInsertElement(VPInstruction *VPInst) {
   Value *InsertTo = getVectorValue(VPInst->getOperand(0));
   Value *NewSubVec = getVectorValue(VPInst->getOperand(1));
   VPValue *OrigIndexVal = VPInst->getOperand(2);
@@ -4313,7 +4313,7 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
   VPWidenMap[VPInst] = SecondShuf;
 }
 
-void VPOCodeGen::vectorizeShuffle(VPInstruction *VPInst) {
+void CodeGenLLVM::vectorizeShuffle(VPInstruction *VPInst) {
   unsigned OrigSrcVL =
       cast<FixedVectorType>(VPInst->getOperand(0)->getType())->getNumElements();
   int OrigDstVL = cast<FixedVectorType>(VPInst->getType())->getNumElements();
@@ -4355,14 +4355,15 @@ void VPOCodeGen::vectorizeShuffle(VPInstruction *VPInst) {
       Builder.CreateShuffleVector(V0, V1, ConstantVector::get(MaskIndices));
 }
 
-void VPOCodeGen::processPredicatedNonWidenedUniformCall(VPInstruction *VPInst) {
+void CodeGenLLVM::processPredicatedNonWidenedUniformCall(
+    VPInstruction *VPInst) {
   if (MaskValue)
     return serializePredicatedUniformInstruction(VPInst);
 
   return serializeInstruction(VPInst);
 }
 
-Value *VPOCodeGen::getMaskNotAllZero() {
+Value *CodeGenLLVM::getMaskNotAllZero() {
   assert(MaskValue && "Should only be called in masked context!");
   auto *MaskTy = dyn_cast<FixedVectorType>(MaskValue->getType());
   assert(MaskTy && MaskTy->getNumElements() == VF && "Unexpected Mask Type");
@@ -4379,7 +4380,8 @@ Value *VPOCodeGen::getMaskNotAllZero() {
   return CmpInst;
 }
 
-void VPOCodeGen::serializePredicatedUniformInstruction(VPInstruction *VPInst) {
+void CodeGenLLVM::serializePredicatedUniformInstruction(
+    VPInstruction *VPInst) {
   // Mask is needed before the predicated instruction, so generate the code for
   // it.
   auto *NotAllZero = getMaskNotAllZero();
@@ -4399,7 +4401,7 @@ void VPOCodeGen::serializePredicatedUniformInstruction(VPInstruction *VPInst) {
       std::make_pair(cast<Instruction>(SerialInstruction), NotAllZero));
 }
 
-void VPOCodeGen::serializeWithPredication(VPInstruction *VPInst) {
+void CodeGenLLVM::serializeWithPredication(VPInstruction *VPInst) {
   if (!MaskValue)
     return serializeInstruction(VPInst);
 
@@ -4430,7 +4432,7 @@ void VPOCodeGen::serializeWithPredication(VPInstruction *VPInst) {
   }
 }
 
-void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
+void CodeGenLLVM::serializeInstruction(VPInstruction *VPInst) {
 
   unsigned Lanes =
       (!VPInst->mayHaveSideEffects() &&
@@ -4470,7 +4472,7 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
 // The selects are generated as follows:
 //      select1 = bp3_vec ? vp3_vec : vp2_vec
 //      vp1_vec = bp4_vec ? vp4_vec : select1
-void VPOCodeGen::vectorizeBlend(VPBlendInst *Blend) {
+void CodeGenLLVM::vectorizeBlend(VPBlendInst *Blend) {
   unsigned NumIncomingValues = Blend->getNumIncomingValues();
   assert(NumIncomingValues > 0 && "Unexpected blend with zero values");
 
@@ -4499,7 +4501,7 @@ void VPOCodeGen::vectorizeBlend(VPBlendInst *Blend) {
   VPWidenMap[Blend] = BlendVal;
 }
 
-void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
+void CodeGenLLVM::vectorizeVPPHINode(VPPHINode *VPPhi) {
   auto PhiTy = VPPhi->getType();
   if (!isVectorizableTy(PhiTy)) {
     // PHIs cannot be predicated so it should be safe to serialize without
@@ -4527,7 +4529,7 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   }
 }
 
-void VPOCodeGen::vectorizePrivateFinalUncond(VPInstruction *VPInst) {
+void CodeGenLLVM::vectorizePrivateFinalUncond(VPInstruction *VPInst) {
 
   Value *Ret;
   Value *Operand = getVectorValue(VPInst->getOperand(0));
@@ -4541,7 +4543,7 @@ void VPOCodeGen::vectorizePrivateFinalUncond(VPInstruction *VPInst) {
 }
 
 template <typename PrivateInstType>
-void VPOCodeGen::vectorizePrivateNonPODArray(const VPInstruction *VPInst) {
+void CodeGenLLVM::vectorizePrivateNonPODArray(const VPInstruction *VPInst) {
   // Function generates following set of BBs to iterate over VF and number of
   // elements.
   // private.outer.loop:
@@ -4630,7 +4632,7 @@ void VPOCodeGen::vectorizePrivateNonPODArray(const VPInstruction *VPInst) {
 }
 
 template <typename PrivateInstType>
-void VPOCodeGen::vectorizePrivateLastValueNonPODArray(
+void CodeGenLLVM::vectorizePrivateLastValueNonPODArray(
     const VPInstruction *VPInst, Value *Res) {
   // Function generates following set of BBs to iterate over all of array
   // elements in specified lane.
@@ -4669,9 +4671,9 @@ void VPOCodeGen::vectorizePrivateLastValueNonPODArray(
   State->CFG.PrevBB = BBExit;
 }
 
-template<class RunningReductionTy>
-Value *VPOCodeGen::vectorizeRunningReduction(
-    RunningReductionTy *RunningReduction) {
+template <class RunningReductionTy>
+Value *
+CodeGenLLVM::vectorizeRunningReduction(RunningReductionTy *RunningReduction) {
   // Operation as follows.
   // <4 x Ty> running-exclusive-reduction(<4 x Ty> vx, Ty x) {
   // return [vx2 + vx1 + vx0 + x,
@@ -4784,8 +4786,8 @@ Value *VPOCodeGen::vectorizeRunningReduction(
   return LastReduced;
 }
 
-Value *VPOCodeGen::generateMinMaxSequence(unsigned BinOpCode, Value *Op1,
-                                          Value *Op2, FastMathFlags FMF) {
+Value *CodeGenLLVM::generateMinMaxSequence(unsigned BinOpCode, Value *Op1,
+                                           Value *Op2, FastMathFlags FMF) {
   auto SetFastMathFlags = [=](Value *V) {
     if (isa<FPMathOperator>(V))
       cast<Instruction>(V)->setFastMathFlags(FMF);
@@ -4797,7 +4799,7 @@ Value *VPOCodeGen::generateMinMaxSequence(unsigned BinOpCode, Value *Op1,
   return MinMax;
 }
 
-void VPOCodeGen::generateArrayReductionInit(VPInstruction *RedInitArr) {
+void CodeGenLLVM::generateArrayReductionInit(VPInstruction *RedInitArr) {
   assert(RedInitArr->getOpcode() == VPInstruction::ReductionInitArr &&
          "reduction-init-arr instruction expected here.");
 
@@ -4837,7 +4839,7 @@ void VPOCodeGen::generateArrayReductionInit(VPInstruction *RedInitArr) {
   return;
 }
 
-void VPOCodeGen::generateArrayReductionFinal(
+void CodeGenLLVM::generateArrayReductionFinal(
     VPReductionFinalArray *RedFinalArr) {
   auto *PrivArr = cast<VPAllocatePrivate>(RedFinalArr->getOperand(0));
   auto *OrigArr = getScalarValue(RedFinalArr->getOperand(1), 0);
@@ -5004,7 +5006,7 @@ void VPOCodeGen::generateArrayReductionFinal(
   return;
 }
 
-void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
+void CodeGenLLVM::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
   unsigned BinOpcode = RedFinal->getBinOpcode();
   if (BinOpcode == Instruction::ICmp || BinOpcode == Instruction::FCmp) {
     vectorizeSelectCmpReductionFinal(RedFinal);
@@ -5031,7 +5033,8 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
   VPScalarMap[RedFinal][0] = Ret;
 }
 
-void VPOCodeGen::vectorizeSelectCmpReductionFinal(VPReductionFinal *RedFinal) {
+void CodeGenLLVM::vectorizeSelectCmpReductionFinal(
+    VPReductionFinal *RedFinal) {
   assert(RedFinal->getNumOperands() == 3 &&
          "Wrong operand count for SelectCmp reduction-final!");
   assert(!isa<VectorType>(RedFinal->getOperand(0)->getType()) &&
@@ -5048,9 +5051,9 @@ void VPOCodeGen::vectorizeSelectCmpReductionFinal(VPReductionFinal *RedFinal) {
   VPScalarMap[RedFinal][0] = Ret;
 }
 
-Value *VPOCodeGen::createVectorReduce(Intrinsic::ID Intrin, Value *VecValue,
-                                      Value *Acc, unsigned BinOpcode,
-                                      FastMathFlags FMF) {
+Value *CodeGenLLVM::createVectorReduce(Intrinsic::ID Intrin, Value *VecValue,
+                                       Value *Acc, unsigned BinOpcode,
+                                       FastMathFlags FMF) {
   Value *Ret = nullptr;
   // TODO: Need meaningful processing for Acc for FP reductions, and NoNan
   // parameter.
@@ -5133,7 +5136,7 @@ Value *VPOCodeGen::createVectorReduce(Intrinsic::ID Intrin, Value *VecValue,
   return Ret;
 }
 
-void VPOCodeGen::serializeAllocateMem(VPAllocateMemBase *V) {
+void CodeGenLLVM::serializeAllocateMem(VPAllocateMemBase *V) {
   Type *OrigTy = V->getAllocatedType();
   Align OrigAlignment = V->getOrigAlignment();
   Value *PtrsVector = UndefValue::get(getWidenedType(V->getType(), VF));
@@ -5152,7 +5155,7 @@ void VPOCodeGen::serializeAllocateMem(VPAllocateMemBase *V) {
   return;
 }
 
-void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
+void CodeGenLLVM::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   // Private memory is a pointer. We need to get element type
   // and allocate VF elements.
   Type *OrigTy = V->getAllocatedType();
@@ -5242,7 +5245,7 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
 // For +/-   : broadcast(start) +/GEP step*{0, 1,..,VL-1} (GEP for pointers)
 // For */div : broadcast(start) * pow(step,{0, 1,..,VL-1})
 // In the current version, pow() is replaced with a series of multiplications.
-void VPOCodeGen::vectorizeInductionInit(VPInductionInit *VPInst) {
+void CodeGenLLVM::vectorizeInductionInit(VPInductionInit *VPInst) {
   auto *StartVPVal = VPInst->getOperand(0);
   auto *StartVal = getScalarValue(StartVPVal, 0);
   Value *BcastStart =
@@ -5317,7 +5320,7 @@ void VPOCodeGen::vectorizeInductionInit(VPInductionInit *VPInst) {
   }
 }
 
-void VPOCodeGen::vectorizeInductionInitStep(VPInductionInitStep *VPInst) {
+void CodeGenLLVM::vectorizeInductionInitStep(VPInductionInitStep *VPInst) {
   unsigned Opc = VPInst->getBinOpcode();
   bool isMult = Opc == Instruction::Mul || Opc == Instruction::FMul ||
                 Opc == Instruction::SDiv || Opc == Instruction::UDiv ||
@@ -5346,7 +5349,7 @@ void VPOCodeGen::vectorizeInductionInitStep(VPInductionInitStep *VPInst) {
   }
 }
 
-void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
+void CodeGenLLVM::vectorizeInductionFinal(VPInductionFinal *VPInst) {
   Value *LastValue = nullptr;
   if (VPInst->isExtractVersion()) {
     // Extract final value from vector.
@@ -5426,15 +5429,15 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
   VPScalarMap[VPInst][0] = LastValue;
 }
 
-void VPOCodeGen::attachPreferredAlignmentMetadata(Instruction *Memref,
-                                                  Align PreferredAlignment) {
+void CodeGenLLVM::attachPreferredAlignmentMetadata(Instruction *Memref,
+                                                   Align PreferredAlignment) {
   auto &C = Builder.getContext();
   auto *CI = ConstantInt::get(Type::getInt32Ty(C), PreferredAlignment.value());
   SmallVector<Metadata *, 1> Ops{ConstantAsMetadata::get(CI)};
   Memref->setMetadata("intel.preferred_alignment", MDTuple::get(C, Ops));
 }
 
-void VPOCodeGen::fixNonInductionVPPhis() {
+void CodeGenLLVM::fixNonInductionVPPhis() {
   auto fixPHI = [&](VPPHINode *VPPhi, PHINode *Phi, int Lane = -1) -> void {
     const unsigned NumPhiValues = VPPhi->getNumIncomingValues();
     for (unsigned I = 0; I < NumPhiValues; ++I) {
@@ -5521,7 +5524,7 @@ void VPOCodeGen::fixNonInductionVPPhis() {
   }
 }
 
-void VPOCodeGen::lowerRemarksForVectorLoops() {
+void CodeGenLLVM::lowerRemarksForVectorLoops() {
   auto LowerRemarksForLoop = [this](VPLoop *VPL) {
     // Emit statistics related remarks for the loop.
     Plan->getOptRptStatsForLoop(VPL).emitRemarks(
@@ -5551,7 +5554,7 @@ void VPOCodeGen::lowerRemarksForVectorLoops() {
       LowerRemarksForLoop(VLP);
 }
 
-void VPOCodeGen::emitRemarksForScalarLoops() {
+void CodeGenLLVM::emitRemarksForScalarLoops() {
   auto RemoveOptReport = [this](Loop *Lp) {
     MDNode *NewLoopID = OptReport::eraseOptReportFromLoopID(
         Lp->getLoopID(), *Plan->getLLVMContext());
@@ -5578,7 +5581,7 @@ void VPOCodeGen::emitRemarksForScalarLoops() {
   }
 }
 
-void VPOCodeGen::preserveLoopIDMDs() {
+void CodeGenLLVM::preserveLoopIDMDs() {
   auto PreserveMDsForLoop = [this](VPLoop *VPL) {
     MDNode *LpID = VPL->getLoopID();
     if (!LpID)

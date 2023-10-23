@@ -8790,12 +8790,13 @@ ScalarEvolution::getOperandsToCreate(Value *V, SmallVectorImpl<Value *> &Ops) {
   case Instruction::Invoke:
 #if INTEL_CUSTOMIZATION // HIR parsing
     // Suppress traceback for liveout copy instructions inserted by HIR.
-    if (auto Inst = dyn_cast<Instruction>(U)) {
-      if (getHIRMetadata(Inst, HIRLiveKind::LiveOut)) {
-        Ops.push_back(Inst->getOperand(0));
-        return nullptr;
-      }
+    auto *Call = cast<CallBase>(U);
+    if (getHIRMetadata(Call, HIRLiveKind::LiveOut)) {
+      Ops.push_back(Call->getOperand(0));
+      return nullptr;
     }
+    if (Call->isDummyCopyCreatedbyHIR())
+      return getUnknown(Call);
 #endif // INTEL_CUSTOMIZATION
     if (Value *RV = cast<CallBase>(U)->getReturnedArgOperand()) {
       Ops.push_back(RV);
@@ -9312,18 +9313,18 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
   case Instruction::Invoke:
 #if INTEL_CUSTOMIZATION // HIR parsing
     // Suppress traceback for liveout copy instructions inserted by HIR.
-    if (auto Inst = dyn_cast<Instruction>(U)) {
-      if (getHIRMetadata(Inst, HIRLiveKind::LiveOut)) {
-        const SCEV *S = getUnknown(Inst);
-        const SCEV *OpS = getSCEV(Inst->getOperand(0));
-        // Propagate range information to liveout copies to avoid conservative
-        // behavior.
-        setRange(S, ScalarEvolution::HINT_RANGE_UNSIGNED,
-                 getUnsignedRange(OpS));
-        setRange(S, ScalarEvolution::HINT_RANGE_SIGNED, getSignedRange(OpS));
-        return S;
-      }
+    auto *Call = cast<CallBase>(U);
+    if (getHIRMetadata(Call, HIRLiveKind::LiveOut)) {
+      const SCEV *S = getUnknown(Call);
+      const SCEV *OpS = getSCEV(Call->getOperand(0));
+      // Propagate range information to liveout copies to avoid conservative
+      // behavior.
+      setRange(S, ScalarEvolution::HINT_RANGE_UNSIGNED, getUnsignedRange(OpS));
+      setRange(S, ScalarEvolution::HINT_RANGE_SIGNED, getSignedRange(OpS));
+      return S;
     }
+    if (Call->isDummyCopyCreatedbyHIR())
+      return getUnknown(Call);
 #endif // INTEL_CUSTOMIZATION
     if (Value *RV = cast<CallBase>(U)->getReturnedArgOperand())
       return getSCEV(RV);
