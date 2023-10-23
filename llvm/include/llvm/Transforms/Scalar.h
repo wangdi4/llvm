@@ -328,13 +328,6 @@ Pass *createMergeICmpsLegacyPass();
 FunctionPass *createInferAddressSpacesPass(unsigned AddressSpace = ~0u);
 extern char &InferAddressSpacesID;
 
-//===----------------------------------------------------------------------===//
-//
-<<<<<<< HEAD
-// LowerExpectIntrinsics - Removes llvm.expect intrinsics and creates
-// "block_weights" metadata.
-FunctionPass *createLowerExpectIntrinsicPass();
-
 #if INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //
@@ -350,8 +343,6 @@ FunctionPass *createConvertGEPToSubscriptIntrinsicLegacyPass();
 
 //===----------------------------------------------------------------------===//
 //
-=======
->>>>>>> 8511ade505588473154906e903302659fd833b48
 // TLSVariableHoist - This pass reduce duplicated TLS address call.
 //
 FunctionPass *createTLSVariableHoistPass();
