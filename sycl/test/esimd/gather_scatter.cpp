@@ -1,13 +1,5 @@
-<<<<<<< HEAD
-// RUN: %clangxx -fsycl -fsycl-device-only -fno-sycl-early-optimizations -fsyntax-only -Xclang -verify %s
-// expected-no-diagnostics
-
-// RUN: %clangxx -fsycl -fsycl-device-only -fsyntax-only -fsycl-esimd-force-stateless-mem -Xclang -verify %s
-// expected-no-diagnostics
-=======
 // RUN: not %clangxx -fsycl -fsycl-device-only -fsyntax-only -Wno-unused-command-line-argument %s 2>&1 | FileCheck %s --implicit-check-not="warning:" --implicit-check-not="error:"
 // RUN: not %clangxx -fsycl -fsycl-device-only -fsyntax-only -fsycl-esimd-force-stateless-mem -Wno-unused-command-line-argument %s 2>&1 | FileCheck %s --implicit-check-not="warning:" --implicit-check-not="error:"
->>>>>>> 803a77f82a24a7b1d87d0bced1942037c02d0ea3
 
 #include <limits>
 #include <sycl/ext/intel/esimd.hpp>
