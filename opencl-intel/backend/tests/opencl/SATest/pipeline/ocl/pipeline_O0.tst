@@ -17,10 +17,11 @@
 ; CHECK-NEXT: Running pass: DetectRecursionPass
 ; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK-NEXT: Running pass: TaskSeqAsyncHandling  ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT: Running pass: TaskSeqAsyncHandling
 ; CHECK-NEXT: Running pass: ResolveMatrixFillPass
-; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass
 ; CHECK-NEXT: Running pass: ResolveMatrixWISlicePass
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT: Skipping pass UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Skipping pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
@@ -41,6 +42,7 @@
 ; CHECK-NEXT: Running analysis: AssumptionAnalysis
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
+; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass ; INTEL
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: ImplicitGIDPass

@@ -103,10 +103,11 @@
 ; CHECK-NEXT: Running pass: EarlyCSEPass
 ; CHECK-NEXT: Running pass: PromotePass
 ; CHECK-NEXT: Running pass: InstCombinePass
-; CHECK-NEXT: Running pass: TaskSeqAsyncHandling  ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT: Running pass: TaskSeqAsyncHandling
 ; CHECK-NEXT: Running pass: ResolveMatrixFillPass
-; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass
 ; CHECK-NEXT: Running pass: ResolveMatrixWISlicePass
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT: Running pass: InferArgumentAliasPass
 ; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
@@ -191,6 +192,7 @@
 ; CHECK:      Running pass: HandleVPlanMask
 ; CHECK-NEXT: Running pass: VerifierPass
 
+; CHECK:      Running pass: ResolveMatrixLayoutPass ; INTEL
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: LoopUnrollPass
 ; CHECK-NEXT: Running pass: OptimizeIDivAndIRemPass
