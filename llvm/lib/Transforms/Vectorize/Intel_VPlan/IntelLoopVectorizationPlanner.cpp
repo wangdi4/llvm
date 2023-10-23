@@ -3260,7 +3260,7 @@ VPlanVector *LoopVectorizationPlanner::getBestVPlan() {
            : getMaskedVPlanForVF(VF);
 }
 
-void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
+void LoopVectorizationPlanner::executeBestPlan(CodeGenLLVM &LB) {
   assert(getBestVF() > 1 && "Non-vectorized loop should be handled elsewhere!");
   ILV = &LB;
 
