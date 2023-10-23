@@ -54,99 +54,29 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ;
 ; CHECK-DAG: call void @__pipe_init_fpga(ptr addrspace(1) @[[PIPE_FAR]].bs, i32 4, i32 3
 ; CHECK-DAG: store ptr addrspace(1) @[[PIPE_FAR]].bs, ptr addrspace(1) @[[PIPE_FAR]]
-;
-; CHECK-DAG: store ptr addrspace(1) @[[PIPE_STAR_ARR]].bs, ptr addrspace(1) @[[PIPE_STAR_ARR]]
 
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 0, i32 0, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 0, i32 0, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 0, i32 1, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 0, i32 1, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 0, i32 1, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 0, i32 2, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 0, i32 2, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 0, i32 2, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 0, i32 3, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 0, i32 3, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 0, i32 3, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 1, i32 0, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 1, i32 0, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 1, i32 0, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 1, i32 1, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 1, i32 1, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 1, i32 1, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 1, i32 2, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 1, i32 2, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 1, i32 2, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 1, i32 3, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 1, i32 3, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 1, i32 3, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 2, i32 0, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 2, i32 0, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 2, i32 0, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 2, i32 1, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 2, i32 1, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 2, i32 1, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 2, i32 2, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 2, i32 2, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 2, i32 2, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 2, i32 3, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 2, i32 3, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 2, i32 3, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 3, i32 0, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 3, i32 0, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 3, i32 0, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 3, i32 1, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 3, i32 1, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 3, i32 1, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 3, i32 2, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 3, i32 2, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 3, i32 2, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 3, i32 3, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 3, i32 3, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 3, i32 3, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 0, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 0, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 0, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 1, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 1, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 1, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 2, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 2, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 2, i32 2)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 3, i32 0)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 3, i32 1)
-; CHECK-DAG: store {{.*}}@[[PIPE_STAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_STAR_ARR]], i32 0, i32 4, i32 3, i32 2)
+; CHECK: store {{.*}} @[[PIPE_BAR_ARR]].bs, {{.*}} @[[PIPE_BAR_ARR]]
+; CHECK: store {{.*}} @[[PIPE_BAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_BAR_ARR]], i32 0, i32 1)
+; CHECK: store {{.*}} @[[PIPE_BAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_BAR_ARR]], i32 0, i32 2)
+; CHECK: store {{.*}} @[[PIPE_BAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_BAR_ARR]], i32 0, i32 3)
+; CHECK: store {{.*}} @[[PIPE_BAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_BAR_ARR]], i32 0, i32 4)
+; CHECK: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_BAR_ARR]]{{.*}}, i32 5, i32 4, i32 0, i32 0)
 
-; CHECK-DAG: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_STAR_ARR]]{{.*}}, i32 60, i32 4, i32 0
-;
-; CHECK-DAG: store {{.*}} @[[PIPE_BAR_ARR]].bs, {{.*}} @[[PIPE_BAR_ARR]]
-; CHECK-DAG: store {{.*}} @[[PIPE_BAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_BAR_ARR]], i32 0, i32 1)
-; CHECK-DAG: store {{.*}} @[[PIPE_BAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_BAR_ARR]], i32 0, i32 2)
-; CHECK-DAG: store {{.*}} @[[PIPE_BAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_BAR_ARR]], i32 0, i32 3)
-; CHECK-DAG: store {{.*}} @[[PIPE_BAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_BAR_ARR]], i32 0, i32 4)
-; CHECK-DAG: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_BAR_ARR]]{{.*}}, i32 5, i32 4, i32 0
-;
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, {{.*}} @[[PIPE_FAR_ARR]]
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 0, i32 1)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 0, i32 2)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 0, i32 3)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 1, i32 0)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 1, i32 1)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 1, i32 2)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 1, i32 3)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 2, i32 0)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 2, i32 1)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 2, i32 2)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 2, i32 3)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 3, i32 0)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 3, i32 1)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 3, i32 2)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 3, i32 3)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 4, i32 0)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 4, i32 1)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 4, i32 2)
-; CHECK-DAG: store {{.*}} @[[PIPE_FAR_ARR]].bs, i64 0, i64 {{[0-9]+}}){{.*}} @[[PIPE_FAR_ARR]], i32 0, i32 4, i32 3)
-; CHECK-DAG: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_FAR_ARR]]{{.*}}, i32 20, i32 4, i32 3
+; CHECK-LABEL: body{{.*}}:
+; CHECK: [[ElemInd:%elem.ind[0-9]+]] = mul nuw nsw i64 %j{{.*}}, 456
+; CHECK: [[GEP0:%[0-9]+]] = getelementptr [27360 x i8], ptr addrspace(1) @[[PIPE_STAR_ARR]].bs, i64 0, i64 [[ElemInd]]
+; CHECK: [[GEP1:%[0-9]+]] = getelementptr [5 x [4 x [3 x ptr addrspace(1)]]], ptr addrspace(1) @[[PIPE_STAR_ARR]], i64 0, i64 {{.*}}, i64 {{.*}}, i64 {{.*}}
+; CHECK: store ptr addrspace(1) [[GEP0]], ptr addrspace(1) [[GEP1]], align 8
+; CHECK-LABEL: exit{{.*}}:
+; CHECK: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_STAR_ARR]]{{.*}}, i32 60, i32 4, i32 0, i32 0)
+
+; CHECK-LABEL: body{{.*}}:
+; CHECK: [[ElemInd1:%elem.ind[0-9]*]] = mul nuw nsw i64 %j{{.*}}, 464
+; CHECK: [[GEP2:%[0-9]+]] = getelementptr [9280 x i8], ptr addrspace(1) @[[PIPE_FAR_ARR]].bs, i64 0, i64 [[ElemInd1]]
+; CHECK: [[GEP3:%[0-9]+]] = getelementptr [5 x [4 x ptr addrspace(1)]], ptr addrspace(1) @[[PIPE_FAR_ARR]], i64 0, i64 {{.*}}, i64 {{.*}}
+; CHECK: store ptr addrspace(1) [[GEP2]], ptr addrspace(1) [[GEP3]], align 8
+; CHECK-LABEL: exit{{.*}}:
+; CHECK: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_FAR_ARR]]{{.*}}, i32 20, i32 4, i32 3, i32 0)
 
 ; Function Attrs: convergent norecurse nounwind
 define dso_local void @foo() #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !arg_type_null_val !4 {

@@ -74,5 +74,5 @@ attributes #0 = { convergent norecurse nounwind "no-trapping-math"="true" "stack
 !8 = !{ptr @foo}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-95: WARNING: Instruction with empty DebugLoc in function __pipe_global_ctor
+; DEBUGIFY-COUNT-42: WARNING: Instruction with empty DebugLoc in function __pipe_global_ctor
 ; DEBUGIFY-NOT: WARNING
