@@ -7736,7 +7736,7 @@ public:
             CombinedInfo.Pointers.push_back(CGF.Builder.CreateInBoundsGEP(
                 LB.getElementType(), LB.getPointer(), Idx, "arrayidx"));
           } else
-#endif //INTEL_COLLAB
+#endif // INTEL_COLLAB
           CombinedInfo.Pointers.push_back(LB.getPointer());
           CombinedInfo.Sizes.push_back(
               CGF.Builder.CreateIntCast(Size, CGF.Int64Ty, /*isSigned=*/true));
@@ -8139,7 +8139,6 @@ private:
       llvm::OpenMPIRBuilder &OMPBuilder,
       const llvm::DenseSet<CanonicalDeclPtr<const Decl>> &SkipVarSet =
           llvm::DenseSet<CanonicalDeclPtr<const Decl>>()) const {
-
     // We have to process the component lists that relate with the same
     // declaration in a single chunk so that we can generate the map flags
     // correctly. Therefore, we organize all lists in a map.
@@ -10827,7 +10826,7 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
   if (DevTy && *DevTy != OMPDeclareTargetDeclAttr::DT_Any)
     return;
 
-#if !defined(INTEL_COLLAB)
+#if !INTEL_COLLAB
   std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
 #endif // !INTEL_COLLAB

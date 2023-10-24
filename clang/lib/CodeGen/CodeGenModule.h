@@ -809,7 +809,7 @@ public:
     return NoObjCARCExceptionsMetadata;
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   llvm::MDNode *getAutoMultiVersionMetadata(std::vector<std::string> &Targets) {
     if (AutoMultiVersionMetadata)
       return AutoMultiVersionMetadata;
@@ -841,7 +841,7 @@ public:
            "AutoCPUDispatchTargets should be empty");
     return getAutoMultiVersionMetadata(Target.getTargetOpts().AutoArchTargets);
   }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   ASTContext &getContext() const { return Context; }
   const LangOptions &getLangOpts() const { return LangOpts; }

@@ -102,7 +102,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 #if INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   if (CGM.getLangOpts().OpenMPLateOutline && !useFrontEndOutlining(S)) {
-#else
+#else  // INTEL_CUSTOMIZATION
   if (CGM.getLangOpts().OpenMPLateOutline) {
 #endif // INTEL_CUSTOMIZATION
     // Handle reprocessing VLASizeMap expressions.
@@ -1746,13 +1746,13 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
       RValue Result = EmitReferenceBindingToExpr(RV);
       Val = Result.getScalarVal();
     }
-#endif // INTEL_CUSTOMIZATION
     Builder.CreateStore(Val, ReturnValue);
+#endif // INTEL_CUSTOMIZATION
   } else {
     switch (getEvaluationKind(RV->getType())) {
     case TEK_Scalar:
-    {
 #if INTEL_CUSTOMIZATION
+    {
       llvm::Value *Val;
       const UnaryOperator *Exp = dyn_cast<UnaryOperator>(RV);
       if (getLangOpts().isIntelCompat(LangOptions::FakeLoad) &&
@@ -1761,10 +1761,10 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
         Val = EmitFakeLoadForRetPtr(Exp->getSubExpr());
       else
         Val = EmitScalarExpr(RV);
-#endif // INTEL_CUSTOMIZATION
       Builder.CreateStore(Val, ReturnValue);
       break;
     }
+#endif // INTEL_CUSTOMIZATION
     case TEK_Complex:
       EmitComplexExprIntoLValue(RV, MakeAddrLValue(ReturnValue, RV->getType()),
                                 /*isInit*/ true);

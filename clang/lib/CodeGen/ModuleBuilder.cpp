@@ -268,7 +268,6 @@ namespace {
           }
         }
       }
-
       // For OpenMP emit declare reduction functions, if required.
       if (Ctx->getLangOpts().OpenMP) {
         for (Decl *Member : D->decls()) {

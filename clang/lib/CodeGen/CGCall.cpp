@@ -2288,11 +2288,10 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
       assert(NumIRArgs == 1);
       // indirect arguments are always on the stack, which is alloca addr space.
       ArgTypes[FirstIRArg] = llvm::PointerType::get(
-          getLLVMContext(),
 #if INTEL_COLLAB
-          CGM.getEffectiveAllocaAddrSpace());
+          getLLVMContext(), CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB
-          CGM.getDataLayout().getAllocaAddrSpace());
+          getLLVMContext(), CGM.getDataLayout().getAllocaAddrSpace());
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -2641,7 +2640,7 @@ static void getTrivialDefaultFunctionAttributes(
     // If we want to preserve NaN comparisons, we need to avoid setting
     // the no-nans-fp-math attribute.
     if (LangOpts.NoHonorNaNs && !LangOpts.HonorNaNCompares)
-#endif
+#endif // INTEL_CUSTOMIZATION
       FuncAttrs.addAttribute("no-nans-fp-math", "true");
     if (LangOpts.ApproxFunc)
       FuncAttrs.addAttribute("approx-func-fp-math", "true");
@@ -4596,14 +4595,10 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
 #if INTEL_CUSTOMIZATION
         // Fix for CQ379239: Emit debug location for return instruction, not
         // eliminated store.
-       bool IsIntelandMSCompat =
-           getLangOpts().IntelCompat && getLangOpts().MSVCCompat;
+        bool IsIntelandMSCompat =
+            getLangOpts().IntelCompat && getLangOpts().MSVCCompat;
+        if (EmitRetDbgLoc && !AutoreleaseResult && !IsIntelandMSCompat)
 #endif // INTEL_CUSTOMIZATION
-        if (EmitRetDbgLoc && !AutoreleaseResult
-#if INTEL_CUSTOMIZATION
-          && !IsIntelandMSCompat
-#endif // INTEL_CUSTOMIZATION
-          )
           RetDbgLoc = SI->getDebugLoc();
         // Get the stored value and nuke the now-dead store.
         RV = SI->getValueOperand();
@@ -6005,11 +6000,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         } else {
           // Skip the extra memcpy call.
           auto *T = llvm::PointerType::get(
-              CGM.getLLVMContext(),
 #if INTEL_COLLAB
-              CGM.getEffectiveAllocaAddrSpace());
+              CGM.getLLVMContext(), CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB
-              CGM.getDataLayout().getAllocaAddrSpace());
+              CGM.getLLVMContext(), CGM.getDataLayout().getAllocaAddrSpace());
 #endif // INTEL_COLLAB
           llvm::Value *Val = getTargetHooks().performAddrSpaceCast(
               *this, V, LangAS::Default, CGM.getASTAllocaAddressSpace(), T,

@@ -425,8 +425,6 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   // do not use the usual AST-based processing.
   CGM.SetTargetRegionFunctionAttributes(CurFn);
 #endif // INTEL_COLLAB
-  if (ShouldSkipSanitizerInstrumentation())
-    CurFn->addFnAttr(llvm::Attribute::DisableSanitizerInstrumentation);
 
   // Emit debug descriptor for function end.
   if (CGDebugInfo *DI = getDebugInfo())
@@ -1314,8 +1312,6 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
       EmitOpenCLHLSComponentMetadata(FD, Fn);
   }
 #endif // INTEL_CUSTOMIZATION
-  if (getLangOpts().SYCLIsHost && D && D->hasAttr<SYCLKernelAttr>())
-    Fn->addFnAttr("sycl_kernel");
 
   if (D) {
     // Function attributes take precedence over command line flags.
@@ -3575,7 +3571,7 @@ void CodeGenFunction::EmitX86MultiVersionResolver(
 #if INTEL_CUSTOMIZATION
     llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options,
     bool IsCpuDispatch) {
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   bool SupportsIFunc = getContext().getTargetInfo().supportsIFunc();
 #if INTEL_CUSTOMIZATION

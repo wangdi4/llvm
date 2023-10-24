@@ -215,6 +215,10 @@ struct LoopAttributes {
   /// Value for llvm.loop.max_concurrency.count metadata.
   std::optional<unsigned> SYCLMaxConcurrencyNThreads;
 
+  /// Value for count variant (min/max/avg) and count metadata.
+  llvm::SmallVector<std::pair<const char *, unsigned int>, 2>
+      SYCLIntelFPGAVariantCount;
+
   /// Flag for llvm.loop.coalesce metadata.
   bool SYCLLoopCoalesceEnable;
 
@@ -230,9 +234,6 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.speculated.iterations.count metadata.
   std::optional<unsigned> SYCLSpeculatedIterationsNIterations;
 
-  /// Value for count variant (min/max/avg) and count metadata.
-  llvm::SmallVector<std::pair<const char *, unsigned int>, 2>
-      SYCLIntelFPGAVariantCount;
   // Value for llvm.loop.intel.max_reinvocation_delay metadata.
   std::optional<unsigned> SYCLMaxReinvocationDelayNCycles;
 
