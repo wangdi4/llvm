@@ -4,6 +4,11 @@
 #include <omp.h>
 #include <stdlib.h>
 
+#if INTEL_CUSTOMIZATION
+//TODO: Remove the declaration once it is merged to xmain.
+void *omp_target_memset(void *Ptr, int C, size_t N, int DeviceNum);
+#endif // INTEL_CUSTOMIZATION
+
 int main() {
   int d = omp_get_default_device();
   int id = omp_get_initial_device();
