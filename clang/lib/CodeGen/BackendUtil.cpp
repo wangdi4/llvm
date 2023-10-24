@@ -1143,16 +1143,6 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
           });
     }
 
-<<<<<<< HEAD
-=======
-#if !INTEL_CUSTOMIZATION
-    // This variable shouldn't be here. It was introduced by a bad merge and is
-    // being deleted upstream. When that change is merged this block should be
-    // removed. The variable needs to be removed now to avoid build warnings.
-    const bool PrepareForThinOrUnifiedLTO =
-        PrepareForThinLTO || (PrepareForLTO && CodeGenOpts.UnifiedLTO);
-#endif // INTEL_CUSTOMIZATION
->>>>>>> ab2554c96e23d96b7fc763dbc714c2daddf97bbd
     if (CodeGenOpts.DisableSYCLEarlyOpts) {
       MPM.addPass(PB.buildO0DefaultPipeline(OptimizationLevel::O0,
                                       PrepareForLTO || PrepareForThinLTO));
