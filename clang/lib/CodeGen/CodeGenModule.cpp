@@ -1610,6 +1610,10 @@ void CodeGenModule::setGlobalVisibility(llvm::GlobalValue *GV,
   if (!D)
     return;
 
+  // Set visibility for definitions, and for declarations if requested globally
+  // or set explicitly.
+  LinkageInfo LV = D->getLinkageAndVisibility();
+
   // OpenMP declare target variables must be visible to the host so they can
   // be registered. We require protected visibility unless the variable has
   // the DT_nohost modifier and does not need to be registered.
@@ -1617,14 +1621,12 @@ void CodeGenModule::setGlobalVisibility(llvm::GlobalValue *GV,
       Context.getLangOpts().OpenMPIsTargetDevice && isa<VarDecl>(D) &&
       D->hasAttr<OMPDeclareTargetDeclAttr>() &&
       D->getAttr<OMPDeclareTargetDeclAttr>()->getDevType() !=
-          OMPDeclareTargetDeclAttr::DT_NoHost) {
+          OMPDeclareTargetDeclAttr::DT_NoHost &&
+      LV.getVisibility() == HiddenVisibility) {
     GV->setVisibility(llvm::GlobalValue::ProtectedVisibility);
     return;
   }
 
-  // Set visibility for definitions, and for declarations if requested globally
-  // or set explicitly.
-  LinkageInfo LV = D->getLinkageAndVisibility();
   if (GV->hasDLLExportStorageClass() || GV->hasDLLImportStorageClass()) {
     // Reject incompatible dlllstorage and visibility annotations.
     if (!LV.isVisibilityExplicit())
@@ -4446,7 +4448,7 @@ ConstantAddress CodeGenModule::GetAddrOfTemplateParamObject(
     GV->setComdat(TheModule.getOrInsertComdat(GV->getName()));
   Emitter.finalize(GV);
 
-  return ConstantAddress(GV, GV->getValueType(), Alignment);
+    return ConstantAddress(GV, GV->getValueType(), Alignment);
 }
 
 ConstantAddress CodeGenModule::GetWeakRefReference(const ValueDecl *VD) {
@@ -4543,7 +4545,10 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
           !Global->hasAttr<CUDAConstantAttr>() &&
           !Global->hasAttr<CUDASharedAttr>() &&
           !Global->getType()->isCUDADeviceBuiltinSurfaceType() &&
-          !Global->getType()->isCUDADeviceBuiltinTextureType())
+          !Global->getType()->isCUDADeviceBuiltinTextureType() &&
+          !(LangOpts.HIPStdPar &&
+            isa<FunctionDecl>(Global) &&
+            !Global->hasAttr<CUDAHostAttr>()))
         return;
     } else {
       // We need to emit host-side 'shadows' for all global
@@ -4868,6 +4873,9 @@ bool CodeGenModule::shouldEmitFunction(GlobalDecl GD) {
     return true;
   const auto *F = cast<FunctionDecl>(GD.getDecl());
   if (CodeGenOpts.OptimizationLevel == 0 && !F->hasAttr<AlwaysInlineAttr>())
+    return false;
+
+  if (F->hasAttr<NoInlineAttr>())
     return false;
 
   if (F->hasAttr<DLLImportAttr>() && !F->hasAttr<AlwaysInlineAttr>()) {

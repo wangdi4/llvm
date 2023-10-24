@@ -34,10 +34,10 @@ constexpr StringRef SYCL_GRF_SIZE_ATTR = "sycl-grf-size";
 constexpr StringRef SPIRV_DECOR_MD_KIND = "spirv.Decorations";
 constexpr StringRef SPIRV_PARAM_DECOR_MD_KIND = "spirv.ParameterDecorations";
 // The corresponding SPIR-V OpCode for the host_access property is documented
-// in the SPV_INTEL_global_variable_decorations design document:
-// https://github.com/intel/llvm/blob/sycl/sycl/doc/extensions/DeviceGlobal/SPV_INTEL_global_variable_decorations.asciidoc#decoration
-constexpr uint32_t SPIRV_HOST_ACCESS_DECOR = 6147;
-constexpr uint32_t SPIRV_HOST_ACCESS_DEFAULT_VALUE = 2; // Read/Write
+// in the SPV_INTEL_global_variable_host_access design document:
+// https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/INTEL/SPV_INTEL_global_variable_host_access.asciidoc#decoration
+constexpr uint32_t SPIRV_HOST_ACCESS_DECOR = 6168;
+constexpr uint32_t SPIRV_HOST_ACCESS_DEFAULT_VALUE = 3; // Read/Write
 
 constexpr uint32_t SPIRV_INITIATION_INTERVAL_DECOR = 5917;
 constexpr uint32_t SPIRV_PIPELINE_ENABLE_DECOR = 5919;
@@ -626,13 +626,13 @@ bool CompileTimePropertiesPass::transformSYCLPropertiesAnnotation(
   // Read the annotation values and create the new annotation string.
   std::string NewAnnotString = "";
   auto Properties = parseSYCLPropertiesString(M, IntrInst);
-  for (auto &Property : Properties) {
+  for (const auto &[PropName, PropVal] : Properties) {
     // sycl-alignment is converted to align on
     // previous parseAlignmentAndApply(), dropping here
-    if (*Property.first == "sycl-alignment")
+    if (PropName == "sycl-alignment")
       continue;
 
-    auto DecorIt = SpirvDecorMap.find(*Property.first);
+    auto DecorIt = SpirvDecorMap.find(*PropName);
     if (DecorIt == SpirvDecorMap.end())
       continue;
     uint32_t DecorCode = DecorIt->second.Code;
@@ -642,8 +642,8 @@ bool CompileTimePropertiesPass::transformSYCLPropertiesAnnotation(
     // string values are handled correctly. Note that " around values are
     // always valid, even if the decoration parameters are not strings.
     NewAnnotString += "{" + std::to_string(DecorCode);
-    if (Property.second)
-      NewAnnotString += ":\"" + Property.second->str() + "\"";
+    if (PropVal)
+      NewAnnotString += ":\"" + PropVal->str() + "\"";
     NewAnnotString += "}";
   }
 

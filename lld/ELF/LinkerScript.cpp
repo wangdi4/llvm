@@ -613,6 +613,7 @@ void LinkerScript::processSectionCommands() {
         discard(*s);
       discardSynthetic(*osec);
       osec->commands.clear();
+      seenDiscard = true;
       return false;
     }
 
@@ -905,6 +906,15 @@ void LinkerScript::diagnoseOrphanHandling() const {
     else
       warn(toString(sec) + " is being placed in '" + name + "'");
   }
+}
+
+void LinkerScript::diagnoseMissingSGSectionAddress() const {
+  if (!config->cmseImplib || !in.armCmseSGSection->isNeeded())
+    return;
+
+  OutputSection *sec = findByName(sectionCommands, ".gnu.sgstubs");
+  if (sec && !sec->addrExpr && !config->sectionStartMap.count(".gnu.sgstubs"))
+    error("no address assigned to the veneers output section " + sec->name);
 }
 
 // This function searches for a memory region to place the given output

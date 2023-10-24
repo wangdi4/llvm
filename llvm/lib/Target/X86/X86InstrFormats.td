@@ -218,6 +218,8 @@ def T_MAP6    : Map<9>;
 def T_MAP8    : Map<10>;
 def T_MAP4    : Map<11>;
 def T_MAP7    : Map<12>;
+#else
+def T_MAP7    : Map<10>;
 #endif // INTEL_CUSTOMIZATION
 
 // Class specifying the encoding
@@ -288,9 +290,9 @@ class T_MAP8PD : T_MAP8 { Prefix OpPrefix = PD; } // 0x66
 class T_MAP8XS : T_MAP8 { Prefix OpPrefix = XS; } // 0xF3
 class T_MAP8XD : T_MAP8 { Prefix OpPrefix = XD; } // 0xF2
 class OBXD   { Prefix OpPrefix = XD; }
+#endif // INTEL_CUSTOMIZATION
 class T_MAP7XS : T_MAP7 { Prefix OpPrefix = XS; } // 0xF3
 class T_MAP7XD : T_MAP7 { Prefix OpPrefix = XD; } // 0xF2
-#endif // INTEL_CUSTOMIZATION
 class OBXS   { Prefix OpPrefix = XS; }
 class PS   : TB { Prefix OpPrefix = PS; }
 class PD   : TB { Prefix OpPrefix = PD; }

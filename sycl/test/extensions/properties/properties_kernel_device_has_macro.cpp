@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl-device-only -S -Xclang -emit-llvm %s -o - | FileCheck %s --check-prefix CHECK-IR
+// RUN: %clangxx -fsycl-device-only -S -Xclang -emit-llvm -Xclang -disable-llvm-passes %s -o - | FileCheck %s --check-prefix CHECK-IR
 // RUN: %clangxx -fsycl -fsyntax-only -Xclang -verify %s
 // expected-no-diagnostics
 
@@ -26,7 +26,7 @@ static constexpr auto device_has_all = device_has<
     aspect::ext_intel_free_memory, aspect::ext_intel_device_id,
     aspect::ext_intel_memory_clock_rate, aspect::ext_intel_memory_bus_width>;
 
-// CHECK-IR: spir_func void @{{.*}}Func0{{.*}}(){{.*}} #[[DHAttr1:[0-9]+]]
+// CHECK-IR: define{{.*}} spir_func void @{{.*}}Func0{{.*}}(){{.*}} #[[DHAttr1:[0-9]+]]
 SYCL_EXT_ONEAPI_FUNCTION_PROPERTY(device_has_all) void Func0() {}
 
 // CHECK-IR: spir_func void @{{.*}}Func1{{.*}}(){{.*}} #[[DHAttr2:[0-9]+]]

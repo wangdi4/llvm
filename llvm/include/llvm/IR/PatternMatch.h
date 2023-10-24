@@ -2734,8 +2734,5 @@ inline auto m_c_LogicalOp(const LHS &L, const RHS &R) {
 } // end namespace PatternMatch
 } // end namespace llvm
 
-#if INTEL_CUSTOMIZATION
-#undef INTEL_INJECT_VPLAN_TEMPLATIZATION
-#endif // #if INTEL_CUSTOMIZATION
 
 #endif // LLVM_IR_PATTERNMATCH_H

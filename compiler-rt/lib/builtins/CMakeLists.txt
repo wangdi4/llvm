@@ -72,6 +72,9 @@ include(CMakeDependentOption)
 include(CMakePushCheckState)
 
 if(INTEL_CUSTOMIZATION)
+  # Disable empty-translation-unit warning
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-empty-translation-unit")
+
   # Need to override the -Werror setting when building this library with the GNU
   # compiler because this is building components that have the same name as
   # the builtin functions of gcc, and -Werror will report name conflicts
@@ -312,6 +315,7 @@ endif ()
 # long double is not 80 bits on Android or MSVC.
 set(x86_80_BIT_SOURCES
   divxc3.c
+  extendxftf2.c
   fixxfdi.c
   fixxfti.c
   fixunsxfdi.c
@@ -323,6 +327,7 @@ set(x86_80_BIT_SOURCES
   floatuntixf.c
   mulxc3.c
   powixf2.c
+  trunctfxf2.c
 )
 
 if (NOT MSVC)
@@ -584,6 +589,13 @@ set(aarch64_SOURCES
   cpu_model.c
   aarch64/fp_mode.c
 )
+
+if(COMPILER_RT_HAS_ASM_SME AND (COMPILER_RT_HAS_AUXV OR COMPILER_RT_BAREMETAL_BUILD))
+  list(APPEND aarch64_SOURCES aarch64/sme-abi.S aarch64/sme-abi-init.c)
+  message(STATUS "AArch64 SME ABI routines enabled")
+else()
+  message(STATUS "AArch64 SME ABI routines disabled")
+endif()
 
 # Generate outline atomics helpers from lse.S base
 set(OA_HELPERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/outline_atomic_helpers.dir")

@@ -72,6 +72,7 @@ void foo() {
 
   //expected-warning@+1{{attribute 'simple_dual_port' is already applied}}
   int __attribute__((simple_dual_port, simple_dual_port)) lc14;
+  //expected-note@-1{{previous attribute is here}}
 }
 
 //CHECK: ComponentAttr

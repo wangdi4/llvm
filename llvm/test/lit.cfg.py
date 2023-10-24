@@ -603,9 +603,6 @@ if not re.match(
 ) and not re.match(r"^arm64(e)?-apple-(macos|darwin)", config.target_triple):
     config.available_features.add("debug_frame")
 
-if config.have_libxar:
-    config.available_features.add("xar")
-
 if config.enable_threads:
     config.available_features.add("thread_support")
 
@@ -648,7 +645,7 @@ if config.new_pm_default:
 
 import lit.llvm.util
 config.opt_options_to_mimic_llorg = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false" , "-instcombine-disable-fpclass-folding=false"]
-config.llc_options_to_mimic_llorg = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false"]
+config.llc_options_to_mimic_llorg = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false", "-cgp-split-switch-critical-edge=false"]
 lit.llvm.util.add_default_options_to_tool(config, 'opt', config.opt_options_to_mimic_llorg)
 lit.llvm.util.add_default_options_to_tool(config, 'llc', config.llc_options_to_mimic_llorg)
 # end INTEL_CUSTOMIZATION

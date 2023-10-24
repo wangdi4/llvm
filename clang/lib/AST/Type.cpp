@@ -2693,6 +2693,8 @@ static bool
 HasNonDeletedDefaultedEqualityComparison(const CXXRecordDecl *Decl) {
   if (Decl->isUnion())
     return false;
+  if (Decl->isLambda())
+    return Decl->isCapturelessLambda();
 
   auto IsDefaultedOperatorEqualEqual = [&](const FunctionDecl *Function) {
     return Function->getOverloadedOperator() ==
@@ -3415,6 +3417,7 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
   case CC_SwiftAsync: return "swiftasynccall";
   case CC_PreserveMost: return "preserve_most";
   case CC_PreserveAll: return "preserve_all";
+  case CC_M68kRTD: return "m68k_rtd";
   }
 
   llvm_unreachable("Invalid calling convention.");
@@ -3898,6 +3901,7 @@ bool AttributedType::isCallingConv() const {
 #endif // INTEL_CUSTOMIZATION
   case attr::PreserveMost:
   case attr::PreserveAll:
+  case attr::M68kRTD:
     return true;
   }
   llvm_unreachable("invalid attr kind");

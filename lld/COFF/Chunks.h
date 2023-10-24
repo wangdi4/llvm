@@ -41,10 +41,11 @@
 namespace lld::coff {
 
 using llvm::COFF::ImportDirectoryTableEntry;
-using llvm::object::COFFSymbolRef;
-using llvm::object::SectionRef;
+using llvm::object::chpe_range_type;
 using llvm::object::coff_relocation;
 using llvm::object::coff_section;
+using llvm::object::COFFSymbolRef;
+using llvm::object::SectionRef;
 
 class Baserel;
 class Defined;
@@ -131,6 +132,9 @@ public:
   // synthesized by the linker.
   bool isHotPatchable() const;
 
+  MachineTypes getMachine() const;
+  chpe_range_type getArm64ECRangeType() const;
+
 protected:
   Chunk(Kind k = OtherKind) : chunkKind(k), hasData(true), p2Align(0) {}
 
@@ -180,6 +184,8 @@ public:
   // Windows-specific.
   // Collect all locations that contain absolute addresses for base relocations.
   virtual void getBaserels(std::vector<Baserel> *res) {}
+
+  virtual MachineTypes getMachine() const { return IMAGE_FILE_MACHINE_UNKNOWN; }
 
   // Returns a human-readable name of this chunk. Chunks are unnamed chunks of
   // bytes, so this is used only for logging or debugging.
@@ -235,6 +241,8 @@ public:
   size_t getSize() const { return header->SizeOfRawData; }
   ArrayRef<uint8_t> getContents() const;
   void writeTo(uint8_t *buf) const;
+
+  MachineTypes getMachine() const { return file->getMachineType(); }
 
   // Defend against unsorted relocations. This may be overly conservative.
   void sortRelocations();
@@ -435,6 +443,24 @@ inline StringRef Chunk::getDebugName() const {
     return static_cast<const NonSectionChunk *>(this)->getDebugName();
 }
 
+inline MachineTypes Chunk::getMachine() const {
+  if (isa<SectionChunk>(this))
+    return static_cast<const SectionChunk *>(this)->getMachine();
+  else
+    return static_cast<const NonSectionChunk *>(this)->getMachine();
+}
+
+inline chpe_range_type Chunk::getArm64ECRangeType() const {
+  switch (getMachine()) {
+  case AMD64:
+    return chpe_range_type::Amd64;
+  case ARM64EC:
+    return chpe_range_type::Arm64EC;
+  default:
+    return chpe_range_type::Arm64;
+  }
+}
+
 // This class is used to implement an lld-specific feature (not implemented in
 // MSVC) that minimizes the output size by finding string literals sharing tail
 // parts and merging them.
@@ -521,6 +547,7 @@ public:
   explicit ImportThunkChunkX64(COFFLinkerContext &ctx, Defined *s);
   size_t getSize() const override { return sizeof(importThunkX86); }
   void writeTo(uint8_t *buf) const override;
+  MachineTypes getMachine() const override { return AMD64; }
 };
 
 class ImportThunkChunkX86 : public ImportThunkChunk {
@@ -530,6 +557,7 @@ public:
   size_t getSize() const override { return sizeof(importThunkX86); }
   void getBaserels(std::vector<Baserel> *res) override;
   void writeTo(uint8_t *buf) const override;
+  MachineTypes getMachine() const override { return I386; }
 };
 
 class ImportThunkChunkARM : public ImportThunkChunk {
@@ -541,6 +569,7 @@ public:
   size_t getSize() const override { return sizeof(importThunkARM); }
   void getBaserels(std::vector<Baserel> *res) override;
   void writeTo(uint8_t *buf) const override;
+  MachineTypes getMachine() const override { return ARMNT; }
 };
 
 class ImportThunkChunkARM64 : public ImportThunkChunk {
@@ -551,6 +580,7 @@ public:
   }
   size_t getSize() const override { return sizeof(importThunkARM64); }
   void writeTo(uint8_t *buf) const override;
+  MachineTypes getMachine() const override { return ARM64; }
 };
 
 class RangeExtensionThunkARM : public NonSectionChunk {
@@ -561,6 +591,7 @@ public:
   }
   size_t getSize() const override;
   void writeTo(uint8_t *buf) const override;
+  MachineTypes getMachine() const override { return ARMNT; }
 
   Defined *target;
 
@@ -576,6 +607,7 @@ public:
   }
   size_t getSize() const override;
   void writeTo(uint8_t *buf) const override;
+  MachineTypes getMachine() const override { return ARM64; }
 
   Defined *target;
 

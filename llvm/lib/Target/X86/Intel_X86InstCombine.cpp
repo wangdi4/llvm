@@ -138,7 +138,7 @@ bool X86InstCombine::replaceOrToAdd(Instruction &I) {
   }
 
   // Check if 'or' can be transformed to 'add'.
-  if (!haveNoCommonBitsSet(LHS, RHS, DL, AC, &I, DT))
+  if (!haveNoCommonBitsSet(LHS, RHS, SimplifyQuery(DL, DT, AC, &I)))
     return false;
 
   IRBuilder<> Builder(&I);

@@ -304,8 +304,9 @@ void foo1(void)
   //expected-note@-1 {{conflicting attribute is here}}
   unsigned int sp_one[64];
 
-  //expected-warning@+1{{attribute 'singlepump' is already applied}}
+  //expected-warning@+1{{attribute '__singlepump__' is already applied}}
   __attribute__((singlepump))  __attribute__((__singlepump__))
+  //expected-note@-1 {{previous attribute is here}}
   unsigned int sp_two[64];
 
   //expected-error@+2{{attributes are not compatible}}
@@ -315,8 +316,9 @@ void foo1(void)
   unsigned int sp_three[64];
 
   // **register
-  //expected-warning@+1{{attribute 'register' is already applied}}
+  //expected-warning@+1{{attribute '__register__' is already applied}}
   __attribute__((register)) __attribute__((__register__))
+  //expected-note@-1 {{previous attribute is here}}
   unsigned int reg_one[64];
 
   //expected-error@+2{{attributes are not compatible}}

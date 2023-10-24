@@ -15,9 +15,7 @@
 @SyFgets.yank = external global [512 x i8], align 16
 @syCTRO = external global i32, align 4
 
-define i8* @SyFgets(ptr %line, i64 %length, i64 %fid) { ; INTEL
-; Checks are auto-generated, there is no sense to have fine-grained markup for ; INTEL
-; them, just wrap the whole section with the marker. ; INTEL
+define ptr @SyFgets(ptr %line, i64 %length, i64 %fid) {
 ; CHECK-LABEL: SyFgets:
 ; CHECK:       ## %bb.0: ## %entry
 ; CHECK-NEXT:    pushq %rbp
@@ -112,7 +110,7 @@ define i8* @SyFgets(ptr %line, i64 %length, i64 %fid) { ; INTEL
 ; CHECK-NEXT:    testb %r12b, %r12b
 ; CHECK-NEXT:    je LBB0_54
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  LBB0_20: ## %.split ;INTEL
+; CHECK-NEXT:  LBB0_20: ## %while.cond197.backedge
 ; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
 ; CHECK-NEXT:    decl %r13d
 ; CHECK-NEXT:    testl %r13d, %r13d

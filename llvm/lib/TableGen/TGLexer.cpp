@@ -633,6 +633,7 @@ tgtok::TokKind TGLexer::LexExclaim() {
           .Case("exists", tgtok::XExists)
           .Case("tolower", tgtok::XToLower)
           .Case("toupper", tgtok::XToUpper)
+          .Case("repr", tgtok::XRepr)
           .Default(tgtok::Error);
 
   return Kind != tgtok::Error ? Kind : ReturnError(Start-1, "Unknown operator");

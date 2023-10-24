@@ -116,7 +116,7 @@ void Instruction::removeFromParent() {
   getParent()->getInstList().remove(getIterator());
 }
 
-iplist<Instruction>::iterator Instruction::eraseFromParent() {
+BasicBlock::iterator Instruction::eraseFromParent() {
 #if INTEL_CUSTOMIZATION
 #ifndef NDEBUG
   // Deleting a terminator instruction with an attached opt-report metadata
@@ -168,8 +168,7 @@ void Instruction::moveAfter(Instruction *MovePos) {
   moveBefore(*MovePos->getParent(), ++MovePos->getIterator());
 }
 
-void Instruction::moveBefore(BasicBlock &BB,
-                             SymbolTableList<Instruction>::iterator I) {
+void Instruction::moveBefore(BasicBlock &BB, InstListType::iterator I) {
   assert(I == BB.end() || I->getParent() == &BB);
   BB.splice(I, getParent(), getIterator());
 }
