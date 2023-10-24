@@ -1580,8 +1580,6 @@ private:
 #if INTEL_CUSTOMIZATION
                       bool IsVectorCall, bool IsRegCall, bool IsSVMLCall) const;
 #endif // INTEL_CUSTOMIZATION
-
-
   ABIArgInfo reclassifyHvaArgForVectorCall(QualType Ty, unsigned &FreeSSERegs,
                                            const ABIArgInfo &current) const;
 
@@ -2011,7 +2009,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase, Class &Lo,
     } else if (k == BuiltinType::Float128) {
       Lo = SSE;
       Hi = SSEUp;
-#endif  //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     }
     // FIXME: _Decimal32 and _Decimal64 are SSE.
     // FIXME: _float128 and _Decimal128 are (SSE, SSEUp).
@@ -3562,7 +3560,7 @@ ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
     // icc.
     case BuiltinType::Float128:
       return ABIArgInfo::getIndirect(Align, /*ByVal=*/false);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
     default:
       break;

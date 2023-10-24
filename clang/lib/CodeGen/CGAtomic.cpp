@@ -1903,26 +1903,26 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
                  E->getOp() == AtomicExpr::AO__hip_atomic_store ||
                  E->getOp() == AtomicExpr::AO__atomic_store ||
 #if INTEL_CUSTOMIZATION
-                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit   ||
-                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_1 ||
-                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_2 ||
-                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_4 ||
-                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_8 ||
-                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_16||
-#endif //INTEL_CUSTOMIZATION
+                 E->getOp() == AtomicExpr::AO__atomic_store_explicit ||
+                 E->getOp() == AtomicExpr::AO__atomic_store_explicit_1 ||
+                 E->getOp() == AtomicExpr::AO__atomic_store_explicit_2 ||
+                 E->getOp() == AtomicExpr::AO__atomic_store_explicit_4 ||
+                 E->getOp() == AtomicExpr::AO__atomic_store_explicit_8 ||
+                 E->getOp() == AtomicExpr::AO__atomic_store_explicit_16 ||
+#endif // INTEL_CUSTOMIZATION
                  E->getOp() == AtomicExpr::AO__atomic_store_n;
   bool IsLoad = E->getOp() == AtomicExpr::AO__c11_atomic_load ||
                 E->getOp() == AtomicExpr::AO__opencl_atomic_load ||
                 E->getOp() == AtomicExpr::AO__hip_atomic_load ||
                 E->getOp() == AtomicExpr::AO__atomic_load ||
 #if INTEL_CUSTOMIZATION
-                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit   ||
-                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_1 ||
-                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_2 ||
-                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_4 ||
-                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_8 ||
-                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_16||
-#endif //INTEL_CUSTOMIZATION
+                E->getOp() == AtomicExpr::AO__atomic_load_explicit ||
+                E->getOp() == AtomicExpr::AO__atomic_load_explicit_1 ||
+                E->getOp() == AtomicExpr::AO__atomic_load_explicit_2 ||
+                E->getOp() == AtomicExpr::AO__atomic_load_explicit_4 ||
+                E->getOp() == AtomicExpr::AO__atomic_load_explicit_8 ||
+                E->getOp() == AtomicExpr::AO__atomic_load_explicit_16 ||
+#endif // INTEL_CUSTOMIZATION
                 E->getOp() == AtomicExpr::AO__atomic_load_n;
 
   if (isa<llvm::ConstantInt>(Order)) {

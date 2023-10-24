@@ -1025,7 +1025,7 @@ llvm::Value *CodeGenFunction::EmitBlockLiteral(const CGBlockInfo &blockInfo) {
       // CGExpr.cpp routine EmitDeclRefLValue() which occurs after adding the
       // source correlation above.
       const_cast<VarDecl *>(variable)->markUsed(getContext());
-#endif
+#endif // INTEL_CUSTOMIZATION
 
       ImplicitCastExpr l2r(ImplicitCastExpr::OnStack, type, CK_LValueToRValue,
                            &declRef, VK_PRValue, FPOptionsOverride());

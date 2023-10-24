@@ -2207,9 +2207,9 @@ void CodeGenFunction::EmitAggregateCopy(LValue Dest, LValue Src, QualType Ty,
   // we need to use a different call here.  We use isVolatile to indicate when
   // either the source or the destination is volatile.
 
+#if INTEL_CUSTOMIZATION
   auto DestPtrI8 = DestPtr.withElementType(Int8Ty);
   auto SrcPtrI8 = SrcPtr.withElementType(Int8Ty);
-#if INTEL_CUSTOMIZATION
   recordNoAliasPtr(DestPtr.getPointer(), DestPtrI8.getPointer());
   recordNoAliasPtr(SrcPtr.getPointer(), SrcPtrI8.getPointer());
 #endif // INTEL_CUSTOMIZATION
