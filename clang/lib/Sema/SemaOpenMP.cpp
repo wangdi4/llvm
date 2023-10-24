@@ -26568,7 +26568,11 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
         [](OMPClauseMappableExprCommon::MappableExprComponentListRef
                MapExprComponents,
            OpenMPClauseKind WhereFoundClauseKind) { return true; });
+    // Skip optimization when default(none) is used, and VD has no associate
+    // attribute.
     if (!HasMapClause &&
+        (DSAStack->getDefaultDSA() != DSA_none ||
+         DSAStack->getTopDSA(D, /*FromParent=*/false).CKind != OMPC_unknown) &&
         DSAStack->mustBeFirstprivateAtLevel(Level, OMPC_DEFAULTMAP_scalar) &&
         !DSAStack->hasExplicitDSA(
             D,
