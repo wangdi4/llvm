@@ -72,6 +72,9 @@ include(CMakeDependentOption)
 include(CMakePushCheckState)
 
 if(INTEL_CUSTOMIZATION)
+  # Disable empty-translation-unit warning
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-empty-translation-unit")
+
   # Need to override the -Werror setting when building this library with the GNU
   # compiler because this is building components that have the same name as
   # the builtin functions of gcc, and -Werror will report name conflicts
