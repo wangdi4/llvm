@@ -3802,12 +3802,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   FunctionPassManager FPM;
   // The IPO Passes may leave cruft around. Clean up after them.
-#if INTEL_CUSTOMIZATION
-  addInstCombinePass(FPM, !DTransEnabled, !DTransEnabled);
-
-  if (Level == OptimizationLevel::O3 && DTransEnabled)
-    FPM.addPass(GVBasedMultiVersioningPass());
-#endif
+  addInstCombinePass(FPM, !DTransEnabled, !DTransEnabled); // INTEL
 
   invokePeepholeEPCallbacks(FPM, Level);
 
@@ -3915,8 +3910,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #endif // INTEL_CUSTOMIZATION
   FunctionPassManager MainFPM;
 #if INTEL_CUSTOMIZATION
-  if (Level.getSpeedupLevel() > 2)
+  if (Level.getSpeedupLevel() > 2) {
+    if (DTransEnabled)
+      MainFPM.addPass(GVBasedMultiVersioningPass());
     MainFPM.addPass(GVNHoistPass());
+  }
 #endif // INTEL_CUSTOMIZATION
   MainFPM.addPass(createFunctionToLoopPassAdaptor(
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
