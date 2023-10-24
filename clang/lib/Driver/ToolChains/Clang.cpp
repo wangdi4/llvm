@@ -11435,11 +11435,12 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
   // Construct sycl-post-link command.
   assert(SYCLPostLink && "Expecting SYCL post link job!");
   ArgStringList CmdArgs;
+  llvm::Triple T = getToolChain().getTriple();
+
 #if INTEL_CUSTOMIZATION
   bool IsOpenMPSPIRV = JA.isDeviceOffloading(Action::OFK_OpenMP) &&
-                       getToolChain().getTriple().isSPIR();
+                       T.isSPIR();
 
-<<<<<<< HEAD
   if (IsOpenMPSPIRV) {
     // For OpenMP offload, -split=kernel can be used
     // See if device code splitting is requested
@@ -11468,24 +11469,6 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
       // otherwise auto is the default split mode
       addArgs(CmdArgs, TCArgs, {"-split=auto"});
     }
-=======
-  llvm::Triple T = getToolChain().getTriple();
-  // See if device code splitting is requested
-  if (Arg *A = TCArgs.getLastArg(options::OPT_fsycl_device_code_split_EQ)) {
-    auto CodeSplitValue = StringRef(A->getValue());
-    if (CodeSplitValue == "per_kernel")
-      addArgs(CmdArgs, TCArgs, {"-split=kernel"});
-    else if (CodeSplitValue == "per_source")
-      addArgs(CmdArgs, TCArgs, {"-split=source"});
-    else if (CodeSplitValue == "auto")
-      addArgs(CmdArgs, TCArgs, {"-split=auto"});
-    else { // Device code split is off
-    }
-  } else if (T.getArchName() != "spir64_fpga") {
-    // for FPGA targets, off is the default split mode,
-    // otherwise auto is the default split mode
-    addArgs(CmdArgs, TCArgs, {"-split=auto"});
->>>>>>> 3847c7c6c5c7b296314a338c7079d75d2d1ddd99
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -11498,7 +11481,6 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
   // OPT_fsycl_device_code_split is not checked as it is an alias to
   // -fsycl-device-code-split=auto
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (IsOpenMPSPIRV) {
     addArgs(CmdArgs, TCArgs, {"--ompoffload-link-entries"});
@@ -11512,10 +11494,7 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
   // Turn on Dead Parameter Elimination Optimization with early optimizations
   // This is explicitly INTEL-customized to only happen for SYCL offload
   if (JA.isDeviceOffloading(Action::OFK_SYCL) &&
-      !(getToolChain().getTriple().isAMDGCN()))
-=======
-  if (!(T.isAMDGCN()))
->>>>>>> 3847c7c6c5c7b296314a338c7079d75d2d1ddd99
+      !(T.isAMDGCN()))
     addArgs(CmdArgs, TCArgs, {"-emit-param-info"});
 #endif // INTEL_CUSTOMIZATION
   // Enable PI program metadata
@@ -11528,8 +11507,7 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
     addArgs(CmdArgs, TCArgs, {"-ir-output-only"});
   } else {
     assert(SYCLPostLink->getTrueType() == types::TY_Tempfiletable);
-<<<<<<< HEAD
-    bool SplitEsimdByDefault = getToolChain().getTriple().isSPIR()
+    bool SplitEsimdByDefault = T.isSPIR()
 #if INTEL_CUSTOMIZATION
                                && !IsOpenMPSPIRV
 #endif // INTEL_CUSTOMIZATION
@@ -11543,12 +11521,6 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
             TCArgs.hasArg(options::OPT_fopenmp_target_simd_split))
 #endif // INTEL_CUSTOMIZATION
         ;
-=======
-    bool SplitEsimdByDefault = T.isSPIR();
-    bool SplitEsimd = TCArgs.hasFlag(
-        options::OPT_fsycl_device_code_split_esimd,
-        options::OPT_fno_sycl_device_code_split_esimd, SplitEsimdByDefault);
->>>>>>> 3847c7c6c5c7b296314a338c7079d75d2d1ddd99
     // Symbol file and specialization constant info generation is mandatory -
     // add options unconditionally
     addArgs(CmdArgs, TCArgs, {"-symbols"});
