@@ -583,8 +583,8 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
     Out << "_Complex@";
     MContext.mangleCanonicalTypeName(FieldTy, Out);
     return MDHelper.createTBAAStructTypeNode(OutName, OffsetsAndTypes);
-#endif // INTEL_CUSTOMIZATION
   }
+#endif // INTEL_CUSTOMIZATION
 
   return nullptr;
 }

@@ -4356,7 +4356,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_target: {
 #if INTEL_CUSTOMIZATION
     CGM.setHasTargetCode();
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
     // Get an index of the associated offload entry for this target directive.
     assert(CurFuncDecl && "No parent declaration for target region!");

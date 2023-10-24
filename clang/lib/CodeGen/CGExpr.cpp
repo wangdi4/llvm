@@ -109,9 +109,9 @@ Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
   llvm::AllocaInst *AllocInst = CreateTempAlloca(Ty, Name, ArraySize);
   AllocInst->setAlignment(Align.getAsAlign());
   Address Alloca = Address(AllocInst, Ty, Align);
-#else
+#else  // INTEL_COLLAB
   auto Alloca = CreateTempAllocaWithoutCast(Ty, Align, Name, ArraySize);
-#endif
+#endif // INTEL_COLLAB
   if (AllocaAddr)
     *AllocaAddr = Alloca;
   llvm::Value *V = Alloca.getPointer();

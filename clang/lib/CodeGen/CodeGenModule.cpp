@@ -97,8 +97,6 @@
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #endif // INTEL_CUSTOMIZATION
 
-#include <optional>
-
 using namespace clang;
 using namespace CodeGen;
 
@@ -2889,7 +2887,7 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
     }
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Attach auto-cpu-dispatch and auto-arch target metadata on function
   // definitions(not declarations) in non-offload modules.
   if (!getLangOpts().OpenMPIsTargetDevice && !getLangOpts().SYCLIsDevice) {
@@ -3326,6 +3324,7 @@ std::string CodeGenModule::getUniqueItaniumABIMangledName(GlobalDecl GD) {
   return Buffer;
 }
 #endif // INTEL_COLLAB
+
 void CodeGenModule::setKCFIType(const FunctionDecl *FD, llvm::Function *F) {
   llvm::LLVMContext &Ctx = F->getContext();
   llvm::MDBuilder MDB(Ctx);
