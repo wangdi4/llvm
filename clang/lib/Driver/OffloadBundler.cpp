@@ -1242,11 +1242,6 @@ public:
           if (Mode == OutputType::FileList) {
             // Create temporary file where the device part will be extracted to.
             SmallString<128u> ChildFileName;
-<<<<<<< HEAD
-            StringRef Ext("o");
-            if (BundlerConfig.FilesType == "aocr" ||
-                BundlerConfig.FilesType == "aocx")
-              Ext = BundlerConfig.FilesType;
 #if INTEL_CUSTOMIZATION
             SmallString<128> BaseAndPrefix(BundlerConfig.BaseTempDir);
             llvm::sys::path::append(BaseAndPrefix, TempFileNameBase);
@@ -1254,9 +1249,6 @@ public:
                 Twine(BaseAndPrefix) + Twine("-%%%%%%.") + Ext, ChildFileName,
                 llvm::sys::fs::owner_read | llvm::sys::fs::owner_write);
 #else  // INTEL_CUSTOMIZATION
-=======
-
->>>>>>> 89f689e83b085793ad56be3424330b973cb0d989
             auto EC = sys::fs::createTemporaryFile(TempFileNameBase, Ext,
                                                    ChildFileName);
 #endif // INTEL_CUSTOMIZATION
