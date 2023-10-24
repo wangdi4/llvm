@@ -75,7 +75,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/Support/Process.h" // INTEL MLPGO
+#include "llvm/Support/Process.h" // INTEL
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -856,12 +856,14 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
     // -fprofile-use.
     auto CSAction = CodeGenOpts.hasProfileCSIRUse() ? PGOOptions::CSIRUse
                                                     : PGOOptions::NoCSAction;
+#if INTEL_CUSTOMIZATION                                                    
     PGOOpt = PGOOptions(
-        MLPGO_USE ? MLPGO_USE.value() : // INTEL
+        MLPGO_USE ? MLPGO_USE.value() :
             CodeGenOpts.ProfileInstrumentUsePath,
-        "", // INTEL
+        "",
         CodeGenOpts.ProfileRemappingFile, CodeGenOpts.MemoryProfileUsePath, VFS,
         PGOOptions::IRUse, CSAction, CodeGenOpts.DebugInfoForProfiling);
+#endif // INTEL_CUSTOMIZATION        
   } else if (!CodeGenOpts.SampleProfileFile.empty())
     // -fprofile-sample-use
     PGOOpt = PGOOptions(
@@ -1470,6 +1472,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
 
   llvm::TimeTraceScope TimeScope("Backend");
 
+#if INTEL_CUSTOMIZATION
 #if INTEL_PRODUCT_RELEASE
   if (Action == Backend_EmitLL) {
     unsigned DiagID = Diags.getCustomDiagID(
@@ -1478,6 +1481,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
     return;
   }
 #endif // INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
 
   std::unique_ptr<llvm::Module> EmptyModule;
   if (!CGOpts.ThinLTOIndexFile.empty()) {
@@ -1518,7 +1522,6 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
   }
 
   EmitAssemblyHelper AsmHelper(Diags, HeaderOpts, CGOpts, TOpts, LOpts, M, VFS);
-
   AsmHelper.EmitAssembly(Action, std::move(OS));
 
   // Verify clang's TargetInfo DataLayout against the LLVM TargetMachine's
@@ -1534,6 +1537,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
   }
 }
 
+#if INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
 // With -fembed-bitcode, save a copy of the llvm IR as data in the
 // __LLVM,__bitcode section.
@@ -1547,6 +1551,7 @@ void clang::EmbedBitcode(llvm::Module *M, const CodeGenOptions &CGOpts,
       CGOpts.CmdArgs);
 }
 #endif // !INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
 
 void clang::EmbedObject(llvm::Module *M, const CodeGenOptions &CGOpts,
                         DiagnosticsEngine &Diags) {
