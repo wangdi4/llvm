@@ -226,7 +226,7 @@ static bool isShortenableAtTheBeginning(Instruction *I) {
   return isa<AnyMemSetInst>(I);
 }
 
-static std::optional<uint64_t> getPointerSize(const Value *V,
+static std::optional<TypeSize> getPointerSize(const Value *V,
                                               const DataLayout &DL,
                                               const TargetLibraryInfo &TLI,
                                               const Function *F) {
@@ -235,7 +235,7 @@ static std::optional<uint64_t> getPointerSize(const Value *V,
   Opts.NullIsUnknownSize = NullPointerIsDefined(F);
 
   if (getObjectSize(V, Size, DL, &TLI, Opts))
-    return Size;
+    return TypeSize::getFixed(Size);
   return std::nullopt;
 }
 
@@ -973,7 +973,7 @@ struct DSEState {
     // case the size/offset of the dead store does not matter.
     if (DeadUndObj == KillingUndObj && KillingLocSize.isPrecise() &&
         isIdentifiedObject(KillingUndObj)) {
-      std::optional<uint64_t> KillingUndObjSize =
+      std::optional<TypeSize> KillingUndObjSize =
           getPointerSize(KillingUndObj, DL, TLI, &F);
       if (KillingUndObjSize && *KillingUndObjSize == KillingLocSize.getValue())
         return OW_Complete;
@@ -998,9 +998,15 @@ struct DSEState {
       return isMaskedStoreOverwrite(KillingI, DeadI, BatchAA);
     }
 
-    const uint64_t KillingSize = KillingLocSize.getValue();
-    const uint64_t DeadSize = DeadLoc.Size.getValue();
+    const TypeSize KillingSize = KillingLocSize.getValue();
+    const TypeSize DeadSize = DeadLoc.Size.getValue();
+    // Bail on doing Size comparison which depends on AA for now
+    // TODO: Remove AnyScalable once Alias Analysis deal with scalable vectors
+    const bool AnyScalable =
+        DeadSize.isScalable() || KillingLocSize.isScalable();
 
+    if (AnyScalable)
+      return OW_Unknown;
     // Query the alias information
     AliasResult AAR = BatchAA.alias(KillingLoc, DeadLoc);
 
