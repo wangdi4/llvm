@@ -28,6 +28,10 @@ sys.path.insert(0, os.path.abspath("."))
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ["myst_parser", "sphinx.ext.intersphinx", "sphinx.ext.todo"]
 
+# INTEL_CUSTOMIZATION
+extensions.extend(["sphinx.ext.mathjax", "sphinx.ext.graphviz"])
+# end INTEL_CUSTOMIZATION
+
 # Automatic anchors for markdown titles
 from llvm_slug import make_slug
 
@@ -41,12 +45,6 @@ templates_path = ["_templates"]
 source_suffix = [".rst", ".md"]
 
 import sphinx
-
-if sphinx.version_info >= (3, 0):
-# This requires 0.5 or later.
-# INTEL_CUSTOMIZATION
-    extensions.extend(["sphinx.ext.mathjax", "sphinx.ext.graphviz"])
-# //  INTEL_CUSTOMIZATION
 
 # The encoding of source files.
 # source_encoding = 'utf-8-sig'
