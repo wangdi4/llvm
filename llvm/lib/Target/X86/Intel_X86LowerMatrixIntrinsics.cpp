@@ -410,10 +410,9 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
 
 bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
   // Transform %mad = call <4 x i8>
-  // @llvm.experimental.matrix.mad.v4i8.v8i8.v8i8( <8 x i8> %A, metadata
-  // !"matrix.rowmajor", <8 x i8> %B, metadata !"matrix.packed.b", <4 x i32>
-  // %C, metadata !"matrix.rowmajor", i32 2(A.rows), i32 4(B.rows), i32
-  // 2(C.cols), metadata !"scope.subgroup").
+  // @llvm.experimental.matrix.mad.v4i8.v8i8.v8i8( <8 x i8> %A,
+  // <8 x i8> %B, <4 x i32>, %C, i32 2(A.rows), i32 4(B.rows), i32 2(C.cols),
+  // metadata !"scope.subgroup").
   // into:
   // %a = call x86_amx @llvm.x86.cast.vector.to.tile.v4i8(<4 x i8> %A).
   // %b = call x86_amx @llvm.x86.cast.vector.to.tile.v4i8(<4 x i8> %B).
@@ -465,28 +464,28 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
   }
 
   Value *M =
-      Builder.getInt16(cast<ConstantInt>(II->getOperand(6))->getSExtValue());
+      Builder.getInt16(cast<ConstantInt>(II->getOperand(3))->getSExtValue());
   // K is measured by bytes
   Value *K =
-      Builder.getInt16(cast<ConstantInt>(II->getOperand(7))->getSExtValue() *
+      Builder.getInt16(cast<ConstantInt>(II->getOperand(4))->getSExtValue() *
                        (SrcMatrixElemType->getPrimitiveSizeInBits() / 8));
   // N is measured by bytes
   Value *N = Builder.getInt16(
-      cast<ConstantInt>(II->getOperand(8))->getSExtValue() * 4);
+      cast<ConstantInt>(II->getOperand(5))->getSExtValue() * 4);
   // M=A.rows, N=C.cols*4, K=B.rows,C,A,B
   std::array<Value *, 6> Args{
       M,
       N,
       K,
       Builder.CreateIntrinsic(Intrinsic::x86_cast_vector_to_tile,
-                              {II->getOperand(4)->getType()},
-                              {II->getOperand(4)}),
+                              {II->getOperand(2)->getType()},
+                              {II->getOperand(2)}),
       Builder.CreateIntrinsic(Intrinsic::x86_cast_vector_to_tile,
                               {II->getOperand(0)->getType()},
                               {II->getOperand(0)}),
       Builder.CreateIntrinsic(Intrinsic::x86_cast_vector_to_tile,
-                              {II->getOperand(2)->getType()},
-                              {II->getOperand(2)})};
+                              {II->getOperand(1)->getType()},
+                              {II->getOperand(1)})};
   Value *NewInst = Builder.CreateIntrinsic(IID, std::nullopt, Args);
   II->replaceAllUsesWith(Builder.CreateIntrinsic(
       Intrinsic::x86_cast_tile_to_vector, {MatrixType}, {NewInst}));
@@ -513,7 +512,7 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixExtractRowSlice(
     IntrinsicInst *II) {
   // Transform
   // %slice = call <4 x i32>
-  // @llvm.experimental.matrix.extract.row.slice.v8i32(<16 x i32> %mat,  i32 %x,
+  // @llvm.experimental.matrix.extract.row.slice.v8i32(<16 x i32> %mat, i32 %x,
   // i32 %y, i32 4, i32 4, i32 4, metadata !"matrix.rowmajor") into
   // =>
   // alloc <16 x i32>* %ptr

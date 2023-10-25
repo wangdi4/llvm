@@ -973,11 +973,36 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
     break;
   case 'e':
 #if INTEL_CUSTOMIZATION
-    if (Name.startswith("experimental.matrix.wi.element.coordinate.")) {
-      Type *Tys[] = {F->getReturnType(), F->arg_begin()->getType()};
-      auto ID = Intrinsic::experimental_matrix_wi_element_coordinate;
-      if (F->getName() != Intrinsic::getName(ID, Tys, F->getParent())) {
+    if (Name.consume_front("experimental.matrix.")) {
+      if (Name.startswith("wi.element.coordinate.")) {
+        Type *Tys[] = {F->getReturnType(), F->arg_begin()->getType()};
+        auto ID = Intrinsic::experimental_matrix_wi_element_coordinate;
+        if (F->getName() != Intrinsic::getName(ID, Tys, F->getParent())) {
+          rename(F);
+          NewFn = Intrinsic::getDeclaration(F->getParent(), ID, Tys);
+          return true;
+        }
+        break;
+      }
+      if (Name.startswith("mad.") || Name.startswith("sumad.") ||
+          Name.startswith("usmad.") || Name.startswith("uumad.")) {
+        // Old version of the intrinsic functions has matrix A, B and C layouts
+        // specified. These arguments are being removed.
+        if (!F->getArg(1)->getType()->isMetadataTy())
+          break;
+        assert((F->getArg(3)->getType()->isMetadataTy() &&
+                F->getArg(5)->getType()->isMetadataTy()) &&
+               "Wrong type of experimental.matrix.mad to upgrade");
         rename(F);
+        Type *Tys[] = {F->getReturnType(), F->getArg(0)->getType(),
+                       F->getArg(2)->getType()};
+        Intrinsic::ID ID =
+            StringSwitch<Intrinsic::ID>(Name)
+                .StartsWith("mad", Intrinsic::experimental_matrix_mad)
+                .StartsWith("sumad", Intrinsic::experimental_matrix_sumad)
+                .StartsWith("usmad", Intrinsic::experimental_matrix_usmad)
+                .StartsWith("uumad", Intrinsic::experimental_matrix_uumad)
+                .Default(Intrinsic::not_intrinsic);
         NewFn = Intrinsic::getDeclaration(F->getParent(), ID, Tys);
         return true;
       }
@@ -4615,6 +4640,36 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
       MTI->setSourceAlignment(Align->getMaybeAlignValue());
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::experimental_matrix_mad:
+  case Intrinsic::experimental_matrix_sumad:
+  case Intrinsic::experimental_matrix_usmad:
+  case Intrinsic::experimental_matrix_uumad: {
+    // Old version of the intrinsic functions has matrix A, B and C layouts
+    // specified. These arguments are being removed.
+    if (!CI->getArgOperand(1)->getType()->isMetadataTy()) {
+      DefaultCase();
+      return;
+    }
+    assert((CI->getArgOperand(3)->getType()->isMetadataTy() &&
+            CI->getArgOperand(5)->getType()->isMetadataTy()) &&
+           "Wrong type of experimental.matrix.mad to upgrade");
+    Value *Args[7] = {CI->getArgOperand(0), CI->getArgOperand(2),
+                      CI->getArgOperand(4), CI->getArgOperand(6),
+                      CI->getArgOperand(7), CI->getArgOperand(8),
+                      CI->getArgOperand(9)};
+    NewCall = Builder.CreateCall(NewFn, Args);
+    AttributeList OldAttrs = CI->getAttributes();
+    AttributeList NewAttrs = AttributeList::get(
+        C, OldAttrs.getFnAttrs(), OldAttrs.getRetAttrs(),
+        {OldAttrs.getParamAttrs(0), OldAttrs.getParamAttrs(2),
+         OldAttrs.getParamAttrs(4), OldAttrs.getParamAttrs(6),
+         OldAttrs.getParamAttrs(7), OldAttrs.getParamAttrs(8),
+         OldAttrs.getParamAttrs(9)});
+    NewCall->setAttributes(NewAttrs);
+    break;
+  }
+#endif // INTEL_CUTOMIZATION
   }
   assert(NewCall && "Should have either set this variable or returned through "
                     "the default case");
