@@ -66,8 +66,6 @@
 
 #include "llvm/Support/Endian.h"
 
-using namespace llvm::omp::target;
-
 #if INTEL_CUSTOMIZATION
 // FIXME: when this is upstreamed for OpenCL.
 #define CL_MEM_FLAGS_INTEL                                               0x10001
