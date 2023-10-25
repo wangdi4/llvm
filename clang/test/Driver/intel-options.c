@@ -686,10 +686,6 @@
 // CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-ra-spillreport=high"
 // CHECK-OPT-REPORT-MAX: "-mllvm" "-inline-report=0xf859"
 
-// RUN: %clang -### -O3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
-// RUN: %clang -### -Ofast -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
-// CHECK-GVN: "-mllvm" "-enable-gvn-hoist"
-
 // RUN: %clang --intel -Ofast -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST %s
 // RUN: %clang --intel -O2 -Ofast -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST %s
 // RUN: %clang --intel -Ofast -O2 -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST-O2 %s
