@@ -2075,22 +2075,13 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
   if (!TgtOffsets.empty())
     OffsetsPtr = (ptrdiff_t *)&(TgtOffsets.data()[0]);
 
-  if (TgtNDLoopDesc) {
-#ifdef OMPT_SUPPORT
-    assert(KernelArgs.NumTeams[1] == 0 && KernelArgs.NumTeams[2] == 0 &&
-           "Multi dimensional launch not supported yet.");
-    /// RAII to establish tool anchors before and after kernel launch
-    int32_t NumTeams = KernelArgs.NumTeams[0];
-    // No need to guard this with OMPT_IF_BUILT
-    InterfaceRAII TargetSubmitRAII(
-        RegionInterface.getCallbacks<ompt_callback_target_submit>(), NumTeams);
-#endif
+  if (TgtNDLoopDesc)
     // If NDRange is specified, use it.
     Ret = Device.runTeamNDRegion(TgtEntryPtr, ArgsPtr, OffsetsPtr,
                                  TgtArgs.size(), KernelArgs.NumTeams[0],
                                  KernelArgs.ThreadLimit[0], TgtNDLoopDesc,
                                  AsyncInfo);
-  } else
+  else
 #endif // INTEL_COLLAB
   {
     assert(KernelArgs.NumArgs == TgtArgs.size() && "Argument count mismatch!");

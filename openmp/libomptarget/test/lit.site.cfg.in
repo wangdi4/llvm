@@ -30,8 +30,6 @@ config.libomptarget_not = "@OPENMP_NOT_EXECUTABLE@"
 config.libomptarget_debug = @LIBOMPTARGET_DEBUG@
 # INTEL_CUSTOMIZATION
 config.has_libomptarget_ompt = lit.util.pythonize_bool("@LIBOMPTARGET_OMPT_SUPPORT@")
-# OMPT test is intentionally disabled until new implementation stabilizes.
-config.has_libomptarget_ompt = False
 config.lit_tools_dir = path("@LLVM_LIT_TOOLS_DIR@")
 import lit.llvm
 lit.llvm.initialize(lit_config, config)
