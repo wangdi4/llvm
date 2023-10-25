@@ -13010,14 +13010,11 @@ public:
     bool IsMapTypeImplicit = false;
     SourceLocation ExtraModifierLoc;
     SourceLocation OmpAllMemoryLoc;
-<<<<<<< HEAD
 #if INTEL_COLLAB
     Expr *AllocAlignModifier = nullptr;
 #endif // INTEL_COLLAB
-=======
     SourceLocation
         StepModifierLoc; /// 'step' modifier location for linear clause
->>>>>>> 567a660a252323f2e82abaf48752dcad26d4779e
   };
 
   OMPClause *ActOnOpenMPVarListClause(OpenMPClauseKind Kind,
