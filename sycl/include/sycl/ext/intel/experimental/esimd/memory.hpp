@@ -3289,7 +3289,6 @@ lsc_store_2d(config_2d_mem_access<T, BlockWidth, BlockHeight, NBlocks> &payload,
       payload.get_raw_data(), Data, exDesc, desc);
 }
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
@@ -3371,7 +3370,7 @@ ESIMD_INLINE SYCL_ESIMD_FUNCTION
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-=======
+
 namespace detail {
 
 // lsc_atomic_update() operations may share atomic_op values for data types
@@ -3386,7 +3385,6 @@ constexpr int lsc_to_internal_atomic_op() {
   return static_cast<int>(LSCOp);
 }
 } // namespace detail
->>>>>>> a5d573869a8243b973d652037b34a630531b0502
 
 /// SLM atomic.
 /// Supported platforms: DG2, PVC
