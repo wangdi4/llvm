@@ -1783,23 +1783,38 @@ bool VectorCombine::foldShuffleFromReductions(Instruction &I) {
       dyn_cast<FixedVectorType>(Shuffle->getOperand(0)->getType());
   if (!ShuffleInputType)
     return false;
-  int NumInputElts = ShuffleInputType->getNumElements();
+  unsigned NumInputElts = ShuffleInputType->getNumElements();
 
   // Find the mask from sorting the lanes into order. This is most likely to
   // become a identity or concat mask. Undef elements are pushed to the end.
   SmallVector<int> ConcatMask;
   Shuffle->getShuffleMask(ConcatMask);
   sort(ConcatMask, [](int X, int Y) { return (unsigned)X < (unsigned)Y; });
+  // In the case of a truncating shuffle it's possible for the mask
+  // to have an index greater than the size of the resulting vector.
+  // This requires special handling.
+  bool IsTruncatingShuffle = VecType->getNumElements() < NumInputElts;
   bool UsesSecondVec =
+<<<<<<< HEAD
       any_of(ConcatMask, [&](int M) { return M >= NumInputElts; });
 #if INTEL_CUSTOMIZATION
+=======
+      any_of(ConcatMask, [&](int M) { return M >= (int)NumInputElts; });
+
+  FixedVectorType *VecTyForCost =
+      (UsesSecondVec && !IsTruncatingShuffle) ? VecType : ShuffleInputType;
+>>>>>>> 8e31acf8ca0db5e6160d85e266432f78148d38f5
   InstructionCost OldCost = TTI.getShuffleCost(
       UsesSecondVec ? TTI::SK_PermuteTwoSrc : TTI::SK_PermuteSingleSrc,
-      UsesSecondVec ? VecType : ShuffleInputType, Shuffle->getShuffleMask());
+      VecTyForCost, Shuffle->getShuffleMask());
   InstructionCost NewCost = TTI.getShuffleCost(
       UsesSecondVec ? TTI::SK_PermuteTwoSrc : TTI::SK_PermuteSingleSrc,
+<<<<<<< HEAD
       UsesSecondVec ? VecType : ShuffleInputType, ConcatMask);
 #endif // INTEL_CUSTOMIZATION
+=======
+      VecTyForCost, ConcatMask);
+>>>>>>> 8e31acf8ca0db5e6160d85e266432f78148d38f5
 
   LLVM_DEBUG(dbgs() << "Found a reduction feeding from a shuffle: " << *Shuffle
                     << "\n");
