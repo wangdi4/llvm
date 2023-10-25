@@ -124,19 +124,19 @@ class SCEVExpander : public SCEVVisitor<SCEVExpander, Value *> {
   /// "expanded" form.
   bool LSRMode;
 
-  typedef IRBuilder<InstSimplifyFolder, IRBuilderCallbackInserter> BuilderType;
 #if INTEL_CUSTOMIZATION
-  protected:
+protected:
+  typedef IRBuilder<InstSimplifyFolder, IRBuilderCallbackInserter> BuilderType;
   // Flag to indicate that we are generating code for HIR.
   bool IsHIRExpander = false;
 
   // Refer to description in the class definition.
   class ScopeDbgLoc;
-#endif // INTEL_CUSTOMIZATION
 
+#endif // INTEL_CUSTOMIZATION
   BuilderType Builder;
 
-  private: // INTEL
+private: // INTEL
   // RAII object that stores the current insertion point and restores it when
   // the object is destroyed. This includes the debug location.  Duplicated
   // from InsertPointGuard to add SetInsertPoint() which is used to updated
@@ -484,34 +484,40 @@ private:
 
   Value *visitVScale(const SCEVVScale *S);
 
-  Value *visitPtrToIntExpr(const SCEVPtrToIntExpr *S);
+#if INTEL_CUSTOMIZATION
+protected:
+  // Made the functions virtual because HIRSCEVExpander needs to override them.
+  virtual Value *visitPtrToIntExpr(const SCEVPtrToIntExpr *S);
 
-  Value *visitTruncateExpr(const SCEVTruncateExpr *S);
+  virtual Value *visitTruncateExpr(const SCEVTruncateExpr *S);
 
-  Value *visitZeroExtendExpr(const SCEVZeroExtendExpr *S);
+  virtual Value *visitZeroExtendExpr(const SCEVZeroExtendExpr *S);
 
-  Value *visitSignExtendExpr(const SCEVSignExtendExpr *S);
+  virtual Value *visitSignExtendExpr(const SCEVSignExtendExpr *S);
 
-  Value *visitAddExpr(const SCEVAddExpr *S);
+  virtual Value *visitAddExpr(const SCEVAddExpr *S);
 
-  Value *visitMulExpr(const SCEVMulExpr *S);
+  virtual Value *visitMulExpr(const SCEVMulExpr *S);
 
-  Value *visitUDivExpr(const SCEVUDivExpr *S);
+  virtual Value *visitUDivExpr(const SCEVUDivExpr *S);
+#endif // INTEL_CUSTOMIZATION
 
   Value *visitAddRecExpr(const SCEVAddRecExpr *S);
 
-  Value *visitSMaxExpr(const SCEVSMaxExpr *S);
-
-  Value *visitUMaxExpr(const SCEVUMaxExpr *S);
-
-  Value *visitSMinExpr(const SCEVSMinExpr *S);
-
-  Value *visitUMinExpr(const SCEVUMinExpr *S);
-
-  Value *visitSequentialUMinExpr(const SCEVSequentialUMinExpr *S);
-
 #if INTEL_CUSTOMIZATION
+  virtual Value *visitSMaxExpr(const SCEVSMaxExpr *S);
+
+  virtual Value *visitUMaxExpr(const SCEVUMaxExpr *S);
+
+  virtual Value *visitSMinExpr(const SCEVSMinExpr *S);
+
+  virtual Value *visitUMinExpr(const SCEVUMinExpr *S);
+
+  virtual Value *visitSequentialUMinExpr(const SCEVSequentialUMinExpr *S);
+
   virtual Value *visitUnknown(const SCEVUnknown *S) { return S->getValue(); }
+
+private:
 #endif // INTEL_CUSTOMIZATION
 
   void rememberInstruction(Value *I);

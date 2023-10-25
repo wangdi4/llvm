@@ -1341,6 +1341,7 @@ public:
   /// NOTE: This function asserts if any of the temp blobs is not contained in
   /// the DDRef.
   unsigned findMaxBlobLevel(unsigned BlobIndex) const;
+  unsigned findMaxBlobLevel(BlobTy Blob) const;
 
   /// Returns true if ref has an IV at \p Level.
   bool hasIV(unsigned Level) const;

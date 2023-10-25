@@ -32,8 +32,7 @@
 ; CHECK: [[L2Label]]:
 
 ; CHECK: [[I2:%[0-9]+]] = load i64, ptr %i2.i64
-; CHECK: [[SEXT_K:%[0-9]+]] = sext i32 %k to i64
-; CHECK: [[I2_MUL_K:%[0-9]+]] = mul i64 [[SEXT_K]], [[I2]]
+; CHECK: [[I2_MUL_K:%[0-9]+]] = mul i64 %conv7, [[I2]]
 
 ; (@A)[2 * i1][sext.i32.i64(%k) * i2]
 ; CHECK:  getelementptr inbounds [10 x [10 x i32]], ptr @A, i64 0, i64 [[I1_MUL_2]], i64 [[I2_MUL_K]]

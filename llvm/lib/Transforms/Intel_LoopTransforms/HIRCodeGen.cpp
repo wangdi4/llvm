@@ -69,6 +69,41 @@ static cl::opt<unsigned> HIRDebugRegion(
 
 namespace {
 
+template <typename BuilderTy>
+void setInsertPoint(BuilderTy &Builder, BasicBlock *InsertBB) {
+  auto *Term = InsertBB->getTerminator();
+
+  if (Term) {
+    // Setting insert point as an intruction overrides the debug loc to that
+    // instructions's debug loc which is not what we want to do here so we
+    // revert it back to the original debug loc.
+    auto OldDebugLoc = Builder.getCurrentDebugLocation();
+    Builder.SetInsertPoint(Term);
+    Builder.SetCurrentDebugLocation(OldDebugLoc);
+
+  } else {
+    Builder.SetInsertPoint(InsertBB);
+  }
+}
+
+// Saves insert block of Builder and restores it when destructor is called.
+template <typename BuilderTy> class SaveRestoreInsertBlock {
+  BuilderTy &Builder;
+  BasicBlock *OldInsertBlock;
+
+public:
+  SaveRestoreInsertBlock(BuilderTy &Builder)
+      : Builder(Builder), OldInsertBlock(Builder.GetInsertBlock()) {}
+
+  BasicBlock *getSavedInsertBlock() { return OldInsertBlock; }
+
+  ~SaveRestoreInsertBlock() {
+    if (OldInsertBlock != Builder.GetInsertBlock()) {
+      setInsertPoint(Builder, OldInsertBlock);
+    }
+  }
+};
+
 // Maps region's old exit edge to new exiting bblocks.
 struct OldToNewExits {
   BasicBlock *OldExitingBB;
@@ -131,7 +166,7 @@ public:
 
   CGVisitor(HIRFramework &HIRF, ScalarEvolution &SE, OptReportBuilder &ORB)
       : F(HIRF.getFunction()), HIRF(HIRF), SE(SE), CurRegion(nullptr),
-        CurLoopHasSignedIV(false), Builder(HIRF.getContext()),
+        CurRef(nullptr), CurLoopHasSignedIV(false), Builder(HIRF.getContext()),
         Expander(SE, HIRF.getDataLayout(), "i", *this), ORBuilder(ORB) {}
 
 private:
@@ -306,6 +341,38 @@ private:
     // provides access to named value map, blob table and ir builder
     CGVisitor &CG;
 
+    // Returns true if \p SC is non-linear, otherwise returns its def level in
+    // \p DefLevel;
+    bool isNonLinear(const SCEV *SC, unsigned &DefLevel);
+
+    // Returns a region invariant instruction corresponding to \p SC in the
+    // incoming IR, otherwise returns nullptr.
+    Value *getExistingRegionInvariantInst(const SCEV *SC, unsigned DefLevel);
+
+    Value *visitPtrToIntExpr(const SCEVPtrToIntExpr *SC) override;
+
+    Value *visitTruncateExpr(const SCEVTruncateExpr *SC) override;
+
+    Value *visitZeroExtendExpr(const SCEVZeroExtendExpr *SC) override;
+
+    Value *visitSignExtendExpr(const SCEVSignExtendExpr *SC) override;
+
+    Value *visitAddExpr(const SCEVAddExpr *SC) override;
+
+    Value *visitMulExpr(const SCEVMulExpr *SC) override;
+
+    Value *visitUDivExpr(const SCEVUDivExpr *SC) override;
+
+    Value *visitSMaxExpr(const SCEVSMaxExpr *SC) override;
+
+    Value *visitUMaxExpr(const SCEVUMaxExpr *SC) override;
+
+    Value *visitSMinExpr(const SCEVSMinExpr *SC) override;
+
+    Value *visitUMinExpr(const SCEVUMinExpr *SC) override;
+
+    Value *visitSequentialUMinExpr(const SCEVSequentialUMinExpr *SC) override;
+
     // Some blobs require a load from memory. If an SCEVUnknown has a
     // value of type Instruction, it is assumed to be created within HIR and
     // requires a load of that blob's symbase's memory slot
@@ -336,12 +403,14 @@ private:
     ~ScopeDbgLoc() { Visitor.Builder.SetCurrentDebugLocation(OldDbgLoc); }
   };
 
+  typedef IRBuilder<> BuilderTy;
   Function &F;
   HIRFramework &HIRF;
   ScalarEvolution &SE;
   HLRegion *CurRegion;
+  RegDDRef *CurRef;
   bool CurLoopHasSignedIV;
-  IRBuilder<> Builder;
+  BuilderTy Builder;
   HIRSCEVExpander Expander;
   const OptReportBuilder &ORBuilder;
 
@@ -597,6 +666,246 @@ bool HIRCodeGen::clearHIRMetadataAndCopyInsts(HLRegion *Reg) const {
   return Cleared;
 }
 
+bool CGVisitor::HIRSCEVExpander::isNonLinear(const SCEV *SC,
+                                             unsigned &DefLevel) {
+  assert(CG.CurRef && "DDRef is not set!");
+  assert(!isa<SCEVUnknown>(SC) && "SCEVUnknown not expected to reach here!");
+
+  unsigned CurNestingLevel = CG.LoopPreheaders.size();
+
+  DefLevel = 0;
+  // Checks if blob is already being generated outside loops.
+  // The two checks below are subtly different.
+  // First one indicates that we are generating code for refs outside loops.
+  // The second one indicates that we already deduced the blob as invariant.
+  // This could have been done for the containing blob or canon expr.
+  if ((CurNestingLevel != 0) &&
+      (SCEVExpander::Builder.GetInsertBlock() != CG.LoopPreheaders[0]))
+    DefLevel = CG.CurRef->findMaxBlobLevel(SC);
+
+  return DefLevel >= CurNestingLevel;
+}
+
+Value *
+CGVisitor::HIRSCEVExpander::getExistingRegionInvariantInst(const SCEV *SC,
+                                                           unsigned DefLevel) {
+
+  if (DefLevel != 0)
+    return nullptr;
+
+  auto ValSet = getSE()->getSCEVValues(SC);
+
+  auto &DT = CG.CurRegion->getHLNodeUtils().getHIRFramework().getDomTree();
+
+  for (auto Val : ValSet) {
+    auto *ExistingInst = dyn_cast<Instruction>(Val);
+
+    if (ExistingInst &&
+        DT.dominates(ExistingInst, CG.CurRegion->getEntryBBlock())) {
+      return ExistingInst;
+    }
+  }
+
+  return nullptr;
+}
+
+Value *
+CGVisitor::HIRSCEVExpander::visitPtrToIntExpr(const SCEVPtrToIntExpr *SC) {
+  unsigned DefLevel = 0;
+
+  if (isNonLinear(SC, DefLevel))
+    return SCEVExpander::visitPtrToIntExpr(SC);
+
+  if (auto ExistingInst = getExistingRegionInvariantInst(SC, DefLevel))
+    return ExistingInst;
+
+  // SRIB needs to be in the current function's lexical scope to save/restore
+  // InsertPt properly.
+  SaveRestoreInsertBlock<SCEVExpander::BuilderType> SRIB(SCEVExpander::Builder);
+  ::setInsertPoint(SCEVExpander::Builder, CG.LoopPreheaders[DefLevel]);
+  return SCEVExpander::visitPtrToIntExpr(SC);
+}
+
+Value *
+CGVisitor::HIRSCEVExpander::visitTruncateExpr(const SCEVTruncateExpr *SC) {
+  unsigned DefLevel = 0;
+
+  if (isNonLinear(SC, DefLevel))
+    return SCEVExpander::visitTruncateExpr(SC);
+
+  if (auto ExistingInst = getExistingRegionInvariantInst(SC, DefLevel))
+    return ExistingInst;
+
+  // SRIB needs to be in the current function's lexical scope to save/restore
+  // InsertPt properly.
+  SaveRestoreInsertBlock<SCEVExpander::BuilderType> SRIB(SCEVExpander::Builder);
+  ::setInsertPoint(SCEVExpander::Builder, CG.LoopPreheaders[DefLevel]);
+  return SCEVExpander::visitTruncateExpr(SC);
+}
+
+Value *
+CGVisitor::HIRSCEVExpander::visitZeroExtendExpr(const SCEVZeroExtendExpr *SC) {
+  unsigned DefLevel = 0;
+
+  if (isNonLinear(SC, DefLevel))
+    return SCEVExpander::visitZeroExtendExpr(SC);
+
+  if (auto ExistingInst = getExistingRegionInvariantInst(SC, DefLevel))
+    return ExistingInst;
+
+  // SRIB needs to be in the current function's lexical scope to save/restore
+  // InsertPt properly.
+  SaveRestoreInsertBlock<SCEVExpander::BuilderType> SRIB(SCEVExpander::Builder);
+  ::setInsertPoint(SCEVExpander::Builder, CG.LoopPreheaders[DefLevel]);
+  return SCEVExpander::visitZeroExtendExpr(SC);
+}
+
+Value *
+CGVisitor::HIRSCEVExpander::visitSignExtendExpr(const SCEVSignExtendExpr *SC) {
+  unsigned DefLevel = 0;
+
+  if (isNonLinear(SC, DefLevel))
+    return SCEVExpander::visitSignExtendExpr(SC);
+
+  if (auto ExistingInst = getExistingRegionInvariantInst(SC, DefLevel))
+    return ExistingInst;
+
+  // SRIB needs to be in the current function's lexical scope to save/restore
+  // InsertPt properly.
+  SaveRestoreInsertBlock<SCEVExpander::BuilderType> SRIB(SCEVExpander::Builder);
+  ::setInsertPoint(SCEVExpander::Builder, CG.LoopPreheaders[DefLevel]);
+  return SCEVExpander::visitSignExtendExpr(SC);
+}
+
+Value *CGVisitor::HIRSCEVExpander::visitAddExpr(const SCEVAddExpr *SC) {
+  unsigned DefLevel = 0;
+
+  if (isNonLinear(SC, DefLevel))
+    return SCEVExpander::visitAddExpr(SC);
+
+  if (auto ExistingInst = getExistingRegionInvariantInst(SC, DefLevel))
+    return ExistingInst;
+
+  // SRIB needs to be in the current function's lexical scope to save/restore
+  // InsertPt properly.
+  SaveRestoreInsertBlock<SCEVExpander::BuilderType> SRIB(SCEVExpander::Builder);
+  ::setInsertPoint(SCEVExpander::Builder, CG.LoopPreheaders[DefLevel]);
+  return SCEVExpander::visitAddExpr(SC);
+}
+
+Value *CGVisitor::HIRSCEVExpander::visitMulExpr(const SCEVMulExpr *SC) {
+  unsigned DefLevel = 0;
+
+  if (isNonLinear(SC, DefLevel))
+    return SCEVExpander::visitMulExpr(SC);
+
+  if (auto ExistingInst = getExistingRegionInvariantInst(SC, DefLevel))
+    return ExistingInst;
+
+  // SRIB needs to be in the current function's lexical scope to save/restore
+  // InsertPt properly.
+  SaveRestoreInsertBlock<SCEVExpander::BuilderType> SRIB(SCEVExpander::Builder);
+  ::setInsertPoint(SCEVExpander::Builder, CG.LoopPreheaders[DefLevel]);
+  return SCEVExpander::visitMulExpr(SC);
+}
+
+Value *CGVisitor::HIRSCEVExpander::visitUDivExpr(const SCEVUDivExpr *SC) {
+  unsigned DefLevel = 0;
+
+  if (isNonLinear(SC, DefLevel))
+    return SCEVExpander::visitUDivExpr(SC);
+
+  if (auto ExistingInst = getExistingRegionInvariantInst(SC, DefLevel))
+    return ExistingInst;
+
+  // SRIB needs to be in the current function's lexical scope to save/restore
+  // InsertPt properly.
+  SaveRestoreInsertBlock<SCEVExpander::BuilderType> SRIB(SCEVExpander::Builder);
+  ::setInsertPoint(SCEVExpander::Builder, CG.LoopPreheaders[DefLevel]);
+  return SCEVExpander::visitUDivExpr(SC);
+}
+
+Value *CGVisitor::HIRSCEVExpander::visitSMaxExpr(const SCEVSMaxExpr *SC) {
+  unsigned DefLevel = 0;
+
+  if (isNonLinear(SC, DefLevel))
+    return SCEVExpander::visitSMaxExpr(SC);
+
+  if (auto ExistingInst = getExistingRegionInvariantInst(SC, DefLevel))
+    return ExistingInst;
+
+  // SRIB needs to be in the current function's lexical scope to save/restore
+  // InsertPt properly.
+  SaveRestoreInsertBlock<SCEVExpander::BuilderType> SRIB(SCEVExpander::Builder);
+  ::setInsertPoint(SCEVExpander::Builder, CG.LoopPreheaders[DefLevel]);
+  return SCEVExpander::visitSMaxExpr(SC);
+}
+
+Value *CGVisitor::HIRSCEVExpander::visitUMaxExpr(const SCEVUMaxExpr *SC) {
+  unsigned DefLevel = 0;
+
+  if (isNonLinear(SC, DefLevel))
+    return SCEVExpander::visitUMaxExpr(SC);
+
+  if (auto ExistingInst = getExistingRegionInvariantInst(SC, DefLevel))
+    return ExistingInst;
+
+  // SRIB needs to be in the current function's lexical scope to save/restore
+  // InsertPt properly.
+  SaveRestoreInsertBlock<SCEVExpander::BuilderType> SRIB(SCEVExpander::Builder);
+  ::setInsertPoint(SCEVExpander::Builder, CG.LoopPreheaders[DefLevel]);
+  return SCEVExpander::visitUMaxExpr(SC);
+}
+
+Value *CGVisitor::HIRSCEVExpander::visitSMinExpr(const SCEVSMinExpr *SC) {
+  unsigned DefLevel = 0;
+
+  if (isNonLinear(SC, DefLevel))
+    return SCEVExpander::visitSMinExpr(SC);
+
+  if (auto ExistingInst = getExistingRegionInvariantInst(SC, DefLevel))
+    return ExistingInst;
+
+  // SRIB needs to be in the current function's lexical scope to save/restore
+  // InsertPt properly.
+  SaveRestoreInsertBlock<SCEVExpander::BuilderType> SRIB(SCEVExpander::Builder);
+  ::setInsertPoint(SCEVExpander::Builder, CG.LoopPreheaders[DefLevel]);
+  return SCEVExpander::visitSMinExpr(SC);
+}
+
+Value *CGVisitor::HIRSCEVExpander::visitUMinExpr(const SCEVUMinExpr *SC) {
+  unsigned DefLevel = 0;
+
+  if (isNonLinear(SC, DefLevel))
+    return SCEVExpander::visitUMinExpr(SC);
+
+  if (auto ExistingInst = getExistingRegionInvariantInst(SC, DefLevel))
+    return ExistingInst;
+
+  // SRIB needs to be in the current function's lexical scope to save/restore
+  // InsertPt properly.
+  SaveRestoreInsertBlock<SCEVExpander::BuilderType> SRIB(SCEVExpander::Builder);
+  ::setInsertPoint(SCEVExpander::Builder, CG.LoopPreheaders[DefLevel]);
+  return SCEVExpander::visitUMinExpr(SC);
+}
+
+Value *CGVisitor::HIRSCEVExpander::visitSequentialUMinExpr(
+    const SCEVSequentialUMinExpr *SC) {
+  unsigned DefLevel = 0;
+
+  if (isNonLinear(SC, DefLevel))
+    return SCEVExpander::visitSequentialUMinExpr(SC);
+
+  if (auto ExistingInst = getExistingRegionInvariantInst(SC, DefLevel))
+    return ExistingInst;
+
+  // SRIB needs to be in the current function's lexical scope to save/restore
+  // InsertPt properly.
+  SaveRestoreInsertBlock<SCEVExpander::BuilderType> SRIB(SCEVExpander::Builder);
+  ::setInsertPoint(SCEVExpander::Builder, CG.LoopPreheaders[DefLevel]);
+  return SCEVExpander::visitSequentialUMinExpr(SC);
+}
+
 Value *CGVisitor::HIRSCEVExpander::visitUnknown(const SCEVUnknown *S) {
   // Blobs represented by SCEVUnknowns whose value is constexpr or
   // globals can have their values directly returned. For example a blob
@@ -699,40 +1008,6 @@ Value *CGVisitor::createCmpInst(const HLPredicate &P, Value *LHS, Value *RHS,
   return CmpInst;
 }
 
-static void setInsertPoint(IRBuilder<> &Builder, BasicBlock *InsertBB) {
-  auto *Term = InsertBB->getTerminator();
-
-  if (Term) {
-    // Setting insert point as an intruction overrides the debug loc to that
-    // instructions's debug loc which is not what we want to do here so we
-    // revert it back to the original debug loc.
-    auto OldDebugLoc = Builder.getCurrentDebugLocation();
-    Builder.SetInsertPoint(Term);
-    Builder.SetCurrentDebugLocation(OldDebugLoc);
-
-  } else {
-    Builder.SetInsertPoint(InsertBB);
-  }
-}
-
-// Saves insert block of Builder and restores it when destructor is called.
-class SaveRestoreInsertBlock {
-  IRBuilder<> &Builder;
-  BasicBlock *OldInsertBlock;
-
-public:
-  SaveRestoreInsertBlock(IRBuilder<> &Builder)
-      : Builder(Builder), OldInsertBlock(Builder.GetInsertBlock()) {}
-
-  BasicBlock *getSavedInsertBlock() { return OldInsertBlock; }
-
-  ~SaveRestoreInsertBlock() {
-    if (OldInsertBlock != Builder.GetInsertBlock()) {
-      setInsertPoint(Builder, OldInsertBlock);
-    }
-  }
-};
-
 Value *CGVisitor::getBlobValue(int64_t Coeff, unsigned BlobIdx, Type *Ty) {
 
   auto *BlobSCEV = getBlobSCEV(BlobIdx);
@@ -828,7 +1103,7 @@ Value *CGVisitor::visitCanonExpr(CanonExpr *CE) {
         cast<FixedVectorType>(SrcType)->getNumElements(), NullVal);
   }
 
-  SaveRestoreInsertBlock SRIB(Builder);
+  SaveRestoreInsertBlock<BuilderTy> SRIB(Builder);
 
   // Check if CE is invariant w.r.t. some loop level. If so, generate code for
   // it in the appropriate loop's preheader.
@@ -995,7 +1270,7 @@ Value *CGVisitor::visitScalar(RegDDRef *Ref) {
 Value *CGVisitor::codeGenGEPRefDims(RegDDRef *Ref) {
 
   ScopeDbgLoc GepDbgLoc(*this, Ref->getGepDebugLoc());
-  SaveRestoreInsertBlock SRIB(Builder);
+  SaveRestoreInsertBlock<BuilderTy> SRIB(Builder);
 
   auto *BaseCE = Ref->getBaseCE();
   unsigned NestingLevel = LoopPreheaders.size();
@@ -1198,6 +1473,8 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   LLVM_DEBUG(dbgs() << "cg for RegRef ");
   LLVM_DEBUG(Ref->dump());
   LLVM_DEBUG(dbgs() << " Symbase: " << Ref->getSymbase() << " \n");
+
+  CurRef = Ref;
 
   if (Ref->isTerminalRef()) {
     return visitScalar(Ref);
