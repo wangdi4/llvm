@@ -1,3 +1,18 @@
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==-------------- memory.hpp - DPC++ Explicit SIMD API --------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -17,6 +32,9 @@
 #include <sycl/ext/intel/esimd/memory_properties.hpp>
 #include <sycl/ext/intel/esimd/simd.hpp>
 #include <sycl/ext/intel/esimd/simd_view.hpp>
+// INTEL_CUSTOMIZATION
+#include <sycl/ext/oneapi/bfloat16.hpp>
+// end INTEL_CUSTOMIZATION
 #include <sycl/half_type.hpp>
 
 #include <algorithm>
@@ -1879,6 +1897,18 @@ scatter_rgba(AccessorT acc, simd<Toffset, N> offsets,
 
 namespace detail {
 
+<<<<<<< HEAD
+=======
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_ESIMD_EMBARGO
+#define __ESIMD_FP_ATOMIC_OP_TYPE_CHECK(T)                                     \
+  static_assert(                                                               \
+      is_type<T, float, double, sycl::half, sycl::ext::oneapi::bfloat16>(),    \
+      "float, double, sycl::half or bfloat16 type is expected");
+// end INTEL_FEATURE_ESIMD_EMBARGO
+// end INTEL_CUSTOMIZATION
+
+>>>>>>> 047808cb96369a90d93ab51421d8f20ec3da6294
 #ifndef __ESIMD_FP_ATOMIC_OP_TYPE_CHECK
 #define __ESIMD_FP_ATOMIC_OP_TYPE_CHECK(T)                                     \
   static_assert(is_type<T, float, sycl::half, double>(),                       \
