@@ -9574,9 +9574,6 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
     SmallVector<const TreeEntry *> Entries;
     // Check for gathered extracts.
     ExtractShuffle = tryToGatherSingleRegisterExtractElements(GatheredScalars, ExtractMask);
-    SmallVector<Value *> IgnoredVals;
-    if (UserIgnoreList)
-      IgnoredVals.assign(UserIgnoreList->begin(), UserIgnoreList->end());
 
     bool Resized = false;
     if (Value *VecBase = Estimator.adjustExtracts(
@@ -12195,9 +12192,6 @@ ResTy BoUpSLP::processBuildVector(const TreeEntry *E, Args &...Params) {
     // Check for gathered extracts.
     ExtractShuffle =
         tryToGatherSingleRegisterExtractElements(GatheredScalars, ExtractMask);
-    SmallVector<Value *> IgnoredVals;
-    if (UserIgnoreList)
-      IgnoredVals.assign(UserIgnoreList->begin(), UserIgnoreList->end());
     bool Resized = false;
     if (Value *VecBase = ShuffleBuilder.adjustExtracts(E, ExtractMask))
       if (auto *VecBaseTy = dyn_cast<FixedVectorType>(VecBase->getType()))
