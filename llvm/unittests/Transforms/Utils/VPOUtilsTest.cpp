@@ -73,4 +73,4 @@ declare void @llvm.directive.region.exit(token)
   EXPECT_TRUE(SizeParam->getValue() == 4);
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#endif
+#endif // INTEL_COLLAB

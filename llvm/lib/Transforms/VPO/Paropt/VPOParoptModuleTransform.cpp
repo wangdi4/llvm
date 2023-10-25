@@ -523,7 +523,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
                  dbgs() << "\n";);
       continue;
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass func: " << F->getName() << "\n");
     FnList.push_back(&*F);
   }
@@ -591,7 +591,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
 #if INTEL_CUSTOMIZATION
   if (IsTargetSPIRV)
     Changed |= InferAddrSpacesForGlobals(vpo::ADDRESS_SPACE_GENERIC, M);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   if (!DisableOffload) {
     // Emit offload entries table.

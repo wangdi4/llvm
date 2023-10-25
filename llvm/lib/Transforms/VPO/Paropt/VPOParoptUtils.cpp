@@ -5213,7 +5213,7 @@ GlobalVariable *VPOParoptUtils::genKmpcCriticalLockVar(
         isa<WRNParallelLoopNode>(W))
       AddressSpace = vpo::ADDRESS_SPACE_LOCAL;
 #endif
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   }
 
   // We first get the lock name prefix for the lock var based on the target.
@@ -6152,7 +6152,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
     // FIXME: either re-enable this or come up with a solution.
     report_fatal_error("VLA alloca is not supported for this target.");
 #endif
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   }
 
   Value *V = AI;

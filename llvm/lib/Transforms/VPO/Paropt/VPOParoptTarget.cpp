@@ -2120,7 +2120,7 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
                                     ".new");                        //      (2)
       Builder.CreateStore(UpdatedUDPVal, NewV);                     //      (5)
     }
-# if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     else if (UDPI->getIsF90DopeVector()) {
       Type *DVType = nullptr;
       Value *NumElements = nullptr;

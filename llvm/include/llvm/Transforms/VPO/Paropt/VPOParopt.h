@@ -51,7 +51,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Pass.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 #include <functional>
 
@@ -92,7 +92,7 @@ enum VPOParoptMode {
   LoopTransform = 0x00000800,   // Loop Transforms pass: TILE, etc.
 #if INTEL_CUSTOMIZATION
   FuseCollapse = 0x00001000 // Loop FuseAndCollapse pass
-#endif                      // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace vpo
@@ -129,7 +129,7 @@ public:
   // Verbosity level for generating remarks using Loop Opt Report
   // framework (under -qopt-report).
   OptReportVerbosity::Level ORVerbosity = OptReportVerbosity::None;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 };
 
 namespace vpo {
@@ -158,7 +158,7 @@ private:
 #if INTEL_CUSTOMIZATION
 // External storage for -loopopt-use-omp-region.
 extern bool UseOmpRegionsInLoopoptFlag;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 class ParoptDiagInfo : public DiagnosticInfoWithLocationBase {
   const Twine &Msg;

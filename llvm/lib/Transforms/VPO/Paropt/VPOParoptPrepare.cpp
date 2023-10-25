@@ -205,7 +205,7 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI,
                         WI.getAliasAnalysis(), Mode,
 #if INTEL_CUSTOMIZATION
                         ORVerbosity,
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
                         ORE, 2, PrepareDisableOffload);
   Changed = Changed | VP.paroptTransforms();
 

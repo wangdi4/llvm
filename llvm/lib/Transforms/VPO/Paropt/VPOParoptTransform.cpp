@@ -99,7 +99,7 @@
 #endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 #include <algorithm>
 #include <numeric>
@@ -119,7 +119,7 @@ bool llvm::vpo::UseOmpRegionsInLoopoptFlag;
 static cl::opt<bool, true> UseOmpRegionsInLoopopt(
     "loopopt-use-omp-region", cl::desc("Handle OpenMP directives in LoopOpt"),
     cl::Hidden, cl::location(UseOmpRegionsInLoopoptFlag), cl::init(false));
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned> IgnoreRegionsStartingWith(
     "vpo-paropt-ignore-regions-starting-with", cl::Hidden, cl::init(0),
@@ -1716,7 +1716,7 @@ bool VPOParoptTransform::paroptTransforms() {
   // Loop Opt Report framework (under -qopt-report).
   LoopInfo *ORLinfo = nullptr;
   Loop *ORLoop = nullptr;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   IdentTy = VPOParoptUtils::getIdentStructType(F);
 
@@ -1810,7 +1810,7 @@ bool VPOParoptTransform::paroptTransforms() {
     NeedTID = false;
     NeedBID = false;
   }
-#endif  // INTEL_FEATURE_CSA
+#endif // INTEL_FEATURE_CSA
 
   // Early preprocessing for outlined work regions that regularizes loops
   // and generates aliasing information. This need to be done early before
@@ -1857,7 +1857,7 @@ bool VPOParoptTransform::paroptTransforms() {
       }
       W->resetBBSet();
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   // LoopCollapse and Prepare passes work with the clauses related to
   // ND-range partitioning (OFFLOAD_NDRANGE, OFFLOAD_KNOWN_NDRANGE) which
@@ -1963,8 +1963,8 @@ bool VPOParoptTransform::paroptTransforms() {
         }
       RemoveDirectives = true;
     } else
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     if (ignoreRegion(W->getNumber())) {
 #if INTEL_CUSTOMIZATION
       ORBuilder(*W, WRegionList)
@@ -2045,8 +2045,8 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= clearLaunderIntrinBeforeRegion(W);
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
           bool SkipTargetCodeGenForParallelRegion =
               isTargetSPIRV() && isFunctionOpenMPTargetDeclare();
           if (SkipTargetCodeGenForParallelRegion)
@@ -2150,8 +2150,8 @@ bool VPOParoptTransform::paroptTransforms() {
               llvm_unreachable("Unexpected work region kind");
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
           // Ignore parallel-for/sections constructs in declare-target functions
           bool SkipTargetCodeGenForParallelRegion =
@@ -2206,7 +2206,7 @@ bool VPOParoptTransform::paroptTransforms() {
                                  OptRemarkID::OpenMPOutlinedEnclosedParLoop);
                }
             }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
             Instruction *InsertLastIterCheckBefore = nullptr;
             Instruction *OMPLBForLinearClosedForm = nullptr;
@@ -2637,8 +2637,8 @@ bool VPOParoptTransform::paroptTransforms() {
               llvm_unreachable("Unexpected work region kind");
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
           // Ignore Parallel-for/sections constructs in declare-target functions
           bool SkipTargetCodeGenForRegion =
@@ -2693,7 +2693,7 @@ bool VPOParoptTransform::paroptTransforms() {
                     .addRemark(OptReportVerbosity::Low,
                                OptRemarkID::OpenMPWorkSharingLoop);
             }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
             Changed |= setInsertionPtForVlaAllocas(W);
             AllocaInst *IsLastVal = nullptr;
@@ -2745,8 +2745,8 @@ bool VPOParoptTransform::paroptTransforms() {
             RemoveDirectives = true;
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
           if (isTargetSPIRV())
             Changed |= removeCompilerGeneratedFences(W);
 
@@ -2778,8 +2778,8 @@ bool VPOParoptTransform::paroptTransforms() {
             RemoveDirectives = true;
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
           if (isTargetSPIRV())
             Changed |= removeCompilerGeneratedFences(W);
           Changed |= genMaskedThreadCode(W, isTargetSPIRV());
@@ -2797,8 +2797,8 @@ bool VPOParoptTransform::paroptTransforms() {
             RemoveDirectives = true;
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
           Changed |= genCriticalCode(cast<WRNCriticalNode>(W));
           RemoveDirectives = true;
         }
@@ -2855,8 +2855,8 @@ bool VPOParoptTransform::paroptTransforms() {
             RemoveDirectives = true;
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
           if (isTargetSPIRV())
             Changed |= removeCompilerGeneratedFences(W);
           Changed |= genBarrier(W, true, isTargetSPIRV());
@@ -3000,8 +3000,8 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   if (!isTargetCSA())
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
       RegionsNeedingDummyBranchInsertion.insert(W);
 
     if (Changed) { // Code transformations happened for this WRN
@@ -5200,7 +5200,7 @@ ReductionCriticalSectionKind VPOParoptTransform::genRedAggregateInitOrFini(
     BodyBB->setName((IsInit ? "red.init.body" : "red.update.body") + BBNameSuffix);
 
     if (AtomicFreeRedGlobalSerialUpdateInfos.count(W) &&
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         !RedI->getIsF90DopeVector() &&
 #endif // INTEL_CUSTOMIZATION
         !IsInit) {
@@ -9747,7 +9747,7 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
 //
 #if INTEL_CUSTOMIZATION
 // Also attach loop-level llvm.loop.vectorize.ivdep_loop metadata here.
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 bool VPOParoptTransform::genParallelAccessMetadata(WRegionNode *W) {
   if (!W->getIsOmpLoop() || W->getIsSections() || isa<WRNDistributeNode>(W))
     return false;
@@ -9788,7 +9788,7 @@ bool VPOParoptTransform::genParallelAccessMetadata(WRegionNode *W) {
     addStringMetadataToLoop(L, "llvm.loop.vectorize.ivdep_loop");
     Modified = true;
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   // Add access group metadata to all memory r/w instructions in the loop.
   MDNode *AG = nullptr;
@@ -9934,8 +9934,8 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   Value *NormUB = nullptr;
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   if (Index < W->getWRNLoopInfo().getNormUBSize()) {
 #if INTEL_CUSTOMIZATION
@@ -9944,8 +9944,8 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
       NormUB = W->getWRNLoopInfo().getNormUB(Index);
       LoopEssentialValues.push_back(std::make_pair(NormUB, true));
     } else {
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     // Create a local copy of the normalized upper bound.
     //
     // Promoting the normalized upper bound to a register may cause
@@ -10033,8 +10033,8 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   }
 
   for (auto &P : LoopEssentialValues) {
@@ -10059,8 +10059,8 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
       // For CSA UB does not need to be allocated as omp loops are not outlined.
       if (V == NormUB && (!AI || !isAllocaPromotable(AI)))
         continue;
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
       assert(AI && "Trying mem-to-reg for not an AllocaInst.");
       Allocas.push_back(AI);
     }
@@ -10357,7 +10357,7 @@ VPOParoptTransform::getPrivatizationAllocaAddrSpace(const WRegionNode *W,
     // at module level/using maps.
     return vpo::ADDRESS_SPACE_PRIVATE;
 
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   // FIXME: it's workaround for NONPOD array, and the address space is set to
   // private. It will be removed after global VLA is supported for SPIR-V
   // target. And genArrayLength should be updated to support global VLA too.
@@ -14250,7 +14250,7 @@ void VPOParoptTransform::improveAliasForOutlinedFunc(WRegionNode *W) {
   VPOUtils::genAliasSet(ArrayRef(W->bbset_begin(), W->bbset_end()), AA,
                         &(F->getParent()->getDataLayout()));
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 template <typename Range>
 static bool removeFirstFence(Range &&R, AtomicOrdering AO) {
@@ -14391,7 +14391,7 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W,
       if (ClauseInfo.getIsTyped() ||
 #if INTEL_CUSTOMIZATION
           ClauseInfo.getIsF90NonPod() ||
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
           ClauseInfo.getIsNonPod()) {
         // For TYPED and NONPOD cases, only the first argument is the var.
         // Don't include the other clause args in the LIVEIN.
@@ -15634,7 +15634,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     // markup for target and teams.
     bool MarkLBUBWILocal = isTargetSPIRV() &&
         (isa<WRNTeamsNode>(P) || isa<WRNTargetNode>(P));
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     std::string FPString;
     if (P->canHaveFirstprivate())
       FPString = VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_FIRSTPRIVATE);
@@ -15656,7 +15656,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
         // Target and teams do support [FIRST]PRIVATE.
         if (MarkLBUBWILocal)
           ClauseString += ".WILOCAL";
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
         EntryCI = VPOUtils::addOperandBundlesInCall(
             EntryCI,
             {{ClauseString, {NewLBPtrDef, CombinedUBTypeV, NumElemsOne}},
@@ -15666,7 +15666,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
 #if INTEL_CUSTOMIZATION
       if (MarkLBUBWILocal)
         FPString += ".WILOCAL";
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
       EntryCI = VPOUtils::addOperandBundlesInCall(
           EntryCI, {{FPString, {NewLBPtrDef, CombinedUBTypeV, NumElemsOne}},
                     {FPString, {NewUBPtrDef, CombinedUBTypeV, NumElemsOne}}});
@@ -15856,7 +15856,7 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   // will result in too long serial sequence of updates.
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-10535, CMPLRLLVM-10704, CMPLRLLVM-11080.
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   if (W->canHaveReduction() && !W->getRed().items().empty())
     return true;
 

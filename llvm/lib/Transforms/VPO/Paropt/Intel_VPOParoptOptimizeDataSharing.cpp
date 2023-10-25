@@ -45,7 +45,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -130,7 +130,7 @@ static bool optimizeDataSharing(
                         WI.getAliasAnalysis(), OmpNoFECollapse,
 #if INTEL_CUSTOMIZATION
                         OptReportVerbosity::None,
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
                         ORE, 2, false);
 
   BBToWRNMapTy BBToWRNMap;
