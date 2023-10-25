@@ -62,13 +62,6 @@
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/DynamicLibrary.h"
 
-<<<<<<< HEAD
-#ifdef OMPT_SUPPORT
-using namespace llvm::omp::target;
-#endif
-
-=======
->>>>>>> eeaafa263cea7843af7e31ffd8a7aa99e660905c
 /// Host runtime routines being used
 extern "C" {
 #ifdef _WIN32
