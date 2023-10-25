@@ -1637,8 +1637,10 @@ static std::string PragmaLoopHintString(Token PragmaName, Token Option) {
 }
 
 bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
+#if INTEL_CUSTOMIZATION
   assert(Tok.isOneOf(tok::annot_pragma_loop_hint,
-                     tok::annot_pragma_intel_fpga_loop)); // INTEL
+                     tok::annot_pragma_intel_fpga_loop));
+#endif // INTEL_CUSTOMIZATION
   PragmaLoopHintInfo *Info =
       static_cast<PragmaLoopHintInfo *>(Tok.getAnnotationValue());
 

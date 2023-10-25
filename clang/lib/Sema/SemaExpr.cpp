@@ -16651,11 +16651,10 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
     QualType Ty = InputExpr->getType();
     // The only legal unary operation for atomics is '&'.
     if ((Opc != UO_AddrOf && Ty->isAtomicType()) ||
-        // OpenCL special types - image, sampler, pipe, and blocks are to be
-        // used only with a builtin functions and therefore should be disallowed
-        // here.
-        (Ty->isImageType() || Ty->isSamplerT() || Ty->isPipeType() ||
-         Ty->isBlockPointerType() || Ty->isChannelType())) { // INTEL
+    // OpenCL special types - image, sampler, pipe, and blocks are to be used
+    // only with a builtin functions and therefore should be disallowed here.
+        (Ty->isImageType() || Ty->isSamplerT() || Ty->isPipeType()
+        || Ty->isBlockPointerType() || Ty->isChannelType())) { // INTEL
       return ExprError(Diag(OpLoc, diag::err_typecheck_unary_expr)
                        << InputExpr->getType()
                        << Input.get()->getSourceRange());

@@ -11138,20 +11138,22 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   for (const ParmVarDecl *Param : NewFD->parameters()) {
     QualType PT = Param->getType();
 
+#if INTEL_CUSTOMIZATION
     // OpenCL 2.0 pipe restrictions forbids pipe packet types to be non-value
     // types.
-#if INTEL_CUSTOMIZATION
     if (getLangOpts().OpenCLVersion >= 200 || getLangOpts().OpenCLCPlusPlus ||
         Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
 #endif // INTEL_CUSTOMIZATION
-      if(const PipeType *PipeTy = PT->getAs<PipeType>()) {
-        QualType ElemTy = PipeTy->getElementType();
-        if (ElemTy->isReferenceType() || ElemTy->isPointerType()) {
-          Diag(Param->getTypeSpecStartLoc(), diag::err_reference_pipe_type );
-          D.setInvalidType();
-        }
+    if (const PipeType *PipeTy = PT->getAs<PipeType>()) {
+      QualType ElemTy = PipeTy->getElementType();
+      if (ElemTy->isReferenceType() || ElemTy->isPointerType()) {
+        Diag(Param->getTypeSpecStartLoc(), diag::err_reference_pipe_type );
+        D.setInvalidType();
       }
     }
+#if INTEL_CUSTOMIZATION
+    }
+#endif // INTEL_CUSTOMIZATION
     // WebAssembly tables can't be used as function parameters.
     if (Context.getTargetInfo().getTriple().isWasm()) {
       if (PT->getUnqualifiedDesugaredType()->isWebAssemblyTableType()) {
@@ -13663,8 +13665,7 @@ void Sema::checkNonTrivialCUnion(QualType QT, SourceLocation Loc,
 /// AddInitializerToDecl - Adds the initializer Init to the
 /// declaration dcl. If DirectInit is true, this is C++ direct
 /// initialization rather than copy initialization.
-void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
-                                bool DirectInit) {
+void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init, bool DirectInit) {
   // If there is no declaration, there was an error parsing it.  Just ignore
   // the initializer.
   if (!RealDecl || RealDecl->isInvalidDecl()) {

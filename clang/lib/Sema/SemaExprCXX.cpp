@@ -2286,7 +2286,6 @@ ExprResult Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
         doesUsualArrayDeleteWantSize(*this, StartLoc, AllocType);
 
   SmallVector<Expr *, 8> AllPlaceArgs;
-
   if (OperatorNew) {
     auto *Proto = OperatorNew->getType()->castAs<FunctionProtoType>();
     VariadicCallType CallType = Proto->isVariadic() ? VariadicFunction

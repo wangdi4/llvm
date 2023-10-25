@@ -629,34 +629,32 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
     SetHints(LoopHintAttr::Unroll, LoopHintAttr::Disable);
   } else if (PragmaName == "unroll") {
     // #pragma unroll N
-    if (ValueExpr) {
-      // #pragma unroll N
+    if (ValueExpr)
       SetHints(LoopHintAttr::UnrollCount, LoopHintAttr::Numeric);
-#if INTEL_CUSTOMIZATION
-      // CQ#366562 - let #pragma unroll value be out of striclty positive 32-bit
-      // integer range: disable unrolling if value is 0, otherwise treat this
-      // like #pragma unroll without argument.
-      // CQ#415958 - ignore this behavior in template types (isValueDependent).
-      if (S.getLangOpts().IntelCompat && !ValueExpr->isValueDependent()) {
-        llvm::APSInt Val;
-        ExprResult Res = S.VerifyIntegerConstantExpression(ValueExpr, &Val);
-        if (Res.isInvalid())
-          return nullptr;
-
-        bool ValueIsPositive = Val.isStrictlyPositive();
-        if (!ValueIsPositive || Val.getActiveBits() > 31) {
-          // Non-zero (negative or too large) value: just ignore the argument.
-          // #pragma unroll(0) disables unrolling.
-          State =
-              Val.getBoolValue() ? LoopHintAttr::Enable : LoopHintAttr::Disable;
-          SetHints(LoopHintAttr::Unroll, State);
-        }
-      }
-#endif // INTEL_CUSTOMIZATION
-    } else {
-      // #pragma unroll
+    else
       SetHints(LoopHintAttr::Unroll, LoopHintAttr::Enable);
+#if INTEL_CUSTOMIZATION
+    // CQ#366562 - let #pragma unroll value be out of striclty positive 32-bit
+    // integer range: disable unrolling if value is 0, otherwise treat this
+    // like #pragma unroll without argument.
+    // CQ#415958 - ignore this behavior in template types (isValueDependent).
+    if (ValueExpr && S.getLangOpts().IntelCompat &&
+        !ValueExpr->isValueDependent()) {
+      llvm::APSInt Val;
+      ExprResult Res = S.VerifyIntegerConstantExpression(ValueExpr, &Val);
+      if (Res.isInvalid())
+        return nullptr;
+
+      bool ValueIsPositive = Val.isStrictlyPositive();
+      if (!ValueIsPositive || Val.getActiveBits() > 31) {
+        // Non-zero (negative or too large) value: just ignore the argument.
+        // #pragma unroll(0) disables unrolling.
+        State =
+            Val.getBoolValue() ? LoopHintAttr::Enable : LoopHintAttr::Disable;
+        SetHints(LoopHintAttr::Unroll, State);
+      }
     }
+#endif // INTEL_CUSTOMIZATION
   } else if (PragmaName == "nounroll_and_jam") {
     SetHints(LoopHintAttr::UnrollAndJam, LoopHintAttr::Disable);
   } else if (PragmaName == "unroll_and_jam") {
@@ -1314,6 +1312,7 @@ CheckForIncompatibleAttributes(Sema &S,
     // disable. The numeric form provides an integer hint (for example, unroll
     // count) to the transformer.
     Vectorize,
+#if INTEL_CUSTOMIZATION
     II,
     IVDep,
     IVDepLoop,
@@ -1335,6 +1334,7 @@ CheckForIncompatibleAttributes(Sema &S,
     LoopCountMin,
     LoopCountMax,
     LoopCountAvg,
+#endif // INTEL_CUSTOMIZATION
     Interleave,
     // For unroll, default indicates full unrolling rather than enabling the
     // transformation.

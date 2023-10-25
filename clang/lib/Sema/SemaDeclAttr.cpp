@@ -3365,22 +3365,7 @@ static bool checkValidSYCLSpelling(Sema &S, const ParsedAttr &A) {
   }
   return false;
 }
-#endif // INTEL_CUSTOMIZATION
 
-/// Give a warning for duplicate attributes, return true if duplicate.
-template <typename AttrType>
-static bool checkForDuplicateAttribute(Sema &S, Decl *D,
-                                       const ParsedAttr &Attr) {
-  // Give a warning for duplicates but not if it's one we've implicitly added.
-  auto *A = D->getAttr<AttrType>();
-  if (A && !A->isImplicit()) {
-    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact) << A;
-    return true;
-  }
-  return false;
-}
-
-#if INTEL_CUSTOMIZATION
 static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
                                       const ParsedAttr &Attr) {
   if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
@@ -3672,43 +3657,6 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
       S.Context, Attr, LocalMemSize));
 }
 
-static void handleReadWriteMode(Sema &S, Decl *D, const ParsedAttr &Attr) {
-
-  checkForDuplicateAttribute <ReadWriteModeAttr>(S, D, Attr);
-
-  StringRef Str;
-  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str)) {
-    return;
-  }
-
-  if (Str != "readonly" && Str != "writeonly" && Str != "readwrite") {
-    S.Diag(Attr.getLoc(), diag::err_hls_readwrite_arg_invalid) << Attr;
-    return;
-  }
-
-  // ReadWrite attributes applies only to agentmemory attributes.
-  if (!D->getAttr<AgentMemoryArgumentAttr>()) {
-    S.Diag(Attr.getLoc(), diag::err_readwritememory_attribute_invalid) << Attr;
-    return;
-  }
-
-  D->addAttr(::new (S.Context) ReadWriteModeAttr(S.Context, Attr, Str));
-}
-
-/// Handle the static_array_reset attribute.
-/// This attribute requires a single constant value that must be 0 or 1.
-/// It is incompatible with the register attribute.
-static void handleStaticArrayResetAttr(Sema &S, Decl *D,
-                                       const ParsedAttr &Attr) {
-  checkForDuplicateAttribute<StaticArrayResetAttr>(S, D, Attr);
-
-  if (checkAttrMutualExclusion<SYCLIntelRegisterAttr>(S, D, Attr))
-    return;
-
-  S.HLSAddOneConstantValueAttr<StaticArrayResetAttr>(D, Attr,
-                                                     Attr.getArgAsExpr(0));
-}
-
 static void setComponentDefaults(Sema &S, Decl *D) {
   if (!D->hasAttr<ComponentAttr>())
     D->addAttr(ComponentAttr::CreateImplicit(S.Context));
@@ -3764,29 +3712,6 @@ static void handleComponentInterfaceAttr(Sema &S, Decl *D,
   D->addAttr(::new (S.Context) ComponentInterfaceAttr(S.Context, Attr, Type));
 
   setComponentDefaults(S, D);
-}
-
-static void handleMaxConcurrencyAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
-  if (!S.getLangOpts().HLS &&
-      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
-    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
-    return;
-  }
-
-  if (isa<VarDecl>(D)) {
-    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated) << Attr;
-    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion) << "'private_copies'";
-    if (checkAttrMutualExclusion<SYCLIntelPrivateCopiesAttr>(S, D, Attr))
-      return;
-  }
-
-  checkForDuplicateAttribute<MaxConcurrencyAttr>(S, D, Attr);
-  if (isa<VarDecl>(D) &&
-      checkAttrMutualExclusion<SYCLIntelRegisterAttr>(S, D, Attr))
-    return;
-
-  S.HLSAddOneConstantValueAttr<MaxConcurrencyAttr>(
-      D, Attr, Attr.getArgAsExpr(0));
 }
 
 static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
@@ -4987,7 +4912,6 @@ void Sema::AddSYCLIntelNumSimdWorkItemsAttr(Decl *D,
     // converted constant expression into the semantic attribute so that we
     // don't have to evaluate it again later.
     llvm::APSInt ArgVal;
-
     ExprResult Res = VerifyIntegerConstantExpression(E, &ArgVal);
     if (Res.isInvalid())
       return;
@@ -8207,6 +8131,81 @@ static void handleTypeTagForDatatypeAttr(Sema &S, Decl *D,
       AL.getMustBeNull()));
 }
 
+/// Give a warning for duplicate attributes, return true if duplicate.
+template <typename AttrType>
+static bool checkForDuplicateAttribute(Sema &S, Decl *D,
+                                       const ParsedAttr &Attr) {
+  // Give a warning for duplicates but not if it's one we've implicitly added.
+  auto *A = D->getAttr<AttrType>();
+  if (A && !A->isImplicit()) {
+    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact) << A;
+    return true;
+  }
+  return false;
+}
+
+#if INTEL_CUSTOMIZATION
+static void handleReadWriteMode(Sema &S, Decl *D, const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute<ReadWriteModeAttr>(S, D, Attr);
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str)) {
+    return;
+  }
+
+  if (Str != "readonly" && Str != "writeonly" && Str != "readwrite") {
+    S.Diag(Attr.getLoc(), diag::err_hls_readwrite_arg_invalid) << Attr;
+    return;
+  }
+
+  // ReadWrite attributes applies only to agentmemory attributes.
+  if (!D->getAttr<AgentMemoryArgumentAttr>()) {
+    S.Diag(Attr.getLoc(), diag::err_readwritememory_attribute_invalid) << Attr;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) ReadWriteModeAttr(S.Context, Attr, Str));
+}
+
+/// Handle the static_array_reset attribute.
+/// This attribute requires a single constant value that must be 0 or 1.
+/// It is incompatible with the register attribute.
+static void handleStaticArrayResetAttr(Sema &S, Decl *D,
+                                       const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<StaticArrayResetAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<SYCLIntelRegisterAttr>(S, D, Attr))
+    return;
+
+  S.HLSAddOneConstantValueAttr<StaticArrayResetAttr>(D, Attr,
+                                                     Attr.getArgAsExpr(0));
+}
+
+static void handleMaxConcurrencyAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  if (isa<VarDecl>(D)) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated) << Attr;
+    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion) << "'private_copies'";
+    if (checkAttrMutualExclusion<SYCLIntelPrivateCopiesAttr>(S, D, Attr))
+      return;
+  }
+
+  checkForDuplicateAttribute<MaxConcurrencyAttr>(S, D, Attr);
+  if (isa<VarDecl>(D) &&
+      checkAttrMutualExclusion<SYCLIntelRegisterAttr>(S, D, Attr))
+    return;
+
+  S.HLSAddOneConstantValueAttr<MaxConcurrencyAttr>(D, Attr,
+                                                   Attr.getArgAsExpr(0));
+}
+#endif // INTEL_CUSTOMIZATION
+
 void Sema::AddSYCLIntelNoGlobalWorkOffsetAttr(Decl *D,
                                               const AttributeCommonInfo &CI,
                                               Expr *E) {
@@ -8390,7 +8389,8 @@ static bool checkSYCLIntelRegisterAttrCompatibility(Sema &S, Decl *D,
 
 /// Handle the [[intel::fpga_register]] attribute.
 /// This is incompatible with most of the other memory attributes.
-static void handleSYCLIntelRegisterAttr(Sema &S, Decl *D, const ParsedAttr &A) {
+static void handleSYCLIntelRegisterAttr(Sema &S, Decl *D,
+                                        const ParsedAttr &A) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
@@ -12917,9 +12917,6 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
   case ParsedAttr::AT_EnumExtensibility:
     handleEnumExtensibilityAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_Flatten:
-    handleSimpleAttribute<FlattenAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_SYCLKernel:
     handleSYCLKernelAttr(S, D, AL);
     break;
@@ -13721,6 +13718,9 @@ void Sema::ProcessDeclAttributeList(
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
     } else if (const auto *A = D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (const auto *A = D->getAttr<SYCLIntelNoGlobalWorkOffsetAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
     } else if (const auto *A = D->getAttr<VecTypeHintAttr>()) {

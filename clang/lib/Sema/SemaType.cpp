@@ -135,6 +135,8 @@ static void diagnoseBadTypeAttribute(Sema &S, const ParsedAttr &attr,
   case ParsedAttr::AT_ObjCOwnership
 
 // Calling convention attributes.
+#if INTEL_CUSTOMIZATION
+// AT_IntelOclBiccAVX and AT_IntelOclBiccAVX512 added to macro below.
 #define CALLING_CONV_ATTRS_CASELIST                                            \
   case ParsedAttr::AT_CDecl:                                                   \
   case ParsedAttr::AT_FastCall:                                                \
@@ -152,11 +154,12 @@ static void diagnoseBadTypeAttribute(Sema &S, const ParsedAttr &attr,
   case ParsedAttr::AT_SysVABI:                                                 \
   case ParsedAttr::AT_Pcs:                                                     \
   case ParsedAttr::AT_IntelOclBicc:                                            \
-  case ParsedAttr::AT_IntelOclBiccAVX:    /* INTEL */                          \
-  case ParsedAttr::AT_IntelOclBiccAVX512: /* INTEL */                          \
+  case ParsedAttr::AT_IntelOclBiccAVX:                                         \
+  case ParsedAttr::AT_IntelOclBiccAVX512:                                      \
   case ParsedAttr::AT_PreserveMost:                                            \
   case ParsedAttr::AT_PreserveAll:                                             \
   case ParsedAttr::AT_M68kRTD
+#endif // INTEL_CUSTOMIZATION
 
 // Function type attributes.
 #define FUNCTION_TYPE_ATTRS_CASELIST                                           \

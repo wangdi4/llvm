@@ -1279,12 +1279,6 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           *this, TemplateArgs, SYCLIntelSchedulerTargetFmaxMhz, New);
       continue;
     }
-    if (const auto *SYCLIntelLoopFuse =
-            dyn_cast<SYCLIntelLoopFuseAttr>(TmplAttr)) {
-      instantiateSYCLIntelLoopFuseAttr(*this, TemplateArgs, SYCLIntelLoopFuse,
-                                       New);
-      continue;
-    }
     if (const auto *SYCLIntelMaxGlobalWorkDim =
             dyn_cast<SYCLIntelMaxGlobalWorkDimAttr>(TmplAttr)) {
       instantiateSYCLIntelMaxGlobalWorkDimAttr(*this, TemplateArgs,

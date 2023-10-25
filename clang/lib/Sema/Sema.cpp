@@ -1422,9 +1422,12 @@ void Sema::ActOnEndOfTranslationUnit() {
       QualType T = Context.getConstantArrayType(ArrayT->getElementType(), One,
                                                 nullptr, ArrayType::Normal, 0);
       VD->setType(T);
-    } // INTEL: CQ#370357 - Arrays with incomplete element type: struct foo s[];
-    if (RequireCompleteType(VD->getLocation(), VD->getType(),           // INTEL
-                                   diag::err_tentative_def_incomplete_type))
+#if INTEL_CUSTOMIZATION
+    }
+    // CQ#370357 - Arrays with incomplete element type: struct foo s[];
+    if (RequireCompleteType(VD->getLocation(), VD->getType(),
+                            diag::err_tentative_def_incomplete_type))
+#endif // INTEL_CUSTOMIZATION
       VD->setInvalidDecl();
 
     // No initialization is performed for a tentative definition.
