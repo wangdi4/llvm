@@ -1275,12 +1275,14 @@ bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap,
             EIt = StripmineCandidateMap.end();
        It != EIt;) {
     if (!It->first->isStripmineRequired(It->second)) {
-      LLVM_DEBUG_DIAG_DETAIL(dbgs() << "Stripmine is not required\n");
+      LLVM_DEBUG(dbgs() << "At Level " << It->first->getNestingLevel()
+                        << ", stripmine is not required\n");
 
       It = StripmineCandidateMap.erase(It);
       IsUpdated = true;
     } else if (!It->first->canStripmine(It->second, RelaxNormalization)) {
-      LLVM_DEBUG_DIAG_DETAIL(dbgs() << "Stripmine can not be done\n");
+      LLVM_DEBUG(dbgs() << "At Level " << It->first->getNestingLevel()
+                        << ", stripmine can not be done\n");
 
       It = StripmineCandidateMap.erase(It);
       IsUpdated = true;
@@ -1448,12 +1450,16 @@ private:
     // Book-keeping of Level to Loop
     SmallVector<const HLLoop *, MaxLoopNestLevel + 1> LvToLoop(
         MaxLoopNestLevel + 1, nullptr);
-    LvToLoop[InnermostLevel] = InnermostLoop;
-    unsigned NumProfitableLoopsByMissingIVs = 0;
+    unsigned LoopLevel = InnermostLevel;
+    for (const HLLoop *Lp = InnermostLoop,
+                      *ELp = OutermostLoop->getParentLoop();
+         Lp != ELp; Lp = Lp->getParentLoop(), LoopLevel = LoopLevel - 1)
+      LvToLoop[LoopLevel] = Lp;
 
     // Stripmining from the parent of the innermost
     // Scan from inner to outer, and choose loops to stripmine
     // based on NumRefsMissingAtLevel and NumRefsWithSmallStridesAtLevel
+    unsigned NumProfitableLoopsByMissingIVs = 0;
     unsigned Level = InnermostLevel - 1;
     unsigned NumTotalLoops = InnermostLevel;
     for (const HLLoop *Lp = InnermostLoop->getParentLoop(),
@@ -1461,9 +1467,6 @@ private:
                       *InnerLp = InnermostLoop;
          Lp != ELp && NumTotalLoops < MaxLoopNestLevel;
          InnerLp = Lp, Lp = Lp->getParentLoop(), Level = Level - 1) {
-
-      // Bookkeeping of Level to Loop
-      LvToLoop[Level] = Lp;
 
       if (Lp->hasVectorizeEnablingPragma())
         continue;
@@ -1511,6 +1514,12 @@ private:
       markAsToStripmine(InnermostLoop, StripmineCandidateMap);
     }
 
+    if (NumTotalLoops >= MaxLoopNestLevel) {
+      LLVM_DEBUG(dbgs() << "Total number of loops reached the limit. No more "
+                           "blocking opportunity will be considered\n");
+      return true;
+    }
+
     // All loops are already blocked.
     if (NumProfitableLoopsByMissingIVs == (InnermostLevel - OutermostLevel + 1))
       return true;
@@ -1532,14 +1541,24 @@ private:
 
       if (OutermostSeenLevel < InnermostLevel) {
         for (unsigned
-                 Lv = OutermostSeenLevel,
-                 LastLv = ((LoopBlockingAlgorithm == Outer) ? InnermostLevel - 1
-                                                            : InnermostLevel);
-             Lv <= LastLv; Lv++) {
+                 OutermostLv = OutermostSeenLevel,
+                 Lv = ((LoopBlockingAlgorithm == Outer) ? InnermostLevel - 1
+                                                        : InnermostLevel);
+             Lv >= OutermostLv && NumTotalLoops < MaxLoopNestLevel; Lv--) {
           assert(LvToLoop[Lv] && "Lv cannot be null.");
 
           if (LvToLoop[Lv]->hasVectorizeEnablingPragma())
             continue;
+
+          if (StripmineCandidateMap.count(LvToLoop[Lv])) {
+            LLVM_DEBUG(
+                dbgs()
+                << "** Loop at Level " << Lv << " will be stripmined \n"
+                << "  by outer IV in small stride in contiguous direction.\n");
+            continue;
+          }
+
+          NumTotalLoops++;
 
           markAsToStripmine(LvToLoop[Lv], StripmineCandidateMap);
           HasProfitableLoopsBySmallStride = true;

@@ -1,4 +1,4 @@
-; RUN: opt -S -O2 -enable-gvn-hoist < %s | FileCheck %s
+; RUN: opt -S -O3 -enable-gvn-hoist < %s | FileCheck %s ;INTEL
 
 ; Check that the inlined loads are hoisted.
 ; CHECK-LABEL: define i32 @fun(

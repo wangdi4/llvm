@@ -711,9 +711,10 @@ static cl::opt<int> PreInlineThreshold(
     cl::desc("Control the amount of inlining in pre-instrumentation inliner "
              "(default = 75)"));
 
-static cl::opt<bool>
-    EnableGVNHoist("enable-gvn-hoist",
-                   cl::desc("Enable the GVN hoisting pass (default = off)"));
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> EnableGVNHoist("enable-gvn-hoist", cl::init(true),
+                                    cl::desc("Enable the GVN hoisting pass"));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
     EnableGVNSink("enable-gvn-sink",
@@ -1083,7 +1084,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
     FPM.addPass(AssumeSimplifyPass());
 
   // Hoisting of scalars and load expressions.
-  if (EnableGVNHoist)
+  if (EnableGVNHoist && Level.getSpeedupLevel() > 2) // INTEL
     FPM.addPass(GVNHoistPass());
 
   // Global value numbering based sinking.
@@ -3913,7 +3914,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (Level.getSpeedupLevel() > 2) {
     if (DTransEnabled)
       MainFPM.addPass(GVBasedMultiVersioningPass());
-    MainFPM.addPass(GVNHoistPass());
+    if (EnableGVNHoist)
+      MainFPM.addPass(GVNHoistPass());
   }
 #endif // INTEL_CUSTOMIZATION
   MainFPM.addPass(createFunctionToLoopPassAdaptor(

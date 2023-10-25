@@ -8773,21 +8773,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   } else if (D.IsIntelMode() && D.IsCLMode() && !IsSYCL)
     // For the Intel compiler, /Zp16 is the default
     CmdArgs.push_back("-fpack-struct=16");
-
-  // Enabling GVN Hoist at -O3 or -Ofast (CMPLRS-50169).
-  // FIXME: Remove this when GVN Hoist is enabled by default in LLORG.
-  if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
-    unsigned OptLevel = 0;
-    if (A->getOption().matches(options::OPT_O)) {
-      StringRef OVal(A->getValue());
-      OVal.getAsInteger(10, OptLevel);
-    }
-    if (A->getOption().matches(options::OPT_O4) || OptLevel > 2 ||
-        A->getOption().matches(options::OPT_Ofast)) {
-      CmdArgs.push_back("-mllvm");
-      CmdArgs.push_back("-enable-gvn-hoist");
-    }
-  }
 #endif // INTEL_CUSTOMIZATION
 
   // Handle -fmax-type-align=N and -fno-type-align

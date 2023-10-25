@@ -174,6 +174,10 @@
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: MemorySSAAnalysis
 ; CHECK-O-NEXT: Running analysis: AAManager
+; INTEL_CUSTOMIZATION
+; CHECK-O3-NEXT: Running pass: GVNHoistPass
+; CHECK-O3-NEXT: Running analysis: MemoryDependenceAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: SpeculativeExecutionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
 ; COM: CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis ;INTEL
@@ -218,7 +222,11 @@
 ; CHECK-O23SZ-NEXT: Running pass: VectorCombinePass
 ; CHECK-O23SZ-NEXT: Running pass: MergedLoadStoreMotionPass
 ; CHECK-O23SZ-NEXT: Running pass: GVNPass
-; CHECK-O23SZ-NEXT: Running analysis: MemoryDependenceAnalysis
+; INTEL_CUSTOMIZATION
+; CHECK-O2-NEXT: Running analysis: MemoryDependenceAnalysis
+; CHECK-Os-NEXT: Running analysis: MemoryDependenceAnalysis
+; CHECK-Oz-NEXT: Running analysis: MemoryDependenceAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-O1-NEXT: Running pass: MemCpyOptPass
 ; COM: CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis ;INTEL
 ; CHECK-O3PRELTO-NEXT: LocalArrayTransposePass on foo ; INTEL
