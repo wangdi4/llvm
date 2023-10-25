@@ -8940,6 +8940,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Turn -fplugin=name.so into -load name.so
   for (const Arg *A : Args.filtered(options::OPT_fplugin_EQ)) {
+#if INTEL_CUSTOMIZATION
+    // Use of -fplugin with the Intel compilers is not guaranteed to work given
+    // the various header and library dependencies.  Provide a diagnostic to
+    // inform the user that things may not work as expected.
+    D.Diag(diag::warn_drv_intel_plugin_support) << A->getAsString(Args);
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-load");
     CmdArgs.push_back(A->getValue());
     A->claim();
