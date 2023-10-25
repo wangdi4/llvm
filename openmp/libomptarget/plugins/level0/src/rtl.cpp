@@ -54,10 +54,10 @@
 
 #include "elf_light.h"
 #include "omptargetplugin.h"
-#if INTEL_CUSTOMIZATION
-#include "omptarget-tools.h"
-#endif // INTEL_CUSTOMIZATION
 #include "rtl-trace.h"
+#ifdef OMPT_SUPPORT
+#include "OmptCallback.h"
+#endif
 
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/DynamicLibrary.h"
@@ -3084,6 +3084,71 @@ public:
 
 struct ScopedTimerTy; // Forward declaration
 
+#ifdef OMPT_SUPPORT
+/// Set OMPT data in current region interface
+bool setOmptData(OmptExtDataTy Type, size_t Size, void *Data);
+/// Get OMPT data in current region interface
+bool getOmptData(OmptExtDataTy Type, size_t Size, void *Data);
+/// Look up OMPT entry
+ompt_interface_fn_t lookupOmptEntry(const char *EntryName);
+
+/// Device-specific OMPT information
+struct OmptInfoTy {
+  /// OMPT callback functions
+#define defineOmptCallback(Name, Type, Code) Name##_t Name##_fn = nullptr;
+  FOREACH_OMPT_DEVICE_EVENT(defineOmptCallback)
+#undef defineOmptCallback
+  /// Internal representation for OMPT device (initialize & finalize)
+  bool OmptInitialized = false;
+
+  OmptInfoTy() {
+    // Bind the callbacks to this device's member functions
+#define bindOmptCallback(Name, Type, Code)                                     \
+  if (ompt::Initialized && ompt::lookupCallbackByCode) {                       \
+    ompt::lookupCallbackByCode((ompt_callbacks_t)(Code),                       \
+                               ((ompt_callback_t *)&(Name##_fn)));             \
+    DP("OMPT: class bound %s=%p\n", #Name, ((void *)(uint64_t)Name##_fn));     \
+  }
+
+    FOREACH_OMPT_DEVICE_EVENT(bindOmptCallback);
+#undef bindOmptCallback
+  }
+  /// Wrapper for device-load event
+  void doDeviceLoad(int32_t DeviceId, const char *FileName,
+                    int64_t OffsetInFile, void *VmaInFile, size_t Bytes,
+                    void *HostAddr, void *DeviceAddr, uint64_t ModuleId) {
+    if (!ompt::Initialized)
+      return;
+    performOmptCallback(device_load,
+                        /* device_num */ DeviceId,
+                        /* FileName */ FileName,
+                        /* File Offset */ OffsetInFile,
+                        /* VmaInFile */ VmaInFile,
+                        /* ImgSize */ Bytes,
+                        /* HostAddr */ HostAddr,
+                        /* DeviceAddr */ DeviceAddr,
+                        /* FIXME: ModuleId */ ModuleId);
+  }
+  /// Wrapper for device-init event
+  void doDeviceInit(int32_t DeviceId, const char *DeviceName, void *Device) {
+    if (!ompt::Initialized)
+      return;
+    OmptInitialized = true;
+    performOmptCallback(device_initialize,
+                        /* device_num */ DeviceId,
+                        /* type */ DeviceName,
+                        /* device */ reinterpret_cast<ompt_device_t *>(Device),
+                        /* lookup */ lookupOmptEntry,
+                        /* documentation */ nullptr);
+  }
+  /// Wrapper for device-fini event
+  void doDeviceFini() {}
+};
+#define OMPT_IF_BUILT(Stmt) Stmt
+#else // OMPT_SUPPORT
+#define OMPT_IF_BUILT(Stmt)
+#endif // OMPT_SUPPORT
+
 /// Driver and context-specific resources. We assume a single context per
 /// driver.
 struct DriverInfoTy {
@@ -3324,6 +3389,9 @@ struct RTLDeviceInfoTy {
 
   /// Memory allocator for each L0 devices (Device/Shared) and contexts (Host)
   std::map<ZeHandleTy, MemAllocatorTy> MemAllocator;
+
+  /// OMPT information
+  OMPT_IF_BUILT(std::vector<OmptInfoTy> OmptInfo);
 
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
 
@@ -4148,6 +4216,7 @@ ATTRIBUTE(constructor(101)) void init() {
   DP("Init Level0 plugin!\n");
   DeviceInfo = new RTLDeviceInfoTy();
   TLSList = new std::list<TLSTy *>();
+  OMPT_IF_BUILT(ompt::connectLibrary());
 }
 
 /// RTL calls this function as early as possible to avoid finalization issues
@@ -4243,13 +4312,6 @@ static void closeRTL() {
   for (uint32_t I = 0; I < DeviceInfo->NumDevices; I++) {
     if (!DeviceInfo->Initialized[I])
       continue;
-#if INTEL_CUSTOMIZATION
-    if (OMPT_ENABLED) {
-      OMPT_CALLBACK(ompt_callback_device_unload, I, 0 /* module ID */);
-      OMPT_CALLBACK(ompt_callback_device_finalize, I);
-    }
-#endif // INTEL_CUSTOMIZATION
-
     DeviceInfo->Programs[I].clear();
   }
 
@@ -5210,15 +5272,16 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   DP("Number of teams = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
      GroupCounts.groupCountX, GroupCounts.groupCountY, GroupCounts.groupCountZ);
 
-#if INTEL_CUSTOMIZATION
-  if (OMPT_ENABLED) {
+#ifdef OMPT_SUPPORT
+  if (ompt::Initialized) {
     // Push current work size
-    size_t FinalNumTeams = GroupCounts.groupCountX * GroupCounts.groupCountY *
-        GroupCounts.groupCountZ;
-    size_t FinalThreadLimit = GroupSizes[0] * GroupSizes[1] * GroupSizes[2];
-    OmptGlobal->getTrace().pushWorkSize(FinalNumTeams, FinalThreadLimit);
+    int FinalNumTeams = GroupCounts.groupCountX * GroupCounts.groupCountY *
+                        GroupCounts.groupCountZ;
+    int FinalThreadLimit = GroupSizes[0] * GroupSizes[1] * GroupSizes[2];
+    setOmptData(OmptExtDataNumTeams, sizeof(int), &FinalNumTeams);
+    setOmptData(OmptExtDataTeamSize, sizeof(int), &FinalThreadLimit);
   }
-#endif // INTEL_CUSTOMIZATION
+#endif // OMPT_SUPPORT
 
   // Set arguments
   auto *KernelInfo = DeviceInfo->getKernelInfo(RootId, Kernel);
@@ -6110,6 +6173,7 @@ int32_t RTLDeviceInfoTy::findDevices() {
   GlobalModules.resize(NumDevices);
   Mutexes.reset(new std::mutex[NumDevices]);
   KernelMutexes.reset(new std::mutex[NumDevices]);
+  OMPT_IF_BUILT(OmptInfo.resize(NumDevices));
 
 #if INTEL_CUSTOMIZATION
   // Supported interop properties
@@ -7245,12 +7309,11 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
   DeviceInfo->Initialized[DeviceId] = true;
 
-#if INTEL_CUSTOMIZATION
-  OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
-                DeviceInfo->DeviceProperties[DeviceId].name,
-                DeviceInfo->Devices[DeviceId],
-                omptLookupEntries, OmptDocument);
-#endif // INTEL_CUSTOMIZATION
+#ifdef OMPT_SUPPORT
+  const char *DeviceName = DeviceInfo->DeviceProperties[DeviceId].name;
+  void *Device = (void *)DeviceInfo->Devices[DeviceId];
+  DeviceInfo->OmptInfo[DeviceId].doDeviceInit(DeviceId, DeviceName, Device);
+#endif
 
   DP("Initialized Level0 device %" PRId32 "\n", DeviceId);
   return OFFLOAD_SUCCESS;
@@ -7300,14 +7363,12 @@ __tgt_target_table *__tgt_rtl_load_binary(
     return nullptr;
 #endif // INTEL_CUSTOMIZATION
 
-  auto *Table = Program.getTablePtr();
+  OMPT_IF_BUILT(DeviceInfo->OmptInfo[DeviceId].doDeviceLoad(
+      DeviceId, nullptr /* FileName */, 0 /* OffsetInFile */,
+      nullptr /* VmaInFile */, ImageSize, Image->ImageStart,
+      nullptr /* DeviceAddr */, 0 /* FIXME ModuleId */));
 
-#if INTEL_CUSTOMIZATION
-  OMPT_CALLBACK(ompt_callback_device_load, DeviceId, nullptr /* filename */,
-                -1 /* offset_in_file */, nullptr /* vma_in_file */,
-                ImageSize /* bytes */, Image->ImageStart /* host_addr */,
-                nullptr /* device_addr */, 0 /* module_id */);
-#endif // INTEL_CUSTOMIZATION
+  auto *Table = Program.getTablePtr();
 
   return Table;
 }
