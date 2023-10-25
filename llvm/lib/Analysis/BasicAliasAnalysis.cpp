@@ -2103,8 +2103,8 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     if(isa<CallInst>(A))
       if (const GEPOperator *GEP = dyn_cast<GEPOperator>(B))
         if (isa<StructType>(*(GEP->getSourceElementType())))
-          if (isObjectSmallerThan(A, DL.getTypeSizeInBits(
-                      GEP->getSourceElementType()) / 8, DL, TLI, true))
+          if (isObjectSmallerThan(A, TypeSize::getFixed(DL.getTypeSizeInBits(
+                      GEP->getSourceElementType()) / 8), DL, TLI, true))
             return true;
     return false;
   };
