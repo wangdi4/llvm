@@ -313,12 +313,13 @@ public:
     this->Base::initForVPlan();
   }
   void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-             Scope *S, raw_ostream *OS = nullptr) const {
+             VPInstructionCost &OvhCost, Scope *S,
+             raw_ostream *OS = nullptr) const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     VPInstructionCost RefCost = Cost;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    H.apply(TTICost, Cost, S, OS);
+    H.apply(TTICost, Cost, OvhCost, S, OS);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     H.printCostChange(RefCost, Cost, S, OS);
@@ -328,7 +329,7 @@ public:
     // return it immediately.
     if (!Cost.isValid())
       return;
-    this->Base::apply(TTICost, Cost, S, OS);
+    this->Base::apply(TTICost, Cost, OvhCost, S, OS);
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Note that ScopeTy and Scope are different types.
@@ -348,7 +349,8 @@ public:
   HeuristicsList(VPlanTTICostModel *CM) {}
   // There is no heuristics to apply, thus just be transparent.
   void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-             Scope *S, raw_ostream *OS = nullptr) const {}
+             VPInstructionCost &OvhCost, Scope *S,
+             raw_ostream *OS = nullptr) const {}
   void initForVPlan() {}
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // No heuristics to emit dump.
@@ -422,12 +424,14 @@ private:
   // The method applies the heuristics from input heuristics list modifing
   // the input Cost and returns adjusted cost.
   template <typename HeuristicsListTy, typename ScopeTy>
-  VPInstructionCost
-  applyHeuristics(HeuristicsListTy &HeuristicsList, ScopeTy *Scope,
-                  const VPInstructionCost &Cost, raw_ostream *OS = nullptr) {
+  VPlanCostPair applyHeuristics(HeuristicsListTy &HeuristicsList,
+                                ScopeTy *Scope, const VPInstructionCost &Cost,
+                                const VPInstructionCost OvhCost,
+                                raw_ostream *OS = nullptr) {
     VPInstructionCost RetCost = Cost;
-    HeuristicsList.apply(Cost, RetCost, Scope, OS);
-    return RetCost;
+    VPInstructionCost RetOvhCost = OvhCost;
+    HeuristicsList.apply(Cost, RetCost, RetOvhCost, Scope, OS);
+    return std::make_pair(RetCost, RetOvhCost);
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -452,8 +456,9 @@ private:
              else
                VPInst->printWithoutAnalyses(*OS););
 
-    VPInstructionCost AdjCost = applyHeuristics(HeuristicsListVPInst, VPInst,
-                                                TTICost, OS);
+    VPInstructionCost AdjCost;
+    std::tie(AdjCost, std::ignore) = applyHeuristics(
+        HeuristicsListVPInst, VPInst, TTICost, VPInstructionCost(0), OS);
 
     CM_DEBUG(OS, dumpAllHeuristics(*OS, VPInst);
              if (TTICost != AdjCost)
@@ -484,8 +489,10 @@ private:
     CM_DEBUG(OS, *OS << VPBB->getName() << ": base cost: "
                      << BaseCost << '\n';);
 
-    VPInstructionCost AdjCost = applyHeuristics(HeuristicsListVPBlock, VPBB,
-                                               BaseCost, OS);
+    VPInstructionCost AdjCost;
+    std::tie(AdjCost, std::ignore) = applyHeuristics(
+        HeuristicsListVPBlock, VPBB, BaseCost, VPInstructionCost(0), OS);
+
     CM_DEBUG(OS, dumpAllHeuristics(*OS, VPBB);
              if(BaseCost != AdjCost)
                *OS << " Adjusted Cost for BasicBlock: " <<
@@ -620,8 +627,9 @@ public:
 
     CM_DEBUG(OS, *OS << "Base Cost: " << BaseCost << '\n';);
 
-    VPInstructionCost TotCost = applyHeuristics(HeuristicsListVPlan, Plan,
-                                                BaseCost, OS);
+    VPInstructionCost TotCost, OvhCost;
+    std::tie(TotCost, OvhCost) = applyHeuristics(
+        HeuristicsListVPlan, Plan, BaseCost, VPInstructionCost(0), OS);
 
     CM_DEBUG(OS, dumpAllHeuristics(*OS, Plan);
              if (BaseCost != TotCost)
@@ -638,7 +646,7 @@ public:
     if (UF > 1 && TotCost.isValid())
       TotCost *= UF;
 
-    return std::make_pair(TotCost, PostExitCost + PreHdrCost);
+    return std::make_pair(TotCost, PostExitCost + PreHdrCost + OvhCost);
   }
 
   /// This method is proxy to implementation in TTI cost model, which returns

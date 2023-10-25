@@ -292,9 +292,9 @@ bool HeuristicSLP::checkForSLPRedn(const VPReductionFinal *RednFinal,
   return true;
 }
 
-void HeuristicSLP::apply(
-  const VPInstructionCost &, VPInstructionCost &Cost,
-  const VPlanVector *Plan, raw_ostream *OS) const {
+void HeuristicSLP::apply(const VPInstructionCost &, VPInstructionCost &Cost,
+                         VPInstructionCost &OvhCost, const VPlanVector *Plan,
+                         raw_ostream *OS) const {
 
   if (VF == 1 && CMScalarSLPAnalysis && CM->DDG) {
     // Apply cost reduction once SLP pattern is discovered in scalar Plan.
@@ -644,9 +644,10 @@ VPInstructionCost HeuristicSpillFill::operator()(const VPBasicBlock *VPBlock,
     (StoreCost + LoadCost);
 }
 
-void HeuristicSpillFill::apply(
-  const VPInstructionCost &, VPInstructionCost &Cost,
-  const VPlanVector *Plan, raw_ostream *OS) const {
+void HeuristicSpillFill::apply(const VPInstructionCost &,
+                               VPInstructionCost &Cost,
+                               VPInstructionCost &OvhCost,
+                               const VPlanVector *Plan, raw_ostream *OS) const {
   // Don't run register pressure heuristics on TTI models that do not support
   // scalar or vector registers.
   if (CM->TTI.getNumberOfRegisters(
@@ -676,6 +677,7 @@ void HeuristicSpillFill::apply(
   // Keep track of vector and scalar live values in separate maps.
   LiveValuesTy VecLiveValues, ScalLiveValues;
 
+  const VPLoop *L = Plan->getMainLoop(true /* StrictCheck*/);
   for (auto *Block : post_order(&Plan->getEntryBlock())) {
     // For simplicity we pass LiveOut from previous block as LiveIn to the next
     // block in walk like walking through a linear sequence of BBs.
@@ -687,8 +689,9 @@ void HeuristicSpillFill::apply(
     // sequence.  Uniform conditions are moved out of the loop by LoopOpt
     // normally and we don't see non linear CFG in VPlan in the most cases for
     // HIR pipeline.
-    Cost += (*this)(Block, ScalLiveValues, false);
-    Cost += (*this)(Block, VecLiveValues, true);
+    bool InLoop = L->contains(Block);
+    (InLoop ? Cost : OvhCost) += (*this)(Block, ScalLiveValues, false);
+    (InLoop ? Cost : OvhCost) += (*this)(Block, VecLiveValues, true);
   }
 }
 
@@ -711,9 +714,11 @@ void HeuristicSpillFill::dump(raw_ostream &OS, const VPBasicBlock *VPBB) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-void HeuristicGatherScatter::apply(
-  const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-  const VPlanVector *Plan, raw_ostream *OS) const {
+void HeuristicGatherScatter::apply(const VPInstructionCost &TTICost,
+                                   VPInstructionCost &Cost,
+                                   VPInstructionCost &OvhCost,
+                                   const VPlanVector *Plan,
+                                   raw_ostream *OS) const {
   VPlanCostPair GSCost = (*this)(Plan);
   if (GSCost.first == 0 && GSCost.second == 0)
     return;
@@ -1077,9 +1082,9 @@ void HeuristicPsadbw::initForVPlan() {
 }
 
 // Does all neccesary target checks and return corrected VPlan Cost.
-void HeuristicPsadbw::apply(
-  const VPInstructionCost &, VPInstructionCost &Cost,
-  const VPlanVector *Plan, raw_ostream *OS) const {
+void HeuristicPsadbw::apply(const VPInstructionCost &, VPInstructionCost &Cost,
+                            VPInstructionCost &OvhCost, const VPlanVector *Plan,
+                            raw_ostream *OS) const {
 
   VPInstructionCost PatternCost = 0;
 
@@ -1158,9 +1163,11 @@ void HeuristicPsadbw::dump(raw_ostream &OS, const VPInstruction *VPInst) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-void HeuristicSVMLIDivIRem::apply(
-  const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-  const VPInstruction *VPInst, raw_ostream *OS) const {
+void HeuristicSVMLIDivIRem::apply(const VPInstructionCost &TTICost,
+                                  VPInstructionCost &Cost,
+                                  VPInstructionCost &OvhCost,
+                                  const VPInstruction *VPInst,
+                                  raw_ostream *OS) const {
 
   // SVML implementation kicks in for VF > 2. Two scalar calls are used
   // to implement the operation for VF == 2.
@@ -1241,9 +1248,11 @@ void HeuristicSVMLIDivIRem::apply(
   Cost = VPInstructionCost::Min(VectorCost, TTICost);
 }
 
-void HeuristicOVLSMember::apply(
-  const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-  const VPInstruction *VPInst, raw_ostream *OS) const {
+void HeuristicOVLSMember::apply(const VPInstructionCost &TTICost,
+                                VPInstructionCost &Cost,
+                                VPInstructionCost &OvhCost,
+                                const VPInstruction *VPInst,
+                                raw_ostream *OS) const {
 
   if (!UseOVLSCM || !CM->VLSA || VF == 1)
     return;
@@ -1364,8 +1373,8 @@ void HeuristicOVLSMember::apply(
 }
 
 void HeuristicUnroll::apply(const VPInstructionCost &TTICost,
-                            VPInstructionCost &Cost, const VPlanVector *Plan,
-                            raw_ostream *OS) const {
+                            VPInstructionCost &Cost, VPInstructionCost &OvhCost,
+                            const VPlanVector *Plan, raw_ostream *OS) const {
   if (UF <= 1 || !CMUseUnrollHeuristics || Cost.isUnknown() || !Cost.isValid())
     return;
   assert(VF != 1 && "Expected VF > 1");

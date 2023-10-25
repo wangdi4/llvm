@@ -198,9 +198,9 @@ define float @multi_redn(ptr nocapture noundef readonly %A, ptr nocapture nounde
 ; CHECK-VF8-UF4-NEXT:  [[BB2]]: base cost: 22.875
 ; CHECK-VF8-UF4-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 4
 ; CHECK-VF8-UF4-NEXT:  Base Cost: 22.875
-; CHECK-VF8-UF4-NEXT:  Extra cost due to Spill/Fill heuristic is 32
-; CHECK-VF8-UF4-NEXT:  Cost decrease due to Unroll heuristic is 6.125
-; CHECK-VF8-UF4-NEXT:  Total Cost: 48.75
+; CHECK-VF8-UF4-NEXT:  Extra cost due to Spill/Fill heuristic is 16
+; CHECK-VF8-UF4-NEXT:  Cost decrease due to Unroll heuristic is 6.1875
+; CHECK-VF8-UF4-NEXT:  Total Cost: 32.6875
 ; CHECK-VF8-UF4-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-VF8-UF4-NEXT:    Cost 7 for float [[VP_RED_FINAL:%.*]] = reduction-final{fadd} float [[VP9]] float live-in0
 ; CHECK-VF8-UF4-NEXT:    Cost 7 for float [[VP_RED_FINAL_1:%.*]] = reduction-final{fadd} float [[VP7]] float live-in1
@@ -261,9 +261,9 @@ define float @multi_redn(ptr nocapture noundef readonly %A, ptr nocapture nounde
 ; CHECK-VF8-UF8-NEXT:  [[BB2]]: base cost: 22.875
 ; CHECK-VF8-UF8-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 68
 ; CHECK-VF8-UF8-NEXT:  Base Cost: 22.875
-; CHECK-VF8-UF8-NEXT:  Extra cost due to Spill/Fill heuristic is 352
+; CHECK-VF8-UF8-NEXT:  Extra cost due to Spill/Fill heuristic is 80
 ; CHECK-VF8-UF8-NEXT:  Cost decrease due to Unroll heuristic is 7
-; CHECK-VF8-UF8-NEXT:  Total Cost: 367.875
+; CHECK-VF8-UF8-NEXT:  Total Cost: 95.8125
 ; CHECK-VF8-UF8-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-VF8-UF8-NEXT:    Cost 11 for float [[VP_RED_FINAL:%.*]] = reduction-final{fadd} float [[VP9]] float live-in0
 ; CHECK-VF8-UF8-NEXT:    Cost 11 for float [[VP_RED_FINAL_1:%.*]] = reduction-final{fadd} float [[VP7]] float live-in1
@@ -366,9 +366,9 @@ define float @multi_redn_reuse(ptr nocapture noundef readonly %A, ptr nocapture 
 ; CHECK-VF8-UF4-NEXT:  [[BB2]]: base cost: 17.4375
 ; CHECK-VF8-UF4-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 8
 ; CHECK-VF8-UF4-NEXT:  Base Cost: 17.4375
-; CHECK-VF8-UF4-NEXT:  Extra cost due to Spill/Fill heuristic is 32
+; CHECK-VF8-UF4-NEXT:  Extra cost due to Spill/Fill heuristic is 16
 ; CHECK-VF8-UF4-NEXT:  Cost decrease due to Unroll heuristic is 6
-; CHECK-VF8-UF4-NEXT:  Total Cost: 43.4375
+; CHECK-VF8-UF4-NEXT:  Total Cost: 27.4375
 ; CHECK-VF8-UF4-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-VF8-UF4-NEXT:    Cost 7 for float [[VP_RED_FINAL:%.*]] = reduction-final{fadd} float [[VP9]] float live-in0
 ; CHECK-VF8-UF4-NEXT:    Cost 7 for float [[VP_RED_FINAL_1:%.*]] = reduction-final{fadd} float [[VP7]] float live-in1
@@ -422,9 +422,9 @@ define float @multi_redn_reuse(ptr nocapture noundef readonly %A, ptr nocapture 
 ; CHECK-VF8-UF8-NEXT:  [[BB2]]: base cost: 17.4375
 ; CHECK-VF8-UF8-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 72
 ; CHECK-VF8-UF8-NEXT:  Base Cost: 17.4375
-; CHECK-VF8-UF8-NEXT:  Extra cost due to Spill/Fill heuristic is 352
+; CHECK-VF8-UF8-NEXT:  Extra cost due to Spill/Fill heuristic is 80
 ; CHECK-VF8-UF8-NEXT:  Cost decrease due to Unroll heuristic is 7
-; CHECK-VF8-UF8-NEXT:  Total Cost: 362.4375
+; CHECK-VF8-UF8-NEXT:  Total Cost: 90.4375
 ; CHECK-VF8-UF8-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-VF8-UF8-NEXT:    Cost 11 for float [[VP_RED_FINAL:%.*]] = reduction-final{fadd} float [[VP9]] float live-in0
 ; CHECK-VF8-UF8-NEXT:    Cost 11 for float [[VP_RED_FINAL_1:%.*]] = reduction-final{fadd} float [[VP7]] float live-in1
