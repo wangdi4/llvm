@@ -89,7 +89,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/IR/Instructions.h"
@@ -301,7 +301,7 @@ private:
   int NumWorkers = 0;
   int PipelineDepth = 0;
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNParallelNode(BasicBlock *BB);
@@ -316,7 +316,7 @@ protected:
   void setNumWorkers(int N) { NumWorkers = N; }
   void setPipelineDepth(int P) { PipelineDepth = P; }
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -351,7 +351,7 @@ public:
   int getNumWorkers() const { return NumWorkers; }
   int getPipelineDepth() const { return PipelineDepth; }
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override;
@@ -401,14 +401,14 @@ private:
   int PipelineDepth = 0;
   ScheduleClause WorkerSchedule;
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNParallelLoopNode(BasicBlock *BB, LoopInfo *L);
 #if INTEL_CUSTOMIZATION
   // constructor for HIR representation
   WRNParallelLoopNode(loopopt::HLNode *EntryHLN);
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 protected:
   void setIf(EXPR E) override { IfExpr = E; }
@@ -428,7 +428,7 @@ protected:
   void setNumWorkers(int N) { NumWorkers = N; }
   void setPipelineDepth(int P) { PipelineDepth = P; }
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -445,7 +445,7 @@ public:
 #if INTEL_FEATURE_CSA
   DEFINE_GETTER(ScheduleClause, getWorkerSchedule, WorkerSchedule)
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   EXPR getIf() const override { return IfExpr; }
   EXPR getNumThreads() const override { return NumThreads; }
@@ -492,7 +492,7 @@ public:
   int getNumWorkers() const { return NumWorkers; }
   int getPipelineDepth() const { return PipelineDepth; }
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override;
@@ -1513,7 +1513,7 @@ private:
   loopopt::HLNode *EntryHLNode = nullptr; // for HIR only
   loopopt::HLNode *ExitHLNode = nullptr;  // for HIR only
   loopopt::HLLoop *HLp = nullptr;         // for HIR only
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 public:
 #if INTEL_CUSTOMIZATION
@@ -1523,7 +1523,7 @@ public:
                  const bool isAutoVec); // HIR representation
 #else
   WRNVecLoopNode(BasicBlock *BB, LoopInfo *L);
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   void setIf(EXPR E) override { IfExpr = E; }
   void setSimdlen(int N) override { Simdlen = N; }
@@ -1539,7 +1539,7 @@ public:
   void setEntryHLNode(loopopt::HLNode *E)  override{ EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X)  override{ ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L)  override { HLp = L; }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   DEFINE_GETTER(PrivateClause,     getPriv,        Priv)
   DEFINE_GETTER(LastprivateClause, getLpriv,       Lpriv)
@@ -1568,7 +1568,7 @@ public:
   loopopt::HLLoop *getHLLoop() const override{ return HLp; }
   bool isOmpSIMDLoop() const { return !getIsAutoVec(); }
   bool isValidHIRSIMDRegion() const;
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override;
@@ -1580,7 +1580,7 @@ public:
   template <class LoopType> LoopType *getTheLoop() const {
     llvm_unreachable("Unsupported LoopType");
   }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1592,7 +1592,7 @@ public:
 template <> Loop *WRNVecLoopNode::getTheLoop<Loop>() const;
 template <>
 loopopt::HLLoop *WRNVecLoopNode::getTheLoop<loopopt::HLLoop>() const;
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 /// WRN for
 /// \code
@@ -1622,7 +1622,7 @@ private:
 #if INTEL_FEATURE_CSA
   ScheduleClause WorkerSchedule;
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNWksLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -1650,7 +1650,7 @@ public:
 #if INTEL_FEATURE_CSA
   DEFINE_GETTER(ScheduleClause, getWorkerSchedule, WorkerSchedule)
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   int getCollapse() const override{ return Collapse; }
   int getOrdered() const override { return Ordered; }

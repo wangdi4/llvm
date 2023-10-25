@@ -43,6 +43,7 @@ class VPlanPeelingVariant;
 class VPLoop;
 class VPLoopInfo;
 class CfgMergerPlanDescr;
+class VPOCodeGenHIR;
 
 // Data to be passed to VPlanOptReportBuilder::addRemark().
 struct VPlanBailoutRemark {
@@ -52,17 +53,6 @@ struct VPlanBailoutRemark {
 
 class VPlanDriverImpl {
 private:
-  LoopInfo *LI;
-  ScalarEvolution *SE;
-  DominatorTree *DT;
-  AssumptionCache *AC;
-  AliasAnalysis *AA;
-  DemandedBits *DB;
-  BlockFrequencyInfo *BFI;
-  ProfileSummaryInfo *PSI;
-  LoopAccessInfoManager *LAIs;
-  OptimizationRemarkEmitter *ORE;
-
   template <class Loop>
   bool processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
 
@@ -83,11 +73,14 @@ private:
   bool bailout(VPlanOptReportBuilder &ORBuilder, Loop *Lp, WRNVecLoopNode *WRLp,
                VPlanBailoutRemark RemarkData);
 
-  // Helper functions for isSupported().
-  bool hasDedicatedAndUniqueExits(Loop *Lp, WRNVecLoopNode *WRLp);
-  bool isSupportedRec(Loop *Lp, WRNVecLoopNode *WRLp);
+  template <class Loop> Loop *adjustLoopIfNeeded(Loop *Lp, BasicBlock *Header);
+
+  template <class Loop> bool formLCSSAIfNeeded(Loop *Lp);
 
 protected:
+  DominatorTree *DT;
+  AssumptionCache *AC;
+
   // Hold information regarding explicit vectorization in LLVM-IR.
   WRegionInfo *WR;
   // true if runStandardMode was used for current processFunction and should
@@ -118,12 +111,6 @@ protected:
 
   template <typename Loop = Loop>
   bool runConstructStressTestMode(Function &Fn);
-
-  // Add remarks to the VPlan loop opt-report for loops created by codegen
-  template <class VPOCodeGenType, typename Loop = Loop>
-  void addOptReportRemarks(WRNVecLoopNode *WRLp,
-                           VPlanOptReportBuilder &VPORBuilder,
-                           VPOCodeGenType *VCodeGen);
 
   // Utility to add remarks related to VPlan containing the main vectorized
   // loop.
@@ -175,15 +162,6 @@ protected:
   }
 
 public:
-  bool runImpl(Function &F, LoopInfo *LI, ScalarEvolution *SE,
-               DominatorTree *DT, AssumptionCache *AC, AliasAnalysis *AA,
-               DemandedBits *DB, LoopAccessInfoManager *LAIs,
-               OptimizationRemarkEmitter *ORE,
-               OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
-               TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
-               BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
-               VecErrorHandlerTy VecErrorHandler);
-
   /// Whether to emit debug remarks into the opt report.
   static inline bool EmitDebugOptRemarks = false;
 
@@ -201,6 +179,48 @@ public:
     Remarks.push_back(
         getDebugRemark<RemarkRecordT>(C, std::forward<ArgsT>(Args)...));
   }
+};
+
+class VPlanDriverLLVMImpl : public VPlanDriverImpl {
+  friend VPlanDriverImpl;
+
+private:
+  LoopInfo *LI;
+  ScalarEvolution *SE;
+  AliasAnalysis *AA;
+  DemandedBits *DB;
+  BlockFrequencyInfo *BFI;
+  LoopAccessInfoManager *LAIs;
+  OptimizationRemarkEmitter *ORE;
+
+  // PSI is only used by the CG stress testing code that relies on
+  // community legality testing.  We have to keep it for now.
+  ProfileSummaryInfo *PSI;
+
+  bool processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
+  bool isSupported(Loop *Lp, WRNVecLoopNode *WRLp);
+  void collectAllLoops(SmallVectorImpl<Loop *> &Loops);
+  bool isVPlanCandidate(Function &Fn, Loop *Lp);
+  Loop *adjustLoopIfNeeded(Loop *Lp, BasicBlock *Header);
+
+  // Helper functions for isSupportedLLVM().
+  bool hasDedicatedAndUniqueExits(Loop *Lp, WRNVecLoopNode *WRLp);
+  bool isSupportedRec(Loop *Lp, WRNVecLoopNode *WRLp);
+
+  bool bailout(VPlanOptReportBuilder &ORBuilder, Loop *Lp, WRNVecLoopNode *WRLp,
+               VPlanBailoutRemark RemarkData);
+
+  bool formLCSSAIfNeeded(Loop *Lp);
+
+public:
+  bool runImpl(Function &F, LoopInfo *LI, ScalarEvolution *SE,
+               DominatorTree *DT, AssumptionCache *AC, AliasAnalysis *AA,
+               DemandedBits *DB, LoopAccessInfoManager *LAIs,
+               OptimizationRemarkEmitter *ORE,
+               OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
+               TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
+               BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
+               VecErrorHandlerTy VecErrorHandler);
 };
 
 class VPlanDriverHIRImpl : public VPlanDriverImpl {
@@ -223,6 +243,11 @@ private:
   bool bailout(VPlanOptReportBuilder &VPORBuilder, loopopt::HLLoop *Lp,
                WRNVecLoopNode *WRLp, VPlanBailoutRemark RemarkData);
   OptRemark prependHIR(OptRemark R);
+
+  // Add remarks to the VPlan loop opt-report for loops created by codegen
+  void addOptReportRemarks(WRNVecLoopNode *WRLp,
+                           VPlanOptReportBuilder &VPORBuilder,
+                           VPOCodeGenHIR *VCodeGen);
 
 public:
   bool runImpl(Function &F, loopopt::HIRFramework *HIRF,

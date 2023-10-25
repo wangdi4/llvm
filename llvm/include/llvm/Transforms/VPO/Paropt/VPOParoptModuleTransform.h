@@ -49,7 +49,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Pass.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 #include <functional>
 
@@ -81,12 +81,12 @@ public:
       OptReportVerbosity::Level ORVerbosity = OptReportVerbosity::Low)
 #else
       unsigned OptLevel = 2)
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
       : M(M), C(M.getContext()), Mode(Mode), DisableOffload(DisableOffload),
         OptLevel(OptLevel),
 #if INTEL_CUSTOMIZATION
         Limiter(Limiter), ORVerbosity(ORVerbosity),
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
         TgtOffloadEntryTy(nullptr), TgDeviceImageTy(nullptr),
         TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr), PrintfDecl(nullptr),
         OCLPrintfDecl(nullptr) {}
@@ -136,7 +136,7 @@ private:
   /// Verbosity level for generating remarks using Loop Opt Report
   /// framework (under -qopt-report).
   OptReportVerbosity::Level ORVerbosity;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   /// A list of device triples for offload compilation.
   SmallVector<Triple, 16> TgtDeviceTriples;

@@ -79,7 +79,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 #include <map>
 #include <queue>
@@ -135,7 +135,7 @@ public:
                      const TargetLibraryInfo *TLI, AAResults *AA, int Mode,
 #if INTEL_CUSTOMIZATION
                      OptReportVerbosity::Level ORVerbosity,
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
                      OptimizationRemarkEmitter &ORE,
                      unsigned OptLevel = 2,
                      bool DisableOffload = false)
@@ -144,7 +144,7 @@ public:
         TargetTriple(F->getParent()->getTargetTriple()),
 #if INTEL_CUSTOMIZATION
         ORVerbosity(ORVerbosity),
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
         ORE(ORE), OptLevel(OptLevel),
         DisableOffload(DisableOffload),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
@@ -156,7 +156,7 @@ public:
         // Set up Builder for generating remarks using Opt Report
         // framework (under -qopt-report).
         ORBuilder.setup(F->getContext(), ORVerbosity);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
       }
 
   /// Add a temporary branch from \p W's EntryBB to ExitBB. This is to prevent
@@ -212,7 +212,7 @@ public:
   void initializeBlocksToRegionsMap(BBToWRNMapTy &BBToWRNMap);
   /// Privatize shared items in the work region.
   bool privatizeSharedItems();
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   ~VPOParoptTransform() {
     for (OffloadEntry *OE : OffloadEntries)
@@ -265,7 +265,7 @@ private:
   /// Builder for generating remarks using Opt Report framework (under
   /// -qopt-report).
   OptReportBuilder ORBuilder;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   /// Optimization remark emitter.
   OptimizationRemarkEmitter &ORE;
@@ -577,8 +577,8 @@ private:
   bool isTargetCSA() const {
      return TargetTriple.getArch() == Triple::csa;
   }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   /// Returns true if we are compiling for SPIRV target.
   bool isTargetSPIRV() const {
@@ -681,7 +681,7 @@ private:
                                    bool OnlyCountReductionF90DVsAsVLAs = true);
 #else
   bool setInsertionPtForVlaAllocas(WRegionNode *W);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// returns true if the input item is either a Vla or a Vla Section.
 #if INTEL_CUSTOMIZATION
@@ -692,7 +692,7 @@ private:
                                    bool OnlyCountReductionF90DVsAsVLAs = true);
 #else
   static bool getIsVlaOrVlaSection(Item *I);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// Generate code for private variables
   bool genPrivatizationCode(WRegionNode *W,
@@ -1780,8 +1780,8 @@ private:
 
   /// Check whether a given construct is supported in CSA.
   bool isSupportedOnCSA(WRegionNode *W);
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   /// Insert a flush call
   bool genFlush(WRegionNode *W);

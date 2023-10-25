@@ -59,7 +59,7 @@ class HLNode;
 class HLInst;
 class HLLoop;
 }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 namespace vpo {
 
@@ -273,7 +273,7 @@ public:
 #if INTEL_FEATURE_CSA
   bool canHaveWorkerSchedule() const;
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   bool canHaveShared() const;
   bool canHavePrivate() const;
   bool canHaveFirstprivate() const;
@@ -407,7 +407,7 @@ public:
 #if INTEL_FEATURE_CSA
   virtual ScheduleClause &getWorkerSchedule()  {WRNERROR("SA_SCHEDULE");      }
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
   virtual SizesClause &getSizes()            {WRNERROR(QUAL_OMP_SIZES);       }
@@ -474,7 +474,7 @@ public:
   virtual const ScheduleClause &getWorkerSchedule() const
                                            {WRNERROR("SA_SCHEDULE")         }
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   virtual const SharedClause &getShared() const
                                            {WRNERROR(QUAL_OMP_SHARED);      }
   virtual const SizesClause &getSizes() const
@@ -573,7 +573,7 @@ public:
   virtual void setPipelineDepth(int E)        {WRNERROR(QUAL_OMP_SA_PIPELINE);}
   virtual int  getPipelineDepth()       const {WRNERROR(QUAL_OMP_SA_PIPELINE);}
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   virtual void setOffloadEntryIdx(int N)       {WRNERROR("OFFLOAD_ENTRY_IDX");}
   virtual int  getOffloadEntryIdx()      const {WRNERROR("OFFLOAD_ENTRY_IDX");}
   virtual void setOrdered(int N)                {WRNERROR(QUAL_OMP_ORDERED);  }
@@ -697,7 +697,7 @@ public:
   virtual loopopt::HLNode *getExitHLNode() const  {WRNERROR("ExitHLNode");    }
   virtual void setHLLoop(loopopt::HLLoop *)       {WRNERROR("HLLoop");        }
   virtual loopopt::HLLoop *getHLLoop() const      {WRNERROR("HLLoop");        }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   /// Only these classes are allowed to create/modify/delete WRegionNode.
   friend class WRegionUtils;
