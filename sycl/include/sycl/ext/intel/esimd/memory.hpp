@@ -1,3 +1,18 @@
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==-------------- memory.hpp - DPC++ Explicit SIMD API --------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -17,6 +32,9 @@
 #include <sycl/ext/intel/esimd/memory_properties.hpp>
 #include <sycl/ext/intel/esimd/simd.hpp>
 #include <sycl/ext/intel/esimd/simd_view.hpp>
+// INTEL_CUSTOMIZATION
+#include <sycl/ext/oneapi/bfloat16.hpp>
+// end INTEL_CUSTOMIZATION
 #include <sycl/half_type.hpp>
 
 #include <algorithm>
@@ -1488,6 +1506,22 @@ scatter_rgba(AccessorT acc, simd<Toffset, N> offsets,
 /// @} sycl_esimd_memory
 
 namespace detail {
+
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_ESIMD_EMBARGO
+#define __ESIMD_FP_ATOMIC_OP_TYPE_CHECK(T)                                     \
+  static_assert(                                                               \
+      is_type<T, float, double, sycl::half, sycl::ext::oneapi::bfloat16>(),    \
+      "float, double, sycl::half or bfloat16 type is expected");
+// end INTEL_FEATURE_ESIMD_EMBARGO
+// end INTEL_CUSTOMIZATION
+
+#ifndef __ESIMD_FP_ATOMIC_OP_TYPE_CHECK
+#define __ESIMD_FP_ATOMIC_OP_TYPE_CHECK(T)                                     \
+  static_assert(is_type<T, float, sycl::half, double>(),                       \
+                "float, double or sycl::half type is expected");
+#endif // __ESIMD_FP_ATOMIC_OP_TYPE_CHECK
+
 /// Check the legality of an atomic call in terms of size and type.
 ///
 template <__ESIMD_NS::atomic_op Op, typename T, int N, unsigned NumSrc>
@@ -1497,7 +1531,7 @@ constexpr void check_atomic() {
                 "Execution size 1, 2, 4, 8, 16, 32 are supported");
 
   static_assert(NumSrc == __ESIMD_DNS::get_num_args<Op>(),
-                "wrong number of operands");
+                "Wrong number of operands");
   constexpr bool IsInt2BytePlus =
       std::is_integral_v<T> && (sizeof(T) >= sizeof(uint16_t));
 
@@ -1513,9 +1547,9 @@ constexpr void check_atomic() {
   if constexpr (Op == __ESIMD_NS::atomic_op::fmax ||
                 Op == __ESIMD_NS::atomic_op::fmin ||
                 Op == __ESIMD_NS::atomic_op::fadd ||
-                Op == __ESIMD_NS::atomic_op::fsub) {
-    static_assert((is_type<T, float, sycl::half, double>()),
-                  "float, double or sycl::half type is expected");
+                Op == __ESIMD_NS::atomic_op::fsub ||
+                Op == __ESIMD_NS::atomic_op::fcmpxchg) {
+    __ESIMD_FP_ATOMIC_OP_TYPE_CHECK(T);
   }
   if constexpr (Op == __ESIMD_NS::atomic_op::add ||
                 Op == __ESIMD_NS::atomic_op::sub ||
@@ -1539,6 +1573,7 @@ constexpr void check_atomic() {
     }
   }
 }
+#undef __ESIMD_FP_ATOMIC_OP_TYPE_CHECK
 } // namespace detail
 
 /// @addtogroup sycl_esimd_memory_slm
@@ -1774,7 +1809,7 @@ __ESIMD_API simd<Tx, N> atomic_update(Tx *p, simd<Toffset, N> offset,
   static_assert(std::is_integral_v<Toffset>, "Unsupported offset type");
   if constexpr ((Op == atomic_op::fmin) || (Op == atomic_op::fmax) ||
                 (Op == atomic_op::fadd) || (Op == atomic_op::fsub)) {
-    // Auto-convert FP atomics to LSC version. Warning is given - see enum.
+    // Auto-convert FP atomics to LSC version.
     return atomic_update<detail::to_lsc_atomic_op<Op>(), Tx, N>(p, offset, src0,
                                                                 mask);
   } else if constexpr (Op == atomic_op::store) {
@@ -1946,7 +1981,7 @@ atomic_update(Tx *p, Toffset offset, simd_mask<N> mask = 1) {
 /// has 2 additional arguments.
 ///
 /// @tparam Op The atomic operation - can be one of the following:
-///   \c atomic_op::cmpxchg, \c atomic_op::fcmpwr.
+///   \c atomic_op::cmpxchg, \c atomic_op::fcmpxchg.
 /// @tparam Tx The vector element type.
 /// @tparam N The number of memory locations to update.
 /// @param p The USM pointer.
@@ -1963,8 +1998,8 @@ __ESIMD_API simd<Tx, N> atomic_update(Tx *p, simd<Toffset, N> offset,
                                       simd<Tx, N> src0, simd<Tx, N> src1,
                                       simd_mask<N> mask) {
   static_assert(std::is_integral_v<Toffset>, "Unsupported offset type");
-  if constexpr (Op == atomic_op::fcmpwr) {
-    // Auto-convert FP atomics to LSC version. Warning is given - see enum.
+  if constexpr (Op == atomic_op::fcmpxchg) {
+    // Auto-convert FP atomics to LSC version.
     return atomic_update<detail::to_lsc_atomic_op<Op>(), Tx, N>(p, offset, src0,
                                                                 src1, mask);
   } else {
@@ -1982,7 +2017,7 @@ __ESIMD_API simd<Tx, N> atomic_update(Tx *p, simd<Toffset, N> offset,
 /// \c simd_view object.
 ///
 /// @tparam Op The atomic operation - can be one of the following:
-///   \c atomic_op::cmpxchg, \c atomic_op::fcmpwr.
+///   \c atomic_op::cmpxchg, \c atomic_op::fcmpxchg.
 /// @tparam Tx The vector element type.
 /// @tparam N The number of memory locations to update.
 /// @param p The USM pointer.
@@ -2006,7 +2041,7 @@ atomic_update(Tx *p, simd_view<Toffset, RegionTy> offsets, simd<Tx, N> src0,
 /// scalar.
 ///
 /// @tparam Op The atomic operation - can be one of the following:
-///   \c atomic_op::cmpxchg, \c atomic_op::fcmpwr.
+///   \c atomic_op::cmpxchg, \c atomic_op::fcmpxchg.
 /// @tparam Tx The vector element type.
 /// @tparam N The number of memory locations to update.
 /// @param p The USM pointer.
@@ -2069,7 +2104,7 @@ atomic_update(AccessorTy acc, simd<Toffset, N> offset, simd<Tx, N> src0,
   static_assert(sizeof(Toffset) == 4, "Only 32 bit offset is supported");
   if constexpr ((Op == atomic_op::fmin) || (Op == atomic_op::fmax) ||
                 (Op == atomic_op::fadd) || (Op == atomic_op::fsub)) {
-    // Auto-convert FP atomics to LSC version. Warning is given - see enum.
+    // Auto-convert FP atomics to LSC version.
     return atomic_update<detail::to_lsc_atomic_op<Op>(), Tx, N>(acc, offset,
                                                                 src0, mask);
   } else if constexpr (Op == atomic_op::store) {
@@ -2123,7 +2158,7 @@ atomic_update(AccessorTy acc, simd<uint32_t, N> offset, simd<Tx, N> src0,
               simd_mask<N> mask) {
   if constexpr ((Op == atomic_op::fmin) || (Op == atomic_op::fmax) ||
                 (Op == atomic_op::fadd) || (Op == atomic_op::fsub)) {
-    // Auto-convert FP atomics to LSC version. Warning is given - see enum.
+    // Auto-convert FP atomics to LSC version.
     return atomic_update<detail::to_lsc_atomic_op<Op>(), Tx, N>(acc, offset,
                                                                 src0, mask);
   } else if constexpr (Op == atomic_op::store) {
@@ -2361,7 +2396,7 @@ atomic_update(AccessorTy acc, Toffset offset, simd_mask<N> mask) {
 /// has 2 additional arguments.
 ///
 /// @tparam Op The atomic operation - can be one of the following:
-///   \c atomic_op::cmpxchg, \c atomic_op::fcmpwr.
+///   \c atomic_op::cmpxchg, \c atomic_op::fcmpxchg.
 /// @tparam Tx The vector element type.
 /// @tparam N The number of memory locations to update.
 /// @tparam AccessorTy type of the SYCL accessor.
@@ -2392,8 +2427,8 @@ atomic_update(AccessorTy acc, simd<Toffset, N> offset, simd<Tx, N> src0,
 #else
   static_assert(std::is_integral_v<Toffset>, "Unsupported offset type");
   static_assert(sizeof(Toffset) == 4, "Only 32 bit offset is supported");
-  if constexpr (Op == atomic_op::fcmpwr) {
-    // Auto-convert FP atomics to LSC version. Warning is given - see enum.
+  if constexpr (Op == atomic_op::fcmpxchg) {
+    // Auto-convert FP atomics to LSC version.
     return atomic_update<detail::to_lsc_atomic_op<Op>(), Tx, N>(
         acc, offset, src0, src1, mask);
   } else {
@@ -2414,7 +2449,7 @@ atomic_update(AccessorTy acc, simd<Toffset, N> offset, simd<Tx, N> src0,
 /// has 2 additional arguments.
 ///
 /// @tparam Op The atomic operation - can be one of the following:
-///   \c atomic_op::cmpxchg, \c atomic_op::fcmpwr.
+///   \c atomic_op::cmpxchg, \c atomic_op::fcmpxchg.
 /// @tparam Tx The vector element type.
 /// @tparam N The number of memory locations to update.
 /// @tparam AccessorTy type of the SYCL accessor.
@@ -2434,8 +2469,8 @@ __ESIMD_API std::enable_if_t<
     sycl::detail::acc_properties::is_local_accessor_v<AccessorTy>, simd<Tx, N>>
 atomic_update(AccessorTy acc, simd<uint32_t, N> offset, simd<Tx, N> src0,
               simd<Tx, N> src1, simd_mask<N> mask) {
-  if constexpr (Op == atomic_op::fcmpwr) {
-    // Auto-convert FP atomics to LSC version. Warning is given - see enum.
+  if constexpr (Op == atomic_op::fcmpxchg) {
+    // Auto-convert FP atomics to LSC version.
     return atomic_update<detail::to_lsc_atomic_op<Op>(), Tx, N>(
         acc, offset, src0, src1, mask);
   } else {
@@ -2448,7 +2483,7 @@ atomic_update(AccessorTy acc, simd<uint32_t, N> offset, simd<Tx, N> src0,
 /// \c simd_view object.
 ///
 /// @tparam Op The atomic operation - can be one of the following:
-///   \c atomic_op::cmpxchg, \c atomic_op::fcmpwr.
+///   \c atomic_op::cmpxchg, \c atomic_op::fcmpxchg.
 /// @tparam Tx The vector element type.
 /// @tparam N The number of memory locations to update.
 /// @tparam AccessorTy type of the SYCL accessor.
@@ -2477,7 +2512,7 @@ atomic_update(AccessorTy acc, simd_view<Toffset, RegionTy> offsets,
 /// scalar.
 ///
 /// @tparam Op The atomic operation - can be one of the following:
-///   \c atomic_op::cmpxchg, \c atomic_op::fcmpwr.
+///   \c atomic_op::cmpxchg, \c atomic_op::fcmpxchg.
 /// @tparam Tx The vector element type.
 /// @tparam N The number of memory locations to update.
 /// @tparam AccessorTy type of the SYCL accessor.

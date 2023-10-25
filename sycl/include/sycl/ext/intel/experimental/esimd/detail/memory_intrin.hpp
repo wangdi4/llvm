@@ -587,7 +587,7 @@ __esimd_lsc_store2d_stateless(__ESIMD_DNS::simd_mask_storage_t<N> Pred,
 /// Supported platforms: DG2, PVC
 ///
 /// @tparam Ty is element type.
-/// @tparam Op is operation type.
+/// @tparam InternalOp is operation type.
 /// @tparam L1H is L1 cache hint.
 /// @tparam L3H is L3 cache hint.
 /// @tparam AddressScale is the address scale.
@@ -598,10 +598,9 @@ __esimd_lsc_store2d_stateless(__ESIMD_DNS::simd_mask_storage_t<N> Pred,
 /// @tparam N is the SIMD size of operation (the number of addresses to access)
 /// @param pred is predicates.
 /// @param offsets is the zero-based offsets.
-template <typename Ty, __ESIMD_NS::native::lsc::atomic_op Op,
-          __ESIMD_ENS::cache_hint L1H, __ESIMD_ENS::cache_hint L3H,
-          uint16_t AddressScale, int ImmOffset, __ESIMD_ENS::lsc_data_size DS,
-          __ESIMD_EDNS::lsc_vector_size VS,
+template <typename Ty, int InternalOpOp, __ESIMD_ENS::cache_hint L1H,
+          __ESIMD_ENS::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
+          __ESIMD_ENS::lsc_data_size DS, __ESIMD_EDNS::lsc_vector_size VS,
           __ESIMD_EDNS::lsc_data_order _Transposed, int N>
 __ESIMD_INTRIN __ESIMD_DNS::vector_type_t<Ty, N * __ESIMD_EDNS::to_int<VS>()>
 __esimd_lsc_xatomic_slm_0(__ESIMD_DNS::simd_mask_storage_t<N> pred,
@@ -618,7 +617,7 @@ __esimd_lsc_xatomic_slm_0(__ESIMD_DNS::simd_mask_storage_t<N> pred,
 /// Supported platforms: DG2, PVC
 ///
 /// @tparam Ty is element type.
-/// @tparam Op is operation type.
+/// @tparam InternalOp is operation type.
 /// @tparam L1H is L1 cache hint.
 /// @tparam L3H is L3 cache hint.
 /// @tparam AddressScale is the address scale.
@@ -630,10 +629,9 @@ __esimd_lsc_xatomic_slm_0(__ESIMD_DNS::simd_mask_storage_t<N> pred,
 /// @param pred is predicates.
 /// @param offsets is the zero-based offsets.
 /// @param src0 is the first atomic operand.
-template <typename Ty, __ESIMD_NS::native::lsc::atomic_op Op,
-          __ESIMD_ENS::cache_hint L1H, __ESIMD_ENS::cache_hint L3H,
-          uint16_t AddressScale, int ImmOffset, __ESIMD_ENS::lsc_data_size DS,
-          __ESIMD_EDNS::lsc_vector_size VS,
+template <typename Ty, int InternalOp, __ESIMD_ENS::cache_hint L1H,
+          __ESIMD_ENS::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
+          __ESIMD_ENS::lsc_data_size DS, __ESIMD_EDNS::lsc_vector_size VS,
           __ESIMD_EDNS::lsc_data_order _Transposed, int N>
 __ESIMD_INTRIN __ESIMD_DNS::vector_type_t<Ty, N * __ESIMD_EDNS::to_int<VS>()>
 __esimd_lsc_xatomic_slm_1(
@@ -652,7 +650,7 @@ __esimd_lsc_xatomic_slm_1(
 /// Supported platforms: DG2, PVC
 ///
 /// @tparam Ty is element type.
-/// @tparam Op is operation type.
+/// @tparam InternalOp is operation type.
 /// @tparam L1H is L1 cache hint.
 /// @tparam L3H is L3 cache hint.
 /// @tparam AddressScale is the address scale.
@@ -665,10 +663,9 @@ __esimd_lsc_xatomic_slm_1(
 /// @param offsets is the zero-based offsets.
 /// @param src0 is the first atomic operand.
 /// @param src1 is the second atomic operand.
-template <typename Ty, __ESIMD_NS::native::lsc::atomic_op Op,
-          __ESIMD_ENS::cache_hint L1H, __ESIMD_ENS::cache_hint L3H,
-          uint16_t AddressScale, int ImmOffset, __ESIMD_ENS::lsc_data_size DS,
-          __ESIMD_EDNS::lsc_vector_size VS,
+template <typename Ty, int InternalOp, __ESIMD_ENS::cache_hint L1H,
+          __ESIMD_ENS::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
+          __ESIMD_ENS::lsc_data_size DS, __ESIMD_EDNS::lsc_vector_size VS,
           __ESIMD_EDNS::lsc_data_order _Transposed, int N>
 __ESIMD_INTRIN __ESIMD_DNS::vector_type_t<Ty, N * __ESIMD_EDNS::to_int<VS>()>
 __esimd_lsc_xatomic_slm_2(
@@ -688,7 +685,7 @@ __esimd_lsc_xatomic_slm_2(
 /// Supported platforms: DG2, PVC
 ///
 /// @tparam Ty is element type.
-/// @tparam Op is operation type.
+/// @tparam InternalOp is operation type.
 /// @tparam L1H is L1 cache hint.
 /// @tparam L3H is L3 cache hint.
 /// @tparam AddressScale is the address scale.
@@ -701,10 +698,9 @@ __esimd_lsc_xatomic_slm_2(
 /// @param pred is predicates.
 /// @param offsets is the zero-based offsets.
 /// @param surf_ind is the surface index.
-template <typename Ty, __ESIMD_NS::native::lsc::atomic_op Op,
-          __ESIMD_ENS::cache_hint L1H, __ESIMD_ENS::cache_hint L3H,
-          uint16_t AddressScale, int ImmOffset, __ESIMD_ENS::lsc_data_size DS,
-          __ESIMD_EDNS::lsc_vector_size VS,
+template <typename Ty, int InternalOp, __ESIMD_ENS::cache_hint L1H,
+          __ESIMD_ENS::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
+          __ESIMD_ENS::lsc_data_size DS, __ESIMD_EDNS::lsc_vector_size VS,
           __ESIMD_EDNS::lsc_data_order _Transposed, int N,
           typename SurfIndAliasTy>
 __ESIMD_INTRIN __ESIMD_DNS::vector_type_t<Ty, N * __ESIMD_EDNS::to_int<VS>()>
@@ -723,7 +719,7 @@ __esimd_lsc_xatomic_bti_0(__ESIMD_DNS::simd_mask_storage_t<N> pred,
 /// Supported platforms: DG2, PVC
 ///
 /// @tparam Ty is element type.
-/// @tparam Op is operation type.
+/// @tparam InternalOp is operation type.
 /// @tparam L1H is L1 cache hint.
 /// @tparam L3H is L3 cache hint.
 /// @tparam AddressScale is the address scale.
@@ -737,10 +733,9 @@ __esimd_lsc_xatomic_bti_0(__ESIMD_DNS::simd_mask_storage_t<N> pred,
 /// @param offsets is the zero-based offsets.
 /// @param src0 is the first atomic operand.
 /// @param surf_ind is the surface index.
-template <typename Ty, __ESIMD_NS::native::lsc::atomic_op Op,
-          __ESIMD_ENS::cache_hint L1H, __ESIMD_ENS::cache_hint L3H,
-          uint16_t AddressScale, int ImmOffset, __ESIMD_ENS::lsc_data_size DS,
-          __ESIMD_EDNS::lsc_vector_size VS,
+template <typename Ty, int InternalOp, __ESIMD_ENS::cache_hint L1H,
+          __ESIMD_ENS::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
+          __ESIMD_ENS::lsc_data_size DS, __ESIMD_EDNS::lsc_vector_size VS,
           __ESIMD_EDNS::lsc_data_order _Transposed, int N,
           typename SurfIndAliasTy>
 __ESIMD_INTRIN __ESIMD_DNS::vector_type_t<Ty, N * __ESIMD_EDNS::to_int<VS>()>
@@ -761,7 +756,7 @@ __esimd_lsc_xatomic_bti_1(
 /// Supported platforms: DG2, PVC
 ///
 /// @tparam Ty is element type.
-/// @tparam Op is operation type.
+/// @tparam InternalOp is operation type.
 /// @tparam L1H is L1 cache hint.
 /// @tparam L3H is L3 cache hint.
 /// @tparam AddressScale is the address scale.
@@ -776,10 +771,9 @@ __esimd_lsc_xatomic_bti_1(
 /// @param src0 is the first atomic operand.
 /// @param src1 is the second atomic operand.
 /// @param surf_ind is the surface index.
-template <typename Ty, __ESIMD_NS::native::lsc::atomic_op Op,
-          __ESIMD_ENS::cache_hint L1H, __ESIMD_ENS::cache_hint L3H,
-          uint16_t AddressScale, int ImmOffset, __ESIMD_ENS::lsc_data_size DS,
-          __ESIMD_EDNS::lsc_vector_size VS,
+template <typename Ty, int InternalOp, __ESIMD_ENS::cache_hint L1H,
+          __ESIMD_ENS::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
+          __ESIMD_ENS::lsc_data_size DS, __ESIMD_EDNS::lsc_vector_size VS,
           __ESIMD_EDNS::lsc_data_order _Transposed, int N,
           typename SurfIndAliasTy>
 __ESIMD_INTRIN __ESIMD_DNS::vector_type_t<Ty, N * __ESIMD_EDNS::to_int<VS>()>
@@ -801,7 +795,7 @@ __esimd_lsc_xatomic_bti_2(
 /// Supported platforms: DG2, PVC
 ///
 /// @tparam Ty is element type.
-/// @tparam Op is operation type.
+/// @tparam InternalOp is operation type.
 /// @tparam L1H is L1 cache hint.
 /// @tparam L3H is L3 cache hint.
 /// @tparam AddressScale is the address scale.
@@ -812,10 +806,9 @@ __esimd_lsc_xatomic_bti_2(
 /// @tparam N is the SIMD size of operation (the number of addresses to access)
 /// @param pred is predicates.
 /// @param addrs is the prefetch addresses.
-template <typename Ty, __ESIMD_NS::native::lsc::atomic_op Op,
-          __ESIMD_ENS::cache_hint L1H, __ESIMD_ENS::cache_hint L3H,
-          uint16_t AddressScale, int ImmOffset, __ESIMD_ENS::lsc_data_size DS,
-          __ESIMD_EDNS::lsc_vector_size VS,
+template <typename Ty, int InternalOp, __ESIMD_ENS::cache_hint L1H,
+          __ESIMD_ENS::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
+          __ESIMD_ENS::lsc_data_size DS, __ESIMD_EDNS::lsc_vector_size VS,
           __ESIMD_EDNS::lsc_data_order _Transposed, int N>
 __ESIMD_INTRIN __ESIMD_DNS::vector_type_t<Ty, N * __ESIMD_EDNS::to_int<VS>()>
 __esimd_lsc_xatomic_stateless_0(__ESIMD_DNS::simd_mask_storage_t<N> pred,
@@ -832,7 +825,7 @@ __esimd_lsc_xatomic_stateless_0(__ESIMD_DNS::simd_mask_storage_t<N> pred,
 /// Supported platforms: DG2, PVC
 ///
 /// @tparam Ty is element type.
-/// @tparam Op is operation type.
+/// @tparam InternalOp is operation type.
 /// @tparam L1H is L1 cache hint.
 /// @tparam L3H is L3 cache hint.
 /// @tparam AddressScale is the address scale.
@@ -845,10 +838,9 @@ __esimd_lsc_xatomic_stateless_0(__ESIMD_DNS::simd_mask_storage_t<N> pred,
 /// @param pred is predicates.
 /// @param addrs is the prefetch addresses.
 /// @param src0 is the first atomic operand.
-template <typename Ty, __ESIMD_NS::native::lsc::atomic_op Op,
-          __ESIMD_ENS::cache_hint L1H, __ESIMD_ENS::cache_hint L3H,
-          uint16_t AddressScale, int ImmOffset, __ESIMD_ENS::lsc_data_size DS,
-          __ESIMD_EDNS::lsc_vector_size VS,
+template <typename Ty, int InternalOp, __ESIMD_ENS::cache_hint L1H,
+          __ESIMD_ENS::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
+          __ESIMD_ENS::lsc_data_size DS, __ESIMD_EDNS::lsc_vector_size VS,
           __ESIMD_EDNS::lsc_data_order _Transposed, int N>
 __ESIMD_INTRIN __ESIMD_DNS::vector_type_t<Ty, N * __ESIMD_EDNS::to_int<VS>()>
 __esimd_lsc_xatomic_stateless_1(
@@ -867,7 +859,7 @@ __esimd_lsc_xatomic_stateless_1(
 /// Supported platforms: DG2, PVC
 ///
 /// @tparam Ty is element type.
-/// @tparam Op is operation type.
+/// @tparam InternalOp is operation type.
 /// @tparam L1H is L1 cache hint.
 /// @tparam L3H is L3 cache hint.
 /// @tparam AddressScale is the address scale.
@@ -880,10 +872,9 @@ __esimd_lsc_xatomic_stateless_1(
 /// @param addrs is the prefetch addresses.
 /// @param src0 is the first atomic operand.
 /// @param src1 is the second atomic operand.
-template <typename Ty, __ESIMD_NS::native::lsc::atomic_op Op,
-          __ESIMD_ENS::cache_hint L1H, __ESIMD_ENS::cache_hint L3H,
-          uint16_t AddressScale, int ImmOffset, __ESIMD_ENS::lsc_data_size DS,
-          __ESIMD_EDNS::lsc_vector_size VS,
+template <typename Ty, int InternalOp, __ESIMD_ENS::cache_hint L1H,
+          __ESIMD_ENS::cache_hint L3H, uint16_t AddressScale, int ImmOffset,
+          __ESIMD_ENS::lsc_data_size DS, __ESIMD_EDNS::lsc_vector_size VS,
           __ESIMD_EDNS::lsc_data_order _Transposed, int N>
 __ESIMD_INTRIN __ESIMD_DNS::vector_type_t<Ty, N * __ESIMD_EDNS::to_int<VS>()>
 __esimd_lsc_xatomic_stateless_2(
