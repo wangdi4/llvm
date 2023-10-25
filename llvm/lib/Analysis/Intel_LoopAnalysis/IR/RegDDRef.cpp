@@ -236,6 +236,16 @@ unsigned RegDDRef::findMaxBlobLevel(unsigned BlobIndex) const {
   return findMaxTempBlobLevel(Indices);
 }
 
+unsigned RegDDRef::findMaxBlobLevel(BlobTy Blob) const {
+  SmallVector<BlobTy, 8> TempBlobs;
+  SmallVector<unsigned, 8> Indices;
+
+  getBlobUtils().collectTempBlobs(Blob, TempBlobs);
+  getBlobUtils().mapBlobsToIndices(TempBlobs, Indices);
+
+  return findMaxTempBlobLevel(Indices);
+}
+
 void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
   SmallVector<unsigned, 8> BlobIndices;
 
