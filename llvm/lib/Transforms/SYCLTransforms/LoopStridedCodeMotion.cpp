@@ -24,6 +24,7 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/VectorizerUtils.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 
 #define DEBUG_TYPE "sycl-kernel-loop-strided-code-motion"
 
@@ -91,8 +92,7 @@ private:
   void getHeaderPhi();
 
   /// Scan the loop for strided values to be moved to the preheader.
-  /// \param N dominator tree node of currently processed basic block.
-  void scanLoop(DomTreeNode *N);
+  void scanLoop();
 
   /// Move strided instruction to loop preheader, and create PHI node to replace
   /// them if needed.
@@ -165,9 +165,7 @@ bool LoopStridedCodeMotionImpl::run() {
   getHeaderPhi();
 
   // Scans the loop for strided values to be moved to preheader.
-  DomTreeNode *N = DT.getNode(Header);
-  assert(N && "Could not get DT node for header");
-  scanLoop(N);
+  scanLoop();
 
   // Screens instruction that are expected to create performance degradation
   // from the hoisted instructions set.
@@ -193,14 +191,17 @@ void LoopStridedCodeMotionImpl::getHeaderPhi() {
                               << HeaderPhiLatchEntries.size() << "\n");
 }
 
-void LoopStridedCodeMotionImpl::scanLoop(DomTreeNode *N) {
-  BasicBlock *BB = N->getBlock();
-  // Exit if this subregion is outside the current loop.
-  if (!L.contains(BB))
-    return;
+void LoopStridedCodeMotionImpl::scanLoop() {
+  auto *Header = L.getHeader();
+  // Get the BFS traversal order of all DOM nodes inside the loop.
+  auto WorkList = collectChildrenInLoop(DT.getNode(Header), &L);
+  for (auto *N : WorkList) {
+    BasicBlock *BB = N->getBlock();
 
-  // Don't process instruction in sub loops.
-  if (!LoopUtils::inSubLoop(BB, &L, &LI)) {
+    // Don't process instruction in sub loops.
+    if (LoopUtils::inSubLoop(BB, &L, &LI))
+      continue;
+
     for (auto &I : *BB) {
       // Avoid moving original header phi nodes or latch entries.
       if (HeaderPhi.contains(&I) || HeaderPhiLatchEntries.contains(&I)) {
@@ -213,10 +214,6 @@ void LoopStridedCodeMotionImpl::scanLoop(DomTreeNode *N) {
       }
     }
   }
-
-  // Go over blocks recursively accoding to dominator tree.
-  for (DomTreeNode *Child : N->children())
-    scanLoop(Child);
 }
 
 void LoopStridedCodeMotionImpl::hoistInstructions() {
