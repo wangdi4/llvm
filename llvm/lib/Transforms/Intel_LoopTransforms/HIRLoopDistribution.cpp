@@ -96,6 +96,8 @@ const OptRemarkID OptReportMsg[PragmaReturnCode::Last] = {
     //"Distribute point pragma not processed: Too many Distribute points"
     OptRemarkID::DistribPragmaFailExcessDistribPoints};
 
+const unsigned StripmineSize = 64;
+
 // Combines all DistPPNodes in all the PiBlocks inside PiBlockList into a single
 // vector. Then sorts the nodes in the vector based on top sort num.
 static void
@@ -118,67 +120,6 @@ mergeAndSortPiBlocks(ArrayRef<PiBlockList> GroupsOfPiBlocks,
                        B->getNode()->getTopSortNum();
               });
   }
-}
-
-// Temporary workaround to skipping distribution for a loop which requires
-// scalar expansion but has low trip count resulting in degradation. JR
-// CMPLRLLVM-52745 opened to address the issue. Returns true for a loop with
-// certain attributes-
-//
-// 1) Requires many scalar expanded temps.
-// 2) Loop level is 2.
-// 3) Parent loop has an HLIf parent.
-// 4) Has children more than a certain threshold.
-// 5) Only has certain kind of children.
-static bool matchesPattern(const HLLoop *Lp,
-                           unsigned NumRequiredScalarExpandedTemps) {
-  if (NumRequiredScalarExpandedTemps <= MaxScalarExpandedTemps)
-    return false;
-
-  if (Lp->getNestingLevel() != 2)
-    return false;
-
-  if (!isa<HLIf>(Lp->getParentLoop()->getParent()))
-    return false;
-
-  unsigned NumChildren = 0;
-  unsigned NumMemRefsWithOuterIVBlobCoeff = 0;
-
-  for (auto &Child : make_range(Lp->child_begin(), Lp->child_end())) {
-    auto *Inst = dyn_cast<HLInst>(&Child);
-
-    if (!Inst)
-      return false;
-
-    auto *LLVMInst = Inst->getLLVMInstruction();
-    unsigned Opcode = LLVMInst->getOpcode();
-
-    if (!isa<LoadInst>(LLVMInst) && !isa<StoreInst>(LLVMInst) &&
-        (Opcode != Instruction::FAdd) && (Opcode != Instruction::FSub) &&
-        (Opcode != Instruction::FMul))
-      return false;
-
-    for (auto *MemRef : make_range(Inst->ddref_begin(), Inst->ddref_end())) {
-      if (!MemRef->isMemRef())
-        continue;
-
-      if (MemRef->getNumDimensions() > 1)
-        return false;
-
-      bool IsNegStride = false;
-      if (!MemRef->isUnitStride(2, IsNegStride) || IsNegStride)
-        return false;
-
-      auto *IndexCE = MemRef->getDimensionIndex(1);
-
-      if (IndexCE->hasIVBlobCoeff(1))
-        ++NumMemRefsWithOuterIVBlobCoeff;
-    }
-
-    NumChildren++;
-  }
-
-  return (NumChildren > 95) && (NumMemRefsWithOuterIVBlobCoeff > 5);
 }
 
 // Scale the threshold by some factor if vectorizable chunks have substantial
@@ -306,28 +247,30 @@ bool HIRLoopDistribution::run() {
       }
     }
 
-    SmallVector<PiBlockList, 8> NewOrdering;
-    findDistPoints(Lp, PG, NewOrdering);
+    SmallVector<PiBlockList, 8> DistChunks;
+    findDistPoints(Lp, PG, DistChunks);
 
-    // Stripmine should be possible with extra setup, but not always needed.
-    // In rare cases we should bail out for max depth loopnests before doing
-    // the transformation below.
-    bool StripmineRequiresExtraSetup = !Lp->canStripmine(StripmineSize, false);
-    if (StripmineRequiresExtraSetup && !Lp->canStripmine(StripmineSize, true)) {
-      LLVM_DEBUG(dbgs() << "\tStripmine failed for distribution\n";);
-      continue;
-    }
+    if (DistChunks.size() > 1 && DistChunks.size() < MaxDistributedChunks) {
+      // Stripmine should be possible with extra setup, but not always needed.
+      // In rare cases we should bail out for max depth loopnests before doing
+      // the transformation below.
+      bool StripmineRequiresExtraSetup =
+          !Lp->canStripmine(StripmineSize, false /*AllowExplicitBoundInst*/);
+      if (StripmineRequiresExtraSetup &&
+          !Lp->canStripmine(StripmineSize, true /*AllowExplicitBoundInst*/)) {
+        LLVM_DEBUG(dbgs() << "\tStripmine failed for distribution\n";);
+        continue;
+      }
 
-    if (NewOrdering.size() > 1 && NewOrdering.size() < MaxDistributedChunks) {
       SmallVector<HLDDNodeList, 8> DistributedLoops;
       SmallVector<MergedPiBlockTy, 6> MergedPiBlocks;
 
-      mergeAndSortPiBlocks(NewOrdering, MergedPiBlocks);
+      mergeAndSortPiBlocks(DistChunks, MergedPiBlocks);
 
       invalidateLoop(Lp);
 
       // Clone the loop before we modify it in processPiBlocksToHLNodes().
-      auto *BackupLp = PG->hasControlDependences() ? Lp->clone() : nullptr;
+      auto *BackupLp = Lp->clone();
 
       // This function can change the HIR when there are control dependences but
       // then we bailout of the transformation under some cases. To avoid
@@ -345,27 +288,6 @@ bool HIRLoopDistribution::run() {
       //       "Inconsistent logic: scalar expansion is required while "
       //       "being not allowed");
 
-      // Temporary workaround to skipping distribution for a loop which requires
-      // scalar expansion but has low trip count resulting in degradation. JR
-      // CMPLRLLVM-52745 opened to address the issue.
-      if (matchesPattern(Lp, SCEX.getNumTempsRequired())) {
-        assert(!BackupLp && "Back loop is non-null!");
-        continue;
-      }
-
-      unsigned ScalarExpandedTempThreshold =
-          getScaledScalarExpandedTempThreshold();
-
-      if (SCEX.getNumTempsRequired() > ScalarExpandedTempThreshold) {
-        LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
-                          << "Number of temps required for distribution ("
-                          << SCEX.getNumTempsRequired()
-                          << ") exceed MaxScalarExpandedTemps\n");
-        if (BackupLp)
-          HLNodeUtils::replace(Lp, BackupLp);
-        continue;
-      }
-
       // Bail out if scalar expansion would introduce new dependencies that
       // require additional temps
       if (SCEX.hasBadCandidate()) {
@@ -373,8 +295,7 @@ bool HIRLoopDistribution::run() {
             dbgs()
             << "LOOP DISTRIBUTION: "
             << "Distribution disabled due to Scalar Expansion analysis\n");
-        if (BackupLp)
-          HLNodeUtils::replace(Lp, BackupLp);
+        HLNodeUtils::replace(Lp, BackupLp);
         continue;
       }
 
@@ -386,8 +307,7 @@ bool HIRLoopDistribution::run() {
           LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
                             << "Unable to do loop distribution for loopnest "
                                "formation without stripmining.\n");
-          if (BackupLp)
-            HLNodeUtils::replace(Lp, BackupLp);
+          HLNodeUtils::replace(Lp, BackupLp);
           continue;
         }
 
@@ -396,14 +316,73 @@ bool HIRLoopDistribution::run() {
                             << "Unable to do loop distribution for loopnest "
                                "formation without scalar expansion for "
                                "non-innermost loops.\n");
-          if (BackupLp)
-            HLNodeUtils::replace(Lp, BackupLp);
+          HLNodeUtils::replace(Lp, BackupLp);
           continue;
         }
       }
 
+      unsigned NumRequiredScalarExpandedTemps = SCEX.getNumTempsRequired();
+
+      unsigned ScalarExpandedTempThreshold =
+          getScaledScalarExpandedTempThreshold();
+
+      if (NumRequiredScalarExpandedTemps > ScalarExpandedTempThreshold) {
+        LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
+                          << "Number of temps required for distribution ("
+                          << NumRequiredScalarExpandedTemps
+                          << ") exceed MaxScalarExpandedTemps\n");
+        HLNodeUtils::replace(Lp, BackupLp);
+        continue;
+      }
+
+      // If we need to perform scalar expansion using stripmining, take into
+      // account the extra overhead by either skipping it for small trip count
+      // loops or performing trip count multiversioning. NOTE: This should be
+      // the last bailout check as we use the Backup loop in the multiversioning
+      // setup.
+      bool VersionedForSmallTC = false;
+      if (NumRequiredScalarExpandedTemps &&
+          Lp->isStripmineRequired(StripmineSize)) {
+        // Scale the trip count check based on number of required scalar
+        // expanded temps as a way to balance the cost against the benefit.
+        unsigned TripCountScalingFactor = 1;
+
+        if (NumRequiredScalarExpandedTemps > 2 * MaxScalarExpandedTemps) {
+          TripCountScalingFactor = 4;
+        } else if (NumRequiredScalarExpandedTemps > MaxScalarExpandedTemps) {
+          TripCountScalingFactor = 2;
+        }
+
+        unsigned TripCountThreshold = TripCountScalingFactor * StripmineSize;
+        if (Lp->hasLikelySmallTripCount(TripCountThreshold)) {
+          HLNodeUtils::replace(Lp, BackupLp);
+          LLVM_DEBUG(dbgs()
+                     << "LOOP DISTRIBUTION: Skipping distribution of likely "
+                        "small trip count loop using stripmining and "
+                        "scalar-expansion at it doesn't seem profitable\n");
+          continue;
+        }
+
+        if (!Lp->isConstTripLoop()) {
+          VersionedForSmallTC = true;
+          RegDDRef *TCRef = Lp->getTripCountDDRef();
+
+          auto *MVIf = Lp->getHLNodeUtils().createHLIf(
+              CmpInst::ICMP_UGT, TCRef,
+              Lp->getDDRefUtils().createConstDDRef(TCRef->getDestType(),
+                                                   TripCountThreshold));
+          Lp->extractPreheader();
+          HLNodeUtils::insertBefore(Lp, MVIf);
+          HLNodeUtils::moveAsFirstThenChild(MVIf, Lp);
+          HLNodeUtils::insertAsFirstElseChild(MVIf, BackupLp);
+          // Multiversioned v2
+          ORBuilder(*BackupLp).addOrigin(OptRemarkID::LoopMultiversioned, 2);
+        }
+      }
+
       distributeLoop(Lp, DistributedLoops, SCEX, ORBuilder,
-                     StripmineRequiresExtraSetup, false);
+                     StripmineRequiresExtraSetup, false /*ForDirective*/,
+                     VersionedForSmallTC);
 
       Modified = true;
     } else {
@@ -1224,7 +1203,8 @@ getPreheaderLoopIndex(HLLoop *Loop,
 void HIRLoopDistribution::distributeLoop(
     HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
     ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
-    bool StripmineRequiresExtraSetup, bool ForDirective) {
+    bool StripmineRequiresExtraSetup, bool ForDirective,
+    bool VersionedForSmallTC) {
   assert(DistributedLoops.size() < MaxDistributedChunks &&
          "Number of distributed chunks exceed threshold. Expected the caller "
          "to check before calling this function.");
@@ -1310,8 +1290,19 @@ void HIRLoopDistribution::distributeLoop(
     if (SCEX.isTempRequired() && Loop->isStripmineRequired(StripmineSize)) {
       HIRTransformUtils::stripmine(NewLoops[0], NewLoops[LoopCount - 1],
                                    StripmineSize, StripmineRequiresExtraSetup);
+
+      auto *StripMineLp = NewLoops[0]->getParentLoop();
+      if (VersionedForSmallTC) {
+        // Multiversioned v1
+        // The loop has been multiversioned for the small trip count
+        ORBuilder(*StripMineLp)
+            .addOrigin(OptRemarkID::LoopMultiversioned, 1)
+            .addRemark(OptReportVerbosity::Low,
+                       OptRemarkID::LoopMultiversionedSmallTripCount);
+      }
+
       // Loop stripmined by <StripmineSize>
-      ORBuilder(*NewLoops[0]->getParentLoop())
+      ORBuilder(*StripMineLp)
           .addOrigin(OptRemarkID::LoopStripMineFactor, StripmineSize);
     }
 
@@ -1854,6 +1845,17 @@ void HIRLoopDistribution::breakPiBlocksToEnableVectorization(
     const HLLoop *Lp, std::unique_ptr<PiGraph> const &PGraph,
     SmallVectorImpl<PiBlockList> &DistPoints) {
 
+  // If there is only one PiBlock we cannot legally perform distribution.
+  // Bail out early in this case.
+  if (PGraph->size() == 1) {
+    LLVM_DEBUG(dbgs() << "Skipping analysis of single PiBlock loop as "
+                         "distribution is not legal\n");
+    PiBlockList SingleBlockList;
+    SingleBlockList.push_back(*PGraph->node_begin());
+    DistPoints.emplace_back(SingleBlockList);
+    return;
+  }
+
   SRA.computeSafeReductionChains(Lp);
   DDGraph DDG = DDA.getGraph(Lp);
 
@@ -2183,7 +2185,8 @@ PragmaReturnCode HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
   ScalarExpansion SCEX(Lp, true, DistributedLoops);
   invalidateLoop(Lp);
   distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getORBuilder(),
-                 StripmineRequiresExtraSetup, true);
+                 StripmineRequiresExtraSetup, true /*ForDirective*/,
+                 false /*VersionedForSmallTC*/);
   return Success;
 }
 

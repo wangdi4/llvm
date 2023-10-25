@@ -36,10 +36,6 @@ namespace llvm {
 namespace loopopt {
 
 namespace distribute {
-const unsigned SmallTripCount = 16;
-const unsigned StripmineSize = 64;
-// For stress testing, use small max resource
-// const unsigned MaxMemResourceToDistribute = 2;
 
 enum PragmaReturnCode {
   NotProcessed,
@@ -384,7 +380,8 @@ private:
   void distributeLoop(HLLoop *L,
                       SmallVectorImpl<HLDDNodeList> &DistributedLoops,
                       ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
-                      bool ExtraStripmineSetup, bool ForDirective);
+                      bool ExtraStripmineSetup, bool ForDirective,
+                      bool VersionedForSmallTC);
 
   // After calling Stripmining util, temp iv coeffs need to fixed
   // as single IV:  TEMP[i2], while other indexes have i1, i2

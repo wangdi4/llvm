@@ -1,8 +1,11 @@
+; REQUIRES: asserts
 
-;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"  -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"  -hir-cost-model-throttling=0 -debug-only=hir-loop-distribute < %s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec" -print-changed -disable-output -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; We cannot reason about calls without mod-ref/sideeffects analysis
+
+; CHECK: Skipping analysis of single PiBlock loop as distribution is not legal
 
 ;CHECK-NOT: BEGIN REGION {{.*}} modified
 ;CHECK: DO i1 =
