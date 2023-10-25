@@ -663,19 +663,11 @@ static HLIf *createTripCountCheck(const HLLoop *Loop) {
 }
 
 static bool isSmallCountLoop(const HLLoop *Loop) {
-  if (SmallTripCount == 0) {
+  if (SmallTripCount == 0)
     return false;
-  }
 
-  auto MaxTCEstimate = Loop->getMaxTripCountEstimate();
-  if (MaxTCEstimate != 0 && MaxTCEstimate <= SmallTripCount) {
+  if (Loop->hasLikelySmallTripCount(SmallTripCount))
     return true;
-  }
-
-  uint64_t ConstTC;
-  if (Loop->isConstTripLoop(&ConstTC) && ConstTC <= SmallTripCount) {
-    return true;
-  }
 
   return false;
 }

@@ -570,17 +570,12 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(
     }
   }
 
-  unsigned AvgTripCount = 0;
   if (HasEnablingPragma) {
     // Use factor of 2 for small trip count loops.
     if (IsConstTripLoop && (TripCount < MaxUnrollFactor)) {
       return 2;
     }
-  } else if ((IsConstTripLoop ||
-              (HLoop->getPragmaBasedAverageTripCount(AvgTripCount) &&
-               (TripCount = AvgTripCount)) ||
-              (TripCount = HLoop->getMaxTripCountEstimate())) &&
-             (TripCount < MinTripCountThreshold)) {
+  } else if (HLoop->hasLikelySmallTripCount(MinTripCountThreshold - 1)) {
 
     // This is a hack to prevent LLVM unroller from unrolling this loop.
     if (!IsConstTripLoop) {
