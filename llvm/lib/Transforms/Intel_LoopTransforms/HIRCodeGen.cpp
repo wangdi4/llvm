@@ -320,13 +320,16 @@ private:
   // GEP chain. Returns pointer to the last GEP in the chain.
   Value *codeGenGEPRefDims(RegDDRef *Ref);
 
-  // Handles special casing for SCEVUnknowns possibly representing blobs
-  // within HIR framework
+  // Handles special casing for SCEVUnknowns which can be temps define
+  // inside HIR regions. Also tries to reuse region invariant instructions
+  // for code generaiton. In addition, it tries to generate exprs at their
+  // invariance level by overriding the visit*() functions and updating
+  // the insertion point by analyzing their def level.
   // We don't want to replicate logic for handling add exprs and the like
-  // so we inherit from SCEVExpander and override visitUnknown and expand()
+  // so we inherit from SCEVExpander and override visit*() and expand().
   // Also SCEVExpander caches expanded values per IP, and attempts to hoist
-  // values as far up as possible out of loop. Overridden functions do
-  // not have this behavior.
+  // values as far up as possible out of loop which may not be correct in
+  // HIR's context so we avoid doing that.
   class HIRSCEVExpander : public SCEVExpander {
   public:
     HIRSCEVExpander(ScalarEvolution &SE, const DataLayout &DL, const char *Name,
@@ -343,7 +346,7 @@ private:
 
     // Returns true if \p SC is non-linear, otherwise returns its def level in
     // \p DefLevel;
-    bool isNonLinear(const SCEV *SC, unsigned &DefLevel);
+    bool isNonLinear(const SCEV *SC, unsigned &DefLevel) const;
 
     // Returns a region invariant instruction corresponding to \p SC in the
     // incoming IR, otherwise returns nullptr.
@@ -667,7 +670,7 @@ bool HIRCodeGen::clearHIRMetadataAndCopyInsts(HLRegion *Reg) const {
 }
 
 bool CGVisitor::HIRSCEVExpander::isNonLinear(const SCEV *SC,
-                                             unsigned &DefLevel) {
+                                             unsigned &DefLevel) const {
   assert(CG.CurRef && "DDRef is not set!");
   assert(!isa<SCEVUnknown>(SC) && "SCEVUnknown not expected to reach here!");
 
@@ -679,6 +682,17 @@ bool CGVisitor::HIRSCEVExpander::isNonLinear(const SCEV *SC,
   // First one indicates that we are generating code for refs outside loops.
   // The second one indicates that we already deduced the blob as invariant.
   // This could have been done for the containing blob or canon expr.
+  // More explanation about the second check (it is only to save compile time)
+  // as it can be tricky to understand:
+  //
+  // Let's say the topmost SCEV (or Blob) is of this form:
+  // %t1 + (%t2 * (%t3 + %t4))
+  //
+  // Now lets say, %t1 is defined at level 1 and all others are defined at level
+  // 0. The visit function is called resursively for sub-exprs. When it was
+  // called for the sub-expr (%t2 * (%t3 + %t4)), we would have already set the
+  // insert block as the preheader for the outermost loop so when it is called
+  // for (%t3 + %t4), we don't have to analyze the level again.
   if ((CurNestingLevel != 0) &&
       (SCEVExpander::Builder.GetInsertBlock() != CG.LoopPreheaders[0]))
     DefLevel = CG.CurRef->findMaxBlobLevel(SC);
