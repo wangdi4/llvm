@@ -337,6 +337,7 @@ static std::uint32_t const spvBCWithFPGASpirvCapabilities[] = {
     spv::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
     spv::CapabilityFPGAInvocationPipeliningAttributesINTEL, SPIRVOpCapability,
     spv::CapabilityFPGAKernelAttributesv2INTEL, SPIRVOpCapability,
+    spv::CapabilityFPGALatencyControlINTEL, SPIRVOpCapability,
     spv::internal::CapabilityFPArithmeticFenceINTEL, SPIRVOpCapability,
     spv::internal::CapabilityTaskSequenceINTEL, // INTEL
     SPIRVOpCapability, spv::CapabilityFPGAArgumentInterfacesINTEL,

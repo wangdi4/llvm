@@ -145,6 +145,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
        "FPGAInvocationPipeliningAttributes"},
       {spv::CapabilityFPGAArgumentInterfacesINTEL, "FPGAArgumentInterfaces"},
       {spv::CapabilityFPGAKernelAttributesv2INTEL, "FPGAKernelAttributesv2"},
+      {spv::CapabilityFPGALatencyControlINTEL, "FPGALatencyControl"},
       {spv::internal::CapabilityFPArithmeticFenceINTEL, "FPArithmeticFence"},
       {spv::internal::CapabilityTaskSequenceINTEL, "TaskSequence"}};
 
@@ -288,6 +289,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityFPGAInvocationPipeliningAttributesINTEL:
     case spv::CapabilityFPGAArgumentInterfacesINTEL:
     case spv::CapabilityFPGAKernelAttributesv2INTEL:
+    case spv::CapabilityFPGALatencyControlINTEL:
     case spv::internal::CapabilityFPArithmeticFenceINTEL:
     case spv::internal::CapabilityTaskSequenceINTEL: // INTEL
       if (!m_sDeviceInfo.bIsFPGAEmu) {
