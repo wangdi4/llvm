@@ -1108,8 +1108,9 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV,
       // Find which of the fields this GEP is the address of.
       // Note: We expect the field addresses to only be seen at most one
       // time for each field, otherwise we do not support it.
-      identifyDopeVectorFieldTypes(*GEP, GUV, /*DopeVectorIndex=*/0,
-                                   AfterInstCombine, Rank);
+      if (!identifyDopeVectorFieldTypes(*GEP, GUV, /*DopeVectorIndex=*/0,
+                                        AfterInstCombine, Rank))
+        continue;
       for (unsigned I = 0, E = GUV.size(); I != E; ++I) {
         auto GEP = std::get<0>(GUV[I]);
         auto DimIndex = std::get<1>(GUV[I]);
@@ -1673,10 +1674,10 @@ DopeVectorFieldType
 DopeVectorAnalyzer::identifyDopeVectorField(GEPOperator &GEP,
                                             uint64_t DopeVectorIndex) {
   SmallVector<DVQuad, 4> GUV;
-  identifyDopeVectorFieldTypes(GEP, GUV, DopeVectorIndex);
+  if (!identifyDopeVectorFieldTypes(GEP, GUV, DopeVectorIndex))
+    return DopeVectorFieldType::DV_Invalid;
   assert(GUV.size() == 1 && "Expecting single result");
   assert(get<0>(GUV[0]) == &GEP && "Expecting input GEP");
-  assert(get<1>(GUV[0]) == 0 && "Expecting zero");
   return get<2>(GUV[0]);
 }
 

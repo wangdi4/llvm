@@ -889,6 +889,9 @@ def warn_drv_cxx_input_with_cc: Warning<
   "Use of '%0' with a C++ source input file '%1' will not link with required C++ library. "
   "Use 'icpx' for C++ source compilation and link">,
   InGroup<DiagGroup<"incompatible-compiler">>;
+def warn_drv_intel_plugin_support : Warning<"Use of '%0' is not guaranteed to "
+  "work and may lead to unexpected results.">,
+  InGroup<DiagGroup<"plugin-behavior">>;
 #endif // INTEL_CUSTOMIZATION
 
 def warn_drv_loongarch_conflicting_implied_val : Warning<
