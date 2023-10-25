@@ -2683,13 +2683,16 @@ bool HLLoop::hasLikelySmallTripCount(unsigned SmallTCThreshold) const {
   SmallTCThreshold = SmallTCThreshold ? SmallTCThreshold : SmallTCThresholdOpt;
 
   uint64_t ConstTrip;
-  if (isConstTripLoop(&ConstTrip) && (ConstTrip <= SmallTCThreshold)) {
+  if (isConstTripLoop(&ConstTrip) && (ConstTrip <= SmallTCThreshold))
     return true;
-  }
 
-  if (MaxTripCountEstimate && (MaxTripCountEstimate <= SmallTCThreshold)) {
+  if (MaxTripCountEstimate && (MaxTripCountEstimate <= SmallTCThreshold))
     return true;
-  }
+
+  unsigned AvgTripCount = 0;
+  if (getPragmaBasedAverageTripCount(AvgTripCount) &&
+      (AvgTripCount <= SmallTCThreshold))
+    return true;
 
   return false;
 }

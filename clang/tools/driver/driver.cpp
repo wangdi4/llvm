@@ -429,7 +429,7 @@ int clang_main(int Argc, char **Argv, const llvm::ToolContext &ToolContext) {
 #if INTEL_CUSTOMIZATION
   std::string Msg("PLEASE append the compiler options ");
   Msg += ClangCLMode ? "\"/Qsave-temps -v\"" : "\"-save-temps -v\"";
-  Msg += ", rebuild the application to to get the full command which is "
+  Msg += ", rebuild the application to get the full command which is "
          "failing and submit a bug report to " BUG_REPORT_URL " which includes "
          "the failing command, input files for the command and the crash "
          "backtrace (if any).\n";
