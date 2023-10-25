@@ -40,6 +40,7 @@ EXPORTS
     __tgt_rtl_get_mem_resources
     __tgt_rtl_get_num_interop_properties
     __tgt_rtl_init_device
+    __tgt_rtl_init_ompt
     __tgt_rtl_init_requires
     __tgt_rtl_is_accessible_addr_range
     __tgt_rtl_is_data_exchangable

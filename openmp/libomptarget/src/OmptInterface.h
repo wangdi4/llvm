@@ -1,20 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2023 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //===-------- OmptInterface.h - Target independent OpenMP target RTL ------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -36,11 +19,7 @@
 #include <tuple>
 
 #include "OmptCallback.h"
-#if INTEL_CUSTOMIZATION
-#include "omp-tools-preview.h"
-#else // INTEL_CUSTOMIZATION
 #include "omp-tools.h"
-#endif // INTEL_CUSTOMIZATION
 
 #include "llvm/Support/ErrorHandling.h"
 
@@ -202,19 +181,6 @@ public:
   uint64_t getTargetDataValue() { return TargetData.value; }
   void *getTargetDataPtr() { return TargetData.ptr; }
   ompt_id_t getHostOpId() { return HostOpId; }
-
-#if INTEL_CUSTOMIZATION
-  ///
-  /// Data required to support extended OMPT runtime entry points
-  ///
-  /// Code location set by libomptarget.
-  /// TODO: check if we can use parameters from __tgt* calls.
-  const char *CodeLocation = nullptr;
-  /// Assigned team size for the current target set by plugin.
-  int32_t AssignedTeamSize = 0;
-  /// Assigned number of teams for the current target set by plugin.
-  int32_t AssignedNumTeams = 0;
-#endif // INTEL_CUSTOMIZATION
 
 private:
   /// Target operations id

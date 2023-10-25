@@ -113,9 +113,8 @@ EXPORTS
     omp_target_memcpy_rect
     omp_target_memcpy_rect_async
     omp_unset_sub_device
-    ompt_libomptarget_connect
-    ompt_oneapi_set_data
-    ompt_oneapi_get_data
+    ; Uncomment when OMPT change is ready
+    ; ompt_libomptarget_connect
     ompx_get_device_from_ptr
     ompx_get_device_info
     ompx_get_num_subdevices
