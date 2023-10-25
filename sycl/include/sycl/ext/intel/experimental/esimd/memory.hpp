@@ -1,6 +1,6 @@
 // INTEL_CUSTOMIZATION
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1027,20 +1027,7 @@ lsc_format_ret(__ESIMD_NS::simd<T1, N> Vals) {
 template <__ESIMD_NS::native::lsc::atomic_op Op, typename T, int N,
           unsigned NumSrc>
 constexpr void check_lsc_atomic() {
-  if constexpr (!__ESIMD_DNS::isPowerOf2(N, 32)) {
-    static_assert((__ESIMD_DNS::isPowerOf2(N, 32)),
-                  "Execution size 1, 2, 4, 8, 16, 32 are supported");
-  }
-  if constexpr (NumSrc != __ESIMD_DNS::get_num_args<Op>()) {
-    static_assert(NumSrc == __ESIMD_DNS::get_num_args<Op>(),
-                  "wrong number of operands");
-  }
-  if constexpr (Op == __ESIMD_NS::native::lsc::atomic_op::fcmpxchg) {
-    static_assert(__ESIMD_DNS::is_type<T, float, sycl::half, double>(),
-                  "float, double or sycl::half type is expected");
-  } else {
-    __ESIMD_DNS::check_atomic<__ESIMD_DNS::to_atomic_op<Op>(), T, N, NumSrc>();
-  }
+  __ESIMD_DNS::check_atomic<__ESIMD_DNS::to_atomic_op<Op>(), T, N, NumSrc>();
 }
 
 template <cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none>
@@ -3382,7 +3369,25 @@ template <typename T, __ESIMD_NS::atomic_op Op>
 constexpr int lsc_to_internal_atomic_op() {
   constexpr __ESIMD_NS::native::lsc::atomic_op LSCOp =
       __ESIMD_DNS::to_lsc_atomic_op<Op>();
-  return static_cast<int>(LSCOp);
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+  if constexpr (std::is_same_v<std::remove_cv_t<T>,
+                               sycl::ext::oneapi::bfloat16> &&
+                (Op == __ESIMD_NS::atomic_op::fadd ||
+                 Op == __ESIMD_NS::atomic_op::fsub ||
+                 Op == __ESIMD_NS::atomic_op::fmax ||
+                 Op == __ESIMD_NS::atomic_op::fmin ||
+                 Op == __ESIMD_NS::atomic_op::fcmpxchg)) {
+    return static_cast<int>(LSCOp) + 0xE;
+  } else {
+    /* end INTEL_FEATURE_ESIMD_EMBARGO */
+    /* end INTEL_CUSTOMIZATION */
+    return static_cast<int>(LSCOp);
+    /* INTEL_CUSTOMIZATION */
+    /* INTEL_FEATURE_ESIMD_EMBARGO */
+  }
+  /* end INTEL_FEATURE_ESIMD_EMBARGO */
+  /* end INTEL_CUSTOMIZATION */
 }
 } // namespace detail
 
