@@ -3369,9 +3369,6 @@ template <typename T, __ESIMD_NS::atomic_op Op>
 constexpr int lsc_to_internal_atomic_op() {
   constexpr __ESIMD_NS::native::lsc::atomic_op LSCOp =
       __ESIMD_DNS::to_lsc_atomic_op<Op>();
-<<<<<<< HEAD
-  return static_cast<int>(LSCOp);
-=======
   /* INTEL_CUSTOMIZATION */
   /* INTEL_FEATURE_ESIMD_EMBARGO */
   if constexpr (std::is_same_v<std::remove_cv_t<T>,
@@ -3391,7 +3388,6 @@ constexpr int lsc_to_internal_atomic_op() {
   }
   /* end INTEL_FEATURE_ESIMD_EMBARGO */
   /* end INTEL_CUSTOMIZATION */
->>>>>>> 047808cb96369a90d93ab51421d8f20ec3da6294
 }
 } // namespace detail
 

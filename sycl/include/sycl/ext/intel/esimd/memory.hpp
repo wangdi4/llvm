@@ -1897,8 +1897,6 @@ scatter_rgba(AccessorT acc, simd<Toffset, N> offsets,
 
 namespace detail {
 
-<<<<<<< HEAD
-=======
 // INTEL_CUSTOMIZATION
 // INTEL_FEATURE_ESIMD_EMBARGO
 #define __ESIMD_FP_ATOMIC_OP_TYPE_CHECK(T)                                     \
@@ -1908,7 +1906,6 @@ namespace detail {
 // end INTEL_FEATURE_ESIMD_EMBARGO
 // end INTEL_CUSTOMIZATION
 
->>>>>>> 047808cb96369a90d93ab51421d8f20ec3da6294
 #ifndef __ESIMD_FP_ATOMIC_OP_TYPE_CHECK
 #define __ESIMD_FP_ATOMIC_OP_TYPE_CHECK(T)                                     \
   static_assert(is_type<T, float, sycl::half, double>(),                       \
