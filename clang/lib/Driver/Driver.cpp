@@ -6899,7 +6899,6 @@ class OffloadingActionBuilder final {
         if (LI.empty())
           // Current list is empty, nothing to process.
           continue;
-<<<<<<< HEAD
 
         ActionList DeviceLibs;
         ActionList DeviceLibObjects;
@@ -7312,10 +7311,8 @@ class OffloadingActionBuilder final {
               DA.add(*DeviceWrappingAction, *TC, BoundArch, Action::OFK_SYCL);
             });
         }
-=======
         ActionList AL;
         appendSYCLDeviceLink(LI, TC, DA, AL, BoundArch);
->>>>>>> 6f248088541c306a8c54dc4cf7a0a61451a2a46d
       }
       for (auto &SAI : SYCLAOTInputs) {
         // Extract binary file name
