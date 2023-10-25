@@ -220,8 +220,8 @@ static bool isIrreducibleCFG(Loop *Lp, LoopInfo *LI) {
 // The interface getUniqueExitBlock() asserts that the loop has dedicated
 // exits. Check that a loop has dedicated exits before the check for unique
 // exit block. This is especially needed when stress testing VPlan builds.
-bool VPlanDriverImpl::hasDedicatedAndUniqueExits(Loop *Lp,
-                                                 WRNVecLoopNode *WRLp) {
+bool VPlanDriverLLVMImpl::hasDedicatedAndUniqueExits(Loop *Lp,
+                                                     WRNVecLoopNode *WRLp) {
 
   if (!Lp->hasDedicatedExits()) {
     LLVM_DEBUG(dbgs() << "VD: loop form "
@@ -248,7 +248,7 @@ bool VPlanDriverImpl::hasDedicatedAndUniqueExits(Loop *Lp,
 
 // Auxiliary function that checks only loop-specific constraints. Generic loop
 // nest constraints are in 'isSupported' function.
-bool VPlanDriverImpl::isSupportedRec(Loop *Lp, WRNVecLoopNode *WRLp) {
+bool VPlanDriverLLVMImpl::isSupportedRec(Loop *Lp, WRNVecLoopNode *WRLp) {
 
   if (!LoopMassagingEnabled && !hasDedicatedAndUniqueExits(Lp, WRLp))
     return false;
@@ -516,6 +516,12 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
 template <>
 bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
                                               WRNVecLoopNode *WRLp) {
+  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+  return Self->processLoop(Lp, Fn, WRLp);
+}
+
+bool VPlanDriverLLVMImpl::processLoop(Loop *Lp, Function &Fn,
+                                      WRNVecLoopNode *WRLp) {
   // Enable peeling for LLVM-IR path from command line switch
   VPlanEnablePeeling = VPlanEnablePeelingOpt;
   VPlanEnableGeneralPeeling = VPlanEnableGeneralPeelingOpt;
@@ -807,15 +813,22 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   return true;
 }
 
+template <>
+bool VPlanDriverImpl::bailout<llvm::Loop>(VPlanOptReportBuilder &VPORB,
+                                          llvm::Loop *Lp, WRNVecLoopNode *WRLp,
+                                          VPlanBailoutRemark RemarkData) {
+  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+  return Self->bailout(VPORB, Lp, WRLp, RemarkData);
+}
+
 // Add an opt-report remark indicating why we can't vectorize the loop.
 // Returns false as a convenience to facilitate "return bailout(...);" usage.
 // Bail-out reasons with messages of more interest to compiler maintainers
 // than to users should be marked with verbosity High and never emitted in
 // release compilers.  For these, we first emit a more generic Medium message.
-template <class Loop>
-bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
-                              WRNVecLoopNode *WRLp,
-                              VPlanBailoutRemark RemarkData) {
+bool VPlanDriverLLVMImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
+                                  WRNVecLoopNode *WRLp,
+                                  VPlanBailoutRemark RemarkData) {
 
   OptRemarkID ID = RemarkData.BailoutRemark.getRemarkID();
 
@@ -854,9 +867,14 @@ bool VPlanDriverImpl::processLoop<vpo::HLLoop>(vpo::HLLoop *Lp, Function &Fn,
   return Self->processLoop(Lp, Fn, WRLp);
 }
 
-// Return true if this loop is supported in VPlan
 template <>
 bool VPlanDriverImpl::isSupported<llvm::Loop>(Loop *Lp, WRNVecLoopNode *WRLp) {
+  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+  return Self->isSupported(Lp, WRLp);
+}
+
+// Return true if this loop is supported in VPlan
+bool VPlanDriverLLVMImpl::isSupported(Loop *Lp, WRNVecLoopNode *WRLp) {
   // TODO: Ensure this is true for the new pass manager. Currently, vplan-driver
   // isn't added to the pass manager at all. Once it's done there would be three
   // options probably:
@@ -917,6 +935,74 @@ bool VPlanDriverImpl::isSupported<vpo::HLLoop>(vpo::HLLoop *Lp,
   return Self->isSupported(Lp, WRLp);
 }
 
+template <>
+llvm::Loop *
+VPlanDriverImpl::adjustLoopIfNeeded<llvm::Loop>(llvm::Loop *Lp,
+                                                BasicBlock *Header) {
+  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+  return Self->adjustLoopIfNeeded(Lp, Header);
+}
+
+llvm::Loop *VPlanDriverLLVMImpl::adjustLoopIfNeeded(llvm::Loop *Lp,
+                                                    BasicBlock *Header) {
+  // We recalculate LoopInfo after each loop processed (see processLoop) so
+  // can't use Loop* from WRNVecLoopNode as in the HIR path.
+  //
+  // Note that We have an issue with WRNVecLoopNode storing the stale Loop
+  // after our LoopInfo recompute. It doesn't seem to cause any issue for
+  // now but might be a source for some hidden bugs. Anyway, proper
+  // on-the-fly LoopInfo update is a long-term solution, the below is simply
+  // "good enough" workaround for now.
+  assert(Header != nullptr);
+  return LI->getLoopFor(Header);
+}
+
+template <>
+vpo::HLLoop *
+VPlanDriverImpl::adjustLoopIfNeeded<vpo::HLLoop>(vpo::HLLoop *Lp,
+                                                 BasicBlock *Header) {
+  // No adjustment for HIR.
+  return Lp;
+}
+
+template <>
+bool VPlanDriverImpl::formLCSSAIfNeeded<llvm::Loop>(llvm::Loop *Lp) {
+  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+  return Self->formLCSSAIfNeeded(Lp);
+}
+
+bool VPlanDriverLLVMImpl::formLCSSAIfNeeded(Loop *Lp) {
+  // Inner loop vectorization might cause LCSSA form breakage. For example:
+  //
+  //   vector.body:
+  //     %vec.phi3 = phi <4 x i32> ..., [ %0, %vector.body ]
+  //     ...
+  //     %wide.load = load <4 x i32>, ptr %scalar.gep, align 4
+  //     %0 = add <4 x i32> %vec.phi3, %wide.load
+  //     ...
+  //     br i1 %3, label %VPlannedBB4, label %vector.body
+  //
+  //   VPlannedBB4:
+  //     %4 = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %0)
+  //
+  // formLCSSA call changes instruction form in the latter block; after that
+  // we can do vectorization of the outer loop.
+  //
+  //   VPlannedBB4:
+  //     %.lcssa = phi <4 x i32> [ %0, %vector.body ]
+  //     %4 = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %.lcssa)
+  //
+  if (NestedSimdStrategy == NestedSimdStrategies::FromInside)
+    return formLCSSA(*Lp, *DT, LI, SE);
+  return false;
+}
+
+template <>
+bool VPlanDriverImpl::formLCSSAIfNeeded<vpo::HLLoop>(vpo::HLLoop *Lp) {
+  // No recalculation needed for HIR.
+  return false;
+}
+
 /// Standard Mode: standard path for automatic and explicit vectorization.
 /// Explicit vectorization: it uses WRegion analysis to collect and vectorize
 /// all the WRNVecLoopNode's.
@@ -934,9 +1020,13 @@ template <typename Loop> bool VPlanDriverImpl::runStandardMode(Function &Fn) {
     WRNVecLoopNode *WRLp = nullptr;
     BasicBlock *Header = nullptr;
   };
+
   SmallVector<LoopToVectorize, 8> LoopsToVectorize;
   auto AddLoopToVectorize = [&LoopsToVectorize](Loop *Lp,
                                                 WRNVecLoopNode *WRLp) {
+    // This should really be separated into LLVM and HIR logic, but doing
+    // so is more mess than it's worth.  Don't copy this coding style.
+    // runStandardMode needs rework anyway, so we may clean it up then.
     if constexpr (std::is_same_v<Loop, llvm::Loop>) {
       LoopsToVectorize.push_back(LoopToVectorize{Lp, WRLp, Lp->getHeader()});
     } else {
@@ -967,7 +1057,7 @@ template <typename Loop> bool VPlanDriverImpl::runStandardMode(Function &Fn) {
         LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
         assert(BR.BailoutRemark &&
                "isSupported() failed to provide bailout data!\n");
-        VPlanOptReportBuilder VPORB(ORBuilder, LI);
+        VPlanOptReportBuilder VPORB(ORBuilder);
         (void)bailout(VPORB, Lp, WRLp, BR);
         return;
       }
@@ -1005,48 +1095,12 @@ template <typename Loop> bool VPlanDriverImpl::runStandardMode(Function &Fn) {
   bool ModifiedFunc = false;
   for (const LoopToVectorize &Cand : LoopsToVectorize) {
     Loop *L = Cand.L;
-    if constexpr (std::is_same_v<Loop, llvm::Loop>) {
-      // We recalculate LoopInfo after each loop processed (see processLoop) so
-      // can't use Loop* from WRNVecLoopNode as in the HIR path.
-      //
-      // Note that We have an issue with WRNVecLoopNode storing the stale Loop
-      // after our LoopInfo recompute. It doesn't seem to cause any issue for
-      // now but might be a source for some hidden bugs. Anyway, proper
-      // on-the-fly LoopInfo update is a long-term solution, the below is simply
-      // "good enough" workaround for now.
-      assert(Cand.Header != nullptr);
-      L = LI->getLoopFor(Cand.Header);
-    }
+    L = adjustLoopIfNeeded(L, Cand.Header);
     assert(L != nullptr);
     assert(Cand.WRLp != nullptr);
     LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
     LLVM_DEBUG(L->dump());
-
-    if constexpr (std::is_same_v<Loop, llvm::Loop>) {
-      // Inner loop vectorization might cause LCSSA form breakage. For example:
-      //
-      //   vector.body:
-      //     %vec.phi3 = phi <4 x i32> ..., [ %0, %vector.body ]
-      //     ...
-      //     %wide.load = load <4 x i32>, ptr %scalar.gep, align 4
-      //     %0 = add <4 x i32> %vec.phi3, %wide.load
-      //     ...
-      //     br i1 %3, label %VPlannedBB4, label %vector.body
-      //
-      //   VPlannedBB4:
-      //     %4 = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %0)
-      //
-      // formLCSSA call changes instruction form in the latter block; after that
-      // we can do vectorization of the outer loop.
-      //
-      //   VPlannedBB4:
-      //     %.lcssa = phi <4 x i32> [ %0, %vector.body ]
-      //     %4 = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %.lcssa)
-      //
-      if (NestedSimdStrategy == NestedSimdStrategies::FromInside)
-        ModifiedFunc |= formLCSSA(*L, *DT, LI, SE);
-    }
-
+    ModifiedFunc |= formLCSSAIfNeeded(L);
     ModifiedFunc |= processLoop(L, Fn, Cand.WRLp);
   }
 
@@ -1140,21 +1194,20 @@ bool VPlanDriverImpl::processFunction(Function &Fn) {
 /// Function to add vectorization related remarks for loops created by given
 /// codegen object \p VCodeGen
 // TODO: Change VPOCodeGenType. This cannot be used in the open sourcing patches
-template <class VPOCodeGenType, typename Loop>
-void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
-                                          VPlanOptReportBuilder &VPORBuilder,
-                                          VPOCodeGenType *VCodeGen) {
+void VPlanDriverHIRImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
+                                             VPlanOptReportBuilder &VPORBuilder,
+                                             VPOCodeGenHIR *VCodeGen) {
   if ((!WRLp || (WRLp->isOmpSIMDLoop() && WRLp->getSafelen() == 0 &&
-      WRLp->getSimdlen() == 0)) && (TTI->getRegisterBitWidth
-      (TargetTransformInfo::RGK_FixedWidthVector) <= 256) &&
-      TTI->isAdvancedOptEnabled(
-      TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512))
+                 WRLp->getSimdlen() == 0)) &&
+      (TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) <=
+       256) &&
+      TTI->isAdvancedOptEnabled(TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512))
     // 15569 remark is "Compiler has chosen to target XMM/YMM vector."
     // "Try using -mprefer-vector-width=512 to override."
     VPORBuilder.addRemark(VCodeGen->getMainLoop(), OptReportVerbosity::High,
                           OptRemarkID::VectorizerShortVector);
   // The new vectorized loop is stored in MainLoop
-  Loop *MainLoop = VCodeGen->getMainLoop();
+  HLLoop *MainLoop = VCodeGen->getMainLoop();
   if (WRLp && WRLp->isOmpSIMDLoop())
     // Adds remark SIMD LOOP WAS VECTORIZED
     VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low,
@@ -1190,7 +1243,7 @@ void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
   // If remainder loop was generated for MainLoop, report that it is currently
   // not vectorized
   if (VCodeGen->getNeedRemainderLoop()) {
-    Loop *RemLoop = VCodeGen->getRemainderLoop();
+    HLLoop *RemLoop = VCodeGen->getRemainderLoop();
     VPORBuilder.addRemark(RemLoop, OptReportVerbosity::Medium,
                           OptRemarkID::UnvectorizedRemainderLoop, "");
   }
@@ -1455,11 +1508,11 @@ static std::string getDescription(const Function &F) {
   return "function (" + F.getName().str() + ")";
 }
 
-VPlanDriverPass::VPlanDriverPass() { Impl = new VPlanDriverImpl(); }
+VPlanDriverPass::VPlanDriverPass() { Impl = new VPlanDriverLLVMImpl(); }
 
 VPlanDriverPass::VPlanDriverPass(const VPlanDriverPass &P) noexcept
     : PassInfoMixin<VPlanDriverPass>(P) {
-  Impl = new VPlanDriverImpl();
+  Impl = new VPlanDriverLLVMImpl();
 }
 
 VPlanDriverPass::~VPlanDriverPass() { delete Impl; }
@@ -1498,7 +1551,7 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   return PA;
 }
 
-bool VPlanDriverImpl::runImpl(
+bool VPlanDriverLLVMImpl::runImpl(
     Function &Fn, LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT,
     AssumptionCache *AC, AliasAnalysis *AA, DemandedBits *DB,
     LoopAccessInfoManager *LAIs, OptimizationRemarkEmitter *ORE,
@@ -1547,11 +1600,14 @@ bool VPlanDriverImpl::runImpl(
 }
 
 namespace llvm {
-namespace vpo {
 
 template <>
-void VPlanDriverImpl::collectAllLoops<llvm::Loop>(
-    SmallVectorImpl<Loop *> &Loops) {
+void VPlanDriverImpl::collectAllLoops<Loop>(SmallVectorImpl<Loop *> &Loops) {
+  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+  return Self->collectAllLoops(Loops);
+}
+
+void VPlanDriverLLVMImpl::collectAllLoops(SmallVectorImpl<Loop *> &Loops) {
 
   std::function<void(Loop *)> collectSubLoops = [&](Loop *Lp) {
     Loops.push_back(Lp);
@@ -1562,6 +1618,8 @@ void VPlanDriverImpl::collectAllLoops<llvm::Loop>(
   for (Loop *Lp : *LI)
     collectSubLoops(Lp);
 }
+
+namespace vpo {
 
 template <>
 void VPlanDriverImpl::collectAllLoops<vpo::HLLoop>(
@@ -1953,8 +2011,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     // Use HLLoop based opt-report generation for non-merged CFG-based CG.
     // TODO: Drop this when merged CFG-based CG is used by default.
     if (LVP.mergerVPlans().empty())
-      VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
-          WRLp, VPORBuilder, &VCodeGen);
+      addOptReportRemarks(WRLp, VPORBuilder, &VCodeGen);
     // Mark loops with "vectorize.enable" metadata as "isvectorized" so that
     // WarnMissedTransforms pass will not complain that this loop is not
     // vectorized. We also tag the main vector loop based on
@@ -2130,6 +2187,19 @@ void VPlanDriverHIRImpl::eraseLoopIntrins(HLLoop *Lp,
   (void)IsValidDirectiveNode;
 }
 
+template <>
+bool VPlanDriverImpl::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
+  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+  return Self->isVPlanCandidate(Fn, Lp);
+}
+
+template <>
+bool VPlanDriverImpl::isVPlanCandidate<vpo::HLLoop>(Function &Fn,
+                                                    vpo::HLLoop *Lp) {
+  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
+  return Self->isVPlanCandidate(Fn, Lp);
+}
+
 // IMPORTANT -- keep this function at the end of the file until VPO and
 // LoopVectorization legality can be merged.
 #undef LoopVectorizationLegality
@@ -2137,8 +2207,7 @@ void VPlanDriverHIRImpl::eraseLoopIntrins(HLLoop *Lp,
 
 namespace llvm {
 namespace vpo {
-template <>
-bool VPlanDriverImpl::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
+bool VPlanDriverLLVMImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
   // Only consider inner loops
   if (!Lp->isInnermost())
     return false;
@@ -2165,13 +2234,6 @@ bool VPlanDriverImpl::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
     return false;
 
   return true;
-}
-
-template <>
-bool VPlanDriverImpl::isVPlanCandidate<vpo::HLLoop>(Function &Fn,
-                                                    vpo::HLLoop *Lp) {
-  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
-  return Self->isVPlanCandidate(Fn, Lp);
 }
 
 } // namespace vpo

@@ -24,10 +24,10 @@ namespace llvm {
 namespace vpo {
 
 class VPlanDriverHIRImpl;
-class VPlanDriverImpl;
+class VPlanDriverLLVMImpl;
 
 class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {
-  VPlanDriverImpl *Impl = nullptr;
+  VPlanDriverLLVMImpl *Impl = nullptr;
   static bool RunForSycl;
   static bool RunForO0;
   /// Error handler, see the corresponding commment in VPlanDriverImpl.
