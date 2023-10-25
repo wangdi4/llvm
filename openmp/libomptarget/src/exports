@@ -117,8 +117,6 @@ VERS1.0 {
     __tgt_register_ptask_services;
     __tgt_task_completed;
     __tgt_interop_use_async;
-    ompt_oneapi_set_data;
-    ompt_oneapi_get_data;
 # end INTEL_CUSTOMIZATION
     __tgt_get_mem_resources;
     __tgt_omp_alloc;

@@ -44,7 +44,12 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
       add_definitions(-DOMPTARGET_OPENCL_DEBUG)
     endif()
 
-    add_library(omptarget.rtl.opencl SHARED src/rtl.cpp src/OmptCallback.cpp)
+    if(INTEL_CUSTOMIZATION)
+    add_library(omptarget.rtl.opencl SHARED src/rtl.cpp src/ompt-opencl.cpp)
+    else(INTEL_CUSTOMIZATION)
+    add_library(omptarget.rtl.opencl SHARED src/rtl.cpp)
+    endif(INTEL_CUSTOMIZATION)
+
     target_include_directories(omptarget.rtl.opencl PRIVATE
       ${LIBOMPTARGET_INCLUDE_DIR}
       ${LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS}

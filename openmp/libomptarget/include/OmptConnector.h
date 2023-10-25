@@ -1,20 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2023 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //===- OmptConnector.h - Target independent OpenMP target RTL -- C++ ------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -39,11 +22,7 @@
 #include <memory>
 #include <string>
 
-#if INTEL_CUSTOMIZATION
-#include "omp-tools-preview.h"
-#else // INTEL_CUSTOMIZATION
 #include "omp-tools.h"
-#endif // INTEL_CUSTOMIZATION
 
 #include "Debug.h"
 #include "omptarget.h"
@@ -54,11 +33,6 @@
 
 /// Type for the function to be invoked for connecting two libraries.
 typedef void (*OmptConnectRtnTy)(ompt_start_tool_result_t *result);
-
-#if INTEL_CUSTOMIZATION
-/// Type to support data exchange between omptarget and plugin
-using OmptUpdateDataTy = void (*)(int32_t Kind, size_t Size, void *Value);
-#endif // INTEL_CUSTOMIZATION
 
 /// Establish connection between openmp runtime libraries
 ///
@@ -92,17 +66,6 @@ public:
     // Call the function provided by the source library for connect
     LibConnHandle(OmptResult);
   }
-#if INTEL_CUSTOMIZATION
-  /// Support customized data channel between omptarget and plugin
-  void getUpdateDataHandles(OmptUpdateDataTy *SetFn, OmptUpdateDataTy *GetFn) {
-    if (!IsInitialized)
-      return;
-    if (SetFn)
-      *SetFn = SetOmptData;
-    if (GetFn)
-      *GetFn = GetOmptData;
-  }
-#endif // INTEL_CUSTOMIZATION
 
 private:
   void initialize() {
@@ -112,18 +75,6 @@ private:
     std::string ErrMsg;
     std::string LibName = LibIdent;
     LibName += ".so";
-#if INTEL_CUSTOMIZATION
-    // Support runtime names in the product.
-#ifdef _WIN32
-    if (LibIdent == "libomp")
-      LibName = "libiomp5md.dll";
-    else if (LibIdent == "libomptarget")
-      LibName = "omptarget.dll";
-#else  // _WIN32
-    if (LibIdent == "libomp")
-      LibName = "libiomp5.so";
-#endif // _WIN32
-#endif // INTEL_CUSTOMIZATION
 
     DP("OMPT: Trying to load library %s\n", LibName.c_str());
     auto DynLibHandle = std::make_unique<llvm::sys::DynamicLibrary>(
@@ -138,14 +89,6 @@ private:
          LibConnRtn.c_str());
       LibConnHandle = reinterpret_cast<OmptConnectRtnTy>(
           DynLibHandle->getAddressOfSymbol(LibConnRtn.c_str()));
-#if INTEL_CUSTOMIZATION
-      /// We could do this separately, but it is better to set these handles
-      /// since we already loaded module here.
-      SetOmptData = reinterpret_cast<OmptUpdateDataTy>(
-          DynLibHandle->getAddressOfSymbol("ompt_oneapi_set_data"));
-      GetOmptData = reinterpret_cast<OmptUpdateDataTy>(
-          DynLibHandle->getAddressOfSymbol("ompt_oneapi_get_data"));
-#endif // INTEL_CUSTOMIZATION
     }
     DP("OMPT: Library connection handle = %p\n", LibConnHandle);
     IsInitialized = true;
@@ -157,12 +100,6 @@ private:
   OmptConnectRtnTy LibConnHandle;
   /// Name of connect routine provided by source library
   std::string LibIdent;
-#if INTEL_CUSTOMIZATION
-  /// Handle to set OMPT interface data
-  OmptUpdateDataTy SetOmptData = nullptr;
-  /// Handle to get OMPT interface data
-  OmptUpdateDataTy GetOmptData = nullptr;
-#endif // INTEL_CUSTOMIZATION
 };
 
 #endif // OMPT_SUPPORT

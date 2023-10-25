@@ -59,16 +59,12 @@
 
 #include "elf_light.h"
 #include "omptargetplugin.h"
+#if INTEL_CUSTOMIZATION
+#include "omptarget-tools.h"
+#endif // INTEL_CUSTOMIZATION
 #include "rtl-trace.h"
-#ifdef OMPT_SUPPORT
-#include "OmptCallback.h"
-#endif
 
 #include "llvm/Support/Endian.h"
-
-#ifdef OMPT_SUPPORT
-using namespace llvm::omp::target;
-#endif
 
 #if INTEL_CUSTOMIZATION
 // FIXME: when this is upstreamed for OpenCL.
@@ -1288,71 +1284,6 @@ struct DevicePropertiesTy {
   int32_t getDeviceProperties(cl_device_id ID, bool HasExtension);
 };
 
-#ifdef OMPT_SUPPORT
-/// Set OMPT data in current region interface
-bool setOmptData(OmptExtDataTy Type, size_t Size, void *Data);
-/// Get OMPT data in current region interface
-bool getOmptData(OmptExtDataTy Type, size_t Size, void *Data);
-/// Look up OMPT entry
-ompt_interface_fn_t lookupOmptEntry(const char *EntryName);
-
-/// Device-specific OMPT information
-struct OmptInfoTy {
-  /// OMPT callback functions
-#define defineOmptCallback(Name, Type, Code) Name##_t Name##_fn = nullptr;
-  FOREACH_OMPT_DEVICE_EVENT(defineOmptCallback)
-#undef defineOmptCallback
-  /// Internal representation for OMPT device (initialize & finalize)
-  bool OmptInitialized = false;
-
-  OmptInfoTy() {
-    // Bind the callbacks to this device's member functions
-#define bindOmptCallback(Name, Type, Code)                                     \
-  if (ompt::Initialized && ompt::lookupCallbackByCode) {                       \
-    ompt::lookupCallbackByCode((ompt_callbacks_t)(Code),                       \
-                               ((ompt_callback_t *)&(Name##_fn)));             \
-    DP("OMPT: class bound %s=%p\n", #Name, ((void *)(uint64_t)Name##_fn));     \
-  }
-
-    FOREACH_OMPT_DEVICE_EVENT(bindOmptCallback);
-#undef bindOmptCallback
-  }
-  /// Wrapper for device-load event
-  void doDeviceLoad(int32_t DeviceId, const char *FileName,
-                    int64_t OffsetInFile, void *VmaInFile, size_t Bytes,
-                    void *HostAddr, void *DeviceAddr, uint64_t ModuleId) {
-    if (!ompt::Initialized)
-      return;
-    performOmptCallback(device_load,
-                        /* device_num */ DeviceId,
-                        /* FileName */ FileName,
-                        /* File Offset */ OffsetInFile,
-                        /* VmaInFile */ VmaInFile,
-                        /* ImgSize */ Bytes,
-                        /* HostAddr */ HostAddr,
-                        /* DeviceAddr */ DeviceAddr,
-                        /* FIXME: ModuleId */ ModuleId);
-  }
-  /// Wrapper for device-init event
-  void doDeviceInit(int32_t DeviceId, const char *DeviceName, void *Device) {
-    if (!ompt::Initialized)
-      return;
-    OmptInitialized = true;
-    performOmptCallback(device_initialize,
-                        /* device_num */ DeviceId,
-                        /* type */ DeviceName,
-                        /* device */ reinterpret_cast<ompt_device_t *>(Device),
-                        /* lookup */ lookupOmptEntry,
-                        /* documentation */ nullptr);
-  }
-  /// Wrapper for device-fini event
-  void doDeviceFini() {}
-};
-#define OMPT_IF_BUILT(Stmt) Stmt
-#else // OMPT_SUPPORT
-#define OMPT_IF_BUILT(Stmt)
-#endif // OMPT_SUPPORT
-
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
 public:
@@ -1415,9 +1346,6 @@ public:
 
   /// Internal allocation information
   std::vector<std::unique_ptr<MemAllocInfoMapTy>> MemAllocInfo;
-
-  /// OMPT information
-  OMPT_IF_BUILT(std::vector<OmptInfoTy> OmptInfo);
 
   /// Requires flags
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -1600,7 +1528,6 @@ static void closeRTL();
 __ATTRIBUTE__(constructor(101)) void init() {
   DP("Init OpenCL plugin!\n");
   DeviceInfo = new RTLDeviceInfoTy();
-  OMPT_IF_BUILT(ompt::connectLibrary());
 }
 
 /// RTL calls this function as early as possible to avoid finalization issues
@@ -1786,6 +1713,12 @@ static void closeRTL() {
         Prof.second.printData(I, Prof.first, DeviceInfo->Names[I].data(),
                               DeviceInfo->Option.ProfileResolution);
     }
+#if INTEL_CUSTOMIZATION
+    if (OMPT_ENABLED) {
+      OMPT_CALLBACK(ompt_callback_device_unload, I, 0 /* module ID */);
+      OMPT_CALLBACK(ompt_callback_device_finalize, I);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[I]);
 
@@ -2733,17 +2666,6 @@ runTargetTeamNDRegion(int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs,
      GlobalWorkSize[0] / LocalWorkSize[0], GlobalWorkSize[1] / LocalWorkSize[1],
      GlobalWorkSize[2] / LocalWorkSize[2]);
 
-#ifdef OMPT_SUPPORT
-  if (ompt::Initialized) {
-    // Push current work size
-    int FinalNumTeams = NumWorkGroups[0] * NumWorkGroups[1] * NumWorkGroups[2];
-    int FinalThreadLimit =
-        LocalWorkSize[0] * LocalWorkSize[1] * LocalWorkSize[2];
-    setOmptData(OmptExtDataNumTeams, sizeof(int), &FinalNumTeams);
-    setOmptData(OmptExtDataTeamSize, sizeof(int), &FinalThreadLimit);
-  }
-#endif // OMPT_SUPPORT
-
   // Protect thread-unsafe OpenCL API calls
   std::unique_lock<std::mutex> KernelLock(DeviceInfo->Mutexes[DeviceId]);
 
@@ -2854,6 +2776,18 @@ runTargetTeamNDRegion(int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs,
                        CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
                        sizeof(cl_bool), &KernelSupportsUSM);
   }
+
+#if INTEL_CUSTOMIZATION
+  if (OMPT_ENABLED) {
+    // Push current work size
+    size_t FinalNumTeams =
+        GlobalWorkSize[0] * GlobalWorkSize[1] * GlobalWorkSize[2];
+    size_t FinalThreadLimit =
+        LocalWorkSize[0] * LocalWorkSize[1] * LocalWorkSize[2];
+    FinalNumTeams /= FinalThreadLimit;
+    OmptGlobal->getTrace().pushWorkSize(FinalNumTeams, FinalThreadLimit);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   cl_event Event;
 #if INTEL_CUSTOMIZATION
@@ -4179,7 +4113,6 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->ProfileLocks = new std::mutex[DeviceInfo->NumDevices];
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
   DeviceInfo->NumActiveKernels.resize(DeviceInfo->NumDevices, 0);
-  OMPT_IF_BUILT(DeviceInfo->OmptInfo.resize(DeviceInfo->NumDevices));
 
   // Host allocation information needs one additional slot
   for (uint32_t I = 0; I < DeviceInfo->NumDevices + 1; I++)
@@ -4251,13 +4184,14 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
   DeviceInfo->DeviceArchs[DeviceId] = DeviceInfo->getDeviceArch(DeviceId);
 
-  DeviceInfo->Initialized[DeviceId] = true;
+#if INTEL_CUSTOMIZATION
+  OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
+                DeviceInfo->Names[DeviceId].data(),
+                DeviceInfo->Devices[DeviceId],
+                omptLookupEntries, OmptDocument);
+#endif // INTEL_CUSTOMIZATION
 
-#ifdef OMPT_SUPPORT
-  const char *DeviceName = DeviceInfo->DeviceProperties[DeviceId].Name.c_str();
-  void *Device = (void *)DeviceInfo->Devices[DeviceId];
-  DeviceInfo->OmptInfo[DeviceId].doDeviceInit(DeviceId, DeviceName, Device);
-#endif
+  DeviceInfo->Initialized[DeviceId] = true;
 
   return OFFLOAD_SUCCESS;
 }
@@ -4350,12 +4284,14 @@ __tgt_target_table *__tgt_rtl_load_binary(
     return nullptr;
 #endif // INTEL_CUSTOMIZATION
 
-  OMPT_IF_BUILT(DeviceInfo->OmptInfo[DeviceId].doDeviceLoad(
-      DeviceId, nullptr /* FileName */, 0 /* OffsetInFile */,
-      nullptr /* VmaInFile */, ImageSize, Image->ImageStart,
-      nullptr /* DeviceAddr */, 0 /* FIXME ModuleId */));
-
   auto *Table = Program.getTablePtr();
+
+#if INTEL_CUSTOMIZATION
+  OMPT_CALLBACK(ompt_callback_device_load, DeviceId, nullptr /* filename */,
+                -1 /* offset_in_file */, nullptr /* vma_in_file */,
+                ImageSize /* bytes */, Image->ImageStart /* host_addr */,
+                nullptr /* device_addr */, 0 /* module_id */);
+#endif // INTEL_CUSTOMIZATION
 
   return Table;
 }

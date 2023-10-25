@@ -29,6 +29,7 @@
 //===----------------------------------------------------------------------===//
 
 #if INTEL_CUSTOMIZATION
+#include "omptarget-tools.h"
 #include "xpti_registry.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -167,6 +168,18 @@ targetData(ident_t *Loc, int64_t DeviceId, int32_t ArgNum, void **ArgsBase,
 #if INTEL_COLLAB
   PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  bool IsBegin = strncmp(RegionName, "begin", 5) == 0;
+  bool IsEnd = strncmp(RegionName, "end", 3) == 0;
+  bool IsUpdate = strncmp(RegionName, "update", 6) == 0;
+  if (IsBegin)
+    OMPT_TRACE(targetDataEnterBegin(DeviceId));
+  else if (IsEnd)
+    OMPT_TRACE(targetDataExitBegin(DeviceId));
+  else if (IsUpdate)
+    OMPT_TRACE(targetDataUpdateBegin(DeviceId));
+#endif // INTEL_CUSTOMIZATION
+
   DeviceTy &Device = *PM->Devices[DeviceId];
   TargetAsyncInfoTy TargetAsyncInfo(Device);
   AsyncInfoTy &AsyncInfo = TargetAsyncInfo;
@@ -196,10 +209,20 @@ targetData(ident_t *Loc, int64_t DeviceId, int32_t ArgNum, void **ArgsBase,
 
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
 
+#if INTEL_CUSTOMIZATION
+  if (IsBegin)
+    OMPT_TRACE(targetDataEnterEnd(DeviceId));
+  else if (IsEnd)
+    OMPT_TRACE(targetDataExitEnd(DeviceId));
+  else if (IsUpdate)
+    OMPT_TRACE(targetDataUpdateEnd(DeviceId));
+#endif // INTEL_CUSTOMIZATION
+
 #if INTEL_COLLAB
   if (EncodedId != DeviceId)
     PM->Devices[DeviceId]->popSubDevice();
 #endif // INTEL_COLLAB
+
 }
 
 /// creates host-to-target data mapping, stores it in the
@@ -376,6 +399,10 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
   PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
 #endif // INTEL_COLLAB
 
+#if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetBegin(DeviceId));
+#endif // INTEL_CUSTOMIZATION
+
   DeviceTy &Device = *PM->Devices[DeviceId];
   TargetAsyncInfoTy TargetAsyncInfo(Device);
   AsyncInfoTy &AsyncInfo = TargetAsyncInfo;
@@ -391,6 +418,10 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
     Rc = AsyncInfo.synchronize();
 
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
+
+#if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetEnd(DeviceId));
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
   if (EncodedId != DeviceId)
@@ -956,12 +987,10 @@ EXTERN int __tgt_get_target_memory_info(
 
 #if INTEL_CUSTOMIZATION
 EXTERN void __tgt_push_code_location(const char *Loc, void *CodePtrRA) {
+  OmptGlobal->getTrace().pushCodeLocation(Loc, CodePtrRA);
   // Temporary workaround since code location directly passed with __tgt*
   // entries is incorrect.
   XPTIRegistry->pushCodeLocation(Loc);
-#ifdef OMPT_SUPPORT
-  RegionInterface.CodeLocation = Loc;
-#endif // OMPT_SUPPORT
 }
 #endif // INTEL_CUSTOMIZATION
 
