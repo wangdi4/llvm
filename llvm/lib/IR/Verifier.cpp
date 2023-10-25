@@ -6091,6 +6091,47 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
           &Call);
     break;
   }
+  case Intrinsic::experimental_matrix_mad:
+  case Intrinsic::experimental_matrix_sumad:
+  case Intrinsic::experimental_matrix_usmad:
+  case Intrinsic::experimental_matrix_uumad: {
+    VectorType *ResultTy = cast<VectorType>(Call.getType());
+    VectorType *MatATy = cast<VectorType>(Call.getArgOperand(0)->getType());
+    VectorType *MatBTy = cast<VectorType>(Call.getArgOperand(1)->getType());
+    VectorType *MatCTy = cast<VectorType>(Call.getArgOperand(2)->getType());
+
+    // 4th, 5th and 6th arguments are of an integer type and specifies
+    // ``%MatrixA``'s and ``%MatrixB``'s number of rows and ``%MatrixC``'s
+    // number of columns respectively.
+    Check((isa<ConstantInt>(Call.getArgOperand(3)) &&
+           isa<ConstantInt>(Call.getArgOperand(4)) &&
+           isa<ConstantInt>(Call.getArgOperand(5))),
+          "4th, 5th and 6th parameters of experimental_matrix_(s/u)mad family "
+          "of intrinsic functions must be integer constants",
+          &Call);
+    unsigned MatARows =
+        cast<ConstantInt>(Call.getArgOperand(3))->getZExtValue();
+    unsigned MatBRows =
+        cast<ConstantInt>(Call.getArgOperand(4))->getZExtValue();
+    unsigned MatCCols =
+        cast<ConstantInt>(Call.getArgOperand(5))->getZExtValue();
+    Check((MatATy->getElementCount().getFixedValue() / MatARows == MatBRows &&
+           MatBTy->getElementCount().getFixedValue() / MatBRows == MatCCols),
+          "Inconsistent number of rows and columns of matrix A, B and C "
+          "used by an intrinsic from experimental_matrix_(s/u)mad family",
+          &Call);
+
+    if (ID != Intrinsic::experimental_matrix_mad) {
+      Check((ResultTy->getElementType()->isIntegerTy() &&
+             MatATy->getElementType()->isIntegerTy() &&
+             MatBTy->getElementType()->isIntegerTy() &&
+             MatCTy->getElementType()->isIntegerTy()),
+            "experimental_matrix_(s/u)mad family of intrinsic functions with "
+            "an exception of experimental_matrix_mad must operate over "
+            "matrices of integer type");
+    }
+    break;
+  }
 #endif // INTEL_CUSTOMIZATION
   case Intrinsic::experimental_noalias_scope_decl: {
     NoAliasScopeDecls.push_back(cast<IntrinsicInst>(&Call));

@@ -19771,7 +19771,7 @@ where length is a size of the matrix's slice which ``llvm.experimental.matrix.wi
 intrinsic would return.
 
 The fifth argument is metadata strings which specifies memory scope of the matrix, it
-can be either !"scope.subgroup" ir !"scope.workgroup".
+can be either !"scope.subgroup" or !"scope.workgroup".
 
 Semantics:
 """"""""""
@@ -19789,6 +19789,237 @@ Example:
 
 in this case if %Idx is 16 then %coord will be <i64 2, i64 1>
 
+'``llvm.experimental.matrix.mad.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic. You can use llvm.experimental.matrix.mad on matrices
+
+::
+
+      declare <vectorty> @llvm.experimental.matrix.mad.*(
+          <vectorty> %MatrixA, <vectorty> %MatrixB, <vectorty> %MatrixC,
+          i32 <RowsMatrixA>, i32 <RowsMatrixB>, i32 <ColsMatrixC>, metadata <Scope>)
+
+Overview:
+"""""""""
+The '``llvm.experimental.matrix.mad.*``' family of intrinsic functions represent
+a signed multiply-add expression for joint matrices, which is more efficient than
+the equivalent, separate pair of mul and add instructions.
+
+
+Arguments:
+""""""""""
+The first argument ``%MatrixA`` is a vector is a vector which represents a flattened
+LHS matrix of the multiply expression.
+
+The second argument ``%MatrixB`` is a vector which represents a flattened RHS matrix
+of the multiply expression.
+
+The third argument ``%MatrixC`` is a vector which represents a flattened accumulator matrix.
+
+4th, 5th and 6th arguments are of an integer type and specifies ``%MatrixA``'s
+and ``%MatrixB``'s number of rows and ``%MatrixC``'s number of columns respectively.
+
+The last argument is metadata strings which specifies memory scope of the matrix, it
+can be either !"scope.subgroup" or !"scope.workgroup".
+
+Semantics:
+""""""""""
+The '``llvm.experimental.matrix.mad.*``' intrinsic performs multiply-add
+of the first, second, and third vector operand treating them as matrices and hence
+following matrix multiplication rules. Matrix element type can be either integer
+or floating point. Number of elements of the vectors representing
+``%MatrixC`` and the result must be the same. Number of rows of ``%MatrixA`` and
+``%MatrixB`` and number of columns of ``%MatrixC`` must be consistent following
+matrix multiplication rules.
+
+Example:
+""""""""
+::
+
+    %result = call <64 x float> @llvm.experimental.matrix.mad.v64f32.v128f32.v128f32(
+        <128 x float> %A, <128 x float> %B, <64 x float> %C
+        i32 8, i32 16, i32 8, metadata !"scope.subgroup")
+
+the intrinsic will return a flattened ``8 x 8`` matrix with float data type, which
+is the product of a sum of a multiplication of ``8 x 16`` and ``16 x 8`` float
+matrices and ``8 x 8`` float accumulator matrix.
+
+'``llvm.experimental.matrix.sumad.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic. You can use llvm.experimental.matrix.sumad on matrices
+
+::
+
+      declare <vectorty> @llvm.experimental.matrix.sumad.*(
+          <vectorty> %MatrixA, <vectorty> %MatrixB, <vectorty> %MatrixC,
+          i32 <RowsMatrixA>, i32 <RowsMatrixB>, i32 <ColsMatrixC>, metadata <Scope>)
+
+Overview:
+"""""""""
+The '``llvm.experimental.matrix.sumad.*``' family of intrinsic functions represent
+a multiply-add expression for joint matrices with integer data type, which is more
+efficient than the equivalent, separate pair of mul and add instructions.
+LHS of mul expression is treated as signed integer and RHS as unsigned.
+
+Arguments:
+""""""""""
+The first argument ``%MatrixA`` is a vector is a vector which represents a flattened
+LHS matrix of the multiply expression.
+
+The second argument ``%MatrixB`` is a vector which represents a flattened RHS matrix
+of the multiply expression.
+
+The third argument ``%MatrixC`` is a vector which represents a flattened accumulator matrix.
+
+4th, 5th and 6th arguments are of an integer type and specifies ``%MatrixA``'s
+and ``%MatrixB``'s number of rows and ``%MatrixC``'s number of columns respectively.
+
+The last argument is metadata strings which specifies memory scope of the matrix, it
+can be either !"scope.subgroup" or !"scope.workgroup".
+
+Semantics:
+""""""""""
+The '``llvm.experimental.matrix.sumad.*``' intrinsic performs multiply-add
+of the first, second, and third vector operand treating them as matrices and hence
+following matrix multiplication rules. Number of elements of the vectors representing
+``%MatrixC`` and the result must be the same. ``%MatrixA`` is treated as signed
+integer and ``%MatrixB`` as unsigned. Number of rows of ``%MatrixA`` and ``%MatrixB``
+and number of columns of ``%MatrixC`` must be consistent following matrix
+multiplication rules.
+
+Example:
+""""""""
+::
+
+    %result = call <64 x i32> @llvm.experimental.matrix.sumad.v64i32.v128i32.v128i32(
+        <128 x i32> %A, <128 x i32> %B, <64 x i32> %C,
+        i32 8, i32 16, i32 8, metadata !"scope.subgroup")
+
+the intrinsic will return a flattened ``8 x 8`` matrix with i32 data type, which
+is the product of a sum of a signed multiplication of ``8 x 16`` and ``16 x 8`` i32
+matrices and ``8 x 8`` i32 accumulator matrix.
+
+'``llvm.experimental.matrix.usmad.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic. You can use llvm.experimental.matrix.usmad on matrices
+
+::
+
+      declare <vectorty> @llvm.experimental.matrix.usmad.*(
+          <vectorty> %MatrixA, <vectorty> %MatrixB, <vectorty> %MatrixC,
+          i32 <RowsMatrixA>, i32 <RowsMatrixB>, i32 <ColsMatrixC>, metadata <Scope>)
+
+Overview:
+"""""""""
+The '``llvm.experimental.matrix.usmad.*``' family of intrinsic functions represent
+a multiply-add expression for joint matrices with integer data type, which is more
+efficient than the equivalent, separate pair of mul and add instructions.
+RHS of mul expression is treated as signed integer and LHS as unsigned.
+
+Arguments:
+""""""""""
+The first argument ``%MatrixA`` is a vector is a vector which represents a flattened
+LHS matrix of the multiply expression.
+
+The second argument ``%MatrixB`` is a vector which represents a flattened RHS matrix
+of the multiply expression.
+
+The third argument ``%MatrixC`` is a vector which represents a flattened accumulator matrix.
+
+4th, 5th and 6th arguments are of an integer type and specifies ``%MatrixA``'s
+and ``%MatrixB``'s number of rows and ``%MatrixC``'s number of columns respectively.
+
+The last argument is metadata strings which specifies memory scope of the matrix, it
+can be either !"scope.subgroup" or !"scope.workgroup".
+
+Semantics:
+""""""""""
+The '``llvm.experimental.matrix.usmad.*``' intrinsic performs multiply-add
+of the first, second, and third vector operand treating them as matrices and hence
+following matrix multiplication rules. Number of elements of the vectors representing
+``%MatrixC`` and the result must be the same. ``%MatrixA`` is treated as signed
+integer and ``%MatrixB`` as unsigned. Number of rows of ``%MatrixA`` and ``%MatrixB``
+and number of columns of ``%MatrixC`` must be consistent following matrix
+multiplication rules.
+
+Example:
+""""""""
+::
+
+    %result = call <64 x i32> @llvm.experimental.matrix.usmad.v64i32.v128i32.v128i32(
+        <128 x i32> %A, <128 x i32> %B, <64 x i32> %C,
+        i32 8, i32 16, i32 8, metadata !"scope.subgroup")
+
+the intrinsic will return a flattened ``8 x 8`` matrix with i32 data type, which
+is the product of a sum of a signed multiplication of ``8 x 16`` and ``16 x 8`` i32
+matrices and ``8 x 8`` i32 accumulator matrix.
+
+'``llvm.experimental.matrix.uumad.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic. You can use llvm.experimental.matrix.uumad on matrices
+
+::
+
+      declare <vectorty> @llvm.experimental.matrix.uumad.*(
+          <vectorty> %MatrixA, <vectorty> %MatrixB, <vectorty> %MatrixC,
+          i32 <RowsMatrixA>, i32 <RowsMatrixB>, i32 <ColsMatrixC>, metadata <Scope>)
+
+Overview:
+"""""""""
+The '``llvm.experimental.matrix.uumad.*``' family of intrinsic functions represent
+a multiply-add expression for joint matrices with integer data type, which is more
+efficient than the equivalent, separate pair of mul and add instructions.
+LHS and RHS of mul expression are treated as unsigned.
+
+Arguments:
+""""""""""
+The first argument ``%MatrixA`` is a vector is a vector which represents a flattened
+LHS matrix of the multiply expression.
+
+The second argument ``%MatrixB`` is a vector which represents a flattened RHS matrix
+of the multiply expression.
+
+The third argument ``%MatrixC`` is a vector which represents a flattened accumulator matrix.
+
+4th, 5th and 6th arguments are of an integer type and specifies ``%MatrixA``'s
+and ``%MatrixB``'s number of rows and ``%MatrixC``'s number of columns respectively.
+
+The last argument is metadata strings which specifies memory scope of the matrix, it
+can be either !"scope.subgroup" or !"scope.workgroup".
+
+Semantics:
+""""""""""
+The '``llvm.experimental.matrix.uumad.*``' intrinsic performs multiply-add
+of the first, second, and third vector operand treating them as matrices and hence
+following matrix multiplication rules. Number of elements of the vectors representing
+``%MatrixC`` and the result must be the same. ``%MatrixA`` and ``%MatrixB`` are
+treated as unsigned integers. Number of rows of ``%MatrixA`` and ``%MatrixB``
+and number of columns of ``%MatrixC`` must be consistent following matrix
+multiplication rules.
+
+Example:
+""""""""
+::
+
+    %result = call <64 x i32> @llvm.experimental.matrix.uumad.v64i32.v128i32.v128i32(
+        <128 x i32> %A, <128 x i32> %B, <64 x i32> %C,
+        i32 8, i32 16, i32 8, metadata !"scope.subgroup")
+
+the intrinsic will return a flattened ``8 x 8`` matrix with i32 data type, which
+is the product of a unsigned sum of a unsigned multiplication of ``8 x 16`` and ``16 x 8`` i32
+matrices and ``8 x 8`` i32 accumulator matrix.
 
 .. END INTEL_CUSTOMIZATION
 
