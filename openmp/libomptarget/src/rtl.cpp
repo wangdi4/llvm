@@ -32,9 +32,6 @@
 #include "OmptCallback.h"
 #include "device.h"
 #include "private.h"
-#if INTEL_CUSTOMIZATION
-#include "omptarget-tools.h"
-#endif // INTEL_CUSTOMIZATION
 
 #include "rtl.h"
 
@@ -87,7 +84,7 @@ static const char *RTLNames[] = {
     /* AMDGPU target        */ "libomptarget.rtl.amdgpu.so",
     /* Remote target        */ "libomptarget.rtl.rpc.so",
 #endif // !_WIN32
-#else 
+#else
     /* PowerPC target       */ "libomptarget.rtl.ppc64",
     /* x86_64 target        */ "libomptarget.rtl.x86_64",
     /* CUDA target          */ "libomptarget.rtl.cuda",
@@ -97,10 +94,6 @@ static const char *RTLNames[] = {
 };
 
 PluginManager *PM;
-
-#if INTEL_CUSTOMIZATION
-OmptGlobalTy *OmptGlobal;
-#endif // INTEL_CUSTOMIZATION
 
 #ifdef INTEL_CUSTOMIZATION
 #ifdef _WIN32
@@ -136,7 +129,6 @@ __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   PM = new PluginManager(UseEventsForAtomicTransfers);
 
 #if INTEL_CUSTOMIZATION
-  OmptGlobal = new OmptGlobalTy();
   XPTIRegistry = new XPTIRegistryTy();
 #endif // INTEL_CUSTOMIZATION
 
@@ -147,10 +139,14 @@ __ATTRIBUTE__(constructor(101)) void init() { // INTEL
     timeTraceProfilerInitialize(500 /* us */, "libomptarget");
 #endif
 
+#if INTEL_CUSTOMIZATION
+  // OMPT initialization is delayed to support Windows.
+#else // INTEL_CUSTOMIZATION
 #ifdef OMPT_SUPPORT
   // Initialize OMPT first
   ompt::connectLibrary();
 #endif
+#endif // INTEL_CUSTOMIZATION
 
 #if !INTEL_CUSTOMIZATION
   PM->RTLs.loadRTLs();
@@ -163,7 +159,6 @@ __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
   delete PM;
 
 #if INTEL_CUSTOMIZATION
-  delete OmptGlobal;
   delete XPTIRegistry;
 #endif // INTEL_CUSTOMIZATION
 
@@ -341,8 +336,10 @@ void RTLsTy::loadRTLs() {
     return;
   }
 #if INTEL_CUSTOMIZATION
-  OmptGlobal->init();
   XPTIRegistry->initializeFrameworkOnce();
+#ifdef OMPT_SUPPORT
+  ompt::connectLibrary();
+#endif
 #endif // INTEL_CUSTOMIZATION
 
   DP("Loading RTLs...\n");
@@ -544,9 +541,6 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
   SET_OPTIONAL_INTERFACE_FN(get_device_name);
   SET_OPTIONAL_INTERFACE_FN(get_context_handle);
   SET_OPTIONAL_INTERFACE_FN(get_data_alloc_info);
-#if INTEL_CUSTOMIZATION
-  SET_OPTIONAL_INTERFACE_FN(init_ompt);
-#endif // INTEL_CUSTOMIZATION
   SET_OPTIONAL_INTERFACE_FN(requires_mapping);
   SET_OPTIONAL_INTERFACE_FN(manifest_data_for_region);
   SET_OPTIONAL_INTERFACE_FN(push_subdevice);
@@ -590,11 +584,6 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
 #undef SET_OPTIONAL_INTERFACE
 #undef SET_OPTIONAL_INTERFACE_FN
 
-#if INTEL_CUSTOMIZATION
-  // Initialize RTL's OMPT data
-  if (RTL.init_ompt)
-    RTL.init_ompt(OmptGlobal);
-#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
   *((void **)&RTL.data_lock) =
       DynLibrary->getAddressOfSymbol("__tgt_rtl_data_lock");
