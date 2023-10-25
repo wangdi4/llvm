@@ -313,8 +313,13 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              bool AggregateArgs, BlockFrequencyInfo *BFI,
                              BranchProbabilityInfo *BPI, AssumptionCache *AC,
                              bool AllowVarArgs, bool AllowAlloca,
-#if INTEL_COLLAB
                              BasicBlock *AllocationBlock, std::string Suffix,
+#if INTEL_COLLAB
+                             // This llorg arg is in the COLLAB region because
+                             // we added the ",".
+                             bool ArgsInZeroAddressSpace,
+                             // Intel args start here. New args from llorg
+                             // need to be merged above this line.
                              bool AllowEHTypeID, bool AllowUnreachableBlocks,
                              const OrderedArgs *TgtClauseArgs,
                              bool SimdPrivatization)

@@ -384,6 +384,9 @@ Function *HotColdSplitting::extractColdRegion(
                    /* AllowAlloca */ false, /* AllocaBlock */ nullptr,
 #if INTEL_COLLAB
                    /* Suffix */ "cold." + std::to_string(Count),
+                   /* ArgsInZeroAddressSpace */ false,
+                   // Intel args start here, new parms must be merged above
+                   // with explicit values.
                    /* AllowEHTypeID */ false,
                    /* AllowUnreachableBlocks */ false,
                    /* OrderedArgs */ nullptr);

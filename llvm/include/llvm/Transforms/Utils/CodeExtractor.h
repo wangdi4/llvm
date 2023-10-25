@@ -210,6 +210,10 @@ public:
                   BasicBlock *AllocationBlock = nullptr,
 #if INTEL_COLLAB
                   std::string Suffix = "",
+                  bool ArgsInZeroAddressSpace = false,
+                  // Start of Intel args. New args from llorg need to be
+                  // merged above this line. They can be merged outside the
+                  // COLLAB region, if the formatting is 100% the same.
                   bool AllowEHTypeID = false,
                   bool AllowUnreachableBlocks = false,
                   const OrderedArgs *TgtClauseArgs = nullptr,
