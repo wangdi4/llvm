@@ -413,6 +413,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/Transforms/Instrumentation/InstrOrderFile.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Instrumentation/InstrProfiling.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Instrumentation/Intel_SPIEmitter.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Instrumentation/PGOInstrumentation.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/IPO/HotColdSplitting.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/IPO/SampleProfile.h @robertcox-github @pvbattin
@@ -427,6 +428,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Transforms/Instrumentation/InstrProfiling.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Instrumentation/Instrumentation.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Instrumentation/Intel_FunctionSplitting.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Instrumentation/Intel_SPIEmitter.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Instrumentation/PGOInstrumentation.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Instrumentation/PGOMemOPSizeOpt.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Instrumentation/ValueProfileCollector.cpp @robertcox-github @pvbattin
@@ -436,6 +438,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Instrumentation/InstrOrderFile/ @robertcox-github @pvbattin
 /llvm/test/Instrumentation/InstrProfiling/ @robertcox-github @pvbattin
 /llvm/test/Instrumentation/Intel_FunctionSplitting/ @robertcox-github @pvbattin
+/llvm/test/Instrumentation/Intel_SPIEmitter/ @robertcox-github @pvbattin
 /llvm/test/Transforms/HotColdSplit/ @robertcox-github @pvbattin
 /llvm/test/Transforms/PGOProfile/ @robertcox-github @pvbattin
 /llvm/test/Transforms/SampleProfile/ @robertcox-github @pvbattin
