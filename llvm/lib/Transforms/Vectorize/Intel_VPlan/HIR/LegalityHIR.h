@@ -95,16 +95,21 @@ public:
   /// SIMD linear clause. The linear's Step value is also stored within this
   /// class.
   struct LinearDescr : public DescrWithInitValueTy {
+    using DescrKind = typename DescrValueTy::DescrKind;
     LinearDescr(RegDDRef *RegV, Type *LinearTyV, Type *PointeeTyV,
                 const RegDDRef *StepV)
-        : DescrWithInitValueTy(RegV), LinearTy(LinearTyV),
-          PointeeTy(PointeeTyV), Step(StepV) {}
+        : DescrWithInitValueTy(RegV, DescrKind::DK_LinearDescr),
+          LinearTy(LinearTyV), PointeeTy(PointeeTyV), Step(StepV) {}
     // Move constructor
     LinearDescr(LinearDescr &&Other) = default;
 
     Type *LinearTy;
     Type *PointeeTy;
     const DDRef *Step;
+    /// Method to support type inquiry through isa, cast, and dyn_cast.
+    static bool classof(const DescrValueTy *Descr) {
+      return Descr->getKind() == DescrKind::DK_LinearDescr;
+    }
   };
   using LinearListTy = SmallVector<LinearDescr, 8>;
 

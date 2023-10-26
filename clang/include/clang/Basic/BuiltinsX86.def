@@ -54,11 +54,11 @@
 // can use it?
 BUILTIN(__builtin_cpu_init, "v", "n")
 BUILTIN(__builtin_cpu_supports, "bcC*", "nc")
-// #if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 BUILTIN(_may_i_use_cpu_feature, "iIUOi", "nc")
 BUILTIN(_may_i_use_cpu_feature_ext, "iIUOiIUi", "nc")
 BUILTIN(_may_i_use_cpu_feature_str, "icC*.", "nc")
-// #endif // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_cpu_is, "bcC*", "nc")
 
 // Undefined Values

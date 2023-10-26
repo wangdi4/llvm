@@ -25,7 +25,7 @@
 ///
 /// \file
 /// Defines clang::SyclOptReportHandler class.
-/// Defines clang::OpenMPOptReportHandler class.
+/// Defines clang::OpenMPOptReportHandler class. // INTEL
 ///
 //===----------------------------------------------------------------------===//
 

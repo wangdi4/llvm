@@ -148,7 +148,7 @@ public:
   /// compilation.
   llvm::VersionTuple DarwinTargetVariantSDKVersion;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// If given, list of names of the target CPUs to multiversion code for
   std::vector<std::string> AutoCPUDispatchTargets;
   std::vector<std::string> AutoArchTargets;

@@ -459,6 +459,11 @@ static Attr *handleHLSIVDepAttr(Sema &S, const ParsedAttr &A) {
   if (ValueExpr == nullptr)
     std::swap(ValueExpr, ArrayExpr);
 
+  // Beware, this creates a SYCLIntelIVDepAttr from a parsed LoopHintAttr.
+  // This requires a hack in ClangAttrEmitter to recognize the spelling that
+  // wouldn't normally exist in this attribute. If the assert here fails, the
+  // LoopHintAttr spellings have changed and the hack must be updated to match.
+  assert(A.getAttributeSpellingListIndex() == 4 && "unexpected ivdep spelling");
   return S.BuildSYCLIntelIVDepAttr(A, ValueExpr, ArrayExpr);
 }
 #endif // INTEL_CUSTOMIZATION

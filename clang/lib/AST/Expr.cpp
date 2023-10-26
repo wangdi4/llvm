@@ -3908,14 +3908,17 @@ namespace {
     }
 
     void VisitCXXBindTemporaryExpr(const CXXBindTemporaryExpr *E) {
-      if (
 #if INTEL_CUSTOMIZATION
-          (Context.getLangOpts().isIntelCompat(
-               LangOptions::MSVC2015TriviallyConstructibleBehavior) &&
-           Context.getLangOpts().MSVCCompat &&
-           !Context.getLangOpts().isCompatibleWithMSVC(LangOptions::MSVC2017)) ||
+      if (Context.getLangOpts().isIntelCompat(
+              LangOptions::MSVC2015TriviallyConstructibleBehavior) &&
+          Context.getLangOpts().MSVCCompat &&
+          !Context.getLangOpts().isCompatibleWithMSVC(LangOptions::MSVC2017)) {
+        Inherited::VisitStmt(E);
+        return;
+      }
 #endif // INTEL_CUSTOMIZATION
-          E->getTemporary()->getDestructor()->isTrivial()) {
+
+      if (E->getTemporary()->getDestructor()->isTrivial()) {
         Inherited::VisitStmt(E);
         return;
       }

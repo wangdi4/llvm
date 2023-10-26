@@ -737,9 +737,9 @@ std::unique_ptr<TargetInfo> AllocateTarget(const llvm::Triple &Triple,
         default:
           if (IsFPGASubArch)
             return std::make_unique<MicrosoftX86_64_SPIR64INTELFpgaTargetInfo>(Triple, Opts);
-          return std::make_unique<MicrosoftX86_64_SPIR64TargetInfo>(Triple, Opts);
         }
 #endif // INTEL_CUSTOMIZATION
+        return std::make_unique<MicrosoftX86_64_SPIR64TargetInfo>(Triple, Opts);
       }
     case llvm::Triple::Linux:
 #if INTEL_CUSTOMIZATION
@@ -894,7 +894,7 @@ TargetInfo::CreateTargetInfo(DiagnosticsEngine &Diags,
     return nullptr;
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Check that targets for automatic-multiversion-dispatch specified are legal.
   {
     bool IncorrectTargetNameSeen = false;
@@ -917,7 +917,7 @@ TargetInfo::CreateTargetInfo(DiagnosticsEngine &Diags,
         Diags.Report(diag::note_valid_options) << llvm::join(ValidList, ", ");
     }
   }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   // Set the target ABI if specified.
   if (!Opts->ABI.empty() && !Target->setABI(Opts->ABI)) {

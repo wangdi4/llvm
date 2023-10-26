@@ -66,13 +66,7 @@ namespace clang {
   /// Specifies the signedness of a type, e.g., signed or unsigned.
   enum class TypeSpecifierSign { Unspecified, Signed, Unsigned };
 
-  enum class TypeSpecifiersPipe {
-    Unspecified,
-    Pipe,
-#if INTEL_CUSTOMIZATION
-    Channel,
-#endif // INTEL_CUSTOMIZATION
-  };
+  enum class TypeSpecifiersPipe { Unspecified, Pipe, Channel }; // INTEL
 
   /// Specifies the kind of type.
   enum TypeSpecifierType {

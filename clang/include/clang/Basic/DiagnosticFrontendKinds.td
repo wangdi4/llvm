@@ -291,10 +291,10 @@ def err_invalid_vfs_overlay : Error<
 def warn_option_invalid_ocl_version : Warning<
   "%0 does not support the option '%1'">, InGroup<Deprecated>;
 
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def err_unable_to_load_vfs_overlay : Error<
   "unable to load virtual filesystem overlay '%0': %1">, DefaultFatal;
-// endif INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 def err_builtin_needs_feature : Error<"%0 needs target feature %1">;
 def err_function_needs_feature : Error<
