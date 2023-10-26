@@ -78,9 +78,10 @@ private:
   const CoverageViewOptions &Options;
   const coverage::CoverageMapping &Coverage;
 
-  void renderFunction(raw_ostream &OS, XMLTag &ModuleTag,
-                      const coverage::FunctionRecord *F,
-                      FunctionCoverageSummary &InstantiationSummary) const;
+  void
+  renderFunction(raw_ostream &OS, XMLTag &ModuleTag,
+                 const coverage::FunctionRecord *F,
+                 const FunctionCoverageSummary &InstantiationSummary) const;
 
   std::string DemangleName(StringRef Name) const;
 
