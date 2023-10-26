@@ -488,11 +488,18 @@ Bug Fixes in This Version
 - Clang no longer permits using the `_BitInt` types as an underlying type for an
   enumeration as specified in the C23 Standard.
   Fixes (`#69619 <https://github.com/llvm/llvm-project/issues/69619>`_)
+- Fixed an issue when a shift count specified by a small constant ``_BitInt()``,
+  in a left shift operation, could result in a faulty warnings about
+  ``shift count >= width of type``.
 - Clang now accepts anonymous members initialized with designated initializers
   inside templates.
   Fixes (`#65143 <https://github.com/llvm/llvm-project/issues/65143>`_)
 - Fix crash in formatting the real/imaginary part of a complex lvalue.
   Fixes (`#69218 <https://github.com/llvm/llvm-project/issues/69218>`_)
+- No longer use C++ ``thread_local`` semantics in C23 when using
+  ``thread_local`` instead of ``_Thread_local``.
+  Fixes (`#70068 <https://github.com/llvm/llvm-project/issues/70068>`_) and
+  (`#69167 <https://github.com/llvm/llvm-project/issues/69167>`_)
 
 Bug Fixes to Compiler Builtins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -768,6 +775,7 @@ AST Matchers
 clang-format
 ------------
 - Add ``AllowBreakBeforeNoexceptSpecifier`` option.
+- Add ``AllowShortCompoundRequirementOnASingleLine`` option.
 
 libclang
 --------

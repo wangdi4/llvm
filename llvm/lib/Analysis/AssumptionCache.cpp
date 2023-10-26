@@ -205,7 +205,7 @@ void AssumptionCache::unregisterAssumption(AssumeInst *CI) {
       AffectedValues.erase(AVI);
   }
 
-  erase_value(AssumeHandles, CI);
+  llvm::erase(AssumeHandles, CI);
 }
 
 void AssumptionCache::AffectedValueCallbackVH::deleted() {

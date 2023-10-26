@@ -1050,7 +1050,7 @@ public:
     return NonODRUsedCapturingExprs.count(CapturingVarExpr);
   }
   void removePotentialCapture(Expr *E) {
-    llvm::erase_value(PotentiallyCapturingExprs, E);
+    llvm::erase(PotentiallyCapturingExprs, E);
   }
   void clearPotentialCaptures() {
     PotentiallyCapturingExprs.clear();
