@@ -1727,7 +1727,7 @@ public:
   virtual bool shouldDiagnoseVariadicCall(void) const {
     return true;
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// Whether target allows debuginfo types for decl only variables/functions.
   virtual bool allowDebugInfoForExternalRef() const { return false; }

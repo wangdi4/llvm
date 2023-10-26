@@ -1641,10 +1641,10 @@ static void writeGetSpellingFunction(const Record &R, raw_ostream &OS) {
           "    return \"" << Spellings[I].name() << "\";\n";
 #if INTEL_CUSTOMIZATION
   // FIXME: this is a complete hack that needs to be removed. It only "works"
-  // because 5 happens to be the spelling list index of the ivdep pragma listed
+  // because 4 happens to be the spelling list index of the ivdep pragma listed
   // in the LoopHint definition in Attr.td.
   if (R.getName() == "SYCLIntelIVDep")
-    OS << "  case 5:\n"// << Spellings.size() << ":\n"
+    OS << "  case 4:\n"// << Spellings.size() << ":\n"
        << "    return \"ivdep\";\n";
 #endif
   // End of the switch statement.

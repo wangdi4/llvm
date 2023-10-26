@@ -771,13 +771,13 @@ def UninitializedConstReference : DiagGroup<"uninitialized-const-reference">;
 def Uninitialized  : DiagGroup<"uninitialized", [UninitializedSometimes,
                                                  UninitializedStaticSelfInit,
                                                  UninitializedConstReference]>;
-//#if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def MaybeUninitialized
     : DiagGroup<"maybe-uninitialized",
                 [ UninitializedMaybe, UninitializedSometimes ]>;
 def DebugDisablesOptimization : DiagGroup<"debug-disables-optimization">;
 def RecommendedOpt : DiagGroup<"recommended-option">;
-//#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 def IgnoredPragmaIntrinsic : DiagGroup<"ignored-pragma-intrinsic">;
 // #pragma optimize is often used to avoid to work around MSVC codegen bugs or
 // to disable inlining. It's not completely clear what alternative to suggest

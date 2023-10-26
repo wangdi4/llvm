@@ -333,10 +333,10 @@ PLACEHOLDER_TYPE(BuiltinFn, BuiltinFnTy)
 // context.
 PLACEHOLDER_TYPE(ARCUnbridgedCast, ARCUnbridgedCastTy)
 
-// if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
 // The type that __builtin_va_arg_pack returns.
 PLACEHOLDER_TYPE(VAArgPack, VAArgPackTy)
-// endif // INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 
 // A placeholder type for incomplete matrix index expressions.
 PLACEHOLDER_TYPE(IncompleteMatrixIdx, IncompleteMatrixIdxTy)

@@ -1,20 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //==--- DiagnosticSemaKinds.td - libsema diagnostics ----------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -177,10 +160,6 @@ def err_bankbits_numbanks_conflicting : Error<
   "the number of bank_bits must be equal to ceil(log2(numbanks))">;
 def err_bankbits_non_consecutive : Error<
   "bank_bits must be consecutive">;
-// if INTEL_CUSTOMIZATION
-def err_loop_fuse_unknown_arg : Error<
-  "unknown argument to 'loop_fuse'. Expected integer expression">;
-// endif // INTEL_CUSTOMIZATION
 def err_intel_fpga_mem_limitations
     : Error<
           "illegal %select{pointer argument of type %1 |field in type pointed "
@@ -1130,12 +1109,6 @@ def err_pragma_loop_compatibility : Error<
   "%select{incompatible|duplicate}0 directives '%1' and '%2'">;
 def err_pragma_loop_precedes_nonloop : Error<
   "expected a for, while, or do-while loop to follow '%0'">;
-//#if INTEL_CUSTOMIZATION
-//JR 45956
-def err_pragma_distpt_on_nonloop_stmt : Warning<
-  "statement following '%0' must be a loop or within a loop">,
-  InGroup<Pragmas>;
-//#endif // INTEL_CUSTOMIZATION
 def err_pragma_attribute_matcher_subrule_contradicts_rule : Error<
   "redundant attribute subject matcher sub-rule '%0'; '%1' already matches "
   "those declarations">;
@@ -1867,15 +1840,6 @@ def err_class_redeclared_with_different_access : Error<
   "%0 redeclared with '%1' access">;
 def err_access : Error<
   "%1 is a %select{private|protected}0 member of %3">, AccessControl;
-//if INTEL_CUSTOMIZATION
-// Fix for CQ368409: Different behavior on accessing static private class
-// members.
-def warn_access_type : Warning<
-  "type %1 is a %select{private|protected}0 member of %3 (allowed for cfront "
-  "compatibility)">, AccessControl, InGroup<IntelCompat>;
-def warn_access : Warning<
-  err_access.Summary>, AccessControl, InGroup<IntelCompat>;
-// endif //INTEL_CUSTOMIZATION
 def ext_ms_using_declaration_inaccessible : ExtWarn<
   "using declaration referring to inaccessible member '%0' (which refers "
   "to accessible member '%1') is a Microsoft compatibility extension">,
@@ -3801,16 +3765,6 @@ def warn_attribute_not_on_decl : Warning<
   "%0 attribute ignored when parsing type">, InGroup<IgnoredAttributes>;
 def err_base_specifier_attribute : Error<
   "%0%select{ attribute|}1 cannot be applied to a base specifier">;
-// if INTEL_CUSTOMIZATION
-def err_interrupt_function_wrong_return_type : Error<
-  "interrupt service routine must have void return value">;
-def err_interrupt_function_wrong_args : Error<
-  "interrupt service routine can only have a pointer argument and an optional integer argument">;
-def err_interrupt_function_wrong_first_arg : Error<
-  "interrupt service routine should have a pointer as the first argument">;
-def err_interrupt_function_wrong_second_arg : Error<
-  "interrupt service routine should have one of unsigned integer types as the second argument">;
-// endif INTEL_CUSTOMIZATION
 def warn_declspec_allocator_nonpointer : Warning<
   "ignoring __declspec(allocator) because the function return type %0 is not "
   "a pointer or reference type">, InGroup<IgnoredAttributes>;
@@ -5998,17 +5952,10 @@ def err_inline_decl_follows_def : Error<
   "inline declaration of %0 follows non-inline definition">;
 def err_inline_declaration_block_scope : Error<
   "inline declaration of %0 not allowed in block scope">;
-// if INTEL_CUSTOMIZATION
-def warn_inline_declaration_block_scope : Warning<err_inline_declaration_block_scope.Summary>,
-    InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_static_non_static : Error<
   "static declaration of %0 follows non-static declaration">;
 def err_different_language_linkage : Error<
   "declaration of %0 has a different language linkage">;
-def warn_different_language_linkage : Warning<
-  "declaration of %0 has a different language linkage">,
-  InGroup<IntelCompat>;
 def ext_retained_language_linkage : Extension<
   "friend function %0 retaining previous language linkage is an extension">,
   InGroup<DiagGroup<"retained-language-linkage">>;
@@ -6148,14 +6095,6 @@ def err_typecheck_invalid_restrict_not_pointer : Error<
   "restrict requires a pointer or reference (%0 is invalid)">;
 def err_typecheck_invalid_restrict_not_pointer_noarg : Error<
   "restrict requires a pointer or reference">;
-// if INTEL_CUSTOMIZATION
-def warn_typecheck_invalid_restrict_not_pointer : Warning<
-  err_typecheck_invalid_restrict_not_pointer.Summary>,
-  InGroup<C99>;
-def warn_typecheck_invalid_restrict_not_pointer_noarg : Warning<
-  err_typecheck_invalid_restrict_not_pointer_noarg.Summary>,
-  InGroup<C99>;
-// endif // INTEL_CUSTOMIZATION 
 def err_typecheck_invalid_restrict_invalid_pointee : Error<
   "pointer to function type %0 may not be 'restrict' qualified">;
 def ext_typecheck_zero_array_size : Extension<
@@ -6265,11 +6204,6 @@ def err_init_objc_class : Error<
   "cannot initialize Objective-C class type %0">;
 def err_implicit_empty_initializer : Error<
   "initializer for aggregate with no elements requires explicit braces">;
-// if INTEL_CUSTOMIZATION
-// cq371131
-def warn_implicit_empty_initializer : Warning<
-  err_implicit_empty_initializer.Summary>, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_bitfield_has_negative_width : Error<
   "bit-field %0 has negative width (%1)">;
 def err_anon_bitfield_has_negative_width : Error<
@@ -7206,10 +7140,6 @@ def ext_typecheck_addrof_void : Extension<
   "ISO C forbids taking the address of an expression of type 'void'">;
 def err_unqualified_pointer_member_function : Error<
   "must explicitly qualify name of member function when taking its address">;
-// if INTEL_CUSTOMIZATION
-def warn_unqualified_pointer_member_function : Warning<
-  err_unqualified_pointer_member_function.Summary>, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_invalid_form_pointer_member_function : Error<
   "cannot create a non-constant pointer to member function">;
 def err_address_of_function_with_pass_object_size_params: Error<
@@ -7425,12 +7355,6 @@ def warn_left_shift_always : Warning<
   "converting the result of '<<' to a boolean always evaluates "
   "to %select{false|true}0">,
   InGroup<TautologicalConstantCompare>;
-// if INTEL_CUSTOMIZATION
-def warn_fast_floating_point_eq : Warning<
-  "explicit comparison with %0 in fast floating point mode">,
-  InGroup<TautologicalConstantCompare>;
-// endif INTEL_CUSTOMIZATION
-
 def warn_null_in_arithmetic_operation : Warning<
   "use of NULL in arithmetic operation">,
   InGroup<NullArithmetic>;
@@ -10392,12 +10316,6 @@ def err_x86_builtin_invalid_scale : Error<
   "scale argument must be 1, 2, 4, or 8">;
 def err_x86_builtin_tile_arg_duplicate : Error<
   "tile arguments must refer to different tiles">;
-// INTEL_CUSTOMIZATION
-// INTEL_FEATURE_ISA_AMX_SPARSE
-def err_x86_builtin_tilepair_arg_duplicate : Error<
-  "tilepair arguments must refer to different tilepair registers">;
-// end INTEL_FEATURE_ISA_AMX_SPARSE
-// end INTEL_CUSTOMIZATION
 
 def err_builtin_target_unsupported : Error<
   "builtin is not supported on this target">;
@@ -10696,8 +10614,6 @@ def err_missing_actual_pipe_type : Error<
 def err_reference_pipe_type : Error <
   "pipes packet types cannot be of reference type">;
 def err_opencl_no_main : Error<"%select{function|kernel}0 cannot be called 'main'">;
-
-
 def err_opencl_kernel_attr :
   Error<"attribute %0 can only be applied to an OpenCL kernel function">;
 def err_return_value_with_address_space : Error<
@@ -10836,11 +10752,6 @@ def warn_omp_minus_in_reduction_deprecated : Warning<
   InGroup<Deprecated>;
 def err_omp_unexpected_clause_value : Error<
   "expected %0 in OpenMP clause '%1'">;
-// if INTEL_CUSTOMIZATION
-def err_omp_unexpected_lastprivate_conditional : Error<
-  "expected 'scalar'%select{| or 'vector'}0 in OpenMP clause 'lastprivate' with conditional modifier">;
-def err_invalid_ompx_processor : Error<"invalid cpu name '%0' in 'ompx_processor' clause">;
-// endif INTEL_CUSTOMIZATION
 def err_omp_unexpected_call_to_omp_runtime_api
     : Error<"calls to OpenMP runtime API are not allowed within a region that "
             "corresponds to a construct with an order clause that specifies "
@@ -11503,15 +11414,6 @@ def err_omp_allocator_used_in_clauses : Error<
   "data-sharing or data-mapping attribute clauses">;
 def err_omp_allocator_not_in_uses_allocators : Error<
   "allocator must be specified in the 'uses_allocators' clause">;
-def err_omp_loop_directive_without_bind : Error<
-  "'loop' directive without 'bind' clause must be nested in another construct">;
-def warn_omp_static_duration_allocate_directive : Warning<
-  "'%0' is equivalent to 'omp_default_mem_alloc’ for variables with static "
-  "storage duration, consider using a local variable instead">,
-  InGroup<OpenMPAllocate>;
-def err_omp_interop_expression_wrong_type : Error<
-  "'interop' clause expression must be of type 'omp_interop_t'">;
-// end INTEL_COLLAB
 def note_omp_protected_structured_block
     : Note<"jump bypasses OpenMP structured block">;
 def note_omp_exits_structured_block
@@ -11533,24 +11435,30 @@ def err_omp_interop_var_multiple_actions : Error<
 def err_omp_dispatch_statement_call
     : Error<"statement after '#pragma omp dispatch' must be a direct call"
             " to a target function or an assignment to one">;
-#if INTEL_COLLAB
-def warn_omp_interop_prefer_type : Warning<
-  "Expected 'cuda', 'cuda_driver', 'opencl', 'sycl', 'hip', 'level_zero' "
-  "or 'level_one' expression">, InGroup<SourceUsesOpenMP>;
-def err_omp_target_variant_dispatch_statement_call
-    : Error<"statement after '#pragma omp target variant dispatch' must be a" 
-            " direct call to a target function or an assignment to one">;
-def err_omp_need_device_ptr_clause_arg_out_of_bound
-    : Error<"'need_device_ptr' specifies argument '%0' but call has only %1" 
-            " argument%select{|s}2">;
-def err_omp_need_device_ptr_non_pointer_type
-    : Error<"argument %0 specified in 'need_device_ptr' clause must be a "
-            "pointer">;
-#endif // INTEL_COLLAB
 def err_omp_unroll_full_variable_trip_count : Error<
   "loop to be fully unrolled must have a constant trip count">;
 def note_omp_directive_here : Note<"'%0' directive found here">;
 #if INTEL_COLLAB
+def err_omp_loop_directive_without_bind : Error<
+  "'loop' directive without 'bind' clause must be nested in another construct">;
+def warn_omp_static_duration_allocate_directive : Warning<
+  "'%0' is equivalent to 'omp_default_mem_alloc’ for variables with static "
+  "storage duration, consider using a local variable instead">,
+  InGroup<OpenMPAllocate>;
+def err_omp_interop_expression_wrong_type : Error<
+  "'interop' clause expression must be of type 'omp_interop_t'">;
+def warn_omp_interop_prefer_type : Warning<
+  "Expected 'cuda', 'cuda_driver', 'opencl', 'sycl', 'hip', 'level_zero' "
+  "or 'level_one' expression">, InGroup<SourceUsesOpenMP>;
+def err_omp_target_variant_dispatch_statement_call
+    : Error<"statement after '#pragma omp target variant dispatch' must be a"
+            " direct call to a target function or an assignment to one">;
+def err_omp_need_device_ptr_clause_arg_out_of_bound
+    : Error<"'need_device_ptr' specifies argument '%0' but call has only %1"
+            " argument%select{|s}2">;
+def err_omp_need_device_ptr_non_pointer_type
+    : Error<"argument %0 specified in 'need_device_ptr' clause must be a "
+            "pointer">;
 def err_omp_allocate_offload_target : Error<
   "allocate directive not supported for selected target">;
 def err_omp_depend_type_unsupported_taskwait : Error<
@@ -12180,15 +12088,6 @@ def err_sycl_special_type_num_init_method : Error<
   "types with 'sycl_special_class' attribute must have one and only one '__init' "
   "method defined">;
 
-// if INTEL_CUSTOMIZATION
-def warn_sycl_unmasked_num_of_function_params : Warning<
-  "function with 'unmasked' attribute must have at least one parameter">,
-  InGroup<IgnoredAttributes>;
-def warn_sycl_unmasked_improper_caller : Warning<"function with 'unmasked' attribute "
-  "can be called only by 'non_uniform_sub_group::invoke_unmasked()'">,
-  InGroup<AcceptedAttributes>;
-// endif // INTEL_CUSTOMIZATION
-
 def warn_cuda_maxclusterrank_sm_90 : Warning<
   "maxclusterrank requires sm_90 or higher, CUDA arch provided: %0, ignoring "
   "%1 attribute">, InGroup<IgnoredAttributes>;
@@ -12377,19 +12276,6 @@ def err_probability_not_constant_float : Error<
 def err_probability_out_of_range : Error<
    "probability argument to __builtin_expect_with_probability is outside the "
    "range [0.0, 1.0]">;
-// #if INTEL_CUSTOMIZATION
-def err_bad_variant_specifier : Error<
-  "bad variant specifier %0, expected %select{variant_list|'masked' "
-  "or 'unmasked'|'varying', 'uniform' or 'linear'}1">;
-def err_wrong_num_params_in_variant_specifier : Error<
-  "wrong number of parameters in variant specifier, expected '%0', have '%1'">;
-def err_vector_length_passing : Error<
-  "the vector length %select{'%1' |}0must be %select{positive value|"
-  "passed as template parameter}0">;
-def err_function_arg_passing : Error<
-      "%select{function argument is not valid function|invalied function "
-      "table argument}0">;
-// #endif INTEL_CUSTOMIZATION
 
 // TCB warnings
 def err_tcb_conflicting_attributes : Error<

@@ -513,10 +513,6 @@ public:
   std::string IntelDriverTempfileName;
 #endif // INTEL_CUSTOMIZATION
 
-#define LANGOPT(Name, Bits, Default, Description)
-#define TYPED_LANGOPT(Type, Name, Description) Type Name;
-#include "clang/Basic/LangOptions.def"
-
   /// A list of all -fno-builtin-* function names (e.g., memset).
   std::vector<std::string> NoBuiltinFuncs;
 

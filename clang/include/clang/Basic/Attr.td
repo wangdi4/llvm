@@ -382,10 +382,10 @@ class SubjectDiag<bit warn, bit intel_warn = 0> { // INTEL
 }
 def WarnDiag : SubjectDiag<1>;
 def ErrorDiag : SubjectDiag<0>;
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Intel specific, allows converting a clang error to a warning in Intel mode.
 def IntelWarnDiag : SubjectDiag<0, 1>;
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 class SubjectList<list<AttrSubject> subjects, SubjectDiag diag = WarnDiag,
                   string customDiag = ""> {
@@ -406,7 +406,6 @@ class LangOpt<string name, code customCode = [{}], bit silentlyIgnore = 0> {
   // "LangOpts" bound.
   code CustomCode = customCode;
 }
-
 def MicrosoftExt : LangOpt<"MicrosoftExt">;
 def Borland : LangOpt<"Borland">;
 def CUDA : LangOpt<"CUDA">;
@@ -784,7 +783,7 @@ def AddressSpace : TypeAttr {
 def Alias : Attr {
   let Spellings = [GCC<"alias">];
   let Args = [StringArgument<"Aliasee">];
-  let Subjects = SubjectList<[Function, GlobalVar], WarnDiag>;//***INTEL
+  let Subjects = SubjectList<[Function, GlobalVar], WarnDiag>; // INTEL
   let Documentation = [Undocumented];
 }
 
@@ -1359,7 +1358,7 @@ def CUDAShared : InheritableAttr {
 }
 def : MutualExclusions<[CUDAConstant, CUDAShared, HIPManaged]>;
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def HLSDevice : InheritableAttr {
   let Spellings = [Clang<"hls_device">];
   let Subjects = SubjectList<[Function]>;
@@ -1367,7 +1366,7 @@ def HLSDevice : InheritableAttr {
   let Documentation = [HLSDeviceDocs];
   let SimpleHandler = 1;
 }
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 def GlobalStorageNonLocalVar : SubsetSubject<Var,
                                              [{S->hasGlobalStorage() &&
@@ -1531,14 +1530,14 @@ def SYCLDeviceIndirectlyCallable : InheritableAttr {
   let Documentation = [SYCLDeviceIndirectlyCallableDocs];
 }
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def SYCLUnmasked: InheritableAttr {
   let Spellings = [ CXX11<"intel", "unmasked"> ];
   let Subjects = SubjectList<[Function, CXXMethod]>;
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Documentation = [SYCLUnmaskedDocs];
 }
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 def SYCLIntelBufferLocation : InheritableAttr {
   // No spelling, as this attribute can't be created in the source code.
@@ -1574,42 +1573,49 @@ def SYCLIntelKernelArgsRestrict : InheritableAttr {
 }
 
 def SYCLIntelNumSimdWorkItems : InheritableAttr {
-  let Spellings = [GNU<"num_simd_work_items">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"num_simd_work_items">,
                    CXX11<"intel","num_simd_work_items">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; // INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelNumSimdWorkItemsAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelUseStallEnableClusters : InheritableAttr {
-  let Spellings = [CXX11<"intel","use_stall_enable_clusters">, //INTEL
-                   Clang<"stall_enable">, //INTEL
-                   Clang<"use_stall_enable_clusters">]; //INTEL
-  let LangOpts = [SilentlyIgnoreSYCLIsHost, SYCLIsDevice, HLS, OpenCL]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [CXX11<"intel","use_stall_enable_clusters">,
+                   Clang<"stall_enable">, Clang<"use_stall_enable_clusters">];
+  let LangOpts = [SilentlyIgnoreSYCLIsHost, SYCLIsDevice, HLS, OpenCL];
+#endif // INTEL_CUSTOMIZATION
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelUseStallEnableClustersAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelSchedulerTargetFmaxMhz : InheritableAttr {
-  let Spellings = [GNU<"scheduler_target_fmax_mhz">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"scheduler_target_fmax_mhz">,
                    CXX11<"intel","scheduler_target_fmax_mhz">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; // INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelSchedulerTargetFmaxMhzAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelMaxWorkGroupSize : InheritableAttr {
-  let Spellings = [GNU<"max_work_group_size">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"max_work_group_size">,
                    CXX11<"intel","max_work_group_size">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"XDim">,
               ExprArgument<"YDim">,
               ExprArgument<"ZDim">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; // INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let AdditionalMembers = [{
     std::optional<llvm::APSInt> getXDimVal() const {
@@ -1633,10 +1639,12 @@ def SYCLIntelMaxWorkGroupSize : InheritableAttr {
 }
 
 def SYCLIntelMaxGlobalWorkDim : InheritableAttr {
-  let Spellings = [GNU<"max_global_work_dim">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"max_global_work_dim">,
                    CXX11<"intel","max_global_work_dim">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; // INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelMaxGlobalWorkDimAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
@@ -2193,8 +2201,10 @@ def FastCall : DeclOrTypeAttr {
 }
 
 def RegCall : DeclOrTypeAttr {
-  // INTEL_CUSTOMIZATION - "_regcall" alternate spelling
+#if INTEL_CUSTOMIZATION
+  // "_regcall" alternate spelling added
   let Spellings = [GCC<"regcall">, CustomKeyword<"__regcall">, CustomKeyword<"_regcall">];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [RegCallDocs];
 }
 
@@ -2489,81 +2499,87 @@ def SYCLIntelIVDep : StmtAttr {
 }
 
 def SYCLIntelInitiationInterval : DeclOrStmtAttr {
-  let Spellings = [Pragma<"", "ii">, //INTEL
-                   CXX11<"intel", "ii">,
+#if INTEL_CUSTOMIZATION
+  let Spellings = [Pragma<"", "ii">, CXX11<"intel", "ii">,
                    CXX11<"intel", "initiation_interval">];
+#endif // INTEL_CUSTOMIZATION
   let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt, Function],
                               ErrorDiag,
                               "'for', 'while', 'do' statements, and functions">;
   let Args = [ExprArgument<"IntervalExpr">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL];
   let AdditionalMembers = [{
-    // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << getDiagnosticName(Policy);
     }
     std::string getDiagnosticName(const PrintingPolicy &Policy) const {
       return "#pragma ii";
     }
-    // end INTEL_CUSTOMIZATION
   }];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelInitiationIntervalAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelMaxConcurrency : DeclOrStmtAttr {
-  let Spellings = [Pragma<"", "max_concurrency">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [Pragma<"", "max_concurrency">,
                    CXX11<"intel","max_concurrency">];
-  let Subjects =
-      SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt, Function],
-                   ErrorDiag, "'for', 'while', 'do' statements, and functions">;
+#endif // INTEL_CUSTOMIZATION
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt, Function],
+                             ErrorDiag,
+                             "'for', 'while', 'do' statements, and functions">;
   let Args = [ExprArgument<"NThreadsExpr">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL];
   let AdditionalMembers = [{
-    // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma max_concurrency" << getNThreadsExpr();
     }
-    // end INTEL_CUSTOMIZATION
   }];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelMaxConcurrencyAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelLoopCoalesce : StmtAttr {
-  let Spellings = [Pragma<"", "loop_coalesce">, //INTEL
-                   CXX11<"intel","loop_coalesce">];
+#if INTEL_CUSTOMIZATION
+  let Spellings = [Pragma<"", "loop_coalesce">, CXX11<"intel","loop_coalesce">];
+#endif // INTEL_CUSTOMIZATION
   let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
                              ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NExpr", /*opt*/1>];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL];
   let AdditionalMembers = [{
-    // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma loop_coalesce" << getNExpr();
     }
-    // end INTEL_CUSTOMIZATION
   }];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelLoopCoalesceAttrDocs];
 }
 
 def SYCLIntelDisableLoopPipelining : DeclOrStmtAttr {
-  let Spellings = [Pragma<"", "disable_loop_pipelining">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [Pragma<"", "disable_loop_pipelining">,
                    CXX11<"intel","disable_loop_pipelining">];
+#endif // INTEL_CUSTOMIZATION
   let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt, Function],
                               ErrorDiag,
                               "'for', 'while', 'do' statements, and functions">;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL];
   let AdditionalMembers = [{
-    // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << getDiagnosticName(Policy);
     }
     std::string getDiagnosticName(const PrintingPolicy &Policy) const {
       return "#pragma disable_loop_pipelining";
     }
-    // end INTEL_CUSTOMIZATION
   }];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelDisableLoopPipeliningAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
   let SimpleHandler = 1;
@@ -2595,36 +2611,40 @@ def : MutualExclusions<[SYCLIntelMaxConcurrency,
                         SYCLIntelDisableLoopPipelining]>;
 
 def SYCLIntelMaxInterleaving : StmtAttr {
-  let Spellings = [Pragma<"", "max_interleaving">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [Pragma<"", "max_interleaving">,
                    CXX11<"intel","max_interleaving">];
+#endif // INTEL_CUSTOMIZATION
   let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
                              ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NExpr">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL];
   let AdditionalMembers = [{
-    // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma max_interleaving" << getNExpr();
     }
-    // end INTEL_CUSTOMIZATION
   }];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelMaxInterleavingAttrDocs];
 }
 
 def SYCLIntelSpeculatedIterations : StmtAttr {
-  let Spellings = [Pragma<"", "speculated_iterations">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [Pragma<"", "speculated_iterations">,
                    CXX11<"intel","speculated_iterations">];
+#endif // INTEL_CUSTOMIZATION
   let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
                              ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NExpr">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];
   let AdditionalMembers = [{
-    // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma speculated_iterations" << getNExpr();
     }
-    // end INTEL_CUSTOMIZATION
   }];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelSpeculatedIterationsAttrDocs];
 }
 def : MutualExclusions<[SYCLIntelDisableLoopPipelining,
@@ -2693,28 +2713,29 @@ def SYCLIntelLocalOrStaticVar : SubsetSubject<Var,
                               "local variables, static variables">;
 
 def SYCLIntelDoublePump : Attr {
-  let Spellings = [GNU<"doublepump">,                          // INTEL
-                   CXX11<"intel", "doublepump">];
-  let Subjects = SubjectList<[SYCLIntelConstVar,               // INTEL
-                              SYCLIntelLocalStaticAgentMemVar, // INTEL
-                              Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];      // INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"doublepump">, CXX11<"intel", "doublepump">];
+  let Subjects = SubjectList<[SYCLIntelConstVar,
+                              SYCLIntelLocalStaticAgentMemVar, Field],
+                             ErrorDiag>;
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelDoublePumpAttrDocs];
 }
 
 def SYCLIntelSinglePump : Attr {
-  let Spellings = [GNU<"singlepump">,                          // INTEL
-                   CXX11<"intel", "singlepump">];
-  let Subjects = SubjectList<[SYCLIntelConstVar,               // INTEL
-                              SYCLIntelLocalStaticAgentMemVar, // INTEL
-                              Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];      // INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"singlepump">, CXX11<"intel", "singlepump">];
+  let Subjects = SubjectList<[SYCLIntelConstVar,
+                              SYCLIntelLocalStaticAgentMemVar, Field],
+                             ErrorDiag>;
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelSinglePumpAttrDocs];
 }
 
 def SYCLIntelMemory : Attr {
-  let Spellings = [GNU<"memory">, // INTEL
-                   CXX11<"intel", "fpga_memory">];
+  let Spellings = [GNU<"memory">, CXX11<"intel", "fpga_memory">]; // INTEL
   let Args = [EnumArgument<"Kind", "MemoryKind",
                            ["MLAB", "BLOCK_RAM", ""],
                            ["MLAB", "BlockRAM", "Default"], 1>];
@@ -2730,16 +2751,15 @@ def SYCLIntelMemory : Attr {
   let Subjects = SubjectList<[SYCLIntelConstVar,
                               SYCLIntelLocalStaticAgentMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];  // INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [SYCLIntelMemoryAttrDocs];
 }
 
 def SYCLIntelRegister : Attr {
-  let Spellings = [GNU<"register">, // INTEL
-                   CXX11<"intel", "fpga_register">];
+  let Spellings = [GNU<"register">, CXX11<"intel", "fpga_register">]; // INTEL
   let Subjects = SubjectList<[SYCLIntelConstVar, SYCLIntelLocalOrStaticVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];  // INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [SYCLIntelRegisterAttrDocs];
 }
 def : MutualExclusions<[SYCLIntelDoublePump, SYCLIntelSinglePump,
@@ -2747,8 +2767,7 @@ def : MutualExclusions<[SYCLIntelDoublePump, SYCLIntelSinglePump,
 
 // One integral argument.
 def SYCLIntelBankWidth : InheritableAttr {
-  let Spellings = [GNU<"bankwidth">, // INTEL
-                   CXX11<"intel", "bankwidth">];
+  let Spellings = [GNU<"bankwidth">, CXX11<"intel", "bankwidth">]; // INTEL
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[SYCLIntelConstVar,
                               SYCLIntelLocalStaticAgentMemVar,
@@ -2759,19 +2778,19 @@ def SYCLIntelBankWidth : InheritableAttr {
 def : MutualExclusions<[SYCLIntelRegister, SYCLIntelBankWidth]>;
 
 def SYCLIntelNumBanks : InheritableAttr {
-  let Spellings = [GNU<"numbanks">, // INTEL
-                   CXX11<"intel", "numbanks">];
+  let Spellings = [GNU<"numbanks">, CXX11<"intel", "numbanks">]; // INTEL
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[SYCLIntelConstVar,
                               SYCLIntelLocalStaticAgentMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];  // INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [SYCLIntelNumBanksAttrDocs];
 }
 
 def SYCLIntelPrivateCopies : InheritableAttr {
-  let Spellings = [GNU<"private_copies">, // INTEL
-                   CXX11<"intel","private_copies">];
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"private_copies">, CXX11<"intel","private_copies">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"Value">];
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Subjects = SubjectList<[SYCLIntelLocalNonConstVar, Field], ErrorDiag>;
@@ -2781,8 +2800,7 @@ def : MutualExclusions<[SYCLIntelRegister, SYCLIntelPrivateCopies]>;
 
 // Two string arguments.
 def SYCLIntelMerge : Attr {
-  let Spellings = [GNU<"merge">, // INTEL
-                   CXX11<"intel", "merge">];
+  let Spellings = [GNU<"merge">, CXX11<"intel", "merge">]; // INTEL
   let Args = [StringArgument<"Name">, StringArgument<"Direction">];
   let Subjects = SubjectList<[SYCLIntelConstVar, SYCLIntelLocalOrStaticVar,
                               Field], ErrorDiag>;
@@ -2792,8 +2810,9 @@ def SYCLIntelMerge : Attr {
 def : MutualExclusions<[SYCLIntelRegister, SYCLIntelMerge]>;
 
 def SYCLIntelMaxReplicates : InheritableAttr {
-  let Spellings = [GNU<"max_replicates">, // INTEL
-                   CXX11<"intel","max_replicates">];
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"max_replicates">, CXX11<"intel","max_replicates">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[SYCLIntelConstVar,
                               SYCLIntelLocalStaticAgentMemVar,
@@ -2804,9 +2823,11 @@ def SYCLIntelMaxReplicates : InheritableAttr {
 def : MutualExclusions<[SYCLIntelRegister, SYCLIntelMaxReplicates]>;
 
 def SYCLIntelSimpleDualPort : Attr {
-  let Spellings = [GNU<"simple_dual_port">, // INTEL
-                   CXX11<"intel","simple_dual_port">];
-  let Subjects = SubjectList<[SYCLIntelConstVar, SYCLIntelLocalStaticAgentMemVar,
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"simple_dual_port">, CXX11<"intel","simple_dual_port">];
+#endif // INTEL_CUSTOMIZATION
+  let Subjects = SubjectList<[SYCLIntelConstVar,
+                              SYCLIntelLocalStaticAgentMemVar,
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [SYCLIntelSimpleDualPortAttrDocs];
@@ -2830,8 +2851,7 @@ def SYCLIntelPipeIO : InheritableAttr {
 
 // Variadic integral arguments.
 def SYCLIntelBankBits : Attr {
-  let Spellings = [GNU<"bank_bits">, // INTEL
-                   CXX11<"intel", "bank_bits">];
+  let Spellings = [GNU<"bank_bits">, CXX11<"intel", "bank_bits">]; // INTEL
   let Args = [VariadicExprArgument<"Args">];
   let Subjects = SubjectList<[SYCLIntelConstVar,
                               SYCLIntelLocalStaticAgentMemVar,
@@ -2843,8 +2863,9 @@ def : MutualExclusions<[SYCLIntelRegister, SYCLIntelBankBits]>;
 def : MutualExclusions<[SYCLIntelRegister, SYCLIntelNumBanks]>;
 
 def SYCLIntelForcePow2Depth : InheritableAttr {
-  let Spellings = [GNU<"force_pow2_depth">, // INTEL
-                   CXX11<"intel","force_pow2_depth">];
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"force_pow2_depth">, CXX11<"intel","force_pow2_depth">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[SYCLIntelConstVar,
                               SYCLIntelLocalStaticAgentMemVar,
@@ -3779,8 +3800,10 @@ def Section : InheritableAttr {
   let Spellings = [GCC<"section">, Declspec<"allocate">];
   let Args = [StringArgument<"Name">];
   let Subjects =
+#if INTEL_CUSTOMIZATION
       SubjectList<[ Function, GlobalVar, ObjCMethod, ObjCProperty ],
-      IntelWarnDiag>; // INTEL
+      IntelWarnDiag>;
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SectionDocs];
 }
 
@@ -4291,7 +4314,7 @@ def WeakRef : InheritableAttr {
   let Spellings = [GCC<"weakref">];
   // A WeakRef that has an argument is treated as being an AliasAttr
   let Args = [StringArgument<"Aliasee", 1>];
-  let Subjects = SubjectList<[Var, Function], IntelWarnDiag>; //***INTEL
+  let Subjects = SubjectList<[Var, Function], IntelWarnDiag>; // INTEL
   let Documentation = [Undocumented];
 }
 
@@ -4914,7 +4937,7 @@ def InitSeg : Attr {
   }];
 }
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def LoopFuse : StmtAttr {
   let Spellings = [Pragma<"", "loop_fuse">];
   let Args = [DefaultIntArgument<"Depth", 0>,
@@ -4931,7 +4954,7 @@ def LoopFuse : StmtAttr {
   }
   }];
 }
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 def LoopHint : Attr {
   /// #pragma clang loop <option> directive
@@ -4954,8 +4977,7 @@ def LoopHint : Attr {
 
   let Spellings = [Pragma<"clang", "loop">, Pragma<"", "unroll">,
                    Pragma<"", "nounroll">, Pragma<"", "unroll_and_jam">,
-// INTEL_CUSTOMIZATION
-                   Pragma<"", "nounroll_and_jam">,
+#if INTEL_CUSTOMIZATION
                    Pragma<"", "ivdep">,
                    Pragma<"", "ii_at_most">,Pragma<"", "ii_at_least">,
                    Pragma<"", "min_ii_at_target_fmax">,
@@ -4966,16 +4988,16 @@ def LoopHint : Attr {
                    Pragma<"", "fusion">,
                    Pragma<"", "novector">,
                    Pragma<"", "vector">,
-                   Pragma<"", "loop_count">];
-// end INTEL_CUSTOMIZATION
+                   Pragma<"", "loop_count">,
+#endif // INTEL_CUSTOMIZATION
+                   Pragma<"", "nounroll_and_jam">];
+
   /// State of the loop optimization specified by the spelling.
   let Args = [EnumArgument<"Option", "OptionType",
                           ["vectorize", "vectorize_width", "interleave", "interleave_count",
                            "unroll", "unroll_count", "unroll_and_jam", "unroll_and_jam_count",
-                           "vectorize_predicate",
-// INTEL_CUSTOMIZATION
-                           "pipeline", "pipeline_initiation_interval",
-                           "distribute",
+                           "pipeline", "pipeline_initiation_interval", "distribute",
+#if INTEL_CUSTOMIZATION
                            "ivdep", "ivdep-loop", "ivdep-back",
                            "ivdep-hls", "ivdep-hls-intel",
                            "ii_at_most", "ii_at_least",
@@ -4986,14 +5008,13 @@ def LoopHint : Attr {
                            "dynamic_align","nodynamic_align",
                            "vecremainder","novecremainder", "assert",
                            "temporal", "nontemporal", "vectorlength",
-                           "loop_count", "max", "min", "avg"],
-// end INTEL_CUSTOMIZATION
+                           "loop_count", "max", "min", "avg",
+#endif // INTEL_CUSTOMIZATION
+                           "vectorize_predicate"],
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
                            "Unroll", "UnrollCount", "UnrollAndJam", "UnrollAndJamCount",
-                           "VectorizePredicate",
-// INTEL_CUSTOMIZATION
-                           "PipelineDisabled", "PipelineInitiationInterval",
-                           "Distribute",
+                           "PipelineDisabled", "PipelineInitiationInterval", "Distribute",
+#if INTEL_CUSTOMIZATION
                            "IVDep", "IVDepLoop", "IVDepBack",
                            "IVDepHLS", "IVDepHLSIntel",
                            "IIAtMost", "IIAtLeast", "MinIIAtFmax",
@@ -5005,18 +5026,17 @@ def LoopHint : Attr {
                            "VectorizeAlwaysAssert", "VectorizeTemporal",
                            "VectorizeNonTemporal", "VectorizeLength",
                            "LoopCount",
-                           "LoopCountMax", "LoopCountMin","LoopCountAvg"]>,
-// end INTEL_CUSTOMIZATION
+                           "LoopCountMax", "LoopCountMin","LoopCountAvg",
+#endif // INTEL_CUSTOMIZATION
+                           "VectorizePredicate"]>,
               EnumArgument<"State", "LoopHintState",
-// INTEL_CUSTOMIZATION
                            ["enable", "disable", "numeric", "fixed_width",
-                            "scalable_width", "assume_safety", "full",
-                            "loopexpr"],
+                            "loopexpr", // INTEL
+                            "scalable_width", "assume_safety", "full"],
                            ["Enable", "Disable", "Numeric", "FixedWidth",
-                            "ScalableWidth", "AssumeSafety", "Full",
-                            "LoopExpr"]>,
-              ExprArgument<"Value">, ExprArgument<"LoopExprValue">];
-// end INTEL_CUSTOMIZATION
+                            "LoopExpr", // INTEL
+                            "ScalableWidth", "AssumeSafety", "Full"]>,
+              ExprArgument<"Value">, ExprArgument<"LoopExprValue">]; // INTEL
 
   let AdditionalMembers = [{
   static const char *getOptionName(int Option) {
@@ -5033,7 +5053,7 @@ def LoopHint : Attr {
     case PipelineInitiationInterval: return "pipeline_initiation_interval";
     case Distribute: return "distribute";
     case VectorizePredicate: return "vectorize_predicate";
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case VectorizeAlways: return "always";
     case VectorizeAligned: return "aligned";
     case VectorizeUnAligned: return "unaligned";
@@ -5049,7 +5069,7 @@ def LoopHint : Attr {
     case LoopCountMin: return "loop_count min";
     case LoopCountMax: return "loop_count max";
     case LoopCountAvg: return "loop_count avg";
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     }
     llvm_unreachable("Unhandled LoopHint option.");
   }
@@ -5102,7 +5122,7 @@ def OMPGroupPrivateDecl : InheritableAttr {
 }
 #endif // INTEL_COLLAB
 
-include "clang/Basic/intel/IntelAttr.td"
+include "clang/Basic/intel/IntelAttr.td" // INTEL
 
 def OMPCaptureNoInit : InheritableAttr {
   // This attribute has no spellings as it is only ever created implicitly.
@@ -5146,9 +5166,7 @@ def OMPDeclareSimdDecl : Attr {
     VariadicExprArgument<"Aligneds">, VariadicExprArgument<"Alignments">,
     VariadicExprArgument<"Linears">, VariadicUnsignedArgument<"Modifiers">,
     VariadicExprArgument<"Steps">
-// INTEL_CUSTOMIZATION
-    , VariadicIdentifierArgument<"Processors">
-// end INTEL_CUSTOMIZATION
+    , VariadicIdentifierArgument<"Processors"> // INTEL
   ];
   let AdditionalMembers = [{
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
@@ -5405,7 +5423,7 @@ def Error : InheritableAttr {
   let Documentation = [ErrorAttrDocs];
 }
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def PreferDSP : InheritableAttr {
   let Spellings = [CXX11<"intel", "prefer_dsp">, GNU<"prefer_dsp">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
@@ -5427,7 +5445,7 @@ def PropagateDSPPreference : InheritableAttr {
   let Documentation = [Undocumented];
   let SimpleHandler = 1;
 }
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 def HLSLNumThreads: InheritableAttr {
   let Spellings = [Microsoft<"numthreads">];

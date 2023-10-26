@@ -1,20 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //==--- DiagnosticParseKinds.td - libparse diagnostics --------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -178,8 +161,6 @@ def ext_generic_with_type_arg : Extension<
   "passing a type argument as the first operand to '_Generic' is a Clang "
   "extension">, InGroup<DiagGroup<"generic-type-extension">>;
 
-def err_no_arith_type : Error <"expression must have an arithmetic type">; // INTEL
-
 def ext_c99_feature : Extension<
   "'%0' is a C99 extension">, InGroup<C99>;
 def ext_c11_feature : Extension<
@@ -266,12 +247,6 @@ def err_invalid_token_after_toplevel_declarator : Error<
 def err_invalid_token_after_declarator_suggest_equal : Error<
   "invalid %0 at end of declaration; did you mean '='?">;
 def err_expected_statement : Error<"expected statement">;
-// if INTEL_CUSTOMIZATION
-def warn_attributes_ignored_after_init
-    : Warning<"variable attributes appearing after a parenthesized initializer "
-              "are ignored">,
-      InGroup<IgnoredAttributes>;
-// endif INTEL_CUSTOMIZATION
 def err_expected_lparen_after : Error<"expected '(' after '%0'">;
 def err_expected_rparen_after : Error<"expected ')' after '%0'">;
 def err_expected_punc : Error<"expected ')' or ',' after '%0'">;
@@ -324,8 +299,6 @@ def note_missing_selector_name : Note<
 def note_force_empty_selector_name : Note<
   "or insert whitespace before ':' to use %0 as parameter name "
   "and have an empty entry in the selector">;
-def err_switch_label_end_of_compound_statement : Error<
-  "label at end of switch compound statement: expected statement">;
 def ext_c_label_end_of_compound_statement : ExtWarn<
   "label at end of compound statement is a C23 extension">,
    InGroup<C23>;
@@ -1381,12 +1354,6 @@ def err_omp_unknown_directive : Error<
   "expected an OpenMP directive">;
 def err_omp_unexpected_directive : Error<
   "unexpected OpenMP directive %select{|'#pragma omp %1'}0">;
-// if INTEL_CUSTOMIZATION
-// CQ#410305 ignore declare target directive inside function.
-def warn_omp_ignore_unexpected_directive : Warning<
-  "ignoring unexpected OpenMP directive %select{|'#pragma omp %1'}0">,
-  InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_omp_expected_punc : Error<
   "expected ',' or ')' in '%0' %select{clause|directive}1">;
 def warn_clause_expected_string : Warning<
@@ -1414,25 +1381,6 @@ def err_omp_decl_in_declare_target_function : Error<
   "'declare target function' directive">;
 def err_omp_extension_mismatch : Error<
   "use '#pragma ompx'%select{ only|}0 for OpenMP extensions">;
-#endif // INTEL_COLLAB
-def err_omp_unknown_map_type : Error<
-  "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
-def err_omp_unknown_map_type_modifier : Error<
-  "incorrect map type modifier, expected one of: 'always', 'close', 'mapper'"
-  "%select{|, 'present'|, 'present', 'iterator'}0%select{|, 'ompx_hold'}1">;
-#if INTEL_CUSTOMIZATION
-def err_expected_three : Error<"expected %0, %1 or %2">;
-def err_omp_unknown_lastprivate_modifier : Error<
-  "incorrect lastprivate modifier, expected 'conditional'">;
-def err_omp_expected_identifier_for_ompx_processor : Error<
-  "expected identifier in 'ompx_processor' clause">;
-#if INTEL_FEATURE_CSA
-def err_omp_unknown_dataflow_modifier : Error<"unexpected 'dataflow' modifier, expected 'static', 'num_workers' or 'pipeline'">;
-def err_omp_conflicting_dataflow_num_workers_modifier: Error<"'num_workers' modifier of 'dataflow' clause conflicts with 'num_threads' clause">;
-def note_omp_conflicting_dataflow_num_workers_modifier: Note<"conflicting entry is here">;
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-// INTEL_COLLAB
 def err_omp_bad_context_selector_set : Error<
   "unknown or unsupported context selector set, expecting %0">;
 def err_omp_bad_context_selector : Error<
@@ -1456,7 +1404,12 @@ def warn_omp_groupprivate_only_nohost
 def err_omp_declare_target_unexpected_local_clause: Error<
   "unexpected 'local' clause">;
 def err_omp_unexpected_device_type : Error<"unexpected device_type clause">;
-// end INTEL_COLLAB
+#endif // INTEL_COLLAB
+def err_omp_unknown_map_type : Error<
+  "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
+def err_omp_unknown_map_type_modifier : Error<
+  "incorrect map type modifier, expected one of: 'always', 'close', 'mapper'"
+  "%select{|, 'present'|, 'present', 'iterator'}0%select{|, 'ompx_hold'}1">;
 def err_omp_map_type_missing : Error<
   "missing map type">;
 def err_omp_map_type_modifier_missing : Error<

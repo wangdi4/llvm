@@ -134,7 +134,7 @@ namespace {
     KEYINTELALL = KEYFLOAT128 | KEYMSASM | KEYOPENCLCHANNEL,
 #endif // INTEL_CUSTOMIZATION
     KEYALL = (KEYMAX | (KEYMAX-1)) & ~KEYNOMS18 &
-              ~KEYNOOPENCL, // KEYNOMS18 and KEYNOOPENCL are used to exclude.
+             ~KEYNOOPENCL // KEYNOMS18 and KEYNOOPENCL are used to exclude.
   };
 
   /// How a keyword is treated in the selected standard. This enum is ordered

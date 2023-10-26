@@ -754,21 +754,19 @@ KEYWORD(__uuidof                      , KEYMS | KEYBORLAND)
 KEYWORD(__try                         , KEYMS | KEYBORLAND)
 KEYWORD(__finally                     , KEYMS | KEYBORLAND)
 KEYWORD(__leave                       , KEYMS | KEYBORLAND)
-KEYWORD(__int64                       , KEYALL) //***INTEL: sized int support
+KEYWORD(__int64                       , KEYALL) // INTEL sized int support
 KEYWORD(__if_exists                   , KEYMS)
 KEYWORD(__if_not_exists               , KEYMS)
 KEYWORD(__single_inheritance          , KEYMS)
 KEYWORD(__multiple_inheritance        , KEYMS)
 KEYWORD(__virtual_inheritance         , KEYMS)
 KEYWORD(__interface                   , KEYMS)
-ALIAS("__int8"           , char       , KEYALL) //***INTEL: sized int support
-ALIAS("__int16"          , short      , KEYALL) //***INTEL: sized int support
-ALIAS("__int32"          , int        , KEYALL) //***INTEL: sized int support
+ALIAS("__int8"           , char       , KEYALL) // INTEL sized int support
+ALIAS("__int16"          , short      , KEYALL) // INTEL sized int support
+ALIAS("__int32"          , int        , KEYALL) // INTEL sized int support
 #if INTEL_CUSTOMIZATION
 // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
 ALIAS("_asm"             , asm        , KEYMS|KEYMSASM)
-#else
-ALIAS("_asm"             , asm        , KEYMS)
 #endif // INTEL_CUSTOMIZATION
 ALIAS("__int8"           , char       , KEYMS)
 ALIAS("__int16"          , short      , KEYMS)
