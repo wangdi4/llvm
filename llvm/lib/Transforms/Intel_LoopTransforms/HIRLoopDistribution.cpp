@@ -746,6 +746,11 @@ static HLNode *getFirstSafeInsertionNode(HLNode *Node1, HLNode *Node2) {
     TargetNode = HLNodeUtils::getLexicalLowestCommonAncestor(Node1, Node2);
   } else {
     TargetNode = Node1->getParent();
+
+    // Skip HLSwitch parents as we don't distribute nodes inside them. The
+    // entire HLSwitch is treated as a single entity.
+    while (isa<HLSwitch>(TargetNode))
+      TargetNode = TargetNode->getParent();
   }
 
   // If the LCA or parent is a Loop we just return the first child
