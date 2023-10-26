@@ -63,7 +63,7 @@ void CoverageReportXML::renderFileReports(
     // static functions.
     for (const auto &Group : Coverage.getInstantiationGroups(Filename)) {
       // Walk over each instantiation.
-      auto Instantiations = Group.getInstantiations();
+      const auto &Instantiations = Group.getInstantiations();
       for (const coverage::FunctionRecord *F : Instantiations) {
         if (!Filters.matches(Coverage, *F))
           continue;
@@ -78,8 +78,8 @@ void CoverageReportXML::renderFileReports(
     if (!FuncsToReport.empty()) {
       ModuleTag.renderOpen(OS);
       std::sort(FuncsToReport.begin(), FuncsToReport.end());
-      for (auto &LineFunc : FuncsToReport) {
-        auto InstantiationSummary =
+      for (const auto &LineFunc : FuncsToReport) {
+        const auto &InstantiationSummary =
             FunctionCoverageSummary::get(Coverage, *LineFunc.second);
         renderFunction(OS, ModuleTag, LineFunc.second, InstantiationSummary);
       }
@@ -91,13 +91,13 @@ void CoverageReportXML::renderFileReports(
 
 void CoverageReportXML::renderFunction(
     raw_ostream &OS, XMLTag &ModuleTag, const coverage::FunctionRecord *F,
-    FunctionCoverageSummary &InstantiationSummary) const {
+    const FunctionCoverageSummary &InstantiationSummary) const {
   XMLTag FunctionTag(FunctionTagName, &ModuleTag);
   FunctionTag.addAttribute(NameAttrName,
                            DemangleName(InstantiationSummary.Name));
   FunctionTag.addAttribute(FreqAttrName, InstantiationSummary.ExecutionCount);
   FunctionTag.renderOpen(OS);
-  auto &RegionCoverage = InstantiationSummary.RegionCoverage;
+  const auto &RegionCoverage = InstantiationSummary.RegionCoverage;
   XMLTag BlocksTag(BlocksTagName, &FunctionTag);
   BlocksTag.addAttribute(TotalBlocksAttrName, RegionCoverage.getNumRegions());
   BlocksTag.addAttribute(CoveredBlockCountAttrName,
@@ -159,7 +159,7 @@ void CoverageReportXML::renderFunction(
     // to enable lookups when processing the CodeRegion elements.
     DenseMap<uint32_t, std::tuple<uint32_t, LineColPair, LineColPair>>
         MacroUseMapping;
-    for (auto &CR : F->CountedRegions) {
+    for (const auto &CR : F->CountedRegions) {
       if (CR.Kind != coverage::CounterMappingRegion::ExpansionRegion)
         continue;
 
@@ -178,7 +178,7 @@ void CoverageReportXML::renderFunction(
     // Collect the information to be reported, so that instances that map to the
     // same code region can be grouped in the output.
     DenseMap<std::pair<LineColPair, LineColPair>, OutputRecord> InstanceMapping;
-    for (auto &CR : F->CountedRegions) {
+    for (const auto &CR : F->CountedRegions) {
       if (CR.Kind != coverage::CounterMappingRegion::CodeRegion)
         continue;
 
@@ -237,7 +237,7 @@ void CoverageReportXML::renderFunction(
                    std::back_inserter(SortedInstanceMapping),
                    [](auto &KV) { return KV.second; });
     std::sort(SortedInstanceMapping.begin(), SortedInstanceMapping.end());
-    for (auto &Elem : SortedInstanceMapping) {
+    for (const auto &Elem : SortedInstanceMapping) {
       XMLTag BlockTag(BlockTagName, &BlocksTag);
       BlockTag.addAttribute(LineStartAttrName, Elem.StartLoc.first);
       BlockTag.addAttribute(ColumnStartAttrName, Elem.StartLoc.second);
@@ -245,7 +245,7 @@ void CoverageReportXML::renderFunction(
       BlockTag.addAttribute(ColumnEndAttrName, Elem.EndLoc.second);
 
       BlockTag.renderOpen(OS);
-      for (auto Inst : enumerate(Elem.Instances)) {
+      for (const auto &Inst : enumerate(Elem.Instances)) {
         XMLTag InstanceTag(InstanceTagName, &BlockTag);
         InstanceTag.addAttribute(InstIdAttrName, Inst.index() + 1);
         InstanceTag.addAttribute(FreqAttrName, Inst.value().ExecCount);
@@ -295,7 +295,7 @@ CoverageReportXML::XMLTag::~XMLTag() { assert(!IsOpen && "XMLTag not closed"); }
 void CoverageReportXML::XMLTag::renderOpen(raw_ostream &OS) {
   OS.indent(Level * 2);
   OS << "<" << TagName;
-  for (auto &KV : Attributes)
+  for (const auto &KV : Attributes)
     OS << " " << KV.first << "=\"" << KV.second << "\"";
   OS << ">\n";
   IsOpen = true;
