@@ -664,3 +664,17 @@
 // RUN: %clang_cl -### -fsycl -fsycl-targets=spir64="-DFOO -DBAR -mllvm -dummy-opt" %s 2>&1 | FileCheck -check-prefix FSYCL-CHECK-TARGOPTS %s
 // FSYCL-CHECK-TARGOPTS: clang{{.*}} "-triple" "spir64-unknown-unknown" {{.*}} "-D" "FOO" "-D" "BAR" {{.*}} "-mllvm" "-dummy-opt"
 // end INTEL_CUSTOMIZATION
+
+/// Check for linked sycl lib when using -fpreview-breaking-changes with -fsycl
+// RUN: %clang -### -fsycl -fpreview-breaking-changes -target x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefix FSYCL-PREVIEW-BREAKING-CHANGES-CHECK %s
+// RUN: %clang_cl -### -fsycl -fpreview-breaking-changes %s 2>&1 | FileCheck -check-prefix FSYCL-PREVIEW-BREAKING-CHANGES-CHECK-CL %s
+// FSYCL-PREVIEW-BREAKING-CHANGES-CHECK: -defaultlib:sycl{{[0-9]*}}-preview.lib
+// FSYCL-PREVIEW-BREAKING-CHANGES-CHECK-NOT: -defaultlib:sycl{{[0-9]*}}.lib
+// FSYCL-PREVIEW-BREAKING-CHANGES-CHECK-CL: "--dependent-lib=sycl{{[0-9]*}}-preview"
+
+/// Check for linked sycl lib when using -fpreview-breaking-changes with -fsycl
+// RUN: %clang -### -fsycl -fpreview-breaking-changes -target x86_64-unknown-windows-msvc -Xclang --dependent-lib=msvcrtd %s 2>&1 | FileCheck -check-prefix FSYCL-PREVIEW-BREAKING-CHANGES-DEBUG-CHECK %s
+// RUN: %clang_cl -### -fsycl -fpreview-breaking-changes /MDd %s 2>&1 | FileCheck -check-prefix FSYCL-PREVIEW-BREAKING-CHANGES-DEBUG-CHECK %s
+// FSYCL-PREVIEW-BREAKING-CHANGES-DEBUG-CHECK: --dependent-lib=sycl{{[0-9]*}}-previewd
+// FSYCL-PREVIEW-BREAKING-CHANGES-DEBUG-CHECK-NOT: -defaultlib:sycl{{[0-9]*}}.lib
+// FSYCL-PREVIEW-BREAKING-CHANGES-DEBUG-CHECK-NOT: -defaultlib:sycl{{[0-9]*}}-preview.lib
