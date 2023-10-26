@@ -395,30 +395,10 @@ define i64 @sext_like_noop(i32 %n) {
 ; PTR16_IDX16-NEXT:   Predicates:
 ; PTR16_IDX16:       Loop %for.body: Trip multiple is 1
 ;
-<<<<<<< HEAD
-; PTR16_IDX32-LABEL: 'sext_like_noop'
-; PTR16_IDX32-NEXT:  Classifying expressions for: @sext_like_noop
-; PTR16_IDX32-NEXT:    %ii = sext i32 %i to i64
-; PTR16_IDX32-NEXT:    --> (sext i32 {1,+,1}<nuw><%for.body> to i64) U: [-2147483648,2147483648) S: [-2147483648,2147483648) --> (-1 + (zext i32 ptrtoint (ptr @sext_like_noop to i32) to i64))<nsw> U: [-1,65535) S: [-1,65535)
-; PTR16_IDX32-NEXT:    %div = sdiv i64 55555, %ii
 ; INTEL_CUSTOMIZATION
 ; %div range refined from fullset
 ; PTR16_IDX32-NEXT:    %div U: [-55555,55556) S: [-55555,55556)
 ; end INTEL_CUSTOMIZATION
-; PTR16_IDX32-NEXT:    %i = phi i32 [ %inc, %for.body ], [ 1, %entry ]
-; PTR16_IDX32-NEXT:    --> {1,+,1}<nuw><%for.body> U: [1,0) S: [1,0) Exits: (-1 + ptrtoint (ptr @sext_like_noop to i32))<nsw> LoopDispositions: { %for.body: Computable }
-; PTR16_IDX32-NEXT:    %inc = add nuw i32 %i, 1
-; PTR16_IDX32-NEXT:    --> {2,+,1}<nuw><%for.body> U: [2,0) S: [2,0) Exits: ptrtoint (ptr @sext_like_noop to i32) LoopDispositions: { %for.body: Computable }
-; PTR16_IDX32-NEXT:  Determining loop execution counts for: @sext_like_noop
-; PTR16_IDX32-NEXT:  Loop %for.body: backedge-taken count is (-2 + ptrtoint (ptr @sext_like_noop to i32))<nsw>
-; PTR16_IDX32-NEXT:  Loop %for.body: constant max backedge-taken count is -1
-; PTR16_IDX32-NEXT:  Loop %for.body: symbolic max backedge-taken count is (-2 + ptrtoint (ptr @sext_like_noop to i32))<nsw>
-; PTR16_IDX32-NEXT:  Loop %for.body: Predicated backedge-taken count is (-2 + ptrtoint (ptr @sext_like_noop to i32))<nsw>
-; PTR16_IDX32-NEXT:   Predicates:
-; PTR16_IDX32:       Loop %for.body: Trip multiple is 1
-;
-=======
->>>>>>> 4f131b0d2214b5fbaef43d130e576b40a20bda32
 entry:
   %cmp6 = icmp sgt i32 %n, 1
   br label %for.body
