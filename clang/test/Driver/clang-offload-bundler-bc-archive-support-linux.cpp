@@ -1,5 +1,6 @@
 // Target "host-x86_64-unknown-linux-gnu" only works on Linux
 // REQUIRES: system-linux
+// REQUIRES: c++17 ;INTEL
 
 // Ensure that bundled BC files in archives can work with:
 // TEST1:  clang-offload-bundler -list
@@ -14,13 +15,13 @@
 // Make bundled object with targets:
 // sycl-spir64-unknown-unknown
 // host-x86_64-unknown-linux-gnu
-// RUN: %clangxx -fsycl -c %s -o %t_bundled.o
+// RUN: %clangxx -std=c++17 -fsycl -c %s -o %t_bundled.o ;INTEL
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Make three distinct BC files
-// RUN: %clangxx -fsycl -fsycl-device-only -DTYPE1 %s -o %t1.bc
-// RUN: %clangxx -fsycl -fsycl-device-only -DTYPE2 %s -o %t2.bc
-// RUN: %clangxx -fsycl -fsycl-device-only -DTYPE3 %s -o %t3.bc
+// RUN: %clangxx -std=c++17 -fsycl -fsycl-device-only -DTYPE1 %s -o %t1.bc ;INTEL
+// RUN: %clangxx -std=c++17 -fsycl -fsycl-device-only -DTYPE2 %s -o %t2.bc ;INTEL
+// RUN: %clangxx -std=c++17 -fsycl -fsycl-device-only -DTYPE3 %s -o %t3.bc ;INTEL
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Bundle BC files to different targets:
@@ -106,7 +107,6 @@
 
 // RUN: cmp %t_unbundled_A.o `cat %t_listA.txt`
 // RUN: cmp %t2.bc           `cat %t_listB.txt`
-
 #include <sycl/sycl.hpp>
 
 SYCL_EXTERNAL int foo(int x) {
