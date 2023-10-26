@@ -69,7 +69,6 @@ StmtResult Parser::ParseStatement(SourceLocation *TrailingElseLoc,
   return Res;
 }
 
-
 /// ParseStatementOrDeclaration - Read 'statement' or 'declaration'.
 ///       StatementOrDeclaration:
 ///         statement
@@ -2067,11 +2066,7 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   // as those declared in the condition.
   //
   unsigned ScopeFlags = 0;
-  if (C99orCXXorObjC
-#if INTEL_CUSTOMIZATION
-      && getLangOpts().Zc_forScope
-#endif  // INTEL_CUSTOMIZATION
-      )
+  if (C99orCXXorObjC && getLangOpts().Zc_forScope) // INTEL
     ScopeFlags = Scope::DeclScope | Scope::ControlScope;
 
   ParseScope ForScope(this, ScopeFlags);

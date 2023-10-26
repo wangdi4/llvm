@@ -358,6 +358,15 @@ static bool attributeHasVariadicIdentifierArg(const IdentifierInfo &II) {
 #undef CLANG_ATTR_VARIADIC_IDENTIFIER_ARG_LIST
 }
 
+/// Determine whether the given attribute treats kw_this as an identifier.
+static bool attributeTreatsKeywordThisAsIdentifier(const IdentifierInfo &II) {
+#define CLANG_ATTR_THIS_ISA_IDENTIFIER_ARG_LIST
+  return llvm::StringSwitch<bool>(normalizeAttrName(II.getName()))
+#include "clang/Parse/AttrParserStringSwitches.inc"
+           .Default(false);
+#undef CLANG_ATTR_THIS_ISA_IDENTIFIER_ARG_LIST
+}
+
 /// Determine if an attribute accepts parameter packs.
 static bool attributeAcceptsExprPack(const IdentifierInfo &II) {
 #define CLANG_ATTR_ACCEPTS_EXPR_PACK
@@ -459,15 +468,6 @@ static bool attributeParsedArgsUnevaluated(const IdentifierInfo &II) {
 #undef CLANG_ATTR_ARG_CONTEXT_LIST
 }
 #endif // INTEL_CUSTOMIZATION
-
-/// Determine whether the given attribute treats kw_this as an identifier.
-static bool attributeTreatsKeywordThisAsIdentifier(const IdentifierInfo &II) {
-#define CLANG_ATTR_THIS_ISA_IDENTIFIER_ARG_LIST
-  return llvm::StringSwitch<bool>(normalizeAttrName(II.getName()))
-#include "clang/Parse/AttrParserStringSwitches.inc"
-           .Default(false);
-#undef CLANG_ATTR_THIS_ISA_IDENTIFIER_ARG_LIST
-}
 
 IdentifierLoc *Parser::ParseIdentifierLoc() {
   assert(Tok.is(tok::identifier) && "expected an identifier");
@@ -589,8 +589,10 @@ unsigned Parser::ParseAttributeArgsCommon(
   ConsumeParen();
 
   bool ChangeKWThisToIdent = attributeTreatsKeywordThisAsIdentifier(*AttrName);
+#if INTEL_CUSTOMIZATION
   bool AttributeIsTypeArgAttr =
-      attributeIsTypeArgAttr(*AttrName, Form.getSyntax(), ScopeName); // INTEL
+      attributeIsTypeArgAttr(*AttrName, Form.getSyntax(), ScopeName);
+#endif // INTEL_CUSTOMIZATION
   bool AttributeHasVariadicIdentifierArg =
       attributeHasVariadicIdentifierArg(*AttrName);
 
@@ -1912,7 +1914,6 @@ void Parser::DiagnoseMisplacedCXX11Attribute(ParsedAttributes &Attrs,
   SourceLocation Loc = Tok.getLocation();
   ParseCXX11Attributes(Attrs);
   CharSourceRange AttrRange(SourceRange(Loc, Attrs.Range.getEnd()), true);
-
   // FIXME: use err_attributes_misplaced
   (Keyword ? Diag(Loc, diag::err_keyword_not_allowed) << Keyword
            : Diag(Loc, diag::err_attributes_not_allowed))
@@ -3858,13 +3859,13 @@ void Parser::ParseDeclarationSpecifiers(
       //   static const bool __is_signed;
       //
       // then treat __is_signed as an identifier rather than as a keyword.
-      if ((DS.getTypeSpecType() == TST_bool ||  // INTEL
+#if INTEL_CUSTOMIZATION
       // CQ414772: ensure __is_signed is still an identifier in libstdc++
       // even if the return type is hidden by a typedef.
-           (DS.getTypeSpecType() == TST_typename && // INTEL
-            DS.isTypeRep() &&// INTEL
-            DS.getRepAsType().get().getTypePtr()->isBooleanType()) // INTEL
-          ) &&
+      if ((DS.getTypeSpecType() == TST_bool ||
+           (DS.getTypeSpecType() == TST_typename && DS.isTypeRep() &&
+            DS.getRepAsType().get().getTypePtr()->isBooleanType())) &&
+#endif // INTEL_CUSTOMIZATION
           DS.getTypeQualifiers() == DeclSpec::TQ_const &&
           DS.getStorageClassSpec() == DeclSpec::SCS_static)
         TryKeywordIdentFallback(true);

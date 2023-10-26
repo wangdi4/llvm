@@ -45,7 +45,7 @@
 
 namespace clang {
 
-class Attr;                 //***INTEL
+class Attr; // INTEL
 class CXXBaseSpecifier;
 class CXXCtorInitializer;
 class Decl;

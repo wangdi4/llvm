@@ -6369,26 +6369,26 @@ static void ReferenceDllExportedMembers(Sema &S, CXXRecordDecl *Class) {
     if (MD->isUserProvided()) {
       // Instantiate non-default class member functions ...
       // .. except for certain kinds of template specializations.
-      if (TSK == TSK_ImplicitInstantiation && !ClassAttr->isInherited()) {
 #if INTEL_CUSTOMIZATION
-          if (S.getLangOpts().isIntelCompat(
-                  LangOptions::InstantiateDefaultArgs)) {
-              // But before that, make sure to instantiate default args for
-              // defaulted constructor.
-              CXXConstructorDecl *Ctor = dyn_cast<CXXConstructorDecl>(Member);
-              if (Ctor && Ctor->isDefaultConstructor() &&
-                  Ctor->hasOneParamOrDefaultArgs()) {
-                for (unsigned I = 0; I != Ctor->getNumParams(); ++I) {
-                  S.CheckCXXDefaultArgExpr(
-                      Member->getAttr<DLLExportAttr>()->getLocation(), Ctor,
-                      Ctor->getParamDecl(I));
-                  S.DiscardCleanupsInEvaluationContext();
-                }
-              }
+      if (TSK == TSK_ImplicitInstantiation && !ClassAttr->isInherited()) {
+        if (S.getLangOpts().isIntelCompat(
+                LangOptions::InstantiateDefaultArgs)) {
+          // But before that, make sure to instantiate default args for
+          // defaulted constructor.
+          CXXConstructorDecl *Ctor = dyn_cast<CXXConstructorDecl>(Member);
+          if (Ctor && Ctor->isDefaultConstructor() &&
+              Ctor->hasOneParamOrDefaultArgs()) {
+            for (unsigned I = 0; I != Ctor->getNumParams(); ++I) {
+              S.CheckCXXDefaultArgExpr(
+                  Member->getAttr<DLLExportAttr>()->getLocation(), Ctor,
+                  Ctor->getParamDecl(I));
+              S.DiscardCleanupsInEvaluationContext();
+            }
           }
-#endif // INTEL_CUSTOMIZATION
-          continue;
         }
+        continue;
+      }
+#endif // INTEL_CUSTOMIZATION
 
       // If this is an MS ABI dllexport default constructor, instantiate any
       // default arguments.
@@ -11994,7 +11994,7 @@ QualType Sema::CheckComparisonCategoryType(ComparisonCategoryType Kind,
 
 /// Retrieve the special "std" namespace, which may require us to
 /// implicitly define the namespace.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 NamespaceDecl *Sema::getOrCreateStdNamespace(bool MakeAvailableForLookup) {
 #endif // INTEL_CUSTOMIZATION
   if (!StdNamespace) {
@@ -12008,7 +12008,7 @@ NamespaceDecl *Sema::getOrCreateStdNamespace(bool MakeAvailableForLookup) {
     // We want the created NamespaceDecl to be available for redeclaration
     // lookups, but not for regular name lookups.
     Context.getTranslationUnitDecl()->addDecl(getStdNamespace());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     if (!MakeAvailableForLookup)
       getStdNamespace()->clearIdentifierNamespace();
 #endif // INTEL_CUSTOMIZATION

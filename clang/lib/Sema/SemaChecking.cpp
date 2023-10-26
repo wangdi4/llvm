@@ -8957,8 +8957,10 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
     // bool __c11_atomic_compare_exchange_strong(A *, C *, CP, int, int)
     C11CmpXchg,
 
-    // bool __atomic_compare_exchange_weak_explicit(A*, C*, C, int, int) // INTEL
-    IntelCmpXchg,  // INTEL
+#if INTEL_CUSTOMIZATION
+    // bool __atomic_compare_exchange_weak_explicit(A*, C*, C, int, int)
+    IntelCmpXchg,
+#endif // INTEL_CUSTOMIZATION
 
     // bool __atomic_compare_exchange(A *, C *, CP, bool, int, int)
     GNUCmpXchg
@@ -9310,8 +9312,9 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
         return false;
       return true;
     };
-    if (IntelTypeCoerceSize == 0) { // INTEL, intentionally bad indentation
-    if (!IsAllowedValueType(ValType, ArithAllows)) {
+#if INTEL_CUSTOMIZATION
+    if (IntelTypeCoerceSize == 0 && !IsAllowedValueType(ValType, ArithAllows)) {
+#endif // INTEL_CUSTOMIZATION
       auto DID = ArithAllows & AOEVT_FP
                      ? (ArithAllows & AOEVT_Pointer
                             ? diag::err_atomic_op_needs_atomic_int_ptr_or_fp
@@ -9321,15 +9324,15 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
           << IsC11 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
-    } // INTEL
     if (IsC11 && ValType->isPointerType() &&
         RequireCompleteType(Ptr->getBeginLoc(), ValType->getPointeeType(),
                             diag::err_incomplete_type)) {
       return ExprError();
     }
-  } else if (IntelTypeCoerceSize == 0 && // INTEL
-             IsN && !ValType->isIntegerType() &&
-             !ValType->isPointerType()) { // INTEL
+#if INTEL_CUSTOMIZATION
+  } else if (IntelTypeCoerceSize == 0 && IsN && !ValType->isIntegerType() &&
+             !ValType->isPointerType()) {
+#endif // INTEL_CUSTOMIZATION
     // For __atomic_*_n operations, the value type must be a scalar integral or
     // pointer type which is 1, 2, 4, 8 or 16 bytes in length.
     Diag(ExprRange.getBegin(), diag::err_atomic_op_needs_atomic_int_or_ptr)
@@ -9337,9 +9340,11 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
     return ExprError();
   }
 
-  if (!IsC11 && !ValType.isTriviallyCopyableType(Context) && // INTEL
-      (IntelTypeCoerceSize == 0 || !ValType->isVoidType()) && // INTEL
+#if INTEL_CUSTOMIZATION
+  if (!IsC11 && !ValType.isTriviallyCopyableType(Context) &&
+      (IntelTypeCoerceSize == 0 || !ValType->isVoidType()) &&
       !AtomTy->isScalarType()) {
+#endif // INTEL_CUSTOMIZATION
     // For GNU atomics, require a trivially-copyable type. This is not part of
     // the GNU atomics specification but we enforce it for consistency with
     // other atomics which generally all require a trivially-copyable type. This
@@ -9396,8 +9401,9 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
   if (Form == Copy || Form == LoadCopy || Form == GNUXchg ||
       Form == Init)
     ResultType = Context.VoidTy;
-  else if (Form == C11CmpXchg || Form == GNUCmpXchg ||
-           Form == IntelCmpXchg) // INTEL
+#if INTEL_CUSTOMIZATION
+  else if (Form == C11CmpXchg || Form == GNUCmpXchg || Form == IntelCmpXchg)
+#endif // INTEL_CUSTOMIZATION
     ResultType = Context.BoolTy;
 
   // The type of a parameter passed 'by value'. In the GNU atomics, such
@@ -15306,8 +15312,8 @@ void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
 
   // Special case: check for x == x (which is OK).
   // Do not emit warnings for such cases.
-  if (DeclRefExpr* DRL = dyn_cast<DeclRefExpr>(LeftExprSansParen))
-    if (DeclRefExpr* DRR = dyn_cast<DeclRefExpr>(RightExprSansParen))
+  if (auto *DRL = dyn_cast<DeclRefExpr>(LeftExprSansParen))
+    if (auto *DRR = dyn_cast<DeclRefExpr>(RightExprSansParen))
       if (DRL->getDecl() == DRR->getDecl())
         return;
 

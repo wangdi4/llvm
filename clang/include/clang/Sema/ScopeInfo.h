@@ -130,7 +130,10 @@ protected:
 
 public:
   /// What kind of scope we are describing.
-  ScopeKind Kind : 4;  // INTEL, extra bit to fix CQ 381208
+#if INTEL_CUSTOMIZATION
+  // Add extra bit to fix CQ 381208.
+  ScopeKind Kind : 4;
+#endif // INTEL_CUSTOMIZATION
 
   /// Whether this function contains a VLA, \@try, try, C++
   /// initializer, or anything else that can't be jumped past.
@@ -802,7 +805,7 @@ public:
 };
 
 /// Retains information about a captured region.
-class CapturedRegionScopeInfo : public CapturingScopeInfo { // INTEL - no final
+class CapturedRegionScopeInfo : public CapturingScopeInfo { // INTEL
 public:
   /// The CapturedDecl for this statement.
   CapturedDecl *TheCapturedDecl;

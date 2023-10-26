@@ -2513,7 +2513,6 @@ bool Sema::LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
           cast<TagDecl>(LookupCtx)->isBeingDefined()) &&
          "Declaration context must already be complete!");
 
-  // Perform qualified name lookup into the LookupCtx.
   struct QualifiedLookupInScope {
     bool oldVal;
     DeclContext *Context;

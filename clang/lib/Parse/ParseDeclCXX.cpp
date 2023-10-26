@@ -2924,9 +2924,7 @@ Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
         else
           Diag(Zero, diag::warn_member_function_initialization);
       } else
-#endif // INTEL_CUSTOMIZATION
         return false;
-#if INTEL_CUSTOMIZATION
     }
 #endif // INTEL_CUSTOMIZATION
 

@@ -429,8 +429,7 @@ sema::CompoundScopeInfo &Sema::getCurCompoundScope() const {
 }
 
 StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
-                                   ArrayRef<Stmt *> Elts,
-                                   bool isStmtExpr) { //***INTEL
+                                   ArrayRef<Stmt *> Elts, bool isStmtExpr) {
   const unsigned NumElts = Elts.size();
 
   // If we're in C mode, check that we don't have any decls after stmts.  If

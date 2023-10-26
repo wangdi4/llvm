@@ -2642,7 +2642,7 @@ private:
   /// expression in the context of the C 'clause-1' or the C++
   // 'for-init-statement' part of a 'for' statement.
   /// Returns true for declaration, false for expression.
-  bool isForInitDeclaration(bool AllowForRangeDecl = true) {    //***INTEL
+  bool isForInitDeclaration(bool AllowForRangeDecl = true) { // INTEL
     if (getLangOpts().OpenMP)
       Actions.startOpenMPLoop();
     if (getLangOpts().CPlusPlus)

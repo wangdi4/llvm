@@ -4129,8 +4129,6 @@ public:
   AllowCpuFeaturesAttr *
   MergeAllowCpuFeaturesAttr(Decl *D, const AllowCpuFeaturesAttr &AL);
 #endif // INTEL_CUSTOMIZATION
-  SYCLIntelLoopFuseAttr *
-  mergeSYCLIntelLoopFuseAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E);
   void mergeDeclAttributes(NamedDecl *New, Decl *Old,
                            AvailabilityMergeKind AMK = AMK_Redeclaration);
   void MergeTypedefNameDecl(Scope *S, TypedefNameDecl *New,
@@ -5118,7 +5116,6 @@ public:
 
   void AddKnownFunctionAttributesForReplaceableGlobalAllocationFunction(
       FunctionDecl *FD);
-
   void AddKnownFunctionAttributes(FunctionDecl *FD);
 
   // More parsing and symbol table subroutines.
@@ -5606,7 +5603,9 @@ public:
                          SourceLocation WhileLoc, SourceLocation CondLParen,
                          Expr *Cond, SourceLocation CondRParen);
 
-  void CheckForLoopConditionalStatement(Expr *Second, Expr *Third, Stmt *Body); //***INTEL
+#if INTEL_CUSTOMIZATION
+  void CheckForLoopConditionalStatement(Expr *Second, Expr *Third, Stmt *Body);
+#endif // INTEL_CUSTOMIZATION
 
   StmtResult ActOnForStmt(SourceLocation ForLoc,
                           SourceLocation LParenLoc,
@@ -6643,7 +6642,7 @@ public:
   void ActOnFinishNamespaceDef(Decl *Dcl, SourceLocation RBrace);
 
   NamespaceDecl *getStdNamespace() const;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   NamespaceDecl *getOrCreateStdNamespace(bool MakeAvailableForLookup = false);
 #endif // INTEL_CUSTOMIZATION
 
@@ -9738,7 +9737,7 @@ public:
                           QualType ArgFunctionType,
                           FunctionDecl *&Specialization,
                           sema::TemplateDeductionInfo &Info,
-                          bool InOverloadResolution = false);
+                          bool IsAddressOfFunction = false);
 
   TemplateDeductionResult DeduceTemplateArguments(
       FunctionTemplateDecl *FunctionTemplate, QualType ObjectType,
@@ -14639,7 +14638,7 @@ public:
                                    SourceLocation RParenLoc);
 
   template <typename AttrTy>
-  bool isTypeDecoratedWithDeclAttribute(QualType Ty) {
+  static bool isTypeDecoratedWithDeclAttribute(QualType Ty) {
     const CXXRecordDecl *RecTy = Ty->getAsCXXRecordDecl();
     if (!RecTy)
       return false;
