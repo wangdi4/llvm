@@ -82,7 +82,7 @@ opencl-intel/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 libdevice/ @intel-restricted/llvm-reviewers-runtime
 
 # COMPONENT: DPC++ ESIMD
-ESIMD/ @intel-restricted/dpcpp-esimd-reviewers
+ESIMD*/ @intel-restricted/dpcpp-esimd-reviewers
 esimd/ @intel-restricted/dpcpp-esimd-reviewers
 sycl/include/sycl/ext/intel/esimd.hpp @intel-restricted/dpcpp-esimd-reviewers
 sycl/doc/extensions/experimental/sycl_ext_intel_esimd/ @intel-restricted/dpcpp-esimd-reviewers
