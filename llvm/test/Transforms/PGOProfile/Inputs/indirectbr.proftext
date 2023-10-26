@@ -9,15 +9,11 @@ foo
 # Num Counters:
 4
 # Counter Values:
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Another MST edge is annotated after CFG change.
 202
 # end INTEL_CUSTOMIZATION
-20
-=======
 139
->>>>>>> e3cf80c5c1fe55efd8216575ccadea0ab087e79c
 5
 20
 63
