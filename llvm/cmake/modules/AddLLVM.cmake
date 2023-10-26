@@ -204,6 +204,18 @@ if (NOT DEFINED LLVM_LINKER_DETECTED AND NOT WIN32)
     separate_arguments(flags UNIX_COMMAND "${CMAKE_EXE_LINKER_FLAGS}")
     set(command ${CMAKE_C_COMPILER} ${flags} ${version_flag} -o ${DEVNULL})
   endif()
+
+  # INTEL_CUSTOMIZATION
+  # The --sysroot and --gcc-toolchain options may affect the driver's choice of
+  # linker, so we must include these options when probing the linker version.
+  if (CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN)
+    list(APPEND command "${CMAKE_C_COMPILE_OPTIONS_EXTERNAL_TOOLCHAIN}${CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN}")
+  endif()
+  if (CMAKE_SYSROOT)
+    list(APPEND command "${CMAKE_C_COMPILE_OPTIONS_SYSROOT}${CMAKE_SYSROOT}")
+  endif()
+  # end INTEL_CUSTOMIZATION
+
   execute_process(
     COMMAND ${command}
     OUTPUT_VARIABLE stdout
