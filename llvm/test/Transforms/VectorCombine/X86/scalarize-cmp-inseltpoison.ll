@@ -169,9 +169,15 @@ define <2 x i1> @constant_op1_i64_not_undef_lane(i64 %x) {
 
 define <2 x i1> @constant_op1_i64_load(ptr %p) {
 ; CHECK-LABEL: @constant_op1_i64_load(
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[LD:%.*]] = load i64, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    [[R_SCALAR:%.*]] = icmp eq i64 [[LD]], 42 ;INTEL
 ; CHECK-NEXT:    [[R:%.*]] = insertelement <2 x i1> poison, i1 [[R_SCALAR]], i64 0 ;INTEL
+=======
+; CHECK-NEXT:    [[LD:%.*]] = load i64, ptr [[P:%.*]], align 8
+; CHECK-NEXT:    [[INS:%.*]] = insertelement <2 x i64> poison, i64 [[LD]], i32 0
+; CHECK-NEXT:    [[R:%.*]] = icmp eq <2 x i64> [[INS]], <i64 42, i64 -42>
+>>>>>>> e39f6c1844fab59c638d8059a6cf139adb42279a
 ; CHECK-NEXT:    ret <2 x i1> [[R]]
 ;
   %ld = load i64, ptr %p

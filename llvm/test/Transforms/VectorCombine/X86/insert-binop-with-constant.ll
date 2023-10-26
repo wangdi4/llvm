@@ -26,9 +26,15 @@ define <2 x i64> @add_constant_not_undef_lane(i64 %x) {
 
 define <2 x i64> @add_constant_load(ptr %p) {
 ; CHECK-LABEL: @add_constant_load(
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[LD:%.*]] = load i64, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    [[BO_SCALAR:%.*]] = add i64 [[LD]], 42 ;INTEL
 ; CHECK-NEXT:    [[BO:%.*]] = insertelement <2 x i64> undef, i64 [[BO_SCALAR]], i64 0 ;INTEL
+=======
+; CHECK-NEXT:    [[LD:%.*]] = load i64, ptr [[P:%.*]], align 8
+; CHECK-NEXT:    [[INS:%.*]] = insertelement <2 x i64> undef, i64 [[LD]], i32 0
+; CHECK-NEXT:    [[BO:%.*]] = add <2 x i64> [[INS]], <i64 42, i64 -42>
+>>>>>>> e39f6c1844fab59c638d8059a6cf139adb42279a
 ; CHECK-NEXT:    ret <2 x i64> [[BO]]
 ;
   %ld = load i64, ptr %p
@@ -152,9 +158,15 @@ define <2 x i64> @shl_constant_op0_not_undef_lane(i64 %x) {
 
 define <2 x i64> @shl_constant_op0_load(ptr %p) {
 ; CHECK-LABEL: @shl_constant_op0_load(
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[LD:%.*]] = load i64, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    [[BO_SCALAR:%.*]] = shl i64 2, [[LD]] ;INTEL
 ; CHECK-NEXT:    [[BO:%.*]] = insertelement <2 x i64> poison, i64 [[BO_SCALAR]], i64 1 ;INTEL
+=======
+; CHECK-NEXT:    [[LD:%.*]] = load i64, ptr [[P:%.*]], align 8
+; CHECK-NEXT:    [[INS:%.*]] = insertelement <2 x i64> undef, i64 [[LD]], i32 1
+; CHECK-NEXT:    [[BO:%.*]] = shl <2 x i64> <i64 undef, i64 2>, [[INS]]
+>>>>>>> e39f6c1844fab59c638d8059a6cf139adb42279a
 ; CHECK-NEXT:    ret <2 x i64> [[BO]]
 ;
   %ld = load i64, ptr %p
@@ -203,9 +215,15 @@ define <2 x i64> @shl_constant_op1_not_undef_lane(i64 %x) {
 
 define <2 x i64> @shl_constant_op1_load(ptr %p) {
 ; CHECK-LABEL: @shl_constant_op1_load(
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[LD:%.*]] = load i64, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    [[BO_SCALAR:%.*]] = shl nuw i64 [[LD]], 5 ;INTEL
 ; CHECK-NEXT:    [[BO:%.*]] = insertelement <2 x i64> zeroinitializer, i64 [[BO_SCALAR]], i64 0 ;INTEL
+=======
+; CHECK-NEXT:    [[LD:%.*]] = load i64, ptr [[P:%.*]], align 8
+; CHECK-NEXT:    [[INS:%.*]] = insertelement <2 x i64> undef, i64 [[LD]], i32 0
+; CHECK-NEXT:    [[BO:%.*]] = shl nuw <2 x i64> [[INS]], <i64 5, i64 2>
+>>>>>>> e39f6c1844fab59c638d8059a6cf139adb42279a
 ; CHECK-NEXT:    ret <2 x i64> [[BO]]
 ;
   %ld = load i64, ptr %p
