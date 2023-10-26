@@ -114,11 +114,9 @@
 // RUN:  llvm-ar crv %t_aocx.a %t.o %t-aocx.o
 // RUN:  %clangxx -target x86_64-unknown-linux-gnu -fintelfpga %t_aocx.a -ccc-print-phases 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-AOCX-PHASES %s
-<<<<<<< HEAD
-// RUN:  %clang_cl --target=x86_64-pc-windows-msvc -fsycl -fintelfpga %t_aocx.a -ccc-print-phases 2>&1 \
-=======
+// RUN:  %clang_cl --target=x86_64-pc-windows-msvc -fintelfpga %t_aocx.a -ccc-print-phases 2>&1 \
+// RUN:  | FileCheck -check-prefixes=CHK-FPGA-AOCX-PHASES %s
 // RUN:  %clang_cl -fintelfpga %t_aocx.a -ccc-print-phases 2>&1 \
->>>>>>> 6d48bc13c4569475508d43d797778cbcd314c290
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-AOCX-PHASES %s
 // CHK-FPGA-AOCX-PHASES: 0: input, "{{.*}}", fpga_aocx, (host-sycl)
 // CHK-FPGA-AOCX-PHASES: 1: linker, {0}, image, (host-sycl)
