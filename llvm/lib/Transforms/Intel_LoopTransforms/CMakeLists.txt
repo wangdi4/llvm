@@ -89,6 +89,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRLowerSmallMemsetMemcpy.cpp
         HIRNormalizeCasts.cpp
         HIRSpecialOptPredicate.cpp
+        HIRPreprocessNonUnitStrideAccess.cpp
 # INTEL_FEATURE_SW_ADVANCED
         HIRCrossLoopArrayContraction.cpp
         HIRInterLoopBlocking.cpp
