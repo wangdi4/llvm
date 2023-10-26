@@ -1199,12 +1199,19 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
       if (Args.hasArg(options::OPT_fsycl) &&
           !Args.hasArg(options::OPT_nolibsycl)) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         bool curStaticLinkState = isStaticLinkState(CmdArgs);
         if (curStaticLinkState)
           CmdArgs.push_back("-Bdynamic");
 #endif // INTEL_CUSTOMIZATION
         CmdArgs.push_back("-lsycl");
+=======
+        if (Args.hasArg(options::OPT_fpreview_breaking_changes))
+          CmdArgs.push_back("-lsycl-preview");
+        else
+          CmdArgs.push_back("-lsycl");
+>>>>>>> 2602667edccf0434e31a0e4441182c34cbd48c28
         CmdArgs.push_back("-lsycl-devicelib-host");
         // Use of -fintelfpga implies -lOpenCL.
         // FIXME: Adjust to use plugin interface when available.
