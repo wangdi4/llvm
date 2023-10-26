@@ -68,6 +68,11 @@ macro(set_opencl_clang_extra_properties)
       PROPERTIES
       SOVERSION ${VERSIONSTRING}
       VERSION ${VERSIONSTRING})
+    if (LLVM_LINKER_IS_LLD)
+      # Newer LLD changed behavior to consider references to undefined symbols
+      # to be an error. This option ensures we use the older behavior.
+      target_link_options(${COMMON_CLANG} PRIVATE "LINKER:--undefined-version")
+    endif (LLVM_LINKER_IS_LLD)
   endif()
   if(OPENCL_INTREE_BUILD)
     set(COMMON_CLANG_LIB ${COMMON_CLANG})
