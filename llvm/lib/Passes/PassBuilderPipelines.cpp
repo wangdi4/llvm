@@ -316,6 +316,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPostVecCompleteUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPreVecCompleteUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetchingPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPreprocessNonUnitStrideAccess.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPropagateCastedIVPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoopPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMVPass.h"
@@ -2661,6 +2662,9 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
     if (Level.getSizeLevel() == 0) {
       FPM.addPass(HIRLowerSmallMemsetMemcpyPass());
+      // TODO: Enable hir scalar expansion once the pass is implemented
+      // if (Level.getSpeedupLevel() > 2 && IsLTO)
+      //  FPM.addPass(HIRPreprocessNonUnitStrideAccess());
       FPM.addPass(HIRPreVecCompleteUnrollPass(Level.getSpeedupLevel(),
                                               !PTO.LoopUnrolling));
     }
@@ -2713,6 +2717,7 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       FPM.addPass(HIRLMMPass());
       FPM.addPass(HIRMemoryReductionSinkingPass(
           true /* AllowConditionalReductionSinking */));
+
       if (RunVPOOpt) {
         if (EnableVPlanDriverHIR) {
           FPM.addPass(HIRLoopIndependentScalarReplPass());

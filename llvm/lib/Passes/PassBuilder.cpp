@@ -458,6 +458,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPostVecCompleteUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPreVecCompleteUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetchingPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPreprocessNonUnitStrideAccess.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPropagateCastedIVPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoopPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMVPass.h"
