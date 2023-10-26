@@ -2789,13 +2789,18 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
 #if INTEL_COLLAB
   if (!getLangOpts().OpenMPLateOutline)
 #endif // INTEL_COLLAB
-  if (T->isVariableArrayType() && !Context.getTargetInfo().isVLASupported() &&
-      !getLangOpts().SYCLIsDevice) {
-    // CUDA device code and some other targets don't support VLAs.
-    bool IsCUDADevice = (getLangOpts().CUDA && getLangOpts().CUDAIsDevice);
-    targetDiag(Loc,
-               IsCUDADevice ? diag::err_cuda_vla : diag::err_vla_unsupported)
-        << (IsCUDADevice ? CurrentCUDATarget() : 0);
+  if (T->isVariableArrayType() && !getLangOpts().SYCLIsDevice) {
+    if (!Context.getTargetInfo().isVLASupported()) {
+      // CUDA device code and some other targets don't support VLAs.
+      bool IsCUDADevice = (getLangOpts().CUDA && getLangOpts().CUDAIsDevice);
+      targetDiag(Loc,
+                 IsCUDADevice ? diag::err_cuda_vla : diag::err_vla_unsupported)
+          << (IsCUDADevice ? CurrentCUDATarget() : 0);
+    } else if (sema::FunctionScopeInfo *FSI = getCurFunction()) {
+      // VLAs are supported on this target, but we may need to do delayed
+      // checking that the VLA is not being used within a coroutine.
+      FSI->setHasVLA(Loc);
+    }
   }
 
   // If this is not C99, diagnose array size modifiers on non-VLAs.
