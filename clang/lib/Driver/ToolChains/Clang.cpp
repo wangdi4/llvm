@@ -11353,6 +11353,9 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
                 ",+SPV_INTEL_masked_gather_scatter"
                 ",+SPV_INTEL_tensor_float32_conversion"
                 ",+SPV_KHR_non_semantic_info"; // INTEL_COLLAB
+                ",+SPV_INTEL_optnone";
+    if (ShouldPreserveMetadata)
+      ExtArg += ",+SPV_KHR_non_semantic_info";
 
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
 
