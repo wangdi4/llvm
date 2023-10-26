@@ -7565,17 +7565,9 @@ def reuse_exe_EQ : Joined<["-"], "reuse-exe=">, Flags<[DpcppOption]>,
   Visibility<[ClangOption, CLOption, DXCOption]>,
   HelpText<"Speed up FPGA aoc compile if the device code in <exe> is unchanged.">,
   MetaVarName<"<exe>">;
-<<<<<<< HEAD
-def fsycl : Flag<["-"], "fsycl">, Flags<[NoXarchOption, DpcppOption]>, Visibility<[ClangOption, CLOption]>,
+def fsycl : Flag<["-"], "fsycl">, Flags<[DpcppOption]>, Visibility<[ClangOption, CLOption]>,
   Group<sycl_Group>, HelpText<"Enables SYCL kernels compilation for device">;
-def fno_sycl : Flag<["-"], "fno-sycl">, Flags<[NoXarchOption, DpcppOption]>,  Visibility<[ClangOption, CLOption]>,
-=======
-def fsycl : Flag<["-"], "fsycl">,
-  Visibility<[ClangOption, CLOption]>,
-  Group<sycl_Group>, HelpText<"Enables SYCL kernels compilation for device">;
-def fno_sycl : Flag<["-"], "fno-sycl">,
-  Visibility<[ClangOption, CLOption]>,
->>>>>>> b05e2ddc5fd7cf9835cc02377e7daca29f725cc9
+def fno_sycl : Flag<["-"], "fno-sycl">, Flags<[DpcppOption]>,  Visibility<[ClangOption, CLOption]>,
   Group<sycl_Group>, HelpText<"Disables SYCL kernels compilation for device">;
 // FIXME: -fsycl-explicit-simd is deprecated. remove it when support is dropped.
 def : Flag<["-"], "fsycl-explicit-simd">, Flags<[Deprecated]>, Visibility<[ClangOption, CLOption, DXCOption]>,
