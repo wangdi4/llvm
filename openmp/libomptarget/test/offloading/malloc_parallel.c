@@ -14,13 +14,23 @@ int main() {
 #pragma omp target map(from : DP)
   DP = (long unsigned **)malloc(sizeof(long unsigned *) * Threads * Teams);
 
+#if INTEL_CUSTOMIZATION
+#pragma omp target teams distribute parallel for num_teams(Teams)              \
+    thread_limit(Threads) is_device_ptr(DP)
+#else // INTEL_CUSTOMIZATION
 #pragma omp target teams distribute parallel for num_teams(Teams)              \
     thread_limit(Threads)
+#endif // INTEL_CUSTOMIZATION
   for (int i = 0; i < Threads * Teams; ++i)
     DP[i] = (long unsigned *)malloc(sizeof(long unsigned) * N);
 
+#if INTEL_CUSTOMIZATION
+#pragma omp target teams distribute parallel for num_teams(Teams)              \
+    thread_limit(Threads) is_device_ptr(DP)
+#else // INTEL_CUSTOMIZATION
 #pragma omp target teams distribute parallel for num_teams(Teams)              \
     thread_limit(Threads)
+#endif // INTEL_CUSTOMIZATION
   for (int i = 0; i < Threads * Teams; ++i) {
     for (int j = 0; j < N; ++j) {
       DP[i][j] = i + j;
@@ -28,8 +38,13 @@ int main() {
   }
 
   long unsigned s = 0;
+#if INTEL_CUSTOMIZATION
+#pragma omp target teams distribute parallel for num_teams(Teams)              \
+    thread_limit(Threads) reduction(+ : s) is_device_ptr(DP)
+#else // INTEL_CUSTOMIZATION
 #pragma omp target teams distribute parallel for num_teams(Teams)              \
     thread_limit(Threads) reduction(+ : s)
+#endif // INTEL_CUSTOMIZATION
   for (int i = 0; i < Threads * Teams; ++i) {
     for (int j = 0; j < N; ++j) {
       s += DP[i][j];
