@@ -109,10 +109,13 @@ namespace {
   struct SimpleCaptureTracker : public CaptureTracker {
     explicit SimpleCaptureTracker(
 
+#if INTEL_CUSTOMIZATION
         const SmallPtrSetImpl<const Value *> &EphValues, bool ReturnCaptures,
-        bool IgnoreFlag) // INTEL
+        bool IgnoreFlag)
         : EphValues(EphValues), ReturnCaptures(ReturnCaptures),
-        IgnoreNoAliasArgStCaptured(IgnoreFlag) {} // INTEL
+          IgnoreNoAliasArgStCaptured(IgnoreFlag) {
+    }
+#endif // INTEL_CUSTOMIZATION
 
     void tooManyUses() override {
       LLVM_DEBUG(dbgs() << "Captured due to too many uses\n");
@@ -264,9 +267,11 @@ namespace {
 /// storing the value (or part of it) into memory anywhere automatically
 /// counts as capturing it or not.
 bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+#if INTEL_CUSTOMIZATION
                                 bool StoreCaptures,
-                                bool IgnoreStoreCapturesByNoAliasArgument, // INTEL
+                                bool IgnoreStoreCapturesByNoAliasArgument,
                                 unsigned MaxUsesToExplore) {
+#endif // INTEL_CUSTOMIZATION
   SmallPtrSet<const Value *, 1> Empty;
   return PointerMayBeCaptured(V, ReturnCaptures, StoreCaptures, Empty,
                               IgnoreStoreCapturesByNoAliasArgument, // INTEL
@@ -291,9 +296,10 @@ bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
 
   LLVM_DEBUG(dbgs() << "Captured?: " << *V << " = ");
 
-  SimpleCaptureTracker SCT(EphValues, ReturnCaptures,           // INTEL
-                           IgnoreStoreCapturesByNoAliasArgument // INTEL
-                           );                                   // INTEL
+#if INTEL_CUSTOMIZATION
+  SimpleCaptureTracker SCT(EphValues, ReturnCaptures,
+                           IgnoreStoreCapturesByNoAliasArgument);
+#endif // INTEL_CUSTOMIZATION
   PointerMayBeCaptured(V, &SCT, MaxUsesToExplore);
   if (SCT.Captured)
     ++NumCaptured;

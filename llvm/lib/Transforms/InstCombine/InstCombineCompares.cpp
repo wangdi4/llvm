@@ -777,10 +777,11 @@ Instruction *InstCombinerImpl::foldGEPICmp(GEPOperator *GEPLHS, Value *RHS,
 
   if (GEPLHS->isInBounds() && ICmpInst::isEquality(Cond) &&
       isa<Constant>(RHS) && cast<Constant>(RHS)->isNullValue() &&
-      !NullPointerIsDefined(
-          I.getFunction(),                             // INTEL
-          RHS->getType()->getPointerAddressSpace()) && // INTEL
-      !isGEPMaybeOOB(GEPLHS)) {                        // INTEL
+#if INTEL_CUSTOMIZATION
+      !NullPointerIsDefined(I.getFunction(),
+                            RHS->getType()->getPointerAddressSpace()) &&
+      !isGEPMaybeOOB(GEPLHS)) {
+#endif // INTEL_CUSTOMIZATION
     // For most address spaces, an allocation can't be placed at null, but null
     // itself is treated as a 0 size allocation in the in bounds rules.  Thus,
     // the only valid inbounds address derived from null, is null itself.
@@ -8066,8 +8067,8 @@ Instruction *InstCombinerImpl::visitFCmpInst(FCmpInst &I) {
     // The transformation below does not account DAZ setting, which can be
     // changed dynamically, during program execution, and possible NaNs.
     // Switching it off for now.
+  if (0 && match(Op1, m_PosZeroFP()) &&
 #endif
-  if (0 && match(Op1, m_PosZeroFP()) && // INTEL
       match(Op0, m_OneUse(m_BitCast(m_Value(X)))) &&
       X->getType()->isVectorTy() == OpType->isVectorTy() &&
       X->getType()->getScalarSizeInBits() == OpType->getScalarSizeInBits()) {

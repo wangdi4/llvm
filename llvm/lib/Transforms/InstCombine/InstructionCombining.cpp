@@ -1773,18 +1773,21 @@ static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
       isa<Constant>(*GEP.idx_begin()) &&
       cast<Constant>(*GEP.idx_begin())->isNullValue())
     return false;
-#endif
+#endif // INTEL_CUSTOMIZATION
   return true;
 }
 
 #if INTEL_CUSTOMIZATION
+/// This function was removed in llorg, but we still use it in
+/// convertOpaqueGEPToLoadStoreType
+
 /// Return a value X such that Val = X * Scale, or null if none.
 /// If the multiplication is known not to overflow, then NoSignedWrap is set.
-// If TestOnly is true, then Descale will make no modifications: instead, it
-// will test whether or not Val can be Descaled. If it can be Descaled, a
-// non-zero value is returned, otherwise nullptr. False negatives may be
-// possible, but false positives are not possible. Any updates to NoSignedWrap
-// should be ignored.
+/// If TestOnly is true, then Descale will make no modifications: instead, it
+/// will test whether or not Val can be Descaled. If it can be Descaled, a
+/// non-zero value is returned, otherwise nullptr. False negatives may be
+/// possible, but false positives are not possible. Any updates to NoSignedWrap
+/// should be ignored.
 Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
                                  bool TestOnly) {
   assert(isa<IntegerType>(Val->getType()) && "Can only descale integers!");
@@ -1834,7 +1837,6 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
   // Log base 2 of the scale. Negative if not a power of 2.
   int32_t logScale = Scale.exactLogBase2();
 
-#if INTEL_CUSTOMIZATION
   SmallVector<std::pair<Instruction *, Instruction *>, 4> DuplicatedInsts;
   bool Successful = false;
   auto AutoDelete = make_scope_exit([&]() {
@@ -1845,10 +1847,8 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
       }
     }
   });
-#endif // INTEL_CUSTOMIZATION
 
   for (;; Op = Parent.first->getOperand(Parent.second)) { // Drill down
-#if INTEL_CUSTOMIZATION
     auto makeUniqueOp = [&](Instruction *I) {
       if (!TestOnly && !I->hasOneUse()) {
         Instruction *Clone = I->clone();
@@ -1862,7 +1862,6 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
       }
       return I;
     };
-#endif // INTEL_CUSTOMIZATION
 
     if (ConstantInt *CI = dyn_cast<ConstantInt>(Op)) {
       // If Op is a constant divisible by Scale then descale to the quotient.
@@ -1871,6 +1870,7 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
       if (!Remainder.isMinValue())
         // Not divisible by Scale.
         return nullptr;
+
       // Replace with the quotient in the parent.
       Op = ConstantInt::get(CI->getType(), Quotient);
       NoSignedWrap = true;
@@ -1900,17 +1900,16 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
           }
 
           // Otherwise drill down into the constant.
-          Parent = std::make_pair(makeUniqueOp(BO), 1); // INTEL
+          Parent = std::make_pair(makeUniqueOp(BO), 1);
           continue;
         }
 
         // Multiplication by something else. Drill down into the left-hand side
         // since that's where the reassociate pass puts the good stuff.
-        Parent = std::make_pair(makeUniqueOp(BO), 0); // INTEL
+        Parent = std::make_pair(makeUniqueOp(BO), 0);
         continue;
       }
 
-#if INTEL_CUSTOMIZATION
       // If the value is -X, drill through X.
       if (BO->getOpcode() == Instruction::Sub &&
           match(BO->getOperand(0), m_Zero())) {
@@ -1980,7 +1979,6 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
           break;
         }
       }
-#endif // INTEL_CUSTOMIZATION
 
       if (logScale > 0 && BO->getOpcode() == Instruction::Shl &&
           isa<ConstantInt>(BO->getOperand(1))) {
@@ -1988,35 +1986,28 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
         NoSignedWrap = BO->hasNoSignedWrap();
         if (RequireNoSignedWrap && !NoSignedWrap)
           return nullptr;
-
         Value *LHS = BO->getOperand(0);
         int32_t Amt = cast<ConstantInt>(BO->getOperand(1))->
           getLimitedValue(Scale.getBitWidth());
-        // Op = LHS << Amt.
 
+        // Op = LHS << Amt.
         if (Amt == logScale) {
           // Multiplication by exactly the scale, replace the multiplication
           // by its left-hand side in the parent.
           Op = LHS;
           break;
         }
-        if (Amt < logScale) // INTEL
+
+        if (Amt < logScale)
           return nullptr;
 
         // Multiplication by more than the scale.  Reduce the multiplying amount
         // by the scale in the parent.
-        Parent = std::make_pair(makeUniqueOp(BO), 1); // INTEL
+        Parent = std::make_pair(makeUniqueOp(BO), 1);
         Op = ConstantInt::get(BO->getType(), Amt - logScale);
         break;
       }
     }
-
-#if !INTEL_CUSTOMIZATION
-    // We use makeUniqueOp to handle Instructions with multiple users, so this
-    // check is not necessary.
-    if (!Op->hasOneUse())
-      return nullptr;
-#endif // INTEL_CUSTOMIZATION
 
     if (CastInst *Cast = dyn_cast<CastInst>(Op)) {
       if (Cast->getOpcode() == Instruction::SExt) {
@@ -2036,7 +2027,7 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
         RequireNoSignedWrap = true;
 
         // Drill down through the cast.
-        Parent = std::make_pair(makeUniqueOp(Cast), 0); // INTEL
+        Parent = std::make_pair(makeUniqueOp(Cast), 0);
         Scale = SmallScale;
         continue;
       }
@@ -2053,7 +2044,7 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
 
         // Drill down through the cast.
         unsigned LargeSize = Cast->getSrcTy()->getPrimitiveSizeInBits();
-        Parent = std::make_pair(makeUniqueOp(Cast), 0); // INTEL
+        Parent = std::make_pair(makeUniqueOp(Cast), 0);
         Scale = Scale.sext(LargeSize);
         if (logScale + 1 == (int32_t)Cast->getType()->getPrimitiveSizeInBits())
           logScale = -1;
@@ -2066,7 +2057,6 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
     return nullptr;
   }
 
-#if INTEL_CUSTOMIZATION
   // If we reach this point, we know we can descale.
   Successful = true;
   // No modifications have been made yet. If we're only testing if  Descaling
@@ -2074,7 +2064,6 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
   // changes.
   if (TestOnly)
     return Val;
-#endif // INTEL_CUSTOMIZATION
 
   // If Op is zero then Val = Op * Scale.
   if (match(Op, m_Zero())) {
@@ -2092,8 +2081,8 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
     return Op;
 
   // Rewrite the parent using the descaled version of its operand.
-  assert((Parent.first == Val || Parent.first->hasOneUse()) && // INTEL
-      "Drilled down when more than one use!"); // INTEL
+  assert((Parent.first == Val || Parent.first->hasOneUse()) &&
+         "Drilled down when more than one use!");
   assert(Op != Parent.first->getOperand(Parent.second) &&
          "Descaling was a no-op?");
   replaceOperand(*Parent.first, Parent.second, Op);
@@ -2655,8 +2644,10 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
       GEP.setIsInBounds(isMergedGEPInBounds(*Src, *cast<GEPOperator>(&GEP)));
       replaceOperand(GEP, 0, Src->getOperand(0));
       replaceOperand(GEP, 1, Sum);
-      // TODO: INTEL: Should we drop all the metadata and upstream?
-      GEP.setMetadata(LLVMContext::MD_intel_tbaa, nullptr); // INTEL
+#if INTEL_CUSTOMIZATION
+      // TODO: Should we drop other metadata?
+      GEP.setMetadata(LLVMContext::MD_intel_tbaa, nullptr);
+#endif // INTEL_CUSTOMIZATION
       return &GEP;
     }
     Indices.append(Src->op_begin()+1, Src->op_end()-1);

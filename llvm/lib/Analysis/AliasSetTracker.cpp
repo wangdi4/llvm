@@ -234,9 +234,11 @@ AliasResult AliasSet::aliasesPointer(const Value *Ptr, LocationSize Size,
   // If this is a may-alias set, we have to check all of the pointers in the set
   // to be sure it doesn't alias the set...
   for (iterator I = begin(), E = end(); I != E; ++I) {
-    if (AliasResult AR = queryAA(AA, // INTEL
-            MemoryLocation(Ptr, Size, AAInfo),
-            MemoryLocation(I.getPointer(), I.getSize(), I.getAAInfo())))
+#if INTEL_CUSTOMIZATION
+    if (AliasResult AR =
+            queryAA(AA, MemoryLocation(Ptr, Size, AAInfo),
+                    MemoryLocation(I.getPointer(), I.getSize(), I.getAAInfo())))
+#endif // INTEL_CUSTOMIZATION
       return AR;
   }
 

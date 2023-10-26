@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/TypeBasedAliasAnalysis.h"   // INTEL
-#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"      // INTEL
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h" // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
@@ -27,9 +27,11 @@ protected:
   LLVMContext C;
   Module M;
   MDBuilder MD;
+#if INTEL_CUSTOMIZATION
   TargetLibraryInfoImpl TLII;
   TargetLibraryInfo TLI;
-  TypeBasedAAResult TBAA;   // INTEL
+  TypeBasedAAResult TBAA;
+#endif // INTEL_CUSTOMIZATION
 };
 
 static StoreInst *getFunctionWithSingleStore(Module *M, StringRef Name) {

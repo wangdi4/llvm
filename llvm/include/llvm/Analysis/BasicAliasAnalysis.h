@@ -35,9 +35,11 @@
 #include "llvm/Analysis/CaptureTracking.h" // INTEL
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h" // INTEL
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/CommandLine.h"
 #include <algorithm>
 #include <cstdint>
+#endif // INTEL_CUSTOMIZATION
 #include <memory>
 #include <optional>
 #include <utility>
@@ -219,7 +221,6 @@ private:
                          const Instruction *CtxI);
 
   const Value* getBaseValue(const Value *V1); // INTEL
-
   AliasResult aliasCheckRecursive(const Value *V1, LocationSize V1Size,
                                   const Value *V2, LocationSize V2Size,
                                   AAQueryInfo &AAQI, const Value *O1,

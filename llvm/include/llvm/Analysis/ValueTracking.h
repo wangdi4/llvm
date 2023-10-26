@@ -40,7 +40,7 @@
 #include "llvm/IR/FMF.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Operator.h"
+#include "llvm/IR/Operator.h"    // INTEL
 #include "llvm/IR/PassManager.h" // INTEL
 #include <cassert>
 #include <cstdint>

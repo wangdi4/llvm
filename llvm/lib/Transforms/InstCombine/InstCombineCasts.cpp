@@ -1481,8 +1481,8 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &Sext) {
 #endif // INTEL_CUSTOMIZATION
 
   // If the value being extended is zero or positive, use a zext instead.
-  if (isKnownNonNegative(Src, DL, 0, &AC, &Sext, &DT) &&
-      !AvoidSExtTransform(Sext, Src)) // INTEL
+  if (isKnownNonNegative(Src, DL, 0, &AC, &Sext, &DT) && // INTEL
+      !AvoidSExtTransform(Sext, Src))                    // INTEL
     return CastInst::Create(Instruction::ZExt, Src, DestTy);
 
 #if INTEL_CUSTOMIZATION

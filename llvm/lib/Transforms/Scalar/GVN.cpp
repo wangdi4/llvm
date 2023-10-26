@@ -2977,7 +2977,6 @@ bool GVNPass::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
   bool ShouldContinue = true;
 
   uint64_t ICount = 0, BBCount = 0; // INTEL
-
   DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   // Merge unconditional branches, allowing PRE to catch more
   // optimization opportunities.

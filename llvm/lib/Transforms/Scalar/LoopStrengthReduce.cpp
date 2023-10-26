@@ -972,7 +972,6 @@ static MemAccessTy getAccessType(const TargetTransformInfo &TTI,
 }
 
 using PhiSCEVCacheT = DenseMap<PHINode *, const SCEV *>; // INTEL
-
 /// Return true if this AddRec is already a phi in its loop.
 #if INTEL_CUSTOMIZATION
 static bool isExistingPhi(const SCEVAddRecExpr *AR, ScalarEvolution &SE,

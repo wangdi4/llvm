@@ -155,11 +155,10 @@ ConservativeJumpThreading("conservative-jump-threading",
           cl::desc("Use conservative heuristics for loop headers and multi-BB "
                    "thread regions"),
           cl::init(true), cl::Hidden);
-#endif // INTEL_CUSTOMIZATION
 
-JumpThreadingPass::JumpThreadingPass(int T,                             // INTEL
-                                     bool AllowCFGSimps) {              // INTEL
-  DoCFGSimplifications = AllowCFGSimps;                                 // INTEL
+JumpThreadingPass::JumpThreadingPass(int T, bool AllowCFGSimps) {
+  DoCFGSimplifications = AllowCFGSimps;
+#endif // INTEL_CUSTOMIZATION
   DefaultBBDupThreshold = (T == -1) ? BBDuplicateThreshold : unsigned(T);
 }
 
@@ -298,7 +297,6 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &LVI = AM.getResult<LazyValueAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
-
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &PDT = AM.getResult<PostDominatorTreeAnalysis>(F); // INTEL
 
@@ -336,10 +334,11 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
          "PDT broken after JumpThreading");
 #endif
 
-  PreservedAnalyses PA;                 // INTEL
-  PA.preserve<AndersensAA>();           // INTEL
-  PA.preserve<WholeProgramAnalysis>();  // INTEL
-
+#if INTEL_CUSTOMIZATION
+  PreservedAnalyses PA;
+  PA.preserve<AndersensAA>();
+  PA.preserve<WholeProgramAnalysis>();
+#endif // INTEL_CUSTOMIZATION
   return getPreservedAnalysis();
 }
 
@@ -469,9 +468,8 @@ bool JumpThreadingPass::runImpl(Function &F_, FunctionAnalysisManager *FAM_,
   } while (Changed);
 
   LoopHeaders.clear();
-  CountableSingleExitLoopLatches.clear();   // INTEL
-  CountableSingleExitLoopHeaders.clear();   // INTEL
-  // Flush only the Dominator Tree.
+  CountableSingleExitLoopLatches.clear(); // INTEL
+  CountableSingleExitLoopHeaders.clear(); // INTEL
   return EverChanged;
 }
 
@@ -934,12 +932,12 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
       PredValueInfoTy LHSVals, RHSVals;
       ThreadRegionInfoTy RegionInfoOp0, RegionInfoOp1;                  // INTEL
 
-      computeValueKnownInPredecessorsImpl(Op0, BB, LHSVals,
-                                          RegionInfoOp0,                    // INTEL
+#if INTEL_CUSTOMIZATION
+      computeValueKnownInPredecessorsImpl(Op0, BB, LHSVals, RegionInfoOp0,
                                           WantInteger, RecursionSet, CxtI);
-      computeValueKnownInPredecessorsImpl(Op1, BB, RHSVals,
-                                          RegionInfoOp1,                    // INTEL
+      computeValueKnownInPredecessorsImpl(Op1, BB, RHSVals, RegionInfoOp1,
                                           WantInteger, RecursionSet, CxtI);
+#endif // INTEL_CUSTOMIZATION
 
       if (LHSVals.empty() && RHSVals.empty())
         return false;
@@ -981,10 +979,11 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
             Result.emplace_back(InterestingVal, RHSVal.second);
         }
 
-      if (!Result.empty())                                              // INTEL
-        RegionInfo.insert(RegionInfo.end(), RegionInfoOp1.begin(),      // INTEL
-                          RegionInfoOp1.end());                         // INTEL
-
+#if INTEL_CUSTOMIZATION
+      if (!Result.empty())
+        RegionInfo.insert(RegionInfo.end(), RegionInfoOp1.begin(),
+                          RegionInfoOp1.end());
+#endif // INTEL_CUSTOMIZATION
       return !Result.empty();
     }
 
@@ -1009,7 +1008,6 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
   } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(I)) {
     if (Preference != WantInteger)
       return false;
-
     ThreadRegionInfoTy RegionInfoOp0;                                   // INTEL
     if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(1))) {
       PredValueInfoTy LHSVals;
@@ -1028,10 +1026,11 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
       }
     }
 
-    if (!Result.empty())                                                // INTEL
-      RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),        // INTEL
-                        RegionInfoOp0.end());                           // INTEL
-
+#if INTEL_CUSTOMIZATION
+    if (!Result.empty())
+      RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),
+                        RegionInfoOp0.end());
+#endif // INTEL_CUSTOMIZATION
     return !Result.empty();
   }
 
@@ -1110,7 +1109,6 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
       if (!Result.empty())                                              // INTEL
         RegionInfo.push_back(std::make_pair(BB, BB));                   // INTEL
-
       return !Result.empty();
     }
 
@@ -1136,7 +1134,6 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
         if (!Result.empty())                                            // INTEL
           RegionInfo.push_back(std::make_pair(BB, BB));                 // INTEL
-
         return !Result.empty();
       }
 
@@ -1178,7 +1175,6 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
             if (!Result.empty())                                        // INTEL
               RegionInfo.push_back(std::make_pair(BB, BB));             // INTEL
-
             return !Result.empty();
           }
         }
@@ -1199,9 +1195,11 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
           Result.emplace_back(KC, LHSVal.second);
       }
 
-      if (!Result.empty())                                              // INTEL
-        RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),      // INTEL
-                          RegionInfoOp0.end());                         // INTEL
+#if INTEL_CUSTOMIZATION
+      if (!Result.empty())
+        RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),
+                          RegionInfoOp0.end());
+#endif // INTEL_CUSTOMIZATION
 
       return !Result.empty();
     }
@@ -1239,9 +1237,11 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
           Result.emplace_back(Val, C.second);
       }
 
-      if (!Result.empty())                                              // INTEL
-        RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),      // INTEL
-                          RegionInfoOp0.end());                         // INTEL
+#if INTEL_CUSTOMIZATION
+      if (!Result.empty())
+        RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),
+                          RegionInfoOp0.end());
+#endif // INTEL_CUSTOMIZATION
 
       return !Result.empty();
     }
@@ -1257,7 +1257,6 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
   if (!Result.empty())                                                  // INTEL
     RegionInfo.push_back(std::make_pair(BB, BB));                       // INTEL
-
   return !Result.empty();
 }
 
@@ -2142,12 +2141,12 @@ Constant *JumpThreadingPass::evaluateOnPredecessorEdge(BasicBlock *BB,
 bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
                                                ConstantPreference Preference,
                                                Instruction *CxtI) {
+#if INTEL_CUSTOMIZATION
   // If threading this would thread across a loop header, don't even try to
   // thread the edge.
-  if (LoopHeaders.count(BB) && !JumpThreadLoopHeader)                   // INTEL
+  if (LoopHeaders.count(BB) && !JumpThreadLoopHeader)
     return false;
 
-#if INTEL_CUSTOMIZATION
   // workaround for non-conforming C application code. Pointer is converted
   // to null using a subtraction. Optimizer cannot assume GEP results are
   // non-null if there are subtractions.
@@ -2161,19 +2160,22 @@ bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
 #endif // INTEL_CUSTOMIZATION
 
   PredValueInfoTy PredValues;
-  // bool Changed = false;                                              // INTEL
-  ThreadRegionInfoTy RegionInfo;                                        // INTEL
-  if (!computeValueKnownInPredecessors(Cond, BB, PredValues,            // INTEL
-                                       RegionInfo,                      // INTEL
-                                       Preference, CxtI)) {             // INTEL
+#if INTEL_CUSTOMIZATION
+  // bool Changed = false;
+  ThreadRegionInfoTy RegionInfo;
+  if (!computeValueKnownInPredecessors(Cond, BB, PredValues, RegionInfo,
+                                       Preference, CxtI)) {
+#endif // INTEL_CUSTOMIZATION
     // We don't have known values in predecessors.  See if we can thread through
     // BB and its sole predecessor.
     return maybethreadThroughTwoBasicBlocks(BB, Cond);
   }
 
-  assert(!PredValues.empty() && !RegionInfo.empty() &&                  // INTEL
-         "computeValueKnownInPredecessors returned true with no "       // INTEL
-         "values or regions");                                          // INTEL
+#if INTEL_CUSTOMIZATION
+  assert(!PredValues.empty() && !RegionInfo.empty() &&
+         "computeValueKnownInPredecessors returned true with no "
+         "values or regions");
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "IN BB: " << *BB;
              for (const auto &PredValue : PredValues) {
@@ -2262,9 +2264,10 @@ bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
   // If all the predecessors go to a single known successor, we want to fold,
   // not thread. By doing so, we do not need to duplicate the current block and
   // also miss potential opportunities in case we dont/cant duplicate.
-  if (OnlyDest && OnlyDest != MultipleDestSentinel &&                  // INTEL
-      RegionInfo.size() == 1 &&                                        // INTEL
-      RegionInfo.back().first == RegionInfo.back().second) {           // INTEL
+#if INTEL_CUSTOMIZATION
+  if (OnlyDest && OnlyDest != MultipleDestSentinel && RegionInfo.size() == 1 &&
+      RegionInfo.back().first == RegionInfo.back().second) {
+#endif // INTEL_CUSTOMIZATION
     if (BB->hasNPredecessors(PredToDestList.size())) {
       bool SeenFirstBranchToOnlyDest = false;
       std::vector <DominatorTree::UpdateType> Updates;
@@ -2982,13 +2985,15 @@ bool JumpThreadingPass::maybethreadThroughTwoBasicBlocks(BasicBlock *BB,
   }
 
   // Compute the cost of duplicating BB and PredBB.
-  SmallVector<BasicBlock*, 1> RegionBlocks;                            // INTEL
-  RegionBlocks.push_back(BB);                                          // INTEL
+#if INTEL_CUSTOMIZATION
+  SmallVector<BasicBlock*, 1> RegionBlocks;
+  RegionBlocks.push_back(BB);
   unsigned BBCost =
-    getJumpThreadDuplicationCost(TTI, RegionBlocks, BB, BBDupThreshold);// INTEL
-  RegionBlocks[0] = PredBB;                                            // INTEL
+    getJumpThreadDuplicationCost(TTI, RegionBlocks, BB, BBDupThreshold);
+  RegionBlocks[0] = PredBB;
   unsigned PredBBCost = getJumpThreadDuplicationCost(
-      TTI, RegionBlocks, PredBB, BBDupThreshold);                      // INTEL
+      TTI, RegionBlocks, PredBB, BBDupThreshold);
+#endif // INTEL_CUSTOMIZATION
 
   // Give up if costs are too high.  We need to check BBCost and PredBBCost
   // individually before checking their sum because getJumpThreadDuplicationCost
@@ -3074,17 +3079,19 @@ void JumpThreadingPass::threadThroughTwoBasicBlocks(BasicBlock *PredPredBB,
 
   SmallVector<BasicBlock *, 1> PredsToFactor;
   PredsToFactor.push_back(NewBB);
-  ThreadRegionInfoTy RegionInfo;                                        // INTEL
-  RegionInfo.push_back(std::make_pair(BB, BB));                         // INTEL
-  SmallVector<BasicBlock *, 1> RegionBlocks;                            // INTEL
-  RegionBlocks.push_back(BB);                                           // INTEL
-  threadEdge(RegionInfo, RegionBlocks, false, PredsToFactor, SuccBB);   // INTEL
+#if INTEL_CUSTOMIZATION
+  ThreadRegionInfoTy RegionInfo;
+  RegionInfo.push_back(std::make_pair(BB, BB));
+  SmallVector<BasicBlock *, 1> RegionBlocks;
+  RegionBlocks.push_back(BB);
+  threadEdge(RegionInfo, RegionBlocks, false, PredsToFactor, SuccBB);
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
 /// ThreadEdge was significantly modified to support distant jump threading.
-/// Not every line was changed, but the entire routine is under
-/// INTEL_CUSTOMIZATION, because any community changes to this routine will need
+/// Not every line was changed, but the entire routine is marked,
+/// because any community changes to this routine will need
 /// to be manually merged.
 ///
 /// ThreadEdge - We have decided that it is safe and profitable to factor the
@@ -3833,12 +3840,13 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
                  << "' - it might prevent jump threading from converging!\n");
       return false;
     }
-#endif // INTEL_CUSTOMIZATION
 
-  SmallVector<BasicBlock*, 1> RegionBlocks;                             // INTEL
-  RegionBlocks.push_back(BB);                                           // INTEL
-  unsigned DuplicationCost =                                            // INTEL
-    getJumpThreadDuplicationCost(TTI, RegionBlocks, BB, BBDupThreshold);// INTEL
+  // use single block for duplication cost
+  SmallVector<BasicBlock *, 1> RegionBlocks;
+  RegionBlocks.push_back(BB);
+  unsigned DuplicationCost =
+      getJumpThreadDuplicationCost(TTI, RegionBlocks, BB, BBDupThreshold);
+#endif // INTEL_CUSTOMIZATION
   if (DuplicationCost > BBDupThreshold) {
     LLVM_DEBUG(dbgs() << "  Not duplicating BB '" << BB->getName()
                       << "' - Cost is too high: " << DuplicationCost << "\n");
@@ -4297,10 +4305,12 @@ bool JumpThreadingPass::threadGuard(BasicBlock *BB, IntrinsicInst *Guard,
 
   ValueToValueMapTy UnguardedMapping, GuardedMapping;
   Instruction *AfterGuard = Guard->getNextNode();
-  SmallVector<BasicBlock*, 1> RegionBlocks;                             // INTEL
-  RegionBlocks.push_back(BB);                                           // INTEL
-  unsigned Cost =                                                       // INTEL
-    getJumpThreadDuplicationCost(TTI, RegionBlocks, BB, BBDupThreshold);// INTEL
+#if INTEL_CUSTOMIZATION
+  SmallVector<BasicBlock *, 1> RegionBlocks;
+  RegionBlocks.push_back(BB);
+  unsigned Cost =
+      getJumpThreadDuplicationCost(TTI, RegionBlocks, BB, BBDupThreshold);
+#endif // INTEL_CUSTOMIZATION
   if (Cost > BBDupThreshold)
     return false;
   // Duplicate all instructions before the guard and the guard itself to the

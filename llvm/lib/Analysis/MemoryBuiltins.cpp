@@ -609,12 +609,15 @@ bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
   return true;
 }
 
-Value *llvm::getFreedOperand(const CallBase *CB, const TargetLibraryInfo *TLI,
-                             bool CheckNoBuiltin) { // INTEL
+#if INTEL_CUSTOMIZATION
+Value *llvm::getFreedOperand(const CallBase *CB,
+                             const TargetLibraryInfo *TLI,
+                             bool CheckNoBuiltin) {
   bool IsNoBuiltinCall;
   const Function *Callee = getCalledFunction(CB, IsNoBuiltinCall);
-  if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall)) // INTEL
+  if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall))
     return nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   LibFunc TLIFn;
   if (TLI && TLI->getLibFunc(*Callee, TLIFn) && TLI->has(TLIFn) &&
@@ -682,9 +685,6 @@ const CallInst *llvm::isDeleteCall(const Value *I, const TargetLibraryInfo *TLI,
 
   return isLibDeleteFunction(Callee, TLIFn) ? dyn_cast<CallInst>(I) : nullptr;
 }
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
 
 /// Returns indices of size arguments of Malloc-like functions.
 /// All functions except calloc return -1 as a second argument.

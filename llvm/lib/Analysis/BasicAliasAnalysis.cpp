@@ -330,10 +330,12 @@ bool EarliestEscapeInfo::isNotCapturedBeforeOrAt(const Value *Object,
 
   auto Iter = EarliestEscapes.insert({Object, nullptr});
   if (Iter.second) {
-    Instruction *EarliestCapture = FindEarliestCapture(
-        Object, *const_cast<Function *>(I->getFunction()),
-        /*ReturnCaptures=*/false, /*StoreCaptures=*/true, DT, EphValues,
-        MaxUses); // INTEL
+#if INTEL_CUSTOMIZATION
+    Instruction *EarliestCapture =
+        FindEarliestCapture(Object, *const_cast<Function *>(I->getFunction()),
+                            /*ReturnCaptures=*/false, /*StoreCaptures=*/true,
+                            DT, EphValues, MaxUses);
+#endif // INTEL_CUSTOMIZATION
     if (EarliestCapture) {
       auto Ins = Inst2Obj.insert({EarliestCapture, {}});
       Ins.first->second.push_back(Object);
@@ -1328,11 +1330,9 @@ AliasResult BasicAAResult::aliasGEP(
 
   // For GEPs with identical offsets, we can preserve the size and AAInfo
   // when performing the alias check on the underlying objects.
-  if (DecompGEP1.Offset == 0 &&
-      DecompGEP1.Base == UnderlyingV1 && // INTEL
-      DecompGEP2.Base == UnderlyingV2 && // INTEL
-      DecompGEP1.VarIndices.empty()) {
 #if INTEL_CUSTOMIZATION
+  if (DecompGEP1.Offset == 0 && DecompGEP1.Base == UnderlyingV1 &&
+      DecompGEP2.Base == UnderlyingV2 && DecompGEP1.VarIndices.empty()) {
     AliasResult PreciseBaseAlias = AliasResult::MayAlias;
     if (AAQI.NeedLoopCarried)
       PreciseBaseAlias = AAQI.AAR.loopCarriedAlias(
@@ -1343,8 +1343,8 @@ AliasResult BasicAAResult::aliasGEP(
           MemoryLocation(DecompGEP1.Base, V1Size),
           MemoryLocation(DecompGEP2.Base, V2Size), AAQI);
     return PreciseBaseAlias;
-#endif // INTEL_CUSTOMIZATION
   }
+#endif // INTEL_CUSTOMIZATION
 
   // Do the base pointers alias?
 #if INTEL_CUSTOMIZATION
@@ -1640,11 +1640,13 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // If the values are PHIs in the same block, we can do a more precise
   // as well as efficient check: just check for aliases between the values
   // on corresponding edges.
-  // INTEL: This logic is disabled for loopCarriedAlias. In particular, it can
-  // INTEL: reason that loop header PHIs with NoAlias header inputs and NoAlias
-  // INTEL: latch inputs NoAlias; this is unsafe because it only holds for any
-  // INTEL: single execution point; between iterations there may be aliasing.
-  if (!AAQI.NeedLoopCarried) // INTEL
+#if INTEL_CUSTOMIZATION
+  //  This logic is disabled for loopCarriedAlias. In particular, it can
+  //  reason that loop header PHIs with NoAlias header inputs and NoAlias
+  //  latch inputs NoAlias; this is unsafe because it only holds for any
+  //  single execution point; between iterations there may be aliasing.
+  if (!AAQI.NeedLoopCarried)
+#endif // INTEL_CUSTOMIZATION
   if (const PHINode *PN2 = dyn_cast<PHINode>(V2))
     if (PN2->getParent() == PN->getParent()) {
       std::optional<AliasResult> Alias;
@@ -2015,27 +2017,20 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // temporary store the nocapture argument's value in a temporary memory
     // location if that memory location doesn't escape. Or it may pass a
     // nocapture value to other functions as long as they don't capture it.
-    if (isEscapeSource(O1) &&
 #if INTEL_CUSTOMIZATION
+    if (isEscapeSource(O1) &&
             (AAQI.CI->isNotCapturedBeforeOrAt(O2, PtrCaptureMaxUses, DL,
                                              cast<Instruction>(O1)) ||
         valueIsNotCapturedBeforeOrAt(O2, O1)))
-#endif // INTEL_CUSTOMIZATION
       return AliasResult::NoAlias;
     if (isEscapeSource(O2) &&
-#if INTEL_CUSTOMIZATION
             (AAQI.CI->isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL,
                                              cast<Instruction>(O2)) ||
         valueIsNotCapturedBeforeOrAt(O1, O2)))
-#endif // INTEL_CUSTOMIZATION
       return AliasResult::NoAlias;
-
-#if INTEL_CUSTOMIZATION
-    if (checkPtrNoAlias(O1, O2, DL)) {
+    if (checkPtrNoAlias(O1, O2, DL))
       return AliasResult::NoAlias;
-    }
 #endif // INTEL_CUSTOMIZATION
-
 #if INTEL_CUSTOMIZATION
     //
     // Given *p and *q, where p is a malloc call which is only assigned to
@@ -2079,15 +2074,14 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     const Value* ArgBasePtr1 = getArgumentBasePtr(O1, DL);
     const Value* ArgBasePtr2 = getArgumentBasePtr(O2, DL);
     if (ArgBasePtr1 && ArgBasePtr2 && ArgBasePtr1 != ArgBasePtr2 &&
-        ((isa<Argument>(ArgBasePtr1) && isNoAliasOrByValArgument(ArgBasePtr2)) ||
-        (isa<Argument>(ArgBasePtr2) && isNoAliasOrByValArgument(ArgBasePtr1)))) {
+        ((isa<Argument>(ArgBasePtr1) && isNoAliasOrByValArgument(ArgBasePtr2))
+        ||
+        (isa<Argument>(ArgBasePtr2) && isNoAliasOrByValArgument(ArgBasePtr1))))
+    {
       return AliasResult::NoAlias;
-   }
-
-#endif // INTEL_CUSTOMIZATION
+    }
   }
 
-#if INTEL_CUSTOMIZATION
   // CMPLRLLVM-8828: If memory reference 'A' is based on a malloc call,
   // memory reference 'B' is based on a GEP of a structure and the size of
   // the malloc is too small for the structure, then 'A' and 'B' cannot alias.
@@ -2419,9 +2413,11 @@ BasicAAResult BasicAA::run(Function &F, FunctionAnalysisManager &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
-  auto *PV = AM.getCachedResult<PhiValuesAnalysis>(F); // INTEL
+#if INTEL_CUSTOMIZATION
+  auto *PV = AM.getCachedResult<PhiValuesAnalysis>(F);
   return BasicAAResult(F.getParent()->getDataLayout(), F, TLI, AC, DT,
-                       XOL.getOptLevel(), PV); // INTEL
+                       XOL.getOptLevel(), PV);
+#endif // INTEL_CUSTOMIZATION
 }
 
 BasicAAWrapperPass::BasicAAWrapperPass() : FunctionPass(ID) {
@@ -2453,12 +2449,12 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
 
   Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F,
                                  TLIWP.getTLI(F), ACT.getAssumptionCache(F),
-                                 &DTWP.getDomTree(),
 #if INTEL_CUSTOMIZATION
+                                 &DTWP.getDomTree(),
                                  0, // Placeholder because
                                     // XmainOptLevelWrapperPass is removed.
-#endif                              // INTEL_CUSTOMIZATION
-                                 PVWP ? &PVWP->getResult() : nullptr)); // INTEL
+                                 PVWP ? &PVWP->getResult() : nullptr));
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }

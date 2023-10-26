@@ -268,7 +268,7 @@ class AAResults;
 /// where safe (due to the IR not changing), use a `BatchAAResults` wrapper.
 /// The information stored in an `AAQueryInfo` is currently limitted to the
 /// caches used by BasicAA, but can further be extended to fit other AA needs.
-/// INTEL:
+/// INTEL_CUSTOMIZATION
 /// We also use this class to note when a query requires "loopCarriedAlias"
 /// semantics as opposed to "alias" semantics. This should always be redundant
 /// with the knowledge that a query is being made via the "loopCarriedAlias"
@@ -276,6 +276,7 @@ class AAResults;
 /// between the "alias" and "loopCarriedAlias" implementations, checking the
 /// AAQI to determine which interface it's responding to. Currently only
 /// BasicAA uses the `NeedLoopCarried` flag.
+/// end INTEL_CUSTOMIZATION
 class AAQueryInfo {
 public:
   using LocPair = std::pair<AACacheLoc, AACacheLoc>;
@@ -721,9 +722,10 @@ public:
   ModRefInfo getModRefInfo(const FenceInst *S, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const AtomicCmpXchgInst *CX,
-                           const MemoryLocation &Loc,
-                           AAQueryInfo &AAQI, // INTEL
-                           const std::optional<LocationSize> &Size = {}); // INTEL
+#if INTEL_CUSTOMIZATION
+                           const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                           const std::optional<LocationSize> &Size = {});
+#endif // INTEL_CUSTOMIZATION
   ModRefInfo getModRefInfo(const AtomicRMWInst *RMW, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI, // INTEL
                            const std::optional<LocationSize> &Size = {}); // INTEL

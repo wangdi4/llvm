@@ -6193,7 +6193,6 @@ static bool isSameUnderlyingObjectInLoop(const PHINode *PN,
 const Value *llvm::getUnderlyingObject(const Value *V, unsigned MaxLookup) {
   if (!V->getType()->isPointerTy())
     return V;
-
   SmallPtrSet<const Value *, 8> AnalyzedValues; // INTEL
   for (unsigned Count = 0; MaxLookup == 0 || Count < MaxLookup; ++Count) {
 #if INTEL_CUSTOMIZATION
@@ -6202,6 +6201,7 @@ const Value *llvm::getUnderlyingObject(const Value *V, unsigned MaxLookup) {
       // tracing AddressOperators.
       if (!(AnalyzedValues.insert(V).second))
         return V;
+
       // Ideally, we would like to increase Count only if the other checks were
       // reached. The counter's reduction was added intentionally to simplify
       // gatekeeping. Also, this won't produce an issue since unsigned is

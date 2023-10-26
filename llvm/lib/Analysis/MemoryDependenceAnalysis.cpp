@@ -1797,10 +1797,11 @@ MemoryDependenceAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
-  unsigned OptLevel =
-      AM.getResult<XmainOptLevelAnalysis>(F).getOptLevel(); // INTEL
+#if INTEL_CUSTOMIZATION
+  unsigned OptLevel = AM.getResult<XmainOptLevelAnalysis>(F).getOptLevel();
   return MemoryDependenceResults(AA, AC, TLI, DT, DefaultBlockScanLimit,
-                                 OptLevel); // INTEL
+                                 OptLevel);
+#endif // INTEL_CUSTOMIZATION
 }
 
 char MemoryDependenceWrapperPass::ID = 0;
