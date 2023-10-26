@@ -1783,4 +1783,3 @@ Instruction *InstCombinerImpl::visitAShr(BinaryOperator &I) {
 
   return nullptr;
 }
-

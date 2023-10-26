@@ -831,9 +831,11 @@ public:
   /// simplified backedge taken count expression to the caller.
 #endif // INTEL_CUSTOMIZATION
   bool isLoopEntryGuardedByCond(const Loop *L, ICmpInst::Predicate Pred,
-                                const SCEV *LHS, const SCEV *RHS, // INTEL
-                                ICmpInst *PredContext = nullptr,  // INTEL
-                                const SCEV **ExprToSimplify = nullptr); // INTEL
+#if INTEL_CUSTOMIZATION
+                                const SCEV *LHS, const SCEV *RHS,
+                                ICmpInst *PredContext = nullptr,
+                                const SCEV **ExprToSimplify = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   /// Test whether entry to the basic block is protected by a conditional
   /// between LHS and RHS.
@@ -1524,12 +1526,15 @@ public: // INTEL
   /// Return the Value set from which the SCEV expr is generated.
   ArrayRef<Value *> getSCEVValues(const SCEV *S);
 
+#if INTEL_CUSTOMIZATION
   /// External interface for checkValidity. Returns false iff the SCEV has
   /// been deleted: there are SCEVUnknowns in the ops, and the value is null.
   bool isValid(const SCEV *S) const {
     return checkValidity(S);
   }
-protected: // INTEL
+
+protected:
+#endif // INTEL_CUSTOMIZATION
   /// Private helper method for the getConstantMultiple method.
   APInt getConstantMultipleImpl(const SCEV *S);
 
@@ -1981,9 +1986,11 @@ protected: // INTEL
   /// SCEV predicates in order to return an exact answer.
   ExitLimit howManyLessThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                              bool isSigned, bool ControlsOnlyExit,
-                             bool AllowPredicates = false,  // INTEL
-                             bool IVMaxValIsUB = false,     // INTEL
-                             ICmpInst *ExitCond = nullptr); // INTEL
+#if INTEL_CUSTOMIZATION
+                             bool AllowPredicates = false,
+                             bool IVMaxValIsUB = false,
+                             ICmpInst *ExitCond = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   ExitLimit howManyGreaterThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                                 bool isSigned, bool IsSubExpr,
@@ -2002,9 +2009,11 @@ protected: // INTEL
   /// everywhere. LHS and FoundLHS may have different type width.
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
                      const Value *FoundCondValue, bool Inverse,
-                     const Instruction *Context = nullptr,   // INTEL
-                     const ICmpInst *PredContext = nullptr,  // INTEL
-                     const SCEV **ExprToSimplify = nullptr); // INTEL
+#if INTEL_CUSTOMIZATION
+                     const Instruction *Context = nullptr,
+                     const ICmpInst *PredContext = nullptr,
+                     const SCEV **ExprToSimplify = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the given FoundCondValue value evaluates to true in given
@@ -2014,9 +2023,11 @@ protected: // INTEL
                                   const SCEV *RHS,
                                   ICmpInst::Predicate FoundPred,
                                   const SCEV *FoundLHS, const SCEV *FoundRHS,
-                                  const Instruction *CtxI,        // INTEL
-                                  const ICmpInst *PredContext,       // INTEL
-                                  const ICmpInst *FoundPredContext); // INTEL
+#if INTEL_CUSTOMIZATION
+                                  const Instruction *CtxI,
+                                  const ICmpInst *PredContext,
+                                  const ICmpInst *FoundPredContext);
+#endif // INTEL_CUSTOMIZATION
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by FoundPred, FoundLHS, FoundRHS is
@@ -2025,10 +2036,12 @@ protected: // INTEL
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
                      ICmpInst::Predicate FoundPred, const SCEV *FoundLHS,
                      const SCEV *FoundRHS,
-                     const Instruction *Context = nullptr,        // INTEL
-                     const ICmpInst *PredContext = nullptr,       // INTEL
-                     const ICmpInst *FoundPredContext = nullptr,  // INTEL
-                     const SCEV **ExprToSimplify = nullptr);      // INTEL
+#if INTEL_CUSTOMIZATION
+                     const Instruction *Context = nullptr,
+                     const ICmpInst *PredContext = nullptr,
+                     const ICmpInst *FoundPredContext = nullptr,
+                     const SCEV **ExprToSimplify = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is

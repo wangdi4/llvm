@@ -62,9 +62,11 @@ namespace llvm {
   /// one value before giving up due too "too many uses". If MaxUsesToExplore
   /// is zero, a default value is assumed.
   bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+#if INTEL_CUSTOMIZATION
                             bool StoreCaptures,
-                            bool IngoreNoAliasArgStCaptures = false, // INTEL
+                            bool IngoreNoAliasArgStCaptures = false,
                             unsigned MaxUsesToExplore = 0);
+#endif // INTEL_CUSTOMIZATION
 
   /// Variant of the above function which accepts a set of Values that are
   /// ephemeral and cannot cause pointers to escape.

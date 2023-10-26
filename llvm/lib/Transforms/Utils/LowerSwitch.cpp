@@ -375,8 +375,8 @@ unsigned Clusterify(CaseVector &Cases, SwitchInst *SI) {
 /// insts in a balanced binary search.
 void ProcessSwitchInst(SwitchInst *SI,
                        SmallPtrSetImpl<BasicBlock *> &DeleteList,
-                       AssumptionCache *AC, LazyValueInfo *LVI,
-                       DominatorTree *DT) { // INTEL
+                       AssumptionCache *AC, LazyValueInfo *LVI, // INTEL
+                       DominatorTree *DT) {                     // INTEL
   BasicBlock *OrigBlock = SI->getParent();
   Function *F = OrigBlock->getParent();
   Value *Val = SI->getCondition(); // The value we are switching on...
@@ -579,8 +579,8 @@ void ProcessSwitchInst(SwitchInst *SI,
 #endif // INTEL_CUSTOMIZATION
 }
 
-bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC,
-                 DominatorTree *DT) { // INTEL
+bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC, // INTEL
+                 DominatorTree *DT) {                                  // INTEL
   bool Changed = false;
   SmallPtrSet<BasicBlock *, 8> DeleteList;
 

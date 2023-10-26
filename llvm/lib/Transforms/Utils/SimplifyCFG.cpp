@@ -1554,8 +1554,8 @@ static bool isSafeToHoistInvoke(BasicBlock *BB1, BasicBlock *BB2,
 enum SkipFlags {
   SkipReadMem = 1,
   SkipSideEffect = 2,
-  SkipImplicitControlFlow = 4,
-  SeenStkAdj = 8 // INTEL
+  SkipImplicitControlFlow = 4, // INTEL
+  SeenStkAdj = 8               // INTEL
 };
 
 static unsigned skippedInstrFlags(Instruction *I) {

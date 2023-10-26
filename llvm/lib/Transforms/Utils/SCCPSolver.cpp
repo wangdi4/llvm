@@ -1591,7 +1591,6 @@ void SCCPInstVisitor::visitGetElementPtrInst(GetElementPtrInst &I) {
   }
 
   auto Indices = ArrayRef(Operands.begin() + 1, Operands.end());
-
   if (Constant *C = ConstantFoldInstOperands(&I, Operands, DL))
     markConstant(&I, C);
 }

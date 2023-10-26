@@ -1202,6 +1202,7 @@ static Value *foldSelectCttzCtlz(ICmpInst *ICI, Value *TrueVal, Value *FalseVal,
   return nullptr;
 }
 
+#if INTEL_CUSTOMIZATION
 /// If this is an integer min/max (icmp + select) with a constant operand,
 /// create the canonical icmp for the min/max operation and canonicalize the
 /// constant to the 'false' operand of the select:
@@ -1246,6 +1247,7 @@ static Instruction *canonicalizeMinMaxWithConstant(SelectInst &Sel,
   Sel.swapProfMetadata();
   return &Sel;
 }
+#endif // INTEL_CUSTOMIZATION
 
 static Instruction *canonicalizeSPF(SelectInst &Sel, ICmpInst &Cmp,
                                     InstCombinerImpl &IC) {
@@ -1703,9 +1705,8 @@ static Instruction *foldSelectZeroOrOnes(ICmpInst *Cmp, Value *TVal,
 }
 
 static Value *foldSelectInstWithICmpConst(SelectInst &SI, ICmpInst *ICI,
-                                          InstCombiner::BuilderTy &Builder
 #if INTEL_CUSTOMIZATION
-                                          ,
+                                          InstCombiner::BuilderTy &Builder,
                                           bool HasSSE) {
 #endif // INTEL_CUSTOMIZATION
                  

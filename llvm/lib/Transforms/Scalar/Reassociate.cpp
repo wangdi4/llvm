@@ -2463,7 +2463,6 @@ void ReassociatePass::ReassociateExpression(BinaryOperator *I) {
     Ops.append(E.second.getZExtValue(), ValueEntry(getRank(E.first), E.first));
 
   SmallVector<ValueEntry, 8> OrigOps(Ops); // INTEL
-
   LLVM_DEBUG(dbgs() << "RAIn:\t"; PrintOps(I, Ops); dbgs() << '\n');
 
   // Now that we have linearized the tree to a list and have gathered all of

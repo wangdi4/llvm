@@ -3547,9 +3547,11 @@ private:
         NewEndOffset != NewAllocaEndOffset)
       return true;
 
-    ConstantInt *Size;                                          //INTEL
-    if (II.getIntrinsicID() != Intrinsic::var_annotation)       //INTEL
-        Size =                                                  //INTEL
+#if INTEL_CUSTOMIZATION
+    ConstantInt *Size;
+    if (II.getIntrinsicID() != Intrinsic::var_annotation)
+        Size =
+#endif // INTEL_CUSTOMIZATION
             ConstantInt::get(cast<IntegerType>(II.getArgOperand(0)->getType()),
                          NewEndOffset - NewBeginOffset);
     // Lifetime intrinsics always expect an i8* so directly get such a pointer

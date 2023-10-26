@@ -491,9 +491,10 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   if (ULO.Runtime &&
       !UnrollRuntimeLoopRemainder(L, ULO.Count, ULO.AllowExpensiveTripCount,
                                   EpilogProfitability, ULO.UnrollRemainder,
-                                  ULO.ForgetAllSCEV, LI, SE, DT, AC,
-                                  ORBuilder, // INTEL
+#if INTEL_CUSTOMIZATION
+                                  ULO.ForgetAllSCEV, LI, SE, DT, AC, ORBuilder,
                                   TTI, PreserveLCSSA, RemainderLoop)) {
+#endif // INTEL_CUSTOMIZATION
     if (ULO.Force)
       ULO.Runtime = false;
     else {

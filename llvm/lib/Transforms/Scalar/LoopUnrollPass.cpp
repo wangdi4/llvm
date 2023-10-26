@@ -1528,7 +1528,7 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
   bool Changed =
       tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, ORE,
                       /*BFI*/ nullptr, /*PSI*/ nullptr,
-                      /*PreserveLCSSA*/ true, OptLevel,
+                      /*PreserveLCSSA*/ true, OptLevel,   // INTEL
                       ORBuilder, /*OnlyFullUnroll*/ true, // INTEL
                       OnlyWhenForced, ForgetSCEV, /*Count*/ std::nullopt,
                       /*Threshold*/ std::nullopt, /*AllowPartial*/ false,
