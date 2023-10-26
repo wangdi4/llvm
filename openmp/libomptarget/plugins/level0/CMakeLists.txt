@@ -44,11 +44,7 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
       add_definitions(-DOMPTARGET_LEVEL0_DEBUG)
     endif()
 
-    if(INTEL_CUSTOMIZATION)
-    add_library(omptarget.rtl.level0 SHARED src/rtl.cpp src/ompt-level0.cpp)
-    else(INTEL_CUSTOMIZATION)
-    add_library(omptarget.rtl.level0 SHARED src/rtl.cpp)
-    endif(INTEL_CUSTOMIZATION)
+    add_library(omptarget.rtl.level0 SHARED src/rtl.cpp src/OmptCallback.cpp)
     target_include_directories(omptarget.rtl.level0 PRIVATE
       ${LIBOMPTARGET_INCLUDE_DIR}
       ${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS}

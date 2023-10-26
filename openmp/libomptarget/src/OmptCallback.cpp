@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===-- OmptCallback.cpp - Target independent OpenMP target RTL --- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -356,12 +373,22 @@ void Interface::endTarget(int64_t DeviceId, void *Code) {
 }
 
 void Interface::beginTargetDataOperation() {
+#if INTEL_CUSTOMIZATION
+  DP("in ompt_target_region_begin (TargetRegionOpId = %" PRIu64 ")\n",
+     TargetData.value);
+#else  // INTEL_CUSTOMIZATION
   DP("in ompt_target_region_begin (TargetRegionOpId = %lu)\n",
      TargetData.value);
+#endif // INTEL_CUSTOMIZATION
 }
 
 void Interface::endTargetDataOperation() {
+#if INTEL_CUSTOMIZATION
+  DP("in ompt_target_region_end (TargetRegionOpId = %" PRIu64 ")\n",
+     TargetData.value);
+#else  // INTEL_CUSTOMIZATION
   DP("in ompt_target_region_end (TargetRegionOpId = %lu)\n", TargetData.value);
+#endif // INTEL_CUSTOMIZATION
 }
 
 void Interface::beginTargetRegion() {
@@ -380,7 +407,36 @@ void Interface::endTargetRegion() {
   TaskData = 0;
   TargetTaskData = 0;
   TargetData = ompt_data_none;
+#if INTEL_CUSTOMIZATION
+  CodeLocation = nullptr;
+  AssignedTeamSize = 0;
+  AssignedNumTeams = 0;
+#endif // INTEL_CUSTOMIZATION
 }
+
+#if INTEL_CUSTOMIZATION
+EXTERN void ompt_oneapi_set_data(int32_t Kind, size_t Size, void *Value) {
+  if (!Value)
+    return;
+  if (Kind == OmptExtDataCodeLocation && Size == sizeof(const char *))
+    RegionInterface.CodeLocation = *(const char **)Value;
+  else if (Kind == OmptExtDataNumTeams && Size == sizeof(int))
+    RegionInterface.AssignedNumTeams = *(int *)Value;
+  else if (Kind == OmptExtDataTeamSize && Size == sizeof(int))
+    RegionInterface.AssignedTeamSize = *(int *)Value;
+}
+
+EXTERN void ompt_oneapi_get_data(int32_t Kind, size_t Size, void *Value) {
+  if (!Value)
+    return;
+  if (Kind == OmptExtDataCodeLocation && Size == sizeof(const char *))
+    *(const char **)Value = RegionInterface.CodeLocation;
+  else if (Kind == OmptExtDataNumTeams && Size == sizeof(int))
+    *(int *)Value = RegionInterface.AssignedNumTeams;
+  else if (Kind == OmptExtDataTeamSize && Size == sizeof(int))
+    *(int *)Value = RegionInterface.AssignedTeamSize;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Used to maintain the finalization functions that are received
 /// from the plugins during connect.
@@ -474,7 +530,11 @@ void llvm::omp::target::ompt::connectLibrary() {
   DP("Exiting connectLibrary (libomp)\n");
 }
 
+#if INTEL_CUSTOMIZATION
+EXTERN
+#else  // INTEL_CUSTOMIZATION
 extern "C" {
+#endif // INTEL_CUSTOMIZATION
 /// Used for connecting libomptarget with a plugin
 void ompt_libomptarget_connect(ompt_start_tool_result_t *result) {
   DP("Enter ompt_libomptarget_connect\n");
@@ -489,7 +549,9 @@ void ompt_libomptarget_connect(ompt_start_tool_result_t *result) {
   }
   DP("Leave ompt_libomptarget_connect\n");
 }
+#if !INTEL_CUSTOMIZATION
 }
+#endif // !INTEL_CUSTOMIZATION
 #else
 extern "C" {
 /// Dummy definition when OMPT is disabled

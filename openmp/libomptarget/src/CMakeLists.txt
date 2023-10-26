@@ -38,6 +38,7 @@ if(INTEL_CUSTOMIZATION)
       ${CMAKE_CURRENT_SOURCE_DIR}/interface.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/interop.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/omptarget.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/OmptCallback.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/rtl.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/LegacyAPI.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/xpti_registry.cpp)

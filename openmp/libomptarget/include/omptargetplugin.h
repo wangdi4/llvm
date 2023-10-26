@@ -294,11 +294,6 @@ void *__tgt_rtl_get_context_handle(int32_t ID);
 // Check if the specified pointer and size requires mapping.
 int32_t __tgt_rtl_requires_mapping(int32_t ID, void *Ptr, int64_t Size);
 
-#if INTEL_CUSTOMIZATION
-// Initialize OMPT interface
-void __tgt_rtl_init_ompt(void *OmptGlobal);
-#endif // INTEL_CUSTOMIZATION
-
 // Get target memory allocation information
 int32_t __tgt_rtl_get_data_alloc_info(int32_t ID, int32_t NumPtrs, void *Ptrs,
                                       void *Info);
