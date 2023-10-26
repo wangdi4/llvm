@@ -48329,10 +48329,15 @@ static SDValue combineArithReduction(SDNode *ExtElt, SelectionDAG &DAG,
        Subtarget.hasAVX512())) {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-    EVT ByteVT = VecVT.changeVectorElementType(MVT::i8);
-    Rdx = DAG.getNode(ISD::TRUNCATE, DL, ByteVT, Rdx);
-    if (ByteVT.getSizeInBits() < 128)
-      Rdx = WidenToV16I8(Rdx, true);
+    if (Rdx.getValueType() == MVT::v8i16) {
+      Rdx = DAG.getNode(X86ISD::PACKUS, DL, MVT::v16i8, Rdx,
+                        DAG.getUNDEF(MVT::v8i16));
+    } else {
+      EVT ByteVT = VecVT.changeVectorElementType(MVT::i8);
+      Rdx = DAG.getNode(ISD::TRUNCATE, DL, ByteVT, Rdx);
+      if (ByteVT.getSizeInBits() < 128)
+        Rdx = WidenToV16I8(Rdx, true);
+    }
 
     // Build the PSADBW, split as 128/256/512 bits for SSE/AVX2/AVX512BW.
     auto PSADBWBuilder = [](SelectionDAG &DAG, const SDLoc &DL,
