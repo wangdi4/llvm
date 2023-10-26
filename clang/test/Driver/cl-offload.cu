@@ -12,16 +12,16 @@
 // RUN:   | FileCheck %s -check-prefix=HIP
 
 // CUDA: "-cc1" "-triple" "nvptx64-nvidia-cuda" "-aux-triple" "x86_64-pc-windows-msvc"
-// CUDA-SAME: "-Weverything"
+// INTEL CUDA-SAME: "-Wall"
 // CUDA: ptxas
 // CUDA: "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" "-aux-triple" "nvptx64-nvidia-cuda"
-// CUDA-SAME: "-Weverything"
+// INTEL CUDA-SAME: "-Wall"
 // CUDA: link
 
 // HIP: "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" "-aux-triple" "amdgcn-amd-amdhsa"
-// HIP-SAME: "-Weverything"
+// INTEL HIP-SAME: "-Wall"
 // HIP: "-cc1" "-triple" "amdgcn-amd-amdhsa" "-aux-triple" "x86_64-pc-windows-msvc"
-// HIP-SAME: "-Weverything"
+// INTEL HIP-SAME: "-Wall"
 // HIP: {{lld.* "-flavor" "gnu" "-m" "elf64_amdgpu"}}
 // HIP: {{link.* "amdhip64.lib"}}
 
