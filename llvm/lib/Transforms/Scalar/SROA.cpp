@@ -1834,6 +1834,11 @@ static void speculateSelectInstLoads(SelectInst &SI, LoadInst &LI,
 
   Value *V = IRB.CreateSelect(SI.getCondition(), TL, FL,
                               LI.getName() + ".sroa.speculated");
+#if INTEL_CUSTOMIZATION
+  auto *CmpInstruction = dyn_cast<CmpInst>(SI.getCondition());
+  if (isa<FPMathOperator>(V) && isa_and_nonnull<FPMathOperator>(CmpInstruction))
+    cast<SelectInst>(V)->copyFastMathFlags(CmpInstruction);
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "          speculated to: " << *V << "\n");
   LI.replaceAllUsesWith(V);

@@ -12,8 +12,8 @@ define float @_Z8stdclampfff(float %x, float %lo, float %hi) {
 ; CHECK-NEXT:    [[I5:%.*]] = fcmp fast olt float [[X:%.*]], [[LO:%.*]]
 ; CHECK-NEXT:    [[I6:%.*]] = fcmp fast olt float [[HI]], [[X]]
 ; CHECK-NEXT:    [[I9_SROA_SPECULATE_LOAD_FALSE_SROA_SPECULATE_LOAD_TRUE:%.*]] = load float, ptr [[I4]], align 4
-; CHECK-NEXT:    [[I9_SROA_SPECULATE_LOAD_FALSE_SROA_SPECULATED:%.*]] = select i1 [[I6]], float [[I9_SROA_SPECULATE_LOAD_FALSE_SROA_SPECULATE_LOAD_TRUE]], float [[X]]
-; CHECK-NEXT:    [[I9_SROA_SPECULATED:%.*]] = select i1 [[I5]], float [[LO]], float [[I9_SROA_SPECULATE_LOAD_FALSE_SROA_SPECULATED]]
+; CHECK-NEXT:    [[I9_SROA_SPECULATE_LOAD_FALSE_SROA_SPECULATED:%.*]] = select fast i1 [[I6]], float [[I9_SROA_SPECULATE_LOAD_FALSE_SROA_SPECULATE_LOAD_TRUE]], float [[X]] ; INTEL
+; CHECK-NEXT:    [[I9_SROA_SPECULATED:%.*]] = select fast i1 [[I5]], float [[LO]], float [[I9_SROA_SPECULATE_LOAD_FALSE_SROA_SPECULATED]] ; INTEL
 ; CHECK-NEXT:    ret float [[I9_SROA_SPECULATED]]
 ;
 bb:
