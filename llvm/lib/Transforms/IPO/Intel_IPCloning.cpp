@@ -2999,7 +2999,7 @@ static SameArgSetCollection getSameArgSets(Function *F) {
     for (auto &S : CurrSets) {
       size_t MaxCount = 0;
       std::bitset<NARGS> MaxResultSet;
-      for (auto [ActualA, ArgSet] : TmpArgSetMap) {
+      for (const auto &[ActualA, ArgSet] : TmpArgSetMap) {
         auto RSet = S & ArgSet;
         size_t Cnt = RSet.count();
         if (Cnt > MaxCount) {
@@ -3059,7 +3059,7 @@ splitAttributes(Function *F, unsigned ArgNo) {
   auto &Ctx = F->getContext();
   AttrBuilder AB(Ctx);
   std::optional<Attribute::AttrKind> MemAccessTypeAttr;
-  for (auto A : Attrs.getParamAttrs(ArgNo)) {
+  for (const auto &A : Attrs.getParamAttrs(ArgNo)) {
     if (isMemAccessAttr(A)) {
       MemAccessTypeAttr = A.getKindAsEnum();
       continue;
