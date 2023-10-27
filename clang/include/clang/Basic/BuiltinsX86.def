@@ -643,7 +643,6 @@ TARGET_BUILTIN(__builtin_ia32_maskstored256, "vV8i*V8iV8i", "nV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_maskstoreq256, "vV4Oi*V4OiV4Oi", "nV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_maskstored, "vV4i*V4iV4i", "nV:128:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_maskstoreq, "vV2Oi*V2OiV2Oi", "nV:128:", "avx2")
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 TARGET_BUILTIN(__builtin_ia32_maskloadb256, "V32cV32cC*V32c", "nV:256:", "avxcompress")
 TARGET_BUILTIN(__builtin_ia32_maskloadw256, "V16sV16sC*V16s", "nV:256:", "avxcompress")
@@ -735,7 +734,6 @@ TARGET_BUILTIN(__builtin_ia32_avxcompress_vprorvq256, "V4OiV4OiV4Oi", "ncV:256:"
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
 TARGET_BUILTIN(__builtin_ia32_mpsadbw512, "V32sV64cV64cIi", "ncV:512:", "avx512mediax")
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
-#endif // INTEL_CUSTOMIZATION
 TARGET_BUILTIN(__builtin_ia32_psllv8si, "V8iV8iV8i", "ncV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_psllv4si, "V4iV4iV4i", "ncV:128:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_psllv4di, "V4OiV4OiV4Oi", "ncV:256:", "avx2")
@@ -2127,7 +2125,6 @@ TARGET_BUILTIN(__builtin_ia32_vfcmulcph128_mask,  "V4fV4fV4fV4fUc", "ncV:128:", 
 TARGET_BUILTIN(__builtin_ia32_vfcmulcph256_mask,  "V8fV8fV8fV8fUc", "ncV:256:", "avx512fp16,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vfcmulcph512_mask,  "V16fV16fV16fV16fUsIi", "ncV:512:", "avx512fp16,evex512")
 
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
 // AVX512BF16NE intrinsics
 TARGET_BUILTIN(__builtin_ia32_loadsbf16128_mask,  "V8yV8yC*V8yUc", "nV:128:", "avx512bf16ne" EXT_FEATURES)
@@ -2226,7 +2223,6 @@ TARGET_BUILTIN(__builtin_ia32_vfnmsub231nepbf16128,      "V8yV8yV8yV8y", "ncV:12
 TARGET_BUILTIN(__builtin_ia32_vfnmsub231nepbf16256,      "V16yV16yV16yV16y", "ncV:256:", "avx512bf16ne,avx512vl" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vfnmsub231nepbf16512,      "V32yV32yV32yV32y", "ncV:512:", "avx512bf16ne")
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
-#endif // INTEL_CUSTOMIZATION
 
 // generic select intrinsics
 TARGET_BUILTIN(__builtin_ia32_selectb_128, "V16cUsV16cV16c", "ncV:128:", "avx512bw,avx512vl" EXT_FEATURES)
