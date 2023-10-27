@@ -223,18 +223,14 @@ X86TTIImpl::getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
     if (ST->hasAVX512() && ST->hasEVEX512() && PreferVectorWidth >= 512)
       return TypeSize::Fixed(512);
     if (ST->hasAVX() && PreferVectorWidth >= 256)
-<<<<<<< HEAD
-      return TypeSize::getFixed(256);
+      return TypeSize::Fixed(256);
 #if INTEL_CUSTOMIZATION
     // Avoid vectorization for SSE1 targets which will just need to be undone
     // in the backend for vXf64 and integer vectors. Also prevents creation
     // of v2f64 SVML functions the backend can't handle until SSE2.
     if (ST->hasSSE2() && PreferVectorWidth >= 128)
-      return TypeSize::getFixed(128);
+      return TypeSize::Fixed(128);
 #endif
-=======
-      return TypeSize::Fixed(256);
->>>>>>> 8e247b8f4734b1b829156794bb2d9bf8c9c0e72a
     if (ST->hasSSE1() && PreferVectorWidth >= 128)
       return TypeSize::Fixed(128);
     return TypeSize::Fixed(0);
