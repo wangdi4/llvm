@@ -1,5 +1,20 @@
-/*===---- __clang_hip_math.h - Device-side HIP math support ----------------===
+/*===---- __clang_hip_math.h - Device-side HIP math support ----------------=== */
+/* INTEL_CUSTOMIZATION */
+/*
+ * Modifications, Copyright (C) 2023 Intel Corporation
  *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
+/*
  * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
  * See https://llvm.org/LICENSE.txt for license information.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -424,8 +439,10 @@ float fmodf(float __x, float __y) { return __ocml_fmod_f32(__x, __y); }
 
 __DEVICE__
 float frexpf(float __x, int *__nptr) {
+/* INTEL_CUSTOMIZATION */
   *__nptr = __builtin_amdgcn_frexp_expf(__x);
   return __builtin_amdgcn_frexp_mantf(__x);
+/* end INTEL_CUSTOMIZATION */
 }
 
 __DEVICE__
@@ -826,8 +843,10 @@ double fmod(double __x, double __y) { return __ocml_fmod_f64(__x, __y); }
 
 __DEVICE__
 double frexp(double __x, int *__nptr) {
+/* INTEL_CUSTOMIZATION */
   *__nptr = __builtin_amdgcn_frexp_exp(__x);
   return __builtin_amdgcn_frexp_mant(__x);
+/* end INTEL_CUSTOMIZATION */
 }
 
 __DEVICE__

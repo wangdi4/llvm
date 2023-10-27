@@ -845,7 +845,6 @@ static __inline__ __m128h __DEFAULT_FN_ATTRS128 _mm_maskz_max_sh(__mmask8 __U,
   ((__mmask8)__builtin_ia32_cmpsh_mask(                                        \
       (__v8hf)(__m128h)(X), (__v8hf)(__m128h)(Y), (int)(P), (__mmask8)(M),     \
       _MM_FROUND_CUR_DIRECTION))
-
 // loads with vmovsh:
 static __inline__ __m128h __DEFAULT_FN_ATTRS128 _mm_load_sh(void const *__dp) {
   struct __mm_load_sh_struct {

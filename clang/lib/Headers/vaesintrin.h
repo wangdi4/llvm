@@ -32,7 +32,10 @@
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("vaes"), __min_vector_width__(256)))
 
 /* Default attributes for ZMM forms. */
-#define __DEFAULT_FN_ATTRS_F __attribute__((__always_inline__, __nodebug__, __target__("avx512f,evex512,vaes"), __min_vector_width__(512)))
+#define __DEFAULT_FN_ATTRS_F                                                   \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx512f,evex512,vaes"),                           \
+                 __min_vector_width__(512)))
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX256P */
