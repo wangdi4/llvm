@@ -1903,8 +1903,7 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
 #if INTEL_CUSTOMIZATION
   Opts.DisableFree =
       Args.hasFlag(OPT_disable_free, OPT_no_disable_free, /*Default=*/false);
-#endif //INTEL_CUSTOMIZATION
-  Opts.Reciprocals = Args.getAllArgValues(OPT_mrecip_EQ);
+#endif // INTEL_CUSTOMIZATION
   Opts.PrepareForLTO = false;
   Opts.PrepareForThinLTO = false;
   if (Arg *A = Args.getLastArg(OPT_flto_EQ)) {

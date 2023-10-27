@@ -48,7 +48,6 @@
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/ErrorHandling.h"
-
 using namespace clang;
 using namespace llvm::opt;
 

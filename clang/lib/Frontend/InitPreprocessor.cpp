@@ -869,8 +869,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 
   // Previously this macro was set to a string aiming to achieve compatibility
   // with GCC 4.2.1. Now, just return the full Clang version
-  Builder.defineMacro("__VERSION__",
-                      "\"" + Twine(getClangFullVersion()) + "\""); // INTEL
+  Builder.defineMacro("__VERSION__", "\"" +
+                      Twine(getClangFullVersion()) + "\""); // INTEL
 
   // Initialize language-specific preprocessor defines.
 

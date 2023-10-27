@@ -5338,8 +5338,7 @@ BlockDecl *BlockDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
 
 CapturedDecl::CapturedDecl(DeclContext *DC, unsigned NumParams)
     : Decl(Captured, DC, SourceLocation()), DeclContext(Captured),
-      NumParams(NumParams), ContextParam(0), BodyAndNothrow(nullptr, false)
-{}
+      NumParams(NumParams), ContextParam(0), BodyAndNothrow(nullptr, false) {}
 
 CapturedDecl *CapturedDecl::Create(ASTContext &C, DeclContext *DC,
                                    unsigned NumParams) {
