@@ -2011,7 +2011,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
           std::to_string(OrigTripCount));
     }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (VPlanDriverImpl::EmitDebugOptRemarks) {
+    if (EmitDebugOptRemarks) {
       // Add detailed peel decision info to debug opt report.
       const auto &PeelSummary = BestCostSummary.PeelSummary;
       VPlanDriverImpl::addDebugRemark(OptRptStats.CostModelRemarks, *Context,

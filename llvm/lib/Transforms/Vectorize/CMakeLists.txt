@@ -32,6 +32,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_LoadCoalescing.cpp
   IntelMFReplacement.cpp
   Intel_VPlan/Driver.cpp
+  Intel_VPlan/HIR/DriverHIR.cpp
   Intel_VPlan/HIR/IntelLoopVectorizationPlannerHIR.cpp
   Intel_VPlan/HIR/IntelVPOCodeGenHIR.cpp
   Intel_VPlan/HIR/IntelVPlanDecomposerHIR.cpp
@@ -91,6 +92,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPSOAAnalysis.cpp
   Intel_VPlan/Legality.cpp
   Intel_VPlan/LLVM/CodeGenLLVM.cpp
+  Intel_VPlan/LLVM/DriverLLVM.cpp
   Intel_VPlan/LLVM/LegalityLLVM.cpp
   Intel_VPlan/LLVM/ScalarEvolutionLLVM.cpp
   Intel_VPlan/ScalarEvolution.cpp
