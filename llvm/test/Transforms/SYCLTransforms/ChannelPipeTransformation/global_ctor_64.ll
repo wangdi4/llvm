@@ -63,12 +63,31 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_BAR_ARR]]{{.*}}, i32 5, i32 4, i32 0, i32 0)
 
 ; CHECK-LABEL: body{{.*}}:
-; CHECK: [[ElemInd:%elem.ind[0-9]+]] = mul nuw nsw i64 %j{{.*}}, 456
-; CHECK: [[GEP0:%[0-9]+]] = getelementptr [27360 x i8], ptr addrspace(1) @[[PIPE_STAR_ARR]].bs, i64 0, i64 [[ElemInd]]
-; CHECK: [[GEP1:%[0-9]+]] = getelementptr [5 x [4 x [3 x ptr addrspace(1)]]], ptr addrspace(1) @[[PIPE_STAR_ARR]], i64 0, i64 {{.*}}, i64 {{.*}}, i64 {{.*}}
-; CHECK: store ptr addrspace(1) [[GEP0]], ptr addrspace(1) [[GEP1]], align 8
-; CHECK-LABEL: exit{{.*}}:
-; CHECK: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_STAR_ARR]]{{.*}}, i32 60, i32 4, i32 0, i32 0)
+; CHECK-NEXT: [[I2:%.*]] = phi i64 [ 0, %preheader2 ], [ [[I2]], %[[BODY1:.*]] ], [ [[I2]], %[[LATCH1:.*]] ], [ [[I2INC:%.*]], %[[LATCH2:.*]] ]
+; CHECK-NEXT: [[I1:%.*]] = phi i64 [ 0, %preheader2 ], [ [[I1]], %[[BODY1]] ], [ [[I1INC:%.*]], %[[LATCH1]] ], [ 0, %[[LATCH2]] ]
+; CHECK-NEXT: [[I0:%.*]] = phi i64 [ 0, %preheader2 ], [ [[I0INC:%.*]], %[[BODY1]] ], [ 0, %[[LATCH1]] ], [ 0, %[[LATCH2]] ]
+; CHECK-NEXT: [[J:%.*]] = phi i64 [ 0, %preheader2 ], [ [[JINC:%.*]], %[[BODY1]] ], [ [[JINC]], %[[LATCH1]] ], [ [[JINC]], %[[LATCH2]] ]
+; CHECK-NEXT: [[JINC]] = add i64 [[J]], 1
+; CHECK-NEXT: [[ElemInd:%elem.ind[0-9]+]] = mul nuw nsw i64 [[J]], 456
+; CHECK-NEXT: [[GEP0:%[0-9]+]] = getelementptr [27360 x i8], ptr addrspace(1) @[[PIPE_STAR_ARR]].bs, i64 0, i64 [[ElemInd]]
+; CHECK-NEXT: [[GEP1:%[0-9]+]] = getelementptr [5 x [4 x [3 x ptr addrspace(1)]]], ptr addrspace(1) @[[PIPE_STAR_ARR]], i64 0, i64 [[I2]], i64 [[I1]], i64 [[I0]]
+; CHECK-NEXT: store ptr addrspace(1) [[GEP0]], ptr addrspace(1) [[GEP1]], align 8
+; CHECK-NEXT: [[I0INC]] = add i64 [[I0]], 1
+; CHECK-NEXT: [[CMP0:%.*]] = icmp slt i64 [[I0INC]], 3
+; CHECK-NEXT: br i1 [[CMP0]], label %[[BODY1]], label %[[LATCH1]]
+
+; CHECK-LABEL: latch{{.*}}:
+; CHECK-NEXT: [[I1INC]] = add i64 [[I1]], 1
+; CHECK-NEXT: [[CMP1:%.*]] = icmp slt i64 [[I1INC]], 4
+; CHECK-NEXT: br i1 [[CMP1]], label %[[BODY1]], label %[[LATCH2]]
+
+; CHECK-LABEL: latch{{.*}}:
+; CHECK-NEXT: [[I2INC]] = add i64 [[I2]], 1
+; CHECK-NEXT: [[CMP2:%.*]] = icmp slt i64 [[I2INC]], 5
+; CHECK-NEXT: br i1 [[CMP2]], label %[[BODY1]], label %[[EXIT:.*]]
+
+; CHECK: exit{{.*}}:
+; CHECK-NEXT: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_STAR_ARR]]{{.*}}, i32 60, i32 4, i32 0, i32 0)
 
 ; CHECK-LABEL: body{{.*}}:
 ; CHECK: [[ElemInd1:%elem.ind[0-9]*]] = mul nuw nsw i64 %j{{.*}}, 464
