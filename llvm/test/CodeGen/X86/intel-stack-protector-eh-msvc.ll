@@ -47,18 +47,14 @@ if.end:                                           ; preds = %entry
 ; CHECK-NEXT:   callq   __security_check_cookie
 ; CHECK-NEXT:   nop
 ; CHECK-NEXT:   addq    $56, %rsp
-; CHECK-NEXT:   popq    %rdi
-; CHECK-NEXT:   popq    %rsi
 ; CHECK-NEXT:   retq
 ; CHECK-NEXT: .LBB0_2:                                # %if.then
 ; CHECK-NEXT:   movl    $1, 44(%rsp)
-; CHECK-NEXT:   leaq    _TI1H(%rip), %rsi
-; CHECK-NEXT:   leaq    44(%rsp), %rdi
 ; CHECK-NEXT:   movq    48(%rsp), %rcx
 ; CHECK-NEXT:   xorq    %rsp, %rcx
 ; CHECK-NEXT:   callq   __security_check_cookie
-; CHECK-NEXT:   movq    %rdi, %rcx
-; CHECK-NEXT:   movq    %rsi, %rdx
+; CHECK-NEXT:   leaq    _TI1H(%rip), %rdx
+; CHECK-NEXT:   leaq    44(%rsp), %rcx
 ; CHECK-NEXT:   callq   _CxxThrowException
 
 }
@@ -72,12 +68,12 @@ entry:
 ; CHECK-LABEL: vuln2@@YAXH@Z
 ; CHECK:        movq    __security_cookie(%rip), %rax
 ; CHECK-NEXT:   xorq    %rsp, %rax
-; CHECK-NEXT:   movq    %rax, 40(%rsp)
-; CHECK-NEXT:   xorl    %esi, %esi
-; CHECK-NEXT:   movq    40(%rsp), %rcx
+; CHECK-NEXT:   movq    %rax, 48(%rsp)
+; CHECK-NEXT:   movq    48(%rsp), %rcx
 ; CHECK-NEXT:   xorq    %rsp, %rcx
 ; CHECK-NEXT:   callq   __security_check_cookie
-; CHECK-NEXT:   callq   *%rsi
+; CHECK-NEXT:   xorl    %eax, %eax
+; CHECK-NEXT:   callq   *%rax
 }
 
 ; Note: Force mark tail call on noreturn function call
@@ -91,12 +87,22 @@ entry:
 ; CHECK-LABEL: vuln3@@YAXH@Z
 ; CHECK:        movq    __security_cookie(%rip), %rax
 ; CHECK-NEXT:   xorq    %rsp, %rax
-; CHECK-NEXT:   movq    %rax, 40(%rsp)
-; CHECK-NEXT:   xorl    %esi, %esi
-; CHECK-NEXT:   movq    40(%rsp), %rcx
+; CHECK-NEXT:   movq    %rax, 48(%rsp)
+; CHECK-NEXT:   movq    48(%rsp), %rcx
 ; CHECK-NEXT:   xorq    %rsp, %rcx
 ; CHECK-NEXT:   callq   __security_check_cookie
-; CHECK-NEXT:   callq   *%rsi
+; CHECK-NEXT:   xorl    %eax, %eax
+; CHECK-NEXT:   callq   *%rax
+}
+
+define linkonce_odr void @"?vuln4@@YAXH@Z"() #3 {
+entry:
+  %SaveInfo = alloca i8*, i32 0, align 8
+  tail call void null() #4
+  unreachable
+
+; CHECK-LABEL: vuln4@@YAXH@Z
+; CHECK-NOT:   __security_cookie
 }
 
 ; Function Attrs: nofree noreturn
@@ -106,3 +112,4 @@ attributes #0 = { mustprogress nofree sspreq uwtable "frame-pointer"="none" "sta
 attributes #1 = { nofree noreturn }
 attributes #2 = { noreturn }
 attributes #3 = { sspstrong }
+attributes #4 = { nounwind noreturn }
