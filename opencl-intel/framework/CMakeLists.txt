@@ -56,13 +56,15 @@ set(TARGET_NAME_EMU ${TARGET_NAME}_${OUTPUT_EMU_SUFF})
 find_sources()
 calculate_target_sources()
 
+set(FRAMEWORK_LINK_LIBS
+    ${COMMON_CLANG_LIB})
+
 if(WIN32)
   source_group("API" FILES cl_framework.cpp cl_framework.h framework_proxy.cpp
                            framework_proxy.h)
-
-  list(APPEND LINK_LIBS PowrProf.lib delayimp.lib lldCOFF lldCommon)
+  list(APPEND FRAMEWORK_LINK_LIBS PowrProf.lib delayimp.lib lldCOFF lldCommon)
 else()
-  list(APPEND LINK_LIBS cl_hw_utils)
+  list(APPEND FRAMEWORK_LINK_LIBS cl_hw_utils)
 endif(WIN32)
 
 if(DEFINED CMAKE_IMPORT_LIBRARY_PREFIX OR DEFINED CMAKE_IMPORT_LIBRARY_SUFFIX)
@@ -75,44 +77,26 @@ if(DEFINED CMAKE_IMPORT_LIBRARY_PREFIX OR DEFINED CMAKE_IMPORT_LIBRARY_SUFFIX)
 endif(DEFINED CMAKE_IMPORT_LIBRARY_PREFIX OR DEFINED
                                              CMAKE_IMPORT_LIBRARY_SUFFIX)
 
-set(FRAMEWORK_LINK_LIBS
-    ${COMMON_CLANG_LIB}
-    ${LLVM_MODULE_LIBS}
-    BuiltinLibInfo
-    CLElfLib
-    CacheBinaryHandler
-    Context
-    Execution
-    MemoryAllocator
-    ObjDump
-    OclBackendUtils
-    OclOptimizer
-    OclPluginManager
-    Platform
-    Tracing
-    dynamic_load
-    emutls
-    reflection_module
-    soft_math)
-
 # add a target named ${TARGET_NAME}
 add_opencl_library(
   ${TARGET_NAME}
   SHARED
   ${TARGET_SOURCES}
   COMPONENTS
-  OclCpuBackEnd
-  builtin_kernels
+  Context
+  Execution
+  MemoryAllocator
+  OclPluginManager
+  Platform
+  Tracing
   cl_hw_utils
   cl_logger
   cl_sys_utils
   clang_compiler
   cpu_device
-  device_commands
   task_executor
   LINK_LIBS
   ${FRAMEWORK_LINK_LIBS}
-  ${LINK_LIBS}
   RC_TEMPLATE
   DEFAULT
   INSTALL_PATH
@@ -123,18 +107,20 @@ add_opencl_library(
   SHARED
   ${TARGET_SOURCES}
   COMPONENTS
-  OclCpuBackEnd
-  builtin_kernels
+  Context
+  Execution
+  MemoryAllocator
+  OclPluginManager
+  Platform
+  Tracing
   cl_hw_utils
   cl_logger
   cl_sys_utils
   clang_compiler
   cpu_device
-  device_commands
   task_executor
   LINK_LIBS
   ${FRAMEWORK_LINK_LIBS}
-  ${LINK_LIBS}
   RC_TEMPLATE
   DEFAULT
   INSTALL_PATH

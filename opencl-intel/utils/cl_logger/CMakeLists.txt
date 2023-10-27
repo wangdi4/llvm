@@ -27,6 +27,8 @@ calculate_target_sources()
 add_opencl_library(
   ${TARGET_NAME}
   STATIC
-  ${TARGET_SOURCES})
+  ${TARGET_SOURCES}
+  COMPONENTS
+  cl_sys_utils)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME})
