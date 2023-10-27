@@ -29,6 +29,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/CharInfo.h"
+#include "clang/Basic/DirectoryEntry.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/LangOptions.h"
@@ -38,6 +39,7 @@
 #include "clang/Basic/TokenKinds.h"
 #include "clang/Lex/CodeCompletionHandler.h"
 #include "clang/Lex/HeaderSearch.h"
+#include "clang/Lex/HeaderSearchOptions.h"
 #include "clang/Lex/LexDiagnostic.h"
 #include "clang/Lex/LiteralSupport.h"
 #include "clang/Lex/MacroInfo.h"
@@ -1010,7 +1012,12 @@ OptionalFileEntryRef Preprocessor::LookupFile(
     // map file.
     if (!FileEnt) {
       if (FID == SourceMgr.getMainFileID() && MainFileDir) {
-        Includers.push_back(std::make_pair(std::nullopt, *MainFileDir));
+        auto IncludeDir =
+            HeaderInfo.getModuleMap().shouldImportRelativeToBuiltinIncludeDir(
+                Filename, getCurrentModule())
+                ? HeaderInfo.getModuleMap().getBuiltinDir()
+                : MainFileDir;
+        Includers.push_back(std::make_pair(std::nullopt, *IncludeDir));
         BuildSystemModule = getCurrentModule()->IsSystem;
       } else if ((FileEnt = SourceMgr.getFileEntryRefForID(
                       SourceMgr.getMainFileID()))) {
