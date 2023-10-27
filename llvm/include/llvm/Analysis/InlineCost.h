@@ -150,6 +150,8 @@ namespace InlineReportTypes {
 typedef enum {
   InlrFirst, // Just a marker placed before the first inlining reason
   InlrNoReason,
+  InlrCSAlwaysInlineRecursive,
+  InlrCSAlwaysInline,
   InlrAlwaysInlineRecursive,
   InlrAlwaysInline,
   InlrInlineList,

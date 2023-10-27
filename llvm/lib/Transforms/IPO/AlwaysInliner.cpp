@@ -102,8 +102,16 @@ bool AlwaysInlineImpl(
 #if INTEL_CUSTOMIZATION
         getInlineReport()->beginUpdate(CB);
         getMDInlineReport()->beginUpdate(CB);
-        llvm::setMDReasonIsInlined(CB, InlrAlwaysInline);
-        getInlineReport()->setReasonIsInlined(CB, InlrAlwaysInline);
+        // if only the callee has the 'alwaysinline' attribute, then set inline
+        // reason to "callee always inline", otherwise "callsite always inline"
+        // is used.
+        if (!CB->hasFnAttrOnCallsite(Attribute::AlwaysInline)) {
+          llvm::setMDReasonIsInlined(CB, InlrAlwaysInline);
+          getInlineReport()->setReasonIsInlined(CB, InlrAlwaysInline);
+        } else {
+          llvm::setMDReasonIsInlined(CB, InlrCSAlwaysInline);
+          getInlineReport()->setReasonIsInlined(CB, InlrCSAlwaysInline);
+        }
         InlineFunctionInfo IFI(GetAssumptionCache, &PSI,
 #endif // INTEL_CUSTOMIZATION
                                GetBFI ? &GetBFI(*Caller) : nullptr,

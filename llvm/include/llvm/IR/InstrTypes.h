@@ -1523,6 +1523,15 @@ public:
     return hasFnAttrImpl(Kind);
   }
 
+#if INTEL_CUSTOMIZATION
+  //
+  bool hasFnAttrOnCallsite(Attribute::AttrKind Kind) const {
+    assert(Kind != Attribute::NoBuiltin &&
+           "Use CallBase::isNoBuiltin() to check for Attribute::NoBuiltin");
+    return hasFnAttrOnCallsiteImpl(Kind);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Determine whether this call has the given attribute. If it does not
   /// then determine if the called function has the attribute, but only if
   /// the attribute is allowed for the call.
@@ -2348,12 +2357,18 @@ private:
   template <typename AttrKind> bool hasFnAttrImpl(AttrKind Kind) const {
     if (Attrs.hasFnAttr(Kind))
       return true;
-
     return hasFnAttrOnCalledFunction(Kind);
   }
   template <typename AK> Attribute getFnAttrOnCalledFunction(AK Kind) const;
 
 #if INTEL_CUSTOMIZATION
+  template <typename AttrKind>
+  bool hasFnAttrOnCallsiteImpl(AttrKind Kind) const {
+    if (Attrs.hasFnAttr(Kind))
+      return true;
+    return false;
+  }
+
   template <typename AttrKind>
   Attribute getCallSiteOrFuncAttrImpl(AttrKind Kind) const {
     if (Attrs.hasFnAttr(Kind))
