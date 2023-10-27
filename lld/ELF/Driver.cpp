@@ -420,9 +420,8 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
         warn(path + ": archive member '" + p.first.getBufferIdentifier() +
              "' is neither ET_REL nor LLVM bitcode");
       }
-#endif // INTEL_CUSTOMIZATION
     }
-
+#endif // INTEL_CUSTOMIZATION
     InputFile::isInGroup = saved;
     if (!saved)
       ++InputFile::nextGroupId;

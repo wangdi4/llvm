@@ -1977,8 +1977,10 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
       if (s && s->isUndefined()) {
         s->resolve(Defined{/*file=*/nullptr, StringRef(), STB_GLOBAL,
                            STV_HIDDEN, STT_TLS, /*value=*/0, 0,
+#if INTEL_CUSTOMIZATION
                            /*section=*/nullptr},
-                   s->getName()); // INTEL
+                   s->getName());
+#endif // INTEL_CUSTOMIZATION
         ElfSym::tlsModuleBase = cast<Defined>(s);
       }
     }

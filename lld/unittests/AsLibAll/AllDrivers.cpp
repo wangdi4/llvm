@@ -19,7 +19,7 @@ LLD_HAS_DRIVER(elf)
 LLD_HAS_DRIVER(mingw)
 LLD_HAS_DRIVER(macho)
 LLD_HAS_DRIVER(wasm)
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 static bool lldInvoke(std::vector<const char *> args) {
   args.push_back("--version");
@@ -35,5 +35,5 @@ TEST(AsLib, AllDrivers) {
   EXPECT_TRUE(lldInvoke({"ld", "-m", "i386pe"})); // MinGW
   EXPECT_TRUE(lldInvoke({"lld-link"}));
   EXPECT_TRUE(lldInvoke({"wasm-ld"}));
-#endif
+#endif // INTEL_CUSTOMIZATION
 }

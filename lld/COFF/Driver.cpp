@@ -525,8 +525,8 @@ StringRef LinkerDriver::findFile(StringRef filename) {
     return filename;
   };
 
-  bool hasPathSep = (filename.find_first_of("/\\") != StringRef::npos);
 #if INTEL_CUSTOMIZATION
+  bool hasPathSep = (filename.find_first_of("/\\") != StringRef::npos);
   // CMPLRLLVM-48406: libraries specified by /DEFAULTLIB in the .drectve
   // section can either be an absolute filepath or a relative filepath.
   // Relative filepaths need to be searched for in the searchPaths

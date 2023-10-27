@@ -1,4 +1,21 @@
 //===- DriverDispatcher.cpp - Support using LLD as a library --------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -34,11 +51,11 @@ static Flavor getFlavor(StringRef s) {
       .CasesLower("ld", "ld.lld", "gnu", Gnu)
 #if !INTEL_CUSTOMIZATION
       .CasesLower("wasm", "ld-wasm", Wasm)
-#endif // !INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
       .CaseLower("link", WinLink)
 #if !INTEL_CUSTOMIZATION
       .CasesLower("ld64", "ld64.lld", "darwin", Darwin)
-#endif // !INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
       .Default(Invalid);
 }
 
@@ -124,11 +141,11 @@ parseFlavorWithoutMinGW(llvm::SmallVectorImpl<const char *> &argsV) {
 #if INTEL_CUSTOMIZATION
     err("lld is a generic driver.\n"
         "Invoke ld.lld (Unix), lld-link (Windows), instead");
-#else
+#else // INTEL_CUSTOMIZATION
     err("lld is a generic driver.\n"
         "Invoke ld.lld (Unix), ld64.lld (macOS), lld-link (Windows), wasm-ld"
         " (WebAssembly) instead");
-#endif
+#endif // INTEL_CUSTOMIZATION
     return Invalid;
   }
   return f;

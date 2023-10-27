@@ -292,7 +292,7 @@ defm image_base: EEq<"image-base", "Set the base address">;
 defm init: Eq<"init", "Specify an initializer function">,
   MetaVarName<"<symbol>">;
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Option for -plugin-opt=fintel-advanced-optim
 def plugin_opt_intel_advanced_optim: F<"plugin-opt=fintel-advanced-optim">;
 
@@ -309,8 +309,7 @@ def intel_debug_mem: F<"intel-debug=mem">;
 // Option for keeping the information related to LLVM in
 // case LLD is embedded in the compiler
 def intel_embedded_linker: F<"intel-embedded-linker">;
-// END INTEL_CUSTOMIZATION
-
+#endif // INTEL_CUSTOMIZATION
 defm just_symbols: Eq<"just-symbols", "Just link symbols">;
 
 defm keep_unique: Eq<"keep-unique", "Do not fold this symbol during ICF">;
@@ -628,9 +627,9 @@ def lto_debug_pass_manager: FF<"lto-debug-pass-manager">,
   HelpText<"Debug new pass manager">;
 def lto_emit_asm: FF<"lto-emit-asm">,
   HelpText<"Emit assembly code">;
+#if INTEL_CUSTOMIZATION
 def no_lto_legacy_pass_manager: FF<"no-lto-legacy-pass-manager">,
   HelpText<"Use the new pass manager in LLVM">;
-#if INTEL_CUSTOMIZATION
 def lto_legacy_pass_manager: FF<"lto-legacy-pass-manager">,
   HelpText<"Use the legacy pass manager in LLVM">;
 #endif // INTEL_CUSTOMIZATION
