@@ -218,11 +218,13 @@ endif()
 add_subdirectory(docs)
 add_subdirectory(COFF)
 add_subdirectory(ELF)
+# INTEL_CUSTOMIZATION
 if(NOT INTEL_CUSTOMIZATION)
   # Disable unused functionality to speed up builds.
   add_subdirectory(MachO)
   add_subdirectory(MinGW)
   add_subdirectory(wasm)
 endif(NOT INTEL_CUSTOMIZATION)
+# end INTEL_CUSTOMIZATION
 
 add_subdirectory(cmake/modules)

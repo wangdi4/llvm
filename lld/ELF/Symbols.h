@@ -286,7 +286,7 @@ protected:
         dsoProtected(false), thunkAccessed(false), auxIdx(0), dynsymIndex(0),
         verdefIndex(0), versionId(0) {
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   void overwrite(Symbol &sym, Kind k) const {
     if (sym.traced)

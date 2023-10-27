@@ -257,7 +257,7 @@ defm check_features: BB<"check-features",
 def features: CommaJoined<["--", "-"], "features=">,
   HelpText<"Comma-separated used features, inferred from input objects by default.">;
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Option for debugging the memory freeing process when
 // shutting down LLD
 def intel_debug_mem: F<"intel-debug=mem">;
@@ -265,8 +265,7 @@ def intel_debug_mem: F<"intel-debug=mem">;
 // Option for keeping the information related to LLVM in
 // case LLD is embedded in the compiler
 def intel_embedded_linker: F<"intel-embedded-linker">;
-// END INTEL_CUSTOMIZATION
-
+#endif // INTEL_CUSTOMIZATION
 def extra_features: CommaJoined<["--", "-"], "extra-features=">,
   HelpText<"Comma-separated list of features to add to the default set of features inferred from input objects.">;
 
@@ -308,9 +307,7 @@ def thinlto_jobs: JJ<"thinlto-jobs=">,
   HelpText<"Number of ThinLTO jobs. Default to --threads=">;
 #if INTEL_CUSTOMIZATION
 defm lto_legacy_pass_manager: BB<"lto-legacy-pass-manager", "Use legacy pass manager", "Use new pass manager">;
-#endif INTEL_CUSTOMIZATION
-=======
->>>>>>> ae5efe97618355e7552b0cb3c6790f3d8e8f8554
+#endif // INTEL_CUSTOMIZATION
 
 // Experimental PIC mode.
 def experimental_pic: FF<"experimental-pic">,

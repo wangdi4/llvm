@@ -943,7 +943,9 @@ void SymbolTable::compileBitcodeFiles() {
   lto.reset(new BitcodeCompiler(ctx));
   for (BitcodeFile *f : ctx.bitcodeFileInstances)
     lto->add(*f);
+#if INTEL_CUSTOMIZATION
   for (InputFile *newObj : lto->compile(ctx)) {
+#endif // INTEL_CUSTOMIZATION
     ObjFile *obj = cast<ObjFile>(newObj);
     obj->parse();
     ctx.objFileInstances.push_back(obj);

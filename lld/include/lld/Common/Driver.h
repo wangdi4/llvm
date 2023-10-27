@@ -1,4 +1,21 @@
 //===- lld/Common/Driver.h - Linker Driver Emulator -----------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -21,7 +38,7 @@ enum Flavor {
 #if !INTEL_CUSTOMIZATION
   Darwin,  // -flavor darwin
   Wasm,    // -flavor wasm
-#endif // !INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 };
 
 using Driver = bool (*)(llvm::ArrayRef<const char *>, llvm::raw_ostream &,
@@ -60,7 +77,13 @@ Result lldMain(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
 
 // An array which declares that all LLD drivers are linked in your executable.
 // Must be used along with LLD_HAS_DRIVERS. See examples in LLD unittests.
-#if !INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#define LLD_ALL_DRIVERS                                                        \
+  {                                                                            \
+    {lld::WinLink, &lld::coff::link}, {lld::Gnu, &lld::elf::link               \
+    }                                                                          \
+  }
+#else // INTEL_CUSTOMIZATION
 #define LLD_ALL_DRIVERS                                                        \
   {                                                                            \
     {lld::WinLink, &lld::coff::link}, {lld::Gnu, &lld::elf::link},             \
@@ -68,13 +91,5 @@ Result lldMain(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
       lld::Wasm, &lld::wasm::link                                              \
     }                                                                          \
   }
-#endif
-#define LLD_ALL_DRIVERS                                                        \
-  {                                                                            \
-    {lld::WinLink, &lld::coff::link}, {lld::Gnu, &lld::elf::link               \
-    }                                                                          \
-  }
-
-
-#else
+#endif // INTEL_CUSTOMIZATION
 #endif

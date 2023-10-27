@@ -199,7 +199,7 @@ uint64_t Symbol::getGotPltOffset() const {
     return getPltIdx() * (uint64_t)target->gotEntrySize;
   return (getPltIdx() + target->gotPltHeaderEntriesNum) * 
     (uint64_t)target->gotEntrySize;
-#endif
+#endif // INTEL_CUSTOMIZATION
 }
 
 uint64_t Symbol::getPltVA() const {
@@ -512,7 +512,6 @@ void Symbol::resolve(const Undefined &other) {
                                          std::make_pair(other.file, file));
     return;
   }
-
   // Undefined symbols in a SharedFile do not change the binding.
   if (isa_and_nonnull<SharedFile>(other.file))
     return;
@@ -617,7 +616,6 @@ bool Symbol::compare(const Defined &other, StringRef otherName) const {
     else
       llvm_unreachable("incorrect result from GNU linkonce section");
   }
-#endif // INTEL_CUSTOMIZATION
 
   // .symver foo,foo@@VER unfortunately creates two defined symbols: foo and
   // foo@@VER. In GNU ld, if foo and foo@@VER are in the same file, foo is
@@ -629,7 +627,7 @@ bool Symbol::compare(const Defined &other, StringRef otherName) const {
     if (getName().contains("@@"))
       return false;
   }
-
+#endif // INTEL_CUSTOMIZATION
   // Incoming STB_GLOBAL overrides STB_WEAK/STB_GNU_UNIQUE. -fgnu-unique changes
   // some vague linkage data in COMDAT from STB_WEAK to STB_GNU_UNIQUE. Treat
   // STB_GNU_UNIQUE like STB_WEAK so that we prefer the first among all
