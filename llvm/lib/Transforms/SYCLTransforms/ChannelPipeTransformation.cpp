@@ -210,10 +210,8 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
       Builder.CreateGEP(BS->getValueType(), BS, IndexListForBSElem);
 
   // Convert current indices list to GEP indices.
-  SmallVector<Value *, 8> GEPIndicesListForPipeElem(NumDims + 1);
-  GEPIndicesListForPipeElem[0] = Zero;
-  for (unsigned I = 0; I < NumDims; ++I)
-    GEPIndicesListForPipeElem[I + 1] = PHIs[I];
+  SmallVector<Value *, 8> GEPIndicesListForPipeElem = {Zero};
+  GEPIndicesListForPipeElem.append(PHIs.rbegin(), PHIs.rend());
 
   // Create GEP from pipe array.
   auto *PipeElemPtr = Builder.CreateGEP(PipePtrArrayTy, PipeArrayGlobal,

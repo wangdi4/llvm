@@ -3395,21 +3395,32 @@ public:
   iterator begin() const { return Dimensions.begin(); }
   iterator end() const { return Dimensions.end(); }
 
+  // Returns constant extent information for dimension \p DimNum which was
+  // specified explicitly in the IR. This is stored in the DimInfo itself.
+  // Returns 0 if no information is available.
+  unsigned getIRSpecifiedExtent(unsigned DimNum) const {
+    assert(DimNum >= getMinRank() && DimNum <= getMaxRank() && "Invalid rank");
+
+    auto &CurDim = getDim(DimNum);
+
+    return CurDim.getExtent();
+  }
+
   // Returns constant extent information for dimension \p DimNum by either
-  // getting it irectly from the dimension if available for by dividing stride
+  // getting it directly from the dimension if available or by dividing stride
   // of next dimension by this one.
   //
   // Returns 0 if no information is available.
   unsigned getExtent(unsigned DimNum) const {
     assert(DimNum >= getMinRank() && DimNum <= getMaxRank() && "Invalid rank");
 
-    auto &CurDim = getDim(DimNum);
-
-    unsigned Extent = CurDim.getExtent();
+    unsigned Extent = getIRSpecifiedExtent(DimNum);
 
     if (Extent) {
       return Extent;
     }
+
+    auto &CurDim = getDim(DimNum);
 
     auto *CurStride = dyn_cast<ConstantInt>(CurDim.getStride());
 
@@ -3849,7 +3860,15 @@ bool HIRParser::GEPChain::isCompatible(
     // can happen across subroutines.
     if ((CurArrDimExtent != 0) && (NextArrDimExtent != 0) &&
         (CurArrDimExtent != NextArrDimExtent)) {
-      return false;
+
+      bool MismatchInSpecifiedExtent =
+          (CurArr.getIRSpecifiedExtent(Rank) != 0 &&
+           NextArr.getIRSpecifiedExtent(Rank) != 0);
+      // If the extent was specified in IR, we should pick up the smaller extent
+      // instead of giving up. This can happen when the caller passes a slice of
+      // the array to the callee and then callee gets inlined into caller.
+      if (!MismatchInSpecifiedExtent)
+        return false;
     }
   }
 
@@ -3950,14 +3969,13 @@ bool HIRParser::GEPChain::extend(const HIRParser &Parser,
       CurDim.setElementType(NextDim.getElementType());
       CurDim.setStride(NextDim.getStride());
 
-      // Assume FE provides extent one time per memref
-      assert(!CurDim.getExtent() || !NextDim.getExtent() ||
-             CurDim.getExtent() == NextDim.getExtent() &&
-                 "Extent metadata mistmatch!");
+      unsigned CurDimExtent = CurDim.getExtent();
+      unsigned NextDimExtent = NextDim.getExtent();
 
-      // Use extent metadata for the incoming DimInfo
-      if (!CurDim.getExtent() && NextDim.getExtent()) {
-        CurDim.setExtent(NextDim.getExtent());
+      // Use smaller extent info if there is a mismatch as array slices can be
+      // passed from caller to callee.
+      if (!CurDimExtent || (NextDimExtent && (NextDimExtent < CurDimExtent))) {
+        CurDim.setExtent(NextDimExtent);
       }
 
       // Reset exact flag if either of two dims are not exact.

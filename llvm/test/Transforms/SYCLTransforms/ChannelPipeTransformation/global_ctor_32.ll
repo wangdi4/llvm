@@ -70,13 +70,27 @@ target triple = "spir-unknown-unknown-intelfpga"
 ; CHECK-LABEL: exit{{.*}}:
 ; CHECK: call void @__pipe_init_array_fpga(ptr addrspace(1) @[[PIPE_STAR_ARR]], i32 60, i32 4, i32 0, i32 0)
 
-; CHECK-LABEL: body{{.*}}:
-; CHECK: [[ElemInd1:%elem.ind[0-9]*]] = mul nuw nsw i32 %j{{.*}}, 464
-; CHECK: [[GEP2:%[0-9]+]] = getelementptr [9280 x i8], ptr addrspace(1) @[[PIPE_FAR_ARR]].bs, i32 0, i32 [[ElemInd1]]
-; CHECK: [[GEP3:%[0-9]+]] = getelementptr [5 x [4 x ptr addrspace(1)]], ptr addrspace(1) @[[PIPE_FAR_ARR]], i32 0, i32 {{.*}}, i32 {{.*}}
-; CHECK: store ptr addrspace(1) [[GEP2]], ptr addrspace(1) [[GEP3]], align 4
-; CHECK-LABEL: exit{{.*}}:
-; CHECK: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_FAR_ARR]]{{.*}}, i32 20, i32 4, i32 3, i32 0)
+; CHECK-LABEL: body:
+; CHECK-NEXT: [[I1:%.*]] = phi i32 [ 0, %exit8 ], [ [[I1]], %body ], [ [[I1INC:%.*]], %latch1 ]
+; CHECK-NEXT: [[I0:%.*]] = phi i32 [ 0, %exit8 ], [ [[I0INC:%.*]], %body ], [ 0, %latch1 ]
+; CHECK-NEXT: [[J:%.*]] = phi i32 [ 0, %exit8 ], [ [[JINC:%.*]], %body ], [ [[JINC]], %latch1 ]
+; CHECK-NEXT: [[JINC]] = add i32 [[J]], 1
+; CHECK-NEXT: [[ElemInd1:%elem.ind[0-9]*]] = mul nuw nsw i32 [[J]], 464
+; CHECK-NEXT: [[GEP2:%[0-9]+]] = getelementptr [9280 x i8], ptr addrspace(1) @[[PIPE_FAR_ARR]].bs, i32 0, i32 [[ElemInd1]]
+; CHECK-NEXT: [[GEP3:%[0-9]+]] = getelementptr [5 x [4 x ptr addrspace(1)]], ptr addrspace(1) @[[PIPE_FAR_ARR]], i32 0, i32 [[I1]], i32 [[I0]]
+; CHECK-NEXT: store ptr addrspace(1) [[GEP2]], ptr addrspace(1) [[GEP3]], align 4
+; CHECK-NEXT: [[I0INC]] = add i32 [[I0]], 1
+; CHECK-NEXT: [[CMP:%.*]] = icmp slt i32 [[I0INC]], 4
+; CHECK-NEXT: br i1 [[CMP]], label %body, label %latch1
+
+; CHECK-LABEL: latch1:
+; CHECK-NEXT: [[I1INC]] = add i32 [[I1]], 1
+; CHECK-NEXT: [[CMP1:%.*]] = icmp slt i32 [[I1INC]], 5
+; CHECK-NEXT: br i1 [[CMP1]], label %body, label %exit
+
+; CHECK-LABEL: exit:
+; CHECK-NEXT: call void @__pipe_init_array_fpga({{.*}} @[[PIPE_FAR_ARR]]{{.*}}, i32 20, i32 4, i32 3, i32 0)
+; CHECK-NEXT: ret void
 
 ; Function Attrs: convergent norecurse nounwind
 define dso_local void @foo() #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !arg_type_null_val !4 {
