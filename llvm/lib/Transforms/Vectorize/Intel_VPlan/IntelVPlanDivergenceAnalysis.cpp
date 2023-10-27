@@ -1578,6 +1578,18 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocateInst(
     return getSOASequentialVectorShape(StrideVal);
   }
 
+  // When dealing with an array type where the alignment specified is
+  // greater than this type's preferred alignment the vector code generated
+  // will need to serialize the alloca to ensure that that allocated memory
+  // is properly aligned for every. We need to return random shape for this
+  // case. The only exception is if the type's allocated size matches the
+  // specified alignment(in which case no padding is needed).
+  Align OrigAlignment = AI->getOrigAlignment();
+  Align PrefAlignment = Plan->getDataLayout()->getPrefTypeAlign(PointeeTy);
+  if (OrigAlignment > PrefAlignment &&
+      OrigAlignment != Plan->getDataLayout()->getTypeAllocSize(PointeeTy))
+    return getRandomVectorShape();
+
   // We set the stride in terms of bytes.
   int64_t Stride = getTypeSizeInBytes(PointeeTy);
   updateVectorShape(AI, getStridedVectorShape(Stride));

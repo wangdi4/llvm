@@ -3389,6 +3389,8 @@ Value *CodeGenLLVM::createWidenedBasePtrConsecutiveLoadStore(
     // correct operand for widened load/store.
     VecPtr = getScalarValue(Ptr, 0);
 
+  assert(VecPtr && "Expected non-null vector pointer");
+
   // Adjust the memory reference for negative one stride case so that we can do
   // a wide load/store.
   VecPtr = Reverse ? Builder.CreateGEP(ScalarAccessType, VecPtr,
@@ -5199,6 +5201,29 @@ void CodeGenLLVM::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   // We don't want to serialize array reduction allocas since the initialization
   // algorithm assumes contiguous allocation of elements.
   bool IsArrayRedn = isArrayReductionPrivate(V);
+
+  // If the original alignment on the scalar private's alloca exceeds the
+  // preferred alignment for the vector type and the original alignment and
+  // allocated size of scalar private type match, then we can force original
+  // alignment for the vector alloca to use unit stride accesses. As an example
+  // for the case below, the preferred alignment for vector private(VF=4) [4 x
+  // [2 x float]] is 4 and the store can be generated as unit stride if the
+  // vector private is allocated with alignment 8. Using original alignment for
+  // the vector alloca prevents a disconnect between DA and CG by allowing unit
+  // stride accesses and prevents issues when we later try to get
+  // LoopPrivateVPWidenMap for a private.
+  //
+  //
+  //     %scal.priv = alloca [2 x float], align 8
+  //     ..
+  //     store i64 0, %scal.priv, align 8
+  if (OrigAlignment > DL.getPrefTypeAlign(OrigTy) &&
+      OrigAlignment == DL.getTypeAllocSize(OrigTy)) {
+    assert(OrigAlignment == DL.getTypeAllocSize(VecTyForAlloca) / VF &&
+           "Unexpected padding in allocated vector private");
+    VecAllocaPrefAlignment = OrigAlignment;
+  }
+
   // TODO: We potentially need additional divisibility-based checks here to
   // ensure that correct alignment is set for each vector lane. Check JIRA :
   // CMPLRLLVM-11372.
