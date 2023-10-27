@@ -1,6 +1,6 @@
 
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-META
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-CL,CHECK
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK
 
 ; Test checks precedence of inlining attributes. An 'alwaysinline' callsite
 ; should inline a function with the 'noinline' attribute (first call to foo
@@ -8,36 +8,27 @@
 ; with the 'noinline' attribute (second call to foo below).
 
 
-; CHECK: define dso_local noundef i32 @main()
-; CHECK: %call.i = call noundef i32 @bar()
-; CHECK-NEXT: %mul.i = mul nsw i32 3, %call.i
-; CHECK: %call2 = call noundef i32 @foo() #4
-; CHECK-NOT: call{{.*}}i32 @foo() 
-; CHECK: ret i32
+; CHECK-CL: define dso_local noundef i32 @main()
+; CHECK-CL: %call.i = call noundef i32 @bar()
+; CHECK-CL-NEXT: %mul.i = mul nsw i32 3, %call.i
+; CHECK-CL: %call2 = call noundef i32 @foo() #4
+; CHECK-CL-NOT: call{{.*}}i32 @foo() 
+; CHECK-CL: ret i32
 
 ; CHECK: COMPILE FUNC: foo
 ; CHECK-NEXT:    bar{{.*}}Callee has noinline attribute
 
 ; CHECK: COMPILE FUNC: main
-; CHECK-NEXT:    INLINE: foo{{.*}}Callee is always inline
+; CHECK-NEXT:    INLINE: foo{{.*}}Callsite is always inline
 ; CHECK-NEXT:       bar{{.*}}Callee has noinline attribute
 ; CHECK-NEXT:    foo{{.*}}Callee has noinline attribute
 
-
-; CHECK-META: COMPILE FUNC: foo
-; CHECK-META-NEXT:    bar{{.*}}Callee has noinline attribute
-
-; CHECK-META: COMPILE FUNC: main
-; CHECK-META-NEXT:    INLINE: foo{{.*}}Callee is always inline
-; CHECK-META-NEXT:       bar{{.*}}Callee has noinline attribute
-; CHECK-META-NEXT:    foo{{.*}}Callee has noinline attribute
-
-; CHECK-META: define dso_local noundef i32 @main()
-; CHECK-META: %call.i = call noundef i32 @bar()
-; CHECK-META-NEXT: %mul.i = mul nsw i32 3, %call.i
-; CHECK-META: %call2 = call noundef i32 @foo() #4
-; CHECK-META-NOT: call{{.*}}i32 @foo() 
-; CHECK-META: ret i32
+; CHECK-MD: define dso_local noundef i32 @main()
+; CHECK-MD: %call.i = call noundef i32 @bar()
+; CHECK-MD-NEXT: %mul.i = mul nsw i32 3, %call.i
+; CHECK-MD: %call2 = call noundef i32 @foo() #4
+; CHECK-MD-NOT: call{{.*}}i32 @foo() 
+; CHECK-MD: ret i32
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

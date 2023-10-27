@@ -3444,8 +3444,14 @@ std::optional<InlineResult> llvm::getAttributeBasedInliningDecision(
 
     auto IsViable = isInlineViable(*Callee);
 #if INTEL_CUSTOMIZATION
-    if (IsViable.isSuccess())
-      return InlineResult::success().setIntelInlReason(InlrAlwaysInline);
+    if (IsViable.isSuccess()) {
+      // if only the callee has the 'alwaysinline' attribute, then set inline
+      // reason to "callee always inline", otherwise "callsite always inline"
+      // is used.
+      if (!Call.hasFnAttrOnCallsite(Attribute::AlwaysInline))
+        return InlineResult::success().setIntelInlReason(InlrAlwaysInline);
+      return InlineResult::success().setIntelInlReason(InlrCSAlwaysInline);
+    }
     assert(IsNotInlinedReason(IsViable.getIntelInlReason()));
     return InlineResult::failure(IsViable.getFailureReason())
         .setIntelInlReason(IsViable.getIntelInlReason());
@@ -3459,9 +3465,16 @@ std::optional<InlineResult> llvm::getAttributeBasedInliningDecision(
     }
 
     auto IsViable = isInlineViable(*Callee);
-    if (IsViable.isSuccess())
+    if (IsViable.isSuccess()) {
+      // if only the callee has the 'alwaysinline_recursive' attribute, then
+      // set inline reason to "callee always inline", otherwise "callsite
+      // always inline" is used.
+      if (!Call.hasFnAttrOnCallsite(Attribute::AlwaysInlineRecursive))
+        return InlineResult::success().setIntelInlReason(
+            InlrAlwaysInlineRecursive);
       return InlineResult::success().setIntelInlReason(
-          InlrAlwaysInlineRecursive);
+          InlrCSAlwaysInlineRecursive);
+    }
     assert(IsNotInlinedReason(IsViable.getIntelInlReason()));
     return InlineResult::failure(
                "inapplicable always inline recursive attribute")
@@ -3527,11 +3540,22 @@ InlineCost llvm::getInlineCost(
   if (UserDecision) {
 #if INTEL_CUSTOMIZATION
     if (UserDecision->isSuccess()) {
-      if (UserDecision->getIntelInlReason() == InlrAlwaysInlineRecursive)
+      switch (UserDecision->getIntelInlReason()) {
+      case InlrCSAlwaysInlineRecursive:
+        return llvm::InlineCost::getAlways("always inline recursive attribute",
+                                           InlrCSAlwaysInlineRecursive);
+      case InlrCSAlwaysInline:
+        return llvm::InlineCost::getAlways("always inline attribute",
+                                           InlrCSAlwaysInline);
+      case InlrAlwaysInlineRecursive:
         return llvm::InlineCost::getAlways("always inline recursive attribute",
                                            InlrAlwaysInlineRecursive);
-      return llvm::InlineCost::getAlways("always inline attribute",
-                                         InlrAlwaysInline);
+      case InlrAlwaysInline:
+        return llvm::InlineCost::getAlways("always inline attribute",
+                                           InlrAlwaysInline);
+      default:
+        llvm_unreachable("unexpected inline reason");
+      }
     }
     return llvm::InlineCost::getNever(UserDecision->getFailureReason(),
                                       UserDecision->getIntelInlReason());

@@ -47,13 +47,13 @@ static void processCallsitesForFn(Function &F) {
       int CBChanged = 0;
 
       // promote hints to forced inlining
-      if (CB->hasFnAttr(Attribute::InlineHint)) {
+      if (CB->hasFnAttrOnCallsite(Attribute::InlineHint)) {
         if (CB->hasFnAttr(Attribute::NoInline))
           CB->removeFnAttr(Attribute::NoInline);
         CB->removeFnAttr(Attribute::InlineHint);
         CB->addFnAttr(Attribute::AlwaysInline);
         CBChanged = 1;
-      } else if (CB->hasFnAttr(Attribute::InlineHintRecursive) &&
+      } else if (CB->hasFnAttrOnCallsite(Attribute::InlineHintRecursive) &&
                  !CB->hasFnAttr(Attribute::NoInline)) {
         CB->removeFnAttr(Attribute::InlineHintRecursive);
         CB->addFnAttr(Attribute::AlwaysInlineRecursive);

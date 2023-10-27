@@ -26,10 +26,10 @@
 
 ; CHECK-LABEL: COMPILE FUNC: foo
 ; CHECK: INLINE: bar {{.*}}Callee is always inline (recursive)
-; CHECK: INLINE: baz {{.*}}Callee is always inline (recursive)
+; CHECK: INLINE: baz {{.*}}Callsite is always inline (recursive)
 ; CHECK: EXTERN: jazz
 ; CHECK: INLINE: bar {{.*}}Callee is always inline (recursive)
-; CHECK: INLINE: baz {{.*}}Callee is always inline (recursive)
+; CHECK: INLINE: baz {{.*}}Callsite is always inline (recursive)
 ; CHECK: EXTERN: jazz
 
 ; CHECK-MD-LABEL: declare {{.*}} i32 @jazz

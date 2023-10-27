@@ -28,25 +28,25 @@
 ; CHECK-BOTH-NEXT:    -> f4{{.*}}Callee has noinline attribute
 
 ; CHECK-BOTH: COMPILE FUNC: f6
-; CHECK-BOTH-NEXT:    -> INLINE: f4{{.*}}Callee is always inline
+; CHECK-BOTH-NEXT:    -> INLINE: f4{{.*}}Callsite is always inline
 ; CHECK-BOTH-NEXT:       -> INLINE: f3{{.*}}Callee is single basic block
 
 ; CHECK-BOTH: COMPILE FUNC: main
 ; CHECK-BOTH-NEXT:    -> f1{{.*}}Callee has noinline attribute
-; CHECK-BOTH-NEXT:    -> INLINE: f1{{.*}}Callee is always inline
+; CHECK-BOTH-NEXT:    -> INLINE: f1{{.*}}Callsite is always inline
 ; CHECK-BOTH-NEXT:    -> f1{{.*}}Callee has noinline attribute
 ; CHECK-BOTH-NEXT:    -> f2{{.*}}Callsite is noinline
-; CHECK-BOTH-NEXT:    -> INLINE: f2{{.*}}Callee is always inline
+; CHECK-BOTH-NEXT:    -> INLINE: f2{{.*}}Callsite is always inline
 ; CHECK-BOTH-NEXT:       -> f1{{.*}}Callee has noinline attribute
 ; CHECK-BOTH-NEXT:    -> INLINE: f3{{.*}}Callee is single basic block
 ; CHECK-BOTH-NEXT:    -> f4{{.*}}Callee has noinline attribute
-; CHECK-BOTH-NEXT:    -> INLINE: f4{{.*}}Callee is always inline
+; CHECK-BOTH-NEXT:    -> INLINE: f4{{.*}}Callsite is always inline
 ; CHECK-BOTH-NEXT:       -> INLINE: f3{{.*}}Callee is single basic block
 ; CHECK-BOTH-NEXT:    -> f4{{.*}}Callee has noinline attribute
-; CHECK-BOTH-NEXT:    -> INLINE: f5{{.*}}Callee is always inline (recursive)
+; CHECK-BOTH-NEXT:    -> INLINE: f5{{.*}}Callsite is always inline (recursive)
 ; CHECK-BOTH-NEXT:       -> f4{{.*}}Callee has noinline attribute
 ; CHECK-BOTH-NEXT:    -> INLINE: f6{{.*}}Callee is single basic block
-; CHECK-BOTH-NEXT:       -> INLINE: f4{{.*}}Callee is always inline
+; CHECK-BOTH-NEXT:       -> INLINE: f4{{.*}}Callsite is always inline
 ; CHECK-BOTH-NEXT:          -> INLINE: f3{{.*}}Callee is single basic block
 
 ; CHECK-META: define dso_local noundef i32 @main()
