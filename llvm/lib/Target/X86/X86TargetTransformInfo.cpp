@@ -218,11 +218,12 @@ X86TTIImpl::getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
   unsigned PreferVectorWidth = ST->getPreferVectorWidth();
   switch (K) {
   case TargetTransformInfo::RGK_Scalar:
-    return TypeSize::getFixed(ST->is64Bit() ? 64 : 32);
+    return TypeSize::Fixed(ST->is64Bit() ? 64 : 32);
   case TargetTransformInfo::RGK_FixedWidthVector:
     if (ST->hasAVX512() && ST->hasEVEX512() && PreferVectorWidth >= 512)
-      return TypeSize::getFixed(512);
+      return TypeSize::Fixed(512);
     if (ST->hasAVX() && PreferVectorWidth >= 256)
+<<<<<<< HEAD
       return TypeSize::getFixed(256);
 #if INTEL_CUSTOMIZATION
     // Avoid vectorization for SSE1 targets which will just need to be undone
@@ -231,11 +232,14 @@ X86TTIImpl::getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
     if (ST->hasSSE2() && PreferVectorWidth >= 128)
       return TypeSize::getFixed(128);
 #endif
+=======
+      return TypeSize::Fixed(256);
+>>>>>>> 8e247b8f4734b1b829156794bb2d9bf8c9c0e72a
     if (ST->hasSSE1() && PreferVectorWidth >= 128)
-      return TypeSize::getFixed(128);
-    return TypeSize::getFixed(0);
+      return TypeSize::Fixed(128);
+    return TypeSize::Fixed(0);
   case TargetTransformInfo::RGK_ScalableVector:
-    return TypeSize::getScalable(0);
+    return TypeSize::Scalable(0);
   }
 
   llvm_unreachable("Unsupported register kind");
