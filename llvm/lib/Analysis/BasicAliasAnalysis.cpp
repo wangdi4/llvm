@@ -232,7 +232,7 @@ static std::optional<TypeSize> getObjectSize(const Value *V,
   Opts.RoundToAlign = RoundToAlign;
   Opts.NullIsUnknownSize = NullIsValidLoc;
   if (getObjectSize(V, Size, DL, &TLI, Opts))
-    return TypeSize::getFixed(Size);
+    return TypeSize::Fixed(Size);
   return std::nullopt;
 }
 
@@ -298,7 +298,7 @@ static TypeSize getMinimalExtentFrom(const Value &V,
   // accessed, thus valid.
   if (LocSize.isPrecise())
     DerefBytes = std::max(DerefBytes, LocSize.getValue().getKnownMinValue());
-  return TypeSize::getFixed(DerefBytes);
+  return TypeSize::Fixed(DerefBytes);
 }
 
 /// Returns true if we can prove that the object specified by V has size Size.
