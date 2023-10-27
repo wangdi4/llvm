@@ -337,16 +337,12 @@ EVT X86TargetLowering::getOptimalMemOpType(
     if (Op.size() >= 16 &&
         (!Subtarget.isUnalignedMem16Slow() || Op.isAligned(Align(16)))) {
       // FIXME: Check if unaligned 64-byte accesses are slow.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
       if (Op.size() >= 64 && Subtarget.useAVX512Regs() &&
           (Subtarget.getPreferVectorWidth() >= 512)) {
 #else  // INTEL_FEATURE_ISA_AVX256P
-      if (Op.size() >= 64 && Subtarget.hasAVX512() &&
-=======
       if (Op.size() >= 64 && Subtarget.hasAVX512() && Subtarget.hasEVEX512() &&
->>>>>>> 58d4fe287e02dab99eec282917c67abbb36fc3e4
           (Subtarget.getPreferVectorWidth() >= 512)) {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
