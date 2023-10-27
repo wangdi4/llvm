@@ -36,8 +36,19 @@ include_directories(
 include_directories(
   ${BACKEND_ROOT_DIR}/arch_headers ${BACKEND_ROOT_DIR}/passes/)
 
-add_opencl_library(${TARGET_NAME} STATIC ${TARGET_INCLUDE_FILES}
-                   ${TARGET_SOURCE_FILES})
+add_opencl_library(
+  ${TARGET_NAME}
+  STATIC
+  ${TARGET_INCLUDE_FILES}
+  ${TARGET_SOURCE_FILES}
+  COMPONENTS
+  OclBackendUtils
+  LINK_LIBS
+  LLVMPasses
+  LLVMSPIRVLib
+  LLVMSYCLTransforms
+  LLVMScalarOpts
+  LLVMVectorize)
 
 if(OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME}

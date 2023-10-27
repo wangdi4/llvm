@@ -149,7 +149,11 @@ function(add_opencl_library name)
                  SOVERSION ${VERSIONSTRING})
   endif(WIN32)
 
-  target_link_libraries(${name} PRIVATE ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
+  if(ARG_SHARED)
+    target_link_libraries(${name} PRIVATE ${ARG_COMPONENTS} ${ARG_LINK_LIBS})
+  else()
+    target_link_libraries(${name} INTERFACE ${ARG_COMPONENTS} ${ARG_LINK_LIBS})
+  endif()
 
   # Try to do some link time optimizations to reduce shared library size
   if(ARG_SHARED)

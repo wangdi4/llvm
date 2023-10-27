@@ -160,7 +160,17 @@ add_opencl_library(
   ${OCL_CPU_BACKEND_SOURCE_FILES}
   ${ASM_ADD_TO_SOURCES_LIST}
   INCLUDE_DIRS
-  ${INCLUDE_DIRS})
+  ${INCLUDE_DIRS}
+  COMPONENTS
+  CacheBinaryHandler
+  ObjDump
+  OclBackendUtils
+  OclOptimizer
+  cl_sys_utils
+  emutls
+  soft_math
+  LINK_LIBS
+  ${LLVM_MODULE_LIBS})
 
 add_dependencies(${TARGET_NAME} intrinsics_gen)
 
