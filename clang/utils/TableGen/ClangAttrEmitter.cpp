@@ -1646,7 +1646,7 @@ static void writeGetSpellingFunction(const Record &R, raw_ostream &OS) {
   if (R.getName() == "SYCLIntelIVDep")
     OS << "  case 4:\n"// << Spellings.size() << ":\n"
        << "    return \"ivdep\";\n";
-#endif
+#endif // INTEL_CUSTOMIZATION
   // End of the switch statement.
   OS << "  }\n";
   // End of the getSpelling function.
@@ -4195,15 +4195,11 @@ static void GenerateCustomAppertainsTo(const Record &Subject, raw_ostream &OS) {
     return;
   }
 
-  const StringRef CheckCodeValue = Subject.getValueAsString("CheckCode");
-
   OS << "static bool " << FnName << "(const Decl *D) {\n";
-  if (CheckCodeValue != "false") {
-    OS << "  if (const auto *S = dyn_cast<";
-    OS << GetSubjectWithSuffix(Base);
-    OS << ">(D))\n";
-    OS << "    return " << Subject.getValueAsString("CheckCode") << ";\n";
-  }
+  OS << "  if (const auto *S = dyn_cast<";
+  OS << GetSubjectWithSuffix(Base);
+  OS << ">(D))\n";
+  OS << "    return " << Subject.getValueAsString("CheckCode") << ";\n";
   OS << "  return false;\n";
   OS << "}\n\n";
 

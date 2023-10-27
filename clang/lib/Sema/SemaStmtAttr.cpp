@@ -1341,14 +1341,14 @@ CheckForIncompatibleAttributes(Sema &S,
     LoopCountAvg,
 #endif // INTEL_CUSTOMIZATION
     Interleave,
+    UnrollAndJam,
+    Pipeline,
     // For unroll, default indicates full unrolling rather than enabling the
     // transformation.
     Unroll,
-    UnrollAndJam,
     // The loop distribution transformation only has a state form that is
     // exposed by #pragma clang loop distribute (enable | disable).
     Distribute,
-    Pipeline,
     // The vector predication only has a state form that is exposed by
     // #pragma clang loop vectorize_predicate (enable | disable).
     VectorizePredicate,

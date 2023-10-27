@@ -348,8 +348,7 @@ namespace clang {
           Ctx.getDiagnosticHandler();
       Ctx.setDiagnosticHandler(std::make_unique<ClangDiagnosticHandler>(
         CodeGenOpts, this));
-#endif // INTEL_CUSTOMIZATION
-
+#endif // !INTEL_CUSTOMIZATION
       // The diagnostic handler is now processed in OptRecordFileRAII.
 
       // The parallel_for_work_group legalization pass can emit calls to
@@ -407,9 +406,11 @@ namespace clang {
         C.getAllocator().Reset();
       }
 
+#if INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
       EmbedBitcode(getModule(), CodeGenOpts, llvm::MemoryBufferRef());
 #endif // !INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
 
       EmitBackendOutput(Diags, HeaderSearchOpts, CodeGenOpts, TargetOpts,
                         LangOpts, C.getTargetInfo().getDataLayoutString(),
@@ -417,7 +418,7 @@ namespace clang {
 
 #if !INTEL_CUSTOMIZATION
       Ctx.setDiagnosticHandler(std::move(OldDiagnosticHandler));
-#endif // INTEL_CUSTOMIZATION
+#endif // !INTEL_CUSTOMIZATION
     }
 
     void HandleTagDeclDefinition(TagDecl *D) override {
@@ -1328,9 +1329,11 @@ void CodeGenAction::ExecuteAction() {
   }
 
   EmbedObject(TheModule.get(), CodeGenOpts, Diagnostics);
+#if INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
   EmbedBitcode(TheModule.get(), CodeGenOpts, *MainFile);
 #endif // !INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
 
   LLVMContext &Ctx = TheModule->getContext();
 
@@ -1369,7 +1372,7 @@ void CodeGenAction::ExecuteAction() {
     OptRecordFile->keep();
 
   // This code is now in the destructor of OptRecordFileRAII.
-#endif // INTEL_CUSTOMIZATION
+#endif // !INTEL_CUSTOMIZATION
 }
 
 //

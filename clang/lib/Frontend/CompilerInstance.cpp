@@ -87,8 +87,7 @@ CompilerInstance::CompilerInstance(
       ModuleCache(SharedModuleCache ? SharedModuleCache
                                     : new InMemoryModuleCache),
       ThePCHContainerOperations(std::move(PCHContainerOps)), // INTEL
-      OutputStream(nullptr) { // INTEL
-}
+      OutputStream(nullptr) {}                               // INTEL
 
 CompilerInstance::~CompilerInstance() {
   assert(OutputFiles.empty() && "Still output files in flight?");

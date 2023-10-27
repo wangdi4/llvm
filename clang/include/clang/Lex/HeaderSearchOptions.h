@@ -134,9 +134,6 @@ public:
   std::vector<std::string> VFSOverlayLibs;
 #endif // INTEL_CUSTOMIZATION
 
-  using ModulesIgnoreMacrosTy =
-      llvm::SmallSetVector<llvm::CachedHashString, 16>;
-
   /// The directory used for the module cache.
   std::string ModuleCachePath;
 
