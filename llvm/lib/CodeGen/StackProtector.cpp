@@ -484,7 +484,7 @@ static Instruction *findNoReturnFunc(BasicBlock &BB) {
     if (!CB)
       continue;
     // Do stack check before non-return calls (e.g: __cxa_throw)
-    if (CB->doesNotReturn())
+    if (CB->doesNotReturn() && !CB->doesNotThrow())
       return CB;
   }
   return nullptr;
