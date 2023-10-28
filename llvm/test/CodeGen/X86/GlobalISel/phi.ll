@@ -4,13 +4,8 @@
 define i8 @test_i8(i32 %a, i8 %f, i8 %t) {
 ; ALL-LABEL: test_i8:
 ; ALL:       # %bb.0: # %entry
-<<<<<<< HEAD
 ; ALL-NEXT:    movl %esi, %eax ;INTEL
-; ALL-NEXT:    xorl %ecx, %ecx
-; ALL-NEXT:    cmpl %ecx, %edi
-=======
 ; ALL-NEXT:    cmpl $0, %edi
->>>>>>> 9a091de7fe83af010e6ce38e2ed1227ef475bf49
 ; ALL-NEXT:    setg %cl
 ; ALL-NEXT:    testb $1, %cl
 ; ALL-NEXT:    je .LBB0_1 ;INTEL
