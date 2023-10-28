@@ -95,6 +95,7 @@ void initializeArgNoAliasPropPass(PassRegistry &); // INTEL
 void initializeArrayUseWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumptionCacheTrackerPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
+void initializeBasicBlockPathCloningPass(PassRegistry &);
 void initializeBasicBlockSectionsProfileReaderPass(PassRegistry &);
 void initializeBasicBlockSectionsPass(PassRegistry &);
 void initializeBarrierNoopPass(PassRegistry&);
