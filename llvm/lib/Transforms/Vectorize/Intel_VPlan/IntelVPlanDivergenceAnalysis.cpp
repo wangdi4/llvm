@@ -1581,7 +1581,7 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocateInst(
   // When dealing with an array type where the alignment specified is
   // greater than this type's preferred alignment the vector code generated
   // will need to serialize the alloca to ensure that that allocated memory
-  // is properly aligned for every. We need to return random shape for this
+  // is properly aligned for every lane. We need to return random shape for this
   // case. The only exception is if the type's allocated size matches the
   // specified alignment(in which case no padding is needed).
   Align OrigAlignment = AI->getOrigAlignment();
