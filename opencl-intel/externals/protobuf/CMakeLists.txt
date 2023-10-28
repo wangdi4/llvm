@@ -9,6 +9,12 @@
 # This software and the related documents are provided as is, with no express or
 # implied warranties, other than those that are expressly stated in the License.
 
+if (INTEL_ENABLE_PROTO_BIN_OPTRPT)
+  message(FATAL_ERROR "can't use INTEL_ENABLE_PROTO_BIN_OPTRPT with external "
+                      "protobuf: binary opt report uses protobufs v3.17, "
+                      "while opencl-intel uses v3.21.")
+endif()
+
 if (POLICY CMP0097)
   cmake_policy(SET CMP0097 NEW)
 endif ()
