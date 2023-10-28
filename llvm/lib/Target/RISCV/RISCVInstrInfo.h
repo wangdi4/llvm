@@ -13,7 +13,6 @@
 #ifndef LLVM_LIB_TARGET_RISCV_RISCVINSTRINFO_H
 #define LLVM_LIB_TARGET_RISCV_RISCVINSTRINFO_H
 
-#include "MCTargetDesc/RISCVBaseInfo.h"
 #include "RISCVRegisterInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/IR/DiagnosticInfo.h"
@@ -67,8 +66,7 @@ public:
   void copyPhysRegVector(MachineBasicBlock &MBB,
                          MachineBasicBlock::iterator MBBI, const DebugLoc &DL,
                          MCRegister DstReg, MCRegister SrcReg, bool KillSrc,
-                         unsigned Opc, unsigned NF, RISCVII::VLMUL LMul,
-                         unsigned SubRegIdx) const;
+                         unsigned Opc, unsigned NF = 1) const;
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                    const DebugLoc &DL, MCRegister DstReg, MCRegister SrcReg,
                    bool KillSrc) const override;
@@ -97,7 +95,8 @@ public:
   // Materializes the given integer Val into DstReg.
   void movImm(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
               const DebugLoc &DL, Register DstReg, uint64_t Val,
-              MachineInstr::MIFlag Flag = MachineInstr::NoFlags) const;
+              MachineInstr::MIFlag Flag = MachineInstr::NoFlags,
+              bool DstRenamable = false, bool DstIsDead = false) const;
 
   unsigned getInstSizeInBytes(const MachineInstr &MI) const override;
 
