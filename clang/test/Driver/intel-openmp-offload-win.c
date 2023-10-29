@@ -145,3 +145,12 @@
 // RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-pc-windows-msvc -O1 -fopenmp-targets=spir64 -fno-openmp-device-lib=all  %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-SPIRV-OPT %s
 // CHK-SPIRV-OPT: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-pc-windows-msvc"{{.*}} "-mllvm" "-spirv-opt"
+
+/// CodeView is the default for Windows spir64 based compilations with debug.
+// RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64 -Zi -c \
+// RUN:           --target=x86_64-pc-windows-msvc %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=DEBUG-WIN %s
+// DEBUG-WIN: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}"{{.*}} "-gcodeview"
+// DEBUG-WIN-DAG: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}"{{.*}} "-gcodeview"
+// DEBUG-WIN-DAG: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-gcodeview"
+// DEBUG-WIN-NOT: dwarf-version

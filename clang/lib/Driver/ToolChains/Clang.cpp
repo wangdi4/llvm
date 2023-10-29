@@ -4762,6 +4762,10 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
 #if INTEL_CUSTOMIZATION
   if (Args.hasArg(options::OPT_fprofile_sample_generate_EQ))
     EmitDwarf = true;
+
+  // On Windows, default debug format is CodeView for spir64.
+  if (T.isSPIR() && D.IsCLMode() && !EmitDwarf)
+    EmitCodeView = true;
 #endif // INTEL_CUSTOMIZATION
 
   // If the user asked for debug info but did not explicitly specify -gcodeview
