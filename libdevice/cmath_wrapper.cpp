@@ -167,6 +167,31 @@ float nearbyintf(float x) { return __nv_nearbyintf(x); }
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
+#if !defined(_WIN32)
+DEVICE_EXTERN_C_INLINE
+int __devicelib___isnanf(float x);
+
+DEVICE_EXTERN_C_INLINE
+int __isnanf(float x) { return __devicelib___isnanf(x); }
+
+DEVICE_EXTERN_C_INLINE
+int __devicelib___isinff(float x);
+
+DEVICE_EXTERN_C_INLINE
+int __isinff(float x) { return __devicelib___isinff(x); }
+
+DEVICE_EXTERN_C_INLINE
+int __devicelib___isnormalf(float x);
+
+DEVICE_EXTERN_C_INLINE
+int __isnormalf(float x) { return __devicelib___isnormalf(x); }
+
+DEVICE_EXTERN_C_INLINE
+int __devicelib___signbitf(float x);
+
+DEVICE_EXTERN_C_INLINE
+int __signbitf(float x) { return __devicelib___signbitf(x); }
+#endif
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB

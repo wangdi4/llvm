@@ -162,6 +162,19 @@ double __devicelib_scalbn(double x, int exp) {
 }
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
+#if !defined(_WIN32)
+DEVICE_EXTERN_C_INLINE
+int __devicelib___isnan(double x) { return __spirv_IsNan(x); }
+
+DEVICE_EXTERN_C_INLINE
+int __devicelib___isinf(double x) { return __spirv_IsInf(x); }
+
+DEVICE_EXTERN_C_INLINE
+int __devicelib___isnormal(double x) { return __spirv_IsNormal(x); }
+
+DEVICE_EXTERN_C_INLINE
+int __devicelib___signbit(double x) { return __spirv_SignBitSet(x); }
+#endif
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
