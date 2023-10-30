@@ -12,11 +12,11 @@
 ; Basic inlining tests for the module inliner.
 
 
-; CHECK-f847-SIZE: COMPILE FUNC: callee2
-; CHECK-f847-SIZE: COMPILE FUNC: caller
-; CHECK-f847-SIZE: callee2 {{.*}}Callee has noinline attribute
-; CHECK-f847-SIZE: INLINE: callee1 {{.*}}Callee is single basic block
 ; CHECK-f847-SIZE: COMPILE FUNC: callee1
+; CHECK-f847-SIZE: COMPILE FUNC: caller
+; CHECK-f847-SIZE: INLINE: callee1 {{.*}}Callee is single basic block
+; CHECK-f847-SIZE: callee2 {{.*}}Callee has noinline attribute
+; CHECK-f847-SIZE: COMPILE FUNC: callee2
 
 ; CHECK-f847-OTHER: COMPILE FUNC: callee1
 ; CHECK-f847-OTHER: COMPILE FUNC: caller
