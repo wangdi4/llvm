@@ -29,7 +29,7 @@
 ; Checks for LLVM-IR after HIR-CG
 ; CHECK-LABEL: define hidden fastcc void @parse_value(ptr %arr, ptr %p1, ptr %p2)
 ; CHECK:         store <8 x ptr> %shuffle28, ptr [[TEMP18:%.*]], align 64
-; CHECK-NEXT:    [[TEMP0:%.*]] = load i64, ptr %i1.i64, align 4
+; CHECK-NEXT:    [[TEMP0:%.*]] = load i64, ptr %i1.i64, align 8
 ; CHECK-NEXT:    [[TEMP1:%.*]] = getelementptr inbounds %struct.hashtable_list, ptr %arr, i64 [[TEMP0]], i32 0
 ; CHECK-NEXT:    [[TEMP18DOT:%.*]] = load <8 x ptr>, ptr [[TEMP18]], align 64
 ; CHECK-NEXT:    store <8 x ptr> [[TEMP18DOT]], ptr [[TEMP1]], align 8
