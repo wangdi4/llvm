@@ -131,6 +131,14 @@ static cl::opt<bool> CalcMinProfitableDynPeelTC(
         "peeling. At runtime, if the real TC is less than the value computed "
         "for that particular loop, peeling will be skipped."));
 
+static cl::opt<bool> OptimizeProfitablePeelCheck(
+    "vplan-optimize-profitable-peel-check", cl::Hidden, cl::init(false),
+    cl::desc("Whether to optimize peeling and peel checks using the calculated "
+             "minimum profitable peel TC. When enabled, if the profitable peel "
+             "TC is greater than the estimated max TC, we don't emit a peel "
+             "loop; if the profitable peel TC is lesser than the estimated min "
+             "TC, we omit the peel TC check."));
+
 static cl::opt<uint64_t> SkipDynamicPeelTC(
     "vplan-skip-dynamic-peel-tc", cl::init(0), cl::Hidden,
     cl::desc("When dynamic peeling, VPlan emits a trip count check to see if "
@@ -1356,7 +1364,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     IsUserForcedUF = true;
   }
 
-  bool IsTripCountEstimated = OuterMostVPLoop->getTripCountInfo().IsEstimated;
+  const auto TripCountInfo = OuterMostVPLoop->getTripCountInfo();
+  const bool IsTripCountEstimated = TripCountInfo.IsEstimated;
   unsigned ForcedVF = getForcedVF(WRLp);
 
   // Get the unrolling preferences to determine the maximum UF to attempt,
@@ -1747,9 +1756,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       VPInstructionCost GainWithPeel = ScalarCost - VectorCost;
       VPInstructionCost GainWithoutPeel = ScalarCost - VectorCostWithoutPeel;
 
-      const PeelDecision PeelingDecision(PeelEvaluator, GainWithPeel,
-                                         GainWithoutPeel, ScalarCost, TripCount,
-                                         PeelIsDynamic, IsTripCountEstimated);
+      PeelDecision PeelingDecision(PeelEvaluator, GainWithPeel, GainWithoutPeel,
+                                   ScalarCost, TripCount, PeelIsDynamic,
+                                   IsTripCountEstimated);
 
       VPInstructionCost VectorGain =
           PeelingDecision.ShouldPeel ? GainWithPeel : GainWithoutPeel;
@@ -1816,6 +1825,52 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+      // If we've chosen to dynamically peel, but the trip count isn't known,
+      // compute a minimum profitable peel TC so we can emit a run-time
+      // profitability check.
+      uint64_t MinProfitablePeelTC = 0;
+      if (CalcMinProfitableDynPeelTC && PeelingDecision.ShouldPeel &&
+          PeelingDecision.PeelIsDynamic && IsTripCountEstimated) {
+        // TODO: should we still calculate the min profitable peeling TC when
+        // trip count is known, and assert that it is less than the known TC?
+        LLVM_DEBUG(
+            dbgs() << "Dynamic peel chosen with unknown (estimated) trip "
+                      "count; computing TC for profitable peel check.\n");
+        MinProfitablePeelTC = calcMinProfitablePeelTC(
+            /*PeelOverhead=*/PeelEvaluator.getLoopCost(),
+            /*AlignedMainCost=*/MainLoopIterationCost,
+            /*UnalignedMainCost=*/MainLoopIterationCostWithoutPeel,
+            /*AlignedOverhead=*/MainLoopOverhead +
+                RemainderEvaluator.getLoopCost(),
+            /*UnalignedOverhead=*/MainLoopOverheadWithoutPeel +
+                RemainderEvaluatorWithoutPeel.getLoopCost(),
+            /*MaxPeelTC=*/PeelEvaluator.getTripCount(), VF, UF);
+
+        // Using the threshold TC, further tune peeling decisions. In
+        // particular, determine if we should omit the peel or the run-time
+        // check.
+        if (OptimizeProfitablePeelCheck && MinProfitablePeelTC != 0) {
+          if (MinProfitablePeelTC > TripCountInfo.MaxTripCount) {
+            LLVM_DEBUG(dbgs()
+                       << "Calculated min profitable peel TC ("
+                       << MinProfitablePeelTC
+                       << ") is "
+                          "greater than the expected max TC ("
+                       << TripCountInfo.MaxTripCount
+                       << ").\nPeel is likely unprofitable: disabling.\n");
+            PeelingDecision.ShouldPeel = false;
+          } else if (MinProfitablePeelTC < TripCountInfo.MinTripCount) {
+            LLVM_DEBUG(
+                dbgs()
+                << "Calculated min profitable peel TC (" << MinProfitablePeelTC
+                << ") is less than the expected min TC ("
+                << TripCountInfo.MinTripCount
+                << ").\nPeel is likely profitable: disabling TC check.\n");
+            MinProfitablePeelTC = 0;
+          }
+        }
+      }
+
       if (!PeelingDecision.ShouldPeel) {
         PeelEvaluator.disable();
         // Total cost is cost without peeling.
@@ -1861,23 +1916,15 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                               ? RemainderEvaluator
                               : RemainderEvaluatorWithoutPeel,
                           VF, UF, isa<VPlanMasked>(Plan));
-        if (CalcMinProfitableDynPeelTC) {
-          // TODO: should we still calculate the min profitable peeling TC when
-          // trip count is known, and assert that it is less than the known TC?
-          if (IsTripCountEstimated && VecScenario.hasPeel() &&
-              PeelingDecision.PeelIsDynamic)
-            VecScenario.setMinimumProfitablePeelTC(calcMinProfitablePeelTC(
-                /*PeelOverhead=*/PeelEvaluator.getLoopCost(),
-                /*AlignedMainCost=*/MainLoopIterationCost,
-                /*UnalignedMainCost=*/MainLoopIterationCostWithoutPeel,
-                /*AlignedOverhead=*/MainLoopOverhead +
-                    RemainderEvaluator.getLoopCost(),
-                /*UnalignedOverhead=*/MainLoopOverheadWithoutPeel +
-                    RemainderEvaluatorWithoutPeel.getLoopCost(),
-                /*MaxPeelTC=*/PeelEvaluator.getTripCount(), VF, UF));
-          else
-            VecScenario.setMinimumProfitablePeelTC(0);
+        if (VecScenario.hasPeel()) {
+          if (MinProfitablePeelTC != 0)
+            LLVM_DEBUG(dbgs() << "Using min profitable peel TC: "
+                              << MinProfitablePeelTC << "\n");
+          VecScenario.setMinimumProfitablePeelTC(MinProfitablePeelTC);
+        } else {
+          VecScenario.setMinimumProfitablePeelTC(0);
         }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         if (PrintVecScenario) {
           dbgs() << "Updated scenario for VF: " << VF << ", UF: " << UF << "\n";

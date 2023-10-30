@@ -33,15 +33,18 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/Analysis/InlineModelFeatureMaps.h"
-#include "llvm/Analysis/Intel_WP.h"           // INTEL
-#include "llvm/Analysis/LoopInfo.h"           // INTEL
-#include "llvm/Analysis/OptimizationRemarkEmitter.h"
-#include "llvm/ADT/SmallSet.h"                // INTEL
 #include "llvm/IR/PassManager.h"
 #include <cassert>
 #include <climits>
-#include <map>                                // INTEL
 #include <optional>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/SmallSet.h"
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include <map>
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 class AssumptionCache;
@@ -270,8 +273,10 @@ extern bool IsNotInlinedReason(InlineReportTypes::InlineReason Reason);
 /// based on the information available for a particular callsite. They can be
 /// directly tested to determine if inlining should occur given the cost and
 /// threshold for this cost metric.
-/// INTEL The Intel version is augmented with the InlineReason, which is the
-/// INTEL principal reason that a call site was or was not inlined.
+#if INTEL_CUSTOMIZATION
+/// The Intel version is augmented with the InlineReason, which is the
+/// principal reason that a call site was or was not inlined.
+#endif // INTEL_CUSTOMIZATION
 
 class InlineCost {
   enum SentinelValues { AlwaysInlineCost = INT_MIN, NeverInlineCost = INT_MAX };
@@ -356,10 +361,10 @@ public:
   static InlineCost
   getNever(const char *Reason,
            std::optional<CostBenefitPair> CostBenefit = std::nullopt) {
-    return InlineCost(NeverInlineCost, 0, 0, Reason, CostBenefit,  // INTEL
-                      false, InlineReportTypes::NinlrNeverInline); // INTEL
-  }
 #if INTEL_CUSTOMIZATION
+    return InlineCost(NeverInlineCost, 0, 0, Reason, CostBenefit, false,
+                      InlineReportTypes::NinlrNeverInline);
+  }
   static InlineCost getAlways(const char *Reason,
                               InlineReportTypes::InlineReason IntelReason) {
     return InlineCost(AlwaysInlineCost, 0, 0, Reason, std::nullopt, true,

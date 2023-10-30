@@ -626,15 +626,14 @@ public:
   void getUnrollingPreferences(Loop *L, ScalarEvolution &,
                                UnrollingPreferences &UP,
                                OptimizationRemarkEmitter *ORE) const;
-
+#if INTEL_CUSTOMIZATION
   /// \brief Get target-customized default threshold for loop rotation.
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const;
 
-#if INTEL_CUSTOMIZATION
   /// Return true if introducing less structured control flow will generally
   /// cause performance degradations for the target.
   bool needsStructuredCFG() const;
-#endif
+#endif // INTEL_CUSTOMIZATION
   /// Query the target whether it would be profitable to convert the given loop
   /// into a hardware loop.
   bool isHardwareLoopProfitable(Loop *L, ScalarEvolution &SE,
@@ -2406,9 +2405,11 @@ public:
                                OptimizationRemarkEmitter *ORE) override {
     return Impl.getUnrollingPreferences(L, SE, UP, ORE);
   }
+#if INTEL_CUSTOMIZATION
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const override {
     return Impl.getLoopRotationDefaultThreshold(OptForSize);
   }
+#endif // INTEL_CUSTOMIZATION
   void getPeelingPreferences(Loop *L, ScalarEvolution &SE,
                              PeelingPreferences &PP) override {
     return Impl.getPeelingPreferences(L, SE, PP);

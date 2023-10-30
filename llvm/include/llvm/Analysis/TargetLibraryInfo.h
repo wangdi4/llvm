@@ -106,7 +106,7 @@ public:
         VectorizationFactor(VectorizationFactor), Masked(Masked),
         VABIPrefix(VABIPrefix), AttrBits(AttrBits),
         ReqdCpuFeature(ReqdCpuFeature) {}
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   StringRef getScalarFnName() const { return ScalarFnName; }
   StringRef getVectorFnName() const { return VectorFnName; }
@@ -116,7 +116,7 @@ public:
 #if INTEL_CUSTOMIZATION
   VecDescAttrBits getAttrBits() const { return AttrBits; }
   StringRef getReqdCpuFeature() const { return ReqdCpuFeature; }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// Returns a vector function ABI variant string on the form:
   ///    _ZGV<isa><mask><vlen><vparams>_<scalarname>(<vectorname>)
@@ -207,10 +207,10 @@ public:
     MASSV,            // IBM MASS vector library.
     SVML,             // Intel short vector math library.
     SLEEFGNUABI, // SLEEF - SIMD Library for Evaluating Elementary Functions.
-    ArmPL,        // Arm Performance Libraries.
 #if INTEL_CUSTOMIZATION
-    Libmvec,          // Glibc vector math library.
-#endif
+    ArmPL,   // Arm Performance Libraries.
+    Libmvec, // Glibc vector math library.
+#endif       // INTEL_CUSTOMIZATION
   };
 
 #if INTEL_CUSTOMIZATION
@@ -359,7 +359,7 @@ public:
   // True if the provided LibFunc \p F identifies a Fortran random number
   // generator library function.
   bool isFortranRNGLibFunc(LibFunc F) const;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// Return true if the function F has a vector equivalent with any
   /// vectorization factor.

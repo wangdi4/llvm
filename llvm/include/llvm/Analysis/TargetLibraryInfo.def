@@ -257,7 +257,7 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_exception_dtor)
 TLI_DEFINE_STRING_INTERNAL("??1exception@std@@UEAA@XZ")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 /// void *operator new(unsigned int);
 TLI_DEFINE_ENUM_INTERNAL(msvc_new_int)
