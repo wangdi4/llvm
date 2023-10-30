@@ -248,6 +248,8 @@ void AddImplicitArgsPass::runOnFunction(Function *F) {
   for (User *U : make_early_inc_range(F->users())) {
     if (auto *I = dyn_cast<Instruction>(U)) {
       VMapper.remapInstruction(*I);
+    } else if (auto *GV = dyn_cast<GlobalVariable>(U)) {
+      GV->setInitializer(VMapper.mapConstant(*GV->getInitializer()));
     } else if (auto *C = dyn_cast<Constant>(U)) {
       Constant *NewC = VMapper.mapConstant(*C);
       C->replaceAllUsesWith(NewC);

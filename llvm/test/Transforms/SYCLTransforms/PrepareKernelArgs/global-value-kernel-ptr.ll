@@ -7,26 +7,28 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-$_ZTS13dummy_functorIN14program_info__12program_infoEE = comdat any
+$foo = comdat any
 
-@llvm.used = appending global [1 x ptr] [ptr @_ZTS13dummy_functorIN14program_info__12program_infoEE], section "llvm.metadata"
+@llvm.used = appending global [1 x ptr] [ptr @foo], section "llvm.metadata"
+@a = global ptr @foo
 
-; CHECK: @llvm.used = appending global [1 x ptr] [ptr @_ZTS13dummy_functorIN14program_info__12program_infoEE], section "llvm.metadata"
+; CHECK: @llvm.used = appending global [1 x ptr] [ptr @foo], section "llvm.metadata"
+; CHECK: @a = global ptr @foo
 
-; CHECK: define weak_odr void @___ZTS13dummy_functorIN14program_info__12program_infoEE_separated_args(
+; CHECK: define weak_odr void @__foo_separated_args(
 ; CHECK-NOT: comdat
 
-; CHECK: define weak_odr void @_ZTS13dummy_functorIN14program_info__12program_infoEE(
+; CHECK: define weak_odr void @foo(
 ; CHECK-SAME: comdat
 
 ; Function Attrs: mustprogress norecurse
-declare void @___ZTS13dummy_functorIN14program_info__12program_infoEE_before.AddImplicitArgs() #0
+declare void @__foo_before.AddImplicitArgs() #0
 
 ; Function Attrs: mustprogress norecurse
-declare void @___ZGVeN16__ZTS13dummy_functorIN14program_info__12program_infoEE_before.AddImplicitArgs() #0
+declare void @___ZGVeN16_foo_before.AddImplicitArgs() #0
 
 ; Function Attrs: mustprogress norecurse
-define weak_odr void @_ZTS13dummy_functorIN14program_info__12program_infoEE(ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) #0 comdat !kernel_arg_addr_space !1 !kernel_arg_access_qual !1 !kernel_arg_type !1 !kernel_arg_base_type !1 !kernel_arg_type_qual !1 !kernel_arg_buffer_location !1 {
+define weak_odr void @foo(ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) #0 comdat !kernel_arg_addr_space !1 !kernel_arg_access_qual !1 !kernel_arg_type !1 !kernel_arg_base_type !1 !kernel_arg_type_qual !1 !kernel_arg_buffer_location !1 {
 entry:
   ret void
 }
@@ -35,7 +37,7 @@ attributes #0 = { mustprogress norecurse }
 
 !sycl.kernels = !{!0}
 
-!0 = !{ptr @_ZTS13dummy_functorIN14program_info__12program_infoEE}
+!0 = !{ptr @foo}
 !1 = !{}
 
 ; DEBUGIFY-NOT: WARNING
