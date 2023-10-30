@@ -1,6 +1,3 @@
-# UNSUPPORTED: system-windows
-## INTEL
-
 ## This test checks that a universal bitcode file is flattened correctly.
 
 # RUN: llvm-as %S/Inputs/arm64-ios.ll -o %t-arm64.bc
