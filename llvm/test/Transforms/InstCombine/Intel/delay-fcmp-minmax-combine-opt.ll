@@ -3,6 +3,8 @@
 ; RUN: opt -passes=instcombine,slp-vectorizer,instcombine -mtriple=i686-linux -mattr=+avx512f,+avx512vl,+avx512dq -enable-intel-advanced-opts=true -mattr=-prefer-256-bit %s -S 2>&1 | FileCheck %s --check-prefixes=ENABLE
 ; RUN: opt -passes=instcombine,slp-vectorizer,instcombine -disable-fcmp-min-max-combine=true -mtriple=i686-linux -mattr=+avx512f,+avx512vl,+avx512dq -enable-intel-advanced-opts=true -mattr=-prefer-256-bit %s -S 2>&1 | FileCheck %s --check-prefixes=DISABLE
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+
 define dso_local i32 @delayFCmpMinMaxOpt(ptr %in0, ptr %in1) {
 ; ENABLE-LABEL: @delayFCmpMinMaxOpt(
 ; ENABLE-NEXT:  entry:
