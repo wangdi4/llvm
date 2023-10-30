@@ -228,7 +228,9 @@ public:
                                TTI::UnrollingPreferences &,
                                OptimizationRemarkEmitter *) const {}
 
+#if INTEL_CUSTOMIZATION
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const { return 16; }
+#endif // INTEL_CUSTOMIZATION
   void getPeelingPreferences(Loop *, ScalarEvolution &,
                              TTI::PeelingPreferences &) const {}
 
@@ -706,16 +708,16 @@ public:
     return 1;
   }
 
-  InstructionCost
-  getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
-                         bool VariableMask, Align Alignment,
-                         TTI::TargetCostKind CostKind,
-                         const Instruction *I = nullptr,     // INTEL
-                         bool UndefPassThru = false) const { // INTEL
+  InstructionCost getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
+                                         const Value *Ptr, bool VariableMask,
+                                         Align Alignment,
+                                         TTI::TargetCostKind CostKind,
+#if INTEL_CUSTOMIZATION
+                                         const Instruction *I = nullptr,
+                                         bool UndefPassThru = false) const {
     return 1;
   }
 
-#if INTEL_CUSTOMIZATION
   unsigned getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
                                   unsigned IndexSize, bool VariableMask,
                                   unsigned Alignment, unsigned AddressSpace,
@@ -901,7 +903,7 @@ public:
 
   void
   getVectorUnrollingPreferences(TTI::VectorUnrollingPreferences &UP) const {}
-#endif
+#endif // INTEL_CUSTOMIZATION
   Type *
   getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                             unsigned SrcAddrSpace, unsigned DestAddrSpace,
