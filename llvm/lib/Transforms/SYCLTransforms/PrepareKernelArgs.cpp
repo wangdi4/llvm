@@ -514,6 +514,8 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
 
     if (auto *I = dyn_cast<Instruction>(U))
       VMapper.remapInstruction(*I);
+    else if (auto *GV = dyn_cast<GlobalVariable>(U))
+      GV->setInitializer(VMapper.mapConstant(*GV->getInitializer()));
     else if (auto *C = dyn_cast<Constant>(U))
       C->replaceAllUsesWith(VMapper.mapConstant(*C));
     else
