@@ -128,13 +128,9 @@
 ; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; CHECK-O-NEXT: Running pass: DevirtSCCRepeatedPass
 ; CHECK-O-NEXT: Running pass: InlinerPass
-<<<<<<< HEAD
-; CHECK-O-NEXT: Running pass: InlinerPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass on (foo)
 ; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
-=======
->>>>>>> 1a2e77cf9e11dbf56b5720c607313a566eebb16e
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
