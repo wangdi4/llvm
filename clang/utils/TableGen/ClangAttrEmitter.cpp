@@ -1901,7 +1901,7 @@ CreateSemanticSpellings(const std::vector<FlattenedSpelling> &Spellings,
     // enumerator.
     Ret += "    " + EnumName + " = " + llvm::utostr(Idx);
   }
-  Ret += ",\n  SpellingNotCalculated = 15\n";
+  Ret += ",\n  SpellingNotCalculated = 31\n"; // INTEL
   Ret += "\n  };\n\n";
   return Ret;
 }
