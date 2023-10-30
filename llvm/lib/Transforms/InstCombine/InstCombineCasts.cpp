@@ -1481,17 +1481,12 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &Sext) {
 #endif // INTEL_CUSTOMIZATION
 
   // If the value being extended is zero or positive, use a zext instead.
-<<<<<<< HEAD
   if (isKnownNonNegative(Src, DL, 0, &AC, &Sext, &DT) && // INTEL
-      !AvoidSExtTransform(Sext, Src))                    // INTEL
-    return CastInst::Create(Instruction::ZExt, Src, DestTy);
-=======
-  if (isKnownNonNegative(Src, DL, 0, &AC, &Sext, &DT)) {
+      !AvoidSExtTransform(Sext, Src)) {                  // INTEL
     auto CI = CastInst::Create(Instruction::ZExt, Src, DestTy);
     CI->setNonNeg(true);
     return CI;
   }
->>>>>>> 3f2ed812f021e723212ddb9f808757a7ec3841e1
 
 #if INTEL_CUSTOMIZATION
   // Check if sext is used in address computations. Looking for the following
