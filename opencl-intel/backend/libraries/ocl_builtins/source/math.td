@@ -19,6 +19,14 @@ defvar math_f32_vectorize_types = ExpandTypesByVFAndFlatten<[v1f32], [4, 8, 16, 
 defvar math_f64_vectorize_types = ExpandTypesByVFAndFlatten<[v1f64], [4, 8, 16, 32, 64]>.Tout;
 defvar math_all_fp_vectorize_types = math_f16_vectorize_types # math_f32_vectorize_types # math_f64_vectorize_types;
 
+// Emit forward declarations for non-standard (not in spec) builtins so that
+// they can be invoked by other builtins.
+let Types = [v32f16],
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
+def isinf_decl : OclBuiltin<"isinf", (outs rf2igentype:$ret), (ins gentype:$x)>;
+}
+
 // --- Math Functions ---
 // https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_C.html#math-functions
 //
@@ -200,6 +208,25 @@ defvar call_svml_code = [{
   return __ocl_svml_$TargetShortName_$Func$SVMLSuffix($ARGLIST);
 }];
 
+// [SPR][FP16] OCL SVML atan2 doesn't handle NaN inputs properly
+defvar atan2_call_svml_code = [{
+  short$VecLength either_isnan = isnan($Arg0VarName) | isnan($Arg1VarName);
+  $ReturnType res = __ocl_svml_$TargetShortName_$Func$SVMLSuffix($ARGLIST);
+  return select(res, __builtin_astype(nan((ushort$VecLength)1), $ReturnType), either_isnan);
+}];
+
+// [SPR][FP16] OCL SVML hypot doesn't handle NaN/Inf inputs properly
+// Ref: https://en.cppreference.com/w/cpp/numeric/math/hypot
+defvar hypot_call_svml_code = [{
+  short$VecLength either_isinf = isinf($Arg0VarName) | isinf($Arg1VarName);
+  short$VecLength either_isnan = isnan($Arg0VarName) | isnan($Arg1VarName);
+  $ReturnType res = __ocl_svml_$TargetShortName_$Func$SVMLSuffix($ARGLIST);
+  // Return +Inf if either argument is +/- Inf, even if the other arg is NaN!
+  return select(
+    select(res, __builtin_astype(nan((ushort$VecLength)1), $ReturnType), either_isnan),
+    __builtin_astype((ushort$VecLength)$ReturnBaseType_const_expMask, $ReturnType), either_isinf);
+}];
+
 defvar expand_code = [{
   $ReturnType _res;
   _res.lo = $Func($LOARGLIST);
@@ -218,8 +245,15 @@ foreach bi = math_generic_builtins in {
   // For fmax_common and fmin_common, just call __ocl_svml_*_fmax/fmin
   defvar func_macro = ["$Func", !subst("_common", "", bi.Name)]; // Removing the "_common" suffix for fmax_common/fmin_common
   defvar args = RangeStr<"$Arg#VarName", indices>.Tout;
+  // atan2, atan2pi, hypot have known issues on NaN inputs
+  // Handle NaN inputs for SVML calls.
+  defvar svml_code = !cond(
+                       !or(!eq(bi.Name, "atan2"),
+                           !eq(bi.Name, "atan2pi")): atan2_call_svml_code,
+                       !eq(bi.Name, "hypot"): hypot_call_svml_code,
+                       true: call_svml_code);
   let Types = !filter(ty, math_f16_types, !le(ty.VecLength, 32)) in
-  def : OclBuiltinImpl<bi, [], false, call_svml_code, [func_macro, ["$ARGLIST", !interleave(args, ", ")]]>, AMX;
+  def : OclBuiltinImpl<bi, [], false, svml_code, [func_macro, ["$ARGLIST", !interleave(args, ", ")]]>, AMX;
 
   // [AMX] vXf16 (X > 32): expand to two v[X/2]f16 calls.
   defvar expanded_lo_args = RangeStr<"$Arg#VarName.lo", indices>.Tout;

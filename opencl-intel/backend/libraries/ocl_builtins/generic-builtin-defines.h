@@ -42,6 +42,7 @@ extern const constant double generic_inv_pi_180;
 extern const constant short half_const_signMask;
 extern const constant int float_const_signMask;
 extern const constant long double_const_signMask;
+extern const constant short half_const_expMask;
 extern const constant int float_const_expMask;
 extern const constant long double_const_expMask;
 extern const constant float float_const_fractLimit;
