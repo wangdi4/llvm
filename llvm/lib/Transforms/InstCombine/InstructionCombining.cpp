@@ -2994,8 +2994,14 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       GEPEltType->isSized())
     if (auto *NewGEP = convertOpaqueGEPToLoadStoreType(GEP))
       return NewGEP;
+  // don't remove next marker, they are 2 different changes
 #endif // INTEL_CUSTOMIZATION
-  if (GEP.getNumIndices() == 1) {
+#if INTEL_CUSTOMIZATION
+  // 52673/52690: This has negative effects on LSR and DSE.
+  auto *F = GEP.getFunction();
+  bool HasOMP = vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(*F);
+  if (!HasAdvAVX2 && !HasOMP && GEP.getNumIndices() == 1) {
+#endif // INTEL_CUSTOMIZATION
     // Try to replace ADD + GEP with GEP + GEP.
     Value *Idx1, *Idx2;
     if (match(GEP.getOperand(1),
