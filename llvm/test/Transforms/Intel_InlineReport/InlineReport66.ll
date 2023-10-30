@@ -17,6 +17,8 @@
 ; CHECK-AFTER-NOT: call{{.*}}@perdida_m_mp_perdida_
 ; CHECK-AFTER-NOT: call{{.*}}@perdida_m_mp_generalized_hookes_law_
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+
 %"QNCA_a0$double*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 %"QNCA_a0$double*$rank2$" = type { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 

@@ -34,6 +34,8 @@
 ; CHECK: COULD NOT FIND PER DIMENSION ARRAY
 ; CHECK: DOPE VECTOR CONSTANT PROPAGATION: END
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+
 @"main_$PART" = internal global [9 x [9 x i32]] zeroinitializer, align 16
 
 @"main_$BLOCK" = internal global [9 x [9 x [9 x i32]]] zeroinitializer, align 16

@@ -5,6 +5,8 @@
 
 ; This is the same test as dvcp04.ll, but checks the IR rather than the traces.
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+
 %uplevel_type = type { ptr, ptr }
 
 @anon.9f612ed7d31cf3fc2b70611956e5ab37.0 = internal unnamed_addr constant i32 2

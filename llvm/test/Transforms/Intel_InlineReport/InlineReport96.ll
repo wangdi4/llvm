@@ -22,6 +22,8 @@
 ; CHECK-NPM: INLINE: wolff_{{.*}}Callee has single callsite and local linkage
 ; CHECK-NPM-NOT: call{{.*}}@wolff_
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+
 @"_unnamed_main$$_$IN1" = internal global [16 x i32] zeroinitializer, align 16
 @"_unnamed_main$$_$IP1" = internal global [16 x i32] zeroinitializer, align 16
 @"_unnamed_main$$_$ISTACK" = internal global [2 x [256 x i32]] zeroinitializer, align 16
