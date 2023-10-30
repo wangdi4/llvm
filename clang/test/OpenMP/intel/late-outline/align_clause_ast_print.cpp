@@ -124,7 +124,7 @@ int template_test() {
 //DUMP: NonTypeTemplateParmDecl {{.*}} <line:94:23, col:32> col:32 {{.*}} 'unsigned int' depth 0 index 1 size
 //DUMP: IntegerLiteral {{.*}} <line:97:35> 'unsigned int' 1
 //DUMP: OMPAllocateDecl {{.*}} <col:3> col:3
-//DUMP: DeclRefExpr {{.*}} <col:24> 'double':'double' lvalue Var {{.*}} 'foo' 'double':'double'
+//DUMP: DeclRefExpr {{.*}} <col:24> 'double' lvalue Var {{.*}} 'foo' 'double'
 //DUMP: OMPAlignClause {{.*}} <col:29, col:39>
 //DUMP: ConstantExpr {{.*}} <col:35> 'unsigned int'
 //DUMP: value: Int 1

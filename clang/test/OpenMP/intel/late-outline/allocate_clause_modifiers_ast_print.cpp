@@ -120,7 +120,7 @@ int template_test() {
 
 //DUMP: FunctionTemplateDecl {{.*}}run
 //DUMP: TemplateTypeParmDecl {{.*}}typename depth 0 index 0 T
-//DUMP: NonTypeTemplateParmDecl {{.*}}referenced 'omp_allocator_handle_t':'omp_allocator_handle_t' depth 0 index 1 MyAlloc
+//DUMP: NonTypeTemplateParmDecl {{.*}}referenced 'omp_allocator_handle_t' depth 0 index 1 MyAlloc
 //DUMP: NonTypeTemplateParmDecl {{.*}}referenced 'unsigned int' depth 0 index 2 size
 //DUMP: NonTypeTemplateParmDecl {{.*}}referenced 'unsigned int' depth 0 index 3 align
 //DUMP: FunctionDecl {{.*}}run 'T (T)'

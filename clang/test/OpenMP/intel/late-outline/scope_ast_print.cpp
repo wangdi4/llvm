@@ -100,14 +100,14 @@ int template_test() {
 //DUMP: BuiltinType {{.*}}'double'
 //DUMP: OMPScopeDirective
 //DUMP: OMPPrivateClause
-//DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}} 'a' 'double':'double'
+//DUMP: DeclRefExpr {{.*}}'double' lvalue Var {{.*}} 'a' 'double'
 //DUMP: OMPFirstprivateClause
-//DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}} 'c' 'double':'double'
-//DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}}'v1' 'double':'double'
+//DUMP: DeclRefExpr {{.*}}'double' lvalue Var {{.*}} 'c' 'double'
+//DUMP: DeclRefExpr {{.*}}'double' lvalue Var {{.*}}'v1' 'double'
 //DUMP: OMPAllocateClause
-//DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}}'v1' 'double':'double'
+//DUMP: DeclRefExpr {{.*}}'double' lvalue Var {{.*}}'v1' 'double'
 //DUMP: OMPReductionClause
-//DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}} 'b' 'double':'double'
+//DUMP: DeclRefExpr {{.*}}'double' lvalue Var {{.*}} 'b' 'double'
 //PRINT: #pragma omp scope private(a) firstprivate(c,v1) allocate(v1) reduction(*: b)
 #endif // HEADER
 // end INTEL_COLLAB

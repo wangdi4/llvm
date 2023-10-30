@@ -82,16 +82,16 @@ int template_test() {
 //DUMP: TemplateArgument integral 1
 //DUMP: OMPTargetDirective {{.*}}
 //DUMP: OMPIn_reductionClause {{.*}}
-//DUMP: DeclRefExpr {{.*}} 'double':'double' lvalue Var {{.*}} 'foo' 'double':'double'
-//DUMP: CompoundAssignOperator {{.*}} 'double':'double' lvalue '-=' ComputeLHSTy='double':'double' ComputeResultTy='double':'double'
-//DUMP: DeclRefExpr {{.*}} 'double':'double' lvalue Var {{.*}} 'foo' 'double':'double'
-//DUMP: ImplicitCastExpr {{.*}} 'double':'double' <IntegralToFloating>
+//DUMP: DeclRefExpr {{.*}} 'double' lvalue Var {{.*}} 'foo' 'double'
+//DUMP: CompoundAssignOperator {{.*}} 'double' lvalue '-=' ComputeLHSTy='double' ComputeResultTy='double'
+//DUMP: DeclRefExpr {{.*}} 'double' lvalue Var {{.*}} 'foo' 'double'
+//DUMP: ImplicitCastExpr {{.*}} 'double' <IntegralToFloating>
 //DUMP: SubstNonTypeTemplateParmExpr {{.*}} 'unsigned int'
 //DUMP: NonTypeTemplateParmDecl {{.*}} referenced 'unsigned int' depth 0 index 1 size
 //DUMP: IntegerLiteral {{.*}} 'unsigned int' 1
 
 //DUMP: FunctionDecl {{.*}} template_test 'int ()'
-//DUMP: CallExpr {{.*}} 'double':'double'
+//DUMP: CallExpr {{.*}} 'double'
 //DUMP: ImplicitCastExpr {{.*}} 'double (*)()' <FunctionToPointerDecay>
 //DUMP: DeclRefExpr {{.*}} 'double ()' lvalue Function {{.*}} 'run' 'double ()' (FunctionTemplate {{.*}} 'run')
 //PRINT: #pragma omp target in_reduction(-: foo)
