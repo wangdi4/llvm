@@ -20,7 +20,6 @@ RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\1\0\0\0\0\0\0\0' >> %t-foo.profraw
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // Add 2 bytes of 0 for the number of profiled loops,
 // plus 6 bytes of 0 to pad to a 64-bit aligmnent to
@@ -28,9 +27,6 @@ RUN: printf '\1\0\0\0\0\0\0\0' >> %t-foo.profraw
 // profiling types done by the xmain compiler.
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 // end INTEL_CUSTOMIZATION
-=======
-RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
->>>>>>> f95b2f1acf1171abb0d00089fd4c9238753847e3
 
 RUN: printf '\023\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\3\0foo\0\0\0' >> %t-foo.profraw

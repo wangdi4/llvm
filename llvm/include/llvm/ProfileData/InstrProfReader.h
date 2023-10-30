@@ -338,7 +338,6 @@ private:
   // The value of the version field of the raw profile data header. The lower 32
   // bits specifies the format version and the most significant 32 bits specify
   // the variant types of the profile.
-<<<<<<< HEAD
   uint64_t Version = 0;                                        // INTEL
   uint64_t CountersDelta = 0;                                  // INTEL
   uint64_t NamesDelta = 0;                                     // INTEL
@@ -348,20 +347,9 @@ private:
   const char *CountersEnd = nullptr;                           // INTEL
   const char *NamesStart = nullptr;                            // INTEL
   const char *NamesEnd = nullptr;                              // INTEL
-=======
-  uint64_t Version;
-  uint64_t CountersDelta;
   uint64_t BitmapDelta;
-  uint64_t NamesDelta;
-  const RawInstrProf::ProfileData<IntPtrT> *Data;
-  const RawInstrProf::ProfileData<IntPtrT> *DataEnd;
-  const char *CountersStart;
-  const char *CountersEnd;
   const char *BitmapStart;
   const char *BitmapEnd;
-  const char *NamesStart;
-  const char *NamesEnd;
->>>>>>> f95b2f1acf1171abb0d00089fd4c9238753847e3
   // After value profile is all read, this pointer points to
   // the header of next profile data (if exists)
   const uint8_t *ValueDataStart = nullptr; // INTEL
