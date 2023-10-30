@@ -1398,6 +1398,7 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp) {
   // cleaning up temps helps downstream optimizations.
   if (LoopIndependentReplOnly) {
     HIRTransformUtils::doConstantAndCopyPropagation(Lp);
+    HLNodeUtils::removeRedundantNodes(Lp);
   }
 
   OptReportBuilder &ORBuilder =
