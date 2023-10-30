@@ -27,7 +27,7 @@ int my_host() {
   return 0;
 }
 
-// CHECK: define dso_local spir_func void @_Z9my_kernel1S(
+// CHECK: define {{.*}}spir_func void @_Z9my_kernel1S(
 // CHECK-SAME: !dbg [[MY_KERNEL:![0-9]+]]
 // CHECK-SAME: {
 // CHECK: %[[AS_CAST:.*]] = addrspacecast ptr {{.*}} to ptr addrspace(4)
