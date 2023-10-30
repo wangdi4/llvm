@@ -107,7 +107,7 @@ class MapIntrinToImlImpl {
   /// legally typed svml function declaration.
   FunctionType *legalizeFunctionTypes(FunctionType *FT, ArrayRef<Value *> Args,
                                       unsigned LogicalVL, unsigned TargetVL,
-                                      StringRef FuncName);
+                                      StringRef FuncName, bool Masked);
 
   /// \brief Splits \p NumRet number of call instructions to the math function
   /// and inserts them into \p SplitCalls. \p Args are the arguments used for
