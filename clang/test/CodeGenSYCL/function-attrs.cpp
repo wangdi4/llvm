@@ -4,7 +4,7 @@
 
 int foo();
 
-// CHECK-LABEL: define dso_local spir_func void @_Z3barv(
+// CHECK-LABEL: define linkonce_odr spir_func void @_Z3barv(
 // CHECK-SAME: ) #[[ATTR2:[0-9]+]] !srcloc !5 {
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[A:%.*]] = alloca i32, align 4
@@ -17,7 +17,7 @@ void bar() {
   int a = foo();
 }
 
-// CHECK-LABEL: define dso_local spir_func noundef i32 @_Z3foov(
+// CHECK-LABEL: define linkonce_odr spir_func noundef i32 @_Z3foov(
 // CHECK-SAME: ) #[[ATTR2]] !srcloc !6 {
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[RETVAL:%.*]] = alloca i32, align 4
