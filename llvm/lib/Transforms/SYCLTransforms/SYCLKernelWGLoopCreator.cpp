@@ -1508,7 +1508,8 @@ std::pair<LoopRegion, Value *> WGLoopCreatorImpl::addWGLoops(
       Value *Ptr = createGetPtrToLocalId(
           LocalIds, LIDArrayTy, ConstantInt::get(Type::getInt32Ty(Ctx), Dim),
           Builder);
-      Builder.CreateStore(LIDPhi, Ptr);
+      auto *StoreInst = Builder.CreateStore(LIDPhi, Ptr);
+      StoreInst->setDebugLoc(Builder.GetInsertPoint()->getDebugLoc());
     }
 
     // head, latch for the next loop are the pre-header and exit block

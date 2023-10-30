@@ -30,8 +30,8 @@ entry:
 ; CHECK: scalar_kernel_entry:
 ; CHECK-NEXT: %dim_0_ind_var = phi i64 [ %base.gid.dim0, %dim_0_pre_head ], [ %dim_0_inc_ind_var, %scalar_kernel_entry ]
 ; CHECK-NEXT: %dim_0_tid = phi i64 [ %dim_0_sub_lid, %dim_0_pre_head ], [ %dim_0_inc_tid, %scalar_kernel_entry ]
-; CHECK-NEXT: store i64 %dim_0_tid, ptr @__LocalIds, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata [[DIVarGID0:![0-9]+]], metadata !DIExpression()), !dbg [[DILocGID:![0-9]+]]
+; CHECK-NEXT: store i64 %dim_0_tid, ptr @__LocalIds, align 8, !dbg [[DILocGID:![0-9]+]]
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata [[DIVarGID0:![0-9]+]], metadata !DIExpression()), !dbg [[DILocGID]]
 ; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata [[DIVarGID1:![0-9]+]], metadata !DIExpression()), !dbg [[DILocGID]]
 ; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata [[DIVarGID2:![0-9]+]], metadata !DIExpression()), !dbg [[DILocGID]]
 ; CHECK-NEXT: store volatile i64 %dim_0_ind_var, ptr %__ocl_dbg_gid0, align 8
