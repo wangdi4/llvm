@@ -297,18 +297,22 @@ static Type *legalizeArgumentOrReturnType(Type *T, unsigned LogicalVL,
   return StructType::get(T->getContext(), NewStructElementTypes);
 }
 
-FunctionType *MapIntrinToImlImpl::legalizeFunctionTypes(FunctionType *FT,
-                                                        ArrayRef<Value *> Args,
-                                                        unsigned LogicalVL,
-                                                        unsigned TargetVL,
-                                                        StringRef FuncName) {
+FunctionType *MapIntrinToImlImpl::legalizeFunctionTypes(
+    FunctionType *FT, ArrayRef<Value *> Args, unsigned LogicalVL,
+    unsigned TargetVL, StringRef FuncName, bool Masked) {
   // Perform type legalization for arguments and return type respectively.
 
   // New type legalized argument types.
   SmallVector<Type *, 8> NewArgTypes;
-  for (unsigned I = 0; I < Args.size(); I++)
+
+  if (Masked && TargetVL == 1)
     NewArgTypes.push_back(
-        legalizeArgumentOrReturnType(Args[I]->getType(), LogicalVL, TargetVL));
+        legalizeArgumentOrReturnType(Args[0]->getType(), LogicalVL, TargetVL));
+  else {
+    for (unsigned I = 0; I < Args.size(); I++)
+      NewArgTypes.push_back(legalizeArgumentOrReturnType(Args[I]->getType(),
+                                                         LogicalVL, TargetVL));
+  }
 
   Type *ReturnType =
       legalizeArgumentOrReturnType(FT->getReturnType(), LogicalVL, TargetVL);
@@ -407,6 +411,9 @@ void MapIntrinToImlImpl::splitMathLibCalls(unsigned NumRet, unsigned TargetVL,
       Type *ArgType = Args[ArgIdx]->getType();
 
       if (ArgType->isVectorTy()) {
+        const unsigned SourceIndex = Args.size() > 2 ? 2 : 0;
+        if (TargetVL == 1 && Masked && ArgIdx != SourceIndex)
+          continue;
         NewArgs.push_back(generateExtractSubVector(Arg, Part, NumRet, Builder));
         continue;
       }
@@ -431,8 +438,25 @@ void MapIntrinToImlImpl::splitMathLibCalls(unsigned NumRet, unsigned TargetVL,
       }
       NewArgs.push_back(LegalArg);
     }
-
-    CallInst *NewCI = createSVMLCall(Func, NewArgs, "vcall", Masked);
+    Value *NewCI = nullptr;
+    // For complex double mask functions, we want to split it into its scalar
+    // version because there is no such SVML function e.g. __svml_cexp1_mask.
+    // And the mask arg will be handled by adding two more IRs like below:
+    // %input2.part. = extractelement <16 x i1> %input2, i32 0
+    // %newvcall = select i1 %input2.part., <2 x double> %input1.part., <2 x
+    // double> %vcall
+    // Relate Jira: CMPLRLLVM-52018
+    if (Masked && TargetVL == 1) {
+      assert(Args.size() > 1 && "Unexpected size of Args.");
+      Value *CI = createSVMLCall(Func, NewArgs, "vcall", false);
+      Value *Mask = Builder.CreateExtractElement(
+          Args[1], Builder.getInt32(Part),
+          Args[1]->getName() + ".part." + Twine(Part) + ".of." + Twine(NumRet));
+      if (Mask->getType() != Builder.getInt1Ty())
+        Mask = Builder.CreateTrunc(Mask, Builder.getInt1Ty(), "mask.trunc.");
+      NewCI = Builder.CreateSelect(Mask, CI, NewArgs[0], "vcall.vcall");
+    } else
+      NewCI = createSVMLCall(Func, NewArgs, "vcall", true);
     SplitCalls.push_back(NewCI);
   }
 }
@@ -758,7 +782,7 @@ StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
   if (ScalarFuncName.endswith("f16"))
     VectorFuncStem.replace(VectorFuncStem.end() - 3, VectorFuncStem.end(), "s");
   std::string TempFuncName = "__svml_" + VectorFuncStem + TargetVLStr;
-  if (Masked)
+  if (Masked && TargetVL != 1)
     TempFuncName += "_mask";
   char *ParentFuncName = new char[TempFuncName.size() + 1];
   std::strcpy(ParentFuncName, TempFuncName.c_str());
@@ -1286,7 +1310,7 @@ bool MapIntrinToImlImpl::runImpl() {
       bool NewCallIsAVX512 = (TargetVL * ComponentBitWidth) == 512;
       Value *SourceArg = nullptr;
       Value *MaskArg = nullptr;
-      if (Masked) {
+      if (Masked && TargetVL != 1) {
         SourceArg = CallIsAVX512 ? Args[0] : nullptr;
         MaskArg = CallIsAVX512 ? Args[1] : Args.back();
         if (CallIsAVX512 ^ NewCallIsAVX512)
@@ -1309,8 +1333,8 @@ bool MapIntrinToImlImpl::runImpl() {
       // FT will point to the legal FunctionType based on target register
       // size requirements. This FunctionType is used to create the call
       // to the svml function.
-      FunctionType *FT = legalizeFunctionTypes(CI->getFunctionType(), Args,
-                                               LogicalVL, TargetVL, FuncName);
+      FunctionType *FT = legalizeFunctionTypes(
+          CI->getFunctionType(), Args, LogicalVL, TargetVL, FuncName, Masked);
       FunctionCallee FCache = M->getOrInsertFunction(VariantFuncName, FT);
 
       // SplitCalls contains the instructions that are the results of math
