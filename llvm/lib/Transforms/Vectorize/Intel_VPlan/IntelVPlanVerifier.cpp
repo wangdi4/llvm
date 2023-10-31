@@ -155,6 +155,30 @@ void VPlanVerifier::verifyDAShape(const VPInstruction *Inst) const {
   }
 }
 
+void VPlanVerifier::verifyHeaderExitPredicates(const VPLoop *Lp) const {
+  auto *Header = Lp->getHeader();
+  assert(Header);
+
+  auto *HeaderPredicate = Header->getBlockPredicate();
+  SmallVector<VPBasicBlock *, 4> ExitingBlocks;
+  Lp->getExitingBlocks(ExitingBlocks);
+  for (auto *Exit : ExitingBlocks) {
+    auto *ExitPredicate = Exit->getBlockPredicate();
+    ASSERT_VPBB((HeaderPredicate && ExitPredicate) ||
+                    (!HeaderPredicate && !ExitPredicate),
+                Header,
+                "Loop header and exit must both be predicated or neither");
+
+    if (HeaderPredicate)
+      ASSERT_VPVALUE(
+          HeaderPredicate->getOperand(0) == ExitPredicate->getOperand(0),
+          HeaderPredicate,
+          "Header and exit block of loop do not have the same predicate");
+    (void)ExitPredicate;
+  }
+  (void)HeaderPredicate;
+}
+
 // Public interface to verify the loop and its loop info.
 void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
                                 unsigned int CheckFlags) {
@@ -195,6 +219,8 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
   VPLoop *TopLoop = *VPLInfo->begin();
   for (auto *CurVPLoop : post_order(TopLoop)) {
     CurVPLoop->verifyLoop();
+
+    verifyHeaderExitPredicates(CurVPLoop);
   }
 
   // The number of subloops can change in the VPLoop as a result of VPEntity

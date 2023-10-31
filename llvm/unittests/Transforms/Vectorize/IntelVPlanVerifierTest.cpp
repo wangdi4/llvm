@@ -171,4 +171,67 @@ TEST_F(VPlanVerifierTestBase, DATests) {
   EXPECT_DEATH(Verifier->verifyVPlan(Plan.get(), VPlanVerifier::CheckDAShapes),
                "Recalculated shape for DA is different");
 }
+
+TEST_F(VPlanVerifierTestBase, EntryExitPredicates) {
+  Module &M = parseModule(R"(
+    define void @foo(i64 %N, ptr %Idx) {
+      entry:
+        %outer.idx = load i64, ptr %Idx
+        br label %for.body.a
+      for.body.a:
+        %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body.b ]
+        %indvars.iv.next = add i64 %indvars.iv, 1
+        br label %for.body.b
+      for.body.b:
+        %exitcond = icmp ne i64 %indvars.iv.next, %N
+        br i1 %exitcond, label %for.body.a, label %for.end
+      for.end:
+        br label %exit
+      exit:
+        ret void
+      }
+    )");
+
+  Function *Func = M.getFunction("foo");
+  BasicBlock *LoopHeader = Func->getEntryBlock().getSingleSuccessor();
+  getHCFGPlan(LoopHeader);
+
+  VPLoop *Lp = *Plan->getVPLoopInfo()->begin();
+  assert(Lp);
+
+  VPBasicBlock *Header = Lp->getHeader();
+  VPBasicBlock *Exit = Lp->getExitingBlock();
+  assert(Header && Exit && Header != Exit);
+
+  Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipDA);
+
+  auto *I32Ty = IntegerType::get(*Ctx, 32);
+
+  // Set exit predicate, but not entry
+  Builder.setInsertPointFirstNonPhi(Exit);
+  Exit->setBlockPredicate(Builder.createPred(new VPValue(I32Ty)));
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipDA),
+               "both be predicated or neither");
+
+  // Remove exit predicate and re-verify to ensure it passes
+  Exit->setBlockPredicate(nullptr);
+  Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipDA);
+
+  // Set header predicate without an exit predicate
+  Builder.setInsertPointFirstNonPhi(Header);
+  Header->setBlockPredicate(Builder.createPred(new VPValue(I32Ty)));
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipDA),
+               "both be predicated or neither");
+
+  // Set exit predicate to different value than entry predicate
+  Builder.setInsertPointFirstNonPhi(Exit);
+  Exit->setBlockPredicate(Builder.createPred(new VPValue(I32Ty)));
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipDA),
+               "do not have the same predicate");
+
+  // Set matching predicate for entry and exit
+  Exit->setBlockPredicate(Header->getBlockPredicate());
+  Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipDA);
+}
+
 } // namespace
