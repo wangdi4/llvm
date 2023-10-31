@@ -19592,6 +19592,27 @@ is introduced.  Value of such argument must be one of the following strings:
     "matrix.use.accumulator"
     "matrix.use.unnecessary"
 
+When the type of the matrix elements should be interpreted differently, metadata
+string arguments are introduced to the multiply add intrinsic. For example, if
+the matrix is of type float, but should be interpreted as Tensor Float (TF32)
+data type, this information is attached to the mad intrinsic as
+"matrix.reinterpret.type.tf32". Value of these arguments must be one of the following strings:
+::
+
+    "matrix.reinterpret.type.none"
+    "matrix.reinterpret.type.tf32"
+    "matrix.reinterpret.type.bf16"
+    "matrix.reinterpret.type.bf8"
+    "matrix.reinterpret.type.hf8"
+    "matrix.reinterpret.type.packed.int4"
+    "matrix.reinterpret.type.int4"
+    "matrix.reinterpret.type.fp4"
+
+where "matrix.reinterpret.type.none" means, that element type of a matrix should
+not be reinterpreted.
+
+
+
 '``llvm.experimental.matrix.fill.*``' Intrinsic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -19960,7 +19981,9 @@ This is an overloaded intrinsic. You can use llvm.experimental.matrix.mad on mat
 
       declare <vectorty> @llvm.experimental.matrix.mad.*(
           <vectorty> %MatrixA, <vectorty> %MatrixB, <vectorty> %MatrixC,
-          i32 <RowsMatrixA>, i32 <RowsMatrixB>, i32 <ColsMatrixC>, metadata <Scope>)
+          i32 <RowsMatrixA>, i32 <RowsMatrixB>, i32 <ColsMatrixC>, metadata <Scope>,
+          metadata <MatrixAType>, metadata <MatrixBType>, metadata <MatrixCType>,
+          metadata <MatrixResultType>)
 
 Overview:
 """""""""
@@ -19982,8 +20005,11 @@ The third argument ``%MatrixC`` is a vector which represents a flattened accumul
 4th, 5th and 6th arguments are of an integer type and specifies ``%MatrixA``'s
 and ``%MatrixB``'s number of rows and ``%MatrixC``'s number of columns respectively.
 
-The last argument is metadata strings which specifies memory scope of the matrix, it
+The 7th argument is metadata string which specifies memory scope of the matrix, it
 can be either !"scope.subgroup" or !"scope.workgroup".
+
+The last 4 arguments are metadata strings which specify type interpretation of
+``%MatrixA``, ``%MatrixB``, ``%MatrixC`` and ``%Result`` appropriately.
 
 Semantics:
 """"""""""
@@ -20000,8 +20026,9 @@ Example:
 ::
 
     %result = call <64 x float> @llvm.experimental.matrix.mad.v64f32.v128f32.v128f32(
-        <128 x float> %A, <128 x float> %B, <64 x float> %C
-        i32 8, i32 16, i32 8, metadata !"scope.subgroup")
+        <128 x float> %A, <128 x float> %B, <64 x float> %C, i32 8, i32 16, i32 8, metadata !"scope.subgroup",
+        metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none",
+        metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
 
 the intrinsic will return a flattened ``8 x 8`` matrix with float data type, which
 is the product of a sum of a multiplication of ``8 x 16`` and ``16 x 8`` float
@@ -20018,7 +20045,9 @@ This is an overloaded intrinsic. You can use llvm.experimental.matrix.sumad on m
 
       declare <vectorty> @llvm.experimental.matrix.sumad.*(
           <vectorty> %MatrixA, <vectorty> %MatrixB, <vectorty> %MatrixC,
-          i32 <RowsMatrixA>, i32 <RowsMatrixB>, i32 <ColsMatrixC>, metadata <Scope>)
+          i32 <RowsMatrixA>, i32 <RowsMatrixB>, i32 <ColsMatrixC>, metadata <Scope>,
+          metadata <MatrixAType>, metadata <MatrixBType>, metadata <MatrixCType>,
+          metadata <MatrixResultType>)
 
 Overview:
 """""""""
@@ -20040,7 +20069,7 @@ The third argument ``%MatrixC`` is a vector which represents a flattened accumul
 4th, 5th and 6th arguments are of an integer type and specifies ``%MatrixA``'s
 and ``%MatrixB``'s number of rows and ``%MatrixC``'s number of columns respectively.
 
-The last argument is metadata strings which specifies memory scope of the matrix, it
+The 7th argument is metadata string which specifies memory scope of the matrix, it
 can be either !"scope.subgroup" or !"scope.workgroup".
 
 Semantics:
@@ -20058,8 +20087,9 @@ Example:
 ::
 
     %result = call <64 x i32> @llvm.experimental.matrix.sumad.v64i32.v128i32.v128i32(
-        <128 x i32> %A, <128 x i32> %B, <64 x i32> %C,
-        i32 8, i32 16, i32 8, metadata !"scope.subgroup")
+        <128 x i32> %A, <128 x i32> %B, <64 x i32> %C, i32 8, i32 16, i32 8, metadata !"scope.subgroup",
+        metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none",
+        metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
 
 the intrinsic will return a flattened ``8 x 8`` matrix with i32 data type, which
 is the product of a sum of a signed multiplication of ``8 x 16`` and ``16 x 8`` i32
@@ -20076,7 +20106,9 @@ This is an overloaded intrinsic. You can use llvm.experimental.matrix.usmad on m
 
       declare <vectorty> @llvm.experimental.matrix.usmad.*(
           <vectorty> %MatrixA, <vectorty> %MatrixB, <vectorty> %MatrixC,
-          i32 <RowsMatrixA>, i32 <RowsMatrixB>, i32 <ColsMatrixC>, metadata <Scope>)
+          i32 <RowsMatrixA>, i32 <RowsMatrixB>, i32 <ColsMatrixC>, metadata <Scope>,
+          metadata <MatrixAType>, metadata <MatrixBType>, metadata <MatrixCType>,
+          metadata <MatrixResultType>)
 
 Overview:
 """""""""
@@ -20098,8 +20130,11 @@ The third argument ``%MatrixC`` is a vector which represents a flattened accumul
 4th, 5th and 6th arguments are of an integer type and specifies ``%MatrixA``'s
 and ``%MatrixB``'s number of rows and ``%MatrixC``'s number of columns respectively.
 
-The last argument is metadata strings which specifies memory scope of the matrix, it
+The 7th argument is metadata string which specifies memory scope of the matrix, it
 can be either !"scope.subgroup" or !"scope.workgroup".
+
+The last 4 arguments are metadata strings which specify type interpretation of
+``%MatrixA``, ``%MatrixB``, ``%MatrixC`` and ``%Result`` appropriately.
 
 Semantics:
 """"""""""
@@ -20116,8 +20151,9 @@ Example:
 ::
 
     %result = call <64 x i32> @llvm.experimental.matrix.usmad.v64i32.v128i32.v128i32(
-        <128 x i32> %A, <128 x i32> %B, <64 x i32> %C,
-        i32 8, i32 16, i32 8, metadata !"scope.subgroup")
+        <128 x i32> %A, <128 x i32> %B, <64 x i32> %C, i32 8, i32 16, i32 8, metadata !"scope.subgroup",
+        metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none",
+        metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
 
 the intrinsic will return a flattened ``8 x 8`` matrix with i32 data type, which
 is the product of a sum of a signed multiplication of ``8 x 16`` and ``16 x 8`` i32
@@ -20134,7 +20170,9 @@ This is an overloaded intrinsic. You can use llvm.experimental.matrix.uumad on m
 
       declare <vectorty> @llvm.experimental.matrix.uumad.*(
           <vectorty> %MatrixA, <vectorty> %MatrixB, <vectorty> %MatrixC,
-          i32 <RowsMatrixA>, i32 <RowsMatrixB>, i32 <ColsMatrixC>, metadata <Scope>)
+          i32 <RowsMatrixA>, i32 <RowsMatrixB>, i32 <ColsMatrixC>, metadata <Scope>,
+          metadata <MatrixAType>, metadata <MatrixBType>, metadata <MatrixCType>,
+          metadata <MatrixResultType>)
 
 Overview:
 """""""""
@@ -20156,8 +20194,11 @@ The third argument ``%MatrixC`` is a vector which represents a flattened accumul
 4th, 5th and 6th arguments are of an integer type and specifies ``%MatrixA``'s
 and ``%MatrixB``'s number of rows and ``%MatrixC``'s number of columns respectively.
 
-The last argument is metadata strings which specifies memory scope of the matrix, it
+The 7th argument is metadata string which specifies memory scope of the matrix, it
 can be either !"scope.subgroup" or !"scope.workgroup".
+
+The last 4 arguments are metadata strings which specify type interpretation of
+``%MatrixA``, ``%MatrixB``, ``%MatrixC`` and ``%Result`` appropriately.
 
 Semantics:
 """"""""""
@@ -20174,8 +20215,9 @@ Example:
 ::
 
     %result = call <64 x i32> @llvm.experimental.matrix.uumad.v64i32.v128i32.v128i32(
-        <128 x i32> %A, <128 x i32> %B, <64 x i32> %C,
-        i32 8, i32 16, i32 8, metadata !"scope.subgroup")
+        <128 x i32> %A, <128 x i32> %B, <64 x i32> %C, i32 8, i32 16, i32 8, metadata !"scope.subgroup",
+        metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none",
+        metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
 
 the intrinsic will return a flattened ``8 x 8`` matrix with i32 data type, which
 is the product of a unsigned sum of a unsigned multiplication of ``8 x 16`` and ``16 x 8`` i32
