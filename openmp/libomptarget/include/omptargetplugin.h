@@ -239,7 +239,7 @@ int32_t __tgt_rtl_data_notify_unmapped(int32_t ID, void *HstPtr);
 // unique device number.
 int32_t __tgt_rtl_set_device_offset(int32_t DeviceIdOffset);
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 int32_t __tgt_rtl_launch_kernel(int32_t ID, void *Entry, void **Args,
                                 ptrdiff_t *Offsets, KernelArgsTy *KernelArgs,
                                 __tgt_async_info *AsyncInfo);
@@ -307,7 +307,6 @@ int32_t __tgt_rtl_pop_subdevice(void);
 // Check if the specified device type is supported
 int32_t __tgt_rtl_is_supported_device(int32_t ID, void *DeviceType);
 
-#if INTEL_CUSTOMIZATION
 // Create OpenMP interop with the given interop context
 __tgt_interop *__tgt_rtl_create_interop(int32_t ID, int32_t InteropContext,
                                         int32_t NumPrefers, int32_t *PreferIDs);
@@ -338,8 +337,6 @@ int32_t __tgt_rtl_flush_queue(__tgt_interop *Interop);
 int32_t __tgt_rtl_sync_barrier(__tgt_interop *Interop);
 int32_t __tgt_rtl_async_barrier(__tgt_interop *Interop);
 
-#endif // INTEL_CUSTOMIZATION
-
 // Return number of available sub-devices at the given level
 int32_t __tgt_rtl_get_num_sub_devices(int32_t ID, int32_t Level);
 
@@ -347,11 +344,9 @@ int32_t __tgt_rtl_get_num_sub_devices(int32_t ID, int32_t Level);
 int32_t __tgt_rtl_is_accessible_addr_range(int32_t ID, const void *Ptr,
                                            size_t Size);
 
-#if INTEL_CUSTOMIZATION
 // Notify indirectly accessed target pointer
 int32_t __tgt_rtl_notify_indirect_access(int32_t ID, const void *Ptr,
                                          size_t Offset);
-#endif // INTEL_CUSTOMIZATION
 
 // Check if the RTL expects that the outlined function's argument
 // specified by Idx will be passed from libomptarget to the RTL
@@ -387,13 +382,11 @@ int __tgt_rtl_prefetch_shared_mem(int32_t ID, size_t NumPtrs, void **Ptrs,
 // Return the device ID that owns the specified memory location
 int __tgt_rtl_get_device_from_ptr(const void *Ptr);
 
-#if INTEL_CUSTOMIZATION
 int __tgt_rtl_memcpy_rect_3d(int32_t ID, void *Dst, const void *Src,
                              size_t ElementSize, int32_t NumDims,
                              const size_t *Volume, const size_t *DstOffsets,
                              const size_t *SrcOffsets, const size_t *DstDims,
                              const size_t *SrcDims);
-#endif // INTEL_CUSTOMIZATION
 
 /// Returns number of resources and list of unique resource IDs for the given
 /// device information and base memory space. If "ResourceIds" is null, it
@@ -409,7 +402,7 @@ void *__tgt_rtl_omp_alloc(size_t Size, omp_allocator_handle_t Allocator);
 
 /// Releases memory with the specified OMP allocator
 void __tgt_rtl_omp_free(void *Ptr, omp_allocator_handle_t Allocator);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 #ifdef __cplusplus
 }

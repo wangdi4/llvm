@@ -100,7 +100,6 @@ if(INTEL_CUSTOMIZATION)
   # llvm_update_compile_flags properly disables exceptions, so the system
   # headers (which may use EH, e.g MSVC's xlocale) can be properly compiled.
   llvm_update_compile_flags(omptarget)
-
 else(INTEL_CUSTOMIZATION)
 add_llvm_library(omptarget
   SHARED
@@ -138,4 +137,4 @@ endif()
 # are now separated in the build directory.
 set_target_properties(omptarget PROPERTIES INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/..")
 install(TARGETS omptarget LIBRARY COMPONENT omptarget DESTINATION "${OPENMP_INSTALL_LIBDIR}")
-endif(INTEL_CUSTOMIZATION)
+endif(INTEL_CUSTOMIZATION) # INTEL

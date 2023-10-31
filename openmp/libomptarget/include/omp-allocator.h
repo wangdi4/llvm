@@ -1,4 +1,4 @@
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 //===--------- omp-allocator.h - Data types for OMP allocator -- C++ -*----===//
 /* INTEL_CUSTOMIZATION */
 /*
@@ -124,4 +124,4 @@ typedef struct kmp_allocator_t {
 } kmp_allocator_t;
 
 #endif // _OMP_ALLOCATOR_H_
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION

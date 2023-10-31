@@ -1,4 +1,4 @@
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
 //
@@ -6,16 +6,14 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
 // License.
 //
-// end INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
 //===--- abi-atomic-fp.cpp - Atomic FP operation support ------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -41,10 +39,8 @@ extern float __spirv_AtomicFMinEXT(
 extern float __spirv_AtomicFMaxEXT(
     float *ptr, uint32_t scope, uint32_t order, float val);
 #ifdef ENABLE_FP64_ATOMIC_EXT
-#if INTEL_CUSTOMIZATION
 // This is disabled for now due to issues (hang) on ATS.
 // Existing emulation in device RTL works fine.
-#endif // INTEL_CUSTOMIZATION
 extern double __spirv_AtomicFAddEXT(
     double *ptr, uint32_t scope, uint32_t order, double val);
 extern double __spirv_AtomicFMinEXT(
@@ -98,9 +94,7 @@ EXTERN DATATYPE __kmpc_atomic_##DATANAME##_##OPTYPE##_cpt                      \
 #pragma omp declare target
 /// 4-byte float atomics
 #ifdef ENABLE_FP32_ATOMIC_ADD_EXT
-#if INTEL_CUSTOMIZATION
 // Disabling Add extension since it is unstable on ATS. MinMax is OK.
-#endif // INTEL_CUSTOMIZATION
 KMPC_ATOMIC_IMPL_FLOAT_EXT(float4, float, add, Add)
 KMPC_ATOMIC_IMPL_FLOAT_EXT_BASE(float4, float, sub, Add, -)
 KMPC_ATOMIC_IMPL_FLOAT_EXT_CPT(float4, float, add, Add, OP_ADD)
@@ -126,4 +120,4 @@ KMPC_ATOMIC_IMPL_FLOAT_EXT_CPT(float8, double, max, Max, OP_MAX)
 
 #endif // __SPIR__
 
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION

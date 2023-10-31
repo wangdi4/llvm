@@ -47,13 +47,9 @@
 #include <mutex>
 #include <type_traits>
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 #include <string.h>
-#endif  // INTEL_COLLAB
-
 extern bool isOffloadDisabled();
-
-#if INTEL_COLLAB
 static int64_t GetEncodedDeviceID(int64_t &DeviceID) {
   if (DeviceID == OFFLOAD_DEVICE_DEFAULT)
     return omp_get_default_device();
@@ -71,7 +67,7 @@ static int64_t GetEncodedDeviceID(int64_t &DeviceID) {
 
   return EncodedID;
 }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 #ifdef OMPT_SUPPORT
 using namespace llvm::omp::target::ompt;
 #endif
@@ -140,9 +136,9 @@ targetData(ident_t *Loc, int64_t DeviceId, int32_t ArgNum, void **ArgsBase,
   XPTIEventCacheTy XPTIEvt(Loc, __func__);
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   int64_t EncodedId = GetEncodedDeviceID(DeviceId);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   DP("Entering data %s region for device %" PRId64 " with %d mappings\n",
      RegionName, DeviceId, ArgNum);
@@ -164,9 +160,10 @@ targetData(ident_t *Loc, int64_t DeviceId, int32_t ArgNum, void **ArgsBase,
   }
 #endif
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
+
   DeviceTy &Device = *PM->Devices[DeviceId];
   TargetAsyncInfoTy TargetAsyncInfo(Device);
   AsyncInfoTy &AsyncInfo = TargetAsyncInfo;
@@ -196,10 +193,10 @@ targetData(ident_t *Loc, int64_t DeviceId, int32_t ArgNum, void **ArgsBase,
 
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   if (EncodedId != DeviceId)
     PM->Devices[DeviceId]->popSubDevice();
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// creates host-to-target data mapping, stores it in the
@@ -326,9 +323,9 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
   XPTIEventCacheTy XPTIEvt(Loc, __func__);
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   int64_t EncodedId = GetEncodedDeviceID(DeviceId);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   DP("Entering target region for device %" PRId64 " with entry point " DPxMOD
      "\n",
@@ -371,10 +368,10 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
   }
 #endif
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   // Push device encoding
   PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   DeviceTy &Device = *PM->Devices[DeviceId];
   TargetAsyncInfoTy TargetAsyncInfo(Device);
@@ -392,10 +389,10 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
 
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   if (EncodedId != DeviceId)
     PM->Devices[DeviceId]->popSubDevice();
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   assert(Rc == OFFLOAD_SUCCESS && "__tgt_target_kernel unexpected failure!");
 
@@ -526,7 +523,7 @@ EXTERN void __tgt_push_mapper_component(void *RtMapperHandle, void *Base,
       MapComponentInfoTy(Base, Begin, Size, Type, Name));
 }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 EXTERN int32_t __tgt_is_device_available(int64_t DeviceNum, void *DeviceType) {
   DeviceNum = EXTRACT_BITS(DeviceNum, 31, 0);
   if (checkDeviceAndCtors(DeviceNum, nullptr) != OFFLOAD_SUCCESS) {
@@ -772,7 +769,6 @@ EXTERN int __tgt_get_interop_property(
 
 // End INTEL DISPATCH extension
 
-#if INTEL_CUSTOMIZATION
 EXTERN omp_interop_t __tgt_create_interop(
     int64_t DeviceNum, int32_t InteropType, int32_t NumPrefers,
     int32_t *PreferIds) {
@@ -799,103 +795,110 @@ EXTERN omp_interop_t __tgt_create_interop(
   return Interop;
 }
 
-EXTERN omp_interop_t __tgt_get_interop_obj (
+EXTERN omp_interop_t __tgt_get_interop_obj(
     ident_t *loc_ref, int32_t interop_type, uint32_t num_prefers,
-    int32_t *prefer_ids, int64_t device_num, int gtid, void *current_task ) {
+    int32_t *prefer_ids, int64_t device_num, int gtid, void *current_task) {
 
-   DP("Call to %s with device_num %" PRId64 ", interop_type %" PRId32
-      ", num_prefers %" PRId32 ", prefer_ids " DPxMOD ", gtid %" PRId32
-      ", current_task " DPxMOD "\n",
-      __func__, device_num, interop_type, num_prefers, DPxPTR(prefer_ids),gtid,DPxPTR(current_task));
+  DP("Call to %s with device_num %" PRId64 ", interop_type %" PRId32
+     ", num_prefers %" PRId32 ", prefer_ids " DPxMOD ", gtid %" PRId32
+     ", current_task " DPxMOD "\n",
+     __func__, device_num, interop_type, num_prefers, DPxPTR(prefer_ids), gtid,
+     DPxPTR(current_task));
 
-   if (isOffloadDisabled())
-     return omp_interop_none;
- 
-   omp_interop_t Interop = omp_interop_none;
+  if (isOffloadDisabled())
+    return omp_interop_none;
 
-   // Now, try to create an interop with device_num.
-   if (device_num == OFFLOAD_DEVICE_DEFAULT)
-     device_num = omp_get_default_device();
+  omp_interop_t Interop = omp_interop_none;
 
-   if (deviceIsReady(device_num)) {
-     auto first = PM->InteropTbl.begin(gtid,current_task);
-     auto last = PM->InteropTbl.end(gtid,current_task);
-     __tgt_interop * tiop = NULL;
-     for ( auto iop = first ; iop != last ; ++iop ) {
-       if ( (*iop)->isCompatibleWith (interop_type, num_prefers, prefer_ids, device_num, gtid, current_task) ) {
-         tiop = *iop;
-	 tiop->markDirty();
-         DP("Reused interop " DPxMOD " from device_num %" PRId64 "\n",
-            DPxPTR(tiop), device_num);
-         break;
-       }
-     }
-     if ( !tiop ) {
-       tiop = PM->Devices[device_num]->createInterop(interop_type, num_prefers, prefer_ids);
-       if ( tiop ) {
-          DP("Created an interop " DPxMOD " from device_num %" PRId64 "\n",
-             DPxPTR(tiop), device_num);
-          tiop->setOwner(gtid,current_task);
-          PM->InteropTbl.addInterop(tiop);
-       }
-     }
-     Interop = tiop;
-   }
+  // Now, try to create an interop with device_num.
+  if (device_num == OFFLOAD_DEVICE_DEFAULT)
+    device_num = omp_get_default_device();
 
-   return Interop;
-}
-
-EXTERN void __tgt_target_sync ( ident_t *loc_ref, int gtid, void * current_task, void *event ) {
-   auto first = PM->InteropTbl.begin(gtid,current_task);
-   auto last = PM->InteropTbl.end(gtid,current_task);
-
-   if ( first == last ) return;
-
-   DP("Processing target_sync for gtid %" PRId32 ", current_task " DPxMOD " event " DPxMOD
-      "\n", gtid, DPxPTR(current_task), DPxPTR(event));
-
-   for ( auto it = first ; it != last ; ++it ) {
-      __tgt_interop *iop = *it;
-      if ( iop->TargetSync != NULL &&
-           iop->isOwnedBy ( gtid, current_task ) &&
-           !iop->isClean() ) {
-
-        iop->flush();
-
-        // Implementation option 1
-        iop->syncBarrier();
-        iop->markClean();
-
-        // Alternate implementation option
-        //event = iop->asyncBarrier();
-        // ptask = createProxyTask();
-        //Events->add(event,ptask);
+  if (deviceIsReady(device_num)) {
+    auto first = PM->InteropTbl.begin(gtid, current_task);
+    auto last = PM->InteropTbl.end(gtid, current_task);
+    __tgt_interop *tiop = NULL;
+    for (auto iop = first; iop != last; ++iop) {
+      if ((*iop)->isCompatibleWith(interop_type, num_prefers, prefer_ids,
+                                   device_num, gtid, current_task)) {
+        tiop = *iop;
+        tiop->markDirty();
+        DP("Reused interop " DPxMOD " from device_num %" PRId64 "\n",
+           DPxPTR(tiop), device_num);
+        break;
       }
-   }
-   // This would be needed for the alternate implementation
-   // processEvents();
+    }
+    if (!tiop) {
+      tiop = PM->Devices[device_num]->createInterop(interop_type, num_prefers,
+                                                    prefer_ids);
+      if (tiop) {
+        DP("Created an interop " DPxMOD " from device_num %" PRId64 "\n",
+           DPxPTR(tiop), device_num);
+        tiop->setOwner(gtid, current_task);
+        PM->InteropTbl.addInterop(tiop);
+      }
+    }
+    Interop = tiop;
+  }
+
+  return Interop;
 }
 
-EXTERN int __tgt_interop_use_async ( ident_t *loc_ref, int gtid, omp_interop_t interop, bool nowait, void *ptask ) {
-   DP("Call to %s with interop " DPxMOD ", nowait %" PRId32 "\n", __func__, DPxPTR(interop), nowait);
+EXTERN void __tgt_target_sync(ident_t *loc_ref, int gtid, void *current_task,
+                              void *event) {
+  auto first = PM->InteropTbl.begin(gtid, current_task);
+  auto last = PM->InteropTbl.end(gtid, current_task);
 
-   if (isOffloadDisabled() || !interop)
-      return OFFLOAD_FAIL;
+  if (first == last)
+    return;
 
-   __tgt_interop * iop = static_cast<__tgt_interop *>(interop);
-   if ( iop->TargetSync ) {
-     if ( nowait )
-	iop->asyncBarrier();
-     else {
-        iop->flush();
-        iop->syncBarrier();
-        iop->markClean();
-     }
-   }
+  DP("Processing target_sync for gtid %" PRId32 ", current_task " DPxMOD
+     " event " DPxMOD "\n",
+     gtid, DPxPTR(current_task), DPxPTR(event));
+
+  for (auto it = first; it != last; ++it) {
+    __tgt_interop *iop = *it;
+    if (iop->TargetSync != NULL && iop->isOwnedBy(gtid, current_task) &&
+        !iop->isClean()) {
+
+      iop->flush();
+
+      // Implementation option 1
+      iop->syncBarrier();
+      iop->markClean();
+
+      // Alternate implementation option
+      // event = iop->asyncBarrier();
+      // ptask = createProxyTask();
+      // Events->add(event,ptask);
+    }
+  }
+  // This would be needed for the alternate implementation
+  // processEvents();
+}
+
+EXTERN int __tgt_interop_use_async(ident_t *loc_ref, int gtid,
+                                   omp_interop_t interop, bool nowait,
+                                   void *ptask) {
+  DP("Call to %s with interop " DPxMOD ", nowait %" PRId32 "\n", __func__,
+     DPxPTR(interop), nowait);
+
+  if (isOffloadDisabled() || !interop)
+    return OFFLOAD_FAIL;
+
+  __tgt_interop *iop = static_cast<__tgt_interop *>(interop);
+  if (iop->TargetSync) {
+    if (nowait)
+      iop->asyncBarrier();
+    else {
+      iop->flush();
+      iop->syncBarrier();
+      iop->markClean();
+    }
+  }
 
   return OFFLOAD_SUCCESS;
 }
-
 
 EXTERN int __tgt_release_interop(omp_interop_t Interop) {
   DP("Call to %s with interop " DPxMOD "\n", __func__, DPxPTR(Interop));
@@ -936,8 +939,6 @@ EXTERN int __tgt_use_interop(omp_interop_t Interop) {
   return PM->Devices[DeviceNum]->useInterop(TgtInterop);
 }
 
-#endif // INTEL_CUSTOMIZATION
-
 EXTERN int __tgt_get_target_memory_info(
     void *InteropObj, int32_t NumPtrs, void *TgtPtrs, void *PtrInfo) {
   DP("Call to __tgt_get_target_memory_info with interop object " DPxMOD
@@ -955,7 +956,6 @@ EXTERN int __tgt_get_target_memory_info(
   return Device.getDataAllocInfo(NumPtrs, TgtPtrs, PtrInfo);
 }
 
-#if INTEL_CUSTOMIZATION
 EXTERN void __tgt_push_code_location(const char *Loc, void *CodePtrRA) {
   // Temporary workaround since code location directly passed with __tgt*
   // entries is incorrect.
@@ -964,10 +964,9 @@ EXTERN void __tgt_push_code_location(const char *Loc, void *CodePtrRA) {
   RegionInterface.CodeLocation = Loc;
 #endif // OMPT_SUPPORT
 }
-#endif // INTEL_CUSTOMIZATION
 
 EXTERN int __tgt_get_num_devices(void) { return omp_get_num_devices(); }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 EXTERN void __tgt_set_info_flag(uint32_t NewInfoLevel) {
   std::atomic<uint32_t> &InfoLevel = getInfoLevelInternal();
@@ -1003,7 +1002,7 @@ EXTERN void __tgt_register_ptask_services(omp_create_task_fptr createf,
 EXTERN void __tgt_task_completed(void *task) {
   DP("Callback to _tgt_task_completed task=" DPxMOD "\n", DPxPTR(task));
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 EXTERN void __tgt_target_nowait_query(void **AsyncHandle) {
   if (!AsyncHandle || !*AsyncHandle) {
@@ -1047,7 +1046,7 @@ EXTERN void __tgt_target_nowait_query(void **AsyncHandle) {
   *AsyncHandle = nullptr;
 }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 EXTERN int __tgt_get_mem_resources(int32_t NumDevices, const int32_t *DeviceIds,
                                    int32_t HostAccess,
                                    omp_memspace_handle_t MemSpace,
@@ -1121,4 +1120,4 @@ EXTERN void __tgt_omp_free(void *Ptr, omp_allocator_handle_t Allocator) {
   if (RTL->omp_free)
     RTL->omp_free(Ptr, Allocator);
 }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION

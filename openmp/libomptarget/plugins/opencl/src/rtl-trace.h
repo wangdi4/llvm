@@ -1,4 +1,4 @@
-/* INTEL_CUSTOMIZATION */
+#if INTEL_CUSTOMIZATION
 /*
  * INTEL CONFIDENTIAL
  *
@@ -6,16 +6,14 @@
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise, you may not
- * use, modify, copy, publish, distribute, disclose or transmit this software or
- * the related documents without Intel's prior written permission.
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
  * This software and the related documents are provided as is, with no express
  * or implied warranties, other than those that are expressly stated in the
  * License.
  */
-/* end INTEL_CUSTOMIZATION */
-#if INTEL_COLLAB
 //===--- Target RTLs Implementation ---------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -64,22 +62,16 @@ extern int DebugLevel;
     fprintf(stderr, "Warning: " __VA_ARGS__);                                  \
   } while (0)
 
-#if INTEL_CUSTOMIZATION
 // DPI() is for printing sensitive information in the debug output.
 // It will only print anything in non-release builds.
-// Note that DPI is not defined for non-INTEL_CUSTOMIZATION builds,
-// so that the INTEL_COLLAB build fails, if DPI used in there.
 #if INTEL_INTERNAL_BUILD
 #define DPI(...) DP(__VA_ARGS__)
 #else  // !INTEL_INTERNAL_BUILD
 #define DPI(...)
 #endif // !INTEL_INTERNAL_BUILD
 
-typedef void (CL_API_CALL *clGitsIndirectAllocationOffsets_fn)(
-    void *pAlloc,
-    uint32_t numOffsets,
-    size_t *pOffsets);
-#endif // INTEL_CUSTOMIZATION
+typedef void(CL_API_CALL *clGitsIndirectAllocationOffsets_fn)(
+    void *pAlloc, uint32_t numOffsets, size_t *pOffsets);
 
 typedef cl_int (CL_API_CALL *clGetDeviceGlobalVariablePointerINTEL_fn)(
     cl_device_id,
@@ -110,13 +102,9 @@ typedef cl_int (CL_API_CALL *clSetProgramSpecializationConstant_fn)(
   M(clGetDeviceGlobalVariablePointerINTEL)                                     \
   M(clGetKernelSuggestedLocalWorkSizeINTEL)
 
-#if INTEL_CUSTOMIZATION
 #define FOR_EACH_EXTENSION_FN(M)                                               \
   FOR_EACH_COMMON_EXTENSION_FN(M)                                              \
   M(clGitsIndirectAllocationOffsets)
-#else // INTEL_CUSTOMIZATION
-#define FOR_EACH_EXTENSION_FN(M) FOR_EACH_COMMON_EXTENSION_FN(M)
-#endif // INTEL_CUSTOMIZATION
 
 enum ExtensionIdTy {
 #define EXTENSION_FN_ID(Fn) Fn##Id,
@@ -1081,4 +1069,4 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
   CALL_CL_EXT_RET(DeviceId, nullptr, Name, __VA_ARGS__)
 
 #endif // !defined(RTL_TRACE_H)
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
