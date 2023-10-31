@@ -7520,7 +7520,20 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Triple.isNVPTX() && !Triple.isAMDGCN())
     addPGOAndCoverageFlags(TC, C, JA, Output, Args, SanitizeArgs, CmdArgs);
 
-  Args.AddLastArg(CmdArgs, options::OPT_fclang_abi_compat_EQ);
+#if INTEL_CUSTOMIZATION
+  // Current Clang ABI compatible version is 17.  Use this value unless it is
+  // passed by the user.  Upon each major release, make sure we update this
+  // value to the next ABI version, as we do not want to have any version
+  // incompatibilities during update releases.
+  if (!Args.hasArg(options::OPT_fclang_abi_compat_EQ)) {
+    const llvm::opt::OptTable &Opts = C.getDriver().getOpts();
+    CmdArgs.push_back(Args.MakeArgString(
+        Twine(Opts.getOption(options::OPT_fclang_abi_compat_EQ)
+                  .getPrefixedName()) +
+        "17"));
+  } else
+    Args.AddLastArg(CmdArgs, options::OPT_fclang_abi_compat_EQ);
+#endif // INTEL_CUSTOMIZATION
 
   if (getLastProfileSampleUseArg(Args) &&
       Args.hasArg(options::OPT_fsample_profile_use_profi)) {
