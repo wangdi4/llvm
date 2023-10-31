@@ -9,6 +9,8 @@
 ; produce only one branch that compares the pointer with the target function,
 ; even if the function is available in multiple vtables.
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+
 %"class.std::ios_base::Init" = type { i8 }
 %class.Derived = type { %class.Base }
 %class.Base = type { ptr }

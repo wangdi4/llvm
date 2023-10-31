@@ -45,6 +45,8 @@
 
 ; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -whole-program-assume -S 2>&1 | FileCheck %s
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+
 %"class.std::ios_base::Init" = type { i8 }
 %class.Derived = type { %class.Base }
 %class.Base = type { ptr }
