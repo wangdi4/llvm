@@ -80,7 +80,7 @@ define intel_features_init_cc i32 @__libirc_set_cpu_feature(i64* noalias nocaptu
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    pushq %rdx
 ; CHECK-NEXT:    pushq %rsi
-; CHECK-NEXT:    pushq %rdi
+; CHECK-NEXT:    pushq %rax
 ; CHECK-NEXT:    movq %rax, %rdx
 ; CHECK-NEXT:    cmpb $0, __libirc_isa_info_initialized(%rip)
 ; CHECK-NEXT:    jne .LBB3_2
@@ -97,16 +97,15 @@ define intel_features_init_cc i32 @__libirc_set_cpu_feature(i64* noalias nocaptu
 ; CHECK-NEXT:    testl %eax, %eax
 ; CHECK-NEXT:    js .LBB3_4
 ; CHECK-NEXT:  # %bb.3: # %if.end
-; CHECK-NEXT:    movl %eax, %esi
-; CHECK-NEXT:    shrl $6, %esi
-; CHECK-NEXT:    andl $63, %eax
-; CHECK-NEXT:    movl $1, %edi
+; CHECK-NEXT:    movl $1, %esi
 ; CHECK-NEXT:    movl %eax, %ecx
-; CHECK-NEXT:    shlq %cl, %rdi
-; CHECK-NEXT:    orq %rdi, (%rdx,%rsi,8)
+; CHECK-NEXT:    shlq %cl, %rsi
+; CHECK-NEXT:    shrl $6, %eax
+; CHECK-NEXT:    orq %rsi, (%rdx,%rax,8)
 ; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:  .LBB3_4: # %cleanup
-; CHECK-NEXT:    popq %rdi
+; CHECK-NEXT:    # kill: def $eax killed $eax killed $rax
+; CHECK-NEXT:    addq $8, %rsp
 ; CHECK-NEXT:    popq %rsi
 ; CHECK-NEXT:    popq %rdx
 ; CHECK-NEXT:    retq
