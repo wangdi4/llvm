@@ -85,10 +85,12 @@ private:
   const bool OnlyMandatory;
   const ThinOrFullLTOPhase LTOPhase;
 
-  // INTEL The inline report
-  InlineReport *Report; // INTEL
-  InlineReportBuilder *MDReport; // INTEL
-  bool IsAlwaysInline; // INTEL
+#if INTEL_CUSTOMIZATION
+  // The inline report
+  InlineReport *Report;
+  InlineReportBuilder *MDReport;
+  bool IsAlwaysInline;
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Module pass, wrapping the inliner pass. This works in conjunction with the
