@@ -1347,7 +1347,6 @@ private:
   }
 
 public:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   void setToolPath(std::string &ToolPath, StringRef ToolName,
                    StringRef FailMessage) {
@@ -1380,11 +1379,8 @@ public:
 
   }
 #endif // INTEL_CUSTOMIZATION
-  BinaryWrapper(StringRef Target, StringRef ToolName)
-=======
   BinaryWrapper(StringRef Target, StringRef ToolName,
                 StringRef SymPropBCFiles = "")
->>>>>>> e3e88f27ff3564c4a8662122f3cdb624b0ad402e
       : M("offload.wrapper.object", C), ToolName(ToolName) {
 
     if (!SymPropBCFiles.empty())
