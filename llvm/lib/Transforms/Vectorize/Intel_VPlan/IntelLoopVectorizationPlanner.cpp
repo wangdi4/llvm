@@ -504,9 +504,12 @@ static uint64_t calcMinProfitablePeelTC(VPInstructionCost PeelOverhead,
 
   // If our profitable TC is less than or equal to VF*UF, emit no check, as in
   // this case we would skip the peel loop anyways.
-  if (ProfitableTC <= (uint64_t)VFUF)
+  if (ProfitableTC <= (uint64_t)VFUF) {
+    DEBUG_WITH_TYPE(
+        "LoopVectorizationPlanner_peel_tc",
+        dbgs() << "Min profitable peel tc is less than VF*UF, skipping\n");
     return 0;
-
+  }
   // Arbitrarily truncate values to some maximum factor of VF*UF, to avoid
   // values becoming too large.
   const auto MaxProfitableTC = MaxProfitableDynPeelMultiplier * (uint64_t)VFUF;

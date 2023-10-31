@@ -11,7 +11,7 @@
 ;    }
 ;  }
 
-; CHECK: Remainder evaluator unmasked cost for VF=4 :
+; CHECK: Remainder evaluator skips VF=4
 ; CHECK: Remainder evaluator unmasked cost for VF=2 :
 
 target triple = "x86_64-unknown-linux-gnu"

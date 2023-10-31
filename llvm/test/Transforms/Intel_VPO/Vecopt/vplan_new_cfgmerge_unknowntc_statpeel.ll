@@ -10,12 +10,12 @@ define dso_local void @_Z7ntstorePd(ptr %A, i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=2
 ; CHECK-NEXT:   PeelLoop: scalar
-; CHECK-NEXT:   Remainders: none
+; CHECK-NEXT:   Remainders: scalar,
 ; CHECK-NEXT:  Updated scenario for VF: 4
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: scalar
-; CHECK-NEXT:   Remainders: none
+; CHECK-NEXT:   Remainders: scalar,
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: scalar

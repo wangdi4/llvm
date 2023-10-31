@@ -68,7 +68,7 @@ define void @_ZN10Mandelbrot16execute_cpu_partEii_DIR_OMP_PARALLEL_LOOP_2_split1
 ; CHECK-NEXT:         [DA: Uni] i32 [[VP4:%.*]] = phi-merge  [ i32 live-out0, [[BB15]] ],  [ i32 0, [[BB1]] ]
 ; CHECK-NEXT:         [DA: Uni] br [[BB16:BB[0-9]+]]
 ;
-; CHECK:              [DA: Uni] pushvf VF=4 UF=1
+; CHECK:              [DA: Uni] pushvf VF=8 UF=1
 ; CHECK-NEXT:         [DA: Uni] br [[BB17:BB[0-9]+]]
 ; **** Remainder loop
 ; CHECK:             [[BB17]]: # preds: [[BB16]]
@@ -121,14 +121,14 @@ define void @_ZN10Mandelbrot16execute_cpu_partEii_DIR_OMP_PARALLEL_LOOP_2_split1
 ; CHECK:  define void @_ZN10Mandelbrot16execute_cpu_partEii_DIR_OMP_PARALLEL_LOOP_2_split154(i1 [[C0]], float [[P0]]) #1 {
 ; CHECK:       vector.body:
 ; CHECK:       VPlannedBB29:
-; CHECK-NEXT:    [[VEC_PHI300:%.*]] = phi <4 x float> [ [[TMP10:%.*]], %[[VPLANNEDBB270:.*]] ], [ [[BROADCAST_SPLAT0:%.*]], %[[NEW_LOOP_LATCH1:.*]] ]
+; CHECK-NEXT:    [[VEC_PHI300:%.*]] = phi <8 x float> [ [[TMP10:%.*]], %[[VPLANNEDBB270:.*]] ], [ [[BROADCAST_SPLAT0:%.*]], %[[NEW_LOOP_LATCH1:.*]] ]
 ; CHECK-NEXT:    br i1 [[C0]], label [[VPLANNEDBB310:%.*]], label [[VPLANNEDBB320:%.*]]
 ; CHECK:       [[NEW_LOOP_LATCH1]]:
 ; CHECK-NEXT:    [[UNI_PHI350:%.*]] = phi float [ [[TMP11:%.*]], [[VPLANNEDBB340:%.*]] ], [ undef, [[VPLANNEDBB310]] ]
 ; CHECK-NEXT:    [[UNI_PHI360:%.*]] = phi i32 [ 0, [[VPLANNEDBB340]] ], [ 1, [[VPLANNEDBB310]] ]
 ; CHECK-NEXT:    [[UNI_PHI370:%.*]] = phi i1 [ true, [[VPLANNEDBB340]] ], [ false, [[VPLANNEDBB310]] ]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x float> poison, float [[UNI_PHI350]], i64 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT0]] = shufflevector <4 x float> [[BROADCAST_SPLATINSERT0]], <4 x float> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <8 x float> poison, float [[UNI_PHI350]], i64 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT0]] = shufflevector <8 x float> [[BROADCAST_SPLATINSERT0]], <8 x float> poison, <8 x i32> zeroinitializer
 ; CHECK-NEXT:    br i1 [[UNI_PHI370]], label [[VPLANNEDBB290:%.*]], label [[VPLANNEDBB380:%.*]]
 ;
 DIR.OMP.PARALLEL.LOOP.3:
