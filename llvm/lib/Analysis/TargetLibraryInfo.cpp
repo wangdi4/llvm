@@ -6,9 +6,9 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -71,7 +71,7 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                clEnumValN(TargetLibraryInfoImpl::SLEEFGNUABI, "sleefgnuabi",
                           "SIMD Library for Evaluating Elementary Functions"),
                clEnumValN(TargetLibraryInfoImpl::ArmPL, "ArmPL",
-                          "Arm Performance Libraries"),
+                          "Arm Performance Libraries"),              // INTEL
                clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec", // INTEL
                           "Glibc vector math library")));            // INTEL
 
@@ -575,7 +575,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     // TLI.setUnavailable(LibFunc_fdopen);
 #endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_ffs);
-    TLI.setUnavailable(LibFunc_ffs);
     TLI.setUnavailable(LibFunc_flockfile);
     TLI.setUnavailable(LibFunc_fstatvfs);
     TLI.setUnavailable(LibFunc_ftrylockfile);
@@ -590,12 +589,12 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_memrchr);
     TLI.setUnavailable(LibFunc_ntohl);
     TLI.setUnavailable(LibFunc_ntohs);
+#if INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_opendir);
     TLI.setUnavailable(LibFunc_pclose);
     TLI.setUnavailable(LibFunc_popen);
     TLI.setUnavailable(LibFunc_pread);
     TLI.setUnavailable(LibFunc_pwrite);
-#if INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_re_compile_fastmap);
     TLI.setUnavailable(LibFunc_re_search_2);
     // This function should be available on Windows.
@@ -6133,7 +6132,7 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
 #endif // INTEL_CUSTOMIZATION
       };
       addVectorizableFunctions(VecFuncs);
-    }
+    } // INTEL
     break;
   }
   case SLEEFGNUABI: {
@@ -6340,10 +6339,10 @@ bool TargetLibraryInfoImpl::isFortranRNGLibFunc(LibFunc F) const {
       return false;
   }
 }
-#endif // INTEL_CUSTOMIZATION
 
 bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
                                        /* INTEL */ bool IsMasked) const {
+#endif // INTEL_CUSTOMIZATION
   funcName = sanitizeFunctionName(funcName);
   if (funcName.empty())
     return false;
@@ -6359,7 +6358,7 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
     ++I;
   }
   return false;
-#endif
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
