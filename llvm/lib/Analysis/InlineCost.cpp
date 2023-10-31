@@ -249,9 +249,9 @@ static cl::opt<bool> DisableGEPConstOperand(
     "disable-gep-const-evaluation", cl::Hidden, cl::init(false),
     cl::desc("Disables evaluation of GetElementPtr with constant operands"));
 
+#if INTEL_CUSTOMIZATION
 // Options to vary heuristics for SYCL Compilations
 
-#if INTEL_CUSTOMIZATION
 static cl::opt<bool> IsSYCLHost("sycl-host", cl::Hidden, cl::init(false),
     cl::desc("Indicates this is a SYCL host compilation"));
 #endif //INTEL_CUSTOMIZATION
@@ -1173,10 +1173,8 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 #endif // INTEL_FEATURE_SW_ADVANCED
         return InlineResult::failure("Cost over threshold.");
       }
-#endif // INTEL_CUSTOMIZATION
     }
 
-#if INTEL_CUSTOMIZATION
     bool IsProfitable = IgnoreThreshold || Cost < std::max(1, Threshold);
     InlineReason Reason =
         IsProfitable ? bestInlineReason(YesReasonVector, InlrProfitable)
@@ -1215,8 +1213,8 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       }
     }
     return false;
-#endif // INTEL_CUSTOMIZATION
   }
+#endif // INTEL_CUSTOMIZATION
 
   void onLoadEliminationOpportunity() override {
     LoadEliminationCost += InstrCost;
@@ -1388,13 +1386,12 @@ public:
 // Return true if CB is the sole call to local function Callee.
 static bool isSoleCallToLocalFunction(const CallBase &CB,
                                       const Function &Callee) {
-  return (Callee.hasLocalLinkage()
 #if INTEL_CUSTOMIZATION
-         // CQ370998: Added link once ODR linkage case.
-         || (InlineForXmain && Callee.hasLinkOnceODRLinkage())
-#endif
-         ) &&
+  return (Callee.hasLocalLinkage()
+          // CQ370998: Added link once ODR linkage case.
+          || (InlineForXmain && Callee.hasLinkOnceODRLinkage())) &&
          Callee.hasOneLiveUse() &&
+#endif // INTEL_CUSTOMIZATION
          &Callee == CB.getCalledFunction();
 }
 
@@ -1486,7 +1483,7 @@ private:
                                 GetAssumptionCache, GetBFI, PSI, ORE,
                                 nullptr, nullptr, nullptr, false, true);
       if (CA.analyze(TTI).isSuccess()) {
-#endif // INTEL)CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
         increment(InlineCostFeatureIndex::nested_inline_cost_estimate,
                   CA.getCost());
         increment(InlineCostFeatureIndex::nested_inlines, 1);
@@ -2920,11 +2917,11 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
     else if (HasIndirectBr)
       IR = InlineResult::failure("indirect branch")     // INTEL
                .setIntelInlReason(NinlrIndirectBranch); // INTEL
-    else if (HasLocalEscape)
+    else if (HasLocalEscape)                            // INTEL
       IR = InlineResult::failure("disallowed inlining of "   // INTEL
                                  "@llvm.localescape")        // INTEL
                .setIntelInlReason(NinlrCallsLocalEscape);    // INTEL
-    else if (HasBranchFunnel)
+    else if (HasBranchFunnel)                                // INTEL
       IR = InlineResult::failure("disallowed inlining of "    // INTEL
                                  "@llvm.icall.branch.funnel") // INTEL
                .setIntelInlReason(NinlrCallsBranchFunnel);    // INTEL
@@ -3704,9 +3701,11 @@ InlineParams llvm::getInlineParams(int Threshold) {
   // Set the HintThreshold knob from the -inlinehint-threshold.
   Params.HintThreshold = HintThreshold;
 
+#if INTEL_CUSTOMIZATION
   // Set the  DoubleCallSiteHintThreshold knob from the
   // -double-callsite-inlinehint-threshold.
   Params.DoubleCallSiteHintThreshold = DoubleCallSiteHintThreshold;
+#endif // INTEL_CUSTOMIZATION
 
   // Set the HotCallSiteThreshold knob from the -hot-callsite-threshold.
   Params.HotCallSiteThreshold = HotCallSiteThreshold;

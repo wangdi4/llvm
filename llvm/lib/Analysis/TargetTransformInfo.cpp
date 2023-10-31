@@ -399,16 +399,16 @@ void TargetTransformInfo::getUnrollingPreferences(
   return TTIImpl->getUnrollingPreferences(L, SE, UP, ORE);
 }
 
+#if INTEL_CUSTOMIZATION
 unsigned
 TargetTransformInfo::getLoopRotationDefaultThreshold(bool OptForSize) const {
   return TTIImpl->getLoopRotationDefaultThreshold(OptForSize);
 }
 
-#if INTEL_CUSTOMIZATION
 bool TargetTransformInfo::needsStructuredCFG() const {
   return TTIImpl->needsStructuredCFG();
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 void TargetTransformInfo::getPeelingPreferences(Loop *L, ScalarEvolution &SE,
                                                 PeelingPreferences &PP) const {
@@ -873,7 +873,7 @@ TargetTransformInfo::getOperandInfo(const Value *V) {
         else if (CI->getValue().isNegatedPowerOf2())
           OpProps = OP_NegatedPowerOf2;
       }
-#endif
+#endif // INTEL_CUSTOMIZATION
     } else if (const auto *CDS = dyn_cast<ConstantDataSequential>(V)) {
       bool AllPow2 = true, AllNegPow2 = true;
       for (unsigned I = 0, E = CDS->getNumElements(); I != E; ++I) {
@@ -1064,8 +1064,8 @@ InstructionCost TargetTransformInfo::getGatherScatterOpCost(
     const Instruction *I, // INTEL
     bool UndefPassThru) const { // INTEL
   InstructionCost Cost = TTIImpl->getGatherScatterOpCost(
-      Opcode, DataTy, Ptr, VariableMask, Alignment, CostKind, I,
-      UndefPassThru); // INTEL
+      Opcode, DataTy, Ptr, VariableMask, Alignment, CostKind, I, // INTEL
+      UndefPassThru);                                            // INTEL
   assert(Cost >= 0 && "TTI should not produce negative costs!");
   return Cost;
 }
