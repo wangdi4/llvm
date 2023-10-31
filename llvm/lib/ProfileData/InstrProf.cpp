@@ -1502,7 +1502,7 @@ Expected<Header> Header::readFromBuffer(const unsigned char *Buffer) {
                 "of fields to read.");
   Header H;
   H.Unused = 0;        // INTEL
-  H.MemProfOffset = 0; // Field only applies to some versions. - INTEL
+  H.MemProfOffset = 0; // Field only applies to some versions. // INTEL
   H.Magic = read(Buffer, offsetOf(&Header::Magic));
   // Check the magic number.
   uint64_t Magic =

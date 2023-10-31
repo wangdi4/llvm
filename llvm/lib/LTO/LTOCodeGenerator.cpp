@@ -64,7 +64,6 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <optional>
 #include <system_error>
-
 using namespace llvm;
 
 const char* LTOCodeGenerator::getVersionString() {

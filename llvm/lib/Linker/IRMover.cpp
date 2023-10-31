@@ -1844,8 +1844,10 @@ AttributeList IRLinker::mapAttributeTypes(LLVMContext &C, AttributeList Attrs) {
          AttrIdx <= Attribute::LastTypeAttr; AttrIdx++) {
       Attribute::AttrKind TypedAttr = (Attribute::AttrKind)AttrIdx;
       if (Attrs.hasAttributeAtIndex(i, TypedAttr)) {
+#if INTEL_CUSTOMIZATION
         if (Type *Ty = Attrs.getAttributeAtIndex(i, TypedAttr).getValueAsType()) {
           Attrs = Attrs.replaceAttributeTypeAtIndex(C, i, TypedAttr, TypeMap.get(Ty));
+#endif // INTEL_CUSTOMIZATION
           break;
         }
       }

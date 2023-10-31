@@ -89,7 +89,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
-#include <optional>
+#include <optional> // INTEL
 #include <utility>
 #include <vector>
 
@@ -408,7 +408,7 @@ static Function *doPromotion(
                                  II->getUnwindDest(), Args, OpBundles, "", &CB);
 #endif // INTEL_CUSTOMIZATION
     } else {
-      auto *NewCall =
+      auto *NewCall =                                              // INTEL
           CallInst::Create(FType, NewF, Args, OpBundles, "", &CB); // INTEL
       NewCall->setTailCallKind(cast<CallInst>(&CB)->getTailCallKind());
       NewCS = NewCall;
@@ -965,7 +965,7 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
 static bool areTypesABICompatible(ArrayRef<Type *> Types, const Function &F,
                                   const TargetTransformInfo &TTI) {
   return all_of(F.uses(), [&](const Use &U) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     AbstractCallSite CS(&U);
     if (!CS)
       return false;
@@ -1243,9 +1243,9 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
             FAM.invalidate(*UserF, FuncPA);
           }
         }
-#endif // INTEL_CUSTOMIZATION
       }
     }
+#endif // INTEL_CUSTOMIZATION
     Changed |= LocalChange;
   } while (LocalChange);
 

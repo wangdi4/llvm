@@ -23,7 +23,7 @@
 // CHECK_LTO_WIN: "-opt:fintel-libirc-allowed"
 // CHECK_LTO_WIN: "-mllvm:-disable-hir-generate-mkl-call"
 // CHECK_LTO_WIN: "-mllvm:-intel-abi-compatible=true"
-// CHECK_LTO_WIN: "-mllvm:-dummy-option"
+// CHECK_LTO_WIN-NOT: "-mllvm:-dummy-option"
 
 /// With ld.bfd or gold, link against icx-lto.so.
 // RUN: %clang --intel -target x86_64-unknown-linux-gnu --sysroot %S/Inputs/basic_cross_linux_tree %s \

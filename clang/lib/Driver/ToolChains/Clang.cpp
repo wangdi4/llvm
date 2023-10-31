@@ -9102,7 +9102,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
     CmdArgs.push_back(Arg->getValue());
   }
-  for (const Arg *A : Args.filtered(options::OPT_mllvm)) {
+#if INTEL_CUSTOMIZATION
+  for (const Arg *A :
+       Args.filtered(options::OPT_mllvm, options::OPT_mllvm_lto)) {
+#endif // INTEL_CUSTOMIZATION
     A->claim();
 
 #if INTEL_PRODUCT_RELEASE
@@ -9131,7 +9134,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (StringRef(A->getValue(0)) == "-disable-llvm-optzns") {
       CmdArgs.push_back("-disable-llvm-optzns");
     } else {
-      A->render(Args, CmdArgs);
+#if INTEL_CUSTOMIZATION
+      CmdArgs.push_back("-mllvm");
+      CmdArgs.push_back(A->getValue());
+#endif // INTEL_CUSTOMIZATION
     }
   }
 
@@ -9320,7 +9326,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     bool paroptSeen = false;
     StringRef paropt = Args.hasArg(options::OPT_fiopenmp) ? "31" : "11";
 
-    for (const Arg *A : Args.filtered(options::OPT_mllvm)) {
+    for (const Arg *A :
+         Args.filtered(options::OPT_mllvm, options::OPT_mllvm_lto)) {
       StringRef Str(A->getValue(0));
       if (Str.consume_front("-paropt=")) {
         paropt = Str;
@@ -10456,6 +10463,12 @@ void ClangAs::ConstructJob(Compilation &C, const JobAction &JA,
                                     getToolChain().getDriver());
 
   Args.AddAllArgs(CmdArgs, options::OPT_mllvm);
+#if INTEL_CUSTOMIZATION
+  for (Arg *A : Args.filtered(options::OPT_mllvm_lto)) {
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back(A->getValue());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (DebugInfoKind > llvm::codegenoptions::NoDebugInfo && Output.isFilename())
     addDebugObjectName(Args, CmdArgs, DebugCompilationDir,
@@ -12089,7 +12102,9 @@ void LinkerWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("--embed-bitcode");
 
   // Forward `-mllvm` arguments to the LLVM invocations if present.
-  for (Arg *A : Args.filtered(options::OPT_mllvm)) {
+#if INTEL_CUSTOMIZATION
+  for (Arg *A : Args.filtered(options::OPT_mllvm, options::OPT_mllvm_lto)) {
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-mllvm");
     CmdArgs.push_back(A->getValue());
     A->claim();
