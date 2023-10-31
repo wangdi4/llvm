@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -16,12 +17,16 @@
 #
 # end INTEL_CUSTOMIZATION
 set(LLVM_LINK_COMPONENTS BitWriter Core Object Support TargetParser TransformUtils)
+=======
+set(LLVM_LINK_COMPONENTS BitWriter BitReader Core Object Support TransformUtils TargetParser)
+>>>>>>> e3e88f27ff3564c4a8662122f3cdb624b0ad402e
 
 if(INTEL_CUSTOMIZATION)
 list(APPEND LLVM_LINK_COMPONENTS ObjectYAML)
 endif(INTEL_CUSTOMIZATION)
 add_clang_tool(clang-offload-wrapper
   ClangOffloadWrapper.cpp
+  SymPropReader.cpp
 
   DEPENDS
   intrinsics_gen
