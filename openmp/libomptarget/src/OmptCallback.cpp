@@ -403,18 +403,16 @@ void Interface::beginTargetRegion() {
   TargetData = ompt_data_none;
 }
 
+#if INTEL_CUSTOMIZATION
 void Interface::endTargetRegion() {
   TaskData = 0;
   TargetTaskData = 0;
   TargetData = ompt_data_none;
-#if INTEL_CUSTOMIZATION
   CodeLocation = nullptr;
   AssignedTeamSize = 0;
   AssignedNumTeams = 0;
-#endif // INTEL_CUSTOMIZATION
 }
 
-#if INTEL_CUSTOMIZATION
 EXTERN void ompt_oneapi_set_data(int32_t Kind, size_t Size, void *Value) {
   if (!Value)
     return;
@@ -435,6 +433,12 @@ EXTERN void ompt_oneapi_get_data(int32_t Kind, size_t Size, void *Value) {
     *(int *)Value = RegionInterface.AssignedNumTeams;
   else if (Kind == OmptExtDataTeamSize && Size == sizeof(int))
     *(int *)Value = RegionInterface.AssignedTeamSize;
+}
+#else  // INTEL_CUSTOMIZATION
+void Interface::endTargetRegion() {
+  TaskData = 0;
+  TargetTaskData = 0;
+  TargetData = ompt_data_none;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -530,11 +534,7 @@ void llvm::omp::target::ompt::connectLibrary() {
   DP("Exiting connectLibrary (libomp)\n");
 }
 
-#if INTEL_CUSTOMIZATION
-EXTERN
-#else  // INTEL_CUSTOMIZATION
 extern "C" {
-#endif // INTEL_CUSTOMIZATION
 /// Used for connecting libomptarget with a plugin
 void ompt_libomptarget_connect(ompt_start_tool_result_t *result) {
   DP("Enter ompt_libomptarget_connect\n");
@@ -549,9 +549,7 @@ void ompt_libomptarget_connect(ompt_start_tool_result_t *result) {
   }
   DP("Leave ompt_libomptarget_connect\n");
 }
-#if !INTEL_CUSTOMIZATION
 }
-#endif // !INTEL_CUSTOMIZATION
 #else
 extern "C" {
 /// Dummy definition when OMPT is disabled

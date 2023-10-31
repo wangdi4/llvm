@@ -1,4 +1,4 @@
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
 //
@@ -14,8 +14,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 //
-// end INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
 //===--- Target RTLs Implementation ---------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -68,7 +66,6 @@
 
 using namespace llvm::omp::target;
 
-#if INTEL_CUSTOMIZATION
 // FIXME: when this is upstreamed for OpenCL.
 #define CL_MEM_FLAGS_INTEL                                               0x10001
 #define CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL                           (1 << 23)
@@ -99,7 +96,6 @@ using namespace llvm::omp::target;
     }                                                                          \
   } while (0)
 #endif // _WIN32
-#endif // INTEL_CUSTOMIZATION
 
 /// Device type enumeration common to compiler and runtime
 enum DeviceArch : uint64_t {
@@ -5059,4 +5055,4 @@ void __tgt_rtl_omp_free(void *Ptr, omp_allocator_handle_t Allocator) {
     DP("Failed to release memory allocated with OMP allocator\n");
   }
 }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION

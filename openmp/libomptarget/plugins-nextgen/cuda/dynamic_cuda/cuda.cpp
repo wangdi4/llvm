@@ -203,10 +203,10 @@ static bool checkForCUDA() {
   auto DynlibHandle = std::make_unique<llvm::sys::DynamicLibrary>(
       llvm::sys::DynamicLibrary::getPermanentLibrary(CudaLib, &ErrMsg));
   if (!DynlibHandle->isValid()) {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
     if (ErrMsg.empty())
       ErrMsg = "unknown error";
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
     DP("Unable to load library '%s': %s!\n", CudaLib, ErrMsg.c_str());
     return false;
   }
