@@ -1401,8 +1401,6 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
 #if INTEL_COLLAB
       Dtor = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
           Dtor, CGM.DefaultInt8PtrTy);
-#else // INTEL_COLLAB
-      Dtor = llvm::ConstantExpr::getBitCast(Dtor, CGM.Int8PtrTy);
 #endif  // INTEL_COLLAB
     }
   }
