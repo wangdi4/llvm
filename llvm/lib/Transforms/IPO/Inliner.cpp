@@ -140,10 +140,10 @@ static cl::opt<bool>
     EnablePostSCCAdvisorPrinting("enable-scc-inline-advisor-printing",
                                  cl::init(false), cl::Hidden);
 
+#if INTEL_CUSTOMIZATION
 namespace llvm {
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 }
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
 extern cl::opt<bool> DTransInlineHeuristics;
 #endif // INTEL_FEATURE_SW_ADVANCED

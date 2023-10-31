@@ -251,8 +251,8 @@ struct PartialInlinerImpl {
       ProfileSummaryInfo &ProfSI,
       function_ref<BlockFrequencyInfo &(Function &)> GBFI, // INTEL
       InliningLoopInfoCache *InlLoopIC,                    // INTEL
-      bool RunLTOPartialInline, bool EnableSpecialCases,
-      WholeProgramInfo &WPInfo)   // INTEL
+      bool RunLTOPartialInline, bool EnableSpecialCases,   // INTEL
+      WholeProgramInfo &WPInfo)                            // INTEL
       : GetAssumptionCache(GetAC), LookupAssumptionCache(LookupAC),
         GetTTI(GTTI), GetBFI(GBFI), GetTLI(GTLI), ILIC(InlLoopIC), // INTEL
         PSI(ProfSI), RunLTOPartialInline(RunLTOPartialInline),     // INTEL
@@ -954,9 +954,9 @@ PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB,
       break;
     }
 
+#if INTEL_CUSTOMIZATION
     IntrinsicInst *IntrInst = dyn_cast<IntrinsicInst>(&I);
     if (IntrInst) {
-#if INTEL_CUSTOMIZATION
       if (I.isLifetimeStartOrEnd())
         continue;
       if (isa<FakeloadInst>(IntrInst))
@@ -972,8 +972,8 @@ PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB,
       // when extracted.
       if (IntrInst->getIntrinsicID() == Intrinsic::assume)
         continue;
-#endif // INTEL_CUSTOMIZATION
     }
+#endif // INTEL_CUSTOMIZATION
 
     if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
       Intrinsic::ID IID = II->getIntrinsicID();
@@ -1399,8 +1399,8 @@ PartialInlinerImpl::FunctionCloner::~FunctionCloner() {
   getInlineReport()->replaceAllUsesWith(ClonedFunc, OrigFunc); // INTEL
   getMDInlineReport()->replaceAllUsesWith(ClonedFunc, OrigFunc); // INTEL
   ClonedFunc->replaceAllUsesWith(OrigFunc);
-  getInlineReport()->removeFunctionReference(*ClonedFunc);
-  getMDInlineReport()->removeFunctionReference(*ClonedFunc);
+  getInlineReport()->removeFunctionReference(*ClonedFunc);   // INTEL
+  getMDInlineReport()->removeFunctionReference(*ClonedFunc); // INTEL
   ClonedFunc->eraseFromParent();
   if (!IsFunctionInlined) {
     // Remove each function that was speculatively created if there is no

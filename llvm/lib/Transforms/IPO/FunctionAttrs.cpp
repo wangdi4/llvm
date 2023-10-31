@@ -1860,9 +1860,9 @@ static SCCNodesResult createSCCNodeSet(ArrayRef<Function *> Functions) {
 
 template <typename AARGetterT>
 static SmallSet<Function *, 8>
-deriveAttrsInPostOrder(ArrayRef<Function *> Functions,
-                       AARGetterT &&AARGetter,   // INTEL
-                       WholeProgramInfo *WPInfo, // INTEL
+deriveAttrsInPostOrder(ArrayRef<Function *> Functions, // INTEL
+                       AARGetterT &&AARGetter,         // INTEL
+                       WholeProgramInfo *WPInfo,       // INTEL
                        bool ArgAttrsOnly) {
   SCCNodesResult Nodes = createSCCNodeSet(Functions);
 

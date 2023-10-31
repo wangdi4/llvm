@@ -1090,9 +1090,8 @@ bool SampleProfileLoader::shouldInlineColdCallee(CallBase &CallInst) {
   if (Callee == nullptr)
     return false;
 
-  InlineCost Cost =
-      getInlineCost(CallInst, getInlineParams(), GetTTI(*Callee),
-                    GetAC, GetTLI);
+  InlineCost Cost = getInlineCost(CallInst, getInlineParams(), GetTTI(*Callee),
+                                  GetAC, GetTLI);
 
   if (Cost.isNever())
     return false;
@@ -1348,8 +1347,8 @@ bool SampleProfileLoader::tryInlineCandidate(
 #endif // INTEL_CUSTOMIZATION
     return false;
   }
-  if (!Cost) {
 #if INTEL_CUSTOMIZATION
+  if (!Cost) {
     getInlineReport()->setReasonNotInlined(&CB, Cost);
     getInlineReport()->endUpdate();
     llvm::setMDReasonNotInlined(&CB, Cost);
@@ -2398,7 +2397,7 @@ void SampleProfileMatcher::findIRAnchors(
           IRAnchors.emplace(FindTopLevelInlinedCallsite(DIL));
         } else {
           LineLocation Callsite = FunctionSamples::getCallSiteIdentifier(DIL);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
           // Coverity: Change dyn_cast to cast as !isa<CallBase>(&I) is tested
           // above.
           StringRef CalleeName = GetCanonicalCalleeName(cast<CallBase>(&I));
