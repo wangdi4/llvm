@@ -5,8 +5,8 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
-; RUN: opt -mattr=+avx512cd -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=8 < %s 2>&1 | FileCheck %s --check-prefix=VEC
-; RUN: opt -mattr=+avx512cd -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=NO-VEC
+; RUN: opt -mattr=+avx512cd,+evex512 -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=8 < %s 2>&1 | FileCheck %s --check-prefix=VEC
+; RUN: opt -mattr=+avx512cd,+evex512 -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=NO-VEC
 
 ; <15>               + DO i1 = 0, 1023, 1   <DO_LOOP>
 ; <3>                |   %0 = (%B)[i1];
