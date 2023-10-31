@@ -8,7 +8,7 @@
 // "-mllvm -vectorize-loops=false" will disable loop vectorization, overriding
 // the cc1 option.
 //
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -vectorize-loops -mllvm -enable-lv -mllvm -force-vector-width=2 -mllvm -force-vector-interleave=1 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc 2>&1 | FileCheck %s --check-prefix=O2-LPV ;INTEL
+// INTEL RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -vectorize-loops -mllvm -enable-lv -mllvm -force-vector-width=2 -mllvm -force-vector-interleave=1 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc 2>&1 | FileCheck %s --check-prefix=O2-LPV
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -vectorize-loops -mllvm -vectorize-loops=false -mllvm -force-vector-width=2 -mllvm -force-vector-interleave=1 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc 2>&1 | FileCheck %s --check-prefix=O2-NOLPV
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O0 -vectorize-loops -mllvm -force-vector-width=2 -mllvm -force-vector-interleave=1 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc 2>&1 | FileCheck %s --check-prefix=O0-LPV
 // O2-LPV: = !{!"llvm.loop.isvectorized", i32 1}
@@ -21,8 +21,8 @@
 // "-mllvm -interleave-loops=false" will disable the interleaving, overriding
 // the cc1 option.
 //
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -vectorize-loops -mllvm -enable-lv -mllvm -force-vector-width=2 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc 2>&1 | FileCheck %s --check-prefix=O2-InterLeave ;INTEL
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -vectorize-loops -mllvm -enable-lv -mllvm -interleave-loops=false -mllvm -force-vector-width=2 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc 2>&1 | FileCheck %s --check-prefix=O2-NoInterLeave ;INTEL
+// INTEL RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -vectorize-loops -mllvm -enable-lv -mllvm -force-vector-width=2 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc 2>&1 | FileCheck %s --check-prefix=O2-InterLeave
+// INTEL RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -vectorize-loops -mllvm -enable-lv -mllvm -interleave-loops=false -mllvm -force-vector-width=2 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc 2>&1 | FileCheck %s --check-prefix=O2-NoInterLeave
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O0 -vectorize-loops -mllvm -force-vector-width=2 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc 2>&1 | FileCheck %s --check-prefix=O0-InterLeave
 // O2-InterLeave-COUNT-2: store <2 x double>
 // O2-InterLeave: = !{!"llvm.loop.isvectorized", i32 1}

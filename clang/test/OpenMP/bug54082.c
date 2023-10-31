@@ -73,8 +73,8 @@ void foo() {
 // CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8, ptr nonnull [[X_ALLOC]]) #[[ATTR5]]
 // CHECK-NEXT:    [[CALL:%.*]] = call i64 @omp_init_allocator(i64 noundef 0, i32 noundef 1, ptr noundef nonnull [[X_TRAITS]]) #[[ATTR5]]
 // CHECK-NEXT:    store i64 [[CALL]], ptr [[X_ALLOC]], align 8, !tbaa [[TBAA3:![0-9]+]]
-// IC may not annotate the last arg with nonnull, because it can already be deduced from the signature of the callback function. ;INTEL
-// CHECK-NEXT:    call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr nonnull @[[GLOB2:[0-9]+]], i32 1, ptr nonnull @foo.omp_outlined, ptr{{.*}}[[X_ALLOC]]) ;INTEL
+// INTEL IC may not annotate the last arg with nonnull, because it can already be deduced from the signature of the callback function.
+// INTEL CHECK-NEXT:    call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr nonnull @[[GLOB2:[0-9]+]], i32 1, ptr nonnull @foo.omp_outlined, ptr{{.*}}[[X_ALLOC]])
 // CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 8, ptr nonnull [[X_ALLOC]]) #[[ATTR5]]
 // CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16, ptr nonnull [[X_TRAITS]]) #[[ATTR5]]
 // CHECK-NEXT:    ret void
@@ -101,7 +101,7 @@ void foo() {
 // CHECK-NEXT:    [[DOTX__VOID_ADDR:%.*]] = tail call ptr @__kmpc_alloc(i32 [[TMP0]], i64 8, ptr [[CONV]])
 // CHECK-NEXT:    call void @__kmpc_for_static_init_4(ptr nonnull @[[GLOB1:[0-9]+]], i32 [[TMP0]], i32 34, ptr nonnull [[DOTOMP_IS_LAST]], ptr nonnull [[DOTOMP_LB]], ptr nonnull [[DOTOMP_UB]], ptr nonnull [[DOTOMP_STRIDE]], i32 1, i32 1)
 // CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[DOTOMP_UB]], align 4
-// CHECK-NEXT:    [[COND:%.*]] ={{.*}}call i32 @llvm.smin.i32(i32 [[TMP2]], i32 1023) ;INTEL
+// INTEL CHECK-NEXT:    [[COND:%.*]] ={{.*}}call i32 @llvm.smin.i32(i32 [[TMP2]], i32 1023)
 // CHECK-NEXT:    store i32 [[COND]], ptr [[DOTOMP_UB]], align 4, !tbaa [[TBAA6]]
 // CHECK-NEXT:    call void @__kmpc_for_static_fini(ptr nonnull @[[GLOB1]], i32 [[TMP0]])
 // CHECK-NEXT:    [[TMP3:%.*]] = load i64, ptr [[X_ALLOC]], align 8, !tbaa [[TBAA3]]

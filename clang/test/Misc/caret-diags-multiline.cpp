@@ -1,8 +1,9 @@
 // RUN: not %clang_cc1 -std=c++11 -fno-diagnostics-show-line-numbers -fcaret-diagnostics-max-lines=5 -Wsometimes-uninitialized %s 2>&1 | FileCheck %s --strict-whitespace
 
-// INTEL
+// INTEL_CUSTOMIZATION
 // Should be fixed in future commit: 58d094a82f7eaa8fc70d6c866fcc9403aa39ad4a
 // XFAIL: win32, cygwin
+// end INTEL_CUSTOMIZATION
 
 void line(int);
 

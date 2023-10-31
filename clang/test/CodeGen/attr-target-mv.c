@@ -1,9 +1,9 @@
 // RUN: %clang_cc1 -triple x86_64-linux-gnu -emit-llvm %s -o - | FileCheck %s --check-prefix=LINUX
 // RUN: %clang_cc1 -triple x86_64-windows-pc -emit-llvm %s -o - | FileCheck %s --check-prefix=WINDOWS
-// if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -triple x86_64-linux-gnu -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefix=LINUX
 // RUN: %clang_cc1 -triple x86_64-windows-pc -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefix=WINDOWS
-// endif // INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 
 int __attribute__((target("sse4.2"))) foo(void) { return 0; }
 int __attribute__((target("arch=sandybridge"))) foo(void);

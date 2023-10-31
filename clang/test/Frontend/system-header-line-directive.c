@@ -10,9 +10,10 @@
 // header-ness just like GNU line markers that don't have filenames.  This was
 // PR30752.
 
-// INTEL
+// INTEL_CUSTOMIZATION
 // Fix is under review https://reviews.llvm.org/D37079
 // XFAIL: win32, cygwin
+// end INTEL_CUSTOMIZATION
 
 // CHECK: # {{[0-9]+}} "{{.*}}system-header-line-directive.c" 2
 // CHECK: # 1 "{{.*}}noline.h" 1 3

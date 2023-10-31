@@ -1,6 +1,7 @@
-// INTEL
+// INTEL_CUSTOMIZATION
 // Fix is under review https://reviews.llvm.org/D37079
 // XFAIL: win32, cygwin
+// end INTEL_CUSTOMIZATION
 
 // RUN: rm -rf %t
 // RUN: mkdir %t

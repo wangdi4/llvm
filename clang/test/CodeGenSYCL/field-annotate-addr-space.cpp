@@ -24,7 +24,6 @@ __attribute__((sycl_device)) void foo(int *b) {
   // CHECK: %[[CALL:.+]] = call ptr addrspace(4) @llvm.ptr.annotation.p4.p1(ptr addrspace(4) %[[A]], ptr addrspace(1) [[ANNOT]]
   // CHECK: store ptr addrspace(4) %{{[0-9]+}}, ptr addrspace(4) %[[CALL]]
   f.a = b;
-  
   // INTEL_COLLAB
   struct HasFieldWithArgs fArgs;
   // CHECK: %[[A:.+]] = getelementptr inbounds %struct.HasFieldWithArgs, ptr addrspace(4) %fArgs.ascast, i32 0, i32 0
