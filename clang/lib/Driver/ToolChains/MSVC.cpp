@@ -539,10 +539,10 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
 
     addIntelOptimizationArgs(TC, Args, CmdArgs, Inputs[0], true, JA);
-    // Using lld-link and -flto, we need to add any additional -mllvm options
-    // and implied options.
-    for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
-      CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + AV));
+    // Using lld-link and -flto, we need to add any additional -mllvm-lto
+    // options after the implied options.
+    for (const Arg *A : Args.filtered(options::OPT_mllvm_lto))
+      CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + A->getValue()));
   }
 #endif // INTEL_CUSTOMIZATION
 

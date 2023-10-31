@@ -1055,6 +1055,13 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 
   addMachineOutlinerArgs(D, Args, CmdArgs, ToolChain.getEffectiveTriple(),
                          /*IsLTO=*/true, PluginOptPrefix);
+#if INTEL_CUSTOMIZATION
+  // Add any -mllvm-lto based options.  These are added after any of the values
+  // implied by options from the command line, allowing for override.
+  for (const Arg *A : Args.filtered(options::OPT_mllvm_lto))
+    CmdArgs.push_back(
+        Args.MakeArgString(Twine(PluginOptPrefix) + A->getValue()));
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
@@ -1388,7 +1395,9 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
   if (TC.getDriver().IsIntelMode() && !TC.getTriple().isSPIR()) {
     bool AddLoopOpt = true;
-    for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm)) {
+    for (const Arg *A :
+         Args.filtered(options::OPT_mllvm, options::OPT_mllvm_lto)) {
+      StringRef AV(A->getValue());
       if (AV.startswith("-loopopt=")) {
         AddLoopOpt = false;
         int Value;

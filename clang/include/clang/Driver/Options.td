@@ -5255,6 +5255,14 @@ def mllvm : Separate<["-"], "mllvm">,
   Visibility<[ClangOption, CC1Option, CC1AsOption, CLOption, DXCOption, FC1Option, FlangOption]>,
   HelpText<"Additional arguments to forward to LLVM's option processing">,
   MarshallingInfoStringVector<FrontendOpts<"LLVMArgs">>;
+#if INTEL_CUSTOMIZATION
+def mllvm_lto : Separate<["-"], "mllvm-lto">,
+  Flags<[HelpHidden]>, Visibility<[ClangOption, CLOption]>,
+  HelpText<"Additional arguments to forward to LLVM's option processing. "
+           "Similar to -mllvm, but will also pass the given argument to the "
+           "LTO step when appropriate.">,
+  MarshallingInfoStringVector<FrontendOpts<"LLVMArgs">>;
+#endif // INTEL_CUSTOMIZATION
 def : Joined<["-"], "mllvm=">,
   Visibility<[ClangOption, CLOption, DXCOption, FlangOption]>, Alias<mllvm>,
   HelpText<"Alias for -mllvm">, MetaVarName<"<arg>">;
