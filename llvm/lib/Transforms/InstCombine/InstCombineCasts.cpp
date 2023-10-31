@@ -420,6 +420,13 @@ static Instruction *foldVecTruncToExtElt(TruncInst &Trunc,
   if ((VecWidth % DestWidth != 0) || (ShiftAmount % DestWidth != 0))
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
+  // Avoid creating vector types unsupported by CG. Leave them as
+  // scalar types.
+  if (DestWidth < 8 || !llvm::isPowerOf2_32(DestWidth))
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
+
   // If the element type of the vector doesn't match the result type,
   // bitcast it to a vector type that we can extract from.
   unsigned NumVecElts = VecWidth / DestWidth;
