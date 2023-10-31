@@ -1398,15 +1398,10 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
     if (!Record->hasTrivialDestructor()) {
       CXXDestructorDecl *DtorD = Record->getDestructor();
       Dtor = CGM.getAddrOfCXXStructor(GlobalDecl(DtorD, Dtor_Complete));
-<<<<<<< HEAD
 #if INTEL_COLLAB
       Dtor = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
           Dtor, CGM.DefaultInt8PtrTy);
-#else // INTEL_COLLAB
-      Dtor = llvm::ConstantExpr::getBitCast(Dtor, CGM.Int8PtrTy);
 #endif  // INTEL_COLLAB
-=======
->>>>>>> c1183399a8205f83a418f20889776589b3b98d53
     }
   }
 #if INTEL_COLLAB
