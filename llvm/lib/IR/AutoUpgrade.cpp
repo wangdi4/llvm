@@ -4654,10 +4654,17 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
     assert((CI->getArgOperand(3)->getType()->isMetadataTy() &&
             CI->getArgOperand(5)->getType()->isMetadataTy()) &&
            "Wrong type of experimental.matrix.mad to upgrade");
-    Value *Args[7] = {CI->getArgOperand(0), CI->getArgOperand(2),
-                      CI->getArgOperand(4), CI->getArgOperand(6),
-                      CI->getArgOperand(7), CI->getArgOperand(8),
-                      CI->getArgOperand(9)};
+
+    // Add default (none) type interpretation during the intrinsic upgrade
+    Value *TypeNoneMD = MetadataAsValue::get(
+        CI->getContext(),
+        MDString::get(CI->getContext(), "matrix.reinterpret.type.none"));
+    Value *Args[11] = {
+        CI->getArgOperand(0), CI->getArgOperand(2), CI->getArgOperand(4),
+        CI->getArgOperand(6), CI->getArgOperand(7), CI->getArgOperand(8),
+        CI->getArgOperand(9), TypeNoneMD,           TypeNoneMD,
+        TypeNoneMD,           TypeNoneMD,
+    };
     NewCall = Builder.CreateCall(NewFn, Args);
     AttributeList OldAttrs = CI->getAttributes();
     AttributeList NewAttrs = AttributeList::get(
