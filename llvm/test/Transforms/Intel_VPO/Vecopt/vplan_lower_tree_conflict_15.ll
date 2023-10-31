@@ -44,7 +44,6 @@ define dso_local void @foo(ptr noalias nocapture noundef %A, ptr nocapture nound
 ; CHECK-VF4-NEXT:        |      |   [[DOTVEC110:%.*]] = bitcast.<4 x i32>.<4 x float>([[PHI_TEMP70]])
 ; CHECK-VF4-NEXT:        |      |   [[PERMUTE0:%.*]] = @llvm.x86.avx.vpermilvar.ps([[DOTVEC110]],  [[PHI_TEMP50]])
 ; CHECK-VF4-NEXT:        |      |   [[DOTVEC120:%.*]] = bitcast.<4 x float>.<4 x i32>([[PERMUTE0]])
-; CHECK-VF4-NEXT:        |      |   [[DOTVEC130:%.*]] = [[PHI_TEMP90]] == -1
 ; CHECK-VF4-NEXT:        |      |   [[DOTVEC140:%.*]] = ([[PHI_TEMP90]] == -1) ? [[DOTVEC120]] : 0
 ; CHECK-VF4-NEXT:        |      |   [[DOTVEC150:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PHI_TEMP70]] + [[DOTVEC140]] : [[PHI_TEMP70]]
 ; CHECK-VF4-NEXT:        |      |   [[DOTVEC160:%.*]] = bitcast.<4 x i32>.<4 x float>([[PHI_TEMP50]])
@@ -97,7 +96,6 @@ define dso_local void @foo(ptr noalias nocapture noundef %A, ptr nocapture nound
 ; CHECK-VF8-NEXT:        |      |   <i2 = 0>
 ; CHECK-VF8-NEXT:        |      |   [[BB0:BB[0-9]+]].[[NUM:.*]]:
 ; CHECK-VF8-NEXT:        |      |   [[PERMUTE0:%.*]] = @llvm.x86.avx2.permd([[PHI_TEMP70]],  [[PHI_TEMP50]])
-; CHECK-VF8-NEXT:        |      |   [[DOTVEC110:%.*]] = [[PHI_TEMP90]] == -1
 ; CHECK-VF8-NEXT:        |      |   [[DOTVEC120:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE0]] : 0
 ; CHECK-VF8-NEXT:        |      |   [[DOTVEC130:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PHI_TEMP70]] + [[DOTVEC120]] : [[PHI_TEMP70]]
 ; CHECK-VF8-NEXT:        |      |   [[PERMUTE140:%.*]] = @llvm.x86.avx2.permd([[PHI_TEMP50]],  [[PHI_TEMP50]])
