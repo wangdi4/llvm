@@ -107,6 +107,50 @@ static bool handleSyncBuiltinAttributes(Module &M) {
   return true;
 }
 
+// Remove memory(none) attribute from TID builtin and its user functions /
+// callsites recursively to resolve following two vectorization issues:
+// * In IR translated from spirv, tid builtins have memory(none) attribute, but
+//   don't have convergent attribute. If a not-inlined function only calls these
+//   builtins, it also has memory(none) attribute.
+//   LICM pass hoists the function to SIMD loop preheader, thus breaking
+//   vectorized code.
+// * TID builtin's memory(none) attribute may be proprogated to a
+//   user function. Call to the function is then uniform in vectorizer
+//   divergence analysis. However, the call should be divergent.
+static bool handleTidFuncAttributes(Module &M) {
+  SmallVector<Function *> WorkList;
+  DenseSet<Function *> Visited;
+  std::string Names[] = {mangledGetGID(),
+                         mangledGetLID(),
+                         mangledGetGlobalLinearId(),
+                         mangledGetLocalLinearId(),
+                         mangledGetSubGroupId(),
+                         mangledGetSubGroupLocalId()};
+  for (auto Name : Names) {
+    if (auto *F = M.getFunction(Name)) {
+      WorkList.push_back(F);
+      Visited.insert(F);
+    }
+  }
+
+  while (!WorkList.empty()) {
+    Function *F = WorkList.pop_back_val();
+    if (F->doesNotAccessMemory())
+      F->removeFnAttr(Attribute::Memory);
+    for (User *U : F->users()) {
+      if (auto *CI = dyn_cast<CallInst>(U)) {
+        if (CI->doesNotAccessMemory())
+          CI->removeFnAttr(Attribute::Memory);
+        Function *Caller = CI->getFunction();
+        if (Visited.insert(Caller).second)
+          WorkList.push_back(Caller);
+      }
+    }
+  }
+
+  return !Visited.empty();
+}
+
 bool AddFunctionAttrsPass::runImpl(Module &M) {
   bool Changed = false;
 
@@ -119,6 +163,8 @@ bool AddFunctionAttrsPass::runImpl(Module &M) {
   Changed |= handlePrintfBuiltinAttributes(M);
 
   Changed |= handleSyncBuiltinAttributes(M);
+
+  Changed |= handleTidFuncAttributes(M);
 
   return Changed;
 }
