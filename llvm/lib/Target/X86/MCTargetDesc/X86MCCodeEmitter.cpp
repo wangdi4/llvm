@@ -293,11 +293,13 @@ public:
     EVEX_L2 = V;
     (void)STI;
 #if INTEL_FEATURE_ISA_AVX256P
-    assert((STI.getCPU() != "common-avx256" || !EVEX_L2) &&
+    assert((STI.getCPU() != "common-avx256" || !EVEX_L2 ||
+            STI.getFeatureString().contains("+evex512")) &&
            "ZMM registers are not supported under AVX-256");
 #endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_CPU_RYL
-    assert((STI.getCPU() != "royal" || !EVEX_L2) &&
+    assert((STI.getCPU() != "royal" || !EVEX_L2 ||
+            STI.getFeatureString().contains("+evex512")) &&
            "ZMM registers are not supported under Royal");
 #endif // INTEL_FEATURE_CPU_RYL
   }
