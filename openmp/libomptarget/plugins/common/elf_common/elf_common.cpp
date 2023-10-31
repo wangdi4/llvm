@@ -43,7 +43,7 @@
 using namespace llvm;
 using namespace llvm::ELF;
 using namespace llvm::object;
-#if INTEL_COLLAB
+
 static const char *getOffloadNoteTypeName(uint64_t Type) {
   struct NoteType {
     uint64_t ID;
@@ -107,7 +107,6 @@ static void printELFNotes(const ELFObjectFile<ELFT> *Object) {
     }
   }
 }
-#endif // INTEL_COLLAB
 
 /// If the given range of bytes [\p BytesBegin, \p BytesEnd) represents
 /// a valid ELF, then invoke \p Callback on the ELFObjectFileBase
@@ -152,7 +151,7 @@ int32_t elf_check_machine(__tgt_device_image *Image, uint16_t TargetId) {
   auto CheckMachine = [TargetId](const ELFObjectFileBase *Object) {
     return TargetId == Object->getEMachine();
   };
-#if INTEL_COLLAB
+
   if (getDebugLevel() > 0) {
     auto PrintELFNotes = [](const ELFObjectFileBase *Object) {
       if (auto *Obj = dyn_cast<ELF64LEObjectFile>(Object))
@@ -170,7 +169,7 @@ int32_t elf_check_machine(__tgt_device_image *Image, uint16_t TargetId) {
                          reinterpret_cast<char *>(Image->ImageEnd),
                          PrintELFNotes);
   }
-#endif // INTEL_COLLAB
+
   return withBytesAsElf(reinterpret_cast<char *>(Image->ImageStart),
                         reinterpret_cast<char *>(Image->ImageEnd),
                         CheckMachine);

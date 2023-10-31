@@ -14,8 +14,6 @@
 # or implied warranties, other than those that are expressly stated in the
 # License.
 #
-# end INTEL_CUSTOMIZATION
-# INTEL_COLLAB
 ##===----------------------------------------------------------------------===##
 #
 # Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -51,34 +49,29 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
       ${LIBOMPTARGET_LLVM_INCLUDE_DIRS}
     )
 
-    if(INTEL_CUSTOMIZATION)
-      add_library(omptarget.sycl.wrap SHARED src/omp_sycl.cpp)
-      add_dependencies(omptarget.sycl.wrap sycl)
-      target_include_directories(omptarget.sycl.wrap PRIVATE
-          ${LIBOMPTARGET_INCLUDE_DIR}
-          ${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS}
-          ${LLVM_BINARY_DIR}/include/sycl)
-      # Need to silence deprecated-declarations for the sycl wrapper
-      check_cxx_compiler_flag(-Wno-deprecated-declarations
-                              LIBOMPTARGET_HAVE_WNO_DEPRECATED_DECLARATIONS)
-      if(LIBOMPTARGET_HAVE_WNO_DEPRECATED_DECLARATIONS)
-        target_compile_options(omptarget.sycl.wrap PRIVATE
-                               -Wno-deprecated-declarations)
-      endif()
-      set_property(TARGET omptarget.sycl.wrap PROPERTY CXX_STANDARD 17)
-    endif(INTEL_CUSTOMIZATION)
+    add_library(omptarget.sycl.wrap SHARED src/omp_sycl.cpp)
+    add_dependencies(omptarget.sycl.wrap sycl)
+    target_include_directories(omptarget.sycl.wrap PRIVATE
+        ${LIBOMPTARGET_INCLUDE_DIR}
+        ${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS}
+        ${LLVM_BINARY_DIR}/include/sycl)
+    # Need to silence deprecated-declarations for the sycl wrapper
+    check_cxx_compiler_flag(-Wno-deprecated-declarations
+                            LIBOMPTARGET_HAVE_WNO_DEPRECATED_DECLARATIONS)
+    if(LIBOMPTARGET_HAVE_WNO_DEPRECATED_DECLARATIONS)
+      target_compile_options(omptarget.sycl.wrap PRIVATE
+                             -Wno-deprecated-declarations)
+    endif()
+    set_property(TARGET omptarget.sycl.wrap PROPERTY CXX_STANDARD 17)
 
     if(NOT OPENMP_STANDALONE_BUILD)
       # We have to disable EH for Windows compilation.
       # For standalone OpenMP build, we need to come up
       # with our own EH flags management.
       llvm_update_compile_flags(omptarget.rtl.level0)
-      if(INTEL_CUSTOMIZATION)
-        llvm_update_compile_flags(omptarget.sycl.wrap)
-      endif(INTEL_CUSTOMIZATION)
+      llvm_update_compile_flags(omptarget.sycl.wrap)
     endif()
 
-    if(INTEL_CUSTOMIZATION)
     # Install plugin under the lib destination folder.
     # DLL part (for DLL platforms) is installed into bin.
     # Do not install interface library for DLL platforms,
@@ -90,10 +83,6 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
             DESTINATION bin)
 
     add_dependencies(omptarget.rtl.level0 libomptarget-libiomp-file)
-    else(INTEL_CUSTOMIZATION)
-    install(TARGETS omptarget.rtl.level0
-            LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
-    endif(INTEL_CUSTOMIZATION)
 
     target_link_libraries(omptarget.rtl.level0 PRIVATE
       elf_common
@@ -104,7 +93,6 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
           ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} ${LIBOMP_LIB_FILE} dl
           ${OPENMP_PTHREAD_LIB}
           "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
-# INTEL_CUSTOMIZATION
       # Compilation of the sycl wrapper requires runtime type information and
       # exceptions enabled
       # Xmain's self-build phase forces -stdlib=libc++ but sycl library removes
@@ -140,7 +128,6 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
       target_link_libraries(omptarget.sycl.wrap PRIVATE sycl)
       libomptarget_add_resource_file(omptarget.rtl.level0)
       libomptarget_add_resource_file(omptarget.sycl.wrap)
-# end INTEL_CUSTOMIZATION
     else()
       message(FATAL_ERROR "Missing platfrom support.")
     endif()
@@ -155,4 +142,4 @@ else()
   libomptarget_say("Not building Level0 offloading plugin: Level0 not found in system.")
 endif()
 
-# end INTEL_COLLAB
+# end INTEL_CUSTOMIZATION

@@ -111,16 +111,16 @@ inline uint32_t getDebugLevel() {
   static std::once_flag Flag{};
   std::call_once(Flag, []() {
     if (char *EnvStr = getenv("LIBOMPTARGET_DEBUG"))
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
     {
       DebugLevel = std::atoi(EnvStr);
       if (DebugLevel == 0 && !(EnvStr[0] == '0' && EnvStr[1] == '\0'))
         fprintf(stderr, "Libomptarget --> Warning: Debug level was set to 0 "
                 "for invalid input LIBOMPTARGET_DEBUG=\"%s\"\n", EnvStr);
     }
-#else // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
       DebugLevel = std::stoi(EnvStr);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   });
 
   return DebugLevel;

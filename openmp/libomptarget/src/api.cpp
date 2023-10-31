@@ -39,7 +39,7 @@
 #include <cstring>
 #include <mutex>
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 /// API functions that can access host-to-target data map need to load device
 /// image to get correct mapping information for global data. This macro is
 /// called in such functions.
@@ -49,7 +49,7 @@
     if (checkDeviceAndCtors(DeviceID, nullptr) != OFFLOAD_SUCCESS)             \
       return RetVal;                                                           \
   } while(0)
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 EXTERN int omp_get_num_devices(void) {
   TIMESCOPE();
@@ -145,9 +145,9 @@ EXTERN int omp_target_is_present(const void *Ptr, int DeviceNum) {
        "false\n");
     return false;
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   CHECK_DEVICE_AND_CTORS_RET(DeviceNum, false);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
   // omp_target_is_present tests whether a host pointer refers to storage that
@@ -290,18 +290,18 @@ static int libomp_target_memcpy_async_helper(kmp_int32 Gtid, kmp_task_t *Task) {
   // Call blocked version
   int Rc = OFFLOAD_SUCCESS;
   if (Args->IsRectMemcpy) {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
     Rc = omp_target_memcpy_rect(
         Args->Dst, Args->Src, Args->ElementSize, Args->NumDims,
         Args->getVolume(), Args->getDstOffsets(), Args->getSrcOffsets(),
         Args->getDstDimensions(), Args->getSrcDimensions(), Args->DstDevice,
         Args->SrcDevice);
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
     Rc = omp_target_memcpy_rect(
         Args->Dst, Args->Src, Args->ElementSize, Args->NumDims, Args->Volume,
         Args->DstOffsets, Args->SrcOffsets, Args->DstDimensions,
         Args->SrcDimensions, Args->DstDevice, Args->SrcDevice);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
     DP("omp_target_memcpy_rect returns %d\n", Rc);
   } else {
     Rc = omp_target_memcpy(Args->Dst, Args->Src, Args->Length, Args->DstOffset,
@@ -326,13 +326,13 @@ static int libomp_helper_task_creation(TargetMemcpyArgsTy *Args,
 
   // Setup the hidden helper flags;
   kmp_int32 Flags = 0;
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 // This flag is set by __kmpc_omp_target_task_alloc when helper task is
 // supported.
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
   kmp_tasking_flags_t *InputFlags = (kmp_tasking_flags_t *)&Flags;
   InputFlags->hidden_helper = 1;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   // Alloc helper task
   kmp_task_t *Ptr = __kmpc_omp_target_task_alloc(nullptr, Gtid, Flags,
@@ -415,11 +415,11 @@ omp_target_memcpy_rect(void *Dst, const void *Src, size_t ElementSize,
     return OFFLOAD_FAIL;
   }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   int Rc = OFFLOAD_SUCCESS;
-#else // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
   int Rc;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   if (NumDims == 1) {
     Rc = omp_target_memcpy(Dst, Src, ElementSize * Volume[0],
                            ElementSize * DstOffsets[0],
@@ -482,18 +482,18 @@ EXTERN int omp_target_memcpy_rect_async(
     return INT_MAX;
   }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   // Use the same check as in synchronous version to fail fast.
   if (!Dst || !Src || ElementSize < 1 || NumDims < 1 || !Volume ||
       !DstOffsets || !SrcOffsets || !DstDimensions || !SrcDimensions) {
     REPORT("Call to omp_target_memcpy_rect_async with invalid arguments\n");
     return OFFLOAD_FAIL;
   }
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
   // Check the source and dest address
   if (Dst == nullptr || Src == nullptr)
     return OFFLOAD_FAIL;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   // Create task object
   TargetMemcpyArgsTy *Args = new TargetMemcpyArgsTy(
@@ -529,9 +529,9 @@ EXTERN int omp_target_associate_ptr(const void *HostPtr, const void *DevicePtr,
     REPORT("omp_target_associate_ptr returns OFFLOAD_FAIL\n");
     return OFFLOAD_FAIL;
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   CHECK_DEVICE_AND_CTORS_RET(DeviceNum, OFFLOAD_FAIL);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
   void *DeviceAddr = (void *)((uint64_t)DevicePtr + (uint64_t)DeviceOffset);
@@ -562,9 +562,9 @@ EXTERN int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum) {
     REPORT("omp_target_disassociate_ptr returns OFFLOAD_FAIL\n");
     return OFFLOAD_FAIL;
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   CHECK_DEVICE_AND_CTORS_RET(DeviceNum, OFFLOAD_FAIL);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
   int Rc = Device.disassociatePtr(const_cast<void *>(HostPtr));
@@ -572,7 +572,7 @@ EXTERN int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum) {
   return Rc;
 }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 EXTERN int omp_target_is_accessible(const void *Ptr, size_t Size,
                                     int DeviceNum) {
   TIMESCOPE();
@@ -605,7 +605,6 @@ EXTERN int omp_target_is_accessible(const void *Ptr, size_t Size,
   return Ret;
 }
 
-#if INTEL_CUSTOMIZATION
 static int32_t checkInteropCall(const omp_interop_t Interop,
                                 const char *FnName) {
   if (!Interop) {
@@ -788,7 +787,6 @@ EXTERN const char *omp_get_interop_rc_desc(
 
   return Device.getInteropRcDesc(RetCode);
 }
-#endif // INTEL_CUSTOMIZATION
 
 EXTERN void *omp_target_alloc_device(size_t Size, int DeviceNum) {
   return targetAllocExplicit(Size, DeviceNum, TARGET_ALLOC_DEVICE, __func__);
@@ -1135,7 +1133,7 @@ EXTERN int ompx_get_device_from_ptr(const void *Ptr) {
 
   return Ret;
 }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum) {
   TIMESCOPE();
@@ -1167,9 +1165,9 @@ EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum) {
     REPORT("Device %d is not ready, returning nullptr.\n", DeviceNum);
     return nullptr;
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   CHECK_DEVICE_AND_CTORS_RET(DeviceNum, nullptr);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   auto &Device = *PM->Devices[DeviceNum];
   TargetPointerResultTy TPR = Device.getTgtPtrBegin(const_cast<void *>(Ptr), 1,

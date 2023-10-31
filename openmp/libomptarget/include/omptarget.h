@@ -42,9 +42,9 @@
 
 #include "llvm/ADT/SmallVector.h"
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 #include "omp-allocator.h"
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 #define OFFLOAD_SUCCESS (0)
 #define OFFLOAD_FAIL (~0)
@@ -67,11 +67,11 @@ enum __tgt_target_return_t : int {
 };
 
 /// Data attributes for each data reference used in an OpenMP target region.
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 enum tgt_map_type : uint64_t {
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
 enum tgt_map_type {
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   // No flags
   OMP_TGT_MAPTYPE_NONE            = 0x000,
   // copy data from host to device
@@ -96,16 +96,16 @@ enum tgt_map_type {
   OMP_TGT_MAPTYPE_IMPLICIT        = 0x200,
   // copy data to device
   OMP_TGT_MAPTYPE_CLOSE           = 0x400,
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   OMP_TGT_MAPTYPE_ND_DESC         = 0x800,
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   // runtime error if not already allocated
   OMP_TGT_MAPTYPE_PRESENT         = 0x1000,
   // use a separate reference counter so that the data cannot be unmapped within
   // the structured region
   // This is an OpenMP extension for the sake of OpenACC support.
   OMP_TGT_MAPTYPE_OMPX_HOLD       = 0x2000,
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   // use zero initialized device memory
   OMP_TGT_MAPTYPE_ZERO_INIT_MEM   = 0x4000,
   // allocate memory in host USM
@@ -113,7 +113,7 @@ enum tgt_map_type {
   // multiply the item's mapsize by the actual number of groups to support
   // atomic-free team reduction buffers.
   OMP_TGT_MAPTYPE_SIZE_TIMES_NUM_TEAMS   = 0x10000,
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   // descriptor for non-contiguous target-update
   OMP_TGT_MAPTYPE_NON_CONTIG      = 0x100000000000,
   // member of struct, member given by [16 MSBs] - 1
@@ -130,11 +130,11 @@ enum OpenMPOffloadingDeclareTargetFlags {
   OMP_DECLARE_TARGET_DTOR = 0x04,
   /// Mark the entry global as being an indirectly callable function.
   OMP_DECLARE_TARGET_INDIRECT = 0x08
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   ,
   /// Mark the entry as being a function pointer.
   OMP_DECLARE_TARGET_FPTR = 0x08
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 };
 
 enum OpenMPOffloadingRequiresDirFlags {
@@ -159,14 +159,14 @@ enum TargetAllocTy : int32_t {
   TARGET_ALLOC_DEFAULT
 };
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 enum AllocOptionTy : int32_t {
   ALLOC_OPT_NONE = 0,
   ALLOC_OPT_REDUCTION_SCRATCH = 1,
   ALLOC_OPT_REDUCTION_COUNTER = 2,
   ALLOC_OPT_HOST_MEM = 3
 };
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 /// This struct contains all of the arguments to a target kernel region launch.
 struct KernelArgsTy {
@@ -195,7 +195,7 @@ inline KernelArgsTy CTorDTorKernelArgs = {1,       0,       nullptr,   nullptr,
 	     nullptr, nullptr, nullptr,   nullptr,
 	     0,      {0,0},       {1, 0, 0}, {1, 0, 0}, 0};
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 struct __tgt_interop_obj {
   int64_t DeviceId; // OpenMP device id
   int64_t DeviceCode; // Encoded device id
@@ -204,7 +204,7 @@ struct __tgt_interop_obj {
   void (*AsyncHandler)(void *); // Callback function for asynchronous operation
   int32_t PlugInType; // Plugin selector
 };
-#if INTEL_CUSTOMIZATION
+
 ///
 /// OpenMP 5.1 interop support types
 ///
@@ -248,7 +248,6 @@ typedef enum omp_interop_fr {
   omp_ifr_last = 7
 } omp_interop_fr_t;
 
-
 enum OmpIprValueTy : int32_t {
   OMP_IPR_VALUE_INT = 0,
   OMP_IPR_VALUE_PTR,
@@ -279,17 +278,18 @@ struct __tgt_interop {
   void *TargetSync;
   void *RTLProperty; // implementation-defined interop property
 
-  // for implicitly created Interop objects (e.g., from a dispatch construct) who
-  // owns the object
-  int   OwnerGtid;
+  // For implicitly created Interop objects (e.g., from a dispatch construct)
+  // who owns the object
+  int OwnerGtid;
   void *OwnerTask;
-  bool Clean; // marks whether the object was requested since the last time it was synced
+  // Marks whether the object was requested since the last time it was synced
+  bool Clean;
 
-  void setOwner ( int gtid, void *task );
-  bool isOwnedBy ( int gtid, void *current_task );
-  bool isCompatibleWith ( int32_t interop_type, uint32_t num_prefers,
-		          int32_t *prefer_ids, int64_t device_num,
-			  int gtid, void *current_task );
+  void setOwner(int gtid, void *task);
+  bool isOwnedBy(int gtid, void *current_task);
+  bool isCompatibleWith(int32_t interop_type, uint32_t num_prefers,
+                        int32_t *prefer_ids, int64_t device_num, int gtid,
+                        void *current_task);
   void markClean() { Clean = true; }
   void markDirty() { Clean = false; }
   bool isClean() const { return Clean; }
@@ -305,14 +305,10 @@ struct __tgt_interop {
   __tgt_interop_obj *IntelTmpExt;
 };
 
-
-inline void __tgt_interop :: setOwner ( int gtid, void *task )
-{
-   OwnerGtid = gtid;
-   OwnerTask = task;
+inline void __tgt_interop::setOwner(int gtid, void *task) {
+  OwnerGtid = gtid;
+  OwnerTask = task;
 }
-
-#endif // INTEL_CUSTOMIZATION
 
 ///
 /// Custom interop support types
@@ -346,7 +342,7 @@ struct __tgt_memory_info {
 // MSB=63, LSB=0
 #define EXTRACT_BITS(I64, HIGH, LOW)                                           \
   (((uint64_t)I64) >> (LOW)) & (((uint64_t)1 << ((HIGH) - (LOW) + 1)) - 1)
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 /// This struct is a record of an entry point or global. For a function
 /// entry point the size is expected to be zero
@@ -387,12 +383,12 @@ struct __tgt_target_table {
       *EntriesEnd; // End of the table with all the entries (non inclusive)
 };
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 typedef struct __omp_offloading_fptr_map_t {
   uint64_t HostPtr; // key
   uint64_t TargetPtr; // value
 } __omp_offloading_fptr_map_t;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 // clang-format on
 
@@ -656,7 +652,7 @@ int __tgt_print_device_info(int64_t DeviceId);
 int __tgt_activate_record_replay(int64_t DeviceId, uint64_t MemorySize,
                                  bool IsRecord, bool SaveOutput);
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum);
 
 int omp_target_is_accessible(const void *Ptr, size_t Size, int DeviceNum);
@@ -761,10 +757,8 @@ int __tgt_get_interop_property(void *InteropObj, int32_t PropertyId,
 int __tgt_set_interop_property(void *InteropObj, int32_t PropertyId,
                                void *PropertyValue);
 
-#if INTEL_CUSTOMIZATION
 // Set code location information
 void __tgt_push_code_location(const char *Loc, void *CodePtrRA);
-#endif // INTEL_CUSTOMIZATION
 
 // Return number of devices
 int __tgt_get_num_devices(void);
@@ -785,7 +779,7 @@ void *__tgt_omp_alloc(size_t Size, omp_allocator_handle_t Allocator);
 
 /// Releases memory with the specified OMP allocator
 void __tgt_omp_free(void *Ptr, omp_allocator_handle_t Allocator);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 #ifdef __cplusplus
 }

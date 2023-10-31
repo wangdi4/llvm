@@ -147,10 +147,10 @@ endif()
 
 set(LIBOMPTARGET_GPU_LIBC_SUPPORT ${LIBC_GPU_SUPPORT} CACHE BOOL
     "Libomptarget support for the GPU libc")
-
-if (NOT INTEL_CUSTOMIZATION)
-  pythonize_bool(LIBOMPTARGET_GPU_LIBC_SUPPORT)
-endif()
+if(INTEL_CUSTOMIZATION)
+else(INTEL_CUSTOMIZATION)
+pythonize_bool(LIBOMPTARGET_GPU_LIBC_SUPPORT)
+endif(INTEL_CUSTOMIZATION) # INTEL
 
 set(LIBOMPTARGET_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 message(STATUS "OpenMP tools dir in libomptarget: ${LIBOMP_OMP_TOOLS_INCLUDE_DIR}")
@@ -292,7 +292,7 @@ add_subdirectory(deviceRTLs)
 else(INTEL_CUSTOMIZATION)
 add_subdirectory(plugins-nextgen)
 add_subdirectory(DeviceRTL)
-endif(INTEL_CUSTOMIZATION)
+endif(INTEL_CUSTOMIZATION) # INTEL
 add_subdirectory(tools)
 
 # Add tests.

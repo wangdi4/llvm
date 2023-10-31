@@ -34,18 +34,18 @@
 #include "device.h"
 #include "private.h"
 #include "rtl.h"
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 #include "Utilities.h"
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/bit.h"
 
 #include <cassert>
 #include <cstdint>
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 #include <cstring>
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 #include <vector>
 
 using llvm::SmallVector;
@@ -132,26 +132,26 @@ bool AsyncInfoTy::isQueueEmpty() const { return AsyncInfo.Queue == nullptr; }
  * device will start at 0x200 with the padding (4 bytes), then &s1.b=0x204 and
  * &s1.p=0x208, as they should be to satisfy the alignment requirements.
  */
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 static const int64_t MaxAlignment = 8;
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
 static const int64_t MaxAlignment = 16;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 /// Return the alignment requirement of partially mapped structs, see
 /// MaxAlignment above.
 static uint64_t getPartialStructRequiredAlignment(void *HstPtrBase) {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   // Return MaxAlignment for nullptr.
   if (!HstPtrBase)
     return MaxAlignment;
   int LowestOneBit = __builtin_ffsl(reinterpret_cast<uintptr_t>(HstPtrBase));
   // [Coverity] Unintended integer overflow
   uint64_t BaseAlignment = static_cast<uint64_t>(1) << (LowestOneBit - 1);
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
   int LowestOneBit = __builtin_ffsl(reinterpret_cast<uintptr_t>(HstPtrBase));
   uint64_t BaseAlignment = 1 << (LowestOneBit - 1);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   return MaxAlignment < BaseAlignment ? MaxAlignment : BaseAlignment;
 }
 
@@ -259,7 +259,7 @@ static int initLibrary(DeviceTy &Device) {
           if (Device.notifyDataMapped(CurrHostEntry->addr, CurrHostEntry->size))
             return OFFLOAD_FAIL;
         }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
         if (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR) {
           if (CurrDeviceEntry->size != 0) {
             REPORT("Function pointer " DPxMOD " with non-zero size %zu.\n",
@@ -272,7 +272,7 @@ static int initLibrary(DeviceTy &Device) {
           Device.FnPtrMap.emplace((uint64_t)CurrHostEntry->addr,
                                   (uint64_t)CurrDeviceEntry->addr);
         }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
       }
     }
   }
@@ -281,13 +281,13 @@ static int initLibrary(DeviceTy &Device) {
     return Rc;
   }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   if (Device.FnPtrMap.size() > 0) {
     Rc = Device.setFunctionPtrMap();
     if (Rc != OFFLOAD_SUCCESS)
       return Rc;
   }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   /*
    * Run ctors for static objects
    */
@@ -336,7 +336,7 @@ void handleTargetOutcome(bool Success, ident_t *Loc) {
         for (auto &Device : PM->Devices)
           dumpTargetPointerMappings(Loc, *Device);
       else
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
         FAILURE_MESSAGE("Run with\n");
         FAILURE_MESSAGE(
             "LIBOMPTARGET_DEBUG=1 to display basic debug information.\n");
@@ -345,10 +345,10 @@ void handleTargetOutcome(bool Success, ident_t *Loc) {
         FAILURE_MESSAGE(
             "LIBOMPTARGET_INFO=%d to dump host-target pointer mappings.\n",
             OMP_INFOTYPE_DUMP_TABLE);
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
         FAILURE_MESSAGE("Consult https://openmp.llvm.org/design/Runtimes.html "
                         "for debugging options.\n");
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
       if (PM->RTLs.UsedRTLs.empty()) {
         llvm::SmallVector<llvm::StringRef> Archs;
@@ -394,7 +394,11 @@ static void handleDefaultTargetOffload() {
   }
 }
 
-bool isOffloadDisabled() { // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+bool isOffloadDisabled() {
+#else  // INTEL_CUSTOMIZATION
+static bool isOffloadDisabled() {
+#endif // INTEL_CUSTOMIZATION
   if (PM->TargetOffloadPolicy == tgt_default)
     handleDefaultTargetOffload();
   return PM->TargetOffloadPolicy == tgt_disabled;
@@ -488,7 +492,6 @@ void *targetAllocExplicit(size_t Size, int DeviceNum, int Kind,
   }
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
-
   Rc = Device.allocData(Size, nullptr, Kind);
   DP("%s returns device ptr " DPxMOD "\n", Name, DPxPTR(Rc));
   return Rc;
@@ -642,7 +645,7 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
                     void **ArgMappers, AsyncInfoTy &AsyncInfo,
                     bool FromMapper) {
   TIMESCOPE_WITH_IDENT(Loc);
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   int32_t GTID = __kmpc_global_thread_num(nullptr);
   Device.UsedPtrsMtx.lock();
   if (Device.UsedPtrs.count(GTID) == 0)
@@ -655,10 +658,10 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     REPORT("Failed to begin command batching\n");
     return OFFLOAD_FAIL;
   }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   // process each input.
   for (int32_t I = 0; I < ArgNum; ++I) {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
     //  Fortran  Optional Parameter if NULL and are used in map clause result in
     //  map with base, begin as null and size 0.  In this case we just need to
     //  process only the PARAM maptype(Type=0x20) and ignore the rest.
@@ -668,13 +671,13 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     if ((Args[I] == nullptr) && (ArgsBase[I] == nullptr) &&
         (ArgSizes[I] == 0) && !(ArgTypes[I] & OMP_TGT_MAPTYPE_TARGET_PARAM))
       continue;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
     // Ignore private variables and arrays - there is no mapping for them.
     if ((ArgTypes[I] & OMP_TGT_MAPTYPE_LITERAL) ||
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
         // No mapping for ND-range descriptor.
         (ArgTypes[I] & OMP_TGT_MAPTYPE_ND_DESC) ||
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
         (ArgTypes[I] & OMP_TGT_MAPTYPE_PRIVATE))
       continue;
 
@@ -760,12 +763,12 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
           /*HstPtrName=*/nullptr,
           /*HasFlagTo=*/false, /*HasFlagAlways=*/false, IsImplicit, UpdateRef,
           HasCloseModifier, HasPresentModifier, HasHoldModifier, AsyncInfo,
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
           /* OwnedTPR */ nullptr, /* ReleaseHDTTMap */ false,
           /* UseHostMem */ false);
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
           /* OwnedTPR */ nullptr, /* ReleaseHDTTMap */ false);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
       PointerTgtPtrBegin = PointerTpr.TargetPointer;
 #if INTEL_CUSTOMIZATION
       // [Coverity] Definition to IsHostPtr is never used.
@@ -793,22 +796,22 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
 
     const bool HasFlagTo = ArgTypes[I] & OMP_TGT_MAPTYPE_TO;
     const bool HasFlagAlways = ArgTypes[I] & OMP_TGT_MAPTYPE_ALWAYS;
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
     const bool UseHostMem = HasFlagTo &&
         (ArgTypes[I] & OMP_TGT_MAPTYPE_FROM) &&
         (ArgTypes[I] & OMP_TGT_MAPTYPE_TARGET_PARAM) &&
         (ArgTypes[I] & OMP_TGT_MAPTYPE_HOST_MEM);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
     // Note that HDTTMap will be released in getTargetPointer.
     auto TPR = Device.getTargetPointer(
         HDTTMap, HstPtrBegin, HstPtrBase, TgtPadding, DataSize, HstPtrName,
         HasFlagTo, HasFlagAlways, IsImplicit, UpdateRef, HasCloseModifier,
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
         HasPresentModifier, HasHoldModifier, AsyncInfo, PointerTpr.getEntry(),
         /* ReleaseHDTTMap */ false, UseHostMem);
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
         HasPresentModifier, HasHoldModifier, AsyncInfo, PointerTpr.getEntry());
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
     void *TgtPtrBegin = TPR.TargetPointer;
     IsHostPtr = TPR.Flags.IsHostPointer;
     // If data_size==0, then the argument could be a zero-length pointer to
@@ -828,9 +831,9 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
       void *TgtPtrBase = (void *)((uintptr_t)TgtPtrBegin - Delta);
       DP("Returning device pointer " DPxMOD "\n", DPxPTR(TgtPtrBase));
       ArgsBase[I] = TgtPtrBase;
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
       UsedPtrs.back().insert(TgtPtrBase);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
     }
 
     if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ && !IsHostPtr) {
@@ -854,7 +857,7 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
           REPORT("Copying data to device failed.\n");
           return OFFLOAD_FAIL;
         }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
         // Obtain offset from the base address of PointerTgtPtrBegin.
         auto *Entry = PointerTpr.getEntry();
         if (Entry) {
@@ -862,7 +865,7 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
               (uint64_t)Entry->HstPtrBase);
           Device.notifyIndirectAccess(PointerTgtPtrBegin, PtrOffset);
         }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
         if (PointerTpr.getEntry()->addEventIfNecessary(Device, AsyncInfo) !=
             OFFLOAD_SUCCESS)
           return OFFLOAD_FAIL;
@@ -878,12 +881,12 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
            "variable %s does not have a valid device counterpart\n",
            (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   if (!ArgMappers && Device.commandBatchEnd() != OFFLOAD_SUCCESS) {
     REPORT("Failed to end command batching\n");
     return OFFLOAD_FAIL;
   }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   return OFFLOAD_SUCCESS;
 }
@@ -1000,32 +1003,32 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
                   int64_t *ArgTypes, map_var_info_t *ArgNames,
                   void **ArgMappers, AsyncInfoTy &AsyncInfo, bool FromMapper) {
   int Ret = OFFLOAD_SUCCESS;
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   auto PostProcessingPtrs = std::make_unique<SmallVector<PostProcessingInfo>>();
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
   auto *PostProcessingPtrs = new SmallVector<PostProcessingInfo>();
-#endif // INTEL_COLLAB
-#if INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   if (!ArgMappers && Device.commandBatchBegin() != OFFLOAD_SUCCESS) {
     REPORT("Failed to begin command batching\n");
     return OFFLOAD_FAIL;
   }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   // process each input.
   for (int32_t I = ArgNum - 1; I >= 0; --I) {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
     //  Fortran  Optional Parameter see targetDataBegin
     if ((Args[I] == nullptr) && (ArgBases[I] == nullptr) &&
         (ArgSizes[I] == 0) && !(ArgTypes[I] & OMP_TGT_MAPTYPE_TARGET_PARAM))
       continue;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
     // Ignore private variables and arrays - there is no mapping for them.
     // Also, ignore the use_device_ptr directive, it has no effect here.
     if ((ArgTypes[I] & OMP_TGT_MAPTYPE_LITERAL) ||
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
         // No mapping for ND-range descriptor.
         (ArgTypes[I] & OMP_TGT_MAPTYPE_ND_DESC) ||
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
         (ArgTypes[I] & OMP_TGT_MAPTYPE_PRIVATE))
       continue;
 
@@ -1144,7 +1147,7 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
                                      std::move(TPR));
     PostProcessingPtrs->back().TPR.getEntry()->unlock();
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   if (!ArgMappers && Device.commandBatchEnd() != OFFLOAD_SUCCESS) {
     REPORT("Failed to end command batching\n");
     return OFFLOAD_FAIL;
@@ -1155,17 +1158,17 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     Device.UsedPtrs[GTID].pop_back();
   Device.UsedPtrsMtx.unlock();
   auto *PostProcessingRawPtrs = PostProcessingPtrs.release();
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   // Add post-processing functions
   // TODO: We might want to remove `mutable` in the future by not changing the
   // captured variables somehow.
   AsyncInfo.addPostProcessingFunction([=, Device = &Device]() mutable -> int {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
     return postProcessingTargetDataEnd(Device, *PostProcessingRawPtrs);
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
     return postProcessingTargetDataEnd(Device, *PostProcessingPtrs);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   });
 
   return Ret;
@@ -1310,12 +1313,12 @@ int targetDataUpdate(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
                      void **ArgsBase, void **Args, int64_t *ArgSizes,
                      int64_t *ArgTypes, map_var_info_t *ArgNames,
                      void **ArgMappers, AsyncInfoTy &AsyncInfo, bool) {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   if (!ArgMappers && Device.commandBatchBegin() != OFFLOAD_SUCCESS) {
     REPORT("Failed to begin command batching at %s\n", __func__);
     return OFFLOAD_FAIL;
   }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   // process each input.
   for (int32_t I = 0; I < ArgNum; ++I) {
     if ((ArgTypes[I] & OMP_TGT_MAPTYPE_LITERAL) ||
@@ -1361,12 +1364,12 @@ int targetDataUpdate(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
     if (Ret == OFFLOAD_FAIL)
       return OFFLOAD_FAIL;
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   if (!ArgMappers && Device.commandBatchEnd() != OFFLOAD_SUCCESS) {
     REPORT("Failed to end command batching at %s\n", __func__);
     return OFFLOAD_FAIL;
   }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   return OFFLOAD_SUCCESS;
 }
 
@@ -1445,11 +1448,11 @@ class PrivateArgumentManagerTy {
 
   /// A vector of target pointers for all private arguments
   SmallVector<void *> TgtPtrs;
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   /// A vector of host pointers allocated for privatee arguments
   /// that are passed to the plugins in the host memory.
   SmallVector<void *> HstPtrs;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   /// A vector of information of all first-private arguments to be packed
   SmallVector<FirstPrivateArgInfoTy> FirstPrivateArgInfo;
@@ -1466,14 +1469,14 @@ class PrivateArgumentManagerTy {
   // TODO: What would be the best value here? Should we make it configurable?
   // If the size is larger than this threshold, we will allocate and transfer it
   // immediately instead of packing it.
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   // Setting this to 0 due to new failure in
   // sollveC/test_target_teams_distribute_firstprivate, which needs to be
   // investigated.
   static constexpr const int64_t FirstPrivateArgSizeThreshold = 0;
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
   static constexpr const int64_t FirstPrivateArgSizeThreshold = 1024;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 public:
   /// Constructor
@@ -1484,13 +1487,13 @@ public:
   int addArg(void *HstPtr, int64_t ArgSize, int64_t ArgOffset,
              bool IsFirstPrivate, void *&TgtPtr, int TgtArgsIndex,
              const map_var_info_t HstPtrName = nullptr,
-#if INTEL_COLLAB
-             const bool AllocImmediately = false,
-             bool PassInHostMem = false, int32_t AllocOpt = ALLOC_OPT_NONE) {
-#else // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+             const bool AllocImmediately = false, bool PassInHostMem = false,
+             int32_t AllocOpt = ALLOC_OPT_NONE) {
+#else  // INTEL_CUSTOMIZATION
              const bool AllocImmediately = false) {
-#endif // INTEL_COLLAB
-#if INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // There is no significant point in combining the allocations,
     // if we pass the argument to the plugin in host memory.
     if (PassInHostMem) {
@@ -1517,18 +1520,18 @@ public:
       HstPtrs.push_back(TgtPtr);
       return OFFLOAD_SUCCESS;
     }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
     // If the argument is not first-private, or its size is greater than a
     // predefined threshold, we will allocate memory and issue the transfer
     // immediately.
     if (ArgSize > FirstPrivateArgSizeThreshold || !IsFirstPrivate ||
         AllocImmediately) {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
       TgtPtr = Device.dataAllocBase(
           ArgSize, HstPtr, (void *)((intptr_t)HstPtr + ArgOffset), AllocOpt);
 #else
       TgtPtr = Device.allocData(ArgSize, HstPtr);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
       if (!TgtPtr) {
         DP("Data allocation for %sprivate array " DPxMOD " failed.\n",
            (IsFirstPrivate ? "first-" : ""), DPxPTR(HstPtr));
@@ -1663,11 +1666,11 @@ public:
     }
 
     TgtPtrs.clear();
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
     for (void *P : HstPtrs)
       std::free(P);
     HstPtrs.clear();
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
     return OFFLOAD_SUCCESS;
   }
@@ -1683,22 +1686,22 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
                              SmallVector<void *> &TgtArgs,
                              SmallVector<ptrdiff_t> &TgtOffsets,
                              PrivateArgumentManagerTy &PrivateArgumentManager,
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
                              AsyncInfoTy &AsyncInfo, void *TgtEntryPtr,
                              int32_t NumTeams, int32_t ThreadLimit,
                              void **TgtNDLoopDesc) {
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
                              AsyncInfoTy &AsyncInfo) {
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   TIMESCOPE_WITH_NAME_AND_IDENT("mappingBeforeTargetRegion", Loc);
   DeviceTy &Device = *PM->Devices[DeviceId];
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   // Enable command batching for firstprivate data transfers
   if (!ArgMappers && Device.commandBatchBegin() != OFFLOAD_SUCCESS) {
     REPORT("Failed to begin command batching\n");
     return OFFLOAD_FAIL;
   }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   int Ret = targetDataBegin(Loc, Device, ArgNum, ArgBases, Args, ArgSizes,
                             ArgTypes, ArgNames, ArgMappers, AsyncInfo);
   if (Ret != OFFLOAD_SUCCESS) {
@@ -1706,7 +1709,7 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
     return OFFLOAD_FAIL;
   }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   for (int32_t I = 0; I < ArgNum; ++I) {
     if (!(ArgTypes[I] & OMP_TGT_MAPTYPE_TARGET_PARAM)) {
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_ND_DESC) {
@@ -1715,7 +1718,7 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
       }
     }
   }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   // List of (first-)private arrays allocated for this target region
   SmallVector<int> TgtArgsPositions(ArgNum, -1);
 
@@ -1755,23 +1758,23 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
              DPxPTR(HstPtrVal));
           continue;
         }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
         // PointerTgtPtrBegin contains the device address of the attached
         // object. For partially mapped objects we need to calculate their bases
         // and update the device copy of the lambda struct with the result.
         ptrdiff_t ObjDelta = (intptr_t) HstPtrVal - // begin address of object
             (intptr_t)(*(void **)HstPtrBegin); // base address of object
         PointerTgtPtrBegin = (void *)((intptr_t)PointerTgtPtrBegin - ObjDelta);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
         DP("Update lambda reference (" DPxMOD ") -> [" DPxMOD "]\n",
            DPxPTR(PointerTgtPtrBegin), DPxPTR(TgtPtrBegin));
         Ret = Device.submitData(TgtPtrBegin, &PointerTgtPtrBegin,
                                 sizeof(void *), AsyncInfo, TPR.getEntry());
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
         // Base address of attached object may not have been passed to the
         // device as a kernel argument, therefore we need to manifest it.
         Device.addLambdaPtr(PointerTgtPtrBegin);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
         if (Ret != OFFLOAD_SUCCESS) {
           REPORT("Copying data to device failed.\n");
           return OFFLOAD_FAIL;
@@ -1790,7 +1793,7 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
          DPxPTR(HstPtrBase));
       TgtPtrBegin = HstPtrBase;
       TgtBaseOffset = 0;
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
       if (ArgSizes[I] == 0) {
         // Let the plugins know that this argument must be passed
         // as a non-pointer literal. OpenMP is_device_ptr() pointers
@@ -1799,7 +1802,7 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
         // as pointer arguments.
         TgtBaseOffset = (std::numeric_limits<ptrdiff_t>::max)();
       }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
     } else if (ArgTypes[I] & OMP_TGT_MAPTYPE_PRIVATE) {
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
       const bool IsFirstPrivate = (ArgTypes[I] & OMP_TGT_MAPTYPE_TO);
@@ -1809,8 +1812,8 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
       // other privates.
       const bool AllocImmediately =
           (I < ArgNum - 1 && (ArgTypes[I + 1] & OMP_TGT_MAPTYPE_MEMBER_OF));
+#if INTEL_CUSTOMIZATION
       auto AllocSize = ArgSizes[I];
-#if INTEL_COLLAB
       const bool PassInHostMem =
           Device.isPrivateArgOnHost(TgtEntryPtr, TgtArgs.size());
       if (PassInHostMem) {
@@ -1842,22 +1845,22 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
            TotalGroupCount);
         AllocSize = ArgSizes[I] * TotalGroupCount;
       }
-#endif // INTEL_COLLAB
       Ret = PrivateArgumentManager.addArg(
           HstPtrBegin, AllocSize, TgtBaseOffset, IsFirstPrivate, TgtPtrBegin,
-#if INTEL_COLLAB
           TgtArgs.size(), HstPtrName, AllocImmediately, PassInHostMem,
           AllocOpt);
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
+      Ret = PrivateArgumentManager.addArg(
+          HstPtrBegin, ArgSizes[I], TgtBaseOffset, IsFirstPrivate, TgtPtrBegin,
           TgtArgs.size(), HstPtrName, AllocImmediately);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
       if (Ret != OFFLOAD_SUCCESS) {
         REPORT("Failed to process %sprivate argument " DPxMOD "\n",
                (IsFirstPrivate ? "first-" : ""), DPxPTR(HstPtrBegin));
         return OFFLOAD_FAIL;
       }
     } else {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ) {
         TPR = Device.getTgtPtrBegin(HstPtrBase, sizeof(void *),
                                     /*UpdateRefCount=*/false,
@@ -1899,17 +1902,17 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
                                   /*UseHoldRefCount=*/false);
       TgtPtrBegin = TPR.TargetPointer;
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 #ifdef OMPTARGET_DEBUG
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
       DP("Obtained target argument (Begin: " DPxMOD ", Offset: %" PRId64
          ") from host pointer " DPxMOD "\n", DPxPTR(TgtPtrBegin), TgtBaseOffset,
          DPxPTR(HstPtrBegin));
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
       void *TgtPtrBase = (void *)((intptr_t)TgtPtrBegin + TgtBaseOffset);
       DP("Obtained target argument " DPxMOD " from host pointer " DPxMOD "\n",
          DPxPTR(TgtPtrBase), DPxPTR(HstPtrBegin));
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 #endif
     }
     TgtArgsPositions[I] = TgtArgs.size();
@@ -1926,12 +1929,12 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
     DP("Failed to pack and transfer first private arguments\n");
     return OFFLOAD_FAIL;
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   if (!ArgMappers && Device.commandBatchEnd() != OFFLOAD_SUCCESS) {
     REPORT("Failed to end command batching\n");
     return OFFLOAD_FAIL;
   }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   return OFFLOAD_SUCCESS;
 }
@@ -2017,7 +2020,7 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
   PrivateArgumentManagerTy PrivateArgumentManager(Device, AsyncInfo);
 
   int NumClangLaunchArgs = KernelArgs.NumArgs;
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   void *TgtNDLoopDesc = nullptr;
   void *TgtEntryPtr = TargetTable->EntriesBegin[TM->Index].addr;
 
@@ -2026,20 +2029,21 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
     REPORT("Failed to begin command batching\n");
     return OFFLOAD_FAIL;
   }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   int Ret = OFFLOAD_SUCCESS;
   if (NumClangLaunchArgs) {
     // Process data, such as data mapping, before launching the kernel
-    Ret = processDataBefore(
-        Loc, DeviceId, HostPtr, NumClangLaunchArgs, KernelArgs.ArgBasePtrs,
-        KernelArgs.ArgPtrs, KernelArgs.ArgSizes, KernelArgs.ArgTypes,
-        KernelArgs.ArgNames, KernelArgs.ArgMappers, TgtArgs,
-#if INTEL_COLLAB
-        TgtOffsets, PrivateArgumentManager, AsyncInfo, TgtEntryPtr,
-        KernelArgs.NumTeams[0], KernelArgs.ThreadLimit[0], &TgtNDLoopDesc);
-#else  // INTEL_COLLAB
-        TgtOffsets, PrivateArgumentManager, AsyncInfo);
-#endif // INTEL_COLLAB
+    Ret = processDataBefore(Loc, DeviceId, HostPtr, NumClangLaunchArgs,
+                            KernelArgs.ArgBasePtrs, KernelArgs.ArgPtrs,
+                            KernelArgs.ArgSizes, KernelArgs.ArgTypes,
+                            KernelArgs.ArgNames, KernelArgs.ArgMappers, TgtArgs,
+#if INTEL_CUSTOMIZATION
+                            TgtOffsets, PrivateArgumentManager, AsyncInfo,
+                            TgtEntryPtr, KernelArgs.NumTeams[0],
+                            KernelArgs.ThreadLimit[0], &TgtNDLoopDesc);
+#else  // INTEL_CUSTOMIZATION
+                            TgtOffsets, PrivateArgumentManager, AsyncInfo);
+#endif // INTEL_CUSTOMIZATION
     if (Ret != OFFLOAD_SUCCESS) {
       REPORT("Failed to process data before launching the kernel.\n");
       return OFFLOAD_FAIL;
@@ -2053,14 +2057,14 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
   }
 
   // Launch device execution.
-#if INTEL_COLLAB
-#else  // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+#else  // INTEL_CUSTOMIZATION
   void *TgtEntryPtr = TargetTable->EntriesBegin[TM->Index].addr;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   DP("Launching target execution %s with pointer " DPxMOD " (index=%d).\n",
      TargetTable->EntriesBegin[TM->Index].name, DPxPTR(TgtEntryPtr), TM->Index);
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   Ret = Device.manifestDataForRegion(TgtEntryPtr);
 
   if (Ret != OFFLOAD_SUCCESS) {
@@ -2091,7 +2095,7 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
                                  KernelArgs.ThreadLimit[0], TgtNDLoopDesc,
                                  AsyncInfo);
   } else
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   {
     assert(KernelArgs.NumArgs == TgtArgs.size() && "Argument count mismatch!");
     TIMESCOPE_WITH_NAME_AND_IDENT("Initiate Kernel Launch", Loc);
@@ -2128,12 +2132,12 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
       return OFFLOAD_FAIL;
     }
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   if (!KernelArgs.ArgMappers && Device.commandBatchEnd(2) != OFFLOAD_SUCCESS) {
     REPORT("Failed to end command batching\n");
     return OFFLOAD_FAIL;
   }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   return OFFLOAD_SUCCESS;
 }

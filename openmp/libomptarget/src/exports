@@ -66,7 +66,7 @@ VERS1.0 {
     __tgt_interop_use;
     __tgt_interop_destroy;
     ompt_libomptarget_connect;
-# INTEL_COLLAB
+# INTEL_CUSTOMIZATION
     __tgt_is_device_available;
     __tgt_get_device_name;
     __tgt_get_device_rtl_name;
@@ -75,9 +75,7 @@ VERS1.0 {
     __tgt_get_interop_property;
     __tgt_set_interop_property;
     __tgt_offload_proxy_task_complete_ooo;
-# INTEL_CUSTOMIZATION
     __tgt_push_code_location;
-# end INTEL_CUSTOMIZATION
     __tgt_get_num_devices;
     __tgt_get_target_memory_info;
     __tgt_create_interop;
@@ -109,7 +107,6 @@ VERS1.0 {
     ompx_target_aligned_alloc_shared_with_hint;
     ompx_target_prefetch_shared_mem;
     ompx_get_device_from_ptr;
-# INTEL_CUSTOMIZATION
     __tgt_get_interop_obj;
     __tgt_target_sync;
     __tgt_register_ptask_services;
@@ -117,11 +114,10 @@ VERS1.0 {
     __tgt_interop_use_async;
     ompt_oneapi_set_data;
     ompt_oneapi_get_data;
-# end INTEL_CUSTOMIZATION
     __tgt_get_mem_resources;
     __tgt_omp_alloc;
     __tgt_omp_free;
-# end INTEL_COLLAB
+# end INTEL_CUSTOMIZATION
   local:
     *;
 };

@@ -14,7 +14,6 @@
 # or implied warranties, other than those that are expressly stated in the
 # License.
 #
-# end INTEL_CUSTOMIZATION
 ##===----------------------------------------------------------------------===##
 #
 # Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -27,12 +26,7 @@
 #
 ##===----------------------------------------------------------------------===##
 
-#INTEL_CUSTOMIZATION
-if(INTEL_CUSTOMIZATION)
-  add_subdirectory(nios2)
-endif()
-#END INTEL_CUSTOMIZATION
+add_subdirectory(nios2)
+add_subdirectory(opencl)
 
-if(INTEL_COLLAB)
-  add_subdirectory(opencl)
-endif(INTEL_COLLAB)
+# end INTEL_CUSTOMIZATION
