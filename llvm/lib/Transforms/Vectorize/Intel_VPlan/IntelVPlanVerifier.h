@@ -111,6 +111,10 @@ private:
   // be recomputed.
   void verifyDAShape(const VPInstruction *VPI) const;
 
+  // Verify that the header of a loop and its exits have the same predicate,
+  // or that none are predicated.
+  void verifyHeaderExitPredicates(const VPLoop *Lp) const;
+
   // Helper functions to hide the underlying enum check
   bool shouldSkipLoopInfo() const { return Flags & SkipLoopInfo; }
 
@@ -158,4 +162,4 @@ public:
 } // namespace vpo
 } // namespace llvm
 
-#endif //LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVERIFIER_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVERIFIER_H
