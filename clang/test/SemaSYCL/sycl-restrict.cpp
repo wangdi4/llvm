@@ -40,15 +40,10 @@ bool operator==(const Fraction &lhs, const Fraction &rhs) {
 } // namespace Check_User_Operators
 
 namespace Check_VLA_Restriction {
-<<<<<<< HEAD
-void no_restriction(int p) {
-  int index[p + 3];
-=======
 void no_restriction(int p) { // expected-note {{declared here}}
   // expected-note@+2 {{function parameter 'p' with unknown value cannot be used in a constant expression}}
   // expected-warning@+1 {{variable length arrays in C++ are a Clang extension}}
   int index[p + 2];
->>>>>>> 7de228f3cf2be35c0fe832344315a3ccff2120e7
 }
 void restriction(int p) { // expected-note {{declared here}}
   // This particular violation is nested under two kernels with intermediate function calls.
