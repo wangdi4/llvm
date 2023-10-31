@@ -387,7 +387,7 @@ private:
   // real output.
   std::unique_ptr<raw_ostream> LocalBufStream;
   // The location where the output stream starts.
-  uint64_t FileStart = (uint64_t)-1; // INTEL;
+  uint64_t FileStart = (uint64_t)-1; // INTEL
   // The location in the output stream where the SecHdrTable should be
   // written to.
   uint64_t SecHdrTableOffset = (uint64_t)-1; // INTEL
