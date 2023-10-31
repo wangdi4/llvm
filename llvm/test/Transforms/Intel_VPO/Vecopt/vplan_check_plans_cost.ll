@@ -26,7 +26,7 @@
 ; NON-MASKED-VECTOR-REMAINDER: Evaluators for VF=16
 ; NON-MASKED-VECTOR-REMAINDER-NEXT:  There is no peel loop.
 ; NON-MASKED-VECTOR-REMAINDER-NEXT:  The main loop is vectorized with vector factor 16. The vector cost is 48678(24339 x 2 + 0).
-; NON-MASKED-VECTOR-REMAINDER-NEXT:  The remainder loop has known trip count 3 and it is vectorized with vector factor 4. The vector cost is 12.
+; NON-MASKED-VECTOR-REMAINDER-NEXT:  The remainder loop has known trip count 1 and it is vectorized with vector factor 8. The vector cost is 8.
 ; NON-MASKED-VECTOR-REMAINDER-NEXT:  The remainder loop has a new remainder loop with known trip count 3.
 
 ; MASKED-VECTOR-REMAINDER: Evaluators for VF=4
