@@ -1,6 +1,7 @@
 ; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This test verifies that the size argument of realloc calls are correctly
 ; updated when the function is cloned.
@@ -13,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !6 {
   ; Allocate a structure.
-  %p = call ptr @realloc(ptr null, i64 16)
+  %p = call ptr @realloc(ptr null, i64 24)
 
   ; Call a function to do something.
   %val = call i32 @doSomething(ptr %p)
@@ -37,7 +38,7 @@ define i32 @doSomething(ptr "intel_dtrans_func_index"="1" %p_test) !intel.dtrans
   %valC = load i32, ptr %p_test_C
 
   ; Calculate a new size
-  %mul = mul i32 64, %valC
+  %mul = mul i32 96, %valC
   %sz = zext i32 %mul to i64
 
   ; Change the size of the buffer
@@ -57,7 +58,7 @@ define i32 @doSomething(ptr "intel_dtrans_func_index"="1" %p_test) !intel.dtrans
 
 ; CHECK-LABEL: define i32 @doSomething
 ; CHECK: %mul.dt = mul i32 32, %valC
-; CHECK: %mul = mul i32 64, %valC
+; CHECK: %mul = mul i32 96, %valC
 ; CHECK: %sz = zext i32 %mul.dt to i64
 ; CHECK: %ra = call ptr @realloc(ptr %p_test, i64 %sz)
 ; CHECK: icmp eq i32 128, %mul

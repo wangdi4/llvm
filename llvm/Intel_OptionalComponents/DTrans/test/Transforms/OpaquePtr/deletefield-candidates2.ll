@@ -2,6 +2,7 @@
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -disable-output 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This test verifies the candidate structure selection of the
 ; DTrans delete fields pass.
@@ -14,7 +15,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !4 {
   ; Allocate a struct and get pointers to its fields.
-  %p = call ptr @malloc(i64 16)
+  %p = call ptr @malloc(i64 24)
   %p_test_A = getelementptr %struct.test, ptr %p, i64 0, i32 0
   %p_test_B = getelementptr %struct.test, ptr %p, i64 0, i32 1
   %p_test_C = getelementptr %struct.test, ptr %p, i64 0, i32 2

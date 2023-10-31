@@ -1,6 +1,7 @@
 ; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This test verifies that the size argument of a calloc calls are correctly
 ; updated in a few different combinations.
@@ -12,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; calloc a buffer with the size in the first argument.
 define void @test1() {
   ; Allocate an array of structures.
-  %p = call ptr @calloc(i64 16, i64 8)
+  %p = call ptr @calloc(i64 24, i64 8)
 
   ; Call a function to do something.
   %val = call i32 @doSomething(ptr %p)
@@ -27,7 +28,7 @@ define void @test1() {
 ; calloc a buffer with the size in the second argument.
 define void @test2() {
   ; Allocate an array of structures.
-  %p = call ptr @calloc(i64 8, i64 16)
+  %p = call ptr @calloc(i64 8, i64 24)
 
   ; Call a function to do something.
   %val = call i32 @doSomething(ptr %p)
@@ -43,7 +44,7 @@ define void @test2() {
 ; calloc a buffer with a variable multiple of the size in the first argument.
 define void @test3(i64 %val) {
   ; Allocate an array of structures.
-  %sz = mul i64 %val, 16
+  %sz = mul i64 %val, 24
   %p = call ptr @calloc(i64 %sz, i64 8)
 
   ; Call a function to do something.
@@ -60,7 +61,7 @@ define void @test3(i64 %val) {
 ; calloc a buffer with a variable multiple of the size in the second argument.
 define void @test4(i64 %val) {
   ; Allocate an array of structures.
-  %sz = mul i64 %val, 16
+  %sz = mul i64 %val, 24
   %p = call ptr @calloc(i64 8, i64 %sz)
 
   ; Call a function to do something.
@@ -77,7 +78,7 @@ define void @test4(i64 %val) {
 ; calloc a buffer with an extended multiple of the size in the first argument.
 define void @test5(i32 %val) {
   ; Allocate an array of structures.
-  %sz = mul i32 %val, 16
+  %sz = mul i32 %val, 24
   %sz64 = sext i32 %sz to i64
   %p = call ptr @calloc(i64 %sz64, i64 8)
 
@@ -96,7 +97,7 @@ define void @test5(i32 %val) {
 ; calloc a buffer with an extended multiple of the size in the second argument.
 define void @test6(i32 %val) {
   ; Allocate an array of structures.
-  %sz = mul i32 %val, 16
+  %sz = mul i32 %val, 24
   %sz64 = sext i32 %sz to i64
   %p = call ptr @calloc(i64 8, i64 %sz64)
 
@@ -115,7 +116,7 @@ define void @test6(i32 %val) {
 ; calloc a buffer with both arguments matching the size.
 define void @test7() {
   ; Allocate an array of structures.
-  %p = call ptr @calloc(i64 16, i64 16)
+  %p = call ptr @calloc(i64 24, i64 16)
 
   ; Call a function to do something.
   %val = call i32 @doSomething(ptr %p)
@@ -130,7 +131,7 @@ define void @test7() {
 ; calloc a buffer with a variable multiple of the size used for both arguments.
 define void @test8(i64 %val) {
   ; Allocate an array of structures.
-  %sz = mul i64 %val, 16
+  %sz = mul i64 %val, 24
   %p = call ptr @calloc(i64 %sz, i64 %sz)
 
   ; Call a function to do something.
@@ -142,13 +143,13 @@ define void @test8(i64 %val) {
 }
 ; CHECK define void@test8(i64 %val)
 ; CHECK: %sz.dt = mul i64 %val, 8
-; CHECK: %sz = mul i64 %val, 16
+; CHECK: %sz = mul i64 %val, 24
 ; CHECK: %p = call ptr @calloc(i64 %sz.dt, i64 %sz)
 
 ; calloc a buffer with a variable multiple of the size which has another use.
 define void @test9(i64 %val) {
   ; Allocate an array of structures.
-  %sz = mul i64 %val, 16
+  %sz = mul i64 %val, 24
   %other = add i64 %sz, 32
   %p = call ptr @calloc(i64 %sz, i64 %other)
 
@@ -161,7 +162,7 @@ define void @test9(i64 %val) {
 }
 ; CHECK define void@test9(i64 %val)
 ; CHECK: %sz.dt = mul i64 %val, 8
-; CHECK: %sz = mul i64 %val, 16
+; CHECK: %sz = mul i64 %val, 24
 ; CHECK: %other = add i64 %sz
 ; CHECK: %p = call ptr @calloc(i64 %sz.dt, i64 %other)
 
