@@ -6,12 +6,10 @@
 define i32 @main() {
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK:                + DO i1 = 0, {{.*}}, 4   <DO_LOOP>
-; CHECK-NEXT:           |   [[DOTVEC0:%.*]] = [[PHI_TEMP100:%.*]] > 0.000000e+00
-; CHECK-NEXT:           |   [[DOTVEC160:%.*]] = ([[PHI_TEMP100]] > 0.000000e+00) ? i1 + <i64 0, i64 1, i64 2, i64 3> : [[PHI_TEMP120:%.*]];
+; CHECK-NEXT:           |   [[DOTVEC160:%.*]] = ([[PHI_TEMP100:%.*]] > 0.000000e+00) ? i1 + <i64 0, i64 1, i64 2, i64 3> : [[PHI_TEMP120:%.*]];
 ; CHECK-NEXT:           |   [[DOTVEC170:%.*]] = ([[PHI_TEMP100]] > 0.000000e+00) ? i1 + sext.i32.i64([[TMP3:%.*]]) + <i64 0, i64 1, i64 2, i64 3> : [[PHI_TEMP80:%.*]];
 ; CHECK-NEXT:           |   [[DOTVEC180:%.*]] = ([[PHI_TEMP100]] > 0.000000e+00) ? 0.000000e+00 : [[PHI_TEMP100]]
-; CHECK-NEXT:           |   [[DOTVEC190:%.*]] = [[PHI_TEMP60:%.*]] > 0.000000e+00
-; CHECK-NEXT:           |   [[DOTVEC200:%.*]] = ([[PHI_TEMP60]] > 0.000000e+00) ? i1 + <i64 0, i64 1, i64 2, i64 3> : [[PHI_TEMP140:%.*]];
+; CHECK-NEXT:           |   [[DOTVEC200:%.*]] = ([[PHI_TEMP60:%.*]] > 0.000000e+00) ? i1 + <i64 0, i64 1, i64 2, i64 3> : [[PHI_TEMP140:%.*]];
 ; CHECK-NEXT:           |   [[DOTVEC210:%.*]] = ([[PHI_TEMP60]] > 0.000000e+00) ? i1 + sext.i32.i64([[TMP3]]) + <i64 0, i64 1, i64 2, i64 3> : [[PHI_TEMP0:%.*]];
 ; CHECK-NEXT:           |   [[DOTVEC220:%.*]] = ([[PHI_TEMP60]] > 0.000000e+00) ? 0.000000e+00 : [[PHI_TEMP60]]
 ; CHECK-NEXT:           |   [[PHI_TEMP0]] = [[DOTVEC210]]

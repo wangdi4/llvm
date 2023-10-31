@@ -46,7 +46,6 @@ define dso_local void @foo(ptr noalias nocapture noundef %A, ptr nocapture nound
 ; CHECK-VF4-NEXT:        |      |   <i2 = 0>
 ; CHECK-VF4-NEXT:        |      |   [[BB0:BB[0-9]+]].[[NUM:.*]]:
 ; CHECK-VF4-NEXT:        |      |   [[PERMUTE0:%.*]] = @llvm.x86.avx512.permvar.df.256([[PHI_TEMP70]],  [[PHI_TEMP50]])
-; CHECK-VF4-NEXT:        |      |   [[DOTVEC110:%.*]] = [[PHI_TEMP90]] == -1
 ; CHECK-VF4-NEXT:        |      |   [[DOTVEC120:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE0]] : 0.000000e+00
 ; CHECK-VF4-NEXT:        |      |   [[DOTVEC130:%.*]] = [[DOTVEC120]]  +  [[PHI_TEMP70]]
 ; CHECK-VF4-NEXT:        |      |   [[DOTVEC140:%.*]] = ([[PHI_TEMP90]] == -1) ? [[DOTVEC130]] : [[PHI_TEMP70]]
@@ -99,7 +98,6 @@ define dso_local void @foo(ptr noalias nocapture noundef %A, ptr nocapture nound
 ; CHECK-VF8-NEXT:        |      |   <i2 = 0>
 ; CHECK-VF8-NEXT:        |      |   [[BB0:BB[0-9]+]].[[NUM:.*]]:
 ; CHECK-VF8-NEXT:        |      |   [[PERMUTE0:%.*]] = @llvm.x86.avx512.permvar.df.512([[PHI_TEMP70]],  [[PHI_TEMP50]])
-; CHECK-VF8-NEXT:        |      |   [[DOTVEC110:%.*]] = [[PHI_TEMP90]] == -1
 ; CHECK-VF8-NEXT:        |      |   [[DOTVEC120:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE0]] : 0.000000e+00
 ; CHECK-VF8-NEXT:        |      |   [[DOTVEC130:%.*]] = [[DOTVEC120]]  +  [[PHI_TEMP70]]
 ; CHECK-VF8-NEXT:        |      |   [[DOTVEC140:%.*]] = ([[PHI_TEMP90]] == -1) ? [[DOTVEC130]] : [[PHI_TEMP70]]

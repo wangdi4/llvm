@@ -8046,12 +8046,19 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask) {
   // select instructions, the operands of the compare which generate the select
   // mask are part of the HIR select instruction. The HIR select instruction
   // also stores the compare predicate. As a result, we can avoid generating
-  // code for a compare instruction if its only use is a select instruction.
-  if (isa<VPCmpInst>(VPInst) && VPInst->getNumUsers() == 1) {
-    auto *UserInst = cast<VPInstruction>(*(VPInst->users().begin()));
-    if (UserInst->getOpcode() == Instruction::Select &&
-        UserInst->getOperand(0) == VPInst &&
-        llvm::count(UserInst->operands(), VPInst) == 1)
+  // code for a compare instruction if its users are select instructions only.
+  if (isa<VPCmpInst>(VPInst)) {
+    bool AllUsersAreSelects =
+        llvm::all_of(VPInst->users(), [VPInst](VPUser *U) {
+          auto *UserInst = dyn_cast<VPInstruction>(U);
+          if (!UserInst)
+            return false;
+          return UserInst->getOpcode() == Instruction::Select &&
+                 UserInst->getOperand(0) == VPInst &&
+                 llvm::count(UserInst->operands(), VPInst) == 1;
+        });
+
+    if (AllUsersAreSelects)
       return;
   }
 
