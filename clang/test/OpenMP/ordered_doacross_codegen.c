@@ -115,7 +115,6 @@ int main(void) {
 // CHECK-NORMAL-NEXT: call void @__kmpc_doacross_post(ptr [[IDENT]], i32 [[GTID]], ptr [[TMP]])
 // CHECK-IRBUILDER-NEXT: [[GTID1:%.+]] = call i32 @__kmpc_global_thread_num(ptr [[IDENT:@.+]])
 // CHECK-IRBUILDER-NEXT: call void @__kmpc_doacross_post(ptr [[IDENT]], i32 [[GTID1]], ptr [[TMP]])
-
 #ifdef OMP52
 #pragma omp ordered doacross(source:omp_cur_iteration)
 #else

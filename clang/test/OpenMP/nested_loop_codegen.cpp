@@ -5,7 +5,7 @@
 // RUN: %clang_cc1 -fopenmp -x c++ -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -debug-info-kind=limited -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefix=CHECK2
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-enable-irbuilder -DIRBUILDER -x c++ -emit-llvm %s -triple x86_64-unknown-linux -fexceptions -fcxx-exceptions -o - | FileCheck %s --check-prefix=CHECK3
 // RUN: %clang_cc1 -fopenmp -fopenmp-enable-irbuilder -DIRBUILDER -x c++ -std=c++11 -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp -fopenmp-enable-irbuilder -DIRBUILDER -x c++ -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -debug-info-kind=limited -gno-column-info -std=c++11 -include-pch %t -verify %s -emit-llvm -o - -mllvm -intel-codeextractor-debug=false | FileCheck %s --check-prefix=CHECK4 ;INTEL
+// INTEL RUN: %clang_cc1 -fopenmp -fopenmp-enable-irbuilder -DIRBUILDER -x c++ -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -debug-info-kind=limited -gno-column-info -std=c++11 -include-pch %t -verify %s -emit-llvm -o - -mllvm -intel-codeextractor-debug=false | FileCheck %s --check-prefix=CHECK4
 
 // RUN: %clang_cc1 -verify -fopenmp-simd -x c++ -emit-llvm %s -triple x86_64-unknown-linux -fexceptions -fcxx-exceptions -o - | FileCheck %s --implicit-check-not="{{__kmpc|__tgt}}"
 // RUN: %clang_cc1 -fopenmp-simd -x c++ -std=c++11 -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -emit-pch -o %t %s

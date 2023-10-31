@@ -670,7 +670,7 @@ public:
   }
 };
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 namespace ext {
 namespace intel {
 class non_uniform_sub_group {

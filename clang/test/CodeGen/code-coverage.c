@@ -19,8 +19,8 @@
 // NEWPM: Running pass: GCOVProfilerPass
 
 // NEWPM-O3: Running pass: VerifierPass
-// INTEL- added XmainOptLevelAnalysisInit pass
-// NEWPM-O3: Running pass: XmainOptLevelAnalysisInit
+// INTEL added XmainOptLevelAnalysisInit pass
+// INTEL NEWPM-O3: Running pass: XmainOptLevelAnalysisInit
 
 // NEWPM-O3: Running pass: Annotation2MetadataPass
 // NEWPM-O3: Running pass: ForceFunctionAttrsPass

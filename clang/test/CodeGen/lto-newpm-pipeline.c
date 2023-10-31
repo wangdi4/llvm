@@ -1,6 +1,5 @@
 // REQUIRES: x86-registered-target
 
-// INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -mllvm -verify-analysis-invalidation=0 -fdebug-pass-manager -flto=full -O0 %s 2>&1 | FileCheck %s \
 // RUN:   -check-prefix=CHECK-FULL-O0
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -mllvm -verify-analysis-invalidation=0 -fdebug-pass-manager -flto=thin -O0 %s 2>&1 | FileCheck %s \
@@ -26,6 +25,7 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -mllvm -verify-analysis-invalidation=0 -fdebug-pass-manager -flto=thin -Oz %s 2>&1 | FileCheck %s \
 // RUN:   -check-prefix=CHECK-THIN-OPTIMIZED
 
+// INTEL_CUSTOMIZATION
 // LoopVectorizePass is disabled by default.
 // Execute CHECKs with -mllvm -enable-lv
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -fdebug-pass-manager -flto=full -O1 -mllvm -enable-lv %s 2>&1 | FileCheck %s \
@@ -38,14 +38,14 @@
 // RUN:   -check-prefix=CHECK-FULL-OPTIMIZED-LV
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -fdebug-pass-manager -flto=full -Oz -mllvm -enable-lv %s 2>&1 | FileCheck %s \
 // RUN:   -check-prefix=CHECK-FULL-OPTIMIZED-LV
-// END INTEL_CUSTOMIZATION
 
-// CHECK-FULL-O0: Running analysis: InnerAnalysisManagerProxy ;INTEL
-// CHECK-FULL-O0-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
-// CHECK-FULL-O0-NEXT: Running pass: InlineReportSetupPass ;INTEL
-// CHECK-FULL-O0-NEXT: Running pass: InlineForceInlinePass ;INTEL
-// CHECK-FULL-O0-NEXT: Running pass: InlineListsPass ;INTEL
-// CHECK-FULL-O0-NEXT: Running pass: AlwaysInlinerPass ;INTEL
+// CHECK-FULL-O0: Running analysis: InnerAnalysisManagerProxy
+// CHECK-FULL-O0-NEXT: Running pass: LowerSubscriptIntrinsicPass
+// CHECK-FULL-O0-NEXT: Running pass: InlineReportSetupPass
+// CHECK-FULL-O0-NEXT: Running pass: InlineForceInlinePass
+// CHECK-FULL-O0-NEXT: Running pass: InlineListsPass
+// CHECK-FULL-O0-NEXT: Running pass: AlwaysInlinerPass
+// end INTEL_CUSTOMIZATION
 
 // CHECK-FULL-O0-NEXT: Running analysis: ProfileSummaryAnalysis
 // CHECK-FULL-O0-NEXT: Running pass: CoroConditionalWrapper
@@ -53,18 +53,22 @@
 // CHECK-FULL-O0-NEXT: Running pass: NameAnonGlobalPass
 // CHECK-FULL-O0-NEXT: Running pass: AnnotationRemarksPass
 // CHECK-FULL-O0-NEXT: Running analysis: TargetLibraryAnalysis
+// INTEL_CUSTOMIZATION
 // CHECK-FULL-O0-NEXT: Running pass: Intel_DebugPass
-// CHECK-FULL-O0-NEXT: Running pass: InlineReportMakeCurrentPass ;INTEL
-// CHECK-FULL-O0-NEXT: Running pass: InlineReportEmitterPass ;INTEL
+// CHECK-FULL-O0-NEXT: Running pass: InlineReportMakeCurrentPass
+// CHECK-FULL-O0-NEXT: Running pass: InlineReportEmitterPass
+// end INTEL_CUSTOMIZATION
 // CHECK-FULL-O0-NEXT: Running pass: VerifierPass
 // CHECK-FULL-O0-NEXT: Running pass: BitcodeWriterPass
 
-// CHECK-THIN-O0: Running analysis: InnerAnalysisManagerProxy ;INTEL
-// CHECK-THIN-O0-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
-// CHECK-THIN-O0-NEXT: Running pass: InlineReportSetupPass ;INTEL
-// CHECK-THIN-O0-NEXT: Running pass: InlineForceInlinePass ;INTEL
-// CHECK-THIN-O0-NEXT: Running pass: InlineListsPass ;INTEL
-// CHECK-THIN-O0-NEXT: Running pass: AlwaysInlinerPass ;INTEL
+// INTEL_CUSTOMIZATION
+// CHECK-THIN-O0: Running analysis: InnerAnalysisManagerProxy
+// CHECK-THIN-O0-NEXT: Running pass: LowerSubscriptIntrinsicPass
+// CHECK-THIN-O0-NEXT: Running pass: InlineReportSetupPass
+// CHECK-THIN-O0-NEXT: Running pass: InlineForceInlinePass
+// CHECK-THIN-O0-NEXT: Running pass: InlineListsPass
+// CHECK-THIN-O0-NEXT: Running pass: AlwaysInlinerPass
+// end INTEL_CUSTOMIZATION
 
 // TODO: The LTO pre-link pipeline currently invokes
 //       buildPerModuleDefaultPipeline(), which contains LoopVectorizePass.
@@ -75,7 +79,7 @@
 // INTEL_CUSTOMIZATION
 // CHECK-FULL-OPTIMIZED-LV: Running pass: LoopVectorizePass
 // CHECK-FULL-OPTIMIZED-LV: Running pass: BitcodeWriterPass
-// END INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 
 // The ThinLTO pre-link pipeline shouldn't contain passes like
 // LoopVectorizePass.

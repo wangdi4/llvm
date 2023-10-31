@@ -415,7 +415,7 @@ class __attribute__((sycl_special_class)) __SYCL_TYPE(annotated_ptr) annotated_p
 } // namespace oneapi
 } // namespace ext
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 namespace ext {
 namespace intel {
 class non_uniform_sub_group {
