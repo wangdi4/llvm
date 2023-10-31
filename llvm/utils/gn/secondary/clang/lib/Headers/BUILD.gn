@@ -208,6 +208,11 @@ copy("Headers") {
     "llvm_libc_wrappers/stdio.h",
     "llvm_libc_wrappers/stdlib.h",
     "llvm_libc_wrappers/string.h",
+<<<<<<< HEAD
+=======
+    "llvm_libc_wrappers/time.h",
+    "lsxintrin.h",
+>>>>>>> f3fd1ecd5759cfa7f368a2e0a876ca7cddcc8b2b
     "lwpintrin.h",
     "lzcntintrin.h",
     "mm3dnow.h",
