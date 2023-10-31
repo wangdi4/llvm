@@ -90,7 +90,6 @@ struct RTLInfoTy {
   typedef int32_t(data_notify_mapped_ty)(int32_t, void *, int64_t);
   typedef int32_t(data_notify_unmapped_ty)(int32_t, void *);
   typedef int32_t(set_device_offset_ty)(int32_t);
-  typedef int32_t(activate_record_replay_ty)(int32_t, uint64_t, bool, bool);
 #if INTEL_CUSTOMIZATION
   typedef int32_t(manifest_data_for_region_ty)(int32_t, void *,
                                                void **, size_t);
@@ -148,32 +147,11 @@ struct RTLInfoTy {
                                         omp_memspace_handle_t, int32_t *);
   typedef void *(omp_alloc_ty)(size_t, omp_allocator_handle_t);
   typedef void(omp_free_ty)(void *, omp_allocator_handle_t);
-<<<<<<< HEAD
-#endif // INTEL_COLLAB
-  typedef int32_t(query_async_ty)(int32_t, __tgt_async_info *);
-  typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
-  typedef int32_t(supports_empty_images_ty)();
-  typedef void(print_device_info_ty)(int32_t);
-  typedef void(set_info_flag_ty)(uint32_t);
-  typedef int32_t(create_event_ty)(int32_t, void **);
-  typedef int32_t(record_event_ty)(int32_t, void *, __tgt_async_info *);
-  typedef int32_t(wait_event_ty)(int32_t, void *, __tgt_async_info *);
-  typedef int32_t(sync_event_ty)(int32_t, void *);
-  typedef int32_t(destroy_event_ty)(int32_t, void *);
-  typedef int32_t(release_async_info_ty)(int32_t, __tgt_async_info *);
-  typedef int32_t(init_async_info_ty)(int32_t, __tgt_async_info **);
-  typedef int64_t(init_device_into_ty)(int64_t, __tgt_device_info *,
-                                       const char **);
-  typedef int32_t(data_lock_ty)(int32_t, void *, int64_t, void **);
-  typedef int32_t(data_unlock_ty)(int32_t, void *);
-  typedef int32_t(data_notify_mapped_ty)(int32_t, void *, int64_t);
-  typedef int32_t(data_notify_unmapped_ty)(int32_t, void *);
-  typedef int32_t(set_device_offset_ty)(int32_t);
   typedef int32_t(activate_record_replay_ty)(int32_t, uint64_t, void *, bool,
                                              bool);
-=======
+#else
+  typedef int32_t(activate_record_replay_ty)(int32_t, uint64_t, bool, bool);
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 1d82a0a5d01d15438acf9b4a91bb342003cdb242
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
                                 // of other RTLs that were registered before,
