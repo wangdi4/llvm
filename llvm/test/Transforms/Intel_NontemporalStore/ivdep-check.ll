@@ -1,5 +1,6 @@
 ; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -aa-pipeline="default" -passes 'unaligned-nontemporal,verify' < %s | FileCheck %s
 target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 
 ; Check that we use "ivdep loop" metadata to prove that stores don't conflict.
 define void @example(ptr %dest) "target-features"="+avx512f" {
