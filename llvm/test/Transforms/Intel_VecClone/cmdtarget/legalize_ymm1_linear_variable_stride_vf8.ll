@@ -16,9 +16,9 @@ define dso_local noundef i64 @foo(i64 noundef signext %v, i64 noundef signext %c
 ; CHECK-SAME: (<2 x i64> noundef signext [[V_0:%.*]], <2 x i64> noundef signext [[V_1:%.*]], <2 x i64> noundef signext [[V_2:%.*]], <2 x i64> noundef signext [[V_3:%.*]], i64 noundef signext [[C:%.*]], i64 noundef [[X:%.*]]) local_unnamed_addr #[[ATTR0:[0-9]+]] {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ALLOCA_X:%.*]] = alloca i64, align 8
-; CHECK-NEXT:    store i64 [[X]], ptr [[ALLOCA_X]], align 4
+; CHECK-NEXT:    store i64 [[X]], ptr [[ALLOCA_X]], align 8
 ; CHECK-NEXT:    [[ALLOCA_C:%.*]] = alloca i64, align 8
-; CHECK-NEXT:    store i64 [[C]], ptr [[ALLOCA_C]], align 4
+; CHECK-NEXT:    store i64 [[C]], ptr [[ALLOCA_C]], align 8
 ; CHECK-NEXT:    [[VEC_V:%.*]] = alloca <8 x i64>, align 64
 ; CHECK-NEXT:    [[VEC_RETVAL:%.*]] = alloca <8 x i64>, align 64
 ; CHECK-NEXT:    [[VEC_V_GEP_0:%.*]] = getelementptr inbounds <2 x i64>, ptr [[VEC_V]], i32 0
@@ -34,8 +34,8 @@ define dso_local noundef i64 @foo(i64 noundef signext %v, i64 noundef signext %c
 ; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:TYPED.PTR_TO_PTR"(ptr [[ALLOCA_X]], i8 0, i32 1, ptr [[ALLOCA_C]]), "QUAL.OMP.UNIFORM:TYPED"(ptr [[ALLOCA_C]], i64 0, i32 1) ]
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]
 ; CHECK:       simd.loop.preheader:
-; CHECK-NEXT:    [[LOAD_X:%.*]] = load i64, ptr [[ALLOCA_X]], align 4
-; CHECK-NEXT:    [[LOAD_C:%.*]] = load i64, ptr [[ALLOCA_C]], align 4
+; CHECK-NEXT:    [[LOAD_X:%.*]] = load i64, ptr [[ALLOCA_X]], align 8
+; CHECK-NEXT:    [[LOAD_C:%.*]] = load i64, ptr [[ALLOCA_C]], align 8
 ; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER:%.*]]
 ; CHECK:       simd.loop.header:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER]] ], [ [[INDVAR:%.*]], [[SIMD_LOOP_LATCH:%.*]] ]
@@ -44,10 +44,10 @@ define dso_local noundef i64 @foo(i64 noundef signext %v, i64 noundef signext %c
 ; CHECK-NEXT:    [[STRIDE_ADD:%.*]] = add i64 [[LOAD_X]], [[STRIDE_MUL]]
 ; CHECK-NEXT:    [[ADD:%.*]] = add nsw i64 [[STRIDE_ADD]], 1
 ; CHECK-NEXT:    [[VEC_V_GEP:%.*]] = getelementptr i64, ptr [[VEC_V]], i32 [[INDEX]]
-; CHECK-NEXT:    [[VEC_V_ELEM:%.*]] = load i64, ptr [[VEC_V_GEP]], align 4
+; CHECK-NEXT:    [[VEC_V_ELEM:%.*]] = load i64, ptr [[VEC_V_GEP]], align 8
 ; CHECK-NEXT:    [[RES:%.*]] = add nsw i64 [[VEC_V_ELEM]], [[ADD]]
 ; CHECK-NEXT:    [[VEC_RETVAL_GEP:%.*]] = getelementptr i64, ptr [[VEC_RETVAL]], i32 [[INDEX]]
-; CHECK-NEXT:    store i64 [[RES]], ptr [[VEC_RETVAL_GEP]], align 4
+; CHECK-NEXT:    store i64 [[RES]], ptr [[VEC_RETVAL_GEP]], align 8
 ;    ...skip...
 ;
 entry:
