@@ -90,6 +90,8 @@ struct RTLInfoTy {
   typedef int32_t(data_notify_mapped_ty)(int32_t, void *, int64_t);
   typedef int32_t(data_notify_unmapped_ty)(int32_t, void *);
   typedef int32_t(set_device_offset_ty)(int32_t);
+  typedef int32_t(activate_record_replay_ty)(int32_t, uint64_t, void *, bool,
+                                             bool);
 #if INTEL_CUSTOMIZATION
   typedef int32_t(manifest_data_for_region_ty)(int32_t, void *,
                                                void **, size_t);
@@ -147,10 +149,6 @@ struct RTLInfoTy {
                                         omp_memspace_handle_t, int32_t *);
   typedef void *(omp_alloc_ty)(size_t, omp_allocator_handle_t);
   typedef void(omp_free_ty)(void *, omp_allocator_handle_t);
-  typedef int32_t(activate_record_replay_ty)(int32_t, uint64_t, void *, bool,
-                                             bool);
-#else
-  typedef int32_t(activate_record_replay_ty)(int32_t, uint64_t, bool, bool);
 #endif // INTEL_CUSTOMIZATION
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
