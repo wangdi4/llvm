@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec" -print-before=hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,hir-vec-dir-insert" -print-before=hir-loop-distribute-memrec -print-after=hir-vec-dir-insert -disable-output %s 2>&1 | FileCheck %s
 
 ; Verify we distribute the loop with high number of scalar-expanded temps due to
 ; subtantial computation in the vectorizable chunk.
@@ -122,6 +122,7 @@
 ; CHECK: |   |   (%t1072)[%t2726].2 = %t2823;
 ; CHECK: |   + END LOOP
 ; CHECK: |
+; CHECK: | %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ; CHECK: |
 ; CHECK: |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
 ; CHECK: |   |   %t2729 = (%t285)[64 * i1 + i2];
@@ -165,6 +166,8 @@
 ; CHECK: |   |   %t2716 = %t2818  +  %t2716;
 ; CHECK: |   |   %t2719 = %t2817  +  %t2719;
 ; CHECK: |   + END LOOP
+; CHECK: |
+; CHECK: |   @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; CHECK: + END LOOP
 
 %class._ZTS6Vector.Vector = type { double, double, double }

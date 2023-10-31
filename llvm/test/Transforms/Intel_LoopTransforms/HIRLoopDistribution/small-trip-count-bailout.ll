@@ -2,13 +2,12 @@
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-loop-distribute-always-stripmine -hir-loop-distribute-skip-vectorization-profitability-check=true -hir-loop-distribute-scex-cost=3 -debug-only=hir-loop-distribute < %s 2>&1 | FileCheck %s
 
-; Verify that distribution succeeds when we need to create a new instruction to redefine
-; the lower bound temp. i1 is a 32 bit IV but the addition to %s is of type i4 and would
-; previously fail when trying to normalize the loop.
+; Verify that we skip distributing the loop using stripmining/scalar-expansaion
+; if it is likely a small trip count loop.
 
-;   HIR before Distribution
+;   HIR-
 ;         BEGIN REGION { }
-;               + DO i1 = 0, %it + -1, 1
+;               + DO i1 = 0, %it + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10>
 ;               |   if (%z > %cmp)
 ;               |   {
 ;               |      %x.addr.020 = %x.addr.020  +  1;
@@ -21,8 +20,6 @@
 ;               + END LOOP
 ;         END REGION
 
-
-;   HIR after Distribution
 
 ; CHECK: LOOP DISTRIBUTION: Skipping distribution of likely small trip count loop using stripmining and scalar-expansion at it doesn't seem profitable
 ; CHECK-NOT: modified
@@ -38,7 +35,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @B2 = dso_local local_unnamed_addr global [10 x i32] zeroinitializer, align 16
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local i32 @foo(i32 %x, i32 %y, i32 %z, i32 %cmp, i32 %it, i4 %s) local_unnamed_addr #0 {
+define dso_local i32 @foo(i32 %x, i32 %y, i32 %z, i32 %cmp, i32 %it, i4 %s) {
 entry:
   %cmp2 = icmp sgt i32 %z, %cmp
   %cmp118 = icmp sgt i32 %it, 0
@@ -68,17 +65,17 @@ if.then:                                          ; preds = %for.body
   %trunc = trunc i32 %i.021 to i4
   %add4 = add nsw i4 %trunc, %s
   %ext = sext i4 %add4 to i64
-  %arrayidx = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %ext, !intel-tbaa !3
-  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %ext
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom4 = sext i32 %add3 to i64
-  %arrayidx5 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %idxprom4, !intel-tbaa !3
-  %1 = load i32, ptr %arrayidx5, align 4, !tbaa !3
+  %arrayidx5 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %idxprom4
+  %1 = load i32, ptr %arrayidx5, align 4
   %mul = mul nsw i32 %1, %0
-  %arrayidx7 = getelementptr inbounds [10 x i32], ptr @A1, i64 0, i64 %idxprom, !intel-tbaa !3
-  %2 = load i32, ptr %arrayidx7, align 4, !tbaa !3
+  %arrayidx7 = getelementptr inbounds [10 x i32], ptr @A1, i64 0, i64 %idxprom
+  %2 = load i32, ptr %arrayidx7, align 4
   %add8 = add nsw i32 %mul, %2
-  %arrayidx10 = getelementptr inbounds [10 x i32], ptr @B1, i64 0, i64 %idxprom, !intel-tbaa !3
-  store i32 %add8, ptr %arrayidx10, align 4, !tbaa !3
+  %arrayidx10 = getelementptr inbounds [10 x i32], ptr @B1, i64 0, i64 %idxprom
+  store i32 %add8, ptr %arrayidx10, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
@@ -86,22 +83,6 @@ for.inc:                                          ; preds = %for.body, %if.then
   %x.addr.1 = phi i32 [ %add, %if.then ], [ %x.addr.020, %for.body ]
   %inc = add nuw nsw i32 %i.021, 1
   %exitcond.not = icmp eq i32 %inc, %it
-  br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body, !llvm.loop !8
+  br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
-
-attributes #0 = { nofree norecurse nosync nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
-
-!llvm.module.flags = !{!0, !1}
-!llvm.ident = !{!2}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{i32 7, !"uwtable", i32 1}
-!2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
-!3 = !{!4, !5, i64 0}
-!4 = !{!"array@_ZTSA10_i", !5, i64 0}
-!5 = !{!"int", !6, i64 0}
-!6 = !{!"omnipotent char", !7, i64 0}
-!7 = !{!"Simple C/C++ TBAA"}
-!8 = distinct !{!8, !9}
-!9 = !{!"llvm.loop.mustprogress"}
 

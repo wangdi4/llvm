@@ -638,7 +638,7 @@ bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
 
 bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef, bool AllowLoads,
                                         unsigned UseChunkIdx,
-                                        const SymbaseLoopSetTy &RecomputableSBs,
+                                        const SymbaseLoopSetTy &ReusableSBs,
                                         const HLInst *&DepInst) {
   assert(TmpDef->isLval() && "TmpDef is expected to be LVal");
   unsigned Level = Loop->getNestingLevel();
@@ -658,20 +658,20 @@ bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef, bool AllowLoads,
 
     if (RVal->isSelfBlob()) {
       // If SB relies on previous SCEX candidate, then check that it exists in
-      // RecomputableSBs
+      // ReusableSBs
       if (SymbaseToCandidatesMap.count(SB)) {
-        return RecomputableSBs.count({SB, UseChunkIdx});
+        return ReusableSBs.count({SB, UseChunkIdx});
       }
 
       return (findDepInst(RVal, DepInst) &&
               isSafeToRecompute(DepInst->getLvalDDRef(), AllowLoads,
-                                UseChunkIdx, RecomputableSBs, DepInst));
+                                UseChunkIdx, ReusableSBs, DepInst));
     }
 
     for (auto &Blob : make_range(RVal->blob_begin(), RVal->blob_end())) {
       unsigned BlobSB = Blob->getSymbase();
       if (SymbaseToCandidatesMap.count(BlobSB) &&
-          RecomputableSBs.count({BlobSB, UseChunkIdx})) {
+          ReusableSBs.count({BlobSB, UseChunkIdx})) {
         continue;
       }
 
@@ -851,7 +851,9 @@ void ScalarExpansion::getInsertNodeForTmpDefsUses(Candidate &Cand) {
 // Compute SCEX temp load/store insertion points. Factor in any conditional
 // def/uses for all chunks.
 void ScalarExpansion::computeInsertNodes() {
-  SymbaseLoopSetTy RecomputableSBs;
+  // Contains the set of SBs that can be used by dependent temps to make the
+  // dependent temps recomputable.
+  SymbaseLoopSetTy ReusableSBs;
   for (auto &Cand : Candidates) {
     getInsertNodeForTmpDefsUses<true>(Cand);  // For Defs
     getInsertNodeForTmpDefsUses<false>(Cand); // For Uses
@@ -868,17 +870,17 @@ void ScalarExpansion::computeInsertNodes() {
       bool ConditionalUse = !isa<HLLoop>(UseInsertNode->getParent());
 
       // Illegal or already recomputed
-      if (RecomputableSBs.count({SB, UseChunkID})) {
+      if (ReusableSBs.count({SB, UseChunkID})) {
         continue;
       }
 
       const HLInst *DepInst = nullptr;
       Cand.SafeToRecompute &= isSafeToRecompute(
-          TmpDef, true /*AllowLoads*/, UseChunkID, RecomputableSBs, DepInst);
+          TmpDef, true /*AllowLoads*/, UseChunkID, ReusableSBs, DepInst);
 
-      // If Use is conditional, don't save for recompute set
+      // If Use is conditional, don't allow it to be reused
       if (!ConditionalUse) {
-        RecomputableSBs.insert({SB, UseChunkID});
+        ReusableSBs.insert({SB, UseChunkID});
       }
     }
   }
@@ -989,9 +991,24 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
     });
   }
 
+  // 'I' represents defining chunk of temps.
   for (unsigned I = 0, E = RefGroups.size(); I < E - 1; ++I) {
-    SymbaseLoopSetTy RecomputableSBs;
-    for (DDRef *TmpDefDDRef : RefGroups[I]) {
+    // Contains the set of SBs that can be used by dependent temps to make the
+    // dependent temps recomputable.
+    SymbaseLoopSetTy ReusableSBs;
+
+    // Collects the number of definitions of each temps in chunk 'I' mainly to
+    // distinguish whether the temp has multiple definitions.
+    SmallDenseMap<unsigned, unsigned> SymbaseDefCount;
+
+    auto &DefChunkRefs = RefGroups[I];
+    for (DDRef *TmpRef : DefChunkRefs) {
+      if (TmpRef->isLval()) {
+        ++SymbaseDefCount[TmpRef->getSymbase()];
+      }
+    }
+
+    for (DDRef *TmpDefDDRef : DefChunkRefs) {
       if (TmpDefDDRef->isRval()) {
         continue;
       }
@@ -1013,6 +1030,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
       RegDDRef *TmpDef = cast<RegDDRef>(TmpDefDDRef);
       bool DefChunkUnsafe = !UnsafeChunks.count(I);
 
+      // 'J' represents using chunk of temps.
       for (unsigned J = I + 1; J < E; ++J) {
         bool TempRedefined = false;
 
@@ -1053,9 +1071,14 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
           // cannot legally recompute
           const HLInst *DepInst = nullptr;
           Cand.SafeToRecompute &= isSafeToRecompute(TmpDef, DefChunkUnsafe, J,
-                                                    RecomputableSBs, DepInst);
+                                                    ReusableSBs, DepInst);
 
-          RecomputableSBs.insert({SB, J});
+          // If SB has multiple definitions in def chunk, it cannot be reused by
+          // dependent temps as the subsequent definitions of the temp in the
+          // def chunk may override previous definitions. This will result in
+          // incorrect value for the dependent temp.
+          if (SymbaseDefCount[SB] == 1)
+            ReusableSBs.insert({SB, J});
 
           // Save TmpUse in chunk J, We will need to load or recompute this ref
           // from scalar expanded array, once per loop.
