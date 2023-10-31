@@ -203,8 +203,8 @@ struct AlwaysInlinerLegacyPass : public ModulePass {
     initializeAlwaysInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
-  ~AlwaysInlinerLegacyPass() {
 #if INTEL_CUSTOMIZATION
+  ~AlwaysInlinerLegacyPass() {
     getInlineReport()->testAndPrint(this);
   }
 #endif // INTEL_CUSTOMIZATION
@@ -248,8 +248,8 @@ Pass *llvm::createAlwaysInlinerLegacyPass(bool InsertLifetime) {
   return new AlwaysInlinerLegacyPass(InsertLifetime);
 }
 
-/// Main run interface method.  We override here to avoid calling skipSCC().
 #if INTEL_CUSTOMIZATION
+/// Main run interface method.  We override here to avoid calling skipSCC().
 class UnskippableAlwaysInlinerLegacyPass : public AlwaysInlinerLegacyPass {
 public:
   UnskippableAlwaysInlinerLegacyPass(bool InsertLietime)
@@ -277,7 +277,9 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
   auto &PSI = MAM.getResult<ProfileSummaryAnalysis>(M);
   getInlineReport()->beginModule(this); // INTEL
   bool Changed = AlwaysInlineImpl(M, InsertLifetime, PSI, GetAssumptionCache,
+#if INTEL_CUSTOMIZATION
                                   GetAAR, GetBFI, getReport(), getMDReport());
+#endif // INTEL_CUSTOMIZATION
 
   getInlineReport()->endModule(); // INTEL
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();

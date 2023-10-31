@@ -1489,7 +1489,7 @@ struct AAPointerInfoFloating : public AAPointerInfoImpl {
                     std::optional<Value *> Content, AccessKind Kind,
                     SmallVectorImpl<int64_t> &Offsets, ChangeStatus &Changed,
                     Type &Ty) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Conservatively, bail out here, since offsets have not been
     // initialized yet.
     // This is a case not covered in community code and
@@ -1498,7 +1498,7 @@ struct AAPointerInfoFloating : public AAPointerInfoImpl {
     // this block can be removed.
     if (Offsets.empty())
       return false;
-#endif
+#endif // INTEL_CUSTOMIZATION
     using namespace AA::PointerInfo;
     auto Size = AA::RangeTy::Unknown;
     const DataLayout &DL = A.getDataLayout();
@@ -3970,7 +3970,9 @@ struct AANoAliasCallSiteArgument final : AANoAliasImpl {
         LLVM_DEBUG(dbgs() << "[AANoAliasCSArg] Unknown user: " << *UserI
                           << "\n");
         return false;
-      case UseCaptureKind::USER_MAY_CAPTURE: // INTEL_COLLAB
+#if INTEL_COLLAB
+      case UseCaptureKind::USER_MAY_CAPTURE:
+#endif // INTEL_COLLAB
         Follow = true;
         return true;
       }
@@ -5995,7 +5997,9 @@ ChangeStatus AANoCaptureImpl::updateImpl(Attributor &A) {
       return true;
     case UseCaptureKind::MAY_CAPTURE:
       return checkUse(A, T, U, Follow);
-    case UseCaptureKind::USER_MAY_CAPTURE: // INTEL_COLLAB
+#if INTEL_COLLAB
+    case UseCaptureKind::USER_MAY_CAPTURE:
+#endif // INTEL_COLLAB
       Follow = true;
       return true;
     }

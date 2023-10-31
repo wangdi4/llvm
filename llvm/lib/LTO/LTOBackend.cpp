@@ -7,9 +7,9 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -370,7 +370,7 @@ bool lto::opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
               bool IsThinLTO, ModuleSummaryIndex *ExportSummary,
               const ModuleSummaryIndex *ImportSummary,
               const std::vector<uint8_t> &CmdArgs) {
-#if !INTEL_PRODUCT_RELEASE
+#if !INTEL_PRODUCT_RELEASE // INTEL
   if (EmbedBitcode == LTOBitcodeEmbedding::EmbedPostMergePreOptimized) {
     // FIXME: the motivation for capturing post-merge bitcode and command line
     // is replicating the compilation environment from bitcode, without needing
@@ -388,10 +388,10 @@ bool lto::opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
                                /*EmbedBitcode*/ true, /*EmbedCmdline*/ true,
                                /*Cmdline*/ CmdArgs);
   }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !INTEL_PRODUCT_RELEASE // INTEL
   // FIXME: Plumb the combined index into the new pass manager.
-    runNewPMPasses(Conf, Mod, TM, Conf.OptLevel, IsThinLTO, ExportSummary,
-                   ImportSummary);
+  runNewPMPasses(Conf, Mod, TM, Conf.OptLevel, IsThinLTO, ExportSummary,
+                 ImportSummary);
   return !Conf.PostOptModuleHook || Conf.PostOptModuleHook(Task, Mod);
 }
 
@@ -401,13 +401,13 @@ static void codegen(const Config &Conf, TargetMachine *TM,
   if (Conf.PreCodeGenModuleHook && !Conf.PreCodeGenModuleHook(Task, Mod))
     return;
 
-#if !INTEL_PRODUCT_RELEASE
+#if !INTEL_PRODUCT_RELEASE                                   // INTEL
   if (::EmbedBitcode == LTOBitcodeEmbedding::EmbedOptimized) // INTEL
     llvm::embedBitcodeInModule(Mod, llvm::MemoryBufferRef(),
                                /*EmbedBitcode*/ true,
                                /*EmbedCmdline*/ false,
                                /*CmdArgs*/ std::vector<uint8_t>());
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !INTEL_PRODUCT_RELEASE // INTEL
 
   std::unique_ptr<ToolOutputFile> DwoOut;
   SmallString<1024> DwoFile(Conf.SplitDwarfOutput);
