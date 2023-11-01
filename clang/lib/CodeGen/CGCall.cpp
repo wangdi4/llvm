@@ -1942,7 +1942,7 @@ static void handleDTransStructInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
     (void)VecTy;
 
     ClangTypes[0] = CGT.getContext().getVectorType(CGT.getContext().FloatTy, 2,
-                                                   VectorType::GenericVector);
+                                                   VectorKind::Generic);
     return;
   }
 
@@ -1977,7 +1977,7 @@ static void handleDTransStructInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
              VecTy->getElementType()->isFloatTy() && "Not a <2 x float>?");
       (void)VecTy;
       ClangTypes[I] = CGT.getContext().getVectorType(
-          CGT.getContext().FloatTy, 2, VectorType::GenericVector);
+          CGT.getContext().FloatTy, 2, VectorKind::Generic);
     } else {
       llvm_unreachable("Unknown combined fields");
     }
