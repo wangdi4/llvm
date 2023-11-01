@@ -525,7 +525,7 @@ void ASTDeclWriter::VisitRecordDecl(RecordDecl *D) {
   Record.push_back(D->hasNonTrivialToPrimitiveDestructCUnion());
   Record.push_back(D->hasNonTrivialToPrimitiveCopyCUnion());
   Record.push_back(D->isParamDestroyedInCallee());
-  Record.push_back(D->getArgPassingRestrictions());
+  Record.push_back(llvm::to_underlying(D->getArgPassingRestrictions()));
   // Only compute this for C/Objective-C, in C++ this is computed as part
   // of CXXRecordDecl.
   if (!isa<CXXRecordDecl>(D))
@@ -1983,7 +1983,7 @@ void ASTDeclWriter::VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D) {
   Record.AddStmt(D->getInitOrig());
   Record.AddStmt(D->getInitPriv());
   Record.AddStmt(D->getInitializer());
-  Record.push_back(D->getInitializerKind());
+  Record.push_back(llvm::to_underlying(D->getInitializerKind()));
   Record.AddDeclRef(D->getPrevDeclInScope());
   Code = serialization::DECL_OMP_DECLARE_REDUCTION;
 }
