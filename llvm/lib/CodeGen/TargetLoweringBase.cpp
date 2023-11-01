@@ -2048,7 +2048,8 @@ void TargetLoweringBase::insertSSPDeclarations(Module &M) const {
     if (M.getDirectAccessExternalData() &&
         !TM.getTargetTriple().isWindowsGNUEnvironment() &&
         !TM.getTargetTriple().isOSFreeBSD() &&
-        !TM.getTargetTriple().isOSDarwin())
+        (!TM.getTargetTriple().isOSDarwin() ||
+         TM.getRelocationModel() == Reloc::Static))
       GV->setDSOLocal(true);
   }
 }

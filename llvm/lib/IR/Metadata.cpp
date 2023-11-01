@@ -1368,25 +1368,22 @@ bool MDAttachments::erase(unsigned ID) {
   return OldSize != Attachments.size();
 }
 
-MDNode *Value::getMetadata(unsigned KindID) const {
-  if (!hasMetadata())
-    return nullptr;
-  const auto &Info = getContext().pImpl->ValueMetadata[this];
-  assert(!Info.empty() && "bit out of sync with hash table");
-  return Info.lookup(KindID);
-}
-
 MDNode *Value::getMetadata(StringRef Kind) const {
   if (!hasMetadata())
     return nullptr;
-  const auto &Info = getContext().pImpl->ValueMetadata[this];
-  assert(!Info.empty() && "bit out of sync with hash table");
-  return Info.lookup(getContext().getMDKindID(Kind));
+  unsigned KindID = getContext().getMDKindID(Kind);
+  return getMetadataImpl(KindID);
+}
+
+MDNode *Value::getMetadataImpl(unsigned KindID) const {
+  const LLVMContext &Ctx = getContext();
+  const MDAttachments &Attachements = Ctx.pImpl->ValueMetadata.at(this);
+  return Attachements.lookup(KindID);
 }
 
 void Value::getMetadata(unsigned KindID, SmallVectorImpl<MDNode *> &MDs) const {
   if (hasMetadata())
-    getContext().pImpl->ValueMetadata[this].get(KindID, MDs);
+    getContext().pImpl->ValueMetadata.at(this).get(KindID, MDs);
 }
 
 void Value::getMetadata(StringRef Kind, SmallVectorImpl<MDNode *> &MDs) const {
@@ -1399,8 +1396,7 @@ void Value::getAllMetadata(
   if (hasMetadata()) {
     assert(getContext().pImpl->ValueMetadata.count(this) &&
            "bit out of sync with hash table");
-    const auto &Info = getContext().pImpl->ValueMetadata.find(this)->second;
-    assert(!Info.empty() && "Shouldn't have called this");
+    const MDAttachments &Info = getContext().pImpl->ValueMetadata.at(this);
     Info.getAll(MDs);
   }
 }
@@ -1410,7 +1406,7 @@ void Value::setMetadata(unsigned KindID, MDNode *Node) {
 
   // Handle the case when we're adding/updating metadata on a value.
   if (Node) {
-    auto &Info = getContext().pImpl->ValueMetadata[this];
+    MDAttachments &Info = getContext().pImpl->ValueMetadata[this];
     assert(!Info.empty() == HasMetadata && "bit out of sync with hash table");
     if (Info.empty())
       HasMetadata = true;
@@ -1423,7 +1419,7 @@ void Value::setMetadata(unsigned KindID, MDNode *Node) {
          "bit out of sync with hash table");
   if (!HasMetadata)
     return; // Nothing to remove!
-  auto &Info = getContext().pImpl->ValueMetadata[this];
+  MDAttachments &Info = getContext().pImpl->ValueMetadata.find(this)->second;
 
   // Handle removal of an existing value.
   Info.erase(KindID);
@@ -1455,7 +1451,7 @@ bool Value::eraseMetadata(unsigned KindID) {
   if (!HasMetadata)
     return false;
 
-  auto &Store = getContext().pImpl->ValueMetadata[this];
+  MDAttachments &Store = getContext().pImpl->ValueMetadata.find(this)->second;
   bool Changed = Store.erase(KindID);
   if (Store.empty())
     clearMetadata();
@@ -1478,7 +1474,11 @@ void Instruction::setMetadata(StringRef Kind, MDNode *Node) {
 }
 
 MDNode *Instruction::getMetadataImpl(StringRef Kind) const {
-  return getMetadataImpl(getContext().getMDKindID(Kind));
+  const LLVMContext &Ctx = getContext();
+  unsigned KindID = Ctx.getMDKindID(Kind);
+  if (KindID == LLVMContext::MD_dbg)
+    return DbgLoc.getAsMDNode();
+  return Value::getMetadata(KindID);
 }
 
 void Instruction::dropUnknownNonDebugMetadata(ArrayRef<unsigned> KnownIDs) {
@@ -1492,7 +1492,7 @@ void Instruction::dropUnknownNonDebugMetadata(ArrayRef<unsigned> KnownIDs) {
   KnownSet.insert(LLVMContext::MD_DIAssignID);
 
   auto &MetadataStore = getContext().pImpl->ValueMetadata;
-  auto &Info = MetadataStore[this];
+  MDAttachments &Info = MetadataStore.find(this)->second;
   assert(!Info.empty() && "bit out of sync with hash table");
   Info.remove_if([&KnownSet](const MDAttachments::Attachment &I) {
     return !KnownSet.count(I.MDKind);
@@ -1615,7 +1615,7 @@ AAMDNodes Instruction::getAAMetadata() const {
   // Not using Instruction::hasMetadata() because we're not interested in
   // DebugInfoMetadata.
   if (Value::hasMetadata()) {
-    const auto &Info = getContext().pImpl->ValueMetadata[this];
+    const MDAttachments &Info = getContext().pImpl->ValueMetadata.at(this);
     Result.TBAA = Info.lookup(LLVMContext::MD_tbaa);
     Result.TBAAStruct = Info.lookup(LLVMContext::MD_tbaa_struct);
     Result.Scope = Info.lookup(LLVMContext::MD_alias_scope);
@@ -1639,13 +1639,6 @@ void Instruction::setAAMetadata(const AAMDNodes &N) {
 void Instruction::setNoSanitizeMetadata() {
   setMetadata(llvm::LLVMContext::MD_nosanitize,
               llvm::MDNode::get(getContext(), std::nullopt));
-}
-
-MDNode *Instruction::getMetadataImpl(unsigned KindID) const {
-  // Handle 'dbg' as a special case since it is not stored in the hash table.
-  if (KindID == LLVMContext::MD_dbg)
-    return DbgLoc.getAsMDNode();
-  return Value::getMetadata(KindID);
 }
 
 void Instruction::getAllMetadataImpl(

@@ -360,6 +360,8 @@ bool llvm::isTriviallyVectorizable(Intrinsic::ID ID) {
   case Intrinsic::canonicalize:
   case Intrinsic::fptosi_sat:
   case Intrinsic::fptoui_sat:
+  case Intrinsic::lrint:
+  case Intrinsic::llrint:
     return true;
   default:
     return false;
@@ -391,6 +393,8 @@ bool llvm::isVectorIntrinsicWithOverloadTypeAtArg(Intrinsic::ID ID,
   switch (ID) {
   case Intrinsic::fptosi_sat:
   case Intrinsic::fptoui_sat:
+  case Intrinsic::lrint:
+  case Intrinsic::llrint:
     return OpdIdx == -1 || OpdIdx == 0;
   case Intrinsic::is_fpclass:
     return OpdIdx == 0;
