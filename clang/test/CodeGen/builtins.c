@@ -63,6 +63,13 @@ int main(void) {
   P(isinf, (1.));
   P(isinf_sign, (1.));
   P(isnan, (1.));
+<<<<<<< HEAD
+=======
+  P(isfinite, (1.));
+  P(iszero, (1.));
+  P(issubnormal, (1.));
+  P(issignaling, (1.));
+>>>>>>> fc7198b799b0f9dc9e27b5ae4334e5c1b1c89b6e
   P(isfpclass, (1., 1));
 
   // Bitwise & Numeric Functions
@@ -276,6 +283,18 @@ void test_float_builtins(__fp16 *H, float F, double D, long double LD) {
   // CHECK: fcmp uge float {{.*}}, 0x3810000000000000
   // CHECK: and i1
   // CHECK: and i1
+
+  res = __builtin_issubnormal(F);
+  // CHECK: [[TMP:%.*]] = call i1 @llvm.is.fpclass.f32(float {{.*}}, i32 144)
+  // CHECK: zext i1 [[TMP]] to i32
+
+  res = __builtin_iszero(F);
+  // CHECK: [[TMP:%.*]] = call i1 @llvm.is.fpclass.f32(float {{.*}}, i32 96)
+  // CHECK: zext i1 [[TMP]] to i32
+
+  res = __builtin_issignaling(F);
+  // CHECK: [[TMP:%.*]] = call i1 @llvm.is.fpclass.f32(float {{.*}}, i32 1)
+  // CHECK: zext i1 [[TMP]] to i32
 
   res = __builtin_flt_rounds();
   // CHECK: call i32 @llvm.get.rounding(
