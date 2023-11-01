@@ -160,7 +160,7 @@ if(INTEL_CUSTOMIZATION)
     append_if(LLVM_ENABLE_WERROR -Wno-error=pedantic CMAKE_CXX_FLAGS)
     append_if(LLVM_ENABLE_WERROR -Wno-error=strict-aliasing CMAKE_CXX_FLAGS)
    endif()
-endif()
+endif(INTEL_CUSTOMIZATION)
 
 if("${COMPILER_RT_TEST_COMPILER}" MATCHES "clang[+]*$")
   set(COMPILER_RT_TEST_COMPILER_ID Clang)

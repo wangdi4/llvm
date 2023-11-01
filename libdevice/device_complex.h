@@ -181,7 +181,7 @@ double __complex__ __devicelib___divdc3(double a, double b, double c, double d);
 DEVICE_EXTERN_C
 float __complex__ __devicelib___divsc3(float a, float b, float c, float d);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 DEVICE_EXTERN_C
 float __complex__ __devicelib_cexp10f(float __complex__ z);
 
@@ -193,6 +193,6 @@ float __complex__ __devicelib_clog10f(float __complex__ z);
 
 DEVICE_EXTERN_C
 double __complex__ __devicelib_clog10(double __complex__ z);
-#endif
+#endif // INTEL_CUSTOMIZATION
 #endif // __SPIR__
 #endif // __LIBDEVICE_DEVICE_COMPLEX_H_

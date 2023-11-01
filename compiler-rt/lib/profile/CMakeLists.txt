@@ -107,8 +107,10 @@ include_directories(../../include)
 if(FUCHSIA OR UNIX)
  set(EXTRA_FLAGS
      -fPIC
+#INTEL_CUSTOMIZATION
      -Wno-pedantic
      -Wno-cast-qual)
+#end INTEL_CUSTOMIZATION
 endif()
 
 if(COMPILER_RT_TARGET_HAS_ATOMICS)

@@ -83,11 +83,11 @@ if(INTEL_CUSTOMIZATION)
   if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
     append_if(LLVM_ENABLE_WERROR -Wno-error CMAKE_C_FLAGS)
   endif()
-endif()
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "AIX")
-  include(CompilerRTAIXUtils)
-endif()
+  if(${CMAKE_SYSTEM_NAME} MATCHES "AIX")
+    include(CompilerRTAIXUtils)
+  endif()
+endif(INTEL_CUSTOMIZATION)
 
 option(COMPILER_RT_BUILTINS_HIDE_SYMBOLS
   "Do not export any symbols from the static library." ON)

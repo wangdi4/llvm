@@ -204,7 +204,7 @@ check_library_exists(irc __intel_cpu_features_init_x "" COMPILER_RT_HAS_LIBIRC)
 if (COMPILER_RT_HAS_LIBIRC)
   list(APPEND CMAKE_REQUIRED_LIBRARIES irc)
 endif()
-#END INTEL_CUSTOMIZATION
+#end INTEL_CUSTOMIZATION
 
 check_library_exists(m pow "" COMPILER_RT_HAS_LIBM)
 check_library_exists(pthread pthread_create "" COMPILER_RT_HAS_LIBPTHREAD)
