@@ -2216,7 +2216,7 @@ static QualType getDTransCtorListType(ASTContext &Ctx, const char *GlobalName,
   RD->completeDefinition();
   QualType StructTy = Ctx.getRecordType(RD);
   return Ctx.getConstantArrayType(StructTy, llvm::APInt{64, NumElts}, nullptr,
-                                  ArrayType::Normal, 0);
+                                  ArraySizeModifier::Normal, 0);
 }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
@@ -3587,7 +3587,7 @@ static void emitUsed(CodeGenModule &CGM, StringRef Name,
     QualType EltTy = Ctx.getPointerType(Ctx.CharTy);
     QualType ArrTy =
         Ctx.getConstantArrayType(EltTy, llvm::APInt{64, UsedArray.size()},
-                                 nullptr, ArrayType::Normal, 0);
+                                 nullptr, ArraySizeModifier::Normal, 0);
     CGM.addDTransInfoToGlobal(ArrTy, nullptr, GV, GV->getValueType());
   }
 #endif // INTEL_FEATURE_SW_DTRANS

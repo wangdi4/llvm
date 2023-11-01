@@ -630,7 +630,7 @@ QualType DTransInfoGenerator::FixupPaddingType(llvm::Type *LLVMType) {
         /*signed*/ 0);
     return CGM.getContext().getConstantArrayType(
         ElemTy, llvm::APInt(64, LLVMType->getArrayNumElements()), nullptr,
-        clang::ArrayType::Normal, 0);
+        clang::ArraySizeModifier::Normal, 0);
   }
   llvm_unreachable("Unknown padding type");
 }

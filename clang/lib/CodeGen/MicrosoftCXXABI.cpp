@@ -882,9 +882,10 @@ public:
         /*Bitwidth*/ nullptr, /*mutable*/ false, ICIS_NoInit);
     RuntimeData->setAccess(AS_public);
 
-    QualType NameTy = Ctx.getConstantArrayType(
-        Ctx.Char8Ty, {64, NameLen}, /*SizeExpr*/ nullptr, ArrayType::Normal,
-        /*IndexTypeQuals*/ 0);
+    QualType NameTy = Ctx.getConstantArrayType(Ctx.Char8Ty, {64, NameLen},
+                                               /*SizeExpr*/ nullptr,
+                                               ArraySizeModifier::Normal,
+                                               /*IndexTypeQuals*/ 0);
     FieldDecl *Name =
         FieldDecl::Create(Ctx, RD, SourceLocation{}, SourceLocation{},
                           /*IdentifierInfo*/ nullptr, NameTy, /*TInfo*/ nullptr,
