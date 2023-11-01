@@ -683,15 +683,9 @@ private:
     return PrevTokLocation;
   }
 
-<<<<<<< HEAD
-  /// When we are consuming a code-completion token without having
-  /// matched specific position in the grammar, provide code-completion results
-  /// based on context.
-=======
   /// When we are consuming a code-completion token without having matched
   /// specific position in the grammar, provide code-completion results based
   /// on context.
->>>>>>> 4f5d463505b3e313cd3943132e7b2784a65c39d9
   ///
   /// \returns the source location of the code-completion token.
   SourceLocation handleUnexpectedCodeCompletionToken();
