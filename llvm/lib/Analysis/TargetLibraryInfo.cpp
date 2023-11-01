@@ -37,6 +37,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Operator.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -195,15 +196,15 @@ bool TargetLibraryInfo::isValidCallForVectorization(const CallBase &CB) const {
   return IsValidMathLibFunc;
 }
 
-static bool isCpuFeatureAvailableForTarget(StringRef CpuFeature,
-                                           const TargetTransformInfo *TTI) {
-  if (CpuFeature.empty())
+static bool isISAAvailableInTarget(VFISAKind ISA,
+                                   const TargetTransformInfo *TTI) {
+  if (ISA == VFISAKind::Unknown || ISA == VFISAKind::LLVM)
     return true;
   if (!TTI)
     return false;
 
   bool IsAvailableForTgt = true;
-  if (CpuFeature == "avx" &&
+  if (ISA == VFISAKind::AVX &&
       !TTI->isAdvancedOptEnabled(
           TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX))
     IsAvailableForTgt = false;
@@ -216,11 +217,11 @@ bool TargetLibraryInfo::isFunctionVectorizable(
     const TargetTransformInfo *TTI) const {
   Function *F = CB.getCalledFunction();
   StringRef CalledFnName = F->getName();
-  // If the vector library function needs any specific CPU feature then check
+  // If the vector library function needs any specific ISA then check
   // for its availability in the target being compiled for.
-  StringRef ReqdCpuFeature = getVectorFuncReqdCpuFeature(CalledFnName, VF);
+  VFISAKind ReqdISA = getVectorFuncReqdISA(CalledFnName, VF);
   return isValidCallForVectorization(CB) &&
-         isCpuFeatureAvailableForTarget(ReqdCpuFeature, TTI) &&
+         isISAAvailableInTarget(ReqdISA, TTI) &&
          isFunctionVectorizable(CalledFnName, VF, IsMasked, TTI);
 }
 
@@ -6249,20 +6250,31 @@ bool TargetLibraryInfoImpl::isFortranOnlyVectorFunction(
   return false;
 }
 
-StringRef TargetLibraryInfoImpl::getVectorFuncReqdCpuFeature(
-    StringRef FuncName, const ElementCount &VF) const {
+VFISAKind
+TargetLibraryInfoImpl::getVectorFuncReqdISA(StringRef FuncName,
+                                            const ElementCount &VF) const {
   FuncName = sanitizeFunctionName(FuncName);
-  if (FuncName.empty())
-    return "";
+  // Ignore scalable vector functions since they need Module for demangling.
+  // TODO: Enable functionality for scalable vector functions. We need acess to
+  // llvm::Module here.
+  if (FuncName.empty() || VF.isScalable())
+    return VFISAKind::Unknown;
 
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
   while (I != VectorDescs.end() && StringRef(I->getScalarFnName()) == FuncName) {
-    if (I->getVectorizationFactor() == VF)
-      return I->getReqdCpuFeature();
+    if (I->getVectorizationFactor() == VF) {
+      // Get the mangled name for this entry in the table and obtain ISA
+      // information by demangling it.
+      std::string MangledName = I->getVectorFunctionABIVariantString();
+      auto DemangledInfo = VFABI::tryDemangleForVFABI(MangledName);
+      if (DemangledInfo)
+        return DemangledInfo->getISA();
+      return VFISAKind::Unknown;
+    }
     ++I;
   }
-  return "";
+  return VFISAKind::Unknown;
 }
 
 bool TargetLibraryInfoImpl::isOMPLibFunc(LibFunc F) const {
@@ -6380,8 +6392,9 @@ TargetLibraryInfoImpl::getVectorMappingInfo(StringRef F, const ElementCount &VF,
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, F, compareWithScalarFnName);
   while (I != VectorDescs.end() && StringRef(I->getScalarFnName()) == F) {
+    VFISAKind ReqdISA = getVectorFuncReqdISA(F, VF);
     if ((I->getVectorizationFactor() == VF) && (I->isMasked() == Masked) &&
-        isCpuFeatureAvailableForTarget(I->getReqdCpuFeature(), TTI))
+        isISAAvailableInTarget(ReqdISA, TTI))
       return &(*I);
     ++I;
   }
