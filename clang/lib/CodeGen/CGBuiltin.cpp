@@ -3865,22 +3865,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       return RValue::get(Builder.CreateZExt(V, ConvertType(E->getType())));
     }
 
-<<<<<<< HEAD
     if (Value *Result = getTargetHooks().testFPKind(V, BuiltinID, Builder, CGM))
-=======
-  case Builtin::BI__builtin_issignaling: {
-    CodeGenFunction::CGFPOptionsRAII FPOptsRAII(*this, E);
-    Value *V = EmitScalarExpr(E->getArg(0));
-    return RValue::get(
-        Builder.CreateZExt(Builder.createIsFPClass(V, FPClassTest::fcSNan),
-                           ConvertType(E->getType())));
-  }
-
-  case Builtin::BI__builtin_isinf: {
-    CodeGenFunction::CGFPOptionsRAII FPOptsRAII(*this, E);
-    Value *V = EmitScalarExpr(E->getArg(0));
-    if (Value *Result = tryUseTestFPKind(*this, BuiltinID, V))
->>>>>>> fc7198b799b0f9dc9e27b5ae4334e5c1b1c89b6e
       return RValue::get(Result);
 
     // NaN has all exp bits set and a non zero significand. Therefore:
@@ -3900,6 +3885,14 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       V = Builder.CreateTrunc(V, ConvertType(E->getType()));
     return RValue::get(V);
 #endif // INTEL_CUSTOMIZATION
+  }
+
+  case Builtin::BI__builtin_issignaling: {
+    CodeGenFunction::CGFPOptionsRAII FPOptsRAII(*this, E);
+    Value *V = EmitScalarExpr(E->getArg(0));
+    return RValue::get(
+        Builder.CreateZExt(Builder.createIsFPClass(V, FPClassTest::fcSNan),
+                           ConvertType(E->getType())));
   }
 
   case Builtin::BI__builtin_issubnormal: {

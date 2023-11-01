@@ -63,13 +63,10 @@ int main(void) {
   P(isinf, (1.));
   P(isinf_sign, (1.));
   P(isnan, (1.));
-<<<<<<< HEAD
-=======
   P(isfinite, (1.));
   P(iszero, (1.));
   P(issubnormal, (1.));
   P(issignaling, (1.));
->>>>>>> fc7198b799b0f9dc9e27b5ae4334e5c1b1c89b6e
   P(isfpclass, (1., 1));
 
   // Bitwise & Numeric Functions
