@@ -1,7 +1,8 @@
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -hir-loop-blocking-skip-anti-pattern-check=false -disable-output 2>&1 < %s | FileCheck %s
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -hir-loop-blocking-skip-anti-pattern-check=true -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that the loop is blocked.
-; Notice that still the input is recognized a trivial anti-pattern. To enable loop blocking currenlty -hir-loop-blocking-skip-anti-pattern-check is used.
+; Notice that the input is not recognized a trivial anti-pattern even when anti-pattern-check is turned on.
 
 ; Before Transformation
 ;

@@ -56,11 +56,17 @@ include_directories(
 
 include_directories(${BACKEND_ROOT_DIR}/arch_headers)
 
-add_opencl_library(${TARGET_NAME} STATIC ${TARGET_INCLUDE_FILES}
-                   ${TARGET_SOURCE_FILES} ${UTILS_ASM_ADD_TO_SOURCES_LIST})
-
-target_link_libraries(${TARGET_NAME} LLVMSYCLTransforms LLVMOrcJIT
-                      LLVMSupport)
+add_opencl_library(
+  ${TARGET_NAME}
+  STATIC
+  ${TARGET_INCLUDE_FILES}
+  ${TARGET_SOURCE_FILES}
+  ${UTILS_ASM_ADD_TO_SOURCES_LIST}
+  LINK_LIBS
+  LLVMOrcJIT
+  LLVMSYCLTransforms
+  LLVMSupport
+  cl_sys_utils)
 
 if(OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME} intrinsics_gen)

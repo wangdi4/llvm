@@ -27,7 +27,8 @@ add_opencl_library(
   STATIC
   ${TARGET_SOURCE_FILES}
   ${TARGET_INCLUDE_FILES}
-  COMPONENTS
+  LINK_LIBS
+  cl_sys_utils
   cpu_device)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME})

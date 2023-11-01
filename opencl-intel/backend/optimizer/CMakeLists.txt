@@ -41,14 +41,14 @@ add_opencl_library(
   STATIC
   ${TARGET_INCLUDE_FILES}
   ${TARGET_SOURCE_FILES}
-  COMPONENTS
-  OclBackendUtils
   LINK_LIBS
   LLVMPasses
   LLVMSPIRVLib
   LLVMSYCLTransforms
   LLVMScalarOpts
-  LLVMVectorize)
+  LLVMVectorize
+  OclBackendUtils
+  cl_sys_utils)
 
 if(OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME}

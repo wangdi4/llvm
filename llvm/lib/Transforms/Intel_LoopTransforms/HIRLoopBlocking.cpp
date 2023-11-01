@@ -1785,6 +1785,15 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
 // already unit-strided.
 // Blocking outer loop only doesn't help, because it is
 // mere strip-mining.
+// anti-pattern.ll contains a case from coremark-pro.
+// + DO i1 = 0, %N + -1, 1   <DO_LOOP>
+// |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>
+// |   |   %1 = (%B)[i2];
+// |   |   %mul5 = (%A)[%N * i1 + i2]  *  %1;
+// |   |   %add7 = %1  +  %mul5;
+// |   |   (%B)[i2] = %add7;
+// |   + END LOOP
+// + END LOOP
 static bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
                                  unsigned InnermostLevel,
                                  unsigned OutermostLevel) {
@@ -1808,7 +1817,7 @@ static bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
     }
   }
 
-  return Count / ((float)Refs.size()) >= 0.4;
+  return Count / ((float)Refs.size()) >= 0.9;
 }
 
 static bool
