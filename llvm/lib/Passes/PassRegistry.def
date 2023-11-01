@@ -847,7 +847,7 @@ FUNCTION_PASS("hir-pragma-loop-blocking", loopopt::HIRPragmaLoopBlockingPass())
 FUNCTION_PASS("hir-generate-mkl-call", loopopt::HIRGenerateMKLCallPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", OptReportEmitterPass())
 FUNCTION_PASS("vplan-pragma-omp-simd-if", VPlanPragmaOmpSimdIfPass())
-FUNCTION_PASS("vplan-vec", vpo::VPlanDriverPass());
+FUNCTION_PASS("vplan-vec", vpo::VPlanDriverLLVMPass());
 FUNCTION_PASS("vplan-func-vec", vpo::VPlanFunctionVectorizerPass());
 FUNCTION_PASS("vpo-directive-cleanup", VPODirectiveCleanupPass())
 FUNCTION_PASS("map-intrin-to-iml",vpo::MapIntrinToImlPass())

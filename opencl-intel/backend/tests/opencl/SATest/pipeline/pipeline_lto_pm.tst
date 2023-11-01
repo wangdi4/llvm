@@ -92,7 +92,7 @@
 ; CHECK:      Running pass: LICMPass
 
 ; CHECK-NOT:  Running pass: VecClonePass
-; CHECK:      Running pass: vpo::VPlanDriverPass
+; CHECK:      Running pass: vpo::VPlanDriverLLVMPass
 
 ; CHECK:      Running pass: SYCLKernelPostVecPass
 ; CHECK:      Running pass: InstCombinePass

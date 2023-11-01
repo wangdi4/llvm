@@ -340,7 +340,7 @@
 ; CHECK-DEFAULT-NEXT:  Running analysis: DominatorTreeAnalysis
 ; CHECK-DEFAULT-NEXT:  Running analysis: LoopAnalysis
 ; CHECK-DEFAULT-NEXT:  Running pass: MathLibraryFunctionsReplacementPass
-; CHECK-DEFAULT-NEXT:  Running pass: vpo::VPlanDriverPass
+; CHECK-DEFAULT-NEXT:  Running pass: vpo::VPlanDriverLLVMPass
 ; CHECK-DEFAULT-NEXT:  Running analysis: ScalarEvolutionAnalysis
 ; CHECK-DEFAULT-DAG:   Running analysis: TargetLibraryAnalysis
 ; CHECK-DEFAULT-DAG:   Running analysis: AssumptionAnalysis

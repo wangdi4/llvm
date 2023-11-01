@@ -26,7 +26,7 @@ namespace vpo {
 class VPlanDriverHIRImpl;
 class VPlanDriverLLVMImpl;
 
-class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {
+class VPlanDriverLLVMPass : public PassInfoMixin<VPlanDriverLLVMPass> {
   VPlanDriverLLVMImpl *Impl = nullptr;
   static bool RunForSycl;
   static bool RunForO0;
@@ -34,10 +34,10 @@ class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {
   static VecErrorHandlerTy VecErrorHandler;
 
 public:
-  VPlanDriverPass();
-  VPlanDriverPass(const VPlanDriverPass &) noexcept;
-  VPlanDriverPass &operator=(const VPlanDriverPass &) = delete;
-  ~VPlanDriverPass();
+  VPlanDriverLLVMPass();
+  VPlanDriverLLVMPass(const VPlanDriverLLVMPass &) noexcept;
+  VPlanDriverLLVMPass &operator=(const VPlanDriverLLVMPass &) = delete;
+  ~VPlanDriverLLVMPass();
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   static void setRunForSycl(bool isSycl) { RunForSycl = isSycl; }
   static void setRunForO0(bool isO0Vec) { RunForO0 = isO0Vec; }

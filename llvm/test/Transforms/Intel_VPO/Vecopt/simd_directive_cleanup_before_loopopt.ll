@@ -7,7 +7,7 @@
 ; CHECK-NOT: IR Dump After vpo::VPlanDriverHIRPass
 
 ; Check that VPlan didn't vectorize loop (SIMD directive will be present)
-; CHECK-LABEL: IR Dump After {{VPlan Vectorizer|vpo::VPlanDriverPass on main}}
+; CHECK-LABEL: IR Dump After {{VPlan Vectorizer|vpo::VPlanDriverLLVMPass on main}}
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
 
 ; CHECK-NOT: IR Dump After vpo::VPlanDriverHIRPass

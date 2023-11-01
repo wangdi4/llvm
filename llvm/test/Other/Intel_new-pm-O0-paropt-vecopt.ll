@@ -100,7 +100,7 @@
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo
-;CHECK-NEXT: Running pass: vpo::VPlanDriverPass on foo
+;CHECK-NEXT: Running pass: vpo::VPlanDriverLLVMPass on foo
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-DAG:  Running analysis: TargetLibraryAnalysis on foo
 ;CHECK-DAG:  Running analysis: AssumptionAnalysis on foo
