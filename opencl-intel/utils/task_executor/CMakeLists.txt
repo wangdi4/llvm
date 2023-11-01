@@ -59,10 +59,10 @@ add_opencl_library(
   ${CL_API_HEADERS}
   ${CMAKE_CURRENT_SOURCE_DIR} # keep it here for windows
   ${OCL_BINARY_DIR}
-  COMPONENTS
-  cl_logger
   LINK_LIBS
-  LLVMIntelJITEvents)
+  LLVMIntelJITEvents
+  cl_logger
+  cl_sys_utils)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME})
 

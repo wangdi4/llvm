@@ -30,7 +30,10 @@ add_opencl_library(
   ${BACKEND_ROOT_DIR}/dynamic_lib
   ${CL_API_HEADERS}
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
-  ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export)
+  ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
+  LINK_LIBS
+  cl_sys_utils
+  dynamic_load)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
                                                 ${BACKEND_FOLDER_NAME}/plugins)

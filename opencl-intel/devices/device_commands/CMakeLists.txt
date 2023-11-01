@@ -25,6 +25,8 @@ add_opencl_library(
   STATIC
   ${TARGET_SOURCES}
   INCLUDE_DIRS
-  ${CL_API_HEADERS})
+  ${CL_API_HEADERS}
+  LINK_LIBS
+  cl_sys_utils)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME})
