@@ -543,17 +543,17 @@ bool VPlanDriverLLVMImpl::formLCSSAIfNeeded(Loop *Lp) {
   return false;
 }
 
-VPlanDriverPass::VPlanDriverPass() { Impl = new VPlanDriverLLVMImpl(); }
+VPlanDriverLLVMPass::VPlanDriverLLVMPass() { Impl = new VPlanDriverLLVMImpl(); }
 
-VPlanDriverPass::VPlanDriverPass(const VPlanDriverPass &P) noexcept
-    : PassInfoMixin<VPlanDriverPass>(P) {
+VPlanDriverLLVMPass::VPlanDriverLLVMPass(const VPlanDriverLLVMPass &P) noexcept
+    : PassInfoMixin<VPlanDriverLLVMPass>(P) {
   Impl = new VPlanDriverLLVMImpl();
 }
 
-VPlanDriverPass::~VPlanDriverPass() { delete Impl; }
+VPlanDriverLLVMPass::~VPlanDriverLLVMPass() { delete Impl; }
 
-PreservedAnalyses VPlanDriverPass::run(Function &F,
-                                       FunctionAnalysisManager &AM) {
+PreservedAnalyses VPlanDriverLLVMPass::run(Function &F,
+                                           FunctionAnalysisManager &AM) {
 
   auto SE = &AM.getResult<ScalarEvolutionAnalysis>(F);
   auto DT = &AM.getResult<DominatorTreeAnalysis>(F);

@@ -103,10 +103,10 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
   PrintPassOpts.Verbose = getDebugPM() == DebugLogging::Verbose;
   PrintPassOpts.SkipAnalyses = getDebugPM() == DebugLogging::Quiet;
 #if INTEL_CUSTOMIZATION
-  vpo::VPlanDriverPass::setRunForSycl(m_IsSYCL);
-  vpo::VPlanDriverPass::setRunForO0(SYCLEnableO0Vectorization &&
-                                    Level == OptimizationLevel::O0);
-  vpo::VPlanDriverPass::setVecErrorHandler(
+  vpo::VPlanDriverLLVMPass::setRunForSycl(m_IsSYCL);
+  vpo::VPlanDriverLLVMPass::setRunForO0(SYCLEnableO0Vectorization &&
+                                        Level == OptimizationLevel::O0);
+  vpo::VPlanDriverLLVMPass::setVecErrorHandler(
       [](Function *F, vpo::VecErrorKind K) {
         F->addFnAttr(KernelAttribute::VectorVariantFailure,
                      K == vpo::VecErrorKind::Bailout ? "Bailout" : "Fatal");
@@ -507,7 +507,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
           /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
     }
     FPM2.addPass(VPOCFGRestructuringPass());
-    FPM2.addPass(vpo::VPlanDriverPass());
+    FPM2.addPass(vpo::VPlanDriverLLVMPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM2)));
     MPM.addPass(SYCLKernelPostVecPass());
 

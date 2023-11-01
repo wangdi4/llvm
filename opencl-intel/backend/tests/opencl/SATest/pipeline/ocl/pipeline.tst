@@ -164,7 +164,7 @@
 ; CHECK-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-NEXT: Running pass: LCSSAPass
 ; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-NEXT: Running pass: vpo::VPlanDriverPass
+; CHECK-NEXT: Running pass: vpo::VPlanDriverLLVMPass
 
 ; CHECK:      Running pass: PromotePass
 
@@ -175,7 +175,7 @@
 ; CHECK:      Running pass: LCSSAPass
 ; CHECK-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-NEXT: Running pass: LCSSAPass
-; CHECK:      Running pass: vpo::VPlanDriverPass
+; CHECK:      Running pass: vpo::VPlanDriverLLVMPass
 
 ; CHECK:      Running pass: SYCLKernelPostVecPass
 ; CHECK:      Running pass: VPODirectiveCleanupPass

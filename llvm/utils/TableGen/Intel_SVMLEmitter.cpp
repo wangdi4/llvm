@@ -492,13 +492,13 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
 
   OS << "{\"for_random_number\", \"for_simd_random_number\", FIXED(2), false, \"_ZGV_LLVM_N2v\", " << IsFortranOnlyAttr << "},\n";
   OS << "{\"for_random_number\", \"for_simd_random_number_mask\", FIXED(2), true, \"_ZGV_LLVM_M2v\", " << IsFortranOnlyAttr << "},\n";
-  OS << "{\"for_random_number\", \"for_simd_random_number_avx\", FIXED(4), false, \"_ZGV_LLVM_N4v\", " << IsFortranOnlyAttr << ", \"avx\"},\n";
-  OS << "{\"for_random_number\", \"for_simd_random_number_avx_mask\", FIXED(4), true, \"_ZGV_LLVM_M4v\", " << IsFortranOnlyAttr << ", \"avx\"},\n";
+  OS << "{\"for_random_number\", \"for_simd_random_number_avx\", FIXED(4), false, \"_ZGVcN4v\", " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number\", \"for_simd_random_number_avx_mask\", FIXED(4), true, \"_ZGVcM4v\", " << IsFortranOnlyAttr << "},\n";
 
   OS << "{\"for_random_number_single\", \"for_simd_random_number_single\", FIXED(4), false, \"_ZGV_LLVM_N4v\", " << IsFortranOnlyAttr << "},\n";
   OS << "{\"for_random_number_single\", \"for_simd_random_number_single_mask\", FIXED(4), true, \"_ZGV_LLVM_M4v\", " << IsFortranOnlyAttr << "},\n";
-  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_avx\", FIXED(8), false, \"_ZGV_LLVM_N8v\", " << IsFortranOnlyAttr << ", \"avx\"},\n";
-  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_avx_mask\", FIXED(8), true, \"_ZGV_LLVM_M8v\", " << IsFortranOnlyAttr << ", \"avx\"},\n";
+  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_avx\", FIXED(8), false, \"_ZGVcN8v\", " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_avx_mask\", FIXED(8), true, \"_ZGVcM8v\", " << IsFortranOnlyAttr << "},\n";
 
   OS << "#endif // GET_SVML_VARIANTS\n\n";
 }

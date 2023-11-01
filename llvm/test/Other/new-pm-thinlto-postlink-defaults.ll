@@ -257,7 +257,7 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: MathLibraryFunctionsReplacementPass
-; CHECK-POSTLINK-O-NEXT: Running pass: vpo::VPlanDriverPass
+; CHECK-POSTLINK-O-NEXT: Running pass: vpo::VPlanDriverLLVMPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-POSTLINK-O-DAG:  Running analysis: TargetLibraryAnalysis
 ; CHECK-POSTLINK-O-DAG:  Running analysis: AssumptionAnalysis

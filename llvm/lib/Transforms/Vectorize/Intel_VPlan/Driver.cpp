@@ -100,9 +100,9 @@ cl::opt<bool, true> VPlanEnableGeneralPeelingHIROptn(
         "(-vplan-enable-peeling-hir) to be enabled. When false disables any "
         "peeling. Pragma [no]dynamic_align always overrides both switches."));
 
-bool VPlanDriverPass::RunForSycl = false;
-bool VPlanDriverPass::RunForO0 = false;
-VecErrorHandlerTy VPlanDriverPass::VecErrorHandler = nullptr;
+bool VPlanDriverLLVMPass::RunForSycl = false;
+bool VPlanDriverLLVMPass::RunForO0 = false;
+VecErrorHandlerTy VPlanDriverLLVMPass::VecErrorHandler = nullptr;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 cl::opt<bool, true> VPlanPrintInitOpt(

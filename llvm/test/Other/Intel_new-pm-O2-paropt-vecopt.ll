@@ -318,7 +318,7 @@
 ;             Running analysis: DominatorTreeAnalysis
 ;             Running analysis: LoopAnalysis
 ; CHECK:      Running pass: MathLibraryFunctionsReplacementPass ;INTEL
-; CHECK:      Running pass: vpo::VPlanDriverPass
+; CHECK:      Running pass: vpo::VPlanDriverLLVMPass
 ;             Running analysis: ScalarEvolutionAnalysis
 ;             Running analysis: TargetLibraryAnalysis
 ;             Running analysis: AssumptionAnalysis

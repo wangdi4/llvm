@@ -96,9 +96,9 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   PrintPassOpts.Verbose = getDebugPM() == DebugLogging::Verbose;
   PrintPassOpts.SkipAnalyses = getDebugPM() == DebugLogging::Quiet;
 #if INTEL_CUSTOMIZATION
-  vpo::VPlanDriverPass::setRunForSycl(m_IsSYCL);
-  vpo::VPlanDriverPass::setRunForO0(SYCLEnableO0Vectorization);
-  vpo::VPlanDriverPass::setVecErrorHandler(
+  vpo::VPlanDriverLLVMPass::setRunForSycl(m_IsSYCL);
+  vpo::VPlanDriverLLVMPass::setRunForO0(SYCLEnableO0Vectorization);
+  vpo::VPlanDriverLLVMPass::setVecErrorHandler(
       [](Function *F, vpo::VecErrorKind K) {
         F->addFnAttr(KernelAttribute::VectorVariantFailure,
                      K == vpo::VecErrorKind::Bailout ? "Bailout" : "Fatal");

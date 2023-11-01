@@ -144,7 +144,7 @@
 ; CHECK-O1-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O1-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O1-NEXT: Running pass: MathLibraryFunctionsReplacementPass
-; CHECK-O1-NEXT: Running pass: vpo::VPlanDriverPass
+; CHECK-O1-NEXT: Running pass: vpo::VPlanDriverLLVMPass
 ; CHECK-O1-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-O1-DAG:  Running analysis: TargetLibraryAnalysis
 ; CHECK-O1-DAG:  Running analysis: AssumptionAnalysis
@@ -339,7 +339,7 @@
 ; CHECK-O23SZ-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: MathLibraryFunctionsReplacementPass
-; CHECK-O23SZ-NEXT: Running pass: vpo::VPlanDriverPass
+; CHECK-O23SZ-NEXT: Running pass: vpo::VPlanDriverLLVMPass
 ; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-O23SZ-DAG: Running analysis: TargetLibraryAnalysis
 ; CHECK-O23SZ-DAG: Running analysis: AssumptionAnalysis

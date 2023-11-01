@@ -9,7 +9,7 @@
 ; CHECK:   private-last-value-nonpod-array ptr [[ALLPRIV]] ptr [[TMP4:%.*]]
 ; CHECK:   private-nonpod-array-dtor ptr [[ALLPRIV]]
 
-; CHECK: *** IR Dump After vpo::VPlanDriverPass on _Z3foov ***
+; CHECK: *** IR Dump After vpo::VPlanDriverLLVMPass on _Z3foov ***
 ; Ctor related loops
 ; CHECK:      array.nonpod.private.outer.loop:                  ; preds = %array.nonpod.private.outer.loop.inc, %VPlannedBB1
 ; CHECK-NEXT:   %1 = phi i64 [ 0, %VPlannedBB1 ], [ %7, %array.nonpod.private.outer.loop.inc ]

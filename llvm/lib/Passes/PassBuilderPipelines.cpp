@@ -2517,7 +2517,7 @@ void PassBuilder::addVPlanVectorizer(ModulePassManager &MPM,
   if (EnableDeviceSimd)
     FPM.addPass(InferAddressSpacesPass(vpo::ADDRESS_SPACE_GENERIC));
 
-  FPM.addPass(vpo::VPlanDriverPass());
+  FPM.addPass(vpo::VPlanDriverLLVMPass());
 
   // Split/translate scalar OCL and vector sincos
   if (OptLevel > 0)
@@ -3393,7 +3393,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (Level == OptimizationLevel::O0) {
 #if INTEL_CUSTOMIZATION
     MPM.addPass(InlineReportSetupPass());
-    vpo::VPlanDriverPass::setRunForO0(EnableO0Vectorization);
+    vpo::VPlanDriverLLVMPass::setRunForO0(EnableO0Vectorization);
     if (EnableWPA) {
       // Set the optimization level
       MPM.addPass(XmainOptLevelAnalysisInit(Level.getSpeedupLevel()));
@@ -4128,7 +4128,7 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
   if (RunVPOOpt && RunVPOParopt) {
-    vpo::VPlanDriverPass::setRunForO0(EnableO0Vectorization);
+    vpo::VPlanDriverLLVMPass::setRunForO0(EnableO0Vectorization);
     // Paropt passes and BasicAA (one of Paropt's dependencies), use
     // XmainOptLevelPass.
     MPM.addPass(XmainOptLevelAnalysisInit(Level.getSpeedupLevel()));

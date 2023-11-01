@@ -43,6 +43,7 @@ class Function;
 class Module;
 class Triple;
 class TargetTransformInfo; // INTEL
+enum class VFISAKind;      // INTEL
 
 /// Describes a possible implementation of a floating point builtin operation.
 struct AltMathDesc {
@@ -94,18 +95,16 @@ class VecDesc {
   bool Masked;
   StringRef VABIPrefix;
   VecDescAttrBits AttrBits; // INTEL
-  StringRef ReqdCpuFeature; // INTEL
 
 public:
   VecDesc() = delete;
 #if INTEL_CUSTOMIZATION
   VecDesc(StringRef ScalarFnName, StringRef VectorFnName,
           ElementCount VectorizationFactor, bool Masked, StringRef VABIPrefix,
-          VecDescAttrBits AttrBits = 0, StringRef ReqdCpuFeature = "")
+          VecDescAttrBits AttrBits = 0)
       : ScalarFnName(ScalarFnName), VectorFnName(VectorFnName),
         VectorizationFactor(VectorizationFactor), Masked(Masked),
-        VABIPrefix(VABIPrefix), AttrBits(AttrBits),
-        ReqdCpuFeature(ReqdCpuFeature) {}
+        VABIPrefix(VABIPrefix), AttrBits(AttrBits) {}
 #endif // INTEL_CUSTOMIZATION
 
   StringRef getScalarFnName() const { return ScalarFnName; }
@@ -115,7 +114,6 @@ public:
   StringRef getVABIPrefix() const { return VABIPrefix; }
 #if INTEL_CUSTOMIZATION
   VecDescAttrBits getAttrBits() const { return AttrBits; }
-  StringRef getReqdCpuFeature() const { return ReqdCpuFeature; }
 #endif // INTEL_CUSTOMIZATION
 
   /// Returns a vector function ABI variant string on the form:
@@ -342,11 +340,10 @@ public:
   /// that can be vectorized using its vector library equivalent.
   bool isFortranOnlyVectorFunction(StringRef F) const;
 
-  /// Return the CPU feature that is required to invoke the vector library
-  /// function that corresponds to scalar function \p F for given \p VF. Returns
-  /// empty string if no specific CPU feature is needed.
-  StringRef getVectorFuncReqdCpuFeature(StringRef F,
-                                        const ElementCount &VF) const;
+  /// Return the ISA that is required to invoke the vector library function that
+  /// corresponds to scalar function \p F for given \p VF. Returns
+  /// VFISAKind::Unknown if no specific ISA is needed.
+  VFISAKind getVectorFuncReqdISA(StringRef F, const ElementCount &VF) const;
 
   // True if the provided LibFunc \p F identifies an OpenMP library function,
   // i.e. the LibFunc_kmpc_* LibFuncs.
@@ -632,12 +629,11 @@ public:
     return Impl->isFortranOnlyVectorFunction(F);
   }
 
-  /// Return the CPU feature that is required to invoke the vector library
-  /// function that corresponds to scalar function \p F for given \p VF. Returns
-  /// empty string if no specific CPU feature is needed.
-  StringRef getVectorFuncReqdCpuFeature(StringRef F,
-                                        const ElementCount &VF) const {
-    return Impl->getVectorFuncReqdCpuFeature(F, VF);
+  /// Return the ISA that is required to invoke the vector library function that
+  /// corresponds to scalar function \p F for given \p VF. Returns
+  /// VFISAKind::Unknown if no specific ISA is needed.
+  VFISAKind getVectorFuncReqdISA(StringRef F, const ElementCount &VF) const {
+    return Impl->getVectorFuncReqdISA(F, VF);
   }
 
   // True if the provided LibFunc \p F identifies an OpenMP library function,
