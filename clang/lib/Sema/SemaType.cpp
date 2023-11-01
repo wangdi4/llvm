@@ -5831,8 +5831,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         NestedNameSpecifier *NNSPrefix = NNS->getPrefix();
         switch (NNS->getKind()) {
         case NestedNameSpecifier::Identifier:
-          ClsType = Context.getDependentNameType(ETK_None, NNSPrefix,
-                                                 NNS->getAsIdentifier());
+          ClsType = Context.getDependentNameType(
+              ElaboratedTypeKeyword::None, NNSPrefix, NNS->getAsIdentifier());
           break;
 
         case NestedNameSpecifier::Namespace:
@@ -5850,7 +5850,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
           // NOTE: in particular, no wrap occurs if ClsType already is an
           // Elaborated, DependentName, or DependentTemplateSpecialization.
           if (isa<TemplateSpecializationType>(NNS->getAsType()))
-            ClsType = Context.getElaboratedType(ETK_None, NNSPrefix, ClsType);
+            ClsType = Context.getElaboratedType(ElaboratedTypeKeyword::None,
+                                                NNSPrefix, ClsType);
           break;
         }
       } else {
@@ -6460,7 +6461,7 @@ namespace {
           }
       }
       const ElaboratedType *T = TL.getTypePtr();
-      TL.setElaboratedKeywordLoc(T->getKeyword() != ETK_None
+      TL.setElaboratedKeywordLoc(T->getKeyword() != ElaboratedTypeKeyword::None
                                      ? DS.getTypeSpecTypeLoc()
                                      : SourceLocation());
       const CXXScopeSpec& SS = DS.getTypeSpecScope();
