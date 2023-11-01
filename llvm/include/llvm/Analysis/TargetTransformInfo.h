@@ -1689,6 +1689,15 @@ public:
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;
 
+  /// Returns a penalty for invoking call \p Call in \p F.
+  /// For example, if a function F calls a function G, which in turn calls
+  /// function H, then getInlineCallPenalty(F, H()) would return the
+  /// penalty of calling H from F, e.g. after inlining G into F.
+  /// \p DefaultCallPenalty is passed to give a default penalty that
+  /// the target can amend or override.
+  unsigned getInlineCallPenalty(const Function *F, const CallBase &Call,
+                                unsigned DefaultCallPenalty) const;
+
   /// \returns True if the caller and callee agree on how \p Types will be
   /// passed to or returned from the callee.
   /// to the callee.
@@ -2244,6 +2253,8 @@ public:
       std::optional<uint32_t> AtomicCpySize) const = 0;
   virtual bool areInlineCompatible(const Function *Caller,
                                    const Function *Callee) const = 0;
+  virtual unsigned getInlineCallPenalty(const Function *F, const CallBase &Call,
+                                        unsigned DefaultCallPenalty) const = 0;
   virtual bool areTypesABICompatible(const Function *Caller,
                                      const Function *Callee,
                                      const ArrayRef<Type *> &Types) const = 0;
@@ -3032,6 +3043,10 @@ public:
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const override {
     return Impl.areInlineCompatible(Caller, Callee);
+  }
+  unsigned getInlineCallPenalty(const Function *F, const CallBase &Call,
+                                unsigned DefaultCallPenalty) const override {
+    return Impl.getInlineCallPenalty(F, Call, DefaultCallPenalty);
   }
   bool areTypesABICompatible(const Function *Caller, const Function *Callee,
                              const ArrayRef<Type *> &Types) const override {
