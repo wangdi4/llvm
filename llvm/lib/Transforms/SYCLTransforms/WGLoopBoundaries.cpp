@@ -1422,7 +1422,7 @@ bool WGLoopBoundariesImpl::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
   assert(Br->getParent() == &(F->getEntryBlock()) &&
          "expected entry block branch");
   Value *Cond = Br->getCondition();
-  if (isa<ConstantInt>(Cond))
+  if (isa<ConstantInt>(Cond) || isa<ConstantExpr>(Cond))
     return false;
   auto *CondInst = dyn_cast<Instruction>(Cond);
   // Generally we can handle this but this is unexpected.
