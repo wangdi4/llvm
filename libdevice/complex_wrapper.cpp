@@ -121,7 +121,7 @@ float __complex__ __divsc3(float __a, float __b, float __c, float __d) {
   return __devicelib___divsc3(__a, __b, __c, __d);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // cexp10f is not standard C99 complex API, it is only required by omp
 // libdevice.
 DEVICE_EXTERN_C_INLINE
@@ -133,7 +133,7 @@ DEVICE_EXTERN_C_INLINE
 float __complex__ clog10f(float __complex__ z) {
   return __devicelib_clog10f(z);
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target

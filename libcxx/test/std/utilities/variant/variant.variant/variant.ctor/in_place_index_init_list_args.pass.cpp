@@ -6,7 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// INTEL_CUSTOMIZATION
 // UNSUPPORTED: c++03, c++11, c++14, linux
+// end INTEL_CUSTOMIZATION
 
 // XFAIL: availability-bad_variant_access-missing && !no-exceptions
 

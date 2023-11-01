@@ -434,10 +434,10 @@ private:
       return (RID && LID && LID->isStr(RID->getName())) || LHS == RHS;
     };
     unsigned NumReplaced = 0;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Silence unused variable warning.
     (void)NumReplaced;
-#endif
+#endif // INTEL_CUSTOMIZATION
     unsigned Idx = 0;
     for (auto &TemplateArgQT : TemplateArgTys) {
       if (AreQTsEqual(TemplateArgQT, RetTy)) {

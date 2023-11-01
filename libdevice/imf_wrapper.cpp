@@ -726,7 +726,7 @@ _iml_half_internal __imf_copysignf16(_iml_half_internal x,
   return __devicelib_imf_copysignf16(x, y);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // float16 devicelib API's
 DEVICE_EXTERN_C_INLINE
 _iml_half_internal __devicelib_imf_cosf16 (_iml_half_internal x);
@@ -1067,7 +1067,7 @@ float __imf_scalbnf (float x, int32_t y) { return __devicelib_imf_scalbnf (x, y)
 DEVICE_EXTERN_C_INLINE
 int __imf_signbitf (float x) { return __devicelib_imf_signbitf (x); }
 
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 DEVICE_EXTERN_C_INLINE
 unsigned int __devicelib_imf_vabs2(unsigned int);

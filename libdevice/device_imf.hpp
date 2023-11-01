@@ -18,16 +18,20 @@
 #include <limits>
 #include <type_traits>
 
-#if defined(INTEL_COLLAB) && defined(OMP_LIBDEVICE)
+/* INTEL_COLLAB */
+#if defined(OMP_LIBDEVICE)
 #include <cmath>
 #define __fma std::fma
 #define __fabs std::fabs
 #define __fmax std::fmax
 #define __fmin std::fmin
 #define __rint std::rint
-#endif
+#endif // #if defined(OMP_LIBDEVICE)
+/* end INTEL_COLLAB */
 
+/* INTEL_COLLAB */
 #if defined(__LIBDEVICE_IMF_ENABLED__) && !defined(OMP_LIBDEVICE)
+/* end INTEL_COLLAB */
 
 #if !defined(__SPIR__) && !defined(__LIBDEVICE_HOST_IMPL__)
 #error                                                                         \

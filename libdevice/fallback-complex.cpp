@@ -454,8 +454,7 @@ float __complex__ __devicelib_catanf(float __complex__ z) {
       CMPLXF(-__devicelib_cimagf(z), __devicelib_crealf(z)));
   return CMPLXF(__devicelib_cimagf(w), -__devicelib_crealf(w));
 }
-
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 float __complex__ __devicelib_cexp10f(float __complex__ z) {
   float __complex__ d = __devicelib___mulsc3(
       __devicelib_crealf(z), __devicelib_cimagf(z), 0x1.26bb1cp+1f, 0.f);
@@ -468,7 +467,7 @@ float __complex__ __devicelib_clog10f(float __complex__ z) {
       __devicelib_crealf(lz), __devicelib_cimagf(lz), 0x1.bcb7bp-2f, 0.f);
   return d;
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
