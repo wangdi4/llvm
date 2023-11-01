@@ -14,10 +14,6 @@ define noundef i64 @test() {
 ; CHECK-NEXT:  bb2:
 ; CHECK-NEXT:    br label [[BB3:%.*]]
 ; CHECK:       bb3:
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-=======
->>>>>>> 1344b65c90507e2368a3d0678df9f179e8890665
 ; CHECK-NEXT:    [[LSR_IV:%.*]] = phi i32 [ [[LSR_IV_NEXT:%.*]], [[BB10:%.*]] ], [ -1, [[BB2:%.*]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[LSR_IV]], 65536
 ; CHECK-NEXT:    [[AND:%.*]] = and i32 [[TMP0]], 65535
@@ -25,21 +21,6 @@ define noundef i64 @test() {
 ; CHECK-NEXT:    [[ADD4:%.*]] = add nsw i64 [[ZEXT]], -128
 ; CHECK-NEXT:    [[ICMP5:%.*]] = icmp ult i64 [[ADD4]], -256
 ; CHECK-NEXT:    [[ICMP6:%.*]] = icmp ult i32 [[AND]], 128
-<<<<<<< HEAD
-; end INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[OR:%.*]] = or i1 [[ICMP5]], [[ICMP6]]
-; CHECK-NEXT:    br i1 [[OR]], label [[BB10]], label [[BB7:%.*]]
-; CHECK:       bb7:
-; CHECK-NEXT:    [[TMP1:%.*]] = add i32 [[LSR_IV]], 1 ;INTEL
-; CHECK-NEXT:    call void @foo(i32 [[TMP1]])
-; CHECK-NEXT:    unreachable
-; CHECK:       bb10:
-; CHECK-NEXT:    [[LSR_IV_NEXT]] = add nsw i32 [[LSR_IV]], 1 ;INTEL
-; CHECK-NEXT:    [[ICMP12:%.*]] = icmp ult i32 [[LSR_IV_NEXT]], 1210 ;INTEL
-; CHECK-NEXT:    br i1 [[ICMP12]], label [[BB3]], label [[BB13:%.*]]
-; CHECK:       bb13:
-; CHECK-NEXT:    ret i64 [[ZEXT]] ;INTEL
-=======
 ; CHECK-NEXT:    [[OR:%.*]] = or i1 [[ICMP5]], [[ICMP6]]
 ; CHECK-NEXT:    br i1 [[OR]], label [[BB10]], label [[BB7:%.*]]
 ; CHECK:       bb7:
@@ -52,7 +33,6 @@ define noundef i64 @test() {
 ; CHECK-NEXT:    br i1 [[ICMP12]], label [[BB3]], label [[BB13:%.*]]
 ; CHECK:       bb13:
 ; CHECK-NEXT:    ret i64 [[ZEXT]]
->>>>>>> 1344b65c90507e2368a3d0678df9f179e8890665
 ;
 bb2:
   br label %bb3
