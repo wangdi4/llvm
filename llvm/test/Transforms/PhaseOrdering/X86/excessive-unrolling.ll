@@ -63,7 +63,7 @@ define void @test_runtime_trip_count(i32 %N) {
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp sgt i32 [[N:%.*]], 0
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[FOR_BODY_PREHEADER:%.*]], label [[EXIT:%.*]]
 ; CHECK:       for.body.preheader:
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[N]] to i64
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext nneg i32 [[N]] to i64 ;INTEL
 ; CHECK-NEXT:    [[XTRAITER:%.*]] = and i64 [[WIDE_TRIP_COUNT]], 7
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[N]], 8
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[EXIT_LOOPEXIT_UNR_LCSSA:%.*]], label [[FOR_BODY_PREHEADER_NEW:%.*]]
