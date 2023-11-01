@@ -11393,6 +11393,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_arithmetic_fence"
         ",+SPV_INTEL_global_variable_fpga_decorations"
         ",+SPV_INTEL_global_variable_host_access"
+        ",+SPV_INTEL_cache_controls"
         ",+SPV_INTEL_fpga_buffer_location"
         ",+SPV_INTEL_fpga_argument_interfaces"
         ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
