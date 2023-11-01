@@ -1541,7 +1541,6 @@ Constant *llvm::ConstantFoldCastOperand(unsigned Opcode, Constant *C,
   return ConstantFoldCastInstruction(Opcode, C, DestTy);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Following function has been removed from llorg as of commit c5b5b7f. Keeping
 // it here because it is still needed by
@@ -1572,7 +1571,7 @@ static bool hasAnyImfFnAttr(const CallBase *Call) {
   return false;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 Constant *llvm::ConstantFoldIntegerCast(Constant *C, Type *DestTy,
                                         bool IsSigned, const DataLayout &DL) {
   Type *SrcTy = C->getType();
@@ -1584,7 +1583,6 @@ Constant *llvm::ConstantFoldIntegerCast(Constant *C, Type *DestTy,
     return ConstantFoldCastOperand(Instruction::SExt, C, DestTy, DL);
   return ConstantFoldCastOperand(Instruction::ZExt, C, DestTy, DL);
 }
->>>>>>> d9f36c45da85b2086781a921606ea5f828b045ff
 
 //===----------------------------------------------------------------------===//
 //  Constant Folding for Calls
