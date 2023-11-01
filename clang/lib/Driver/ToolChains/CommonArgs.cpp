@@ -1142,6 +1142,11 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
            Args.hasArg(options::OPT_fopenmp_target_simd) &&
            JA.isDeviceOffloading(Action::OFK_OpenMP) && TC.getTriple().isSPIR();
   };
+  auto SPIRVLoopOptEnabled = [&]() -> bool {
+    return Args.hasArg(options::OPT_fopenmp_target_loopopt) &&
+           !Args.hasArg(options::OPT_fopenmp_target_simd) &&
+           JA.isDeviceOffloading(Action::OFK_OpenMP) && TC.getTriple().isSPIR();
+  };
   auto SYCLLoopOptEnabled = [&]() -> bool {
     return Args.hasArg(options::OPT_fsycl_target_loopopt) &&
            JA.isDeviceOffloading(Action::OFK_SYCL);
@@ -1454,7 +1459,8 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   }
 
   if (TC.getDriver().IsIntelMode() &&
-      (SPIRVOpenMPLoopOptEnabled() || SYCLLoopOptEnabled())) {
+      (SPIRVOpenMPLoopOptEnabled() || SPIRVLoopOptEnabled() ||
+       SYCLLoopOptEnabled())) {
     addllvmOption("-loopopt=1");
     AddLoopOptPipeline("-floopopt-pipeline=light");
   }
@@ -1484,6 +1490,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       DisableVec = true;
   }
   DisableVec |= SYCLLoopOptEnabled();
+  DisableVec |= SPIRVLoopOptEnabled();
 
   if (DisableVec) {
     addllvmOption("-disable-hir-vec-dir-insert");
