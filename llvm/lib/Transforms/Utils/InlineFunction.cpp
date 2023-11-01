@@ -973,7 +973,7 @@ propagateMemProfMetadata(Function *Callee, CallBase &CB,
 /// be propagated to all memory-accessing cloned instructions.
 static void PropagateCallSiteMetadata(CallBase &CB, Function::iterator FStart,
                                       Function::iterator FEnd) {
-
+#if INTEL_CUSTOMIZATION
   auto Concatenate = [](unsigned KindID, Instruction &I, CallBase &CB) {
     MDNode *NewMD = CB.getMetadata(KindID);
     if (!NewMD)
@@ -984,7 +984,7 @@ static void PropagateCallSiteMetadata(CallBase &CB, Function::iterator FStart,
     Operands.insert(NewMD->op_begin(), NewMD->op_end());
     I.setMetadata(KindID, MDNode::get(I.getContext(), Operands.getArrayRef()));
   };
-
+#endif // INTEL_CUSTOMIZATION
   MDNode *MemParallelLoopAccess =
       CB.getMetadata(LLVMContext::MD_mem_parallel_loop_access);
   MDNode *AccessGroup = CB.getMetadata(LLVMContext::MD_access_group);
@@ -998,20 +998,20 @@ static void PropagateCallSiteMetadata(CallBase &CB, Function::iterator FStart,
       // This metadata is only relevant for instructions that access memory.
       if (!I.mayReadOrWriteMemory())
         continue;
-      Concatenate(LLVMContext::MD_mem_parallel_loop_access, I, CB);
+      Concatenate(LLVMContext::MD_mem_parallel_loop_access, I, CB); // INTEL
       if (AccessGroup)
         I.setMetadata(LLVMContext::MD_access_group, uniteAccessGroups(
             I.getMetadata(LLVMContext::MD_access_group), AccessGroup));
-      Concatenate(LLVMContext::MD_alias_scope, I, CB);
-      Concatenate(LLVMContext::MD_noalias, I, CB);
+      Concatenate(LLVMContext::MD_alias_scope, I, CB); // INTEL
+      Concatenate(LLVMContext::MD_noalias, I, CB);     // INTEL
     }
   }
 }
 
 /// Bundle operands of the inlined function must be added to inlined call sites.
 static void PropagateOperandBundles(Function::iterator InlinedBB,
-                                    Instruction *CallSiteEHPad,
 #if INTEL_CUSTOMIZATION
+                                    Instruction *CallSiteEHPad,
                                     InlineReport *IR,
                                     InlineReportBuilder *MDIR) {
 #endif // INTEL_CUSTOMIZATION
@@ -1283,7 +1283,7 @@ void ScopedAliasMetadataDeepCloner::remap(Function::iterator FStart,
     }
   }
   NextRootNum++; // INTEL
-}
+}                // INTEL
 
 #if INTEL_CUSTOMIZATION
 /// Populates \p PtrNoAliasLoads vector with pointer values, loaded from
@@ -1329,7 +1329,7 @@ AddPtrNoAliasLoads(CallBase &CB, const Argument &Arg,
 static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
                                   const DataLayout &DL, AAResults *CalleeAAR,
                                   ClonedCodeInfo &InlinedFunctionInfo) {
-
+#if INTEL_CUSTOMIZATION
   auto Concatenate = [](unsigned KindID, Instruction &I, 
                         SmallVectorImpl<Metadata *> &NewMD) {
     if (NewMD.empty())
@@ -1340,7 +1340,7 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
     Operands.insert(NewMD.begin(), NewMD.end());
     I.setMetadata(KindID, MDNode::get(I.getContext(), Operands.getArrayRef()));
   };
-
+#endif // INTEL_CUSTOMIZATION
   if (!EnableNoAliasConversion)
     return;
 
@@ -1589,10 +1589,10 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
             !PointerMayBeCapturedBefore(V, /* ReturnCaptures */ false,
                                         /* StoreCaptures */ false, I, &DT);
       };
-#endif // INTEL_CUSTOMIZATION
 
       for (const Argument *A : NoAliasArgs) {
-        if (MayAssumeNoAlias(A)) // INTEL
+        if (MayAssumeNoAlias(A))
+#endif // INTEL_CUSTOMIZATION
           NoAliases.push_back(NewScopes[A]);
       }
 
@@ -1616,9 +1616,9 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
         if (llvm::all_of(ArgLoadsPair.second, MayAssumeNoAlias))
           NoAliases.push_back(PtrNoAliasNewScopes[ArgLoadsPair.first]);
       }
-#endif // INTEL_CUSTOMIZATION
 
       Concatenate(LLVMContext::MD_noalias, *NI, NoAliases);
+#endif // INTEL_CUSTOMIZATION
 
       // Next, we want to figure out all of the sets to which we might belong.
       // We might belong to a set if the noalias argument is in the set of
@@ -1661,10 +1661,10 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
                            [&](const Value *V) { return ObjSet.count(V); }))
             Scopes.push_back(PtrNoAliasNewScopes[ArgLoadsPair.first]);
         }
-#endif // INTEL_CUSTOMIZATION
-      } // INTEL
+      }
 
       Concatenate(LLVMContext::MD_alias_scope, *NI, Scopes);
+#endif // INTEL_CUSTOMIZATION
     }
   }
 }
@@ -2394,8 +2394,9 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
                               BlockFrequencyInfo *CallerBFI) {
   if (CalleeEntryCount.isSynthetic() || CalleeEntryCount.getCount() < 1)
     return;
-  auto CallSiteCount = PSI ? PSI->getProfileCount(TheCall, CallerBFI) : std::nullopt;
 #if INTEL_CUSTOMIZATION
+  auto CallSiteCount =
+      PSI ? PSI->getProfileCount(TheCall, CallerBFI) : std::nullopt;
   if (CallSiteCount == std::nullopt) {
     // Get profile for call from intel_profx if not available elsewhere
     auto *MD = TheCall.getMetadata(LLVMContext::MD_intel_profx);
@@ -2622,10 +2623,10 @@ inlineRetainOrClaimRVCalls(CallBase &CB, objcarc::ARCInstKind RVCallKind,
 /// instruction 'call B' is inlined, and 'B' calls 'C', then the call to 'C' now
 /// exists in the instruction stream.  Similarly this will inline a recursive
 /// function by one level.
-///
-/// INTEL The Intel version computes the principal reason the function was or
-/// INTEL was not inlined at the call site.
-///
+#if INTEL_CUSTOMIZATION
+/// The Intel version computes the principal reason the function was or
+/// was not inlined at the call site.
+#endif // INTEL_CUSTOMIZATION
 llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                                         InlineReport *IR,     // INTEL
                                         InlineReportBuilder *MDIR, // INTEL
@@ -2978,8 +2979,8 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       }
     }
 
-    // Update the callgraph if requested.
 #if INTEL_CUSTOMIZATION
+    // Update the callgraph if requested.
     UpdateIFIWithoutCG(CB, VMap, IFI, IR, MDIR);
 #endif // INTEL_CUSTOMIZATION
     // For 'nodebug' functions, the associated DISubprogram is always null.
