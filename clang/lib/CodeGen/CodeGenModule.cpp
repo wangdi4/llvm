@@ -2216,7 +2216,7 @@ static QualType getDTransCtorListType(ASTContext &Ctx, const char *GlobalName,
   RD->completeDefinition();
   QualType StructTy = Ctx.getRecordType(RD);
   return Ctx.getConstantArrayType(StructTy, llvm::APInt{64, NumElts}, nullptr,
-                                  ArrayType::Normal, 0);
+                                  ArraySizeModifier::Normal, 0);
 }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
@@ -3587,7 +3587,7 @@ static void emitUsed(CodeGenModule &CGM, StringRef Name,
     QualType EltTy = Ctx.getPointerType(Ctx.CharTy);
     QualType ArrTy =
         Ctx.getConstantArrayType(EltTy, llvm::APInt{64, UsedArray.size()},
-                                 nullptr, ArrayType::Normal, 0);
+                                 nullptr, ArraySizeModifier::Normal, 0);
     CGM.addDTransInfoToGlobal(ArrTy, nullptr, GV, GV->getValueType());
   }
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -7735,12 +7735,10 @@ QualType CodeGenModule::getObjCFastEnumerationStateType() {
     D->startDefinition();
 
     QualType FieldTypes[] = {
-      Context.UnsignedLongTy,
-      Context.getPointerType(Context.getObjCIdType()),
-      Context.getPointerType(Context.UnsignedLongTy),
-      Context.getConstantArrayType(Context.UnsignedLongTy,
-                           llvm::APInt(32, 5), nullptr, ArrayType::Normal, 0)
-    };
+        Context.UnsignedLongTy, Context.getPointerType(Context.getObjCIdType()),
+        Context.getPointerType(Context.UnsignedLongTy),
+        Context.getConstantArrayType(Context.UnsignedLongTy, llvm::APInt(32, 5),
+                                     nullptr, ArraySizeModifier::Normal, 0)};
 
     for (size_t i = 0; i < 4; ++i) {
       FieldDecl *Field = FieldDecl::Create(Context,

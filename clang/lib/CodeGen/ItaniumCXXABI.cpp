@@ -4009,7 +4009,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
     CGM.addDTransInfoToGlobal(
         CGM.getContext().getConstantArrayType(
             CGM.getContext().getPointerType(CGM.getContext().VoidTy),
-            llvm::APInt(64, 0), nullptr, clang::ArrayType::Normal, 0),
+            llvm::APInt(64, 0), nullptr, clang::ArraySizeModifier::Normal, 0),
         nullptr, GlobVTable, GlobVTable->getValueType());
   }
 #endif // INTEL_FEATURE_SW_DTRANS
