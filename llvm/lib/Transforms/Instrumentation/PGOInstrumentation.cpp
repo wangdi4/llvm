@@ -121,7 +121,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GraphWriter.h"
-#include "llvm/Support/HashBuilder.h"
+#include "llvm/Support/HashBuilder.h" // INTEL
 #include "llvm/Support/Process.h" // INTEL
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
@@ -2447,6 +2447,7 @@ static void verifyFuncBFI(PGOUseFunc &Func, LoopInfo &LI,
     });
 }
 
+#if INTEL_CUSTOMIZATION
 static void MLPGODumpFunctionFeatures(mlpgo::Parameters &Parameter, Function &F,
                                       CallGraph &CG,
                                       const BranchProbabilityInfo &OldBPI,
@@ -2487,14 +2488,17 @@ static void MLPGODumpFunctionFeatures(mlpgo::Parameters &Parameter, Function &F,
   mlpgo::DumpTrainingSet(F, Inst2Features, Parameter, BBCountValueMap,
                          EdgeCountValueMap);
 }
+#endif // INTEL_CUSTOMIZATION
 
-// MLPGO: add CG Parameter
+// MLPGO: add CG Parameter // INTEL
 static bool annotateAllFunctions(
     Module &M, StringRef ProfileFileName, StringRef ProfileRemappingFileName,
     vfs::FileSystem &FS,
     function_ref<TargetLibraryInfo &(Function &)> LookupTLI,
     function_ref<BranchProbabilityInfo *(Function &)> LookupBPI,
+#if INTEL_CUSTOMIZATION
     function_ref<BlockFrequencyInfo *(Function &)> LookupBFI, CallGraph &CG,
+#endif // INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, bool IsCS) {
   LLVM_DEBUG(dbgs() << "Read in profile counters: ");
   auto &Ctx = M.getContext();
@@ -2550,10 +2554,9 @@ static bool annotateAllFunctions(
   bool InstrumentFuncEntry = PGOReader->instrEntryBBEnabled();
   if (PGOInstrumentEntry.getNumOccurrences() > 0)
     InstrumentFuncEntry = PGOInstrumentEntry;
-
+#if INTEL_CUSTOMIZATION
   mlpgo::Parameters MlpgoParameters(M);
   std::optional<std::string> MLPGO_PARTIAL_USE;
-#if INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
   MLPGO_PARTIAL_USE = sys::Process::GetEnv("INTEL_MLPGO_PARTIAL_USE");
 #endif // !INTEL_PRODUCT_RELEASE
@@ -2703,10 +2706,8 @@ static bool annotateAllFunctions(
     if (MlpgoParameters.DumpFeatures) {
       MLPGODumpFunctionFeatures(MlpgoParameters, F, CG, *BPI, Func);
     }
-#endif // INTEL_CUSTOMIZATION
   }
 
-#if INTEL_CUSTOMIZATION
   if (MLPGO_PARTIAL_USE) {
     HotFunctions.clear();
     ColdFunctions.clear();

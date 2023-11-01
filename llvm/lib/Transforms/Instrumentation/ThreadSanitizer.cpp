@@ -7,9 +7,9 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -289,12 +289,12 @@ void ThreadSanitizer::initialize(Module &M, const TargetLibraryInfo &TLI) {
     std::string ByteSizeStr = utostr(ByteSize);
     std::string BitSizeStr = utostr(BitSize);
     SmallString<32> ReadName("__tsan_read" + ByteSizeStr);
-    TsanRead[i] =
-        M.getOrInsertFunction(ReadName, Attr, IRB.getVoidTy(), IRB.getPtrTy());
+    TsanRead[i] = M.getOrInsertFunction(ReadName, Attr, IRB.getVoidTy(),
+                                        IRB.getPtrTy());
 
     SmallString<32> WriteName("__tsan_write" + ByteSizeStr);
-    TsanWrite[i] =
-        M.getOrInsertFunction(WriteName, Attr, IRB.getVoidTy(), IRB.getPtrTy());
+    TsanWrite[i] = M.getOrInsertFunction(WriteName, Attr, IRB.getVoidTy(),
+                                         IRB.getPtrTy());
 
     SmallString<64> UnalignedReadName("__tsan_unaligned_read" + ByteSizeStr);
     TsanUnalignedRead[i] = M.getOrInsertFunction(
@@ -323,8 +323,8 @@ void ThreadSanitizer::initialize(Module &M, const TargetLibraryInfo &TLI) {
         UnalignedVolatileWriteName, Attr, IRB.getVoidTy(), IRB.getPtrTy());
 
     SmallString<64> CompoundRWName("__tsan_read_write" + ByteSizeStr);
-    TsanCompoundRW[i] = M.getOrInsertFunction(CompoundRWName, Attr,
-                                              IRB.getVoidTy(), IRB.getPtrTy());
+    TsanCompoundRW[i] = M.getOrInsertFunction(
+        CompoundRWName, Attr, IRB.getVoidTy(), IRB.getPtrTy());
 
     SmallString<64> UnalignedCompoundRWName("__tsan_unaligned_read_write" +
                                             ByteSizeStr);
@@ -401,10 +401,12 @@ void ThreadSanitizer::initialize(Module &M, const TargetLibraryInfo &TLI) {
       TLI.getAttrList(&Ctx, {0}, /*Signed=*/true, /*Ret=*/false, Attr),
       IRB.getVoidTy(), OrdTy);
 
-  MemmoveFn = M.getOrInsertFunction("__tsan_memmove", Attr, IRB.getPtrTy(),
-                                    IRB.getPtrTy(), IRB.getPtrTy(), IntptrTy);
-  MemcpyFn = M.getOrInsertFunction("__tsan_memcpy", Attr, IRB.getPtrTy(),
-                                   IRB.getPtrTy(), IRB.getPtrTy(), IntptrTy);
+  MemmoveFn =
+      M.getOrInsertFunction("__tsan_memmove", Attr, IRB.getPtrTy(),
+                            IRB.getPtrTy(), IRB.getPtrTy(), IntptrTy);
+  MemcpyFn =
+      M.getOrInsertFunction("__tsan_memcpy", Attr, IRB.getPtrTy(),
+                            IRB.getPtrTy(), IRB.getPtrTy(), IntptrTy);
   MemsetFn = M.getOrInsertFunction(
       "__tsan_memset",
       TLI.getAttrList(&Ctx, {1}, /*Signed=*/true, /*Ret=*/false, Attr),
@@ -756,12 +758,18 @@ bool ThreadSanitizer::instrumentMemIntrinsic(Instruction *I) {
   if (MemSetInst *M = dyn_cast<MemSetInst>(I)) {
     Value *Cast1 = IRB.CreateIntCast(M->getArgOperand(1), IRB.getInt32Ty(), false);
     Value *Cast2 = IRB.CreateIntCast(M->getArgOperand(2), IntptrTy, false);
-    IRB.CreateCall(MemsetFn, {M->getArgOperand(0), Cast1, Cast2});
+    IRB.CreateCall(
+        MemsetFn,
+        {M->getArgOperand(0),
+         Cast1,
+         Cast2});
     I->eraseFromParent();
   } else if (MemTransferInst *M = dyn_cast<MemTransferInst>(I)) {
-    IRB.CreateCall(isa<MemCpyInst>(M) ? MemcpyFn : MemmoveFn,
-                   {M->getArgOperand(0), M->getArgOperand(1),
-                    IRB.CreateIntCast(M->getArgOperand(2), IntptrTy, false)});
+    IRB.CreateCall(
+        isa<MemCpyInst>(M) ? MemcpyFn : MemmoveFn,
+        {M->getArgOperand(0),
+         M->getArgOperand(1),
+         IRB.CreateIntCast(M->getArgOperand(2), IntptrTy, false)});
     I->eraseFromParent();
   }
   return false;
@@ -783,7 +791,8 @@ bool ThreadSanitizer::instrumentAtomic(Instruction *I, const DataLayout &DL) {
     int Idx = getMemoryAccessFuncIndex(OrigTy, Addr, DL);
     if (Idx < 0)
       return false;
-    Value *Args[] = {Addr, createOrdering(&IRB, LI->getOrdering())};
+    Value *Args[] = {Addr,
+                     createOrdering(&IRB, LI->getOrdering())};
     Value *C = IRB.CreateCall(TsanAtomicLoad[Idx], Args);
     Value *Cast = IRB.CreateBitOrPointerCast(C, OrigTy);
     I->replaceAllUsesWith(Cast);
@@ -813,8 +822,9 @@ bool ThreadSanitizer::instrumentAtomic(Instruction *I, const DataLayout &DL) {
     const unsigned ByteSize = 1U << Idx;
     const unsigned BitSize = ByteSize * 8;
     Type *Ty = Type::getIntNTy(IRB.getContext(), BitSize);
-    Value *Args[] = {Addr, IRB.CreateIntCast(RMWI->getValOperand(), Ty, false),
-                     createOrdering(&IRB, RMWI->getOrdering())};
+    Value *Args[] = {Addr,
+                    IRB.CreateIntCast(RMWI->getValOperand(), Ty, false),
+                    createOrdering(&IRB, RMWI->getOrdering())};
     CallInst *C = CallInst::Create(F, Args);
     ReplaceInstWithInst(I, C);
   } else if (AtomicCmpXchgInst *CASI = dyn_cast<AtomicCmpXchgInst>(I)) {
@@ -830,7 +840,9 @@ bool ThreadSanitizer::instrumentAtomic(Instruction *I, const DataLayout &DL) {
       IRB.CreateBitOrPointerCast(CASI->getCompareOperand(), Ty);
     Value *NewOperand =
         IRB.CreateBitOrPointerCast(CASI->getNewValOperand(), Ty);
-    Value *Args[] = {Addr, CmpOperand, NewOperand,
+    Value *Args[] = {Addr,
+                     CmpOperand,
+                     NewOperand,
                      createOrdering(&IRB, CASI->getSuccessOrdering()),
                      createOrdering(&IRB, CASI->getFailureOrdering())};
     CallInst *C = IRB.CreateCall(TsanAtomicCAS[Idx], Args);

@@ -80,7 +80,7 @@
 #include <cstdint>
 #include <iterator>
 #include <map>
-#include <optional>
+#include <optional> // INTEL
 #include <utility>
 #include <vector>
 
@@ -1200,7 +1200,7 @@ void CodeExtractor::constructFunctionDebug(
   constructDebugSubprogram(OF, NF, DeclLoc);
   constructDebugParameters(OF, NF, inputs, outputs, RewrittenValues);
 }
-#endif
+#endif // INTEL_COLLAB
 
 /// constructFunction - make a function based on inputs and outputs, as follows:
 /// f(in0, ..., inN, out0, ..., outN)
@@ -1416,7 +1416,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
 
 #if INTEL_COLLAB
   ValueMap<Value *, Value *> RewrittenValues;
-#endif
+#endif // INTEL_COLLAB
 
   // Rewrite all users of the inputs in the extracted region to use the
   // arguments (or appropriate addressing into struct) instead.
@@ -1474,7 +1474,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   if (IntelCodeExtractorDebug)
     constructFunctionDebug(oldFunction, newFunction, inputs, outputs,
                            RewrittenValues);
-#endif
+#endif // INTEL_COLLAB
 
   return newFunction;
 }
@@ -2185,7 +2185,7 @@ static void updateDebugPostExtraction(Function *OldF, Function *NewF,
   if (!TheCall->getDebugLoc())
     TheCall->setDebugLoc(DILocation::get(OldF->getContext(), 0, 0, OSP));
 }
-#endif
+#endif // INTEL_COLLAB
 
 /// Fix up the debug info in the old and new functions by pointing line
 /// locations and debug intrinsics to the new subprogram scope, and by deleting
@@ -2324,10 +2324,11 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
   ValueSet Inputs, Outputs;
 #if INTEL_COLLAB
   return extractCodeRegion(CEAC, Inputs, Outputs, hoistAlloca);
+}
 #else
   return extractCodeRegion(CEAC, Inputs, Outputs);
-#endif // INTEL_COLLAB
 }
+#endif // INTEL_COLLAB
 
 #if INTEL_COLLAB
 // Verify any BlockAddresses in the Function, so that they do not cross
@@ -2397,8 +2398,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
   if (AC)
     // Force assumptions in the old function to be rescanned on the next access.
     AC->clear();
-#else // INTEL_CUSTOMIZATION
-
+#else  // INTEL_CUSTOMIZATION
   // Remove @llvm.assume calls that will be moved to the new function from the
   // old function's assumption cache.
   for (BasicBlock *Block : Blocks) {
