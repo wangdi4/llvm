@@ -1868,7 +1868,8 @@ void SYCLToolChain::AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
   // optimizations.  They are passed along to the respective areas as follows:
   // FPGA:  -g -cl-opt-disable
   // Default device AOT: -g -cl-opt-disable
-  // Default device JIT: -g (-O0 is handled by the runtime)
+  // SYCL Default device JIT: -g (-O0 is handled by the runtime)
+  // OMP Offload Default device JIT: -g -cl-opt-disable
   // GEN:  -options "-g -O0"
   // CPU:  "--bo=-g -cl-opt-disable"
   llvm::opt::ArgStringList BeArgs;
@@ -1922,12 +1923,13 @@ void SYCLToolChain::AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
       BeArgs.push_back("-cl-opt-disable");
   else
 #endif // INTEL_CUSTOMIZATION
-  // Only pass -cl-opt-disable for non-JIT, as the runtime
-  // handles O0 for the JIT case.
-  if (Triple.getSubArch() != llvm::Triple::NoSubArch)
-    if (Arg *A = Args.getLastArg(options::OPT_O_Group))
-      if (A->getOption().matches(options::OPT_O0))
-        BeArgs.push_back("-cl-opt-disable");
+      // Only pass -cl-opt-disable for non-JIT or OMP Offload, as the SYCL
+      // runtime handles O0 for the JIT case.
+      if (Triple.getSubArch() != llvm::Triple::NoSubArch ||
+          DeviceOffloadKind == Action::OFK_OpenMP)
+      if (Arg *A = Args.getLastArg(options::OPT_O_Group))
+        if (A->getOption().matches(options::OPT_O0))
+          BeArgs.push_back("-cl-opt-disable");
   StringRef RegAllocModeOptName = "-ftarget-register-alloc-mode=";
   if (Arg *A = Args.getLastArg(options::OPT_ftarget_register_alloc_mode_EQ)) {
     StringRef RegAllocModeVal = A->getValue(0);
