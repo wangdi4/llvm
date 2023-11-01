@@ -21231,6 +21231,10 @@ SDValue DAGCombiner::visitSTORE(SDNode *N) {
   SDValue TruncVal = DAG.getDataLayout().isLittleEndian()
                          ? peekThroughTruncates(Value)
                          : Value;
+#if INTEL_CUSTOMIZATION
+  // Not eliminate the dead store at O0 for GDB passrate (see CMPLRLLVM-49729)
+  if (OptLevel != CodeGenOptLevel::None) {
+#endif // INTEL_CUSTOMIZATION
   if (auto *Ld = dyn_cast<LoadSDNode>(TruncVal)) {
     if (Ld->getBasePtr() == Ptr && ST->getMemoryVT() == Ld->getMemoryVT() &&
         ST->isUnindexed() && ST->isSimple() &&
@@ -21242,6 +21246,9 @@ SDValue DAGCombiner::visitSTORE(SDNode *N) {
       return Chain;
     }
   }
+#if INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Try scalarizing vector stores of loads where we only change one element
   if (SDValue NewST = replaceStoreOfInsertLoad(ST))
