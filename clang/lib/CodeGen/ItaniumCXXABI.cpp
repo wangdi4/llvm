@@ -3827,7 +3827,7 @@ static bool ContainsIncompleteClassType(QualType Ty) {
 
   if (const MemberPointerType *MemberPointerTy =
       dyn_cast<MemberPointerType>(Ty)) {
-    // class type is incomplete.
+    // Check if the class type is incomplete.
     const RecordType *ClassType = cast<RecordType>(MemberPointerTy->getClass());
     if (IsIncompleteClassType(ClassType))
       return true;
