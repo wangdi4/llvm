@@ -505,43 +505,12 @@ static void convertFloatingToInteger(BlockFrequencyInfoImplBase &BFI,
   // values (so small unequal numbers all map to 1) or saturaturing big numbers
   // loosing precision for big numbers (so unequal big numbers may map to
   // UINT64_MAX). We choose to loose precision for small numbers.
-#if INTEL_CUSTOMIZATION
-  const int MaxBits = 64;
-  int SpreadBits = (Max / Min).lg();
-#else // INTEL_CUSTOMIZATION
   const unsigned MaxBits = sizeof(Scaled64::DigitsType) * CHAR_BIT;
-#endif // INTEL_CUSTOMIZATION
-
   // Users often add up multiple BlockFrequency values or multiply them with
   // things like instruction costs. Leave some room to avoid saturating
   // operations reaching UIN64_MAX too early.
   const unsigned Slack = 10;
-#if INTEL_CUSTOMIZATION
-  Scaled64 ScalingFactor;
-#else
   Scaled64 ScalingFactor = Scaled64(1, MaxBits - Slack) / Max;
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-  if (SpreadBits <= MaxBits - 3) {
-    // If the values are small enough, make the scaling factor at least 8 to
-    // allow distinguishing small values.
-    ScalingFactor = Min.inverse();
-    ScalingFactor <<= 3;
-    SpreadBits += 3;
-  } else {
-    // If the values need more than MaxBits to be represented, saturate small
-    // frequency values down to 1 by using a scaling factor that benefits large
-    // frequency values.
-    ScalingFactor = Scaled64(1, MaxBits) / Max;
-  }
-
-  // Some thresholds or registers' weight will overflow
-  // if the frequncy is too big.
-  int Shift = SpreadBits - (MaxBits - 6);
-  Shift = std::max(0, Shift);
-  Shift = std::min(6, Shift);
-  ScalingFactor >>= Shift;
-#endif // INTEL_CUSTOMIZATION
 
   // Translate the floats to integers.
   LLVM_DEBUG(dbgs() << "float-to-int: min = " << Min << ", max = " << Max

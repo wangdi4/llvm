@@ -30,12 +30,12 @@ sw.epilog:
 !1 = !{!"branch_weights", i32 5, i32 5, i32 5}
 
 ; CHECK: Build Edge on f_blockfreq
-; CHECK:   Edge: from fake node to entry w = 10
-; CHECK:   Edge: from entry to sw.entry  w=7
-; CHECK:   Edge: from entry to sw.bb  w=2
-; CHECK:   Edge: from sw.entry to sw.epilog  w=2666
-; CHECK:   Edge: from sw.entry to .split  w=5333
-; CHECK:   Edge: from sw.entry to .split  w=5333
-; CHECK:   Edge: from sw.bb to .split  w=3
-; CHECK:   Edge: from .split to sw.epilog  w=8
-; CHECK:   Edge: from sw.epilog to fake exit w = 10
+; CHECK:   Edge: from fake node to entry w = 18014398509481984
+; CHECK:   Edge: from entry to sw.entry  w=13510798882111488
+; CHECK:   Edge: from entry to sw.bb  w=4503599627370496
+; CHECK:   Edge: from sw.entry to sw.epilog  w=4503599629467648000
+; CHECK:   Edge: from sw.entry to .split  w=9007199258935296000
+; CHECK:   Edge: from sw.entry to .split  w=9007199258935296000
+; CHECK:   Edge: from sw.bb to .split  w=4503599621079040
+; CHECK:   Edge: from .split to sw.epilog  w=13510798880014336
+; CHECK:   Edge: from sw.epilog to fake exit w = 18014398509481984
