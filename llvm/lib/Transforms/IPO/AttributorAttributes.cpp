@@ -7915,6 +7915,9 @@ struct AAMemoryBehaviorImpl : public AAMemoryBehavior {
 
     // Clear existing attributes.
     A.removeAttrs(IRP, AttrKinds);
+    // Clear conflicting writable attribute.
+    if (isAssumedReadOnly())
+      A.removeAttrs(IRP, Attribute::Writable);
 
     // Use the generic manifest method.
     return IRAttribute::manifest(A);
@@ -8102,6 +8105,10 @@ struct AAMemoryBehaviorFunction final : public AAMemoryBehaviorImpl {
       ME = MemoryEffects::writeOnly();
 
     A.removeAttrs(getIRPosition(), AttrKinds);
+    // Clear conflicting writable attribute.
+    if (ME.onlyReadsMemory())
+      for (Argument &Arg : F.args())
+        A.removeAttrs(IRPosition::argument(Arg), Attribute::Writable);
     return A.manifestAttrs(getIRPosition(),
                            Attribute::getWithMemoryEffects(F.getContext(), ME));
   }
@@ -8136,6 +8143,11 @@ struct AAMemoryBehaviorCallSite final
       ME = MemoryEffects::writeOnly();
 
     A.removeAttrs(getIRPosition(), AttrKinds);
+    // Clear conflicting writable attribute.
+    if (ME.onlyReadsMemory())
+      for (Use &U : CB.args())
+        A.removeAttrs(IRPosition::callsite_argument(CB, U.getOperandNo()),
+                      Attribute::Writable);
     return A.manifestAttrs(
         getIRPosition(), Attribute::getWithMemoryEffects(CB.getContext(), ME));
   }
