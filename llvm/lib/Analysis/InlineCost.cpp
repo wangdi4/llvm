@@ -3437,7 +3437,8 @@ std::optional<InlineResult> llvm::getAttributeBasedInliningDecision(
   // whenever possible.
   if (Call.hasFnAttr(Attribute::AlwaysInline)) {
     if (Call.getAttributes().hasFnAttr(Attribute::NoInline))
-      return InlineResult::failure("noinline call site attribute");
+      return InlineResult::failure("noinline callee attribute")
+          .setIntelInlReason(NinlrNoinlineAttribute);
 
     auto IsViable = isInlineViable(*Callee);
 #if INTEL_CUSTOMIZATION
@@ -3454,8 +3455,9 @@ std::optional<InlineResult> llvm::getAttributeBasedInliningDecision(
         .setIntelInlReason(IsViable.getIntelInlReason());
   }
   if (Call.hasFnAttr(Attribute::AlwaysInlineRecursive)) {
-    if (Call.getAttributes().hasFnAttr(Attribute::NoInline))
-      return InlineResult::failure("noinline call site attribute");
+    if (Call.hasFnAttrOnCallsite(Attribute::NoInline))
+      return InlineResult::failure("noinline callsite attribute")
+          .setIntelInlReason(NinlrNoinlineCallsite);
     if (Callee->hasFnAttribute(Attribute::NoInline)) {
       return InlineResult::failure("noinline callee attribute")
           .setIntelInlReason(NinlrNoinlineAttribute);
