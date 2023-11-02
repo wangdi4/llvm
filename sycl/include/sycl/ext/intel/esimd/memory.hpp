@@ -1089,6 +1089,191 @@ block_load(AccessorTy acc, detail::DeviceAccessorOffsetT offset, Flags flags) {
 #endif
 }
 
+<<<<<<< HEAD
+=======
+/// Stores elements of the vector \p vals to a contiguous block of memory
+/// at the given address \p addr.
+/// The generated code depends on the combination {T, N, Flags}.
+/// Providing flags specifying the alignment of 16-bytes or more produces more
+/// efficient code. If the alignment is smaller than 16-bytes, then less
+/// efficient scatter is generated. If the stored vector is too long
+/// for 1 flat-store GPU instruction, then a series of flat-store and/or
+/// scatters may be generated.
+/// @tparam Tx Element type.
+/// @tparam N Number of elements to store.
+/// @tparam Flags The alignment specifier type tag.
+/// @param addr The memory address to store at.
+/// @param vals The vector to store.
+/// @param Flags Specifies the alignment.
+template <typename Tx, int N,
+          typename Flags = overaligned_tag<detail::OperandSize::OWORD>>
+__ESIMD_API std::enable_if_t<is_simd_flag_type_v<Flags>>
+block_store(Tx *addr, simd<Tx, N> vals, Flags = {}) {
+  using T = typename detail::__raw_t<Tx>;
+  using VecT = typename simd<T, N>::raw_vector_type;
+  constexpr size_t Align = Flags::template alignment<simd<T, N>>;
+  __esimd_svm_block_st<T, N, Align>(reinterpret_cast<VecT *>(addr),
+                                    vals.data());
+}
+
+namespace detail {
+template <
+    typename T, int NElts,
+    __ESIMD_DNS::lsc_data_size DS = __ESIMD_DNS::lsc_data_size::default_size,
+    cache_hint L1H = cache_hint::none, cache_hint L2H = cache_hint::none,
+    typename FlagsT>
+__ESIMD_API std::enable_if_t<is_simd_flag_type_v<FlagsT>, simd<T, NElts>>
+block_load_impl(const T *p, simd_mask<1> pred = 1, FlagsT flags = FlagsT{}) {
+  // Verify input template arguments.
+  check_cache_hint<cache_action::load, L1H, L2H>();
+  constexpr lsc_data_size FDS =
+      finalize_data_size<T, lsc_data_size::default_size>();
+  static_assert(DS == lsc_data_size::default_size || DS == FDS,
+                "Conversion data types are not supported");
+  constexpr auto Alignment =
+      FlagsT::template alignment<__ESIMD_DNS::__raw_t<T>>;
+  static_assert(
+      (Alignment >= __ESIMD_DNS::OperandSize::DWORD && sizeof(T) <= 4) ||
+          (Alignment >= __ESIMD_DNS::OperandSize::QWORD && sizeof(T) > 4),
+      "Incorrect alignment for the data type");
+
+  constexpr int SmallIntFactor64Bit = sizeof(uint64_t) / sizeof(T);
+  constexpr int SmallIntFactor32Bit =
+      (std::max)(static_cast<size_t>(1), sizeof(uint32_t) / sizeof(T));
+  static_assert(NElts > 0 && NElts % SmallIntFactor32Bit == 0,
+                "Number of elements is not supported by Transposed load");
+
+  constexpr bool Use64BitData =
+      Alignment >= __ESIMD_DNS::OperandSize::QWORD &&
+      (sizeof(T) == 8 ||
+       (DS == lsc_data_size::default_size && NElts * sizeof(T) > 256 &&
+        (NElts * sizeof(T)) % 8 == 0));
+  constexpr int SmallIntFactor =
+      Use64BitData ? SmallIntFactor64Bit : SmallIntFactor32Bit;
+  constexpr int FactoredNElts = NElts / SmallIntFactor;
+  check_lsc_vector_size<FactoredNElts>();
+
+  // Prepare template arguments for the call of intrinsic.
+  using LoadElemT = __ESIMD_DNS::__raw_t<
+      std::conditional_t<SmallIntFactor == 1, T,
+                         std::conditional_t<Use64BitData, uint64_t, uint32_t>>>;
+  constexpr uint16_t AddressScale = 1;
+  constexpr int ImmOffset = 0;
+  constexpr lsc_data_size ActualDS =
+      Use64BitData ? lsc_data_size::u64 : lsc_data_size::u32;
+  constexpr lsc_vector_size VS = to_lsc_vector_size<FactoredNElts>();
+  constexpr auto Transposed = lsc_data_order::transpose;
+  constexpr int N = 1;
+
+  // Prepare non-template arguments and call the intrinsic.
+  simd<uintptr_t, N> Addrs = reinterpret_cast<uintptr_t>(p);
+  simd<LoadElemT, FactoredNElts> Result =
+      __esimd_lsc_load_stateless<LoadElemT, L1H, L2H, AddressScale, ImmOffset,
+                                 ActualDS, VS, Transposed, N>(pred.data(),
+                                                              Addrs.data());
+  return Result.template bit_cast_view<T>();
+}
+
+/// USM pointer transposed gather with 1 channel.
+/// Supported platforms: DG2, PVC
+/// VISA instruction: lsc_load.ugm
+///
+/// Accesses contiguous block of memory of `NElts * S` bytes  starting from
+/// given address, where S is a byte size of an "element" defined by the \c DS
+/// template parameter. The maximum size of accessed block is 512 bytes for PVC
+/// and 256 bytes for ACM (DG2).
+/// When \c DS equals \c lsc_data_size::u64 or \c sizeof(T) equal to 8 the
+/// address must be 8-byte aligned, otherwise - 4-bytes aligned. Allowed values
+/// for the data size are \c lsc_data_size::u32, \c lsc_data_size::u64,
+/// \c lsc_data_size::u8, \c lsc_data_size::u16.
+/// When data size is either  \c lsc_data_size::u8 or \c lsc_data_size::u16
+/// the data is treated as 32 bit data.
+/// Allowed \c NElts values for 64 bit data are 1, 2, 3, 4, 8, 16, 32, 64.
+/// Allowed \c NElts values for 32 bit data are 1, 2, 3, 4, 8, 16, 32, 64, 128.
+/// Allowed \c NElts values for 16 bit data are 2, 4, 8, 16, 32, 64, 128, 256.
+/// Allowed \c NElts values for 8 bit data are 4, 8, 12, 16, 32, 64, 128, 256,
+/// 512.
+/// 8 bytes alignment is required for 64 bit data, 32 bit data and \c NElts
+/// equal to 128, 16 bit data and \c NElts equal to 256, 8 bit data and \c
+/// NElts equal to 512. Otherwise 4 bytes alignment is required.
+///
+/// @tparam T is element type.
+/// @tparam NElts is the number of elements to load per address.
+/// @tparam DS is the data size.
+/// @tparam L1H is L1 cache hint.
+/// @tparam L2H is L2 cache hint.
+/// @param p is the base pointer.
+/// @param pred is operation predicate. Zero means operation is skipped
+/// entirely, non-zero - operation is performed.
+/// @param old_values contains the vector which elements are copied
+/// to the returned result when the corresponding element of \p pred is 0.
+/// @param flags is the alignment specifier type tag.
+/// @return is a vector of type T and size NElts.
+///
+template <typename T, int NElts, lsc_data_size DS = lsc_data_size::default_size,
+          cache_hint L1H = cache_hint::none, cache_hint L2H = cache_hint::none,
+          typename FlagsT>
+__ESIMD_API std::enable_if_t<is_simd_flag_type_v<FlagsT>, simd<T, NElts>>
+block_load_impl(const T *p, simd_mask<1> pred, simd<T, NElts> old_values,
+                FlagsT flags) {
+  // Verify input template arguments.
+  check_cache_hint<cache_action::load, L1H, L2H>();
+  constexpr lsc_data_size FDS =
+      finalize_data_size<T, lsc_data_size::default_size>();
+  static_assert(DS == lsc_data_size::default_size || DS == FDS,
+                "Conversion data types are not supported");
+  constexpr auto Alignment =
+      FlagsT::template alignment<__ESIMD_DNS::__raw_t<T>>;
+  static_assert(
+      (Alignment >= __ESIMD_DNS::OperandSize::DWORD && sizeof(T) <= 4) ||
+          (Alignment >= __ESIMD_DNS::OperandSize::QWORD && sizeof(T) > 4),
+      "Incorrect alignment for the data type");
+
+  constexpr int SmallIntFactor64Bit = sizeof(uint64_t) / sizeof(T);
+  constexpr int SmallIntFactor32Bit =
+      (std::max)(static_cast<size_t>(1), sizeof(uint32_t) / sizeof(T));
+  static_assert(NElts > 0 && NElts % SmallIntFactor32Bit == 0,
+                "Number of elements is not supported by Transposed load");
+
+  constexpr bool Use64BitData =
+      Alignment >= __ESIMD_DNS::OperandSize::QWORD &&
+      (sizeof(T) == 8 ||
+       (DS == lsc_data_size::default_size && NElts * sizeof(T) > 256 &&
+        (NElts * sizeof(T)) % 8 == 0));
+  constexpr int SmallIntFactor =
+      Use64BitData ? SmallIntFactor64Bit : SmallIntFactor32Bit;
+  constexpr int FactoredNElts = NElts / SmallIntFactor;
+  check_lsc_vector_size<FactoredNElts>();
+
+  // Prepare template arguments for the call of intrinsic.
+  using LoadElemT = __ESIMD_DNS::__raw_t<
+      std::conditional_t<SmallIntFactor == 1, T,
+                         std::conditional_t<Use64BitData, uint64_t, uint32_t>>>;
+  constexpr uint16_t AddressScale = 1;
+  constexpr int ImmOffset = 0;
+  constexpr lsc_data_size ActualDS =
+      Use64BitData ? lsc_data_size::u64 : lsc_data_size::u32;
+  constexpr lsc_vector_size VS = to_lsc_vector_size<FactoredNElts>();
+  constexpr auto Transposed = lsc_data_order::transpose;
+  constexpr int N = 1;
+
+  // Prepare non-template arguments and call the intrinsic.
+  simd<uintptr_t, N> Addrs = reinterpret_cast<uintptr_t>(p);
+  simd<LoadElemT, FactoredNElts> OldVals =
+      old_values.template bit_cast_view<LoadElemT>();
+  simd<LoadElemT, FactoredNElts> Result =
+      __esimd_lsc_load_merge_stateless<LoadElemT, L1H, L2H, AddressScale,
+                                       ImmOffset, ActualDS, VS, Transposed, N>(
+          pred.data(), Addrs.data(), OldVals.data());
+  return Result.template bit_cast_view<T>();
+}
+
+} // namespace detail
+
+/// @addtogroup sycl_esimd_memory_block
+/// @{
+
+>>>>>>> 4da7f9ed570462f2a59b7d4e4d840035165575ed
 /// Each of the following block load functions loads a contiguous memory block
 /// from the address referenced by accessor 'acc', or from 'acc +
 /// offset', where 'offset' is the offset in bytes (not in elements!). The
