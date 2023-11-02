@@ -1006,6 +1006,45 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
         NewFn = Intrinsic::getDeclaration(F->getParent(), ID, Tys);
         return true;
       }
+      if (Name.startswith("fill.") && F->arg_size() == 6) {
+        // Old version of the intrinsic functions has matrix layout
+        // specified. This argument is being removed.
+        rename(F);
+        Type *Tys[] = {F->getReturnType(), F->getArg(0)->getType()};
+        NewFn = Intrinsic::getDeclaration(
+            F->getParent(), Intrinsic::experimental_matrix_fill, Tys);
+        return true;
+      }
+      if (Name.startswith("wi.slice.length") && F->arg_size() == 6) {
+        // Old version of the intrinsic functions has matrix layout
+        // specified. This argument is being removed.
+        rename(F);
+        Type *Tys[] = {F->getArg(0)->getType()};
+        NewFn = Intrinsic::getDeclaration(
+            F->getParent(), Intrinsic::experimental_matrix_wi_slice_length,
+            Tys);
+        return true;
+      }
+      if (Name.startswith("wi.slice.extractelement") && F->arg_size() == 7) {
+        // Old version of the intrinsic functions has matrix layout
+        // specified. This argument is being removed.
+        rename(F);
+        Type *Tys[] = {F->getArg(0)->getType(), F->getArg(3)->getType()};
+        NewFn = Intrinsic::getDeclaration(
+            F->getParent(),
+            Intrinsic::experimental_matrix_wi_slice_extractelement, Tys);
+        return true;
+      }
+      if (Name.startswith("wi.slice.insertelement") && F->arg_size() == 8) {
+        // Old version of the intrinsic functions has matrix layout
+        // specified. This argument is being removed.
+        rename(F);
+        Type *Tys[] = {F->getArg(0)->getType(), F->getArg(4)->getType()};
+        NewFn = Intrinsic::getDeclaration(
+            F->getParent(),
+            Intrinsic::experimental_matrix_wi_slice_insertelement, Tys);
+        return true;
+      }
     }
 #endif // INTEL_CUTOMIZATION
     if (Name.consume_front("experimental.vector.")) {
@@ -4674,6 +4713,109 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
          OldAttrs.getParamAttrs(7), OldAttrs.getParamAttrs(8),
          OldAttrs.getParamAttrs(9)});
     NewCall->setAttributes(NewAttrs);
+    break;
+  }
+  case Intrinsic::experimental_matrix_fill:
+  case Intrinsic::experimental_matrix_wi_slice_length: {
+    // Old version of the intrinsic functions has matrix layout
+    // specified. This argument is being removed.
+    if (CI->arg_size() == 5) {
+      DefaultCase();
+      return;
+    }
+    SmallVector<Value *, 6> Args(CI->args());
+
+    StringRef Use =
+        cast<MDString>(cast<MetadataAsValue>(Args[5])->getMetadata())
+            ->getString();
+    StringRef Layout =
+        cast<MDString>(cast<MetadataAsValue>(Args[3])->getMetadata())
+            ->getString();
+
+    if (Use.equals("matrix.use.unnecessary")) {
+      LLVMContext &Context = F->getParent()->getContext();
+      if (Layout.equals("matrix.rowmajor") ||
+          Layout.equals("matrix.packed.a")) {
+        Args[5] = MetadataAsValue::get(Context,
+                                       MDString::get(Context, "matrix.use.a"));
+      } else if (Layout.equals("matrix.columnmajor") ||
+                 Layout.equals("matrix.packed.b")) {
+        Args[5] = MetadataAsValue::get(Context,
+                                       MDString::get(Context, "matrix.use.b"));
+      }
+    }
+    Args.erase(Args.begin() + 3);
+
+    NewCall = Builder.CreateCall(NewFn, Args);
+    NewCall->setAttributes(CI->getAttributes());
+    break;
+  }
+  case Intrinsic::experimental_matrix_wi_slice_extractelement: {
+    // Old version of the intrinsic functions has matrix layout
+    // specified. This argument is being removed.
+    if (CI->arg_size() == 6) {
+      DefaultCase();
+      return;
+    }
+    SmallVector<Value *, 7> Args(CI->args());
+
+    StringRef Use =
+        cast<MDString>(cast<MetadataAsValue>(Args[6])->getMetadata())
+            ->getString();
+    StringRef Layout =
+        cast<MDString>(cast<MetadataAsValue>(Args[4])->getMetadata())
+            ->getString();
+
+    if (Use.equals("matrix.use.unnecessary")) {
+      LLVMContext &Context = F->getParent()->getContext();
+      if (Layout.equals("matrix.rowmajor") ||
+          Layout.equals("matrix.packed.a")) {
+        Args[6] = MetadataAsValue::get(Context,
+                                       MDString::get(Context, "matrix.use.a"));
+      } else if (Layout.equals("matrix.columnmajor") ||
+                 Layout.equals("matrix.packed.b")) {
+        Args[6] = MetadataAsValue::get(Context,
+                                       MDString::get(Context, "matrix.use.b"));
+      }
+    }
+    Args.erase(Args.begin() + 4);
+
+    NewCall = Builder.CreateCall(NewFn, Args);
+    NewCall->setAttributes(CI->getAttributes());
+    break;
+  }
+  case Intrinsic::experimental_matrix_wi_slice_insertelement: {
+    // Old version of the intrinsic functions has matrix layout
+    // specified. This argument is being removed.
+    if (CI->arg_size() == 7) {
+      DefaultCase();
+      return;
+    }
+    SmallVector<Value *, 8> Args(CI->args());
+
+    StringRef Use =
+        cast<MDString>(cast<MetadataAsValue>(Args[7])->getMetadata())
+            ->getString();
+    StringRef Layout =
+        cast<MDString>(cast<MetadataAsValue>(Args[5])->getMetadata())
+            ->getString();
+
+    if (Use.equals("matrix.use.unnecessary")) {
+      LLVMContext &Context = F->getParent()->getContext();
+      if (Layout.equals("matrix.rowmajor") ||
+          Layout.equals("matrix.packed.a")) {
+        Args[7] = MetadataAsValue::get(Context,
+                                       MDString::get(Context, "matrix.use.a"));
+      } else if (Layout.equals("matrix.columnmajor") ||
+                 Layout.equals("matrix.packed.b")) {
+        Args[7] = MetadataAsValue::get(Context,
+                                       MDString::get(Context, "matrix.use.b"));
+      }
+    }
+    Args.erase(Args.begin() + 5);
+
+    NewCall = Builder.CreateCall(NewFn, Args);
+    NewCall->setAttributes(CI->getAttributes());
     break;
   }
 #endif // INTEL_CUTOMIZATION

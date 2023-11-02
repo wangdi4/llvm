@@ -22,18 +22,18 @@ entry:
   tail call void @llvm.assume(i1 %cmp.i40.i)
   %cmp.i48.i = icmp ult i64 %2, 2147483648
   tail call void @llvm.assume(i1 %cmp.i48.i)
-  %call.i59.i = tail call <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16 16544, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  %call.i59.i = tail call <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16 16544, i32 8, i32 16, metadata !"scope.subgroup", metadata !"matrix.use.a")
   br label %for.cond.i
 
 for.cond.i:                                       ; preds = %for.body.i, %entry
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body.i ], [ 0, %entry ]
   %sub_a.sroa.0.0.i = phi <128 x i16> [ %call.i.i, %for.body.i ], [ %call.i59.i, %entry ]
-  %call.i56.i = tail call i64 @llvm.experimental.matrix.wi.slice.length.v128i16(<128 x i16> %sub_a.sroa.0.0.i, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  %call.i56.i = tail call i64 @llvm.experimental.matrix.wi.slice.length.v128i16(<128 x i16> %sub_a.sroa.0.0.i, i32 8, i32 16, metadata !"scope.subgroup", metadata !"matrix.use.a")
   %cmp.i = icmp ugt i64 %call.i56.i, %indvars.iv
   br i1 %cmp.i, label %for.body.i, label %_ZZZ17matrix_verify_addItLm16ELm16EEvN2cl4sycl5queueER10big_matrixIT_XT0_EXT1_EERNS1_8nd_rangeILi2EEEfENKUlRNS1_7handlerEE_clESB_ENKUlNS1_7nd_itemILi2EEEE_clESE_.exit
 
 for.body.i:                                       ; preds = %for.cond.i
-  %call.i38.i = tail call i16 @llvm.experimental.matrix.wi.slice.extractelement.v128i16.i64(<128 x i16> %sub_a.sroa.0.0.i, i32 8, i32 16, i64 %indvars.iv, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  %call.i38.i = tail call i16 @llvm.experimental.matrix.wi.slice.extractelement.v128i16.i64(<128 x i16> %sub_a.sroa.0.0.i, i32 8, i32 16, i64 %indvars.iv, metadata !"scope.subgroup", metadata !"matrix.use.a")
   %conv.i.i.i = zext i16 %call.i38.i to i32
   %shl.i.i.i = shl nuw i32 %conv.i.i.i, 16
   %4 = bitcast i32 %shl.i.i.i to float
@@ -41,7 +41,7 @@ for.body.i:                                       ; preds = %for.cond.i
   %5 = bitcast float %add.i.i to i32
   %6 = lshr i32 %5, 16
   %conv.i5.i.i = trunc i32 %6 to i16
-  %call.i.i = tail call <128 x i16> @llvm.experimental.matrix.wi.slice.insertelement.v128i16.i64(<128 x i16> %sub_a.sroa.0.0.i, i32 8, i32 16, i16 %conv.i5.i.i, i64 %indvars.iv, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  %call.i.i = tail call <128 x i16> @llvm.experimental.matrix.wi.slice.insertelement.v128i16.i64(<128 x i16> %sub_a.sroa.0.0.i, i32 8, i32 16, i16 %conv.i5.i.i, i64 %indvars.iv, metadata !"scope.subgroup", metadata !"matrix.use.a")
   %indvars.iv.next = add nuw i64 %indvars.iv, 1
   br label %for.cond.i
 
@@ -61,16 +61,16 @@ _ZZZ17matrix_verify_addItLm16ELm16EEvN2cl4sycl5queueER10big_matrixIT_XT0_EXT1_EE
 declare void @llvm.assume(i1 noundef) #1
 
 ; Function Attrs: mustprogress nofree nosync nounwind readnone willreturn
-declare <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16, i32, i32, metadata, metadata, metadata) #2
+declare <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16, i32, i32, metadata, metadata) #2
 
 ; Function Attrs: mustprogress nofree nosync nounwind willreturn
-declare i64 @llvm.experimental.matrix.wi.slice.length.v128i16(<128 x i16>, i32, i32, metadata, metadata, metadata) #3
+declare i64 @llvm.experimental.matrix.wi.slice.length.v128i16(<128 x i16>, i32, i32, metadata, metadata) #3
 
 ; Function Attrs: mustprogress nofree nosync nounwind willreturn
-declare i16 @llvm.experimental.matrix.wi.slice.extractelement.v128i16.i64(<128 x i16>, i32, i32, i64, metadata, metadata, metadata) #3
+declare i16 @llvm.experimental.matrix.wi.slice.extractelement.v128i16.i64(<128 x i16>, i32, i32, i64, metadata, metadata) #3
 
 ; Function Attrs: mustprogress nofree nosync nounwind willreturn
-declare <128 x i16> @llvm.experimental.matrix.wi.slice.insertelement.v128i16.i64(<128 x i16>, i32, i32, i16, i64, metadata, metadata, metadata) #3
+declare <128 x i16> @llvm.experimental.matrix.wi.slice.insertelement.v128i16.i64(<128 x i16>, i32, i32, i16, i64, metadata, metadata) #3
 
 ; Function Attrs: convergent mustprogress nofree nosync nounwind willreturn
 declare void @llvm.experimental.matrix.store.v128i16.p4(<128 x i16>, ptr addrspace(4), i64, i1, i32, i32, metadata, metadata, metadata, metadata) #4
@@ -139,7 +139,7 @@ attributes #7 = { convergent "kernel-call-once" "kernel-uniform-call" "opencl-ve
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[CMP_I40_I]])
 ; CHECK-NEXT:    [[CMP_I48_I:%.*]] = icmp ult i64 [[TMP2]], 2147483648
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[CMP_I48_I]])
-; CHECK-NEXT:    [[MAT_INIT:%.*]] = call <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16 0, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+; CHECK-NEXT:    [[MAT_INIT:%.*]] = call <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16 0, i32 8, i32 16, metadata !"scope.subgroup", metadata !"matrix.use.a")
 ; CHECK-NEXT:    [[SG_SLICE_LENGTH:%.*]] = call i64 @get_sub_group_slice_length.(i32 128)
 ; CHECK-NEXT:    br label [[MATRIX_FILL_SLICE_LOOP_HEADER:%.*]]
 ; CHECK:       matrix.fill.slice.loop.header:
@@ -260,7 +260,7 @@ attributes #7 = { convergent "kernel-call-once" "kernel-uniform-call" "opencl-ve
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_5_11]])
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_6_12]])
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_7_13]])
-; CHECK-NEXT:    [[TMP13:%.*]] = call <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16 0, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+; CHECK-NEXT:    [[TMP13:%.*]] = call <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16 0, i32 8, i32 16, metadata !"scope.subgroup", metadata !"matrix.use.a")
 ; CHECK-NEXT:    [[TMP14:%.*]] = call i64 @get_sub_group_slice_length.(i32 128)
 ; CHECK-NEXT:    br label [[VPLANNEDBB14:%.*]]
 ; CHECK:       VPlannedBB14:
@@ -345,7 +345,7 @@ attributes #7 = { convergent "kernel-call-once" "kernel-uniform-call" "opencl-ve
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[CMP_I40_I]])
 ; CHECK-NEXT:    [[CMP_I48_I:%.*]] = icmp ult i64 [[TMP41]], 2147483648
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[CMP_I48_I]])
-; CHECK-NEXT:    [[MAT_INIT:%.*]] = call <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16 0, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+; CHECK-NEXT:    [[MAT_INIT:%.*]] = call <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16 0, i32 8, i32 16, metadata !"scope.subgroup", metadata !"matrix.use.a")
 ; CHECK-NEXT:    [[SG_SLICE_LENGTH:%.*]] = call i64 @get_sub_group_slice_length.(i32 128)
 ; CHECK-NEXT:    br label [[MATRIX_FILL_SLICE_LOOP_HEADER:%.*]]
 ; CHECK:       matrix.fill.slice.loop.header:

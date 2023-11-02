@@ -19428,7 +19428,6 @@ is introduced.  Value of such argument must be one of the following strings:
     "matrix.use.a"
     "matrix.use.b"
     "matrix.use.accumulator"
-    "matrix.use.unnecessary"
 
 When the type of the matrix elements should be interpreted differently, metadata
 string arguments are introduced to the multiply add intrinsic. For example, if
@@ -19462,7 +19461,7 @@ This is an overloaded intrinsic.
 
       declare <vectorty> @llvm.experimental.matrix.fill.*(
           <type> %Input, i32 <Rows>, i32 <Cols>,
-          metadata <Layout>, metadata <Scope>, metadata <Use>)
+          metadata <Scope>, metadata <Use>)
 
 Overview:
 """""""""
@@ -19476,8 +19475,7 @@ The second and third arguments, ``<Rows>`` and ``<Cols>``, specify the
 number of rows and columns of the matrix, and must be positive, constant
 integers.
 
-The fourth and fifth arguments are metadata strings which specify layout and
-memory scope of the matrix, respectively.
+The fourth argument is metadata string which specifies memory scope of the matrix.
 
 Semantics:
 """"""""""
@@ -19501,7 +19499,7 @@ This is an overloaded intrinsic.
       declare i64
       @llvm.experimental.matrix.wi.slice.length.*(<vectorty> <matrix>,
                                                   i32 <rows>, i32 <columns>,
-                                                  metadata <layout>, metadata <scope>,
+                                                  metadata <scope>,
                                                   metadata <Use>)
 
 Overview:
@@ -19517,8 +19515,7 @@ of rows and columns in the matrix respectively. Elements of the vector must be
 either of any integer or any floating point type. ``rows`` and ``columns`` must
 be positive, constant integers.
 
-The fourth and fifth arguments are metadata strings which specify layout and
-memory scope of the matrix, respectively.
+The fourth argument is metadata string which specifies memory scope of the matrix.
 
 Semantics:
 """"""""""
@@ -19529,7 +19526,7 @@ Example:
 """"""""
 ::
 
-    declare i64 @llvm.experimental.matrix.wi.slice.length.v256f32(<256 x float> %A, i32 16, i32 16, metadata !"matrix.columnmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+    declare i64 @llvm.experimental.matrix.wi.slice.length.v256f32(<256 x float> %A, i32 16, i32 16, metadata !"scope.subgroup", metadata !"matrix.use.b")
 
 
 '``llvm.experimental.matrix.wi.slice.extractelement.*``' Intrinsic
@@ -19544,7 +19541,7 @@ This is an overloaded intrinsic.
     declare <ty>
     @llvm.experimental.matrix.wi.slice.extractelement.*(<vectorty> <matrix>,
                                                         i32 <rows>, i32 <columns>, <ty2> <index>,
-                                                        metadata <layout>, metadata <scope>, metadata <use>)
+                                                        metadata <scope>, metadata <use>)
 
 Overview:
 """""""""
@@ -19562,8 +19559,7 @@ be positive, constant integers.
 The fourth argument specifies index of the element to be extracted from the
 current work-item slice. The ``index`` argument must be of an integer type.
 
-The fifth and sixth arguments are metadata strings which specify layout and
-memory scope of the matrix, respectively.
+The fifth argument is metadata string which specifies memory scope of the matrix.
 
 Semantics:
 """"""""""
@@ -19580,8 +19576,8 @@ Example:
 """"""""
 ::
 
-    declare float @llvm.experimental.matrix.wi.slice.extractelement.v256f32.i64(<256 x float> %A, i32 16, i32 16, i64 %index,  metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-    declare i8 @llvm.experimental.matrix.wi.slice.extractelement.v64i8.i32(<64 x i8> %A, i32 16, i32 4, i32 %index,  metadata !"matrix.columnmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+    declare float @llvm.experimental.matrix.wi.slice.extractelement.v256f32.i64(<256 x float> %A, i32 16, i32 16, i64 %index, metadata !"scope.subgroup", metadata !"matrix.use.a")
+    declare i8 @llvm.experimental.matrix.wi.slice.extractelement.v64i8.i32(<64 x i8> %A, i32 16, i32 4, i32 %index, metadata !"scope.subgroup", metadata !"matrix.use.b")
 
 
 '``llvm.experimental.matrix.wi.slice.insertelement.*``' Intrinsic
@@ -19596,7 +19592,7 @@ This is an overloaded intrinsic.
       @llvm.experimental.matrix.wi.slice.insertelement.*(<vectorty> <matrix>,
                                                          i32 <rows>, i32 <columns>,
                                                          <ty> <val>, <ty2> <index>,
-                                                         metadata <layout>, metadata <scope>, metadata <use>)
+                                                         metadata <scope>, metadata <use>)
 
 Overview:
 """""""""
@@ -19616,8 +19612,7 @@ matrix elements.  The fifth argument is an index indicating the position in the
 current work-item slice at which to insert the value. The ``index`` argument
 must be of an integer type.
 
-The sixth and seventh arguments are metadata strings which specify layout and
-memory scope of the matrix, respectively.
+The sixth argument is metadata string which specifies memory scope of the matrix.
 
 Semantics:
 """"""""""
@@ -19633,8 +19628,8 @@ Example:
 """"""""
 ::
 
-      declare <256 x float> @llvm.experimental.matrix.wi.slice.insertelement.v256f32.i64(<256 x float> %A, i32 16, i32 16, float %val, i64 %index, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-      declare <64 x i8> @llvm.experimental.matrix.wi.slice.insertelement.v64i8.i32(<64 x i8> %A, i32 16, i32 4, i8 %val, i32 %index, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+      declare <256 x float> @llvm.experimental.matrix.wi.slice.insertelement.v256f32.i64(<256 x float> %A, i32 16, i32 16, float %val, i64 %index, metadata !"scope.subgroup", metadata !"matrix.use.a")
+      declare <64 x i8> @llvm.experimental.matrix.wi.slice.insertelement.v64i8.i32(<64 x i8> %A, i32 16, i32 4, i8 %val, i32 %index, metadata !"scope.subgroup", metadata !"matrix.use.a")
 
 
 '``llvm.experimental.matrix.extract.row.slice``' Intrinsic
@@ -19803,7 +19798,7 @@ Example:
 """"""""
 ::
 
-    %coord = call <2 x i64> @llvm.experimental.matrix.wi.element.coordinate.v256f32(<256 x float> %A, i32 16, i32 16, i64 %Idx, metadata !"scope.subgroup") 
+    %coord = call <2 x i64> @llvm.experimental.matrix.wi.element.coordinate.v256f32(<256 x float> %A, i32 16, i32 16, i64 %Idx, metadata !"scope.subgroup")
 
 
 in this case if %Idx is 16 then %coord will be <i64 2, i64 1>

@@ -655,23 +655,18 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
           "float!\n";
     report_fatal_error(Twine(OS.str()));
   }
-  Metadata *MatUse = cast<MetadataAsValue>(II->getOperand(5))->getMetadata();
-  Metadata *MatLayout = cast<MetadataAsValue>(II->getOperand(3))->getMetadata();
+  Metadata *MatUse = cast<MetadataAsValue>(II->getOperand(4))->getMetadata();
   // If it is packed_b, the type can only be int8/bf16.
   // If it is row_major, the type can be int8/bf16/float/int32, Factor can only
   // be 1.
-  if ((cast<MDString>(MatUse)->getString().equals("matrix.use.b") ||
-       cast<MDString>(MatLayout)->getString().equals("matrix.packed.b")) &&
+  if (cast<MDString>(MatUse)->getString().equals("matrix.use.b") &&
       MatrixElemType->isIntegerTy(8))
     Factor = 4;
-  else if ((cast<MDString>(MatUse)->getString().equals("matrix.use.b") ||
-            cast<MDString>(MatLayout)->getString().equals("matrix.packed.b")) &&
+  else if (cast<MDString>(MatUse)->getString().equals("matrix.use.b") &&
            (MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy()))
     Factor = 2;
   else if (cast<MDString>(MatUse)->getString().equals("matrix.use.a") ||
-           cast<MDString>(MatUse)->getString().equals(
-               "matrix.use.accumulator") ||
-           cast<MDString>(MatLayout)->getString().equals("matrix.rowmajor"))
+           cast<MDString>(MatUse)->getString().equals("matrix.use.accumulator"))
     Factor = 1;
   else {
     std::string Str;

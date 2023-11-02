@@ -51,8 +51,8 @@ static Value *createGetSubGroupRowSliceIdFromExtractOrInsert(CallInst *CI) {
   // Matrix size are always the second, third args.
   unsigned Rows = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
   unsigned Cols = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
-  // Element index is always the third last arg.
-  auto *Index = CI->getArgOperand(CI->arg_size() - 4);
+  // Element index is always the second last arg.
+  auto *Index = CI->getArgOperand(CI->arg_size() - 3);
   return CompilationUtils::createGetSubGroupRowSliceIdCall(
       Matrix, Rows, Cols, Index, CI, "rowslice.id");
 }
