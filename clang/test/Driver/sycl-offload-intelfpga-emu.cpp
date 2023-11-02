@@ -127,11 +127,7 @@
 
 // RUN:  %clangxx -target x86_64-unknown-linux-gnu -fintelfpga %t_aocx.a -### 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-AOCX,CHK-FPGA-AOCX-LIN %s
-<<<<<<< HEAD
-// RUN:  %clang_cl --target=x86_64-pc-windows-msvc -fsycl -fintelfpga %t_aocx.a -### 2>&1 \
-=======
 // RUN:  %clang_cl -fintelfpga %t_aocx.a -### 2>&1 \
->>>>>>> 6d48bc13c4569475508d43d797778cbcd314c290
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-AOCX,CHK-FPGA-AOCX-WIN %s
 // CHK-FPGA-AOCX: clang-offload-bundler{{.*}} "-type=aocx" "-targets=sycl-fpga_aocx-intel-unknown" "-input=[[LIBINPUT:.+\.a]]" "-output=[[BUNDLEOUT:.+\.aocx]]" "-unbundle"
 // CHK-FPGA-AOCX: file-table-tform{{.*}} "-rename=0,Code" "-o" "[[TABLEOUT:.+\.txt]]" "[[BUNDLEOUT]]"
