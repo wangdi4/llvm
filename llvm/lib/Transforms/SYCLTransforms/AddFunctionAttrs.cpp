@@ -120,11 +120,8 @@ static bool handleSyncBuiltinAttributes(Module &M) {
 static bool handleTidFuncAttributes(Module &M) {
   SmallVector<Function *> WorkList;
   DenseSet<Function *> Visited;
-  std::string Names[] = {mangledGetGID(),
-                         mangledGetLID(),
-                         mangledGetGlobalLinearId(),
-                         mangledGetLocalLinearId(),
-                         mangledGetSubGroupId(),
+  std::string Names[] = {mangledGetGID(), mangledGetLID(),
+                         mangledGetGlobalLinearId(), mangledGetLocalLinearId(),
                          mangledGetSubGroupLocalId()};
   for (auto Name : Names) {
     if (auto *F = M.getFunction(Name)) {

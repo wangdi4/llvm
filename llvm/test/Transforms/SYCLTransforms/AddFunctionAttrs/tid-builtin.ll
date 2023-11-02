@@ -12,8 +12,7 @@ entry:
   %1 = call spir_func i64 @_Z12get_local_idj(i32 noundef 0) #1
   %2 = call spir_func i64 @_Z20get_global_linear_idv() #1
   %3 = call spir_func i64 @_Z19get_local_linear_idv() #1
-  %4 = call spir_func i32 @_Z16get_sub_group_idv() #1
-  %5 = call spir_func i32 @_Z22get_sub_group_local_idv() #1
+  %4 = call spir_func i32 @_Z22get_sub_group_local_idv() #1
   ret void
 }
 
@@ -24,8 +23,6 @@ declare spir_func i64 @_Z12get_local_idj(i32 noundef) #1
 declare spir_func i64 @_Z20get_global_linear_idv() #1
 
 declare spir_func i64 @_Z19get_local_linear_idv() #1
-
-declare spir_func i32 @_Z16get_sub_group_idv() #1
 
 declare spir_func i32 @_Z22get_sub_group_local_idv() #1
 
