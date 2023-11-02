@@ -257,7 +257,8 @@ public:
     Emscripten,
     ShaderModel, // DirectX ShaderModel
     LiteOS,
-    LastOSType = LiteOS
+    Serenity,
+    LastOSType = Serenity
   };
   enum EnvironmentType {
     UnknownEnvironment,
@@ -723,6 +724,10 @@ public:
   /// Tests whether the OS is AIX.
   bool isOSAIX() const {
     return getOS() == Triple::AIX;
+  }
+
+  bool isOSSerenity() const {
+    return getOS() == Triple::Serenity;
   }
 
   /// Tests whether the OS uses the ELF binary format.
