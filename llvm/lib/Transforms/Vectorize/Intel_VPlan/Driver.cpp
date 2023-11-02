@@ -344,9 +344,9 @@ void VPlanDriverImpl::preprocessPrivateFinalCondInstructions(
 
     VPBuilder Builder;
     VPBasicBlock *VPBB = VPInst->getParent();
-    VPBasicBlock *VPBBTrue =
+    VPBasicBlock *VPBBMaskNonZero =
         VPBlockUtils::splitBlock(VPBB, VPInst->getIterator(), VPLI, DT, PDT);
-    VPBasicBlock *VPBBFalse;
+    VPBasicBlock *VPBBMaskZero;
     VPInstruction *NextInst = &*std::next(VPInst->getIterator());
 
     switch (VPInst->getOpcode()) {
@@ -365,22 +365,22 @@ void VPlanDriverImpl::preprocessPrivateFinalCondInstructions(
     }
     case VPInstruction::PrivateLastValueNonPODMasked:
     case VPInstruction::PrivateLastValueArrayNonPODMasked: {
-      VPBBFalse = VPBlockUtils::splitBlock(
-          VPBBTrue, std::next(NextInst->getIterator()), VPLI, DT, PDT);
+      VPBBMaskZero = VPBlockUtils::splitBlock(
+          VPBBMaskNonZero, std::next(NextInst->getIterator()), VPLI, DT, PDT);
       break;
     }
     case VPInstruction::PrivateFinalArrayMasked:
-      VPBBFalse = VPBlockUtils::splitBlock(VPBBTrue, NextInst->getIterator(),
-                                           VPLI, DT, PDT);
+      VPBBMaskZero = VPBlockUtils::splitBlock(
+          VPBBMaskNonZero, NextInst->getIterator(), VPLI, DT, PDT);
       break;
     default: {
-      VPBBFalse = VPBlockUtils::splitBlock(VPBBTrue, NextInst->getIterator(),
-                                           VPLI, DT, PDT);
-      Builder.setInsertPoint(&*VPBBFalse->begin());
+      VPBBMaskZero = VPBlockUtils::splitBlock(
+          VPBBMaskNonZero, NextInst->getIterator(), VPLI, DT, PDT);
+      Builder.setInsertPoint(&*VPBBMaskZero->begin());
       VPPHINode *Phi = Builder.createPhiInstruction(VPInst->getType());
       VPInst->replaceAllUsesWith(Phi);
       Phi->addIncoming(VPInst->getOperand(2), VPBB);
-      Phi->addIncoming(VPInst, VPBBTrue);
+      Phi->addIncoming(VPInst, VPBBMaskNonZero);
       DA->updateDivergence(*Phi);
       break;
     }
@@ -410,8 +410,8 @@ void VPlanDriverImpl::preprocessPrivateFinalCondInstructions(
 
     VPValue *AllZeroCheck = Builder.createAllZeroCheck(CmpInst);
     DA->updateDivergence(*AllZeroCheck);
-    VPBB->setTerminator(VPBBFalse, VPBBTrue, AllZeroCheck);
-    VPBlockUtils::updateDomTrees(VPBBTrue, VPBBFalse, VPBB);
+    VPBB->setTerminator(VPBBMaskZero, VPBBMaskNonZero, AllZeroCheck);
+    VPBlockUtils::updateDomTrees(VPBBMaskNonZero, VPBBMaskZero, VPBB);
   }
 
   if (!FinalVPInst.empty())
