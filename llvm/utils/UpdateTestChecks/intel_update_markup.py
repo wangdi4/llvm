@@ -23,7 +23,7 @@ else:
 
 
 def check_ext(file_ext):
-    if file_ext not in {'ll', 'mir', 's', 'txt', 'c', 'cpp', 'td', 'test', 'mm','hip'}:
+    if file_ext not in {'ll', 'mir', 's', 'txt', 'c', 'cpp', 'td', 'test', 'mm', 'hip'}:
         raise NotImplementedError(f'Unsupported file extension .{file_ext}')
 
 
