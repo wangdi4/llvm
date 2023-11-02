@@ -113,7 +113,6 @@
 ; GCN-O0-NEXT:        MachineDominator Tree Construction
 ; GCN-O0-NEXT:        Slot index numbering
 ; GCN-O0-NEXT:        Live Interval Analysis
-; GCN-O0-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O0-NEXT:        SI Whole Quad Mode
 ; GCN-O0-NEXT:        Virtual Register Map
 ; GCN-O0-NEXT:        Live Register Matrix
@@ -346,7 +345,6 @@
 ; GCN-O1-NEXT:        Register Coalescer
 ; GCN-O1-NEXT:        Rename Disconnected Subregister Components
 ; GCN-O1-NEXT:        Machine Instruction Scheduler
-; GCN-O1-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O1-NEXT:        SI Whole Quad Mode
 ; GCN-O1-NEXT:        Virtual Register Map
 ; GCN-O1-NEXT:        Live Register Matrix
@@ -642,7 +640,6 @@
 ; GCN-O1-OPTS-NEXT:        Rename Disconnected Subregister Components
 ; GCN-O1-OPTS-NEXT:        AMDGPU Pre-RA optimizations
 ; GCN-O1-OPTS-NEXT:        Machine Instruction Scheduler
-; GCN-O1-OPTS-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O1-OPTS-NEXT:        SI Whole Quad Mode
 ; GCN-O1-OPTS-NEXT:        Virtual Register Map
 ; GCN-O1-OPTS-NEXT:        Live Register Matrix
@@ -949,7 +946,6 @@
 ; GCN-O2-NEXT:        Rename Disconnected Subregister Components
 ; GCN-O2-NEXT:        AMDGPU Pre-RA optimizations
 ; GCN-O2-NEXT:        Machine Instruction Scheduler
-; GCN-O2-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O2-NEXT:        SI Whole Quad Mode
 ; GCN-O2-NEXT:        Virtual Register Map
 ; GCN-O2-NEXT:        Live Register Matrix
@@ -1269,7 +1265,6 @@
 ; GCN-O3-NEXT:        Rename Disconnected Subregister Components
 ; GCN-O3-NEXT:        AMDGPU Pre-RA optimizations
 ; GCN-O3-NEXT:        Machine Instruction Scheduler
-; GCN-O3-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O3-NEXT:        SI Whole Quad Mode
 ; GCN-O3-NEXT:        Virtual Register Map
 ; GCN-O3-NEXT:        Live Register Matrix
