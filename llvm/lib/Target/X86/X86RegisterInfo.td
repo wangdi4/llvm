@@ -473,10 +473,25 @@ let SubRegIndices = [sub_ymm], PositionOrder = 2 in {
   }
 }
 
-<<<<<<< HEAD
+let PositionOrder = 2 in {
+// Mask Registers, used by AVX-512 instructions.
+def K0 : X86Reg<"k0", 0>, DwarfRegNum<[118,  93,  93]>;
+def K1 : X86Reg<"k1", 1>, DwarfRegNum<[119,  94,  94]>;
+def K2 : X86Reg<"k2", 2>, DwarfRegNum<[120,  95,  95]>;
+def K3 : X86Reg<"k3", 3>, DwarfRegNum<[121,  96,  96]>;
+def K4 : X86Reg<"k4", 4>, DwarfRegNum<[122,  97,  97]>;
+def K5 : X86Reg<"k5", 5>, DwarfRegNum<[123,  98,  98]>;
+def K6 : X86Reg<"k6", 6>, DwarfRegNum<[124,  99,  99]>;
+def K7 : X86Reg<"k7", 7>, DwarfRegNum<[125, 100, 100]>;
+// Mask register pairs
+def KPAIRS : RegisterTuples<[sub_mask_0, sub_mask_1],
+                             [(add K0, K2, K4, K6), (add K1, K3, K5, K7)]>;
+}
+
+// TMM registers, used by AMX instructions.
+let PositionOrder = 3 in {
 // Tile config registers.
 def TMMCFG: X86Reg<"tmmcfg", 0>;
-
 // Tile "registers".
 def TMM0:  X86Reg<"tmm0",   0>;
 def TMM1:  X86Reg<"tmm1",   1>;
@@ -514,37 +529,6 @@ def TMM30: X86Reg<"tmm30", 30>;
 def TMM31: X86Reg<"tmm31", 31>;
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #endif // INTEL_CUSTOMIZATION
-
-=======
-let PositionOrder = 2 in {
->>>>>>> 860f9e5170767c08a879b592c9121d35e90a320e
-// Mask Registers, used by AVX-512 instructions.
-def K0 : X86Reg<"k0", 0>, DwarfRegNum<[118,  93,  93]>;
-def K1 : X86Reg<"k1", 1>, DwarfRegNum<[119,  94,  94]>;
-def K2 : X86Reg<"k2", 2>, DwarfRegNum<[120,  95,  95]>;
-def K3 : X86Reg<"k3", 3>, DwarfRegNum<[121,  96,  96]>;
-def K4 : X86Reg<"k4", 4>, DwarfRegNum<[122,  97,  97]>;
-def K5 : X86Reg<"k5", 5>, DwarfRegNum<[123,  98,  98]>;
-def K6 : X86Reg<"k6", 6>, DwarfRegNum<[124,  99,  99]>;
-def K7 : X86Reg<"k7", 7>, DwarfRegNum<[125, 100, 100]>;
-// Mask register pairs
-def KPAIRS : RegisterTuples<[sub_mask_0, sub_mask_1],
-                             [(add K0, K2, K4, K6), (add K1, K3, K5, K7)]>;
-}
-
-// TMM registers, used by AMX instructions.
-let PositionOrder = 3 in {
-// Tile config registers.
-def TMMCFG: X86Reg<"tmmcfg", 0>;
-// Tile "registers".
-def TMM0:  X86Reg<"tmm0",   0>;
-def TMM1:  X86Reg<"tmm1",   1>;
-def TMM2:  X86Reg<"tmm2",   2>;
-def TMM3:  X86Reg<"tmm3",   3>;
-def TMM4:  X86Reg<"tmm4",   4>;
-def TMM5:  X86Reg<"tmm5",   5>;
-def TMM6:  X86Reg<"tmm6",   6>;
-def TMM7:  X86Reg<"tmm7",   7>;
 }
 
 // Floating point stack registers. These don't map one-to-one to the FP

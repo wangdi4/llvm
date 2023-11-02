@@ -1413,7 +1413,6 @@ namespace X86II {
     }
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   /// \returns true if \p RegNo is an apx extended register.
@@ -1490,7 +1489,6 @@ namespace X86II {
   }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-=======
   /// \returns true if the register is a XMM.
   inline bool isXMMReg(unsigned RegNo) {
     assert(X86::XMM15 - X86::XMM0 == 15 &&
@@ -1516,7 +1514,6 @@ namespace X86II {
     assert(X86::ZMM31 - X86::ZMM0 == 31 && "ZMM registers are not continuous");
     return RegNo >= X86::ZMM0 && RegNo <= X86::ZMM31;
   }
->>>>>>> 860f9e5170767c08a879b592c9121d35e90a320e
 
   /// \returns true if the MachineOperand is a x86-64 extended (r8 or
   /// higher) register,  e.g. r8, xmm8, xmm13, etc.
