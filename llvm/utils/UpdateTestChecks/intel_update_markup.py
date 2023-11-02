@@ -2,7 +2,7 @@
 """A intel markup update script.
 
 This script is a utility to update intel markup for test file.
-Supported file extension: .ll, .mir, .s, .txt, '.c', '.cpp', '.td', '.test', '.mm'
+Supported file extension: .ll, .mir, .s, .txt, '.c', '.cpp', '.td', '.test', '.mm', 'hip'
 """
 
 import argparse
@@ -23,7 +23,7 @@ else:
 
 
 def check_ext(file_ext):
-    if file_ext not in {'ll', 'mir', 's', 'txt', 'c', 'cpp', 'td', 'test', 'mm'}:
+    if file_ext not in {'ll', 'mir', 's', 'txt', 'c', 'cpp', 'td', 'test', 'mm','hip'}:
         raise NotImplementedError(f'Unsupported file extension .{file_ext}')
 
 
