@@ -20,8 +20,16 @@ RUN: printf '\3\0\0\0' >> %t
 RUN: printf '\0\0\0\0' >> %t
 RUN: printf '\0\0\0\0' >> %t
 RUN: printf '\0\0\0\1' >> %t
-RUN: printf '\0\0\0\0\0\0\0\3' >> %t
-RUN: printf '\0\0\0\0' >> %t
+// INTEL_CUSTOMIZATION
+// Add 2 bytes of 0 for the number of profiled loops,
+// plus 2 bytes of 0 to pad to a 32-bit alignment to
+// support the addition of loop trip count value
+// profiling types done by the xmain compiler, before
+// the '0003' value that represents the NumBitmapBytes
+// field of the record header.
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t
+RUN: printf '\0\0\0\3' >> %t
+// end INTEL_CUSTOMIZATION
 
 RUN: printf '\344\023\165\112\031\035\265\067' >> %t
 RUN: printf '\0\0\0\0\0\0\0\2' >> %t
@@ -30,8 +38,16 @@ RUN: printf '\2\xff\xff\xd3' >> %t
 RUN: printf '\0\0\0\0' >> %t
 RUN: printf '\0\0\0\0' >> %t
 RUN: printf '\0\0\0\2' >> %t
-RUN: printf '\0\0\0\0\0\0\0\1' >> %t
-RUN: printf '\0\0\0\0' >> %t
+// INTEL_CUSTOMIZATION
+// Add 2 bytes of 0 for the number of profiled loops,
+// plus 2 bytes of 0 to pad to a 32-bit alignment to
+// support the addition of loop trip count value
+// profiling types done by the xmain compiler, before
+// the '0003' value that represents the NumBitmapBytes
+// field of the record header.
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t
+RUN: printf '\0\0\0\1' >> %t
+// end INTEL_CUSTOMIZATION
 
 RUN: printf '\0\0\0\0\0\0\0\023' >> %t
 RUN: printf '\0\0\0\0\0\0\0\067' >> %t

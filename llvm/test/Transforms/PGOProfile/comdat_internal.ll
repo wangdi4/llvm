@@ -16,9 +16,9 @@ $foo = comdat any
 ; INTEL_CUSTOMIZATION
 ; The size of the array is increased t to support the addition of loop trip
 ; count value profiling types done by the xmain compiler.
-; CHECK: @__profd__stdin__foo.[[#FOO_HASH]] = private global { i64, i64, i64, ptr, ptr, i32, [3 x i16] } { i64 {{.*}}, i64 [[#FOO_HASH]], i64 sub (i64 ptrtoint (ptr @__profc__stdin__foo.742261418966908927 to i64), i64 ptrtoint (ptr @__profd__stdin__foo.742261418966908927 to i64)), ptr null
+; CHECK: @__profd__stdin__foo.[[#FOO_HASH]] = private global { i64, i64, i64, i64, ptr, ptr, i32, [3 x i16], i32 } { i64 {{.*}}, i64 [[#FOO_HASH]], i64 sub (i64 ptrtoint (ptr @__profc__stdin__foo.742261418966908927 to i64), i64 ptrtoint (ptr @__profd__stdin__foo.742261418966908927 to i64)), i64 0, ptr null
 ; CHECK-NOT: @foo
-; CHECK-SAME: , ptr null, i32 1, [3 x i16] zeroinitializer }, section "__llvm_prf_data", comdat($__profc__stdin__foo.[[#FOO_HASH]]), align 8
+; CHECK-SAME: , ptr null, i32 1, [3 x i16] zeroinitializer, i32 0 }, section "__llvm_prf_data", comdat($__profc__stdin__foo.[[#FOO_HASH]]), align 8
 ; end INTEL_CUSTOMIZATION
 ; CHECK: @__llvm_prf_nm
 ; CHECK: @llvm.compiler.used
