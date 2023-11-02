@@ -470,7 +470,7 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
       // Skip the prefix "libomp-"
       StringRef PureLibName = InputFilename.substr(7, PureLibNameLen - 7);
       for (const auto &[Lib, Check] : OMPDeviceLibList) {
-        if (PureLibName.compare(Lib) == 0 && Check(Args))
+        if (PureLibName.startswith(Lib) && Check(Args))
           return true;
       }
       // Do a separate check for the CRT device lib, as it is a different name
