@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include <sycl/ext/intel/esimd/detail/atomic_intrin.hpp>
 #include <sycl/ext/intel/esimd/detail/defines_elementary.hpp>
 #include <sycl/ext/intel/esimd/detail/memory_intrin.hpp>
 
