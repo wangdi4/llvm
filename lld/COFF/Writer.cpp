@@ -1411,7 +1411,9 @@ void Writer::sortECChunks() {
   for (OutputSection *sec : ctx.outputSections) {
     if (sec->isCodeSection())
       llvm::stable_sort(sec->chunks, [=](const Chunk *a, const Chunk *b) {
-        return a->getArm64ECRangeType() < b->getArm64ECRangeType();
+        std::optional<chpe_range_type> aType = a->getArm64ECRangeType(),
+                                       bType = b->getArm64ECRangeType();
+        return !aType || (bType && *aType < *bType);
       });
   }
 }

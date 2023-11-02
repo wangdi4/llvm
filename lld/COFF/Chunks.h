@@ -133,7 +133,7 @@ public:
   bool isHotPatchable() const;
 
   MachineTypes getMachine() const;
-  chpe_range_type getArm64ECRangeType() const;
+  std::optional<chpe_range_type> getArm64ECRangeType() const;
 
 protected:
   Chunk(Kind k = OtherKind) : chunkKind(k), hasData(true), p2Align(0) {}
@@ -454,7 +454,11 @@ inline MachineTypes Chunk::getMachine() const {
   return static_cast<const NonSectionChunk *>(this)->getMachine();
 }
 
-inline chpe_range_type Chunk::getArm64ECRangeType() const {
+inline std::optional<chpe_range_type> Chunk::getArm64ECRangeType() const {
+  // Data sections don't need codemap entries.
+  if (!(getOutputCharacteristics() & llvm::COFF::IMAGE_SCN_MEM_EXECUTE))
+    return std::nullopt;
+
   switch (getMachine()) {
   case AMD64:
     return chpe_range_type::Amd64;
