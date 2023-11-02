@@ -651,18 +651,16 @@ static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(
   S.addAMDGPUFlatWorkGroupSizeAttr(New, Attr, MinExpr, MaxExpr);
 }
 
-static ExplicitSpecifier
-instantiateExplicitSpecifier(Sema &S,
-                             const MultiLevelTemplateArgumentList &TemplateArgs,
-                             ExplicitSpecifier ES, FunctionDecl *New) {
+ExplicitSpecifier Sema::instantiateExplicitSpecifier(
+    const MultiLevelTemplateArgumentList &TemplateArgs, ExplicitSpecifier ES) {
   if (!ES.getExpr())
     return ES;
   Expr *OldCond = ES.getExpr();
   Expr *Cond = nullptr;
   {
     EnterExpressionEvaluationContext Unevaluated(
-        S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-    ExprResult SubstResult = S.SubstExpr(OldCond, TemplateArgs);
+        *this, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+    ExprResult SubstResult = SubstExpr(OldCond, TemplateArgs);
     if (SubstResult.isInvalid()) {
       return ExplicitSpecifier::Invalid();
     }
@@ -670,7 +668,7 @@ instantiateExplicitSpecifier(Sema &S,
   }
   ExplicitSpecifier Result(Cond, ES.getKind());
   if (!Cond->isTypeDependent())
-    S.tryResolveExplicitSpecifier(Result);
+    tryResolveExplicitSpecifier(Result);
   return Result;
 }
 
@@ -2697,8 +2695,8 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(
 
   ExplicitSpecifier InstantiatedExplicitSpecifier;
   if (auto *DGuide = dyn_cast<CXXDeductionGuideDecl>(D)) {
-    InstantiatedExplicitSpecifier = instantiateExplicitSpecifier(
-        SemaRef, TemplateArgs, DGuide->getExplicitSpecifier(), DGuide);
+    InstantiatedExplicitSpecifier = SemaRef.instantiateExplicitSpecifier(
+        TemplateArgs, DGuide->getExplicitSpecifier());
     if (InstantiatedExplicitSpecifier.isInvalid())
       return nullptr;
   }
@@ -3077,11 +3075,25 @@ Decl *TemplateDeclInstantiator::VisitCXXMethodDecl(
     }
   }
 
-  ExplicitSpecifier InstantiatedExplicitSpecifier =
-      instantiateExplicitSpecifier(SemaRef, TemplateArgs,
-                                   ExplicitSpecifier::getFromDecl(D), D);
-  if (InstantiatedExplicitSpecifier.isInvalid())
-    return nullptr;
+  auto InstantiatedExplicitSpecifier = ExplicitSpecifier::getFromDecl(D);
+  // deduction guides need this
+  const bool CouldInstantiate =
+      InstantiatedExplicitSpecifier.getExpr() == nullptr ||
+      !InstantiatedExplicitSpecifier.getExpr()->isValueDependent();
+
+  // Delay the instantiation of the explicit-specifier until after the
+  // constraints are checked during template argument deduction.
+  if (CouldInstantiate ||
+      SemaRef.CodeSynthesisContexts.back().Kind !=
+          Sema::CodeSynthesisContext::DeducedTemplateArgumentSubstitution) {
+    InstantiatedExplicitSpecifier = SemaRef.instantiateExplicitSpecifier(
+        TemplateArgs, InstantiatedExplicitSpecifier);
+
+    if (InstantiatedExplicitSpecifier.isInvalid())
+      return nullptr;
+  } else {
+    InstantiatedExplicitSpecifier.setKind(ExplicitSpecKind::Unresolved);
+  }
 
   // Implicit destructors/constructors created for local classes in
   // DeclareImplicit* (see SemaDeclCXX.cpp) might not have an associated TSI.

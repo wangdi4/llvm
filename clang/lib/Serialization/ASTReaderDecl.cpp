@@ -1154,7 +1154,8 @@ void ASTDeclReader::VisitObjCMethodDecl(ObjCMethodDecl *MD) {
     Reader.getContext().setObjCMethodRedeclaration(MD,
                                        readDeclAs<ObjCMethodDecl>());
 
-  MD->setDeclImplementation((ObjCMethodDecl::ImplementationControl)Record.readInt());
+  MD->setDeclImplementation(
+      static_cast<ObjCImplementationControl>(Record.readInt()));
   MD->setObjCDeclQualifier((Decl::ObjCDeclQualifier)Record.readInt());
   MD->setRelatedResultType(Record.readInt());
   MD->setReturnType(Record.readType());
@@ -1775,7 +1776,7 @@ void ASTDeclReader::VisitCapturedDecl(CapturedDecl *CD) {
 
 void ASTDeclReader::VisitLinkageSpecDecl(LinkageSpecDecl *D) {
   VisitDecl(D);
-  D->setLanguage((LinkageSpecDecl::LanguageIDs)Record.readInt());
+  D->setLanguage(static_cast<LinkageSpecLanguageIDs>(Record.readInt()));
   D->setExternLoc(readSourceLocation());
   D->setRBraceLoc(readSourceLocation());
 }
