@@ -79,6 +79,7 @@ private:
     /// Valid index range is [1, UINT_MAX].
     unsigned Index;
     int64_t Coeff;
+    BlobIndexToCoeff();
     BlobIndexToCoeff(unsigned Indx, int64_t Coef);
     ~BlobIndexToCoeff();
   };
@@ -102,7 +103,7 @@ private:
 public:
   /// Each element represents blob index and coefficient associated with an IV
   /// at a particular loop level.
-  typedef SmallVector<BlobIndexToCoeff, 4> IVCoeffsTy;
+  typedef std::array<BlobIndexToCoeff, MaxLoopNestLevel> IVCoeffsTy;
   /// Kept sorted by blob index
   typedef SmallVector<BlobIndexToCoeff, 2> BlobCoeffsTy;
 
@@ -155,10 +156,6 @@ private:
   /// Implements hasIV()/numIV() and hasBlobIVCoeffs()/numBlobIVCoeffs()
   /// functionality.
   unsigned numIVImpl(bool CheckIVPresence, bool CheckBlobCoeffs) const;
-
-  /// Resizes IVCoeffs to max loopnest level if the passed in level goes beyond
-  /// the current size. This will avoid future reallocs.
-  void resizeIVCoeffsToMax(unsigned Lvl);
 
   /// Sets blob/const coefficient of an IV at a particular loop level.
   /// Overwrite flags indicate what is to be overwritten.

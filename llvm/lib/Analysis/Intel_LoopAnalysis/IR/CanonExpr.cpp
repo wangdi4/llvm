@@ -29,6 +29,9 @@
 using namespace llvm;
 using namespace loopopt;
 
+CanonExpr::BlobIndexToCoeff::BlobIndexToCoeff()
+    : Index(InvalidBlobIndex), Coeff(0) {}
+
 CanonExpr::BlobIndexToCoeff::BlobIndexToCoeff(unsigned Indx, int64_t Coef)
     : Index(Indx), Coeff(Coef) {}
 
@@ -43,14 +46,11 @@ CanonExpr::CanonExpr(CanonExprUtils &CEU, Type *SrcType, Type *DestType,
 
   CEU.Objs.insert(this);
   setDenominator(Denom);
-
-  /// Start with size = capcity
-  IVCoeffs.resize(IVCoeffs.capacity(), BlobIndexToCoeff(InvalidBlobIndex, 0));
 }
 
 CanonExpr::CanonExpr(const CanonExpr &CE)
     : CEU(CE.CEU), SrcTy(CE.SrcTy), DestTy(CE.DestTy), IsSExt(CE.IsSExt),
-      DefinedAtLevel(CE.DefinedAtLevel), IVCoeffs(CE.IVCoeffs),
+      DefinedAtLevel(CE.DefinedAtLevel), IVCoeffs(std::move(CE.IVCoeffs)),
       BlobCoeffs(CE.BlobCoeffs), Const(CE.Const), Denominator(CE.Denominator),
       IsSignedDiv(CE.IsSignedDiv), DbgLoc(CE.DbgLoc) {
 
@@ -597,14 +597,6 @@ bool CanonExpr::hasIVConstCoeff(const_iv_iterator ConstIVIter) const {
   return getIVConstCoeff(ConstIVIter);
 }
 
-void CanonExpr::resizeIVCoeffsToMax(unsigned Lvl) {
-  assert(CanonExpr::isValidLinearDefLevel(Lvl) && "Level is out of bounds!");
-
-  if (IVCoeffs.size() < Lvl) {
-    IVCoeffs.resize(MaxLoopNestLevel, BlobIndexToCoeff(InvalidBlobIndex, 0));
-  }
-}
-
 void CanonExpr::setIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff,
                               bool OverwriteIndex, bool OverwriteCoeff) {
 
@@ -612,8 +604,6 @@ void CanonExpr::setIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff,
   assert(
       ((Index == InvalidBlobIndex) || getBlobUtils().isBlobIndexValid(Index)) &&
       "Blob Index is invalid!");
-
-  resizeIVCoeffsToMax(Lvl);
 
   if (OverwriteIndex) {
     IVCoeffs[Lvl - 1].Index = Index;
@@ -656,8 +646,6 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
   assert(
       ((Index == InvalidBlobIndex) || getBlobUtils().isBlobIndexValid(Index)) &&
       "Blob Index is invalid!");
-
-  resizeIVCoeffsToMax(Lvl);
 
   // Nothing to add.
   if (!Coeff) {
@@ -1065,12 +1053,7 @@ void CanonExpr::clear() {
   DefinedAtLevel = 0;
 }
 
-void CanonExpr::clearIVs() {
-  // Assign zeros rather than clearing to keep the size same otherwise a
-  // reallocation will happen on the addition of the next IV to this CanonExpr.
-  // Refer to the logic in resizeIVCoeffsToMax().
-  IVCoeffs.assign(IVCoeffs.size(), BlobIndexToCoeff(InvalidBlobIndex, 0));
-}
+void CanonExpr::clearIVs() { IVCoeffs.fill(BlobIndexToCoeff()); }
 
 void CanonExpr::shift(unsigned Lvl, int64_t Val) {
 
@@ -1116,11 +1099,6 @@ void CanonExpr::promoteIVs(unsigned StartLevel) {
   assert(StartLevel < MaxLoopNestLevel &&
          "It's invalid to promote MaxLoopNestLevel");
   assert(isValidLoopLevel(StartLevel) && "Invalid StartLevel");
-
-  if (IVCoeffs.back().Coeff != 0) {
-    BlobIndexToCoeff IV = IVCoeffs.back();
-    IVCoeffs.push_back(IV);
-  }
 
   for (int I = IVCoeffs.size() - 1, E = StartLevel - 1; I > E; --I) {
     IVCoeffs[I] = IVCoeffs[I - 1];
