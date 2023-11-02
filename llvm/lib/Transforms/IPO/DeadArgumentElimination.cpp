@@ -241,6 +241,7 @@ bool DeadArgumentEliminationPass::deleteDeadVarargs(Function &F) {
   getInlineReport()->replaceFunctionWithFunction(&F, NF);
   getMDInlineReport()->replaceFunctionWithFunction(&F, NF);
 #endif // INTEL_CUSTOMIZATION
+  NF->IsNewDbgInfoFormat = F.IsNewDbgInfoFormat;
 
   // Loop over all the callers of the function, transforming the call sites
   // to pass in a smaller number of arguments into the new function.
@@ -1022,6 +1023,7 @@ bool DeadArgumentEliminationPass::removeDeadStuffFromFunction(Function *F) {
   getInlineReport()->replaceFunctionWithFunction(F, NF);
   getMDInlineReport()->replaceFunctionWithFunction(F, NF);
 #endif // INTEL_CUSTOMIZATION
+  NF->IsNewDbgInfoFormat = F->IsNewDbgInfoFormat;
 
   // Loop over all the callers of the function, transforming the call sites to
   // pass in a smaller number of arguments into the new function.
