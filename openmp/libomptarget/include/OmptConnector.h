@@ -80,6 +80,9 @@ public:
   OmptLibraryConnectorTy(const char *Ident) {
     LibIdent.append(Ident);
     IsInitialized = false;
+#if INTEL_CUSTOMIZATION
+    LibConnHandle = nullptr;
+#endif // INTEL_CUSTOMIZATION
   }
   OmptLibraryConnectorTy() = delete;
   /// Use \p OmptResult init to connect the two libraries denoted by this
