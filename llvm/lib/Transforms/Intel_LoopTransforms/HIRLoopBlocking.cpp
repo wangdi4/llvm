@@ -126,6 +126,8 @@
 // Dump, delinearizaion and stencil-related messages.
 #define LLVM_DEBUG_DELINEAR(X) DEBUG_WITH_TYPE(OPT_SWITCH "-delinear", X)
 #define LLVM_DEBUG_DIAG_DETAIL(X) DEBUG_WITH_TYPE(OPT_SWITCH "-dump-detail", X)
+#define LLVM_DEBUG_PRINT_BLOCKED_LOOPS(X)                                      \
+  DEBUG_WITH_TYPE(OPT_SWITCH "-print-affected-loops", X)
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -140,12 +142,6 @@ static cl::opt<bool>
                       cl::desc("Disable " OPT_DESC_PRAGMA " pass"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// These options are for printing out information even with non-debug compiler.
-static cl::opt<bool>
-    PrintBlockedLoops(OPT_SWITCH "-print-affected-loops", cl::init(false),
-                      cl::ReallyHidden,
-                      cl::desc("Print loops affected by " OPT_DESC " pass"));
-
 static cl::opt<unsigned>
     PrintDiagLevel(OPT_SWITCH "-diag-level", cl::init(0), cl::ReallyHidden,
                    cl::desc("Print Diag why " OPT_DESC " did not happen."));
@@ -2355,12 +2351,9 @@ void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
          "Attempting loop blocking only the outermost loop, which is not "
          "profitable");
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (PrintBlockedLoops) {
-    dbgs() << "== Before blocking in " << FuncName << " == \n";
-    OutermostLoop->dump();
-  }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DEBUG_PRINT_BLOCKED_LOOPS(dbgs() << "== Before blocking in " << FuncName
+                                        << " == \n";
+                                 OutermostLoop->dump(););
 
   InnermostLoop->setIsUndoSinkingCandidate(false);
 
@@ -2415,12 +2408,9 @@ void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
   LLVM_DEBUG(dbgs() << "after hoist\n");
   LLVM_DEBUG(NewOutermostLoop->dump());
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (PrintBlockedLoops) {
-    dbgs() << "== After blocking in " << FuncName << " == \n";
-    NewOutermostLoop->dump();
-  }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DEBUG_PRINT_BLOCKED_LOOPS(dbgs() << "== After blocking in " << FuncName
+                                        << " == \n";
+                                 NewOutermostLoop->dump(););
 
   // Mark as blocked and Invalidate
   InnermostLoop->setIsBlocked(true);
