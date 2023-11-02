@@ -1,3 +1,4 @@
+// REQUIRES: c++20 ; INTEL
 // RUN: %clangxx -std=c++20 -fsycl -c -fsycl-device-only -S -emit-llvm %s -o - | FileCheck %s
 
 // Tests that device_globals with device_image_scope property can be compile
