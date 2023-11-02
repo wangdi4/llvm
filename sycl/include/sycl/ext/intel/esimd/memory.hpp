@@ -1089,33 +1089,6 @@ block_load(AccessorTy acc, detail::DeviceAccessorOffsetT offset, Flags flags) {
 #endif
 }
 
-<<<<<<< HEAD
-=======
-/// Stores elements of the vector \p vals to a contiguous block of memory
-/// at the given address \p addr.
-/// The generated code depends on the combination {T, N, Flags}.
-/// Providing flags specifying the alignment of 16-bytes or more produces more
-/// efficient code. If the alignment is smaller than 16-bytes, then less
-/// efficient scatter is generated. If the stored vector is too long
-/// for 1 flat-store GPU instruction, then a series of flat-store and/or
-/// scatters may be generated.
-/// @tparam Tx Element type.
-/// @tparam N Number of elements to store.
-/// @tparam Flags The alignment specifier type tag.
-/// @param addr The memory address to store at.
-/// @param vals The vector to store.
-/// @param Flags Specifies the alignment.
-template <typename Tx, int N,
-          typename Flags = overaligned_tag<detail::OperandSize::OWORD>>
-__ESIMD_API std::enable_if_t<is_simd_flag_type_v<Flags>>
-block_store(Tx *addr, simd<Tx, N> vals, Flags = {}) {
-  using T = typename detail::__raw_t<Tx>;
-  using VecT = typename simd<T, N>::raw_vector_type;
-  constexpr size_t Align = Flags::template alignment<simd<T, N>>;
-  __esimd_svm_block_st<T, N, Align>(reinterpret_cast<VecT *>(addr),
-                                    vals.data());
-}
-
 namespace detail {
 template <
     typename T, int NElts,
@@ -1273,7 +1246,6 @@ block_load_impl(const T *p, simd_mask<1> pred, simd<T, NElts> old_values,
 /// @addtogroup sycl_esimd_memory_block
 /// @{
 
->>>>>>> 4da7f9ed570462f2a59b7d4e4d840035165575ed
 /// Each of the following block load functions loads a contiguous memory block
 /// from the address referenced by accessor 'acc', or from 'acc +
 /// offset', where 'offset' is the offset in bytes (not in elements!). The
