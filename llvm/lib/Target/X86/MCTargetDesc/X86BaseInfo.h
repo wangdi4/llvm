@@ -1515,6 +1515,19 @@ namespace X86II {
     return RegNo >= X86::ZMM0 && RegNo <= X86::ZMM31;
   }
 
+#if INTEL_CUSTOMIZATION
+  inline unsigned getYMMFromXMM(unsigned RegNo) {
+    assert(isXMMReg(RegNo) && "Not a XMM reg");
+    return RegNo < X86::XMM16 ? X86::YMM0 + RegNo - X86::XMM0
+                              : X86::YMM16 + RegNo - X86::XMM16;
+  }
+  inline unsigned getZMMFromXMM(unsigned RegNo) {
+    assert(isXMMReg(RegNo) && "Not a XMM reg");
+    return RegNo < X86::XMM16 ? X86::ZMM0 + RegNo - X86::XMM0
+                              : X86::ZMM16 + RegNo - X86::XMM16;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// \returns true if the MachineOperand is a x86-64 extended (r8 or
   /// higher) register,  e.g. r8, xmm8, xmm13, etc.
   inline bool isX86_64ExtendedReg(unsigned RegNo) {

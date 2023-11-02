@@ -151,6 +151,7 @@ def R15B : X86Reg<"r15b", 15>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
 // APX only, requires REX2 or EVEX.
+let PositionOrder = 4 in {
 def R16B : X86Reg<"r16b", 16>;
 def R17B : X86Reg<"r17b", 17>;
 def R18B : X86Reg<"r18b", 18>;
@@ -167,6 +168,7 @@ def R28B : X86Reg<"r28b", 28>;
 def R29B : X86Reg<"r29b", 29>;
 def R30B : X86Reg<"r30b", 30>;
 def R31B : X86Reg<"r31b", 31>;
+}
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
@@ -186,6 +188,7 @@ def R14BH : X86Reg<"", -1>;
 def R15BH : X86Reg<"", -1>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
+let PositionOrder = 4 in {
 def R16BH : X86Reg<"", -1>;
 def R17BH : X86Reg<"", -1>;
 def R18BH : X86Reg<"", -1>;
@@ -202,6 +205,7 @@ def R28BH : X86Reg<"", -1>;
 def R29BH : X86Reg<"", -1>;
 def R30BH : X86Reg<"", -1>;
 def R31BH : X86Reg<"", -1>;
+}
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 // High word of the low 32 bits of the super-register:
@@ -224,6 +228,7 @@ def R14WH : X86Reg<"", -1>;
 def R15WH : X86Reg<"", -1>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
+let PositionOrder = 4 in {
 def R16WH : X86Reg<"", -1>;
 def R17WH : X86Reg<"", -1>;
 def R18WH : X86Reg<"", -1>;
@@ -240,6 +245,7 @@ def R28WH : X86Reg<"", -1>;
 def R29WH : X86Reg<"", -1>;
 def R30WH : X86Reg<"", -1>;
 def R31WH : X86Reg<"", -1>;
+}
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }
@@ -275,6 +281,7 @@ def R15W : X86Reg<"r15w", 15, [R15B,R15BH]>;
 #if INTEL_FEATURE_ISA_APX_F
 // APX only, requires REX2 or EVEX.
 let SubRegIndices = [sub_8bit, sub_8bit_hi_phony], CoveredBySubRegs = 1 in {
+let PositionOrder = 4 in {
 def R16W : X86Reg<"r16w", 16, [R16B,R16BH]>;
 def R17W : X86Reg<"r17w", 17, [R17B,R17BH]>;
 def R18W : X86Reg<"r18w", 18, [R18B,R18BH]>;
@@ -291,6 +298,7 @@ def R28W : X86Reg<"r28w", 28, [R28B,R28BH]>;
 def R29W : X86Reg<"r29w", 29, [R29B,R29BH]>;
 def R30W : X86Reg<"r30w", 30, [R30B,R30BH]>;
 def R31W : X86Reg<"r31w", 31, [R31B,R31BH]>;
+}
 }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
@@ -324,6 +332,7 @@ def R15D : X86Reg<"r15d", 15, [R15W,R15WH]>;
 #if INTEL_FEATURE_ISA_APX_F
 // APX only, requires REX2 or EVEX.
 let SubRegIndices = [sub_16bit, sub_16bit_hi], CoveredBySubRegs = 1 in {
+let PositionOrder = 4 in {
 def R16D : X86Reg<"r16d", 16, [R16W,R16WH]>;
 def R17D : X86Reg<"r17d", 17, [R17W,R17WH]>;
 def R18D : X86Reg<"r18d", 18, [R18W,R18WH]>;
@@ -340,6 +349,7 @@ def R28D : X86Reg<"r28d", 28, [R28W,R28WH]>;
 def R29D : X86Reg<"r29d", 29, [R29W,R29WH]>;
 def R30D : X86Reg<"r30d", 30, [R30W,R30WH]>;
 def R31D : X86Reg<"r31d", 31, [R31W,R31WH]>;
+}
 }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
@@ -369,6 +379,7 @@ def RIP : X86Reg<"rip",  0, [EIP]>,  DwarfRegNum<[16, -2, -2]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
 // APX only, requires REX2 or EVEX.
+let PositionOrder = 4 in {
 def R16 : X86Reg<"r16", 16, [R16D]>, DwarfRegNum<[130, -2, -2]>;
 def R17 : X86Reg<"r17", 17, [R17D]>, DwarfRegNum<[131, -2, -2]>;
 def R18 : X86Reg<"r18", 18, [R18D]>, DwarfRegNum<[132, -2, -2]>;
@@ -385,6 +396,7 @@ def R28 : X86Reg<"r28", 28, [R28D]>, DwarfRegNum<[142, -2, -2]>;
 def R29 : X86Reg<"r29", 29, [R29D]>, DwarfRegNum<[143, -2, -2]>;
 def R30 : X86Reg<"r30", 30, [R30D]>, DwarfRegNum<[144, -2, -2]>;
 def R31 : X86Reg<"r31", 31, [R31D]>, DwarfRegNum<[145, -2, -2]>;
+}
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }
