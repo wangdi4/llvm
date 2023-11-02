@@ -158,6 +158,7 @@ public:
   static bool classofKind(Kind K) { return K == OMPThreadPrivate; }
 };
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 /// This represents '#pragma omp groupprivate ...' directive.
 /// For example, in the following, both 'a' and 'A::b' are groupprivate:
@@ -221,6 +222,13 @@ public:
   static bool classofKind(Kind K) { return K == OMPGroupPrivate; }
 };
 #endif // INTEL_COLLAB
+=======
+enum class OMPDeclareReductionInitKind {
+  Call,   // Initialized by function call.
+  Direct, // omp_priv(<expr>)
+  Copy    // omp_priv = <expr>
+};
+>>>>>>> 24228aef56291bae6d10f44d1a40b5cf25bc59d2
 
 /// This represents '#pragma omp declare reduction ...' directive.
 /// For example, in the following, declared reduction 'foo' for types 'int' and
