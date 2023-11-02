@@ -59,8 +59,8 @@ template <typename T> constexpr dpas_argument_type dpas_precision_from_type() {
   /* INTEL_FEATURE_ESIMD_EMBARGO */
   else if constexpr (std::is_same_v<T, double>)
     return dpas_argument_type::df;
-  else if constexpr (std::is_same_v < T,
-                     sycl::ext::intel::experimental::esimd::bf8>)
+  else if constexpr (std::is_same_v<T,
+                                    sycl::ext::intel::experimental::esimd::bf8>)
     return dpas_argument_type::bf8;
   else if constexpr (std::is_same_v<T,
                                     sycl::ext::intel::experimental::esimd::hf8>)
@@ -142,7 +142,7 @@ constexpr int verify_parameters_and_deduce_exec_size() {
   verify_repeat_count<RepeatCount, AElemBitSize, BElemBitSize, IsDPASW>();
 
   constexpr int OpsPerChannel =
-      std::max(std::min(32 / std::max(AElemBitSize, BElemBitSize), 8), 1);
+      (std::max)((std::min)(32 / (std::max)(AElemBitSize, BElemBitSize), 8), 1);
 
   // A(_Mx_K) * B(_Kx_N) + C(_Mx_N)
   // where:
