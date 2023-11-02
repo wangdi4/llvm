@@ -5229,7 +5229,7 @@ public:
     }
 
     // Record new loop.
-    LoopSideEffects.emplace_back(Loop, Loop->hasLiveOutTemps());
+    LoopSideEffects.emplace_back(Loop, false);
   }
 
   void visit(HLIf *If) {
@@ -5429,12 +5429,14 @@ public:
     bool MayRemoveRedundantLoop =
         !DisableAggressiveRedundantLoopRemoval && !CurrentLoopSideEffect;
 
-    if (!LoopSideEffects.empty()) {
-      LoopSideEffects.back().second =
-          LoopSideEffects.back().second || CurrentLoopSideEffect;
+    // Propagate side effect to parent loop.
+    if (!LoopSideEffects.empty() && CurrentLoopSideEffect) {
+      LoopSideEffects.back().second = true;
     }
 
     if (MayRemoveRedundantLoop) {
+      // Make the loop body empty so EmptyNodeRemover can remove the loop inside
+      // the call to postVisitImpl() below.
       HLNodeUtils::remove(Loop->child_begin(), Loop->child_end());
 
       // Explicitly visit post exit nodes because they will be extracted to the
@@ -5442,17 +5444,13 @@ public:
       if (Loop->hasPostexit()) {
         HLNodeUtils::visitRange(*this, Loop->post_begin(), Loop->post_end());
       }
-
-      EmptyNodeRemoverVisitorImpl::postVisit(Loop);
-      return;
     }
 
-    // The loop will stay attached - handle as regular node.
     postVisitImpl(Loop);
 
     // If the loop wasn't removed then we need to update the number of exits
     // since gotos could have been removed or optimized.
-    if (Loop->isAttached() && Loop->isMultiExit())
+    if (Loop->isMultiExit() && Loop->isAttached())
       HLNodeUtils::updateNumLoopExits(Loop);
   }
 
@@ -5496,6 +5494,12 @@ public:
   }
 
   static bool containsSideEffect(HLInst *Inst) {
+    auto *LvalRef = Inst->getLvalDDRef();
+
+    if (LvalRef && LvalRef->isTerminalRef() &&
+        Inst->getLexicalParentLoop()->isLiveOut(LvalRef->getSymbase()))
+      return true;
+
     return Inst->isSideEffectsCallInst();
   }
 
