@@ -3456,8 +3456,6 @@ public:
                       QualType ElementType, Expr *SizeExpr);
 };
 
-<<<<<<< HEAD
-=======
 enum class VectorKind {
   /// not a target-specific vector type
   Generic,
@@ -3487,7 +3485,6 @@ enum class VectorKind {
   RVVFixedLengthData,
 };
 
->>>>>>> 24228aef56291bae6d10f44d1a40b5cf25bc59d2
 /// Represents a GCC generic vector type. This type is created using
 /// __attribute__((vector_size(n)), where "n" specifies the vector size in
 /// bytes; or from an Altivec __vector or vector declaration.
