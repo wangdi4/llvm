@@ -67,6 +67,13 @@ static cl::opt<float>
     CMCallCostVFBias("vplan-cm-call-cost-vf-bias", cl::init(1.f), cl::Hidden,
                      cl::desc("VF bias is the cost of a call"));
 
+static cl::opt<bool> CMProhibitZMMLowPumping(
+    "vplan-cm-prohibit-zmm-low-pumping", cl::init(true), cl::Hidden,
+    cl::desc(
+        "The flag to prohibit the calls vectorization with "
+        "vector factors that lead to pumping on zmm targets when "
+        "-mprefer-vector-width=256 is used. Svml functions are not affected"));
+
 // Heuristic for the call of a vector variant.
 // Returns a default cost with a bias dependent on VF. This favors larger VFs
 // which is our aim.
@@ -647,18 +654,42 @@ VPlanTTICostModel::getOtherCallCost(const VPCallInstruction *VPCall,
              "Pumping feature is not supported for OpenCL sincos.");
       return DefCost;
     }
-    if (PumpFactor == 1 &&
-        VS == VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
-        isSVMLFunction(TLI, CB.getCalledFunction()->getName(),
-                       VPCall->getVectorLibraryFunc())) {
+    if (PumpFactor == 1) {
+      // In some cases the pump factor does not reflect the real situation.
+      // A typical example are svml functions. We have them for most VFs
+      // but in some cases the calls are split into several ones due to
+      // e.g. -prefer-vector-width switch
       auto DefTy = CB.getType();
       LibFunc CallF;
-      if (TLI->getLibFunc(*CB.getCalledFunction(), CallF) &&
+      if (VS == VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
+          TLI->getLibFunc(*CB.getCalledFunction(), CallF) &&
           (CallF == LibFunc_sincos || CallF == LibFunc_sincosf)) {
         Type *ElementType = CB.getArgOperand(0)->getType();
         DefTy = StructType::get(ElementType, ElementType);
+      } else if (VS == VPCallInstruction::CallVecScenariosTy::VectorVariant) {
+        // For vector variants find the widest parameter/return value type.
+        const VFInfo *Variant = VPCall->getVectorVariant();
+        assert(Variant && "Unexpected null matched vector variant");
+        ArrayRef<VFParameter> Parms = Variant->getParameters();
+        unsigned Widest = DefTy->getPrimitiveSizeInBits();
+        for (auto &Parm : Parms)
+          if (Parm.isVector() && !Parm.isMask()) {
+            Type* Ty = VPCall->getArgOperand(Parm.ParamPos)->getType();
+            unsigned W = Ty->getPrimitiveSizeInBits();
+            if (W > Widest) {
+              DefTy = Ty;
+              Widest = W;
+            }
+          }
+      } else if (DefTy->isVoidTy() && VPCall->getNumArgOperands() > 0) {
+        // For library functions take the first parameter type.
+        DefTy = VPCall->getArgOperand(0)->getType();
       }
-      assert(!DefTy->isVoidTy() && "Expecting non-void type");
+      if (DefTy->isVoidTy()) {
+        // If no vector parameters/return values return w/o corrections.
+        // Note: that is a usual situation with OCL kernels.
+        return DefCost;
+      }
 
       unsigned MultVF = 1;
       if (auto StructTy = dyn_cast<StructType>(DefTy)) {
@@ -669,8 +700,18 @@ VPlanTTICostModel::getOtherCallCost(const VPCallInstruction *VPCall,
         MultVF = 2;
       }
       PumpFactor = TTI.getNumberOfParts(getWidenedType(DefTy, MultVF * VF));
-    }
+      StringRef TargetISA = TTI.getISASetForIMLFunctions();
 
+      if (PumpFactor > 1 && TargetISA == "coreavx512zmmlow") {
+        if (!(VS == VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
+              isSVMLFunction(TLI, CB.getCalledFunction()->getName(),
+                             VPCall->getVectorLibraryFunc()))) {
+          // For non-svml functions return Invalid cost to prevent vectorization
+          // when it's prohibited otherwise restore PumpFactor==1.
+          return CMProhibitZMMLowPumping ? VPInstructionCost::getInvalid() : DefCost;
+        }
+      }
+    }
     return DefCost * PumpFactor;
   }
   case VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic:
