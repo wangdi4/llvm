@@ -127,9 +127,11 @@ static void propagateConstant(HLNode *Node, unsigned TempIndex,
   });
 
   if (LoopChanged) {
-    // Reset Max TC info.
-    Loop->setMaxTripCountEstimate(0);
-    Loop->setLegalMaxTripCount(0);
+    if (Loop->isConstTripLoop()) {
+      // Reset Max TC info.
+      Loop->setMaxTripCountEstimate(0);
+      Loop->setLegalMaxTripCount(0);
+    }
 
     HLNodeUtils::removeRedundantNodes(Node, RemoveEmptyParentNodes);
   }

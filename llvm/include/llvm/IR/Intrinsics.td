@@ -2651,25 +2651,23 @@ def int_experimental_matrix_uumad
 
 def int_experimental_matrix_fill
   : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
-              [llvm_any_ty, llvm_i32_ty, llvm_i32_ty, llvm_metadata_ty,
-               llvm_metadata_ty, llvm_metadata_ty],
+              [llvm_any_ty, llvm_i32_ty, llvm_i32_ty, llvm_metadata_ty, llvm_metadata_ty],
               [IntrNoMem]>;
 
 def int_experimental_matrix_wi_slice_length
   : DefaultAttrsIntrinsic<[llvm_i64_ty], [llvm_anyvector_ty,
                llvm_i32_ty, llvm_i32_ty,
-               llvm_metadata_ty, llvm_metadata_ty, llvm_metadata_ty]>;
+               llvm_metadata_ty, llvm_metadata_ty]>;
 
 def int_experimental_matrix_wi_slice_extractelement
   : DefaultAttrsIntrinsic<[LLVMVectorElementType<0>], [llvm_anyvector_ty,
                llvm_i32_ty, llvm_i32_ty, llvm_anyint_ty,
-               llvm_metadata_ty, llvm_metadata_ty, llvm_metadata_ty]>;
+               llvm_metadata_ty, llvm_metadata_ty]>;
 
 def int_experimental_matrix_wi_slice_insertelement
   : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyvector_ty,
                llvm_i32_ty, llvm_i32_ty, LLVMVectorElementType<0>,
-               llvm_anyint_ty, llvm_metadata_ty, llvm_metadata_ty,
-               llvm_metadata_ty]>;
+               llvm_anyint_ty, llvm_metadata_ty, llvm_metadata_ty]>;
 
 def int_experimental_matrix_extract_row_slice
   : DefaultAttrsIntrinsic<[llvm_anyvector_ty], [llvm_anyvector_ty, llvm_i32_ty,

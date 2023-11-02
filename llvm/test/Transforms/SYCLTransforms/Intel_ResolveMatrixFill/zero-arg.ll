@@ -3,12 +3,12 @@
 
 define void @test() {
 entry:
-; CHECK: %call.i = call <144 x i32> @llvm.experimental.matrix.fill.v144i32.i32(i32 0, i32 12, i32 12, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-  %call.i = call <144 x i32> @llvm.experimental.matrix.fill.v144i32.i32(i32 0, i32 12, i32 12, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+; CHECK: %call.i = call <144 x i32> @llvm.experimental.matrix.fill.v144i32.i32(i32 0, i32 12, i32 12, metadata !"scope.subgroup", metadata !"matrix.use.a")
+  %call.i = call <144 x i32> @llvm.experimental.matrix.fill.v144i32.i32(i32 0, i32 12, i32 12, metadata !"scope.subgroup", metadata !"matrix.use.a")
   ret void
 }
 
-declare <144 x i32> @llvm.experimental.matrix.fill.v144i32.i32(i32, i32, i32, metadata, metadata, metadata)
+declare <144 x i32> @llvm.experimental.matrix.fill.v144i32.i32(i32, i32, i32, metadata, metadata)
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: PASS
