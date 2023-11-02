@@ -2942,7 +2942,7 @@ void CodeGenModule::SetCommonAttributes(GlobalDecl GD, llvm::GlobalValue *GV) {
       const auto *VD = cast<VarDecl>(D);
       const RecordDecl *RD = VD->getType()->getAsRecordDecl();
       if (RD && RD->hasAttr<SYCLDeviceGlobalAttr>() &&
-          VD->getFormalLinkage() == InternalLinkage)
+          VD->getFormalLinkage() == Linkage::Internal)
         addUsedOrCompilerUsedGlobal(GV);
     }
   }
@@ -5034,7 +5034,7 @@ TargetMVPriority(const TargetInfo &TI,
 llvm::GlobalValue::LinkageTypes getMultiversionLinkage(CodeGenModule &CGM,
                                                        GlobalDecl GD) {
   const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-  if (FD->getFormalLinkage() == InternalLinkage)
+  if (FD->getFormalLinkage() == Linkage::Internal)
     return llvm::GlobalValue::InternalLinkage;
   return llvm::GlobalValue::WeakODRLinkage;
 }
@@ -6289,7 +6289,7 @@ void CodeGenModule::MaybeHandleStaticInExternC(const SomeDecl *D,
     return;
 
   // Must have internal linkage and an ordinary name.
-  if (!D->getIdentifier() || D->getFormalLinkage() != InternalLinkage)
+  if (!D->getIdentifier() || D->getFormalLinkage() != Linkage::Internal)
     return;
 
   // Must be in an extern "C" context. Entities declared directly within
