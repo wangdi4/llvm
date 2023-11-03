@@ -1,8 +1,6 @@
 //===--- opencl-c.h - OpenCL C language builtin function header -----------===//
 // INTEL_CUSTOMIZATION
 //
-// INTEL CONFIDENTIAL
-//
 // Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
