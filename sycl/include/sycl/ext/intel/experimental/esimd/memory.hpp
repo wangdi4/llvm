@@ -883,6 +883,32 @@ __ESIMD_API void raw_sendg(__ESIMD_NS::simd<T0, N0> msg_src0,
       mask.data(), msg_src0.data(), undefv.data(), undef, undef, undefv.data());
 }
 #endif
+
+/// Up-conversion from 4-bit (fp4 or int4) to into 8 or 16-bit values using a
+/// lookup table.
+///
+/// @tparam index is the source element index within a DWord.
+/// @tparam T is the storage type for packed 4-bit input values. Must be uchar
+/// for 4-to-16 bit conversion or ushort for 4-to-8 bit conversion.
+/// @tparam N is the width of the operation, only 16 is supported (optional).
+/// @tparam stride is the source vector access stride. The operation access
+/// single element of \p T per dword, so the stride value must be equal to
+/// number of \p T elements in dword (optional).
+/// @param lookup_table is the lookup table used for the upconvert operation.
+/// @param src is the vector of the packed input values.
+template <int index, typename T, int N = 16,
+          int stride = sizeof(uint32_t) / sizeof(T)>
+__ESIMD_API __ESIMD_NS::simd<uint32_t, N>
+packed_4bit_upconvert_lut(__ESIMD_NS::simd<uint32_t, N> lookup_table,
+                          __ESIMD_NS::simd<T, N * stride> src) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 2,
+                "Source data type must be a byte or word type");
+  static_assert(index * sizeof(T) < sizeof(uint32_t),
+                "Index must be within dword size");
+  auto loc_src =
+      __esimd_rdregion<T, N * stride, N, stride, 1, 0>(src.data(), index);
+  return __esimd_packed_4bit_upconvert_lut<T>(lookup_table.data(), loc_src);
+}
 /* end INTEL_CUSTOMIZATION */
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 

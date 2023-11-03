@@ -102,6 +102,19 @@ __esimd_raw_sendg(__ESIMD_DNS::simd_mask_storage_t<exec_size> pred,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
+template <typename T>
+__ESIMD_INTRIN __ESIMD_DNS::vector_type_t<uint32_t, 16>
+__esimd_packed_4bit_upconvert_lut(
+    __ESIMD_DNS::vector_type_t<uint32_t, 16> lookup_table,
+    __ESIMD_DNS::vector_type_t<T, 16> src)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  __ESIMD_UNSUPPORTED_ON_HOST;
+}
+#endif // __SYCL_DEVICE_ONLY__
+
 /* end INTEL_CUSTOMIZATION */
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 
