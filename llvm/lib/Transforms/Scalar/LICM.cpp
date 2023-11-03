@@ -932,13 +932,13 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
          "Unexpected input to hoistRegion.");
 
 #if INTEL_CUSTOMIZATION
-  // Suppress some opts when full loop transformations are enabled.
+  // Suppress LICM-reassociation for most cases. This enables hoisting of
+  // cheap operations that may not be worth spending a register on.
   auto *F = N->getBlock()->getParent();
   Attribute TFAttr = F->getFnAttribute("loopopt-pipeline");
   StringRef TFStr = TFAttr.isValid() ? TFAttr.getValueAsString() : "";
-  bool DisableGEPHoist =
-      TFStr.contains("full") ||
-      F->getParent()->getNamedMetadata("intel.dtrans.types") != nullptr;
+  bool DisableGEPHoist = !TFStr.empty() || F->getParent()->getNamedMetadata(
+                                               "intel.dtrans.types") != nullptr;
 #endif // INTEL_CUSTOMIZATION
 
   ControlFlowHoister CFH(LI, DT, CurLoop, MSSAU);
