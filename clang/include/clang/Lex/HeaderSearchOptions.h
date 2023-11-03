@@ -244,6 +244,14 @@ public:
 
   unsigned ModulesValidateDiagnosticOptions : 1;
 
+  /// Whether to entirely skip writing diagnostic options.
+  /// Primarily used to speed up deserialization during dependency scanning.
+  unsigned ModulesSkipDiagnosticOptions : 1;
+
+  /// Whether to entirely skip writing header search paths.
+  /// Primarily used to speed up deserialization during dependency scanning.
+  unsigned ModulesSkipHeaderSearchPaths : 1;
+
   unsigned ModulesHashContent : 1;
 
   /// Whether we should include all things that could impact the module in the
@@ -263,7 +271,9 @@ public:
         ModulesValidateSystemHeaders(false),
         ValidateASTInputFilesContent(false),
         ForceCheckCXX20ModulesInputFiles(false), UseDebugInfo(false),
-        ModulesValidateDiagnosticOptions(true), ModulesHashContent(false),
+        ModulesValidateDiagnosticOptions(true),
+        ModulesSkipDiagnosticOptions(false),
+        ModulesSkipHeaderSearchPaths(false), ModulesHashContent(false),
         ModulesStrictContextHash(false) {}
 
   /// AddPath - Add the \p Path path to the specified \p Group list.
