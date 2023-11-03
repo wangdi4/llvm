@@ -133,15 +133,9 @@ define void @foo(ptr noundef nonnull align 8 dereferenceable(24) noalias %vec) #
 ; CHECK-LABEL: define void @foo
 ; CHECK-SAME: (ptr noalias nocapture noundef nonnull readonly align 8 dereferenceable(24) [[VEC:%.*]]) local_unnamed_addr #[[ATTR0:[0-9]+]] {
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[VEC]], align 8
-; CHECK-NEXT:    [[_M_FINISH_I_I:%.*]] = getelementptr inbounds i8, ptr [[VEC]], i64 8
-; CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[_M_FINISH_I_I]], align 8
-=======
-; CHECK-NEXT:    [[_M_FINISH_I_I:%.*]] = getelementptr inbounds [[VECTOR_IMPL_DATA:%.*]], ptr [[VEC]], i64 0, i32 1
-; CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[_M_FINISH_I_I]], align 8, !tbaa [[TBAA0:![0-9]+]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[VEC]], align 8, !tbaa [[TBAA5:![0-9]+]]
->>>>>>> ab6bd9436adaf683abf790a49060560fe3eac3a3
+; CHECK-NEXT:    [[_M_FINISH_I_I:%.*]] = getelementptr inbounds i8, ptr [[VEC]], i64 8
+; CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[_M_FINISH_I_I]], align 8, !tbaa [[TBAA0:![0-9]+]]
 ; CHECK-NEXT:    [[SUB_PTR_LHS_CAST_I_I:%.*]] = ptrtoint ptr [[TMP0]] to i64
 ; CHECK-NEXT:    [[SUB_PTR_RHS_CAST_I_I:%.*]] = ptrtoint ptr [[TMP1]] to i64
 ; CHECK-NEXT:    [[SUB_PTR_SUB_I_I:%.*]] = sub i64 [[SUB_PTR_LHS_CAST_I_I]], [[SUB_PTR_RHS_CAST_I_I]]
