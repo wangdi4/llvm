@@ -237,14 +237,10 @@ bool DeadArgumentEliminationPass::deleteDeadVarargs(Function &F) {
   NF->setComdat(F.getComdat());
   F.getParent()->getFunctionList().insert(F.getIterator(), NF);
   NF->takeName(&F);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   getInlineReport()->replaceFunctionWithFunction(&F, NF);
   getMDInlineReport()->replaceFunctionWithFunction(&F, NF);
 #endif // INTEL_CUSTOMIZATION
-  NF->IsNewDbgInfoFormat = F.IsNewDbgInfoFormat;
-=======
->>>>>>> 957efa4ce4f0391147cec62746e997226ee2b836
 
   // Loop over all the callers of the function, transforming the call sites
   // to pass in a smaller number of arguments into the new function.
@@ -1022,14 +1018,10 @@ bool DeadArgumentEliminationPass::removeDeadStuffFromFunction(Function *F) {
   // it again.
   F->getParent()->getFunctionList().insert(F->getIterator(), NF);
   NF->takeName(F);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   getInlineReport()->replaceFunctionWithFunction(F, NF);
   getMDInlineReport()->replaceFunctionWithFunction(F, NF);
 #endif // INTEL_CUSTOMIZATION
-  NF->IsNewDbgInfoFormat = F->IsNewDbgInfoFormat;
-=======
->>>>>>> 957efa4ce4f0391147cec62746e997226ee2b836
 
   // Loop over all the callers of the function, transforming the call sites to
   // pass in a smaller number of arguments into the new function.
