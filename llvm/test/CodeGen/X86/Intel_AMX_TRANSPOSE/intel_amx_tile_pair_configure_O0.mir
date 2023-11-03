@@ -109,11 +109,11 @@ body:             |
     ; CHECK-NEXT: MOV8mr %stack.4, 1, $noreg, 48, $noreg, $al :: (store (s512) into %stack.4 + 48, align 4)
     ; CHECK-NEXT: MOV16mr %stack.4, 1, $noreg, 16, $noreg, $cx :: (store (s512) into %stack.4 + 16, align 4)
     ; CHECK-NEXT: $al = IMPLICIT_DEF
-    ; CHECK-NEXT: MOV8mr %stack.4, 1, $noreg, 301, $noreg, $al :: (store (s512) into %stack.4 + 301, align 1, basealign 4)
-    ; CHECK-NEXT: MOV16mr %stack.4, 1, $noreg, 522, $noreg, $cx :: (store (s512) into %stack.4 + 522, align 2, basealign 4)
+    ; CHECK-NEXT: MOV8mr %stack.4, 1, $noreg, 81, $noreg, $al :: (store (s512) into %stack.4 + 81, align 1, basealign 4)
+    ; CHECK-NEXT: MOV16mr %stack.4, 1, $noreg, 82, $noreg, $cx :: (store (s512) into %stack.4 + 82, align 2, basealign 4)
     ; CHECK-NEXT: $al = IMPLICIT_DEF
-    ; CHECK-NEXT: MOV8mr %stack.4, 1, $noreg, 302, $noreg, $al :: (store (s512) into %stack.4 + 302, align 2, basealign 4)
-    ; CHECK-NEXT: MOV16mr %stack.4, 1, $noreg, 524, $noreg, $di :: (store (s512) into %stack.4 + 524, align 4)
+    ; CHECK-NEXT: MOV8mr %stack.4, 1, $noreg, 82, $noreg, $al :: (store (s512) into %stack.4 + 82, align 2, basealign 4)
+    ; CHECK-NEXT: MOV16mr %stack.4, 1, $noreg, 84, $noreg, $di :: (store (s512) into %stack.4 + 84, align 4)
     ; CHECK-NEXT: PLDTILECFGV %stack.4, 1, $noreg, 0, $noreg, implicit-def dead $tmm0, implicit-def dead $tmm1, implicit-def dead $tmm2, implicit-def dead $tmm3, implicit-def dead $tmm4, implicit-def dead $tmm5, implicit-def dead $tmm6, implicit-def dead $tmm7 :: (load (s512) from %stack.4, align 4)
     ; CHECK-NEXT: renamable $r9 = COPY $rsi
     ; CHECK-NEXT: $rsi = MOV64rm %stack.7, 1, $noreg, 0, $noreg :: (load (s64) from %stack.7)
