@@ -96,7 +96,11 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/Analysis/UniformityAnalysis.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/ValueTracking.h" // INTEL
+=======
+#include "llvm/CodeGen/ExpandLargeDivRem.h"
+>>>>>>> 94202e7b175dc602b7e998d05bed8ded964c6ec1
 #include "llvm/CodeGen/HardwareLoops.h"
 #include "llvm/CodeGen/TypePromotion.h"
 #include "llvm/DebugInfo/Intel_Debug/Intel_Debug.h" // INTEL
