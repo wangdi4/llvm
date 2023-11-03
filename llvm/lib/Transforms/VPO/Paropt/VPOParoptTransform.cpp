@@ -2000,13 +2000,14 @@ bool VPOParoptTransform::paroptTransforms() {
                         << ") is ignored in target compilation.\n");
       RemoveDirectives = true;
     } else {
-      if (isModeOmpNoFECollapse() &&
-          W->canHaveCollapse()) {
+      if (isModeOmpNoFECollapse() && W->canHaveCollapse() &&
+          !isLoopOptimizedAway(W)) {
         Changed |= collapseOmpLoops(W);
         RemoveDirectives = false;
       }
 #if INTEL_CUSTOMIZATION
-      else if ((Mode & FuseCollapse) && W->canHaveCollapse()) {
+      else if ((Mode & FuseCollapse) && W->canHaveCollapse() &&
+               !isLoopOptimizedAway(W)) {
         Changed |= fuseAndCollapseOmpLoops(W, HaveCollapse);
         RemoveDirectives = false;
       }
