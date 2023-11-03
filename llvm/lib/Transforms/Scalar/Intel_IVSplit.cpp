@@ -1067,8 +1067,25 @@ bool IVSplit::canPromoteSExt(Value *V, Type *Ty) {
 // Given an expression that CcanPromoteSExt returns true for, actually insert
 // the code to promote the expression.
 Value *IVSplit::promoteSExtType(Value *V, Type *Ty) {
-  if (Constant *C = dyn_cast<Constant>(V))
-    return ConstantExpr::getIntegerCast(C, Ty, true);
+  if (Constant *C = dyn_cast<Constant>(V)) {
+    unsigned SourceSize = V->getType()->getPrimitiveSizeInBits();
+    unsigned TargetSize = Ty->getPrimitiveSizeInBits();
+
+    if (SourceSize != TargetSize) {
+      // The type sizes mismatch. BitCast to int and resize.
+      C =
+          ConstantExpr::getBitCast(C, IntegerType::get(C->getContext(), SourceSize));
+      if (SourceSize > TargetSize) {
+        C = ConstantExpr::getTrunc(C, IntegerType::get(C->getContext(), TargetSize));
+      }
+      else {
+        C = ConstantInt::get(C->getContext(),
+          cast<ConstantInt>(C)->getValue().sext(TargetSize));
+      }
+    }
+    // Now the sizes match. Bitcast to the desired type.
+    return ConstantExpr::getBitCast(C, Ty);
+  }
 
   // Otherwise, it must be an instruction.
   Instruction *I = cast<Instruction>(V);
