@@ -336,7 +336,7 @@ bool EarliestEscapeInfo::isNotCapturedBeforeOrAt(const Value *Object,
     Instruction *EarliestCapture =
         FindEarliestCapture(Object, *const_cast<Function *>(I->getFunction()),
                             /*ReturnCaptures=*/false, /*StoreCaptures=*/true,
-                            DT, EphValues, MaxUses);
+                            DT, MaxUses);
 #endif // INTEL_CUSTOMIZATION
     if (EarliestCapture) {
       auto Ins = Inst2Obj.insert({EarliestCapture, {}});
@@ -1577,8 +1577,7 @@ bool BasicAAResult::valueIsNotCapturedBeforeOrAt(const Value *O1,
   // captured instruction happens after the value. We are going to use
   // EarliestEscapeInfo, which checks if the capture instruction happens
   // after the value.
-  const SmallPtrSet<const Value *, 4> EphValues;
-  EarliestEscapeInfo EI(*DT, EphValues);
+  EarliestEscapeInfo EI(*DT);
   return EI.isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL, Inst);
 }
 #endif // INTEL_CUSTOMIZATION

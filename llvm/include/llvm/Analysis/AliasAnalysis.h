@@ -206,18 +206,9 @@ class EarliestEscapeInfo final : public CaptureInfo {
   /// This is used for cache invalidation purposes.
   DenseMap<Instruction *, TinyPtrVector<const Value *>> Inst2Obj;
 
-  const SmallPtrSetImpl<const Value *> *EphValues;
-
 public:
-  EarliestEscapeInfo(DominatorTree &DT, const LoopInfo *LI = nullptr,
-                     const SmallPtrSetImpl<const Value *> *EphValues = nullptr)
-      : DT(DT), LI(LI), EphValues(EphValues) {}
-
-#if INTEL_CUSTOMIZATION
-  EarliestEscapeInfo(DominatorTree &DT,
-                     const SmallPtrSetImpl<const Value *> &EphValues)
-      : DT(DT), LI(nullptr), EphValues(&EphValues) {}
-#endif // INTEL_CUSTOMIZATION
+  EarliestEscapeInfo(DominatorTree &DT, const LoopInfo *LI = nullptr)
+      : DT(DT), LI(LI) {}
 
   bool isNotCapturedBeforeOrAt(const Value *Object,
                                unsigned PtrCaptureMaxUses, // INTEL
