@@ -1576,7 +1576,7 @@ void LoopUnswitch::unswitchNontrivialCondition(
 /// Remove all instances of I from the worklist vector specified.
 static void removeFromWorklist(Instruction *I,
                                std::vector<Instruction *> &Worklist) {
-  llvm::erase_value(Worklist, I);
+  llvm::erase(Worklist, I);
 }
 
 /// When we find that I really equals V, remove I from the
