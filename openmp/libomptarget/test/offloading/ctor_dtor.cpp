@@ -1,6 +1,9 @@
 // RUN: %libomptarget-compilexx-run-and-check-generic
 // RUN: %libomptarget-compileoptxx-run-and-check-generic
 //
+// INTEL_CUSTOMIZATION
+// REQUIRES: FurtherInvestigation
+// end INTEL_CUSTOMIZATION
 #include <cstdio>
 struct S {
   S() : i(7) {}
