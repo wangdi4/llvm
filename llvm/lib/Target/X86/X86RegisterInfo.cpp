@@ -846,14 +846,14 @@ unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
 
   const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
   bool HasAVX = ST.hasAVX();
-  bool HasAVX512 = ST.hasAVX512();
+  bool HasAVX3 = ST.hasAVX3();
   bool HasAMX = ST.hasAMXTILE();
   bool HasEGPR = ST.hasEGPR();
   if (HasEGPR)
     return X86::NUM_TARGET_REGS;
   if (HasAMX)
     return X86::TMM4_TMM5_TMM6_TMM7 + 1;
-  if (HasAVX512)
+  if (HasAVX3)
     return X86::
                ZMM16_ZMM17_ZMM18_ZMM19_ZMM20_ZMM21_ZMM22_ZMM23_ZMM24_ZMM25_ZMM26_ZMM27_ZMM28_ZMM29_ZMM30_ZMM31 +
            1;
