@@ -1234,6 +1234,15 @@ Value *WidenIV::createExtendInst(Value *NarrowOper, Type *WideType,
        L = L->getParentLoop())
     Builder.SetInsertPoint(L->getLoopPreheader()->getTerminator());
 
+  // If we know the operand is never negative, prefer zext nneg.
+  // For constant expressions, fall back to plain sext or zext.
+  if (SE->isKnownNonNegative(SE->getSCEV(NarrowOper))) {
+    auto *Res = Builder.CreateZExt(NarrowOper, WideType);
+    if (auto *I = dyn_cast<Instruction>(Res))
+      I->setNonNeg(true);
+    return Res;
+  }
+
   return IsSigned ? Builder.CreateSExt(NarrowOper, WideType) :
                     Builder.CreateZExt(NarrowOper, WideType);
 }
@@ -1417,7 +1426,22 @@ WidenIV::getExtendedOperandRecurrence(WidenIV::NarrowIVDefUse DU) {
   else if (ExtKind == ExtendKind::Zero && OBO->hasNoUnsignedWrap())
     ExtendOperExpr = SE->getZeroExtendExpr(
       SE->getSCEV(DU.NarrowUse->getOperand(ExtendOperIdx)), WideType);
-  else
+  else if (DU.NeverNegative) {
+    // For a non-negative NarrowDef, we can choose either type of
+    // extension.  We want to use the current extend kind if legal
+    // (see above), and we only hit this code if we need to check
+    // the opposite case.
+    if (OBO->hasNoSignedWrap()) {
+      ExtKind = ExtendKind::Sign;
+      ExtendOperExpr = SE->getSignExtendExpr(
+        SE->getSCEV(DU.NarrowUse->getOperand(ExtendOperIdx)), WideType);
+    } else if (OBO->hasNoUnsignedWrap()) {
+      ExtKind = ExtendKind::Zero;
+      ExtendOperExpr = SE->getZeroExtendExpr(
+        SE->getSCEV(DU.NarrowUse->getOperand(ExtendOperIdx)), WideType);
+    } else
+      return {nullptr, ExtendKind::Unknown};
+  } else
     return {nullptr, ExtendKind::Unknown};
 
   // When creating this SCEV expr, don't apply the current operations NSW or NUW
@@ -1719,6 +1743,16 @@ bool WidenIV::widenWithVariantUse(WidenIV::NarrowIVDefUse DU) {
     auto ExtendedOp = [&](Value * V)->Value * {
       if (V == NarrowUse)
         return WideBO;
+
+      // If we know the operand is never negative, prefer zext nneg.
+      // For constant expressions, fall back to plain sext or zext.
+      if (SE->isKnownNonNegative(SE->getSCEV(V))) {
+        auto *Res = Builder.CreateZExt(V, WideBO->getType());
+        if (auto *I = dyn_cast<Instruction>(Res))
+          I->setNonNeg(true);
+        return Res;
+      }
+
       if (ExtKind == ExtendKind::Zero)
         return Builder.CreateZExt(V, WideBO->getType());
       else
