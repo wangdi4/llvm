@@ -1,11 +1,11 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate" -print-before=hir-opt-predicate, -print-after=hir-opt-predicate -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that removeRedundantNodes() utility is able to get rid of the else-case
-; dead loop after opt-predicate. Even though the loop contained %c symbase in its
-; liveout set, there was no actual definition of %c inside the loop. Since it is
-; complicated to keep the liveout set precise, we check the actual definitions
-; inside the loop. It may be possible for removeRedundantNodes() to remove 
-; 'dead' liveouts from the loop liveout set.
+; dead loop after opt-predicate. Even though the loop contained %t.015 symbase in
+; its liveout set, there was no actual definition of %t.015 inside the loop.
+; Since it is complicated to keep the liveout set precise, we check the actual
+; definitions inside the loop. It may be possible for removeRedundantNodes() to
+; remove 'dead' liveouts from the loop liveout set.
 
 ; CHECK: Dump Before
 
