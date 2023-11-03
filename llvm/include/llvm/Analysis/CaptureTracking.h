@@ -42,7 +42,6 @@ namespace llvm {
   class DominatorTree;
   class LoopInfo;
   class Function;
-  template <typename T> class SmallPtrSetImpl;
 
   /// getDefaultMaxUsesToExploreForCaptureTracking - Return default value of
   /// the maximal number of uses to explore before giving up. It is used by
@@ -68,6 +67,7 @@ namespace llvm {
                             unsigned MaxUsesToExplore = 0);
 #endif // INTEL_CUSTOMIZATION
 
+<<<<<<< HEAD
   /// Variant of the above function which accepts a set of Values that are
   /// ephemeral and cannot cause pointers to escape.
   bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
@@ -76,6 +76,8 @@ namespace llvm {
                             bool IgnoreNoAliasArgStCaptures = false,   // INTEL
                             unsigned MaxUsesToExplore = 0);
 
+=======
+>>>>>>> fd95f398c7623ff4a62e5001b4cde21c5b9eb111
   /// PointerMayBeCapturedBefore - Return true if this pointer value may be
   /// captured by the enclosing function (which is required to exist). If a
   /// DominatorTree is provided, only captures which happen before the given
@@ -104,11 +106,10 @@ namespace llvm {
   // nullptr is returned. Note that the caller of the function has to ensure
   // that the instruction the result value is compared against is not in a
   // cycle.
-  Instruction *
-  FindEarliestCapture(const Value *V, Function &F, bool ReturnCaptures,
-                      bool StoreCaptures, const DominatorTree &DT,
-                      const SmallPtrSetImpl<const Value *> *EphValues = nullptr,
-                      unsigned MaxUsesToExplore = 0);
+  Instruction *FindEarliestCapture(const Value *V, Function &F,
+                                   bool ReturnCaptures, bool StoreCaptures,
+                                   const DominatorTree &DT,
+                                   unsigned MaxUsesToExplore = 0);
 
   /// This callback is used in conjunction with PointerMayBeCaptured. In
   /// addition to the interface here, you'll need to provide your own getters

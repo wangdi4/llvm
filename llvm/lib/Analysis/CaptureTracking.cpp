@@ -33,7 +33,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/CaptureTracking.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -107,6 +106,7 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
 
 namespace {
   struct SimpleCaptureTracker : public CaptureTracker {
+<<<<<<< HEAD
     explicit SimpleCaptureTracker(
 
 #if INTEL_CUSTOMIZATION
@@ -116,6 +116,10 @@ namespace {
           IgnoreNoAliasArgStCaptured(IgnoreFlag) {
     }
 #endif // INTEL_CUSTOMIZATION
+=======
+    explicit SimpleCaptureTracker(bool ReturnCaptures)
+        : ReturnCaptures(ReturnCaptures) {}
+>>>>>>> fd95f398c7623ff4a62e5001b4cde21c5b9eb111
 
     void tooManyUses() override {
       LLVM_DEBUG(dbgs() << "Captured due to too many uses\n");
@@ -138,16 +142,11 @@ namespace {
       }
 #endif // INTEL
 
-      if (EphValues.contains(U->getUser()))
-        return false;
-
       LLVM_DEBUG(dbgs() << "Captured by: " << *U->getUser() << "\n");
 
       Captured = true;
       return true;
     }
-
-    const SmallPtrSetImpl<const Value *> &EphValues;
 
     bool ReturnCaptures;
 
@@ -217,9 +216,8 @@ namespace {
   // escape are not in a cycle.
   struct EarliestCaptures : public CaptureTracker {
 
-    EarliestCaptures(bool ReturnCaptures, Function &F, const DominatorTree &DT,
-                     const SmallPtrSetImpl<const Value *> *EphValues)
-        : EphValues(EphValues), DT(DT), ReturnCaptures(ReturnCaptures), F(F) {}
+    EarliestCaptures(bool ReturnCaptures, Function &F, const DominatorTree &DT)
+        : DT(DT), ReturnCaptures(ReturnCaptures), F(F) {}
 
     void tooManyUses() override {
       Captured = true;
@@ -229,9 +227,6 @@ namespace {
     bool captured(const Use *U) override {
       Instruction *I = cast<Instruction>(U->getUser());
       if (isa<ReturnInst>(I) && !ReturnCaptures)
-        return false;
-
-      if (EphValues && EphValues->contains(I))
         return false;
 
       if (!EarliestCapture)
@@ -244,8 +239,6 @@ namespace {
       // captures.
       return false;
     }
-
-    const SmallPtrSetImpl<const Value *> *EphValues;
 
     Instruction *EarliestCapture = nullptr;
 
@@ -267,6 +260,7 @@ namespace {
 /// storing the value (or part of it) into memory anywhere automatically
 /// counts as capturing it or not.
 bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
                                 bool StoreCaptures,
                                 bool IgnoreStoreCapturesByNoAliasArgument,
@@ -285,6 +279,9 @@ bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
                                 const SmallPtrSetImpl<const Value *> &EphValues,
                                 bool IgnoreStoreCapturesByNoAliasArgument, // INTEL
                                 unsigned MaxUsesToExplore) {
+=======
+                                bool StoreCaptures, unsigned MaxUsesToExplore) {
+>>>>>>> fd95f398c7623ff4a62e5001b4cde21c5b9eb111
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
@@ -296,10 +293,14 @@ bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
 
   LLVM_DEBUG(dbgs() << "Captured?: " << *V << " = ");
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   SimpleCaptureTracker SCT(EphValues, ReturnCaptures,
                            IgnoreStoreCapturesByNoAliasArgument);
 #endif // INTEL_CUSTOMIZATION
+=======
+  SimpleCaptureTracker SCT(ReturnCaptures);
+>>>>>>> fd95f398c7623ff4a62e5001b4cde21c5b9eb111
   PointerMayBeCaptured(V, &SCT, MaxUsesToExplore);
   if (SCT.Captured)
     ++NumCaptured;
@@ -343,15 +344,14 @@ bool llvm::PointerMayBeCapturedBefore(const Value *V, bool ReturnCaptures,
   return CB.Captured;
 }
 
-Instruction *
-llvm::FindEarliestCapture(const Value *V, Function &F, bool ReturnCaptures,
-                          bool StoreCaptures, const DominatorTree &DT,
-                          const SmallPtrSetImpl<const Value *> *EphValues,
-                          unsigned MaxUsesToExplore) {
+Instruction *llvm::FindEarliestCapture(const Value *V, Function &F,
+                                       bool ReturnCaptures, bool StoreCaptures,
+                                       const DominatorTree &DT,
+                                       unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
-  EarliestCaptures CB(ReturnCaptures, F, DT, EphValues);
+  EarliestCaptures CB(ReturnCaptures, F, DT);
   PointerMayBeCaptured(V, &CB, MaxUsesToExplore);
   if (CB.Captured)
     ++NumCapturedBefore;

@@ -332,12 +332,18 @@ bool EarliestEscapeInfo::isNotCapturedBeforeOrAt(const Value *Object,
 
   auto Iter = EarliestEscapes.insert({Object, nullptr});
   if (Iter.second) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     Instruction *EarliestCapture =
         FindEarliestCapture(Object, *const_cast<Function *>(I->getFunction()),
                             /*ReturnCaptures=*/false, /*StoreCaptures=*/true,
                             DT, EphValues, MaxUses);
 #endif // INTEL_CUSTOMIZATION
+=======
+    Instruction *EarliestCapture = FindEarliestCapture(
+        Object, *const_cast<Function *>(I->getFunction()),
+        /*ReturnCaptures=*/false, /*StoreCaptures=*/true, DT);
+>>>>>>> fd95f398c7623ff4a62e5001b4cde21c5b9eb111
     if (EarliestCapture) {
       auto Ins = Inst2Obj.insert({EarliestCapture, {}});
       Ins.first->second.push_back(Object);
