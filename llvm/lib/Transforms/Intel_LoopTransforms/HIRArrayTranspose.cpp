@@ -1074,38 +1074,3 @@ PreservedAnalyses HIRArrayTransposePass::runImpl(
   ModifiedHIR = HIRArrayTranspose(HIRF).run();
   return PreservedAnalyses::all();
 }
-
-class HIRArrayTransposeLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRArrayTransposeLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRArrayTransposeLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      LLVM_DEBUG(dbgs() << "HIR array transpose skipped\n");
-      return false;
-    }
-
-    return HIRArrayTranspose(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
-        .run();
-  }
-};
-
-char HIRArrayTransposeLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRArrayTransposeLegacyPass, "hir-array-transpose",
-                      "HIR Array Transpose", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRArrayTransposeLegacyPass, "hir-array-transpose",
-                    "HIR Array Transpose", false, false)
-
-FunctionPass *llvm::createHIRArrayTransposePass() {
-  return new HIRArrayTransposeLegacyPass();
-}

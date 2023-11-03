@@ -57,40 +57,6 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
-namespace {
-
-class HIRConditionalTempSinkingLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-  HIRConditionalTempSinkingLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRConditionalTempSinkingLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-
-} // namespace
-
-char HIRConditionalTempSinkingLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRConditionalTempSinkingLegacyPass, OPT_SWITCH, OPT_DESC,
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRConditionalTempSinkingLegacyPass, OPT_SWITCH, OPT_DESC,
-                    false, false)
-
-FunctionPass *llvm::createHIRConditionalTempSinkingPass() {
-  return new HIRConditionalTempSinkingLegacyPass();
-}
-
 class HIRConditionalTempSinking {
   HIRLoopStatistics &HLS;
 
@@ -545,22 +511,9 @@ static bool doConditionalTempSinking(HIRFramework &HIRF,
   return Result;
 }
 
-bool HIRConditionalTempSinkingLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    return false;
-  }
-
-  bool Result = doConditionalTempSinking(
-      getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-      getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS());
-  return Result;
-}
-
 PreservedAnalyses HIRConditionalTempSinkingPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   ModifiedHIR = doConditionalTempSinking(
       HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F));
   return PreservedAnalyses::all();
 }
-
-void HIRConditionalTempSinkingLegacyPass::releaseMemory() {}

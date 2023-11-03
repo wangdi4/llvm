@@ -470,36 +470,7 @@ public:
   void eraseDummyInstructions(HLNodeUtils &HNU);
 };
 
-class HIRCodeGenWrapperPass : public FunctionPass {
-public:
-  static char ID;
-
-  HIRCodeGenWrapperPass() : FunctionPass(ID) {
-    initializeHIRCodeGenWrapperPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override {
-    return HIRCodeGen(getAnalysis<HIRFrameworkWrapperPass>().getHIR()).run();
-  }
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<HIRFrameworkWrapperPass>();
-
-    AU.addPreserved<GlobalsAAWrapperPass>();
-  }
-};
-
 } // namespace
-
-FunctionPass *llvm::createHIRCodeGenWrapperPass() {
-  return new HIRCodeGenWrapperPass();
-}
-
-char HIRCodeGenWrapperPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
-                    false, false)
 
 PreservedAnalyses HIRCodeGenPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
