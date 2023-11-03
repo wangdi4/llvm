@@ -1660,12 +1660,8 @@ m_Store(const ValueOpTy &ValueOp, const PointerOpTy &PointerOp) {
 // Matchers for CastInst classes
 //
 
-<<<<<<< HEAD
-template <typename Op_t, unsigned Opcode> struct CastClass_match {
-  INTEL_INJECT_VPLAN_TEMPLATIZATION(Op_t); // INTEL
-=======
 template <typename Op_t, unsigned Opcode> struct CastOperator_match {
->>>>>>> ee9220c8e3fe3d738b0e84f706b789326d912937
+  INTEL_INJECT_VPLAN_TEMPLATIZATION(Op_t); // INTEL
   Op_t Op;
 
   CastOperator_match(const Op_t &OpMatch) : Op(OpMatch) {}
@@ -1678,6 +1674,7 @@ template <typename Op_t, unsigned Opcode> struct CastOperator_match {
 };
 
 template <typename Op_t, unsigned Opcode> struct CastInst_match {
+  INTEL_INJECT_VPLAN_TEMPLATIZATION(Op_t); // INTEL
   Op_t Op;
 
   CastInst_match(const Op_t &OpMatch) : Op(OpMatch) {}
