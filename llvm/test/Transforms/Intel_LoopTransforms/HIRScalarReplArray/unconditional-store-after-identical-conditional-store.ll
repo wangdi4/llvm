@@ -16,10 +16,10 @@
 
 ; CHECK: Dump After
 
-; CHECK: BEGIN REGION { modified }
-; CHECK: + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   (@A)[0][i1] = 5;
-; CHECK: + END LOOP
+; CHECK:      BEGIN REGION { modified }
+; CHECK:      + DO i1 = 0, 99, 1   <DO_LOOP>
+; CHECK-NEXT: |   (@A)[0][i1] = 5;
+; CHECK:      + END LOOP
 
 
 @A = dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 16

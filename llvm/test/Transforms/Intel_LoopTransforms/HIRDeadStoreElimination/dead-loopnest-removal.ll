@@ -34,8 +34,8 @@
 
 ; CHECK: Dump After
 
-; CHECK: BEGIN REGION { modified }
-; CHECK: END REGION
+; CHECK:      BEGIN REGION { modified }
+; CHECK-NEXT: END REGION
 
 
 define void @foo(ptr %t106, ptr %t127, ptr %t147, i64 %t35, ptr %t15, i64 %t150, double %t3, i64 %t6024, ptr %t76, i64 %t906) {
