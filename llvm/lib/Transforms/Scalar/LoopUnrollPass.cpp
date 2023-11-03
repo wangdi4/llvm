@@ -1422,7 +1422,7 @@ public:
     auto &ORO = getAnalysis<OptReportOptionsPass>().Impl;
     OptReportBuilder ORBuilder;
     ORBuilder.setup(F.getContext(), ORO.getVerbosity());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
@@ -1494,7 +1494,7 @@ Pass *llvm::createSimpleLoopUnrollPass(int OptLevel, bool OnlyWhenForced,
   return createLoopUnrollPass(OptLevel, OnlyWhenForced, ForgetAllSCEV, -1, -1,
                               0, 0, 0, 1);
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
                                           LoopStandardAnalysisResults &AR,
@@ -1512,7 +1512,7 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
   OptReportBuilder ORBuilder;
   ORBuilder.setup(F->getContext(),
                   ORO ? ORO->getVerbosity() : OptReportVerbosity::None);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   // Keep track of the previous loop structure so we can identify new loops
   // created by unrolling.
@@ -1609,7 +1609,7 @@ PreservedAnalyses LoopUnrollPass::run(Function &F,
   auto &ORO = AM.getResult<OptReportOptionsAnalysis>(F); // INTEL
   OptReportBuilder ORBuilder;
   ORBuilder.setup(F.getContext(), ORO.getVerbosity());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   LoopAnalysisManager *LAM = nullptr;
   if (auto *LAMProxy = AM.getCachedResult<LoopAnalysisManagerFunctionProxy>(F))

@@ -1543,7 +1543,7 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
         return nullptr;
     }
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Check to see whether the instruction can be folded into each phi operand.
   // If there is one operand that does not fold, remember the BB it is in.
@@ -2520,7 +2520,7 @@ static Instruction *simplifySplatGEPIndex(GetElementPtrInst &GEP,
 
   return Changed ? &GEP : nullptr;
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
                                              GEPOperator *Src) {
@@ -4659,7 +4659,7 @@ bool InstCombinerImpl::tryToSinkInstruction(Instruction *I,
       if (Scan->mayWriteToMemory())
         return false;
   }
-#ifdef INTEL_COLLAB
+#if INTEL_COLLAB
 
   // If the function has OpenMP directives, do not move I across a directive.
   // This prevents moving code into or out of an OpenMP region.

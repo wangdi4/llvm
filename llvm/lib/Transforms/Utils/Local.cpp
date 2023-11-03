@@ -136,7 +136,7 @@ static cl::opt<bool> SalvageAddrSpaceCastDbgInfo(
     cl::desc("Salvage the debug information value looking through address "
              "space cast inst."));
 
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned> PHICSENumPHISmallSize(
     "phicse-num-phi-smallsize", cl::init(32), cl::Hidden,
@@ -225,7 +225,7 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
       //       constant folded - we can get duplicate opt-reports attached
       //       to the Function, as a result of the re-attachment.
       BI->setMetadata(LLVMContext::MD_loop, nullptr);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
       BI->eraseFromParent();
       if (DTU)
         DTU->applyUpdates({{DominatorTree::Delete, BB, OldDest}});

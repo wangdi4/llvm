@@ -644,7 +644,7 @@ MemDepResult MemoryDependenceResults::getSimplePointerDependencyFrom(
       // SPEC2k17, 623 deg -70%
       if (canSkipClobberingStore(SI, MemLoc, MemLocAlign, BatchAA, *Limit))
         continue;
-#endif
+#endif // !INTEL_CUSTOMIZATION
       return MemDepResult::getClobber(Inst);
     }
 

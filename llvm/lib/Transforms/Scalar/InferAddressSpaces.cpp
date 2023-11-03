@@ -166,7 +166,7 @@ static cl::opt<bool> AssumeDefaultIsFlatAddressSpace(
 static const unsigned UninitializedAddressSpace =
     std::numeric_limits<unsigned>::max();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 static cl::opt<unsigned>
     AddressSpaceArg("address-space", cl::init(UninitializedAddressSpace),
                     cl::ReallyHidden,
@@ -733,7 +733,7 @@ Value *InferAddressSpacesImpl::cloneInstructionWithNewAddressSpace(
         SmallVector<Value *, 4>(GEP->indices()));
     NewGEP->setIsInBounds(GEP->isInBounds());
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // We need to keep llvm.index.group metadata attached to GEP instruction
     NewGEP->copyMetadata(*GEP);
 #endif // INTEL_CUSTOMIZATION

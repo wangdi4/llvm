@@ -60,7 +60,7 @@ bool RecurrenceDescriptor::areAllUsesIn(Instruction *I,
 bool RecurrenceDescriptorData::isIntegerRecurrenceKind(RecurKind Kind) {
 #else
 bool RecurrenceDescriptor::isIntegerRecurrenceKind(RecurKind Kind) {
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   switch (Kind) {
   default:
@@ -85,7 +85,7 @@ bool RecurrenceDescriptor::isIntegerRecurrenceKind(RecurKind Kind) {
 bool RecurrenceDescriptorData::isFloatingPointRecurrenceKind(RecurKind Kind) {
 #else
 bool RecurrenceDescriptor::isFloatingPointRecurrenceKind(RecurKind Kind) {
-#endif
+#endif // INTEL_CUSTOMIZATION
   return (Kind != RecurKind::None) && !isIntegerRecurrenceKind(Kind);
 }
 
@@ -1086,7 +1086,7 @@ RecurrenceDescriptorData::getConstRecurrenceIdentity(RecurKind K, Type *Tp,
 #else
 Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
                                                    FastMathFlags FMF) const {
-#endif
+#endif // INTEL_CUSTOMIZATION
   switch (K) {
   case RecurKind::Xor:
   case RecurKind::Add:
@@ -1145,7 +1145,7 @@ Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
 unsigned RecurrenceDescriptorData::getOpcode(RecurKind Kind) {
 #else
 unsigned RecurrenceDescriptor::getOpcode(RecurKind Kind) {
-#endif
+#endif // INTEL_CUSTOMIZATION
   switch (Kind) {
   case RecurKind::Add:
     return Instruction::Add;
@@ -1303,7 +1303,7 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
          "StartValue is not a pointer for pointer induction");
   assert((IK != IK_IntInduction || StartValue->getType()->isIntegerTy()) &&
          "StartValue is not an integer for integer induction");
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Check the Step Value. It should be non-zero integer value.
   assert((!getConstIntStepValue() || !getConstIntStepValue()->isZero()) &&
@@ -1320,7 +1320,7 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
            (InductionBinOp->getOpcode() == Instruction::FAdd ||
             InductionBinOp->getOpcode() == Instruction::FSub))) &&
          "Binary opcode should be specified for FP induction");
-#endif
+#endif // !INTEL_CUSTOMIZATION
 
   if (Casts) {
     for (auto &Inst : *Casts) {

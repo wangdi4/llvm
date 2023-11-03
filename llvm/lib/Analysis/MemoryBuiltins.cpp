@@ -341,7 +341,7 @@ bool llvm::isAllocationFn(
 bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   return getAllocationData(V, OpNewLike, TLI).has_value();
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // !INTEL_CUSTOMIZATION
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory similar to malloc or calloc.
@@ -364,12 +364,12 @@ bool llvm::isReallocLikeFn(const Function *F) {
 }
 
 Value *llvm::getReallocatedOperand(const CallBase *CB) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   if (checkFnAllocKind(CB, AllocFnKind::Realloc)) {
     // All currently supported realloc functions reallocate the first argument.
     return CB->getArgOperand(0);
   }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   if (checkFnAllocKind(CB, AllocFnKind::Realloc))
     return CB->getArgOperandWithAttribute(Attribute::AllocatedPointer);
   return nullptr;

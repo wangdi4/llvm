@@ -101,11 +101,11 @@ public:
   /// Returns false under Eager UpdateStrategy or PDT is nullptr.
   bool hasPendingPostDomTreeUpdates() const;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// Returns the number of updates that the client has queued. Can be used
   /// to estimate the complexity of the current set of CFG transformations.
   unsigned numPendingUpdates() const { return PendUpdates.size(); }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   ///@{
   /// \name Mutation APIs

@@ -268,7 +268,7 @@ public:
 #else
 #define NOINLINEW32
 #endif
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// If a load has multiple candidates associated (i.e. different
   /// stores), it means that it could be forwarding from multiple stores

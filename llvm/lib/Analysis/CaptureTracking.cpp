@@ -133,7 +133,7 @@ namespace {
           }
         }
       }
-#endif // INTEL
+#endif // INTEL_CUSTOMIZATION
 
       LLVM_DEBUG(dbgs() << "Captured by: " << *U->getUser() << "\n");
 

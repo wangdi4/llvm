@@ -1503,7 +1503,7 @@ static void SplitLandingPadPredecessorsImpl(
   }
 }
 
-#ifdef INTEL_COLLAB
+#if INTEL_COLLAB
 // Given a cleanuppad "OrigBB", splits predecessors in SplitPreds to a new
 // block. Sets NewBB to this new block. The new block's successor is OrigBB.
 void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
@@ -2119,7 +2119,7 @@ BranchInst *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *Pred,
 
   return CommonPredBr;
 }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 // After creating a control flow hub, the operands of PHINodes in an outgoing
 // block Out no longer match the predecessors of that block. Predecessors of Out
@@ -2439,7 +2439,7 @@ void llvm::InvertBranch(BranchInst *PBI, IRBuilderBase &Builder) {
   // add a not in every case here and let it get folded later if it is
   // profitable to do so.
   NewCond = Builder.CreateNot(NewCond, PBI->getCondition()->getName() + ".not");
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   PBI->setCondition(NewCond);
   PBI->swapSuccessors();

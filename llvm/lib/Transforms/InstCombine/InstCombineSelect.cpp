@@ -532,7 +532,7 @@ Instruction *InstCombinerImpl::foldSelectIntoOp(SelectInst &SI, Value *TrueVal,
     if (SI.getType()->isFloatingPointTy())
       return nullptr;
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // See the comment above getSelectFoldableOperands for a description of the
   // transformation we are doing here.
@@ -3349,7 +3349,7 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
       if (enableFcmpMinMaxCombine())
         if (Instruction *X = recognizeFCmpMinMaxIdiom(SI))
           return X;
-#endif
+#endif // INTEL_CUSTOMIZATION
   }
 
   // select (a || b), c, false -> select a, c, false
@@ -3702,7 +3702,7 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
         }
       }
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
     if (SIFPOp) {
       // Fold out scale-if-equals-zero pattern.

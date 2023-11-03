@@ -49,7 +49,7 @@ using namespace llvm;
 // accessing. Loads should not be speculated or hoisted in these circumstances.
 static cl::opt<bool> GlobalLoadsUnsafe("global-loads-unsafe",
                                          cl::Hidden, cl::init(false));
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 static bool isAligned(const Value *Base, const APInt &Offset, Align Alignment,
                       const DataLayout &DL) {
@@ -77,7 +77,7 @@ static bool isDereferenceableAndAlignedPointer(
 #if INTEL_CUSTOMIZATION
   if (isa<GlobalValue>(V) && GlobalLoadsUnsafe)
     return false;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Note that it is not safe to speculate into a malloc'd region because
   // malloc may return null.

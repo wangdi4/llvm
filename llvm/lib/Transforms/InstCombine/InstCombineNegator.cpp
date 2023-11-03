@@ -437,7 +437,7 @@ std::array<Value *, 2> Negator::getSortedOperandsOfBinOp(Instruction *I) {
         I->getOperand(0),
         ConstantExpr::getShl(Constant::getAllOnesValue(Op1C->getType()), Op1C),
         I->getName() + ".neg", /* HasNUW */ false, IsNSW);
-#endif
+#endif // INTEL_CUSTOMIZATION
   }
   case Instruction::Or: {
     if (!haveNoCommonBitsSet(I->getOperand(0), I->getOperand(1),

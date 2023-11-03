@@ -126,7 +126,7 @@ bool llvm::formDedicatedExitBlocks(Loop *L, DominatorTree *DT, LoopInfo *LI,
   // them, but only visit each one once.
   SmallPtrSet<BasicBlock *, 4> Visited;
   for (auto *BB : L->blocks())
-#ifdef INTEL_COLLAB
+#if INTEL_COLLAB
   {
     // Copy the block succs, as the succ list may be modified by the exit
     // rewrite.
@@ -145,9 +145,9 @@ bool llvm::formDedicatedExitBlocks(Loop *L, DominatorTree *DT, LoopInfo *LI,
 
       Changed |= RewriteExit(SuccBB);
     }
-#ifdef INTEL_COLLAB
+#if INTEL_COLLAB
   }
-#endif
+#endif // INTEL_COLLAB
 
   return Changed;
 }

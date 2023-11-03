@@ -1523,7 +1523,7 @@ Instruction *InstCombinerImpl::foldICmpTruncConstant(ICmpInst &Cmp,
   }
 
   if (Cmp.isEquality() && Trunc->hasOneUse()) {
-#ifndef INTEL_CUSTOMIZATION
+#if !INTEL_CUSTOMIZATION
     // Revert cc88445.
     // It is the opposite transform from commit ecda1c2,
     // (OptimizeICmpInstSize) in this source file.
@@ -7984,7 +7984,7 @@ Instruction *InstCombinerImpl::visitFCmpInst(FCmpInst &I) {
     // changed dynamically, during program execution, and possible NaNs.
     // Switching it off for now.
   if (0 && match(Op1, m_PosZeroFP()) &&
-#endif
+#endif // INTEL_CUSTOMIZATION
       match(Op0, m_OneUse(m_BitCast(m_Value(X)))) &&
       X->getType()->isVectorTy() == OpType->isVectorTy() &&
       X->getType()->getScalarSizeInBits() == OpType->getScalarSizeInBits()) {

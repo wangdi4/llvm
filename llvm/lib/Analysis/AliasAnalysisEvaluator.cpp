@@ -165,7 +165,7 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
     for (auto I2 = Pointers.begin(); I2 != I1; ++I2) {
       LocationSize Size2 =
           LocationSize::precise(DL.getTypeStoreSize(I2->second));
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       AliasResult AR = AAQueryWrapper(I1->first, Size1, I2->first, Size2);
 #else
       AliasResult AR = AA.alias(I1->first, Size1, I2->first, Size2);

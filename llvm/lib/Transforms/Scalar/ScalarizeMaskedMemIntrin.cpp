@@ -982,7 +982,7 @@ static void scalarizeMaskedGather(const DataLayout &DL, CallInst *CI,
     // If we scalarized the address, remove it too.
     if (Ptrs->use_empty())
       RecursivelyDeleteTriviallyDeadInstructions(Ptrs);
-#endif
+#endif // INTEL_CUSTOMIZATION
     return;
   }
 
@@ -1116,7 +1116,7 @@ static void scalarizeMaskedScatter(const DataLayout &DL, CallInst *CI,
     // If we scalarized the address, remove it too.
     if (Ptrs->use_empty())
       RecursivelyDeleteTriviallyDeadInstructions(Ptrs);
-#endif
+#endif // INTEL_CUSTOMIZATION
     return;
   }
 

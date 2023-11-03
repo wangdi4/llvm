@@ -272,7 +272,7 @@ static void migrateDebugInfo(AllocaInst *OldAlloca, bool IsSplit,
   // it's risky to make that guess.
   if (!OldAlloca->isStaticAlloca())
     return;
-#endif
+#endif // INTEL_CUSTOMIZATION
   assert(OldAlloca->isStaticAlloca());
 
   for (DbgAssignIntrinsic *DbgAssign : MarkerRange) {
@@ -3539,7 +3539,7 @@ private:
         assert(II.getArgOperand(0) == OldPtr);
     else
         assert(II.getArgOperand(1) == OldPtr);
-#endif  //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
     // Lifetime intrinsics are only promotable if they cover the whole alloca.
     // Therefore, we drop lifetime intrinsics which don't cover the whole

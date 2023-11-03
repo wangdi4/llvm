@@ -1854,7 +1854,7 @@ Instruction *InstCombinerImpl::visitFPTrunc(FPTruncInst &FPT) {
           RHSMinType = FPT.getType();
       }
     }
-#endif
+#endif // INTEL_CUSTOMIZATION
     unsigned OpWidth = BO->getType()->getFPMantissaWidth();
     unsigned LHSWidth = LHSMinType->getFPMantissaWidth();
     unsigned RHSWidth = RHSMinType->getFPMantissaWidth();
@@ -2125,7 +2125,7 @@ Instruction *InstCombinerImpl::visitFPToSI(FPToSIInst &FI) {
       return BinaryOperator::CreateAdd(NewFPToSI, SIOp0);
     }
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   if (Instruction *I = foldItoFPtoI(FI))
     return I;

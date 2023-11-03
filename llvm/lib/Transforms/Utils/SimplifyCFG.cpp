@@ -529,7 +529,7 @@ CanDominateConditionalBranch(Value *V, BasicBlock *BB,
   AggressiveInsts.insert(I);
   return true;
 }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 /// Extract ConstantInt from value, looking through IntToPtr
 /// and PointerNullValue. Return NULL if value is not a constant int.
@@ -1629,7 +1629,7 @@ static bool shouldHoistCommonInstructions(Instruction *I1, Instruction *I2,
   // Do not hoist llvm.directive.region.entry/exit intrinsics.
   if (IntrinsicUtils::isDirective(I1))
     return false;
-#endif //INTEL_COLLAB
+#endif // INTEL_COLLAB
 
   // If we're going to hoist a call, make sure that the two instructions
   // we're commoning/hoisting are both marked with musttail, or neither of
@@ -2980,12 +2980,12 @@ static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
                                            unsigned &SpeculatedInstructions,
                                            InstructionCost &Cost,
                                            const TargetTransformInfo &TTI) {
-#ifndef INTEL_CUSTOMIZATION
+#if !INTEL_CUSTOMIZATION
   TargetTransformInfo::TargetCostKind CostKind =
     BB->getParent()->hasMinSize()
     ? TargetTransformInfo::TCK_CodeSize
     : TargetTransformInfo::TCK_SizeAndLatency;
-#endif
+#endif // !INTEL_CUSTOMIZATION
   bool HaveRewritablePHIs = false;
   for (PHINode &PN : EndBB->phis()) {
     Value *OrigV = PN.getIncomingValueForBlock(BB);
@@ -2995,10 +2995,10 @@ static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
     // hoistCommonCodeFromSuccessors. Skip PHIs which are trivial.
     if (ThenV == OrigV)
       continue;
-#ifndef INTEL_CUSTOMIZATION
+#if !INTEL_CUSTOMIZATION
     Cost += TTI.getCmpSelInstrCost(Instruction::Select, PN.getType(), nullptr,
                                    CmpInst::BAD_ICMP_PREDICATE, CostKind);
-#endif
+#endif // !INTEL_CUSTOMIZATION
 
     // Don't convert to selects if we could remove undefined behavior instead.
     if (passingValueIsAlwaysUndefined(OrigV, &PN) ||
@@ -3189,10 +3189,10 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI,
   Convert |= validateAndCostRequiredSelects(BB, ThenBB, EndBB,
                                             SpeculatedInstructions,
                                             Cost, TTI);
-#ifndef INTEL_CUSTOMIZATION
+#if !INTEL_CUSTOMIZATION
   if (!Convert || Cost > Budget)
     return false;
-#endif
+#endif // !INTEL_CUSTOMIZATION
   if (!Convert)
     return false;
 
@@ -3261,7 +3261,7 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI,
     // optimizations so a more appropriate fix might be inside this function but
     // I am not too sure about this.
     I.dropUBImplyingAttrsAndMetadata({LLVMContext::MD_tbaa});
-#endif
+#endif // INTEL_CUSTOMIZATION
 
     // Drop ephemeral values.
     if (EphTracker.contains(&I)) {
@@ -3823,7 +3823,7 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
 
   return Changed;
 }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 static Value *createLogicalOp(IRBuilderBase &Builder,
                               Instruction::BinaryOps Opc, Value *LHS,
@@ -9219,7 +9219,7 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
       // conflicts becomes too cumbersome, we can try something different.
       if (FoldPHIEntries(PN, TTI, DTU, DL))
         return true;
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   }
 
   Instruction *Terminator = BB->getTerminator();
