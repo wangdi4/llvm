@@ -210,12 +210,6 @@ public:
   EarliestEscapeInfo(DominatorTree &DT, const LoopInfo *LI = nullptr)
       : DT(DT), LI(LI) {}
 
-#if INTEL_CUSTOMIZATION
-  EarliestEscapeInfo(DominatorTree &DT,
-                     const SmallPtrSetImpl<const Value *> &EphValues)
-      : DT(DT), LI(nullptr), EphValues(&EphValues) {}
-#endif // INTEL_CUSTOMIZATION
-
   bool isNotCapturedBeforeOrAt(const Value *Object,
                                unsigned PtrCaptureMaxUses, // INTEL
                                const DataLayout &DL,       // INTEL

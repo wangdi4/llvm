@@ -2083,7 +2083,6 @@ static bool eliminateDeadStores(Function &F, AliasAnalysis &AA, MemorySSA &MSSA,
                                 const LoopInfo &LI) {
   bool MadeChange = false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Community has removed ensureOptimizedUses call to improve compile-time. But
   // this is causing some dead store instructions are not removed by DSE pass.
@@ -2093,10 +2092,7 @@ static bool eliminateDeadStores(Function &F, AliasAnalysis &AA, MemorySSA &MSSA,
   if (F.hasFnAttribute("noinline-dtrans"))
     MSSA.ensureOptimizedUses();
 #endif // INTEL_CUSTOMIZATION
-  DSEState State(F, AA, MSSA, DT, PDT, AC, TLI, LI);
-=======
   DSEState State(F, AA, MSSA, DT, PDT, TLI, LI);
->>>>>>> fd95f398c7623ff4a62e5001b4cde21c5b9eb111
   // For each store:
   for (unsigned I = 0; I < State.MemDefs.size(); I++) {
     MemoryDef *KillingDef = State.MemDefs[I];

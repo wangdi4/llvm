@@ -106,20 +106,13 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
 
 namespace {
   struct SimpleCaptureTracker : public CaptureTracker {
-<<<<<<< HEAD
     explicit SimpleCaptureTracker(
-
 #if INTEL_CUSTOMIZATION
-        const SmallPtrSetImpl<const Value *> &EphValues, bool ReturnCaptures,
-        bool IgnoreFlag)
-        : EphValues(EphValues), ReturnCaptures(ReturnCaptures),
+        bool ReturnCaptures, bool IgnoreFlag)
+        : ReturnCaptures(ReturnCaptures),
           IgnoreNoAliasArgStCaptured(IgnoreFlag) {
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-    explicit SimpleCaptureTracker(bool ReturnCaptures)
-        : ReturnCaptures(ReturnCaptures) {}
->>>>>>> fd95f398c7623ff4a62e5001b4cde21c5b9eb111
 
     void tooManyUses() override {
       LLVM_DEBUG(dbgs() << "Captured due to too many uses\n");
@@ -260,28 +253,9 @@ namespace {
 /// storing the value (or part of it) into memory anywhere automatically
 /// counts as capturing it or not.
 bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
                                 bool StoreCaptures,
-                                bool IgnoreStoreCapturesByNoAliasArgument,
-                                unsigned MaxUsesToExplore) {
-#endif // INTEL_CUSTOMIZATION
-  SmallPtrSet<const Value *, 1> Empty;
-  return PointerMayBeCaptured(V, ReturnCaptures, StoreCaptures, Empty,
-                              IgnoreStoreCapturesByNoAliasArgument, // INTEL
-                              MaxUsesToExplore);
-}
-
-/// Variant of the above function which accepts a set of Values that are
-/// ephemeral and cannot cause pointers to escape.
-bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
-                                bool StoreCaptures,
-                                const SmallPtrSetImpl<const Value *> &EphValues,
                                 bool IgnoreStoreCapturesByNoAliasArgument, // INTEL
                                 unsigned MaxUsesToExplore) {
-=======
-                                bool StoreCaptures, unsigned MaxUsesToExplore) {
->>>>>>> fd95f398c7623ff4a62e5001b4cde21c5b9eb111
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
@@ -293,14 +267,10 @@ bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
 
   LLVM_DEBUG(dbgs() << "Captured?: " << *V << " = ");
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  SimpleCaptureTracker SCT(EphValues, ReturnCaptures,
+  SimpleCaptureTracker SCT(ReturnCaptures,
                            IgnoreStoreCapturesByNoAliasArgument);
 #endif // INTEL_CUSTOMIZATION
-=======
-  SimpleCaptureTracker SCT(ReturnCaptures);
->>>>>>> fd95f398c7623ff4a62e5001b4cde21c5b9eb111
   PointerMayBeCaptured(V, &SCT, MaxUsesToExplore);
   if (SCT.Captured)
     ++NumCaptured;

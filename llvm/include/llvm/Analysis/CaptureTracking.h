@@ -67,17 +67,6 @@ namespace llvm {
                             unsigned MaxUsesToExplore = 0);
 #endif // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-  /// Variant of the above function which accepts a set of Values that are
-  /// ephemeral and cannot cause pointers to escape.
-  bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
-                            bool StoreCaptures,
-                            const SmallPtrSetImpl<const Value *> &EphValues,
-                            bool IgnoreNoAliasArgStCaptures = false,   // INTEL
-                            unsigned MaxUsesToExplore = 0);
-
-=======
->>>>>>> fd95f398c7623ff4a62e5001b4cde21c5b9eb111
   /// PointerMayBeCapturedBefore - Return true if this pointer value may be
   /// captured by the enclosing function (which is required to exist). If a
   /// DominatorTree is provided, only captures which happen before the given
