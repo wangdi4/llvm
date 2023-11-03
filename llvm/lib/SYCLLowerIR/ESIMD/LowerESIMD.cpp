@@ -534,6 +534,7 @@ public:
         {"qf_cvt", {"qf.cvt", {a(0)}}},
         {"hf8_cvt", {"hf8.cvt", {a(0)}}},
         {"srnd", {"srnd", {a(0), a(1)}}},
+	{"packed_4bit_upconvert_lut", {"packed.4bit.upconvert.lut", {a(0), a(1)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
         {"dpas2",
