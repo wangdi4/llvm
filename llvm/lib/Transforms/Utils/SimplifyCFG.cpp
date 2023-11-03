@@ -201,6 +201,12 @@ static cl::opt<unsigned> BranchFoldToCommonDestVectorMultiplier(
              "to fold branch to common destination when vector operations are "
              "present"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> BranchFoldToCommonDestUseNewCostModel(
+    "simplifycfg-branch-fold-common-use-new-cost-model", cl::Hidden,
+    cl::init(false), cl::desc("Use new cost model from llorg"));
+#endif
+
 static cl::opt<bool> EnableMergeCompatibleInvokes(
     "simplifycfg-merge-compatible-invokes", cl::Hidden, cl::init(true),
     cl::desc("Allow SimplifyCFG to merge invokes together when appropriate"));
@@ -5307,7 +5313,8 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
 #if INTEL_CUSTOMIZATION
   // We apply the old cost model here, after the dead preds have been removed.
   // TODO: We are also running the new cost model afterwards, we may skip it.
-  if (!MayHaveOpenMP && TooManyInsts(Preds.size()))
+  if (!BranchFoldToCommonDestUseNewCostModel && !MayHaveOpenMP &&
+      TooManyInsts(Preds.size()))
     return false;
 #endif // INTEL_CUSTOMIZATION
 
