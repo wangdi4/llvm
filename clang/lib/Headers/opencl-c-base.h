@@ -1,8 +1,6 @@
 //===----- opencl-c-base.h - OpenCL C language base definitions -----------===//
 // INTEL_CUSTOMIZATION
 //
-// INTEL CONFIDENTIAL
-//
 // Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
