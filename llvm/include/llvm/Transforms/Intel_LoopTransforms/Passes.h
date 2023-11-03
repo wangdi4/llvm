@@ -32,9 +32,6 @@ FunctionPass *createHIRTempCleanupPass();
 FunctionPass *createHIRPrinterPass(raw_ostream &OS, const std::string &Banner);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-/// createHIRCodeGenPass - This creates a pass that generates LLVM IR from HIR.
-FunctionPass *createHIRCodeGenWrapperPass();
-
 /// createOptPredicatePass - This creates a pass that performs OptPredicate
 /// transformation on HIR.
 FunctionPass *createHIROptPredicatePass(bool EnablePartialUnswitch = true,
@@ -147,12 +144,6 @@ FunctionPass *createHIRMVForVariableStridePass();
 /// Creates pass that performs loop concatenation.
 FunctionPass *createHIRLoopConcatenationPass();
 
-/// Creates pass that performs array transpose.
-FunctionPass *createHIRArrayTransposePass();
-
-/// Creates pass that performs Aos To Soa.
-FunctionPass *createHIRAosToSoaPass();
-
 /// Creates pass that fuses loops.
 FunctionPass *createHIRLoopFusionPass();
 
@@ -189,16 +180,11 @@ FunctionPass *createHIRSinkingForPerfectLoopnestPass();
 /// Create pass that enables undosinking for perfect Loop nest.
 FunctionPass *createHIRUndoSinkingForPerfectLoopnestPass();
 
-/// Create pass that enables sinking for conditional temps.
-FunctionPass *createHIRConditionalTempSinkingPass();
 /// Create pass that sinks loop invariant memory reductions.
 FunctionPass *createHIRMemoryReductionSinkingPass();
 
 /// Create pass that performs row-wise multiversioning.
 FunctionPass *createHIRRowWiseMVPass();
-
-/// Create pass that performs conditional load/store motion.
-FunctionPass *createHIRConditionalLoadStoreMotionPass();
 
 /// Create pass that stores result into a temp array.
 FunctionPass *createHIRStoreResultIntoTempArrayPass();
@@ -215,15 +201,9 @@ FunctionPass *createHIRIdentityMatrixSubstitutionPass();
 /// Create pass that marks stores as nontemporal where appropriate.
 FunctionPass *createHIRNontemporalMarkingPass();
 
-/// Create pass that performs HIR array-scalarization test launch.
-FunctionPass *createHIRArrayScalarizationTestLauncherPass();
-
 #if INTEL_FEATURE_SW_ADVANCED
 /// Creates pass that performs inter-loopnest-tiling.
 FunctionPass *createHIRInterLoopBlockingPass();
-
-/// Create pass that does array contraction for multiple loops.
-FunctionPass *createHIRCrossLoopArrayContractionLegacyPass(bool IsMultiJob);
 #endif // INTEL_FEATURE_SW_ADVANCED
 
 } // namespace llvm

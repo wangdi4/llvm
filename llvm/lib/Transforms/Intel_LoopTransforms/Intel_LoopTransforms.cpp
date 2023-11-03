@@ -35,7 +35,6 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRLoopRematerializeLegacyPassPass(Registry);
   initializeHIRLoopRerollLegacyPassPass(Registry);
   initializeHIROptReportEmitterWrapperPassPass(Registry);
-  initializeHIRCodeGenWrapperPassPass(Registry);
   initializeHIRParDirInsertPass(Registry);
   initializeHIRVecDirInsertPass(Registry);
   initializeHIROptVarPredicateLegacyPassPass(Registry);
@@ -43,8 +42,6 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRMVForConstUBLegacyPassPass(Registry);
   initializeHIRMVForVariableStrideLegacyPassPass(Registry);
   initializeHIRLoopConcatenationLegacyPassPass(Registry);
-  initializeHIRArrayTransposeLegacyPassPass(Registry);
-  initializeHIRAosToSoaLegacyPassPass(Registry);
   initializeHIRLoopFusionLegacyPassPass(Registry);
   initializeHIRDeadStoreEliminationLegacyPassPass(Registry);
   initializeHIRLastValueComputationLegacyPassPass(Registry);
@@ -56,18 +53,14 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRPrefetchingLegacyPassPass(Registry);
   initializeHIRSinkingForPerfectLoopnestLegacyPassPass(Registry);
   initializeHIRUndoSinkingForPerfectLoopnestLegacyPassPass(Registry);
-  initializeHIRConditionalTempSinkingLegacyPassPass(Registry);
   initializeHIRMemoryReductionSinkingLegacyPassPass(Registry);
-  initializeHIRConditionalLoadStoreMotionLegacyPassPass(Registry);
   initializeHIRNontemporalMarkingLegacyPassPass(Registry);
   initializeHIRStoreResultIntoTempArrayLegacyPassPass(Registry);
   initializeHIRSumWindowReuseLegacyPassPass(Registry);
   initializeHIRNonZeroSinkingForPerfectLoopnestLegacyPassPass(Registry);
   initializeHIRIdentityMatrixSubstitutionLegacyPassPass(Registry);
-  initializeHIRArrayScalarizationTestLauncherLegacyPassPass(Registry);
   initializeHIRIfReversalLegacyPassPass(Registry);
 #if INTEL_FEATURE_SW_ADVANCED
   initializeHIRInterLoopBlockingLegacyPassPass(Registry);
-  initializeHIRCrossLoopArrayContractionLegacyPassPass(Registry);
 #endif // INTEL_FEATURE_SW_ADVANCED
 }
