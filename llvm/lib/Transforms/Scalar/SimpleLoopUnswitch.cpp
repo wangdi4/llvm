@@ -2808,7 +2808,7 @@ static int CalculateUnswitchCostMultiplier(
   // is purely a heuristic.
   if (SiblingsCount > 10)
     --SiblingsCount;
-#endif // INTEL CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   // Count amount of clones that all the candidates might cause during
   // unswitching. Branch/guard/select counts as 1, switch counts as log2 of its
   // cases.
@@ -3464,7 +3464,7 @@ static bool unswitchBestCondition(
     AAResults &AA, TargetTransformInfo &TTI,
 #if INTEL_CUSTOMIZATION
     TargetLibraryInfo &TLI,
-#endif // INTEL CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     function_ref<void(bool, bool, bool, ArrayRef<Loop *>)> UnswitchCB,
     ScalarEvolution *SE, MemorySSAUpdater *MSSAU,
     function_ref<void(Loop &, StringRef)> DestroyLoopCB) {

@@ -1564,7 +1564,7 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
       } // case
       } // switch
     }   // if
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   }
 
   const SimplifyQuery Q = SQ.getWithInstruction(&I);

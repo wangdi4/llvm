@@ -381,7 +381,7 @@ private:
   ClobberOffsetsMapType ClobberOffsets;
 #if INTEL_CUSTOMIZATION
   unsigned OptLevel;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 public:
   MemoryDependenceResults(
@@ -395,7 +395,7 @@ public:
         DefaultBlockScanLimit(DefaultBlockScanLimit),
 #if INTEL_CUSTOMIZATION
         OptLevel(OptLevel) {}
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// Handle invalidation in the new PM.
   bool invalidate(Function &F, const PreservedAnalyses &PA,

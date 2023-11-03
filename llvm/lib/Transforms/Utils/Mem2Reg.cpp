@@ -63,7 +63,7 @@ static bool promoteMemoryToRegisterForBB(Function &F, DominatorTree &DT,
   std::vector<AllocaInst *> Allocas;
 #if !INTEL_CUSTOMIZATION
   BasicBlock &BB = F.getEntryBlock(); // Get the entry node for the function
-#endif // INTEL_CUSTOMIZATION
+#endif // !INTEL_CUSTOMIZATION
   bool Changed = false;
   while (true) {
     Allocas.clear();

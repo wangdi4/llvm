@@ -192,7 +192,7 @@ public:
       MaxHeaderSize = DefaultRotationThreshold.getNumOccurrences() > 0 ?
           DefaultRotationThreshold :
           TTI->getLoopRotationDefaultThreshold(true);
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     // Vectorization requires loop-rotation. Use default threshold for loops the
     // user explicitly marked for vectorization, even when header duplication is
     // disabled.

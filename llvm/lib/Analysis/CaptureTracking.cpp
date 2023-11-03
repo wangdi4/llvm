@@ -136,7 +136,7 @@ namespace {
           }
         }
       }
-#endif // INTEL
+#endif // INTEL_CUSTOMIZATION
 
       if (EphValues.contains(U->getUser()))
         return false;

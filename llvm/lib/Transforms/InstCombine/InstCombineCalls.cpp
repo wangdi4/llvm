@@ -888,7 +888,7 @@ Instruction *InstCombinerImpl::simplifyMaskedScatter(IntrinsicInst &II) {
       return eraseInstFromFunction(II);
     }
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   auto *ConstMask = dyn_cast<Constant>(II.getArgOperand(3));
   if (!ConstMask)
@@ -2144,7 +2144,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
       return new ZExtInst(NewCall, II->getType());
     }
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
   switch (IID) {
   case Intrinsic::objectsize: {
     SmallVector<Instruction *> InsertedInstructions;

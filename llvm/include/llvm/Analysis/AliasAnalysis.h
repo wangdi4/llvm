@@ -298,7 +298,7 @@ public:
 
   CaptureInfo *CI;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Remember if this is a "loopCarriedAlias" query.
   const bool NeedLoopCarried = false;
   AAQueryInfo(AAResults &AAR, CaptureInfo *CI, bool LoopCarried)
@@ -598,14 +598,14 @@ public:
     return getMemoryEffects(F).onlyReadsMemory();
   }
 
- #if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
    /// getModRefInfoForMaskedScatter - Return information about whether a
    /// masked_scatter intrinsic call modifies or reads the specified memory
    /// location. This intrinsic modifies or reads \p Loc when one of its
    /// unmasked destinations aliases with \p Loc.
    ModRefInfo getModRefInfoForMaskedScatter(const IntrinsicInst *I,
                                             const MemoryLocation &Loc);
- #endif // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   /// Check whether or not an instruction may read or write the optionally
   /// specified memory location.

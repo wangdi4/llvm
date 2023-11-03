@@ -268,7 +268,7 @@ static cl::opt<unsigned> NoWrapUserTrackingThreshold(
     "scalar-evolution-nowrap-user-tracking-threshold", cl::Hidden,
     cl::desc("Maximum number of users to track for nowrap propagation"),
     cl::init(45));
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> UseExpensiveRangeSharpening(
     "scalar-evolution-use-expensive-range-sharpening", cl::Hidden,
@@ -2739,7 +2739,7 @@ StrengthenNoWrapFlags(ScalarEvolution *SE, SCEVTypes Type,
     if (ProvingNUW)
       Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNUW);
   }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   // <0,+,nonnegative><nw> is also nuw
   // TODO: Add corresponding nsw case
@@ -3669,7 +3669,8 @@ const SCEV *ScalarEvolution::getURemExpr(const SCEV *LHS,
     }
   }
 
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
   // The fallback form of URem doesn't seem too useful for HIR. It adversely
   // affects cost modelling so we return a conservative result.
   if (Val && isa<ScopedScalarEvolution>(this)) {
@@ -6115,7 +6116,7 @@ const SCEV *ScalarEvolution::createSimpleAffineAddRec(PHINode *PN,
     Accum = getSCEV(RHS);
   else if (RHS == PN && L->isLoopInvariant(LHS))
     Accum = getSCEV(LHS);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   if (!Accum)
     return nullptr;
@@ -7681,7 +7682,8 @@ const ConstantRange &ScalarEvolution::getRangeRef(
   return setRange(S, SignHint, std::move(ConservativeResult));
 }
 
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
 unsigned ScalarEvolution::getHIRMDKindID(HIRLiveKind Kind) {
 
   // Initialize all kinds together.
@@ -8631,7 +8633,8 @@ ScalarEvolution::getOperandsToCreate(Value *V, SmallVectorImpl<Value *> &Ops) {
     // analysis depends on.
     if (!DT.isReachableFromEntry(I->getParent()))
       return getUnknown(PoisonValue::get(V->getType()));
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
     // Suppress traceback for instructions indicating possible live
     // range violation.
     if (getHIRMetadata(I, HIRLiveKind::LiveRange))
@@ -8656,7 +8659,8 @@ ScalarEvolution::getOperandsToCreate(Value *V, SmallVectorImpl<Value *> &Ops) {
       // get{Add,Mul}Expr calls.
       do {
         if (BO->Op) {
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
           // When HIR MD is present, force the operands of add/mul to be
           // parsed.
           auto Inst = dyn_cast<Instruction>(BO->Op);
@@ -8788,7 +8792,8 @@ ScalarEvolution::getOperandsToCreate(Value *V, SmallVectorImpl<Value *> &Ops) {
   }
   case Instruction::Call:
   case Instruction::Invoke:
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
     // Suppress traceback for liveout copy instructions inserted by HIR.
     auto *Call = cast<CallBase>(U);
     if (getHIRMetadata(Call, HIRLiveKind::LiveOut)) {
@@ -8844,7 +8849,8 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     if (!DT.isReachableFromEntry(I->getParent()))
       return getUnknown(PoisonValue::get(V->getType()));
 
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
     // Suppress traceback for instructions indicating possible live
     // range violation.
     if (getHIRMetadata(I, HIRLiveKind::LiveRange))
@@ -8875,7 +8881,8 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
       SmallVector<const SCEV *, 4> AddOps;
       do {
         if (BO->Op) {
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
           auto Inst = dyn_cast<Instruction>(BO->Op);
           if (Inst && getHIRMetadata(Inst, HIRLiveKind::LiveRange)) {
             AddOps.push_back(getSCEV(Inst));
@@ -8928,7 +8935,8 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
       SmallVector<const SCEV *, 4> MulOps;
       do {
         if (BO->Op) {
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
           auto Inst = dyn_cast<Instruction>(BO->Op);
           if (Inst && getHIRMetadata(Inst, HIRLiveKind::LiveRange)) {
             MulOps.push_back(getSCEV(Inst));
@@ -9171,7 +9179,8 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
           }
         }
       }
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
       // Suppress traceback for instruction with live-range metadata.
       else if (L && L->getOpcode() == Instruction::Shl &&
                (!dyn_cast<Instruction>(BO->LHS) ||
@@ -9248,7 +9257,8 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
       // NOTE: This is effectively duplicating this logic from getSignExtend:
       //   sext((A + B + ...)<nsw>) --> (sext(A) + sext(B) + ...)<nsw>
       // but by that point the NSW information has potentially been lost.
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
       Instruction *OpInst = dyn_cast<Instruction>(U->getOperand(0));
       if (BO->Opcode == Instruction::Sub && BO->IsNSW && (!OpInst ||
           !getHIRMetadata(OpInst, HIRLiveKind::LiveRange))) {
@@ -9293,7 +9303,8 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     // If both operands are non-negative, this is just an urem.
     if (isKnownNonNegative(getSCEV(U->getOperand(0))) &&
         isKnownNonNegative(getSCEV(U->getOperand(1))))
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
       return getURemExpr(getSCEV(U->getOperand(0)), getSCEV(U->getOperand(1)),
                          V);
 #endif // INTEL_CUSTOMIZATION
@@ -9311,7 +9322,8 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
 
   case Instruction::Call:
   case Instruction::Invoke:
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
     // Suppress traceback for liveout copy instructions inserted by HIR.
     auto *Call = cast<CallBase>(U);
     if (getHIRMetadata(Call, HIRLiveKind::LiveOut)) {
@@ -9540,7 +9552,8 @@ const SCEV *ScalarEvolution::getBackedgeTakenCount(const Loop *L,
   case Exact:
     return getBackedgeTakenInfo(L).getExact(L, this);
   case ConstantMaximum:
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
     // Either of scoped or regular scalar evolution may have more precise info
     // so return whichever is more precise.
     if (auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this)) {
@@ -9620,7 +9633,8 @@ ScalarEvolution::getPredicatedBackedgeTakenInfo(const Loop *L) {
 
 ScalarEvolution::BackedgeTakenInfo &
 ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
   // We are querying backedge taken count of some other multi-exit loop.
   // Since scoped backedge taken count of multi-exit loops cannot be used
   // in other loops' context, we return a dummy entry.
@@ -10075,7 +10089,8 @@ ScalarEvolution::computeBackedgeTakenCount(const Loop *L,
   const SCEV *MayExitMaxBECount = nullptr;
   bool MustExitMaxOrZero = false;
 
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
   // Multi-exit loops in scoped mode are treated as single-exit loops with early
   // exits. This means that the trip count information is computed only off of
   // loop backedge(latch). We can ignore all the other exits.
@@ -12463,7 +12478,7 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
 #if INTEL_CUSTOMIZATION
     if (!getSignedRangeMax(RHS).isMaxSignedValue() ||
         isNotRangeMaxUsingNoWrap(*this, RHS, true)) {
-#endif
+#endif // INTEL_CUSTOMIZATION
       RHS = getAddExpr(getConstant(RHS->getType(), 1, true), RHS,
                        SCEV::FlagNSW);
       Pred = ICmpInst::ICMP_SLT;
@@ -12480,7 +12495,7 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
 #if INTEL_CUSTOMIZATION
     if (!getSignedRangeMin(RHS).isMinSignedValue() ||
         isNotSignedMinUsingNoWrap(*this, RHS)) {
-#endif
+#endif // INTEL_CUSTOMIZATION
       RHS = getAddExpr(getConstant(RHS->getType(), (uint64_t)-1, true), RHS,
                        SCEV::FlagNSW);
       Pred = ICmpInst::ICMP_SGT;
@@ -12497,7 +12512,7 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
 #if INTEL_CUSTOMIZATION
     if (!getUnsignedRangeMax(RHS).isMaxValue() ||
         isNotRangeMaxUsingNoWrap(*this, RHS, false)) {
-#endif
+#endif // INTEL_CUSTOMIZATION
       RHS = getAddExpr(getConstant(RHS->getType(), 1, true), RHS,
                        SCEV::FlagNUW);
       Pred = ICmpInst::ICMP_ULT;

@@ -1472,7 +1472,7 @@ std::optional<int64_t> llvm::getPtrStride(PredicatedScalarEvolution &PSE,
                         << *Ptr << " SCEV: " << *AR << "\n");
       return std::nullopt;
     }
-#endif
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Check the step is constant.

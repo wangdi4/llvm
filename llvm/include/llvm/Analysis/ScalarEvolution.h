@@ -525,7 +525,8 @@ public:
   /// return true. For pointer types, this is the pointer-sized integer type.
   Type *getEffectiveSCEVType(Type *Ty) const;
 
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
   /// Lists types of HIR metadata.
   enum HIRLiveKind {
     LiveIn,
@@ -543,7 +544,7 @@ public:
   /// Returns true if the SCEV is a scAddRecExpr or it contains
   /// scAddRecExpr belonging to \p Lp.
   bool containsLoopAddRecurrence(const SCEV *SC, const Loop *Lp) const;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   // Returns a wider type among {Ty1, Ty2}.
   Type *getWiderType(Type *Ty1, Type *Ty2) const;
 
@@ -898,7 +899,7 @@ public:
   /// Try to bound a range for a loop-varying, but non-affine, SCEV representing
   /// a PHI by finding bounds on how much it can grow each loop iteration.
   ConstantRange getRangeBoundedByLoop(const PHINode &Phi);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   /// Returns the upper bound of the loop trip count as a normal unsigned
   /// value.
   /// Returns 0 if the trip count is unknown or not constant.
@@ -2176,7 +2177,7 @@ protected:
   /// the caller. This only works in immutable IR mode.
   bool hasWrapSafeOperands(const BinaryOperator *BinOp,
                            SCEV::NoWrapFlags &Flags) const;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   /// Try to match the Expr as "(L + R)<Flags>".
   bool splitBinaryAdd(const SCEV *Expr, const SCEV *&L, const SCEV *&R,
