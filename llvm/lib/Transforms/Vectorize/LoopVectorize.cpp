@@ -1131,7 +1131,8 @@ void InnerLoopVectorizer::collectPoisonGeneratingRecipes(
       if (auto *RecWithFlags = dyn_cast<VPRecipeWithIRFlags>(CurRec)) {
         RecWithFlags->dropPoisonGeneratingFlags();
       } else {
-        Instruction *Instr = CurRec->getUnderlyingInstr();
+        Instruction *Instr = dyn_cast_or_null<Instruction>(
+            CurRec->getVPSingleValue()->getUnderlyingValue());
         (void)Instr;
         assert((!Instr || !Instr->hasPoisonGeneratingFlags()) &&
                "found instruction with poison generating flags not covered by "
