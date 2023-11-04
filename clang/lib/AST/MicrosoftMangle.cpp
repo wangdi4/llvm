@@ -2536,7 +2536,7 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
     break;
 #if INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
-    mangleArtificialTagType(TTK_Struct, "__float128", {"__clang"});
+    mangleArtificialTagType(TagTypeKind::Struct, "__float128", {"__clang"});
     break;
 #endif  // INTEL_CUSTOMIZATION
   case BuiltinType::WChar_S:
@@ -3553,7 +3553,7 @@ void MicrosoftCXXNameMangler::mangleType(const ChannelType *T, Qualifiers,
   Extra.mangleSourceName("ocl_channel");
   Extra.mangleType(ElementType, Range, QMM_Escape);
 
-  mangleArtificialTagType(TTK_Struct, TemplateMangling, {"__clang"});
+  mangleArtificialTagType(TagTypeKind::Struct, TemplateMangling, {"__clang"});
 }
 #endif // INTEL_CUSTOMIZATION
 
