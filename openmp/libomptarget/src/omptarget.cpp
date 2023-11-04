@@ -2002,7 +2002,11 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
   }
   assert(TargetTable && "Global data has not been mapped\n");
 
+#if INTEL_CUSTOMIZATION
+// Our compiler does not use Tripcount
+#else  // INTEL_CUSTOMIZATION
   DP("loop trip count is %" PRIu64 ".\n", KernelArgs.Tripcount);
+#endif // INTEL_CUSTOMIZATION
 
   // We need to keep bases and offsets separate. Sometimes (e.g. in OpenCL) we
   // need to manifest base pointers prior to launching a kernel. Even if we have
