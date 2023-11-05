@@ -875,6 +875,9 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   // fakeload intrinsics which would block SROA.
   if (EnableTbaaProp)
     FPM.addPass(TbaaMDPropagationPass());
+  else
+    // We have to at least remove the fakeloads if we don't propagate the MD.
+    FPM.addPass(CleanupFakeLoadsPass());
   // Run OptReportOptionsPass early so that it is available to all users.
   FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
 #endif // INTEL_CUSTOMIZATION
@@ -1068,6 +1071,9 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // fakeload intrinsics which would block SROA.
   if (EnableTbaaProp)
     FPM.addPass(TbaaMDPropagationPass());
+  else
+    // We have to at least remove the fakeloads if we don't propagate the MD.
+    FPM.addPass(CleanupFakeLoadsPass());
   // Run OptReportOptionsPass early so that it is available to all users.
   FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
 #endif // INTEL_CUSTOMIZATION
@@ -1401,6 +1407,7 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
     CGSCCPassManager &CGPipeline = MIWP.getPM();
 
     FunctionPassManager FPM;
+    FPM.addPass(CleanupFakeLoadsPass()); // INTEL
     FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
     FPM.addPass(EarlyCSEPass()); // Catch trivial redundancies.
     FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(

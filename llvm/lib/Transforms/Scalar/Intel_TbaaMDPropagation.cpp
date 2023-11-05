@@ -60,6 +60,11 @@
 // the function containing the intrinsic has been inlined.  The CleanupFakeLoads
 // pass should be run after all inlining is complete to remove remaining
 // intrinsics.
+// It is important to remove fakeloads before other optimization passes:
+// - SROA and others will block on the unknown intrinsic.
+// - fakeload may carry control-flow sensitive attributes such as "nonnull".
+// If it is moved to another block, it may cause optimization errors.
+// (53133)
 //
 //===----------------------------------------------------------------------===//
 
