@@ -4,7 +4,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define dso_local void @disable-zero-masking(ptr noalias %vec_ptr, ptr noalias %cnt_ptr, ptr noalias %mat_ptr, i64 %offset) {
+define dso_local void @disable-zero-masking(ptr noalias %vec_ptr, ptr noalias %cnt_ptr, ptr noalias %mat_ptr, i64 %offset) #0 {
 ; CHECK-LABEL: @disable-zero-masking(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <8 x i64>, ptr [[MAT_PTR:%.*]], align 64
@@ -159,3 +159,5 @@ entry:
   ret void
 }
 
+; prevents gep+gep optimization. this is default for xmain.
+attributes #0 = {"loopopt-pipeline" = "light"}
