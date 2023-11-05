@@ -2,7 +2,7 @@
 ; RUN: opt -passes="instcombine" -S -mtriple=i686-linux -mattr=+avx512f,+avx512vl,+avx512dq -enable-intel-advanced-opts=true %s | FileCheck %s
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define dso_local void @disable-zero-masking(ptr noalias %vec_ptr, ptr noalias %cnt_ptr, ptr noalias %mat_ptr, i64 %offset) {
+define dso_local void @disable-zero-masking(ptr noalias %vec_ptr, ptr noalias %cnt_ptr, ptr noalias %mat_ptr, i64 %offset) #0 {
 ; CHECK-LABEL: @disable-zero-masking(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <8 x i64>, ptr [[MAT_PTR:%.*]], align 64
@@ -157,3 +157,5 @@ entry:
   ret void
 }
 
+; prevents gep+gep optimization. this is default for xmain.
+attributes #0 = {"loopopt-pipeline" = "light"}
