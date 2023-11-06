@@ -212,6 +212,9 @@ struct Configuration {
   // Used for /opt:fintel-preserve-value-names
   bool intelShouldDiscardValueNames = true;
 
+  // Used for /opt:llvm-verify-each
+  bool llvmVerifyEach = false;
+
   // Used for /lto-sample-profile:name
   std::string ltoSampleProfileName;
 #endif // INTEL_CUSTOMIZATION

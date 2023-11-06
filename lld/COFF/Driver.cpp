@@ -2082,6 +2082,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   unsigned tailMerge = 1;
   bool ltoNewPM = LLVM_ENABLE_NEW_PASS_MANAGER; // INTEL
   bool ltoDebugPM = false;
+  bool ltoVerifyEach = false;      // INTEL
   bool intelLibIRCAllowed = false; // INTEL
   bool intelShouldDiscardValueNames = true; // INTEL
   for (auto *arg : args.filtered(OPT_opt)) {
@@ -2112,6 +2113,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
         intelLibIRCAllowed = true;
       } else if (s == "fintel-preserve-value-names") {
         intelShouldDiscardValueNames = false;
+      } else if (s == "llvm-verify-each") {
+        ltoVerifyEach = true;
 #endif // INTEL_CUSTOMIZATION
       } else if (s == "ltodebugpassmanager") {
         ltoDebugPM = true;
@@ -2144,6 +2147,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
            "/profile-sample-generate specification");
     icfLevel = ICFLevel::None;
   }
+
+  config->llvmVerifyEach = ltoVerifyEach;
 #endif // INTEL_CUSTOMIZATION
 
   if (!icfLevel)
