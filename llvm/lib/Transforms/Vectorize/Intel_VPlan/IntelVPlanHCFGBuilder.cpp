@@ -566,7 +566,7 @@ public:
         const DataLayout &DL =
             cast<Instruction>(V)->getModule()->getDataLayout();
         StepTy = DL.getIntPtrType(IndTy);
-        if (IndTy->isOpaquePointerTy())
+        if (IndTy->isPointerTy())
           StepInt = DL.getTypeAllocSize(IndPointeeTy).getFixedValue() * StepInt;
       }
       Descriptor.setStep(
@@ -578,7 +578,7 @@ public:
         const DataLayout &DL =
             cast<Instruction>(V)->getModule()->getDataLayout();
         Descriptor.setStepType(Step->getType());
-        if (IndTy->isOpaquePointerTy())
+        if (IndTy->isPointerTy())
           Descriptor.setStepMultiplier(
               DL.getTypeAllocSize(IndPointeeTy).getFixedValue());
       }

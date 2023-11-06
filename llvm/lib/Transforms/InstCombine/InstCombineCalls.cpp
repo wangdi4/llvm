@@ -266,63 +266,10 @@ static bool isGoodStructMemcpyOpaque(AnyMemTransferInst *MI, uint64_t Size,
 static bool isGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size,
                                StructType *&STy) {
   Value *StrippedSrc = MI->getArgOperand(1)->stripPointerCasts();
-  Value *StrippedDst = MI->getArgOperand(0)->stripPointerCasts();
-  if (StrippedSrc->getType()->isOpaquePointerTy())
+  if (StrippedSrc->getType()->isPointerTy())
     return isGoodStructMemcpyOpaque(MI, Size, STy);
 
-  // The following code gets the structure type for the source operand
-  // and destination operand in the memcpy.
-  Type *SrcPtrTyp = StrippedSrc->getType()->getNonOpaquePointerElementType();
-  Type *DstPtrTyp = StrippedDst->getType()->getNonOpaquePointerElementType();
-  StructType *SrcSTy = dyn_cast<StructType>(&*SrcPtrTyp);
-  StructType *DstSTy = dyn_cast<StructType>(&*DstPtrTyp);
-  if (!SrcSTy || !DstSTy || SrcSTy != DstSTy) {
-    return false;
-  }
-  STy = SrcSTy;
-  const DataLayout &DL = MI->getParent()->getModule()->getDataLayout();
-
-  // NOTE: this code depends on typed pointers. CMPLRLLVM-24134 needs to be
-  // revisited if we want this to work with opaque pointers.
-  //
-  // For Fortran, we lower all struct-to-struct copies, for structs without
-  // nested ArrayTypes or VectorTypes, for compatibility with what was done
-  // in ifort.
-  if (MI->getFunction()->isFortran())
-    return DL.getTypeStoreSize(SrcSTy) == Size &&
-        Size <= StructCopySizeThresholdFortran &&
-        !hasNonStructNonSingleValueType(SrcSTy);
-
-  if ((Size & (Size - 1)) != 0)
-    return false;
-  MDNode *M = MI->getMetadata(LLVMContext::MD_tbaa_struct);
-  if (!M)
-    return false;
-  unsigned int ElemNum = SrcSTy->getNumElements();
-  // The input memcpy is expected to be annotated with correct type meta data,
-  // which is used by the newly generated loads/stores. Without annoating
-  // the type meta data, the newly genreated loads/stores cannot help
-  // later optimizations.
-  if (M->getNumOperands() != 3 * ElemNum) {
-    return false;
-  }
-  unsigned TotalGoodElem = 0;
-  for (unsigned int i = 0; i < ElemNum; ++i) {
-    Type *ElemTy = SrcSTy->getElementType(i);
-    if (!ElemTy->isSingleValueType()) {
-      return false;
-    }
-    TotalGoodElem++;
-    // CMPLRLLVM-8813: the heuristic was limiting the number of fields of the
-    // struct to only 2. Now the number of fields can be up to 2*2=4
-    // if the struct is <= 64 bits.
-    if ((TotalGoodElem > StructCopyCountThresholdC) &&
-        !(DL.getTypeSizeInBits(SrcSTy) <= 64 &&
-        (TotalGoodElem <= (StructCopyCountThresholdC * 2)))) {
-      return false;
-    }
-  }
-  return true;
+  return false;
 }
 
 // memcpy of arrays has this MD (xmain only):

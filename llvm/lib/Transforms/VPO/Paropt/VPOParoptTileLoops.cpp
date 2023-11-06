@@ -534,17 +534,15 @@ static int getTypedIVUBBundles(bool IsTyped, const OperandBundleDef &Bundle,
       NewTypedBundles.push_back(Bundle.inputs()[I]);
   } else {
     // The format has only IV.
-    // "QUAL.OMP.NORMALIZED.IV"(i32* %omp.pdo.norm.iv1,
-    //                          i32* %omp.pdo.norm.iv)
+    // "QUAL.OMP.NORMALIZED.IV"(i32 %omp.pdo.norm.iv1,
+    //                          i32 %omp.pdo.norm.iv)
     for (int I = 0; I < NumToCopy; I++) {
       Value *V = Bundle.inputs()[I];
       NewTypedBundles.push_back(V);
 
-      assert(!V->getType()->isOpaquePointerTy() &&
+      assert(!V->getType()->isPointerTy() &&
              "Need Typed IV/UB clauses for opaque pointers.");
-      Type *VTy = isa<PointerType>(V->getType())
-                      ? V->getType()->getNonOpaquePointerElementType()
-                      : V->getType();
+      Type *VTy = V->getType();
 
       NewTypedBundles.push_back(Constant::getNullValue(VTy));
     }

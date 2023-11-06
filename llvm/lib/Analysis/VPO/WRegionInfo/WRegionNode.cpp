@@ -1047,14 +1047,8 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
   if (ClauseID == QUAL_OMP_USE_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_USE_DEVICE_PTR;
     IsUseDeviceAddr = true;
-    if (ClauseInfo.getIsArraySection()) {
-      // With opaque pointers, the frontend should convert a
-      // "USE_DEVICE_ADDR:ARRSECT" into "MAP + USE_DEVICE_ADDR".
-      if (PointerType *PtrTy = cast<PointerType>(Args[0]->getType()))
-        if (!PtrTy->isOpaquePointerTy() &&
-            isa<PointerType>(PtrTy->getNonOpaquePointerElementType()))
-          IsPointerToPointer = true;
-    }
+    // With opaque pointers, the frontend should convert a
+    // "USE_DEVICE_ADDR:ARRSECT" into "MAP + USE_DEVICE_ADDR".
   } else if (ClauseID == QUAL_OMP_HAS_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_IS_DEVICE_PTR;
   }
@@ -2284,12 +2278,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         break;
       }
       Type *VTy = nullptr;
-      if (ClauseInfo.getIsTyped())
+      if (ClauseInfo.getIsTyped()) {
         VTy = Args[++I]->getType();
-      else
-        VTy = isa<PointerType>(V->getType())
-                  ? V->getType()->getNonOpaquePointerElementType()
-                  : V->getType();
+      } else {
+        assert(!isa<PointerType>(V->getType()) &&
+               "Only typed clauses are supported for pointer Norm IVs.");
+        VTy = V->getType();
+      }
       getWRNLoopInfo().addNormIV(V, VTy);
     }
     break;
@@ -2302,12 +2297,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         break;
       }
       Type *VTy = nullptr;
-      if (ClauseInfo.getIsTyped())
+      if (ClauseInfo.getIsTyped()) {
         VTy = Args[++I]->getType();
-      else
-        VTy = isa<PointerType>(V->getType())
-                  ? V->getType()->getNonOpaquePointerElementType()
-                  : V->getType();
+      } else {
+        assert(!isa<PointerType>(V->getType()) &&
+               "Only typed clauses are supported for pointer Norm UBs.");
+        VTy = V->getType();
+      }
       getWRNLoopInfo().addNormUB(V, VTy);
     }
     break;

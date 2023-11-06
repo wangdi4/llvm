@@ -2679,7 +2679,7 @@ static bool hoistGEP(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
 #if INTEL_CUSTOMIZATION
   // The transform doesn't work for typed pointers (GEP type mismatch)
   auto *SrcType = dyn_cast<PointerType>(Src->getType()->getScalarType());
-  if (!SrcType || !SrcType->isOpaquePointerTy())
+  if (!SrcType || !SrcType->isPointerTy())
     return false;
 #endif // INTEL_CUSTOMIZATION
 
