@@ -40,12 +40,6 @@ static cl::opt<bool, true>
                                     cl::Hidden,
                                     cl::desc("Enable sub-group emulation"));
 
-bool SYCLForceOptnone = false;
-static cl::opt<bool, true> SYCLForceOptnoneOpt(
-    "sycl-force-optnone", cl::location(SYCLForceOptnone), cl::Hidden,
-    cl::desc("Force passes to process functions as if they have the optnone "
-             "attribute"));
-
 #if INTEL_CUSTOMIZATION
 // Enable vectorization at O0 optimization level.
 cl::opt<bool> SYCLEnableO0Vectorization(
@@ -130,8 +124,7 @@ unsigned VFAnalysisInfo::deduceVF(Function *Kernel, unsigned HeuristicVF) {
 #if INTEL_CUSTOMIZATION
   // If O0 vectorization is NOT enabled, then we disable vectorization for
   // optnone kernels.
-  if (!SYCLEnableO0Vectorization &&
-      (Kernel->hasOptNone() || SYCLForceOptnone)) {
+  if (!SYCLEnableO0Vectorization && Kernel->hasOptNone()) {
 #endif // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "Initial VF<optnone mode>: 1\n");
     return 1;

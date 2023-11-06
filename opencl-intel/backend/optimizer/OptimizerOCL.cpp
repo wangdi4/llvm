@@ -69,7 +69,6 @@
 
 using namespace llvm;
 
-extern bool SYCLForceOptnone;
 extern bool SYCLEnableSubGroupEmulation;
 extern cl::opt<bool> SYCLEnableO0Vectorization; // INTEL
 
@@ -81,7 +80,6 @@ OptimizerOCL::OptimizerOCL(Module &M, SmallVectorImpl<Module *> &RtlModuleList,
                            const intel::OptimizerConfig &Config)
     : Optimizer(M, RtlModuleList, Config) {
   Level = BackendUtils::getOptLevel(Config.GetDisableOpt(), m_M);
-  SYCLForceOptnone = (Level == OptimizationLevel::O0);
 }
 
 void OptimizerOCL::Optimize(raw_ostream &LogStream) {

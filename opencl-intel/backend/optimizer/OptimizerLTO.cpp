@@ -66,7 +66,6 @@ using namespace llvm;
 
 // If set, then optimization passes will process functions as if they have the
 // optnone attribute.
-extern bool SYCLForceOptnone;
 extern bool SYCLEnableSubGroupEmulation;
 extern cl::opt<bool> SYCLEnableO0Vectorization; // INTEL
 
@@ -149,8 +148,6 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
     MPM = PB.buildO0DefaultPipeline(OptimizationLevel::O0);
   else
     MPM = PB.buildPerModuleDefaultPipeline(OptLevel);
-
-  SYCLForceOptnone = (OptLevel == OptimizationLevel::O0);
 
   registerLastPasses(MPM);
 
