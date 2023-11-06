@@ -5510,7 +5510,9 @@ static bool canVectorizeSplitLoads(
     SmallVectorImpl<std::tuple<unsigned, unsigned, BoUpSLP::OrdersType>>
         &LoadGroups) {
 
-  if (MaxSplitLoads == 0 || (!Order.empty() && Order.size() != VF))
+  if (MaxSplitLoads == 0 ||
+      DL.getTypeSizeInBits(ScalarTy) != DL.getTypeAllocSizeInBits(ScalarTy) ||
+      (!Order.empty() && Order.size() != VF))
     return false;
 
   // Each consecutive group is represented by
@@ -5576,15 +5578,12 @@ static bool canVectorizeSplitLoads(
 
 namespace {
 /// Tracks the state we can represent the loads in the given sequence.
-#if INTEL_CUSTOMIZATION
 enum class LoadsState {
   Gather,
   Vectorize,
   ScatterVectorize,
-  PossibleStridedVectorize,
-  SplitLoads
+  PossibleStridedVectorize
 };
-#endif // INTEL_CUSTOMIZATION
 } // anonymous namespace
 
 static bool arePointersCompatible(Value *Ptr1, Value *Ptr2,
@@ -5608,15 +5607,12 @@ static bool arePointersCompatible(Value *Ptr1, Value *Ptr2,
 
 /// Checks if the given array of loads can be represented as a vectorized,
 /// scatter or just simple gather.
-#if INTEL_CUSTOMIZATION
-static LoadsState canVectorizeLoads(
-    ArrayRef<Value *> VL, const Value *VL0, const TargetTransformInfo &TTI,
-    const DataLayout &DL, ScalarEvolution &SE, LoopInfo &LI,
-    const TargetLibraryInfo &TLI, SmallVectorImpl<unsigned> &Order,
-    SmallVectorImpl<Value *> &PointerOps,
-    SmallVectorImpl<std::tuple<unsigned, unsigned, BoUpSLP::OrdersType>>
-        &LoadGroups) {
-#endif // INTEL_CUSTOMIZATION
+static LoadsState canVectorizeLoads(ArrayRef<Value *> VL, const Value *VL0,
+                                    const TargetTransformInfo &TTI,
+                                    const DataLayout &DL, ScalarEvolution &SE,
+                                    LoopInfo &LI, const TargetLibraryInfo &TLI,
+                                    SmallVectorImpl<unsigned> &Order,
+                                    SmallVectorImpl<Value *> &PointerOps) {
   // Check that a vectorized load would load the same memory as a scalar
   // load. For example, we don't want to vectorize loads that are smaller
   // than 8-bit. Even though we have a packed struct {<i2, i2, i2, i2>} LLVM
@@ -5641,16 +5637,13 @@ static LoadsState canVectorizeLoads(
     ++POIter;
   }
 
-#if INTEL_CUSTOMIZATION
-  bool CandidateForGatherLoad = false;
-  bool IsPossibleStrided = false;
-#endif // INTEL_CUSTOMIZATION
   Order.clear();
   // Check the order of pointer operands or that all pointers are the same.
   bool IsSorted = sortPtrAccesses(PointerOps, ScalarTy, DL, SE, Order);
   if (IsSorted || all_of(PointerOps, [&](Value *P) {
         return arePointersCompatible(P, PointerOps.front(), TLI);
       })) {
+    bool IsPossibleStrided = false;
     if (IsSorted) {
       Value *Ptr0;
       Value *PtrN;
@@ -5677,40 +5670,26 @@ static LoadsState canVectorizeLoads(
         static_cast<unsigned>(count_if(PointerOps, [L](Value *V) {
           return L && L->isLoopInvariant(V);
         })) <= VL.size() / 2 && VL.size() > 2;
-#if INTEL_CUSTOMIZATION
-    // We might want to issue gather load only if split load fails.
-    // Do not consider to issue gather for vectors having less then
-    // MinGatherLoadSize elements, unless in compatibility mode.
-    CandidateForGatherLoad =
-        ProfitableGatherPointers || all_of(PointerOps, [IsSorted](Value *P) {
+    if (ProfitableGatherPointers || all_of(PointerOps, [IsSorted](Value *P) {
           auto *GEP = dyn_cast<GetElementPtrInst>(P);
           return (IsSorted && !GEP && doesNotNeedToBeScheduled(P)) ||
                  (GEP && GEP->getNumOperands() == 2);
-        });
-    if (!CompatibilitySLPMode)
-      CandidateForGatherLoad =
-          CandidateForGatherLoad && VL.size() >= MinGatherLoadSize;
-  }
-
-  if (canVectorizeSplitLoads(ScalarTy, VL.size(), DL, SE, PointerOps, Order,
-                             LoadGroups))
-    return LoadsState::SplitLoads;
-
-  // We might want to issue gather load only if split load fails.
-  // Do not consider to issue gather for vectors having
-  // less then MinGatherLoadSize elements.
-  if (CandidateForGatherLoad) {
-    Align CommonAlignment = cast<LoadInst>(VL0)->getAlign();
-    for (Value *V : VL)
-      CommonAlignment =
+        })) {
+#if INTEL_CUSTOMIZATION
+      if (!CompatibilitySLPMode && VL.size() < MinGatherLoadSize)
+        return LoadsState::Gather;
+#endif // INTEL_CUSTOMIZATION
+      Align CommonAlignment = cast<LoadInst>(VL0)->getAlign();
+      for (Value *V : VL)
+        CommonAlignment =
             std::min(CommonAlignment, cast<LoadInst>(V)->getAlign());
-    auto *VecTy = FixedVectorType::get(ScalarTy, VL.size());
-    if (TTI.isLegalMaskedGather(VecTy, CommonAlignment) &&
-        !TTI.forceScalarizeMaskedGather(VecTy, CommonAlignment))
+      auto *VecTy = FixedVectorType::get(ScalarTy, VL.size());
+      if (TTI.isLegalMaskedGather(VecTy, CommonAlignment) &&
+          !TTI.forceScalarizeMaskedGather(VecTy, CommonAlignment))
         return IsPossibleStrided ? LoadsState::PossibleStridedVectorize
                                  : LoadsState::ScatterVectorize;
+    }
   }
-#endif // INTEL_CUSTOMIZATION
 
   return LoadsState::Gather;
 }
@@ -7219,12 +7198,16 @@ BoUpSLP::TreeEntry::EntryState BoUpSLP::getScalarsVectorizationState(
     // from such a struct, we read/write packed bits disagreeing with the
     // unvectorized version.
 #if INTEL_CUSTOMIZATION
-    switch (canVectorizeLoads(VL, VL0, *TTI, *DL, *SE, *LI, *TLI, CurrentOrder,
-                              PointerOps, LoadGroups)) {
-    case LoadsState::SplitLoads:
+    LoadsState LS = canVectorizeLoads(VL, VL0, *TTI, *DL, *SE, *LI, *TLI,
+                                      CurrentOrder, PointerOps);
+    if (LS != LoadsState::Vectorize &&
+        canVectorizeSplitLoads(VL0->getType(), VL.size(), *DL, *SE, PointerOps,
+                               CurrentOrder, LoadGroups)) {
       assert(!LoadGroups.empty() && "Expected non-empty load groups.");
-    [[fallthrough]];
+      return TreeEntry::Vectorize;
+    }
 #endif // INTEL_CUSTOMIZATION
+    switch (LS) {
     case LoadsState::Vectorize:
       return TreeEntry::Vectorize;
     case LoadsState::ScatterVectorize:
@@ -8946,16 +8929,11 @@ class BoUpSLP::ShuffleCostEstimator : public BaseShuffleAnalysis {
               !VectorizedLoads.count(Slice.back()) && allSameBlock(Slice)) {
             SmallVector<Value *> PointerOps;
             OrdersType CurrentOrder;
-#if INTEL_CUSTOMIZATION
-            // Each consecutive group is represented by starting index, load
-            // size (number of consecutive scalar elements) and re-ordering
-            // information (if any).
-            SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1>
-                LoadGroups;
             LoadsState LS =
                 canVectorizeLoads(Slice, Slice.front(), TTI, *R.DL, *R.SE,
-                                  *R.LI, *R.TLI, CurrentOrder, PointerOps,
-                                  LoadGroups);
+                                  *R.LI, *R.TLI, CurrentOrder, PointerOps);
+#if INTEL_CUSTOMIZATION
+            // TODO: Handle split-load here as vectorizable case.
 #endif // INTEL_CUSTOMIZATION
             switch (LS) {
             case LoadsState::Vectorize:
@@ -8973,9 +8951,6 @@ class BoUpSLP::ShuffleCostEstimator : public BaseShuffleAnalysis {
               if (Cnt == StartIdx)
                 StartIdx += VF;
               break;
-#if INTEL_CUSTOMIZATION
-            case LoadsState::SplitLoads:
-#endif // INTEL_CUSTOMIZATION
             case LoadsState::Gather:
               break;
             }
