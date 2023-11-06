@@ -1181,7 +1181,7 @@ bool DevirtModule::runForTesting(
     ExitOnError ExitOnErr(
         "-wholeprogramdevirt-write-summary: " + ClWriteSummary + ": ");
     std::error_code EC;
-    if (StringRef(ClWriteSummary).endswith(".bc")) {
+    if (StringRef(ClWriteSummary).ends_with(".bc")) {
       raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_None);
       ExitOnErr(errorCodeToError(EC));
       writeIndexToFile(*Summary, OS);
@@ -1977,8 +1977,7 @@ void DevirtModule::applyUniqueRetValOpt(CallSiteInfo &CSInfo, StringRef FnName,
 }
 
 Constant *DevirtModule::getMemberAddr(const TypeMemberInfo *M) {
-  Constant *C = ConstantExpr::getBitCast(M->Bits->GV, Int8PtrTy);
-  return ConstantExpr::getGetElementPtr(Int8Ty, C,
+  return ConstantExpr::getGetElementPtr(Int8Ty, M->Bits->GV,
                                         ConstantInt::get(Int64Ty, M->Offset));
 }
 

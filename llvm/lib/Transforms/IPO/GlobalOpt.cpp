@@ -2104,7 +2104,7 @@ processGlobal(GlobalValue &GV,
               function_ref<TargetLibraryInfo &(Function &)> GetTLI,
               WholeProgramInfo *WPInfo,  // INTEL
               function_ref<DominatorTree &(Function &)> LookupDomTree) {
-  if (GV.getName().startswith("llvm."))
+  if (GV.getName().starts_with("llvm."))
     return false;
 
   GlobalStatus GS;
