@@ -136,6 +136,11 @@ static cl::opt<bool>
 LoopPredication("indvars-predicate-loops", cl::Hidden, cl::init(true),
                 cl::desc("Predicate conditions in read only loops"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> Zext2Sext("indvars-zext2sext", cl::Hidden, cl::init(true),
+                               cl::desc("Improve zext to sext"));
+#endif
+
 static cl::opt<bool>
 AllowIVWidening("indvars-widen-indvars", cl::Hidden, cl::init(true),
                 cl::desc("Allow widening of indvars to eliminate s/zext"));
@@ -1230,38 +1235,59 @@ linearFunctionTestReplace(Loop *L, BasicBlock *ExitingBB,
     assert(!CmpIndVar->getType()->isPointerTy() &&
            !ExitCnt->getType()->isPointerTy());
 
-#if INTEL_CUSTOMIZATION
     // Before resorting to actually inserting the truncate, use the same
     // reasoning as from SimplifyIndvar::eliminateTrunc to see if we can extend
     // the other side of the comparison instead.  We still evaluate the limit
     // in the narrower bitwidth, we just prefer a zext/sext outside the loop to
     // a truncate within in.
-    //
+    bool Extended = false;
+    const SCEV *IV = SE->getSCEV(CmpIndVar);
+    const SCEV *TruncatedIV = SE->getTruncateExpr(IV, ExitCnt->getType());
+
+#if INTEL_CUSTOMIZATION
     // Most loops have IVs in positive signed range, which means the trip
     // count (ExitCnt) is in signed range. Since ExitCnt is likely to be
     // signed we should try sext before zext as it is likely to preserve more
     // indormation.
-#endif // INTEL_CUSTOMIZATION
-    bool Extended = false;
-    const SCEV *IV = SE->getSCEV(CmpIndVar);
-    const SCEV *TruncatedIV = SE->getTruncateExpr(IV, ExitCnt->getType());
-#if INTEL_CUSTOMIZATION
-    const SCEV *SExtTrunc =
-      SE->getSignExtendExpr(TruncatedIV, CmpIndVar->getType());
+    if (Zext2Sext) {
+      const SCEV *SExtTrunc =
+          SE->getSignExtendExpr(TruncatedIV, CmpIndVar->getType());
 
-    if (SExtTrunc == IV) {
+      if (SExtTrunc == IV) {
+        Extended = true;
+        ExitCnt =
+            Builder.CreateSExt(ExitCnt, IndVar->getType(), "wide.trip.count");
+      } else {
+        const SCEV *ZExtTrunc =
+            SE->getZeroExtendExpr(TruncatedIV, CmpIndVar->getType());
+        if (ZExtTrunc == IV) {
+          Extended = true;
+          ExitCnt =
+              Builder.CreateZExt(ExitCnt, IndVar->getType(), "wide.trip.count");
+        }
+      }
+    } else {
+      // clang-format off
+#endif // INTEL_CUSTOMIZATION
+    const SCEV *ZExtTrunc =
+      SE->getZeroExtendExpr(TruncatedIV, CmpIndVar->getType());
+
+    if (ZExtTrunc == IV) {
       Extended = true;
-      ExitCnt = Builder.CreateSExt(ExitCnt, IndVar->getType(),
+      ExitCnt = Builder.CreateZExt(ExitCnt, IndVar->getType(),
                                    "wide.trip.count");
     } else {
-      const SCEV *ZExtTrunc =
-        SE->getZeroExtendExpr(TruncatedIV, CmpIndVar->getType());
-      if (ZExtTrunc == IV) {
+      const SCEV *SExtTrunc =
+        SE->getSignExtendExpr(TruncatedIV, CmpIndVar->getType());
+      if (SExtTrunc == IV) {
         Extended = true;
-        ExitCnt = Builder.CreateZExt(ExitCnt, IndVar->getType(),
+        ExitCnt = Builder.CreateSExt(ExitCnt, IndVar->getType(),
                                      "wide.trip.count");
       }
     }
+#if INTEL_CUSTOMIZATION
+    }
+// clang-format on
 #endif // INTEL_CUSTOMIZATION
 
     if (Extended) {
