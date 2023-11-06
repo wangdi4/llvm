@@ -311,6 +311,7 @@ struct OMPInformationCache : public InformationCache {
       : InformationCache(M, AG, Allocator, CGSCC), OMPBuilder(M),
         OpenMPPostLink(OpenMPPostLink) {
 
+    OMPBuilder.Config.IsTargetDevice = isOpenMPDevice(OMPBuilder.M);
     OMPBuilder.initialize();
     initializeRuntimeFunctions(M);
     initializeInternalControlVars();
