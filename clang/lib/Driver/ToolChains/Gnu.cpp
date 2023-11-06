@@ -965,10 +965,6 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
-<<<<<<< HEAD
-    addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
-                  D.getLTOMode() == LTOK_Thin, JA); // INTEL
-=======
     // Find the first filename InputInfo object.
     auto Input = llvm::find_if(
         Inputs, [](const InputInfo &II) -> bool { return II.isFilename(); });
@@ -978,8 +974,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       Input = Inputs.begin();
 
     addLTOOptions(ToolChain, Args, CmdArgs, Output, *Input,
-                  D.getLTOMode() == LTOK_Thin);
->>>>>>> 85451f486d8144f8aacd94a47802c77da5a04d27
+                  D.getLTOMode() == LTOK_Thin, JA); // INTEL
   }
 
   if (Args.hasArg(options::OPT_Z_Xlinker__no_demangle))
