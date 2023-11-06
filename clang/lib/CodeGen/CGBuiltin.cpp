@@ -1999,7 +1999,7 @@ llvm::Function *CodeGenFunction::generateBuiltinOSLogHelperFunction(
   FunctionArgList Args;
   Args.push_back(ImplicitParamDecl::Create(
       Ctx, nullptr, SourceLocation(), &Ctx.Idents.get("buffer"), Ctx.VoidPtrTy,
-      ImplicitParamDecl::Other));
+      ImplicitParamKind::Other));
   ArgTys.emplace_back(Ctx.VoidPtrTy);
 
   for (unsigned int I = 0, E = Layout.Items.size(); I < E; ++I) {
@@ -2011,7 +2011,7 @@ llvm::Function *CodeGenFunction::generateBuiltinOSLogHelperFunction(
     Args.push_back(ImplicitParamDecl::Create(
         Ctx, nullptr, SourceLocation(),
         &Ctx.Idents.get(std::string("arg") + llvm::to_string(I)), ArgTy,
-        ImplicitParamDecl::Other));
+        ImplicitParamKind::Other));
     ArgTys.emplace_back(ArgTy);
   }
 
