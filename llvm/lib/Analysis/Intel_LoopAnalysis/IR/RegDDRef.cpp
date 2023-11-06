@@ -2327,13 +2327,6 @@ Type *RegDDRef::getDereferencedType() const {
                                                                    : nullptr;
 
   } else if (isSelfAddressOf()) {
-    auto *DestTy = getDestType();
-
-    // This is an attempt to keep original behavior for non-opaque pointer path.
-    if (!DestTy->isOpaquePointerTy()) {
-      DestTy->getNonOpaquePointerElementType();
-    }
-
     // This can return null.
     return getDimensionElementType(1);
   }

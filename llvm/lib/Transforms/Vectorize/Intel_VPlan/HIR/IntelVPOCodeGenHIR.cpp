@@ -4995,12 +4995,9 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         addInstUnmasked(BaseRefCopy);
         BaseRef = BaseRefCopy->getLvalDDRef();
       }
-      auto *StartVecPtrs =
-          DDRefUtilities.createAddressOfRef(
-              getInt8OrPointerElementTy(StartVal->getDestType()),
-              BaseRef->getSelfBlobIndex(),
-              getNestingLevelFromInsertPoint(),
-              BaseRef->getSymbase());
+      auto *StartVecPtrs = DDRefUtilities.createAddressOfRef(
+          getInt8(StartVal->getDestType()), BaseRef->getSelfBlobIndex(),
+          getNestingLevelFromInsertPoint(), BaseRef->getSymbase());
       StartVecPtrs->addDimension(VectorStep->getSingleCanonExpr());
       StartVecPtrs->makeConsistent({VectorStep},
                                    getNestingLevelFromInsertPoint());
@@ -5177,13 +5174,12 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
             BaseAddr = BaseAddrCopy->getLvalDDRef();
           }
           LastValue = DDRefUtilities.createAddressOfRef(
-              getInt8OrPointerElementTy(BaseAddr->getDestType()),
-              BaseAddr->getSelfBlobIndex(), getNestingLevelFromInsertPoint(),
-              BaseAddr->getSymbase());
+              getInt8(BaseAddr->getDestType()), BaseAddr->getSelfBlobIndex(),
+              getNestingLevelFromInsertPoint(), BaseAddr->getSymbase());
           LastValue->addDimension(MulRef->getSingleCanonExpr());
           LastValue->makeConsistent({MulRef}, getNestingLevelFromInsertPoint());
           LastValue->setBitCastDestVecOrElemType(
-              getInt8OrPointerElementTy(BaseAddr->getDestType()));
+              getInt8(BaseAddr->getDestType()));
         } else {
           auto *IndFinalLval =
               Start->getSymbase() == ConstantSymbase ? nullptr : Start->clone();
@@ -7510,9 +7506,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // destination type.
     if (VPInst->getOpcode() == Instruction::BitCast && RefOp0->isAddressOf()) {
       SmallVector<const RegDDRef *, 1> AuxRefs = {RefOp0->clone()};
-      auto *BitCastDestTy = isa<PointerType>(ResultRefTy)
-                                ? ResultRefTy->getNonOpaquePointerElementType()
-                                : ResultRefTy;
+      assert(!isa<PointerType>(ResultRefTy));
+      auto *BitCastDestTy = ResultRefTy;
       RefOp0->setBitCastDestVecOrElemType(BitCastDestTy);
       makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
       return;
@@ -7626,7 +7621,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
           VecPtrs = CopyInst->getLvalDDRef()->clone();
         }
         auto *VecPtrsUpdate = DDRefUtilities.createAddressOfRef(
-            getInt8OrPointerElementTy(PtrTy), VecPtrs->getSelfBlobIndex(),
+            getInt8(PtrTy), VecPtrs->getSelfBlobIndex(),
             getNestingLevelFromInsertPoint(), VecPtrs->getSymbase());
         VecPtrsUpdate->addDimension(VecIdx->getSingleCanonExpr());
         VecPtrsUpdate->makeConsistent({VecIdx},

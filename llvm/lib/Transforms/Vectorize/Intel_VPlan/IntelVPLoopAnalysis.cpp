@@ -839,7 +839,7 @@ static void createLifetimeMarker(VPBuilder &Builder, VPlanVector &Plan,
 
     VPValue *LMOp = PrivateMem;
     Type *PrivateMemTy = PrivateMem->getType();
-    if (!PrivateMemTy->isOpaquePointerTy()) {
+    if (!PrivateMemTy->isPointerTy()) {
       PrivateMemTy =
           llvm::PointerType::get(Type::getIntNTy(*Plan.getLLVMContext(), 8), 0);
       LMOp =
@@ -2708,7 +2708,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       VPValue *i8PrivateMem = PrivateMem;
       // If AI is not opaque pointer and it's not i8* we need to convert it to
       // this type.
-      if (!AITy->isOpaquePointerTy() && AITy != ptrI8) {
+      if (!AITy->isPointerTy() && AITy != ptrI8) {
         i8AI = Builder.createNaryOp(Instruction::BitCast, ptrI8, {AI});
         i8PrivateMem =
             Builder.createNaryOp(Instruction::BitCast, ptrI8, {PrivateMem});
@@ -3265,7 +3265,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
       assert(Opc == Instruction::GetElementPtr &&
              "GEP opcode expected for pointer induction.");
       Type *ElementType = nullptr;
-      ElementType = getInt8OrPointerElementTy(Phi->getType());
+      ElementType = getInt8(Phi->getType());
       auto *GEP =
           Builder.createGEP(ElementType, ElementType, Phi, Step, nullptr);
       GEP->setIsInBounds(true); // TODO: Why is that correct?

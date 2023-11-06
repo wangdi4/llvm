@@ -1661,9 +1661,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
 
     // i8 element type for opaque pointer inductions
     unsigned TypeSizeInBytes =
-        InitShape.isUniform()
-            ? getTypeSizeInBytes(getInt8OrPointerElementTy(Init->getType()))
-            : InitShape.getStrideVal();
+        InitShape.isUniform() ? getTypeSizeInBytes(getInt8(Init->getType()))
+                              : InitShape.getStrideVal();
 
     StepInt = TypeSizeInBytes * StepConst->getZExtValue();
   } else

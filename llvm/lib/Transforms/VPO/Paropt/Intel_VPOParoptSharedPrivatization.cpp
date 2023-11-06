@@ -589,8 +589,6 @@ static bool cleanupItem(
   if (!ToPrivatize.count(V)) {
     if (Item->getIsTyped())
       ToPrivatize.insert({V, getTypedClauseInfoForTypedItem(Item)});
-    else if (!V->getType()->isOpaquePointerTy())
-      ToPrivatize.insert({V, std::nullopt});
     else if (auto *AI = dyn_cast<AllocaInst>(V))
       ToPrivatize.insert({AI, VPOUtils::getTypedClauseInfoForAlloca(AI)});
     else
