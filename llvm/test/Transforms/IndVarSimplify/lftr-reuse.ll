@@ -7,7 +7,6 @@
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
 
 ; INTEL additional IV removed in expandOuterRecurrence
-; INTEL sext instead of zext
 
 ; Perform LFTR using the original pointer-type IV.
 
@@ -142,7 +141,7 @@ define void @guardedloop(ptr %matrix, ptr %vector,
 ; CHECK-NEXT:    br i1 [[CMP]], label [[LOOP_PREHEADER:%.*]], label [[RETURN:%.*]]
 ; CHECK:       loop.preheader:
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[ILEAD:%.*]] to i64
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[IROW]] to i64 ;INTEL
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[IROW]] to i64
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[INDVARS_IV2:%.*]] = phi i64 [ 0, [[LOOP_PREHEADER]] ], [ [[INDVARS_IV_NEXT3:%.*]], [[LOOP]] ]
@@ -195,7 +194,7 @@ define void @unguardedloop(ptr %matrix, ptr %vector,
 ; CHECK-LABEL: @unguardedloop(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[IROW:%.*]], i32 1)
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[SMAX]] to i64 ;INTEL
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[SMAX]] to i64
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[INDVARS_IV2:%.*]] = phi i64 [ [[INDVARS_IV_NEXT3:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]

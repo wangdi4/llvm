@@ -8,10 +8,7 @@ define i32 @test_01(ptr %p, double %x, ptr %np, ptr %mp, i32 %k) {
 ; CHECK-LABEL: @test_01(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[K:%.*]], i32 1)
-; INTEL_CUSTOMIZATION
-; zext changed to sext
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[SMAX]] to i64
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[SMAX]] to i64
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV_WIDE:%.*]] = phi i64 [ [[CANONICAL_IV_NEXT_I:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
