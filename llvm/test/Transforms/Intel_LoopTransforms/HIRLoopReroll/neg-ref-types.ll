@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 -disable-output | FileCheck %s
 ;
 ; Make sure reroll doesn't happen with refs with different types.
 ;

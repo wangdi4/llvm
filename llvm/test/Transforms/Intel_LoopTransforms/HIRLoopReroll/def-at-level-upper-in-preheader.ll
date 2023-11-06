@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll" -print-before=hir-loop-reroll -print-after=hir-loop-reroll -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll" -print-before=hir-loop-reroll -print-after=hir-loop-reroll -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that the upper of i3 loop which has DefAtLevel of 2 is converted to
 ; non-linear when we create an explicit instruction for it in the loop preheader

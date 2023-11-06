@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; CHECK: Function: foo
 
@@ -11,7 +11,7 @@
 ; CHECK:             |   %5 = (@B)[0][4 * i1 + 2];
 ; CHECK:             |   (@A)[0][4 * i1 + 2] = 10 * %5;
 ; CHECK:             |   %7 = (@B)[0][4 * i1 + 3];
-; CHECK:               (@A)[0][4 * i1 + 3] = 10 * %7;
+; CHECK:             |   (@A)[0][4 * i1 + 3] = 10 * %7;
 ; CHECK:             + END LOOP
 ; CHECK:       END REGION
 
