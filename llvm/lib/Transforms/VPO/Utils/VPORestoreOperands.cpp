@@ -450,10 +450,8 @@ bool VPOUtils::restoreOperands(Function &F) {
             continue;
           }
 
-          if (VAddr->getType()->isOpaquePointerTy() &&
-              collectLifetimeMarkerUsers(U)) { // H: (7)(8)(9)(10)
+          if (collectLifetimeMarkerUsers(U)) // H: (7)(8)(9)(10)
             continue;
-          }
 
           assert(VPOUtils::isPointerCastOrZeroOffsetGEP(U) &&
                  "Unexpected use of ADDR operand of 'QUAL.OMP.OPERAND.ADDR'.");
@@ -674,8 +672,7 @@ bool VPOUtils::removeBranchesFromBeginToEndDirective(
               VLoad = LI;
               VAddrUsersToDelete.push_back(VLoad);
             }
-          } else if (VAddr->getType()->isOpaquePointerTy() &&
-                     collectLifetimeMarkerUsers(U)) {
+          } else if (collectLifetimeMarkerUsers(U)) {
             continue;
           } else if (auto *CastI = dyn_cast<CastInst>(U)) {
             for (User *CastUser : CastI->users()) {

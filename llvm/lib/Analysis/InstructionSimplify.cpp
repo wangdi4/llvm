@@ -5142,8 +5142,7 @@ static Value *simplifyGEPInst(Type *SrcTy, Value *Ptr,
   // CMPLRLLVM-36462: Need to retain GEPs for DTrans analysis.
   // For opaque pointers an all-zero GEP is a no-op. For typed pointers,
   // it may be equivalent to a bitcast.
-  if (EnableGEP0Removal &&
-      Ptr->getType()->getScalarType()->isOpaquePointerTy() &&
+  if (EnableGEP0Removal && Ptr->getType()->getScalarType()->isPointerTy() &&
       Ptr->getType() == GEPTy &&
       all_of(Indices, [](const auto *V) { return match(V, m_Zero()); }))
     return Ptr;

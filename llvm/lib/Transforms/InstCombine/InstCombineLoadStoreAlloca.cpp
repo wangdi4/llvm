@@ -1242,8 +1242,6 @@ static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
     //   %tmp1 = load ptr, ptr %0, align 8
     //
     // It just removes the redundant load.
-    if (CurrType->isPointerTy())
-      CurrType = CurrType->getNonOpaquePointerElementType();
     return dyn_cast<StructType>(CurrType);
   };
 
@@ -1336,7 +1334,7 @@ static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
   //
   // In this case we just return false. This function is only used when typed
   // pointers are supported where we can collect the upcasting of a structure.
-  if (SrcTy->isOpaquePointerTy() || DestTy->isOpaquePointerTy())
+  if (SrcTy->isPointerTy() || DestTy->isPointerTy())
     return false;
 
   // Source and destination must be structures
