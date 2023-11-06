@@ -5334,9 +5334,8 @@ void CodeGenLLVM::vectorizeInductionInit(VPInductionInit *VPInst) {
   Value *Ret =
       (VPInst->getType()->isPointerTy() || Opc == Instruction::GetElementPtr)
           ? Builder.CreateInBoundsGEP(
-                getInt8OrPointerElementTy(
-                    BcastStart->getType()->getScalarType()),
-                BcastStart, VectorStep, "vector_gep")
+                getInt8(BcastStart->getType()->getScalarType()), BcastStart,
+                VectorStep, "vector_gep")
           : Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(Opc),
                                 BcastStart, VectorStep);
   VPWidenMap[VPInst] = Ret;
@@ -5445,8 +5444,8 @@ void CodeGenLLVM::vectorizeInductionFinal(VPInductionFinal *VPInst) {
     LastValue =
         (VPInst->getType()->isPointerTy() || Opc == Instruction::GetElementPtr)
             ? Builder.CreateInBoundsGEP(
-                  getInt8OrPointerElementTy(Start->getType()->getScalarType()),
-                  Start, MulV, "final_gep")
+                  getInt8(Start->getType()->getScalarType()), Start, MulV,
+                  "final_gep")
             : Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(Opc),
                                   Start, MulV);
   }

@@ -685,8 +685,8 @@ static bool foldLoadsRecursive(Value *V, LoadOps &LOps, const DataLayout &DL,
 #if INTEL_CUSTOMIZATION
   // This optimization is not type-aware; we can only use it as-is on opaque
   // pointers. We could fix it later to add bitcasts, etc.
-  if (!LI1->getPointerOperandType()->isOpaquePointerTy() ||
-      !LI2->getPointerOperandType()->isOpaquePointerTy())
+  if (!LI1->getPointerOperandType()->isPointerTy() ||
+      !LI2->getPointerOperandType()->isPointerTy())
     return false;
   // The load combining optimization can't handle loads with multiple GEP
   // sequences. In llorg, these sequences are folded by InstCombine.

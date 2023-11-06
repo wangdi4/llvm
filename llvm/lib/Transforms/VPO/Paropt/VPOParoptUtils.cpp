@@ -4882,38 +4882,30 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
   FunctionCallee FnC = M->getOrInsertFunction(FnName, NewFnTy);
 
   auto NewAndExistingFunctionsAreSameOrDifferOnlyByPointerTypeOfArgs =
-      [&NewFnTy, &ExistingFn, &AllowMismatchingPointerArgs, &FnC]() {
+      [&NewFnTy, &ExistingFn, &AllowMismatchingPointerArgs]() {
+        FunctionType *ExistingFnTy = ExistingFn->getFunctionType();
 
-    Value *FnCallee = FnC.getCallee();
-
-    // For typed pointers, if NewFnTyCallee is not a bitcast, then we can assume
-    // that ExistingFn's type matches NewFnTy. However, the bitcast won't be
-    // generated even in the case of a mismatch for opaque pointers.
-    if (isa<Function>(FnCallee) &&
-            !FnCallee->getType()->isOpaquePointerTy())
-          return true;
-
-    FunctionType *ExistingFnTy = ExistingFn->getFunctionType();
-
-    // In case of vararg function, isVarArg must be true for both ExistingFn and NewFn
-    if (ExistingFnTy->isVarArg() != NewFnTy->isVarArg())
+        // In case of vararg function, isVarArg must be true for both ExistingFn
+        // and NewFn
+        if (ExistingFnTy->isVarArg() != NewFnTy->isVarArg())
           return false;
 
-    // getNumParams returns the number of fixed params for function type
-    // For non-vararg function, number of fixed param must be equal
-    // For vararg function, param list size for NewFnTy can be greater than ExistingFnTy
-    if (ExistingFnTy->getNumParams() > NewFnTy->getNumParams())
-      return false;
- 
-    if (!ExistingFnTy->isVarArg() &&
-       (ExistingFnTy->getNumParams() != NewFnTy->getNumParams()))
-       return false;
+        // getNumParams returns the number of fixed params for function type
+        // For non-vararg function, number of fixed param must be equal
+        // For vararg function, param list size for NewFnTy can be greater than
+        // ExistingFnTy
+        if (ExistingFnTy->getNumParams() > NewFnTy->getNumParams())
+          return false;
 
-    // Check ExistingFnTy param list matches NewFnTy up to ExistingFnTy param_end
-    // For typed pointers, if AllowMismatchingPointerArgs=true, different pointer types
-    // allowed when using a cast
-    return std::equal(ExistingFnTy->param_begin(), ExistingFnTy->param_end(),
-                          NewFnTy->param_begin(),
+        if (!ExistingFnTy->isVarArg() &&
+            (ExistingFnTy->getNumParams() != NewFnTy->getNumParams()))
+          return false;
+
+        // Check ExistingFnTy param list matches NewFnTy up to ExistingFnTy
+        // param_end For typed pointers, if AllowMismatchingPointerArgs=true,
+        // different pointer types allowed when using a cast
+        return std::equal(ExistingFnTy->param_begin(),
+                          ExistingFnTy->param_end(), NewFnTy->param_begin(),
                           [&AllowMismatchingPointerArgs](Type *T1, Type *T2) {
                             return (T1 == T2) || (AllowMismatchingPointerArgs &&
                                                   (isa<PointerType>(T1) &&
@@ -7640,8 +7632,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     return true;
   };
 
-  auto getItemInfoIfOpaquePtrToPtr = [&]() -> bool {
-    if (!I->getIsPointerToPointer() || !Orig->getType()->isOpaquePointerTy())
+  auto getItemInfoIfPtrToPtr = [&]() -> bool {
+    if (!I->getIsPointerToPointer())
       return false;
 
     // A PTR_TO_PTR clause operand's pointee type is a pointer. e.g.
@@ -7654,8 +7646,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
   };
 
 #if INTEL_CUSTOMIZATION
-  auto getItemInfoIfOpaqueCPtr = [&]() -> bool {
-    if (!I->getIsCptr() || !Orig->getType()->isOpaquePointerTy())
+  auto getItemInfoIfCPtr = [&]() -> bool {
+    if (!I->getIsCptr())
       return false;
 
     // A CPTR clause operand's pointee type is a named struct with one
@@ -7674,9 +7666,9 @@ VPOParoptUtils::getItemInfo(const Item *I) {
 
   if (!getItemInfoIfArraySection() && !getItemInfoIfTyped() &&
 #if INTEL_CUSTOMIZATION
-      !getItemInfoIfOpaqueCPtr() &&
+      !getItemInfoIfCPtr() &&
 #endif // INTEL_CUSTOMIZATION
-      !getItemInfoIfOpaquePtrToPtr()) {
+      !getItemInfoIfPtrToPtr()) {
     // OPAQUEPOINTER: this code must be removed, when we switch
     //                to TYPED clauses.
     Type *OrigElemTy = I->getOrig()->getType();
@@ -7898,41 +7890,5 @@ bool VPOParoptUtils::isAtomicFreeReductionLocalEnabled() {
 bool VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() {
   return AtomicFreeReduction &&
          (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Global);
-}
-
-// Since zero-offset TYPED.ARRSECT clauses are not treated
-// as an actual array sections, RedElemType doesn't match
-// ReductionVar's pointee type (which is an array).
-// But as it may only happen for zero-offset items, we can
-// just generate a corresponding bitcast.
-// Obviously that's not an issue for opaque pointers.
-Value *VPOParoptUtils::genZeroOffsetArrsecReductionItemCastIfNeeded(
-    const ReductionItem *RedI, const WRegionNode *W, Value *ReductionVar,
-    DominatorTree *DT) {
-  Type *RedElemType = nullptr;
-  Value *NumElements = nullptr;
-  unsigned Addrspace = 0;
-  std::tie(RedElemType, NumElements, Addrspace) =
-      VPOParoptUtils::getItemInfo(RedI);
-
-  bool IsArrayOrArraySection =
-      RedI->getIsArraySection() || RedElemType->isArrayTy() || NumElements;
-  if (!RedI->getIsF90DopeVector() && !IsArrayOrArraySection &&
-      !ReductionVar->getType()->isOpaquePointerTy() &&
-      ReductionVar->getType()->getNonOpaquePointerElementType()->isArrayTy()) {
-    assert(RedI->getIsTyped() &&
-           "Unexpected type mismatch for non-typed reduction item");
-    Instruction *ReductionVarInst = dyn_cast<Instruction>(ReductionVar);
-    auto *InsertPt = ReductionVarInst && DT->dominates(W->getEntryDirective(),
-                                                       ReductionVarInst)
-                         ? ReductionVarInst
-                         : W->getEntryDirective();
-    assert(InsertPt &&
-           "No valid insertion point found for 0-offset arrsect bitcast");
-    IRBuilder<> Builder(InsertPt->getNextNode());
-    ReductionVar = Builder.CreateBitOrPointerCast(
-        ReductionVar, PointerType::get(RedElemType, Addrspace));
-  }
-  return ReductionVar;
 }
 #endif // INTEL_COLLAB

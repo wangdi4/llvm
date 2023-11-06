@@ -4855,9 +4855,6 @@ ReductionCriticalSectionKind VPOParoptTransform::genReductionScalarFini(
     Builder.SetInsertPoint(&NewBB->back());
   }
 
-  ReductionVar = VPOParoptUtils::genZeroOffsetArrsecReductionItemCastIfNeeded(
-      RedI, W, ReductionVar, DT);
-
   auto HandleByRefArg = [&ReductionVar](Instruction *InsertPt) {
     auto *LI = dyn_cast<LoadInst>(ReductionVar);
     assert(LI && "Expected a load from byref variable");
@@ -5015,12 +5012,8 @@ ReductionCriticalSectionKind VPOParoptTransform::genReductionFini(
   Value *NewV = RedI->getNew();
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
-  if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV) {
-    OldV = (OldV->getType()->isOpaquePointerTy())
-               ? Builder.CreateLoad(getDefaultPointerType(), OldV)
-               : Builder.CreateLoad(
-                     OldV->getType()->getNonOpaquePointerElementType(), OldV);
-  }
+  if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
+    OldV = Builder.CreateLoad(getDefaultPointerType(), OldV);
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector())
@@ -5932,11 +5925,7 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
       IRBuilder<> Builder(InsertPt);
       // For by-refs, do a pointer dereference to reach the actual operand.
       if (RedI->getIsByRef())
-        OldV =
-            (OldV->getType()->isOpaquePointerTy())
-                ? Builder.CreateLoad(getDefaultPointerType(), OldV)
-                : Builder.CreateLoad(
-                      OldV->getType()->getNonOpaquePointerElementType(), OldV);
+        OldV = Builder.CreateLoad(getDefaultPointerType(), OldV);
     }
   }
 
@@ -5957,9 +5946,6 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   }
 
   if (IsUDR) {
-    OldV = VPOParoptUtils::genZeroOffsetArrsecReductionItemCastIfNeeded(
-        RedI, W, OldV, DT);
-
     genReductionUdrInit(RedI, OldV, NewV, AllocaTy, Builder);
     return;
   }
@@ -6639,11 +6625,7 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
-    Dst = (Dst->getType()->isOpaquePointerTy())
-              ? Dst = Builder.CreateLoad(getDefaultPointerType(), Dst)
-              : Dst = Builder.CreateLoad(
-                    Dst->getType()->getNonOpaquePointerElementType(), Dst);
-
+    Dst = Builder.CreateLoad(getDefaultPointerType(), Dst);
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector()) {
     // Allocate space for the pointee array, and initialize the dope vector in
@@ -7471,11 +7453,6 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
 #if INTEL_CUSTOMIZATION
     // For dope vectors we need to add base pointer users to the work list.
     if (NtmpItem->getIsF90DopeVector()) {
-      assert((Val->getType()->isOpaquePointerTy() ||
-              cast<PointerType>(Val->getType())
-                  ->getNonOpaquePointerElementType()
-                  ->isStructTy()) &&
-             "pointer to struct is expected");
       for (auto *U : Val->users())
         if (auto *GEP = dyn_cast<GEPOperator>(U))
           if (GEP->hasAllZeroIndices())
@@ -7548,11 +7525,7 @@ Value *VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
   IRBuilder<> Builder(InsertBefore);
 
   if (ArraySectionBaseIsPointer) {
-    Type *BeginAddrTy = BeginAddr->getType();
-    Type *BeginAddrPointeeTy =
-        BeginAddrTy->isOpaquePointerTy()
-            ? getDefaultPointerType()
-            : BeginAddrTy->getNonOpaquePointerElementType();
+    Type *BeginAddrPointeeTy = getDefaultPointerType();
     BeginAddr = Builder.CreateLoad(BeginAddrPointeeTy, BeginAddr,
                                    BeginAddr->getName() + ".load"); //    (1)
   }
@@ -7726,124 +7699,7 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
   if (ArraySectionDims.empty())
     return;
 
-  assert(!Orig->getType()->isOpaquePointerTy() &&
-         "Opaque pointer operands should have typed clauses.");
-
-  if (isa<WRNVecLoopNode>(W) &&
-      ArrSecInfo.isArraySectionWithVariableLengthOrOffset()) {
-    assert(W->getVlaAllocaInsertPt() &&
-           "SIMD constructs with variable size array section should have Vla "
-           "Alloca Insertion point set.");
-    InsertPt = W->getVlaAllocaInsertPt();
-  }
-  IRBuilder<> Builder(InsertPt);
-
-  Type *CITy = Orig->getType();
-  Type *ElemTy = CITy->getNonOpaquePointerElementType();
-
-  if (IsByRef)
-    // Strip away one pointer for by-refs.
-    ElemTy = ElemTy->getNonOpaquePointerElementType();
-
-  bool BaseIsPointer = false;
-  if (isa<PointerType>(ElemTy)) {
-    // It is possible to have an array section on a pointer. Examples:
-    //
-    // int *yptr, (*yarrptr)[10];
-    // reduction(+:yptr[1:4], yarrptr[1][2:5])
-    //
-    // In these cases, the IR will have the type of the operands as `**`:
-    //
-    // "...REDUCTION.ADD:ARRSECT"(i32** @yptr, 1, 1, 4, 1)
-    // "...REDUCTION.ADD:ARRSECT"([10 x i32]** @yarrptr, 2, 1, 1, 1, 2, 5, 1)
-    //
-    // In these cases, the we need to get the pointee type one extra time to
-    // reach the base element type (i32 for yptr) or the array type ([10 x i32]
-    // for yarrptr).
-    BaseIsPointer = true;
-    ElemTy = ElemTy->getNonOpaquePointerElementType();
-  }
-
-  // At this point, ElemTy is the base element type for 1D array sections. For
-  // sections with 2 or more dimensions, it should have the underlying array
-  // type. If so, we need to extract the size of each dimension of that array.
-  // We do that next. At the end of the following loop, ArrayDims should have
-  // the size of each dimension of the underlying array from higher to lower.
-  // For example, it should contain {3, 4, 5} for `[3 x [4 x [5 x i32]]]`. We
-  // will use this to compute the offset in terms of an equivalent 1D array.
-  Type *CurElementTy = ElemTy;
-  SmallVector<uint64_t, 4> ArrayDims;
-  while (auto *ArrayTy = dyn_cast<ArrayType>(CurElementTy)) {
-    ArrayDims.push_back(ArrayTy->getNumElements());
-    CurElementTy = ArrayTy->getElementType();
-  }
-
-  // This is the number to be multiplied to a dimension's lower bound during
-  // offset computation.
-  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
-  const unsigned PtrSz = DL.getPointerSizeInBits();
-
-  uint64_t ArraySizeTillDim = 1;
-  Value *ArrSecSize = Builder.getIntN(PtrSz, 1);
-  Value *ArrSecOff = Builder.getIntN(PtrSz, 0);
-  const int NumDims = ArraySectionDims.size();
-
-  // We go through the array section dims in the reverse order to go from lower
-  // to higher dimensions. For example, in case of:
-  //
-  //   int (*zarrptr)[3][4][5];
-  //   #pragma omp for reduction (+:zarrptr[3][1][2:2][1:3]).
-  //
-  // Array section size is a simple multiplication of the size of each
-  // dimension, ie. 3*2*1*1 = 6. The offset and element type are computed in the
-  // loop below. At the beginning of each iteration, the values will look like
-  // this (note that `BaseIsPointer` is true for this case):
-  //
-  //  I | LB | ArraySizeTillDim | ArrSecOff | ArrayDims | ElemTy
-  // ---+----+------------------+-----------+-----------+-----------------------
-  //  3 | 1  | 1                | 0         | {3,4,5}   | [3 x [4 x [5 x i32 ]]]
-  //  2 | 2  | 5                | 1         | {3,4}     | [4 x [5 x i32 ]]
-  //  1 | 1  | 20               | 11        | {3}       | [5 x i32 ]
-  //  0 | 3  | 60               | 31        | {}        | i32
-  // --------+------------------+-----------+-----------+-----------------------
-  // final   | 60               | 221       | {}        | i32
-  //
-  for (int I = NumDims - 1; I >= 0; --I) {
-    auto const &Dim = ArraySectionDims[I];
-
-    Value *DimLB = std::get<0>(Dim);
-    Value *SectionDimSize = std::get<1>(Dim);
-
-    ConstantInt *ArraySizeTillDimVal = Builder.getIntN(PtrSz, ArraySizeTillDim);
-
-    Value *SizeXLB = Builder.CreateMul(ArraySizeTillDimVal, DimLB);
-    ArrSecOff = Builder.CreateAdd(SizeXLB, ArrSecOff, "offset");
-
-    ArrSecSize = Builder.CreateMul(ArrSecSize, SectionDimSize, "size");
-
-    if (I == 0 && BaseIsPointer)
-      continue; // If `BaseIsPointer`, getElmentType() has already been called
-                // once, so we skip it in the last iteration.
-
-    assert(!ArrayDims.empty() &&
-           "Unexpected: Is the array section non-contiguous?");
-
-    ArraySizeTillDim *= ArrayDims.pop_back_val();
-    ElemTy = cast<ArrayType>(ElemTy)->getElementType();
-  }
-
-  // TODO: This assert needs to be updated when UDR support is added.
-  assert(!isa<PointerType>(ElemTy) && !isa<ArrayType>(ElemTy) &&
-         "Unexpected array section element type.");
-
-  ArrSecInfo.setSize(ArrSecSize);
-  ArrSecInfo.setOffset(ArrSecOff);
-  ArrSecInfo.setElementType(ElemTy);
-  ArrSecInfo.setBaseIsPointer(BaseIsPointer);
-
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Operand '";
-             Orig->printAsOperand(dbgs()); dbgs() << "':: ";
-             ArrSecInfo.print(dbgs(), false); dbgs() << "\n");
+  llvm_unreachable("Expected typed clauses for opaque pointer array sections.");
 }
 
 Value *
@@ -7931,9 +7787,7 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
     //        we will probably have to deal with it sometime.
     Type *OrigArrayType = Orig->getType();
     if (RedI.getIsByRef())
-      OrigArrayType = OrigArrayType->isOpaquePointerTy()
-                          ? getDefaultPointerType()
-                          : OrigArrayType->getNonOpaquePointerElementType();
+      OrigArrayType = getDefaultPointerType();
     return Builder.CreateBitCast(NewMinusOffset, OrigArrayType,
                                  NewMinusOffset->getName());
   }
@@ -8630,13 +8484,9 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
     Value *Add = nullptr;
     if (isa<PointerType>(LinearTy)) {
       Type *PointeeType = nullptr;
-      if (LinearI->getIsTyped() && LinearI->getIsPointerToPointer()) {
-        PointeeType = LinearI->getPointeeElementTypeFromIR();
-      } else {
-        assert(!LinearTy->isOpaquePointerTy() &&
-               "Need TYPED PTR_TO_PTR IR for opaque pointer type.");
-        PointeeType = LinearTy->getNonOpaquePointerElementType();
-      }
+      assert((LinearI->getIsTyped() && LinearI->getIsPointerToPointer()) &&
+             "Need TYPED PTR_TO_PTR IR for opaqueptr linter items.");
+      PointeeType = LinearI->getPointeeElementTypeFromIR();
       Add = InitBuilder.CreateInBoundsGEP(PointeeType, LinearStart, Mul);
     } else {
       Type *MulTy = Mul->getType();

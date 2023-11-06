@@ -46,15 +46,8 @@ std::tuple<Type *, Type *> VPOParoptUtils::getF90DVItemInfo(const Item *I) {
   std::tie(DVType, std::ignore, std::ignore) = VPOParoptUtils::getItemInfo(I);
   assert(isa<StructType>(DVType) && "DV Type is not a struct type.");
 
-  if (I->getIsTyped())
-    return {DVType, I->getPointeeElementTypeFromIR()};
-
-  Type *DVAddr0Ty = cast<StructType>(DVType)->getElementType(0);
-  assert(!DVAddr0Ty->isOpaquePointerTy() &&
-         "Need TYPED F90_DV clause item to support opaque pointers.");
-
-  Type *DVPointeeElementTy = DVAddr0Ty->getNonOpaquePointerElementType();
-  return {DVType, DVPointeeElementTy};
+  assert(I->getIsTyped() && "Only typed F90_DVs are supported.");
+  return {DVType, I->getPointeeElementTypeFromIR()};
 }
 
 Value *VPOParoptUtils::genF90DVSizeCall(Value *DV, Instruction *InsertBefore) {
@@ -110,10 +103,7 @@ void VPOParoptUtils::genF90DVInitCode(
   assert(I->getIsF90DopeVector() && "Item is not an F90 dope vector.");
 
   StringRef NamePrefix = DstV->getName();
-  assert(isa<PointerType>(SrcV->getType()) && "Orig value is not a pointer");
-  assert(SrcV->getType()->isOpaquePointerTy() ||
-         isa<StructType>(SrcV->getType()->getNonOpaquePointerElementType()) &&
-             "Clause item is expected to be a struct for F90 DVs.");
+  assert(isa<PointerType>(SrcV->getType()) && "Src value is not a pointer");
 
   if (AllowOverrideInsertPt && !GeneralUtils::isOMPItemGlobalVAR(DstV))
     InsertPt = (cast<Instruction>(DstV))->getParent()->getTerminator();

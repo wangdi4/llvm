@@ -770,7 +770,7 @@ VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
 
     Instruction *Ptr = VecAI;
     // generate bitcast to legal argument type if required.
-    if (VecArgTy != WideVecTy && !VecAI->getType()->isOpaquePointerTy())
+    if (VecArgTy != WideVecTy && !VecAI->getType()->isPointerTy())
       Ptr = new BitCastInst(
           VecAI,
           PointerType::get(VecArgTy, VecAI->getType()->getAddressSpace()),
@@ -803,7 +803,7 @@ VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
 
   auto GenBitCast = [this](AllocaInst *AI, Type *ElemType,
                            const Twine &&Name) -> Instruction * {
-    if (AI->getType()->isOpaquePointerTy())
+    if (AI->getType()->isPointerTy())
       return AI;
     Instruction *BC = new BitCastInst(
         AI, PointerType::get(ElemType, AI->getType()->getAddressSpace()), Name);
@@ -1583,7 +1583,7 @@ void VecCloneImpl::Factory::updateReturnBlockInstructions(
 
   auto GetRetAllocaInst = [](Instruction *WidenedReturn) {
     Value *V = WidenedReturn;
-    if (!WidenedReturn->getType()->isOpaquePointerTy()) {
+    if (!WidenedReturn->getType()->isPointerTy()) {
       assert(isa<BitCastInst>(WidenedReturn) && "Expected cast instruction");
       V = WidenedReturn->getOperand(0);
     }
@@ -1613,7 +1613,7 @@ void VecCloneImpl::Factory::updateReturnBlockInstructions(
     Type *ChunkTy = RetTy->getElementType(0);
 
     Value *Ptr = RetAlloca;
-    if (!Ptr->getType()->isOpaquePointerTy())
+    if (!Ptr->getType()->isPointerTy())
       Ptr = new BitCastInst(
           Ptr,
           PointerType::get(ChunkTy, RetAlloca->getType()->getAddressSpace()),
@@ -1697,8 +1697,7 @@ CallInst *VecCloneImpl::Factory::insertBeginRegion() {
 
     std::string ClauseString = IntrinsicUtils::getClauseString(ClauseId).str();
     std::string ClauseStringUpdates = "TYPED";
-    if (Ptr->getType()->isOpaquePointerTy() &&
-        ClauseString == "QUAL.OMP.LINEAR") {
+    if (Ptr->getType()->isPointerTy() && ClauseString == "QUAL.OMP.LINEAR") {
       ClauseStringUpdates += ".PTR_TO_PTR";
       Ty = llvm::Type::getInt8Ty(Ty->getContext());
     }

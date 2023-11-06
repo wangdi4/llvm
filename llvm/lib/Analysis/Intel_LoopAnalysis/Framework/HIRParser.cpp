@@ -4627,12 +4627,6 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
     Ref = createGEPDDRef(OpVal, Level, true);
     Ref->setAddressOf(true);
 
-    // This condition is comparing two pointer types so it can only be true for
-    // non-opaque pointers.
-    if (Ref->getDestType() != OpTy) {
-      Ref->setBitCastDestVecOrElemType(OpTy->getNonOpaquePointerElementType());
-    }
-
     assert((Ref->isSelfGEPRef(true) || Ref->getBasePtrElementType()) &&
            "Base element type not assigned to ref!");
 

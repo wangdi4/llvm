@@ -210,8 +210,7 @@ static Value *getPipeCallRetcode(const PipeCallInfo &PC) {
       !PC.Kind.SimdSuffix.empty()) {
     auto *RetcodePtr = PC.Call->getArgOperand(1);
 
-    Type *Ty = cast<PointerType>(RetcodePtr->getType())
-                   ->getNonOpaquePointerElementType();
+    Type *Ty = RetcodePtr->getType();
     return new LoadInst(Ty, RetcodePtr, "", PC.Call->getNextNode());
   }
 
@@ -242,8 +241,7 @@ static PipeCallInfo replaceBlockingCall(Module *M, const PipeCallInfo &PC,
         NonBlockingFTy->getParamType(NonBlockingFTy->getNumParams() - 1));
 
     NewArgs.push_back(Builder.CreatePointerBitCastOrAddrSpaceCast(
-        Builder.CreateAlloca(RetcodePtrTy->getNonOpaquePointerElementType()),
-        RetcodePtrTy, "retcode"));
+        Builder.CreateAlloca(RetcodePtrTy), RetcodePtrTy, "retcode"));
   }
   auto *NonBlockingCall = CallInst::Create(NonBlockingFun, NewArgs);
   ReplaceInstWithInst(PC.Call, NonBlockingCall);
