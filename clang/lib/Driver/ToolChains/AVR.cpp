@@ -513,8 +513,21 @@ void AVR::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
+<<<<<<< HEAD
     addLTOOptions(getToolChain(), Args, CmdArgs, Output, Inputs[0],
                   D.getLTOMode() == LTOK_Thin, JA); // INTEL
+=======
+    // Find the first filename InputInfo object.
+    auto Input = llvm::find_if(
+        Inputs, [](const InputInfo &II) -> bool { return II.isFilename(); });
+    if (Input == Inputs.end())
+      // For a very rare case, all of the inputs to the linker are
+      // InputArg. If that happens, just use the first InputInfo.
+      Input = Inputs.begin();
+
+    addLTOOptions(TC, Args, CmdArgs, Output, *Input,
+                  D.getLTOMode() == LTOK_Thin);
+>>>>>>> 1881832994840baa6e42f908b8822ce4d15ab632
   }
 
   // If the family name is known, we can link with the device-specific libgcc.
