@@ -2997,10 +2997,13 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   // don't remove next marker, they are 2 different changes
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
-  // 52673/52690: This has negative effects on LSR and DSE.
+  // 52673/52690/52646/GSD-6648: Disable this optimization as it is causing
+  // performance issues on CPU and GPU.
   auto *F = GEP.getFunction();
-  bool HasOMP = vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(*F);
-  if (!HasAdvAVX2 && !HasOMP && GEP.getNumIndices() == 1) {
+  bool HasOMP = vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(*F) ||
+                !F->getParent()->getTargetDevices().empty();
+  bool HasLoopOpt = F->hasFnAttribute("loopopt-pipeline");
+  if (!HasLoopOpt && !HasOMP && GEP.getNumIndices() == 1) {
 #endif // INTEL_CUSTOMIZATION
     // Try to replace ADD + GEP with GEP + GEP.
     Value *Idx1, *Idx2;
