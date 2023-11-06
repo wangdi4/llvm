@@ -745,6 +745,10 @@ SequenceChecker::calcRerollFactor(const VecCEOpSeqTy &VecSeq) const {
     return std::make_pair(0, 0);
   }
 
+  LLVM_DEBUG(dbgs() << "VecSeq for calculating RF: \n";
+             for (auto &Seq
+                  : VecSeq) Seq.printCEs(););
+
   for (unsigned II = 1; II <= VecSize / 2; II++) {
     // Examine each II (Initiation interval)
     if (VecSize % II != 0) {
@@ -996,6 +1000,8 @@ bool FastRerollRewriter::reroll() {
   updateCEs();
   invalidate();
 
+  LLVM_DEBUG(dbgs() << "Loop after reroll: "; Loop->dump(););
+
   return true;
 }
 
@@ -1111,6 +1117,9 @@ MoveRerollRewriter::rewriteSelfSR(HLInst *Inst, const SelfSRSeedsTy &Seeds,
   Inst->replaceOperandDDRef(OrigRvalFirst, FirstRef);
   Inst->replaceOperandDDRef(OrigRvalSecond, SecondRef);
 
+  FirstRef->makeConsistent({OrigRvalFirst, OrigRvalSecond});
+  SecondRef->makeConsistent({OrigRvalFirst, OrigRvalSecond});
+
   return Inst;
 }
 
@@ -1122,6 +1131,11 @@ bool MoveRerollRewriter::reroll(const TempToDDRefTy &TempToDDRef) {
 
   // II is the number of seeds to be used in the rerolled loop
   unsigned II = VecSeedInfo.size() / RerollFactor;
+
+  LLVM_DEBUG(dbgs() << "SelfSR reroller VecSeedInfo Size: "
+                    << VecSeedInfo.size() << " Initiation interval: " << II
+                    << "\n";);
+
   VecNodesTy NewAllInsts;
   for (unsigned I = 0; I < II; I++) {
     NewAllInsts.insert(NewAllInsts.end(),
@@ -1130,6 +1144,11 @@ bool MoveRerollRewriter::reroll(const TempToDDRefTy &TempToDDRef) {
   }
 
   HLNodeUtils::sortInTopOrderAndUniq(NewAllInsts);
+
+  LLVM_DEBUG(dbgs() << "Unique and sorted NewAllInsts: \n";
+             for (auto *Inst
+                  : NewAllInsts) Inst->dump();
+             dbgs() << "\n";);
 
   // Should be called before clone. Using SafeRedInfo as Inst a key.
   updateChainSRs();
@@ -1142,11 +1161,27 @@ bool MoveRerollRewriter::reroll(const TempToDDRefTy &TempToDDRef) {
     }
   }
 
-  HLNodeUtils::remove(std::next(NewAllInsts.back()->getIterator()),
-                      Loop->child_end());
+  // Consider the following example.
+  // <22>    + DO i1 = 0, 49, 1   <DO_LOOP>
+  // <4>     |   %0 = (@C)[0][2 * i1];
+  // <6>     |   %1 = (@B)[0][2 * i1];
+  // <11>    |   %3 = (@C)[0][2 * i1 + 1];
+  // <13>    |   %4 = (@B)[0][2 * i1 + 1];
+  // <15>    |   %S.036 = %0 + %1 + %S.036  +  %3 + %4;
+  // <22>    + END LOOP
+  // Unique and sorted NewAllInsts:
+  // <4>   %0 = (@C)[0][2 * i1];
+  // <6>   %1 = (@B)[0][2 * i1];
+  // <15>  %S.036 = %0 + %1 + %S.036  +  %3 + %4; <Safe Reduction>
+  // Replace the loop body with NewAllInsts.
+  HLNodeUtils::remove(Loop->child_begin(), Loop->child_end());
+  for (auto *Inst : NewAllInsts)
+    HLNodeUtils::insertAsLastChild(Loop, Inst);
+
   updateCEs();
   invalidate();
 
+  LLVM_DEBUG(dbgs() << "Loop after reroll (MoveRerollRewriter): \n");
   LLVM_DEBUG(Loop->dump(1));
 
   return true;
@@ -1227,6 +1262,7 @@ public:
       dbgs() << "\n";
     }
 
+    dbgs() << "SCEVTerms: \n";
     for (auto Blob : SCEVTerms) {
       if (!Blob) {
         dbgs() << "nullptr,  ";
@@ -1721,6 +1757,9 @@ unsigned buildFromSelfSRInst(HLInst *HInst, const HLLoop *Loop,
   BlobUtils &BU = HInst->getBlobUtils();
   CanonExprUtils &CU = HInst->getCanonExprUtils();
 
+  LLVM_DEBUG(dbgs() << "Init VecSeq: \n"; for (auto &Seq
+                                               : VecSeq) Seq.printCEs(););
+
   bool HasMemRef = SelfTermGathers.hasMemRef();
   if (!HasMemRef) {
     for (BlobTy SCEVTerm : SCEVTerms) {
@@ -1746,6 +1785,9 @@ unsigned buildFromSelfSRInst(HLInst *HInst, const HLLoop *Loop,
         return 0;
       }
     }
+
+    LLVM_DEBUG(dbgs() << "Final VecSeq: \n"; for (auto &Seq
+                                                  : VecSeq) Seq.printCEs(););
 
     return SCEVTerms.size();
   }

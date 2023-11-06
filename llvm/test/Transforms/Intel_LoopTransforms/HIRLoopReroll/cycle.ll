@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,hir-lmm,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,hir-lmm,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 
 ; Verify reroll does not cause a transformation but ends quietly. From atg_CMPLRLLVM-20518.c.
 

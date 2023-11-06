@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-pre-vec-complete-unroll,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>& 1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-pre-vec-complete-unroll,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>& 1 | FileCheck %s
 
 ; Verifiy that compiler doesn't die. Previously, it was crashing at HIRVerifier
 ; because of missing live-in of the i5 loop's UB.

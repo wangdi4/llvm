@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Make sure loop reroll doesn't happen. The loop is already vectorized. Rerolling the loop is unlikely to help performance.
 
