@@ -4300,7 +4300,8 @@ OpenMPIRBuilder::createTargetInit(const LocationDescription &Loc, bool IsSPMD,
   Constant *MaxThreads = ConstantInt::getSigned(Int32, MaxThreadsVal);
   Constant *MinTeams = ConstantInt::getSigned(Int32, MinTeamsVal);
   Constant *MaxTeams = ConstantInt::getSigned(Int32, MaxTeamsVal);
-  Constant *ReductionBufferSize = ConstantInt::getSigned(Int32, 0);
+  Constant *ReductionDataSize = ConstantInt::getSigned(Int32, 0);
+  Constant *ReductionBufferLength = ConstantInt::getSigned(Int32, 0);
 
   // We need to strip the debug prefix to get the correct kernel name.
   StringRef KernelName = Kernel->getName();
@@ -4337,7 +4338,8 @@ OpenMPIRBuilder::createTargetInit(const LocationDescription &Loc, bool IsSPMD,
                                     MaxThreads,
                                     MinTeams,
                                     MaxTeams,
-                                    ReductionBufferSize,
+                                    ReductionDataSize,
+                                    ReductionBufferLength,
                                 });
   Constant *KernelEnvironmentInitializer = ConstantStruct::get(
       KernelEnvironment, {
@@ -4394,7 +4396,8 @@ OpenMPIRBuilder::createTargetInit(const LocationDescription &Loc, bool IsSPMD,
 }
 
 void OpenMPIRBuilder::createTargetDeinit(const LocationDescription &Loc,
-                                         int32_t TeamsReductionBufferSize) {
+                                         int32_t TeamsReductionDataSize,
+                                         int32_t TeamsReductionBufferLength) {
   if (!updateToLocation(Loc))
     return;
 
@@ -4403,7 +4406,7 @@ void OpenMPIRBuilder::createTargetDeinit(const LocationDescription &Loc,
 
   Builder.CreateCall(Fn, {});
 
-  if (!TeamsReductionBufferSize)
+  if (!TeamsReductionBufferLength || !TeamsReductionDataSize)
     return;
 
   Function *Kernel = Builder.GetInsertBlock()->getParent();
@@ -4418,7 +4421,10 @@ void OpenMPIRBuilder::createTargetDeinit(const LocationDescription &Loc,
   auto *KernelEnvironmentInitializer = KernelEnvironmentGV->getInitializer();
   auto *NewInitializer = ConstantFoldInsertValueInstruction(
       KernelEnvironmentInitializer,
-      ConstantInt::get(Int32, TeamsReductionBufferSize), {0, 7});
+      ConstantInt::get(Int32, TeamsReductionDataSize), {0, 7});
+  NewInitializer = ConstantFoldInsertValueInstruction(
+      NewInitializer, ConstantInt::get(Int32, TeamsReductionBufferLength),
+      {0, 8});
   KernelEnvironmentGV->setInitializer(NewInitializer);
 }
 
