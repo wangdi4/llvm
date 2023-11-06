@@ -255,9 +255,7 @@ public:
   bool isPointerTy() const { return getTypeID() == PointerTyID; }
 
   /// True if this is an instance of an opaque PointerType.
-#if !INTEL_CUSTOMIZATION
   LLVM_DEPRECATED("Use isPointerTy() instead", "isPointerTy")
-#endif // !INTEL_CUSTOMIZATION
   bool isOpaquePointerTy() const { return isPointerTy(); };
 
   /// Return true if this is a pointer type or a vector of pointer types.
@@ -413,11 +411,8 @@ public:
   /// Only use this method in code that is not reachable with opaque pointers,
   /// or part of deprecated methods that will be removed as part of the opaque
   /// pointers transition.
-#if !INTEL_CUSTOMIZATION
   [[deprecated("Pointers no longer have element types")]]
-#endif // INTEL_CUSTOMIZATION
-  Type *
-  getNonOpaquePointerElementType() const {
+  Type *getNonOpaquePointerElementType() const {
     llvm_unreachable("Pointers no longer have element types");
   }
 
@@ -488,11 +483,13 @@ public:
   // Convenience methods for getting pointer types.
   //
 
-  // TODO: After opaque pointer transition these can be replaced by simply
+  // TODO: After opaque pointer transition this can be replaced by simply
   //       calling PointerType::get(C, AS).
   static PointerType *getInt8PtrTy(LLVMContext &C, unsigned AS = 0);
+
   static Type *getWasm_ExternrefTy(LLVMContext &C);
   static Type *getWasm_FuncrefTy(LLVMContext &C);
+
   /// Return a pointer to the current type. This is equivalent to
   /// PointerType::get(Foo, AddrSpace).
   /// TODO: Remove this after opaque pointer transition is complete.

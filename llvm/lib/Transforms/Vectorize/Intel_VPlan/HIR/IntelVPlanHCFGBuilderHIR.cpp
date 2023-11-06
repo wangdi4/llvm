@@ -1281,7 +1281,7 @@ public:
     int64_t Stride = StrideCE->getConstant();
     if (IndTy->isPointerTy()) {
       const DataLayout &DL = Linear->getDDRefUtils().getDataLayout();
-      if (IndTy->isOpaquePointerTy()) {
+      if (IndTy->isPointerTy()) {
         Type *PointerElementType = CurrValue.PointeeTy;
         // The pointer stride can only be determined if the pointer element type
         // is sized.

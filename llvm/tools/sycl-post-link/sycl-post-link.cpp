@@ -501,7 +501,7 @@ static void processOmpOffloadEntries(Module &M, bool DoLink, bool DoSort,
           error("OpenMP offload entry has no name");
         const auto *NameGEP = dyn_cast<ConstantExpr>(NamesInit[I]);
         // Assert getelementptr (@GV, 0, 0) initializer.
-        if ((!NamesInit[I]->getType()->isOpaquePointerTy() || NameGEP) &&
+        if ((!NamesInit[I]->getType()->isPointerTy() || NameGEP) &&
             (!NameGEP || NameGEP->getOpcode() != Instruction::GetElementPtr ||
              NameGEP->getNumOperands() != 3 ||
              !NameGEP->getOperand(1)->isNullValue() ||

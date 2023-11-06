@@ -242,13 +242,13 @@ void propagateIntelTBAAToMemInst(Instruction &MemInst, Value *PointerOp) {
   // The GEP indexes into the struct, which can result in any type. If the
   // result type does not match the i8 load type, the TBAA info cannot be used
   // for the load.
-  if (GEP->getPointerOperandType()->isOpaquePointerTy()) {
+  if (GEP->getPointerOperandType()->isPointerTy()) {
     auto *GEPType = GEP->getResultElementType();
     // If the GEP result itself is a "ptr" type, we can't tell if it is
     // actually compatible with any other "ptr" types. This may be overly
     // conservative as C++ rules not allow dereferences of an object
     // from incompatible pointer types.
-    if (GEPType->isOpaquePointerTy()) {
+    if (GEPType->isPointerTy()) {
       return;
     }
     if (auto *LI = dyn_cast<LoadInst>(&MemInst)) {
@@ -312,8 +312,8 @@ void TbaaMDPropagationImpl::removeBadArgMD(Function *F) {
   // Check for 2 args, both opaque pointer type.
   if (F->arg_size() != 2)
     return;
-  if (!F->getArg(0)->getType()->isOpaquePointerTy() ||
-      !F->getArg(1)->getType()->isOpaquePointerTy())
+  if (!F->getArg(0)->getType()->isPointerTy() ||
+      !F->getArg(1)->getType()->isPointerTy())
     return;
 
   // This function takes an instruction with intel-tbaa or tbaa MD, and

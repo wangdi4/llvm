@@ -285,9 +285,8 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
           }
           V = CE->getOperand(0);
         }
-        assert((V->getType()->isOpaquePointerTy() || Indices.size() == 2) &&
-               "Expected only 1 GetElementPtr in "
-               "constant expression!\n");
+        assert((Indices.empty() || Indices.size() == 2) &&
+               "Expected 0 or 1 GetElementPtr in constant expression!");
 
         auto OldArg0 = dyn_cast<GlobalVariable>(V);
         assert(OldArg0 != nullptr &&
