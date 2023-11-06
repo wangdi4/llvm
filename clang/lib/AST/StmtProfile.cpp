@@ -1439,7 +1439,7 @@ void StmtProfiler::VisitSYCLUniqueStableIdExpr(
 
 void StmtProfiler::VisitPredefinedExpr(const PredefinedExpr *S) {
   VisitExpr(S);
-  ID.AddInteger(S->getIdentKind());
+  ID.AddInteger(llvm::to_underlying(S->getIdentKind()));
 }
 
 void StmtProfiler::VisitIntegerLiteral(const IntegerLiteral *S) {
@@ -1464,7 +1464,7 @@ void StmtProfiler::VisitFixedPointLiteral(const FixedPointLiteral *S) {
 
 void StmtProfiler::VisitCharacterLiteral(const CharacterLiteral *S) {
   VisitExpr(S);
-  ID.AddInteger(S->getKind());
+  ID.AddInteger(llvm::to_underlying(S->getKind()));
   ID.AddInteger(S->getValue());
 }
 
