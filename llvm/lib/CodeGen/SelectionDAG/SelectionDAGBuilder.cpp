@@ -152,6 +152,13 @@ static cl::opt<unsigned> SwitchPeelThreshold(
              "switch statement. A value greater than 100 will void this "
              "optimization"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned> MaxStructSizeWithDwordGatherIndex(
+    "max-struct-size-with-dword-gather-index", cl::Hidden, cl::init(0),
+    cl::desc("The max structure size which can be used as 32-bit "
+             "index gather instruction safety."));
+#endif // INTEL_CUSTOMIZATION
+
 // Limit the width of DAG chains. This is important in general to prevent
 // DAG-based analysis from blowing up. For example, alias analysis and
 // load clustering may not complete in reasonable time. It is difficult to
@@ -4620,19 +4627,20 @@ static bool getUniformBase(const Value *Ptr, SDValue &Base, SDValue &Index,
 // 4. Index truncate support.
 static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
                               ISD::MemIndexType &IndexType, SDValue &Scale,
-                              SelectionDAGBuilder *SDB,
-                              const BasicBlock *CurBB,
-                              const Value *Src0,
-                              const TargetTransformInfo *TTI,
-                              AssumptionCache *AC,
-                              const DominatorTree *DT,
-                              ScalarEvolution *SCEV,
-                              LoopInfo *LPI) {
-  SelectionDAG& DAG = SDB->DAG;
+                              SelectionDAGBuilder *SDB, const BasicBlock *CurBB,
+                              const Value *Src0, const TargetTransformInfo *TTI,
+                              AssumptionCache *AC, const DominatorTree *DT,
+                              ScalarEvolution *SCEV, LoopInfo *LPI) {
+  SelectionDAG &DAG = SDB->DAG;
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   const DataLayout &DL = DAG.getDataLayout();
+  const uint64_t PtrBits = DL.getPointerSizeInBits();
+  const SDLoc &Loc = SDB->getCurSDLoc();
 
   assert(Ptr->getType()->isVectorTy() && "Unexpected pointer type");
+
+  if (PtrBits != 32 && PtrBits != 64)
+    return false;
 
   if (auto Bitcast = dyn_cast<BitCastOperator>(Ptr))
     Ptr = Bitcast->getOperand(0);
@@ -4669,7 +4677,7 @@ static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
   SmallVector<Value *, 4> ResIdx(GEP->idx_begin(), GEP->idx_begin() + 1);
   // Get the type for stride.
   Type *ResTy = GetElementPtrInst::getIndexedType(GEP->getSourceElementType(),
-    ArrayRef(ResIdx));
+                                                  ArrayRef(ResIdx));
 
   // Get the alloc stride size of ResTy.
   TypeSize PotentialScale = DL.getTypeAllocSize(ResTy);
@@ -4683,126 +4691,128 @@ static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
   if (BasePtr->getType()->isVectorTy() || !IndexVal->getType()->isVectorTy())
     return false;
 
-  Type *IndexTy = cast<VectorType>(IndexVal->getType())->getElementType();
   Type *DataTy = cast<VectorType>(Src0->getType())->getElementType();
+  unsigned DataBits = DataTy->getScalarSizeInBits();
 
-  unsigned NumSignBits =
+  Type *IndexTy = cast<VectorType>(IndexVal->getType())->getElementType();
+  unsigned IndexSignBits =
       ComputeNumSignBits(IndexVal, DL, 0, AC, nullptr, DT, true, SCEV, LPI);
-  unsigned NumBitWidth = IndexTy->getScalarSizeInBits();
-  unsigned NumValueBits = NumBitWidth - NumSignBits;
+  unsigned IndexBits = IndexTy->getScalarSizeInBits();
+  unsigned IndexValueBits = IndexBits - IndexSignBits;
+
   unsigned ZExtBits = 0;
   // Only handle 64-bit pointer which have enough bits.
-  if (DL.getPointerSizeInBits() == 64) {
+  if (PtrBits == 64)
     if (auto *ZExt = dyn_cast<ZExtInst>(IndexVal)) {
       auto *SrcTy = cast<VectorType>(ZExt->getSrcTy())->getElementType();
       ZExtBits = SrcTy->getScalarSizeInBits();
     }
-  }
 
-  if (NumValueBits > 63)
+  if (DataBits != 32 && DataBits != 64)
+    return false;
+
+  if (IndexBits != 32 && IndexBits != 64)
+    return false;
+
+  if (IndexValueBits >= 64)
     return false;
 
   bool NonPowerOf2 = !isPowerOf2_64(PotentialScale);
-  uint64_t MinScale = PotentialScale;
-  // If the PotentialScale is bigger than target's max scale (8 on x86)
-  // or is a non-power of 2 number, try to find a minimal legal scale number
-  // which makes (IndexVal * (PotentialScale / MinScale)) not overflow.
-  if (PotentialScale > TTI->getMaxScale() || NonPowerOf2) {
-    int64_t TriedMinScale = TTI->getMaxScale() * 2;
-    int64_t LastLegalScale = -1;
+  uint64_t BestScale = PotentialScale;
+  bool AssumeNotOverflow = MaxStructSizeWithDwordGatherIndex >= PotentialScale;
 
-    unsigned CheckOverFlow =
-      DataTy->getScalarSizeInBits() < DL.getPointerSizeInBits()
-      ? DataTy->getScalarSizeInBits()
-      : 0;
+  if (AssumeNotOverflow) {
+    // Try to find a maximal legal scale number.
+    if (PotentialScale > TTI->getMaxScale() || NonPowerOf2) {
+      int64_t TriedScale = TTI->getMaxScale() * 2;
+      int64_t LastLegalScale = -1;
 
-    assert(DL.getPointerSizeInBits() <= 64 && "Unsupported Pointer Size.");
-
-    while (TriedMinScale > 1) {
-      TriedMinScale >>= 1;
-      if (PotentialScale % TriedMinScale == 0) {
-        if (CheckOverFlow) {
-          bool Overflow = false;
-          int64_t MulScale = PotentialScale / TriedMinScale;
-          APInt MaxValue =
-              APInt(CheckOverFlow, (1ull << NumValueBits) - 1, true);
-          APInt MinValue = APInt(CheckOverFlow, -(1ull << NumValueBits), true);
-
-          // Check if MaxValue/MinValue is overflow.
-          if (CheckOverFlow < NumValueBits)
-            return false;
-
-          // Check if MulScale is overflow.
-          if (MulScale != (MulScale & ((1ll << CheckOverFlow) - 1)))
-            continue;
-
-          // Check if (MaxValue*MulScale) is overflow.
-          (void)MaxValue.smul_ov(APInt(CheckOverFlow, MulScale), Overflow);
-          if (Overflow)
-            continue;
-
-          // Check if (MinValue*MulScale) is overflow.
-          (void)MinValue.smul_ov(APInt(CheckOverFlow, MulScale), Overflow);
-          if (Overflow)
-            continue;
+      while (TriedScale > 1) {
+        TriedScale >>= 1;
+        if (PotentialScale % TriedScale == 0) {
+          LastLegalScale = TriedScale;
+          break;
         }
-        LastLegalScale = TriedMinScale;
       }
-    }
-    // Doesn't find a legal scale number, bail out.
-    if (LastLegalScale == -1)
-      return false;
 
-    MinScale = LastLegalScale;
+      // Doesn't find a legal scale number, bail out.
+      if (LastLegalScale == -1)
+        return false;
+
+      BestScale = LastLegalScale;
+    }
+  } else {
+    // If the PotentialScale is bigger than target's max scale (8 on x86)
+    // or is a non-power of 2 number, try to find a minimal legal scale number
+    // which makes (IndexVal * (PotentialScale / BestScale)) not overflow.
+    if (PotentialScale > TTI->getMaxScale() || NonPowerOf2) {
+      int64_t TriedScale = TTI->getMaxScale() * 2;
+      int64_t LastLegalScale = -1;
+
+      while (TriedScale > 1) {
+        TriedScale >>= 1;
+        if (PotentialScale % TriedScale == 0) {
+          if (DataBits == 32 && PtrBits == 64) {
+            int64_t MulScale = PotentialScale / TriedScale;
+
+            if (IndexValueBits + Log2_64_Ceil(MulScale) >= IndexBits)
+              return false;
+          }
+          LastLegalScale = TriedScale;
+        }
+      }
+
+      // Doesn't find a legal scale number, bail out.
+      if (LastLegalScale == -1)
+        return false;
+
+      BestScale = LastLegalScale;
+    }
   }
 
   Base = SDB->getValue(BasePtr);
   Index = SDB->getValue(IndexVal);
   IndexType = ISD::SIGNED_SCALED;
-  Scale = DAG.getTargetConstant(
-    MinScale,
-    SDB->getCurSDLoc(), TLI.getPointerTy(DL));
+  Scale = DAG.getTargetConstant(BestScale, Loc, TLI.getPointerTy(DL));
 
-  // Set the index as (IndexVal * (PotentialScale / MinScale))
+  // Set the index as (IndexVal * (PotentialScale / BestScale))
   if (PotentialScale > TTI->getMaxScale() || NonPowerOf2) {
     Index = DAG.getNode(
-      NonPowerOf2 ? ISD::MUL : ISD::SHL, SDB->getCurSDLoc(),
-      Index.getValueType(), Index,
-      DAG.getConstant(NonPowerOf2 ? PotentialScale / MinScale
-        : Log2_64(PotentialScale / MinScale),
-        SDB->getCurSDLoc(), Index.getValueType()));
+        NonPowerOf2 ? ISD::MUL : ISD::SHL, Loc, Index.getValueType(), Index,
+        DAG.getConstant(NonPowerOf2 ? PotentialScale / BestScale
+                                    : Log2_64(PotentialScale / BestScale),
+                        Loc, Index.getValueType()));
+    IndexValueBits += Log2_64_Ceil(PotentialScale / BestScale);
   }
 
   // Try to truncate Index's type to Data's type when it is profitable.
-  if (DataTy->getScalarSizeInBits() < NumBitWidth &&
-      ((DataTy->getScalarSizeInBits() > NumValueBits) ||
-       (ZExtBits && DataTy->getScalarSizeInBits() == NumValueBits))) {
-    EVT ResultVT = TLI.getValueType(
-        DL, Type::getIntNTy(*DAG.getContext(), DataTy->getScalarSizeInBits()));
+  if ((IndexValueBits >= PtrBits) ||
+      ((DataBits < IndexBits) &&
+       ((IndexValueBits < DataBits) ||
+        (ZExtBits && IndexValueBits == DataBits) || AssumeNotOverflow))) {
+    EVT ResultVT =
+        TLI.getValueType(DL, Type::getIntNTy(*DAG.getContext(), DataBits));
     ElementCount NumElts = cast<VectorType>(Ptr->getType())->getElementCount();
     EVT VT = EVT::getVectorVT(*DAG.getContext(), ResultVT, NumElts);
-    Index = DAG.getNode(ISD::TRUNCATE, SDB->getCurSDLoc(), VT, Index);
+    Index = DAG.getNode(ISD::TRUNCATE, Loc, VT, Index);
 
     // The index is sign extend, but we can move the MSB from INDEX to BASE,
     // and transform the type of INDEX to signed type.
     // base -> base + (0x80000000 * scale)
     // index -> index - 0x80000000
-    if (ZExtBits && DataTy->getScalarSizeInBits() == NumValueBits) {
-      Index = DAG.getNode(ISD::SUB, SDB->getCurSDLoc(), VT, Index,
-                          DAG.getConstant(1ull << (ZExtBits - 1),
-                                          SDB->getCurSDLoc(),
-                                          Index.getValueType()));
-      Disp += MinScale * (1ull << (ZExtBits - 1));
+    if ((DataBits < IndexBits) && ZExtBits && (DataBits == IndexValueBits) &&
+        !AssumeNotOverflow) {
+      Index = DAG.getNode(
+          ISD::SUB, Loc, VT, Index,
+          DAG.getConstant(1ull << (ZExtBits - 1), Loc, Index.getValueType()));
+      Disp += BestScale * (1ull << (ZExtBits - 1));
     }
   }
 
-  // Add the addtional displacement to Base.
-  if (Disp) {
-    Base = DAG.getNode(
-      ISD::ADD, SDB->getCurSDLoc(), Base.getValueType(), Base,
-      DAG.getConstant(Disp, SDB->getCurSDLoc(),
-        Base.getValueType()));
-  }
+  // Add the additional displacement to Base.
+  if (Disp)
+    Base = DAG.getNode(ISD::ADD, Loc, Base.getValueType(), Base,
+                       DAG.getConstant(Disp, Loc, Base.getValueType()));
 
   return true;
 }
