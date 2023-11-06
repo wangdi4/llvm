@@ -4288,7 +4288,7 @@ std::pair<llvm::Value *, Address> CGOpenMPRuntime::emitAffinityClause(
         /*IndexTypeQuals=*/0, SourceRange(Loc, Loc));
     // Properly emit variable-sized array.
     auto *PD = ImplicitParamDecl::Create(C, KmpTaskAffinityInfoArrayTy,
-                                         ImplicitParamDecl::Other);
+                                         ImplicitParamKind::Other);
     CGF.EmitVarDecl(*PD);
     AffinitiesArray = CGF.GetAddrOfLocalVar(PD);
     NumOfElements = CGF.Builder.CreateIntCast(NumOfElements, CGF.Int32Ty,
@@ -4670,7 +4670,6 @@ std::pair<llvm::Value *, Address> CGOpenMPRuntime::emitDependClause(
                                /*IndexTypeQuals=*/0, SourceRange(Loc, Loc));
     // CGF.EmitVariablyModifiedType(KmpDependInfoArrayTy);
     // Properly emit variable-sized array.
-<<<<<<< HEAD
 #if INTEL_COLLAB
     // Make each dependency array name unique. Ensures correct ordering
     // when late-outlining.
@@ -4685,18 +4684,13 @@ std::pair<llvm::Value *, Address> CGOpenMPRuntime::emitDependClause(
             ? ImplicitParamDecl::Create(C, /*DC=*/nullptr, Loc,
                                         &C.Idents.get(DependArrayStr),
                                         KmpDependInfoArrayTy,
-                                        ImplicitParamDecl::Other)
+                                        ImplicitParamKind::Other)
             : ImplicitParamDecl::Create(C, KmpDependInfoArrayTy,
-                                        ImplicitParamDecl::Other);
+                                        ImplicitParamKind::Other);
 #else // INTEL_COLLAB
-    auto *PD = ImplicitParamDecl::Create(C,
-                                         KmpDependInfoArrayTy,
-                                         ImplicitParamDecl::Other);
-#endif // INTEL_COLLAB
-=======
-    auto *PD = ImplicitParamDecl::Create(C, KmpDependInfoArrayTy,
+ auto *PD = ImplicitParamDecl::Create(C, KmpDependInfoArrayTy,
                                          ImplicitParamKind::Other);
->>>>>>> dda8e3de35ead65498094e75adf6f6efd2641323
+#endif // INTEL_COLLAB
     CGF.EmitVarDecl(*PD);
     DependenciesArray = CGF.GetAddrOfLocalVar(PD);
     NumOfElements = CGF.Builder.CreateIntCast(NumOfElements, CGF.Int32Ty,
