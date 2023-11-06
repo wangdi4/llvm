@@ -96,17 +96,13 @@ private:
   /// Corresponds to the Syntax enum.
   LLVM_PREFERRED_TYPE(Syntax)
   unsigned SyntaxUsed : 4;
-<<<<<<< HEAD
+ LLVM_PREFERRED_TYPE(bool)
 #if INTEL_CUSTOMIZATION
   unsigned SpellingIndex : 5;
 #else // INTEL_CUSTOMIZATION
   unsigned SpellingIndex : 4;
 #endif // INTEL_CUSTOMIZATION
-=======
   LLVM_PREFERRED_TYPE(bool)
-  unsigned SpellingIndex : 4;
-  LLVM_PREFERRED_TYPE(bool)
->>>>>>> b178cec84f95210db615cfa0a84e78585445f16b
   unsigned IsAlignas : 1;
   LLVM_PREFERRED_TYPE(bool)
   unsigned IsRegularKeywordAttribute : 1;
@@ -163,11 +159,8 @@ public:
     unsigned SpellingIndex : 5;
 #else // INTEL_CUSTOMIZATION
     unsigned SpellingIndex : 4;
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-=======
     LLVM_PREFERRED_TYPE(bool)
->>>>>>> b178cec84f95210db615cfa0a84e78585445f16b
     unsigned IsAlignas : 1;
     LLVM_PREFERRED_TYPE(bool)
     unsigned IsRegularKeywordAttribute : 1;
