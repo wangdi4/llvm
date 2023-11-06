@@ -137,6 +137,11 @@ static cl::opt<bool> DisableIntelExtensions(
     "disable-intel-dwarf-vendor-extensions", cl::Hidden,
     cl::desc("Disable the emission of DW_AT_intel_comp_flags attribute"),
     cl::init(false));
+
+static cl::opt<bool> IntelAdjustIsStmt(
+    "intel-adjust-is-stmt", cl::Hidden,
+    cl::desc("Controls Intel-specific adjustment of the IsStmt flag."),
+    cl::init(true));
 #endif
 
 static cl::opt<DefaultOnOff> DwarfSectionsAsReferences(
@@ -2112,6 +2117,29 @@ void DwarfDebug::beginInstruction(const MachineInstr *MI) {
   bool PrevInstInSameSection =
       (!PrevInstBB ||
        PrevInstBB->getSectionIDNum() == MI->getParent()->getSectionIDNum());
+#if INTEL_CUSTOMIZATION
+  // When crossing a basic block boundary, if the previous basic block had the
+  // same line as the instruction from this block and this block has a
+  // predecessor other than the previous block, then we want to mark this
+  // instruction as a statement so a debugger can stop here.
+  //
+  //                  ,---------------------,
+  //  Line:  10  11   |     12   13   14    |   14  15
+  //  +------------+  |    +------------+   V   +------------+
+  //  | SomeInstBB |------>| PrevInstBB |------>| CurrInstBB |
+  //  +------------+       +------------+       +------------+
+  //                                             ^
+  //                                             |
+  //                                  Current Machine Instruction
+  //
+  if (IntelAdjustIsStmt) {
+    if (PrevBlockLoc && PrevBlockLoc != MI->getParent() &&
+        llvm::any_of(
+            MI->getParent()->predecessors(),
+            [=](const MachineBasicBlock *MBB) { return MBB != PrevBlockLoc; }))
+      Flags |= DWARF2_FLAG_IS_STMT;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (DL == PrevInstLoc && PrevInstInSameSection) {
     // If we have an ongoing unspecified location, nothing to do here.
     if (!DL)
@@ -2122,6 +2150,10 @@ void DwarfDebug::beginInstruction(const MachineInstr *MI) {
       // Reinstate the source location but not marked as a statement.
       const MDNode *Scope = DL.getScope();
       recordSourceLine(DL.getLine(), DL.getCol(), Scope, Flags);
+#if INTEL_CUSTOMIZATION
+      if (IntelAdjustIsStmt)
+        PrevBlockLoc = MI->getParent();
+#endif // INTEL_CUSTOMIZATION
     }
     return;
   }
@@ -2153,6 +2185,10 @@ void DwarfDebug::beginInstruction(const MachineInstr *MI) {
         Column = PrevInstLoc.getCol();
       }
       recordSourceLine(/*Line=*/0, Column, Scope, /*Flags=*/0);
+#if INTEL_CUSTOMIZATION
+      if (IntelAdjustIsStmt)
+        PrevBlockLoc = MI->getParent();
+#endif // INTEL_CUSTOMIZATION
     }
     return;
   }
@@ -2178,6 +2214,11 @@ void DwarfDebug::beginInstruction(const MachineInstr *MI) {
   // If we're not at line 0, remember this location.
   if (DL.getLine())
     PrevInstLoc = DL;
+
+#if INTEL_CUSTOMIZATION
+  if (IntelAdjustIsStmt)
+    PrevBlockLoc = MI->getParent();
+#endif // INTEL_CUSTOMIZATION
 }
 
 static std::pair<DebugLoc, bool> findPrologueEndLoc(const MachineFunction *MF) {
@@ -2277,6 +2318,11 @@ void DwarfDebug::beginFunctionImpl(const MachineFunction *MF) {
   // Record beginning of function.
   PrologEndLoc = emitInitialLocDirective(
       *MF, Asm->OutStreamer->getContext().getDwarfCompileUnitID());
+
+#if INTEL_CUSTOMIZATION
+  if (IntelAdjustIsStmt)
+    PrevBlockLoc = nullptr;
+#endif // INTEL_CUSTOMIZATION
 }
 
 unsigned

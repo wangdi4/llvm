@@ -2064,22 +2064,22 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     if (EmitDebugOptRemarks) {
       // Add detailed peel decision info to debug opt report.
       const auto &PeelSummary = BestCostSummary.PeelSummary;
-      VPlanDriverImpl::addDebugRemark(OptRptStats.CostModelRemarks, *Context,
-                                      "peel scenario: ", PeelSummary.Scenario);
-      VPlanDriverImpl::addDebugRemark(
+      DriverImpl::addDebugRemark(OptRptStats.CostModelRemarks, *Context,
+                                 "peel scenario: ", PeelSummary.Scenario);
+      DriverImpl::addDebugRemark(
           OptRptStats.CostModelRemarks, *Context, "peel was performed: ",
           PeelSummary.PeelingWasPerformed ? "yes" : "no");
-      VPlanDriverImpl::addDebugRemark(
+      DriverImpl::addDebugRemark(
           OptRptStats.CostModelRemarks, *Context,
           "estimated gain from peeling: ", PeelSummary.GainWithPeel);
-      VPlanDriverImpl::addDebugRemark(
+      DriverImpl::addDebugRemark(
           OptRptStats.CostModelRemarks, *Context,
           "estimated gain from *not* peeling: ", PeelSummary.GainWithoutPeel);
-      VPlanDriverImpl::addDebugRemark(OptRptStats.CostModelRemarks, *Context,
-                                      "peel kind: ", PeelSummary.PeelKind);
+      DriverImpl::addDebugRemark(OptRptStats.CostModelRemarks, *Context,
+                                 "peel kind: ", PeelSummary.PeelKind);
       if (!PeelSummary.Formula.empty())
-        VPlanDriverImpl::addDebugRemark(OptRptStats.CostModelRemarks, *Context,
-                                        "peel formula: ", PeelSummary.Formula);
+        DriverImpl::addDebugRemark(OptRptStats.CostModelRemarks, *Context,
+                                   "peel formula: ", PeelSummary.Formula);
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
