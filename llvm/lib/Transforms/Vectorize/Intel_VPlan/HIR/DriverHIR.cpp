@@ -43,9 +43,9 @@ using namespace llvm::vpo;
 /// Function to add vectorization related remarks for loops created by given
 /// codegen object \p VCodeGen
 // TODO: Change VPOCodeGenType. This cannot be used in the open sourcing patches
-void VPlanDriverHIRImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
-                                             VPlanOptReportBuilder &VPORBuilder,
-                                             VPOCodeGenHIR *VCodeGen) {
+void DriverHIRImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
+                                        VPlanOptReportBuilder &VPORBuilder,
+                                        VPOCodeGenHIR *VCodeGen) {
   if ((!WRLp || (WRLp->isOmpSIMDLoop() && WRLp->getSafelen() == 0 &&
                  WRLp->getSimdlen() == 0)) &&
       (TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) <=
@@ -100,13 +100,13 @@ void VPlanDriverHIRImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
 
 VPlanDriverHIRPass::VPlanDriverHIRPass(bool LightWeightMode,
                                        bool WillRunLLVMIRVPlan) {
-  Impl = new VPlanDriverHIRImpl(LightWeightMode, WillRunLLVMIRVPlan);
+  Impl = new DriverHIRImpl(LightWeightMode, WillRunLLVMIRVPlan);
 }
 
 VPlanDriverHIRPass::VPlanDriverHIRPass(const VPlanDriverHIRPass &P) noexcept
     : loopopt::HIRPassInfoMixin<VPlanDriverHIRPass>(P) {
-  Impl = new VPlanDriverHIRImpl(P.Impl->lightWeightMode(),
-                                P.Impl->willRunLLVMIRVPlan());
+  Impl = new DriverHIRImpl(P.Impl->lightWeightMode(),
+                           P.Impl->willRunLLVMIRVPlan());
 }
 
 VPlanDriverHIRPass::~VPlanDriverHIRPass() { delete Impl; }
@@ -129,13 +129,14 @@ PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
   return PreservedAnalyses::all();
 }
 
-bool VPlanDriverHIRImpl::runImpl(
-    Function &Fn, loopopt::HIRFramework *HIRF,
-    loopopt::HIRLoopStatistics *HIRLoopStats, loopopt::HIRDDAnalysis *DDA,
-    loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis,
-    OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
-    TargetTransformInfo *TTI, TargetLibraryInfo *TLI, AssumptionCache *AC,
-    DominatorTree *DT) {
+bool DriverHIRImpl::runImpl(Function &Fn, loopopt::HIRFramework *HIRF,
+                            loopopt::HIRLoopStatistics *HIRLoopStats,
+                            loopopt::HIRDDAnalysis *DDA,
+                            loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis,
+                            OptReportVerbosity::Level Verbosity,
+                            WRegionInfo *WR, TargetTransformInfo *TTI,
+                            TargetLibraryInfo *TLI, AssumptionCache *AC,
+                            DominatorTree *DT) {
   LLVM_DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName()
                     << "\n");
   this->HIRF = HIRF;
@@ -149,11 +150,11 @@ bool VPlanDriverHIRImpl::runImpl(
   this->setDT(DT);
 
   ORBuilder.setup(Fn.getContext(), Verbosity);
-  return VPlanDriverImpl::processFunction<loopopt::HLLoop>(Fn);
+  return DriverImpl::processFunction<loopopt::HLLoop>(Fn);
 }
 
-bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
-                                     WRNVecLoopNode *WRLp) {
+bool DriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
+                                WRNVecLoopNode *WRLp) {
   // Enable peeling for HIR path from command line switch
   VPlanEnablePeeling = VPlanEnablePeelingHIROpt && VPlanEnablePeelingOpt;
   VPlanEnableGeneralPeeling = VPlanEnableGeneralPeelingHIROpt;
@@ -508,7 +509,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
 // Given a remark R, generate an otherwise identical remark that prepends
 // "HIR: " to the first argument string (if present).
-OptRemark VPlanDriverHIRImpl::prependHIR(OptRemark R) {
+OptRemark DriverHIRImpl::prependHIR(OptRemark R) {
 
   // The first operand is the unsigned RemarkID.  The second is the
   // string we want to update.
@@ -535,9 +536,9 @@ OptRemark VPlanDriverHIRImpl::prependHIR(OptRemark R) {
 //  - If we have an OMP SIMD loop and we bail out, we might later vectorize
 //    along the LLVM-IR path.  To avoid confusion and double reporting, report
 //    only for internal compilers when this can occur.
-bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
-                                 WRNVecLoopNode *WRLp,
-                                 VPlanBailoutRemark RemarkData) {
+bool DriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
+                            WRNVecLoopNode *WRLp,
+                            VPlanBailoutRemark RemarkData) {
 
   OptRemarkID ID = RemarkData.BailoutRemark.getRemarkID();
 
@@ -561,7 +562,7 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
   return false;
 }
 
-bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp, WRNVecLoopNode *WRLp) {
+bool DriverHIRImpl::isSupported(HLLoop *Lp, WRNVecLoopNode *WRLp) {
   if (HIRLoopStats->getTotalStatistics(Lp).hasSwitches()) {
     setBailoutRemark(OptReportVerbosity::Medium,
                      OptRemarkID::VecFailSwitchPresent,
@@ -597,18 +598,17 @@ bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp, WRNVecLoopNode *WRLp) {
   return true;
 }
 
-void VPlanDriverHIRImpl::collectAllLoops(SmallVectorImpl<HLLoop *> &Loops) {
+void DriverHIRImpl::collectAllLoops(SmallVectorImpl<HLLoop *> &Loops) {
   HIRF->getHLNodeUtils().gatherAllLoops(Loops);
 }
 
-bool VPlanDriverHIRImpl::isVPlanCandidate(Function &Fn, HLLoop *Lp) {
+bool DriverHIRImpl::isVPlanCandidate(Function &Fn, HLLoop *Lp) {
   // This function is only used in the LLVM-IR path to generate VPlan
   // candidates.
   return false;
 }
 
-void VPlanDriverHIRImpl::eraseLoopIntrins(HLLoop *Lp,
-                                          WRNVecLoopNode *WVecNode) {
+void DriverHIRImpl::eraseLoopIntrins(HLLoop *Lp, WRNVecLoopNode *WVecNode) {
   auto IsValidDirectiveNode = [](HLNode *Node, SmallSet<int, 2> &DirectiveIDs) {
     HLInst *HInst = dyn_cast<HLInst>(Node);
     if (!HInst)

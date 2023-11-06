@@ -32,8 +32,8 @@
 namespace llvm {
 namespace vpo {
 
-class VPlanDriverLLVMImpl : public VPlanDriverImpl {
-  friend VPlanDriverImpl;
+class DriverLLVMImpl : public DriverImpl {
+  friend DriverImpl;
 
 private:
   LoopInfo *LI;

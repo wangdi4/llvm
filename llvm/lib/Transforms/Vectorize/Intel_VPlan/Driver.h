@@ -63,7 +63,7 @@ struct VPlanBailoutRemark {
   OptRemark BailoutRemark;
 };
 
-class VPlanDriverImpl {
+class DriverImpl {
 private:
   template <class Loop>
   bool processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
