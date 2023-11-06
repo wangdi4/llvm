@@ -91,15 +91,24 @@ private:
   SourceRange AttrRange;
   const SourceLocation ScopeLoc;
   // Corresponds to the Kind enum.
+  LLVM_PREFERRED_TYPE(Kind)
   unsigned AttrKind : 16;
   /// Corresponds to the Syntax enum.
+  LLVM_PREFERRED_TYPE(Syntax)
   unsigned SyntaxUsed : 4;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   unsigned SpellingIndex : 5;
 #else // INTEL_CUSTOMIZATION
   unsigned SpellingIndex : 4;
 #endif // INTEL_CUSTOMIZATION
+=======
+  LLVM_PREFERRED_TYPE(bool)
+  unsigned SpellingIndex : 4;
+  LLVM_PREFERRED_TYPE(bool)
+>>>>>>> b178cec84f95210db615cfa0a84e78585445f16b
   unsigned IsAlignas : 1;
+  LLVM_PREFERRED_TYPE(bool)
   unsigned IsRegularKeywordAttribute : 1;
 
 protected:
@@ -148,13 +157,19 @@ public:
         : SyntaxUsed(SyntaxUsed), SpellingIndex(SpellingNotCalculated),
           IsAlignas(0), IsRegularKeywordAttribute(0) {}
 
+    LLVM_PREFERRED_TYPE(Syntax)
     unsigned SyntaxUsed : 4;
 #if INTEL_CUSTOMIZATION
     unsigned SpellingIndex : 5;
 #else // INTEL_CUSTOMIZATION
     unsigned SpellingIndex : 4;
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+    LLVM_PREFERRED_TYPE(bool)
+>>>>>>> b178cec84f95210db615cfa0a84e78585445f16b
     unsigned IsAlignas : 1;
+    LLVM_PREFERRED_TYPE(bool)
     unsigned IsRegularKeywordAttribute : 1;
   };
 
