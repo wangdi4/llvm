@@ -155,10 +155,6 @@ void fuchsia::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
-<<<<<<< HEAD
-    addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
-                  D.getLTOMode() == LTOK_Thin, JA); // INTEL
-=======
     // Find the first filename InputInfo object.
     auto Input = llvm::find_if(
         Inputs, [](const InputInfo &II) -> bool { return II.isFilename(); });
@@ -168,8 +164,7 @@ void fuchsia::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       Input = Inputs.begin();
 
     addLTOOptions(ToolChain, Args, CmdArgs, Output, *Input,
-                  D.getLTOMode() == LTOK_Thin);
->>>>>>> 1881832994840baa6e42f908b8822ce4d15ab632
+                  D.getLTOMode() == LTOK_Thin, JA); // INTEL
   }
 
   addLinkerCompressDebugSectionsOption(ToolChain, Args, CmdArgs);
