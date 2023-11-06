@@ -134,7 +134,21 @@ public:
     unsigned NumExitBlocks = std::numeric_limits<unsigned>::max();
     Type *RetTy = nullptr; // INTEL
 
+    // Mapping from the original exit blocks, to the new blocks inside
+    // the function.
+    SmallVector<BasicBlock *, 4> OldTargets;
+
+    // Suffix to use when creating extracted function (appended to the original
+    // function name + "."). If empty, the default is to use the entry block
+    // label, if non-empty, otherwise "extracted".
+    std::string Suffix;
+
+    // If true, the outlined function has aggregate argument in zero address
+    // space.
+    bool ArgsInZeroAddressSpace;
 #if INTEL_COLLAB
+    // Start of Intel members. Please keep new llorg members above this line.
+    //
     // If there is an associated "omp target" directive for this sequence of
     // basic blocks then keep track of the order in which mapped variables
     // appear in the map clause.
@@ -159,19 +173,6 @@ public:
     // Declaration location for extracted routine.
     DebugLoc DeclLoc;
 #endif // INTEL_COLLAB
-
-    // Mapping from the original exit blocks, to the new blocks inside
-    // the function.
-    SmallVector<BasicBlock *, 4> OldTargets;
-
-    // Suffix to use when creating extracted function (appended to the original
-    // function name + "."). If empty, the default is to use the entry block
-    // label, if non-empty, otherwise "extracted".
-    std::string Suffix;
-
-    // If true, the outlined function has aggregate argument in zero address
-    // space.
-    bool ArgsInZeroAddressSpace;
 
   public:
     /// Create a code extractor for a sequence of blocks.
@@ -236,11 +237,12 @@ public:
     /// Routines for updating debug information during code extraction.
     void setDeclLoc(DebugLoc DL) { DeclLoc = DL; }
 #endif // INTEL_COLLAB
-
     /// Perform the extraction, returning the new function.
+#if INTEL_COLLAB
     /// HoistAlloca: local allocas in the extracted region will
     /// be hoisted to the entry. This improves scalar optimizations and is also
     /// required for nested simd loops.
+#endif // INTEL_COLLAB
     ///
     /// Returns zero when called on a CodeExtractor instance where isEligible
     /// returns false.
@@ -379,13 +381,13 @@ public:
         const ValueSet &inputs, const ValueSet &outputs,
         const ValueMap<Value *, Value *> &RewrittenValues);
 #endif // INTEL_COLLAB
-
     void moveCodeToFunction(Function *newFunction);
 
     void calculateNewCallTerminatorWeights(
         BasicBlock *CodeReplacer,
         DenseMap<BasicBlock *, BlockFrequency> &ExitWeights,
         BranchProbabilityInfo *BPI);
+
     CallInst *emitCallAndSwitchStatement(Function *newFunction,
                                          BasicBlock *newHeader,
 #if INTEL_COLLAB

@@ -315,16 +315,14 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              bool AllowVarArgs, bool AllowAlloca,
                              BasicBlock *AllocationBlock, std::string Suffix,
 #if INTEL_COLLAB
-                             // This llorg arg is in the COLLAB region because
-                             // we added the ",".
+                             // "," was added
                              bool ArgsInZeroAddressSpace,
                              // Intel args start here. New args from llorg
                              // need to be merged above this line.
                              bool AllowEHTypeID, bool AllowUnreachableBlocks,
                              const OrderedArgs *TgtClauseArgs,
                              bool SimdPrivatization)
-#else  // INTEL_COLLAB
-                             BasicBlock *AllocationBlock, std::string Suffix,
+#else // INTEL_COLLAB
                              bool ArgsInZeroAddressSpace)
 #endif // INTEL_COLLAB
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
@@ -333,13 +331,13 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 #if INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca,
                                      AllowEHTypeID, AllowUnreachableBlocks)),
+      Suffix(Suffix), ArgsInZeroAddressSpace(ArgsInZeroAddressSpace),
       TgtClauseArgs(TgtClauseArgs), SimdPrivatization(SimdPrivatization),
-      DeclLoc(),
-#else  // INTEL_COLLAB
+      DeclLoc() {}
+#else // INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
-      ArgsInZeroAddressSpace(ArgsInZeroAddressSpace)
+      Suffix(Suffix), ArgsInZeroAddressSpace(ArgsInZeroAddressSpace) {}
 #endif // INTEL_COLLAB
-      Suffix(Suffix) {}
 
 CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
                              BlockFrequencyInfo *BFI,
@@ -353,11 +351,11 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
                                      /* AllowAlloca */ false,
                                      /* AllowEHTypeID */ false,
                                      /* AllowUnreachableBlocks */ false)),
-      DeclLoc(),
+      Suffix(Suffix), DeclLoc() {}
 #else // INTEL_COLLAB
                                      /* AllowAlloca */ false)),
-#endif // INTEL_COLLAB
       Suffix(Suffix) {}
+#endif // INTEL_COLLAB
 
 /// definedInRegion - Return true if the specified value is defined in the
 /// extracted region.
