@@ -2340,9 +2340,8 @@ APValue SourceLocExpr::EvaluateInContext(const ASTContext &Ctx,
         FileName, PLoc, Ctx.getLangOpts(), Ctx.getTargetInfo());
     return MakeStringLiteral(FileName);
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  case SourceLocExpr::File: {
+  case SourceLocIdentKind::File: {
     if (Ctx.getLangOpts().isIntelCompat(LangOptions::DisplayFullFilePath)) {
       SmallString<256> Path(PLoc.getFilename());
       Ctx.getLangOpts().remapPathPrefix(Path);
@@ -2351,18 +2350,8 @@ APValue SourceLocExpr::EvaluateInContext(const ASTContext &Ctx,
     return MakeStringLiteral(llvm::sys::path::filename(PLoc.getFilename()));
   }
 #endif  // INTEL_CUSTOMIZATION
-  case SourceLocExpr::Function:
-  case SourceLocExpr::FuncSig: {
-=======
-  case SourceLocIdentKind::File: {
-    SmallString<256> Path(PLoc.getFilename());
-    clang::Preprocessor::processPathForFileMacro(Path, Ctx.getLangOpts(),
-                                                 Ctx.getTargetInfo());
-    return MakeStringLiteral(Path);
-  }
   case SourceLocIdentKind::Function:
   case SourceLocIdentKind::FuncSig: {
->>>>>>> 99e7e7a597fa4ebaa8ebacdc42eae9f0b976f54c
     const auto *CurDecl = dyn_cast<Decl>(Context);
     const auto Kind = getIdentKind() == SourceLocIdentKind::Function
                           ? PredefinedExpr::Function
