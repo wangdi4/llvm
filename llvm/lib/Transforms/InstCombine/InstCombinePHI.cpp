@@ -1465,7 +1465,8 @@ Instruction *InstCombinerImpl::visitPHINode(PHINode &PN) {
     // are induction variable analysis (sometimes) and ADCE, which is only run
     // late.
     if (PHIUser->hasOneUse() &&
-        (isa<BinaryOperator>(PHIUser) || isa<GetElementPtrInst>(PHIUser)) &&
+        (isa<BinaryOperator>(PHIUser) || isa<UnaryOperator>(PHIUser) ||
+         isa<GetElementPtrInst>(PHIUser)) &&
         PHIUser->user_back() == &PN) {
       return replaceInstUsesWith(PN, PoisonValue::get(PN.getType()));
     }
