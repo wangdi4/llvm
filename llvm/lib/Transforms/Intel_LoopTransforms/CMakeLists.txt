@@ -27,7 +27,6 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRCompleteUnroll.cpp
         HIRGeneralUnroll.cpp
         HIRUnrollAndJam.cpp
-        HIRDummyTransformation.cpp
         HIRLoopInterchange.cpp
         HIRRuntimeDD.cpp
         HIRLoopBlocking.cpp

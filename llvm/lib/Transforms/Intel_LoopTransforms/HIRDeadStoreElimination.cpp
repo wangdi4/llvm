@@ -220,19 +220,6 @@ static void printRefVector(SmallVectorImpl<RegDDRef *> &RefVec,
 
 #endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-char HIRDeadStoreEliminationLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRDeadStoreEliminationLegacyPass, OPT_SWITCH, OPT_DESC,
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRDeadStoreEliminationLegacyPass, OPT_SWITCH, OPT_DESC,
-                    false, false)
-
-FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
-  return new HIRDeadStoreEliminationLegacyPass();
-}
-
 namespace {
 /// Collects all AddressOf refs and fake refs attached to lifetime end
 /// intrinsics.
@@ -1775,18 +1762,6 @@ static bool runDeadStoreElimination(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
   }
 
   return Result;
-}
-
-bool HIRDeadStoreEliminationLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    LLVM_DEBUG(dbgs() << "HIR Dead Store Elimination Disabled \n");
-    return false;
-  }
-
-  return runDeadStoreElimination(
-      getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-      getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-      getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS());
 }
 
 PreservedAnalyses HIRDeadStoreEliminationPass::runImpl(
