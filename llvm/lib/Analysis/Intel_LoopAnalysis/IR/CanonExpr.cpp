@@ -1683,6 +1683,15 @@ void CanonExpr::verify(unsigned NestingLevel) const {
     assert(getDenominator() == 1 &&
            "Constant CEs should have unit denominator");
 
+    if (isa<PointerType>(SrcTy) && (numBlobs() == 1)) {
+      auto *UnknownBlob =
+          cast<SCEVUnknown>(getBlobUtils().getBlob(getSingleBlobIndex()));
+      (void)UnknownBlob;
+      assert(
+          !isa<ConstantPointerNull>(UnknownBlob->getValue()) &&
+          "Null value should not be represented as a blob in CE, but as '0'!");
+    }
+
     // Allow non simplified casts in HIR.
     // assert(!isTrunc() && !isSExt() && !isZExt() &&
     //       "Casts in constant CEs should be simplified");
