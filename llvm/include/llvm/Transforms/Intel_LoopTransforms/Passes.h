@@ -60,10 +60,6 @@ FunctionPass *createHIRLoopDistributionForLoopNestPass();
 /// Interchange.
 FunctionPass *createHIRLoopInterchangePass();
 
-/// createHIRGenerateMKLCAllPass - This creates a pass that performs MKL call
-/// generation.
-FunctionPass *createHIRGenerateMKLCallPass();
-
 /// createHIRLoopBlockingPass - This creates a pass that performs Loop
 /// Blocking.
 FunctionPass *createHIRLoopBlockingPass(bool SinkForMultiCopy = true);
@@ -84,14 +80,6 @@ FunctionPass *createHIRLoopRerollPass();
 /// for Runtime DD transformation.
 FunctionPass *createHIRRuntimeDDPass();
 
-/// createHIRDummyTransformationPass - This creates a dummy pass that is used
-/// for debugging purposes.
-FunctionPass *createHIRDummyTransformationPass();
-
-/// createHIRGeneralUnrollPass - This creates a pass that performs general
-/// unrolling for larger trip count HIR loops.
-FunctionPass *createHIRGeneralUnrollPass(bool PragmaOnlyUnroll = false);
-
 /// createHIRUnrollAndJamPass - This creates a pass that performs unroll & jam
 /// on loops.
 FunctionPass *createHIRUnrollAndJamPass(bool PragmaOnlyUnroll = false);
@@ -99,9 +87,6 @@ FunctionPass *createHIRUnrollAndJamPass(bool PragmaOnlyUnroll = false);
 /// createHIRLoopReversalPass - This creates a HIR Loop pass that performs Loop
 /// Reversal.
 FunctionPass *createHIRLoopReversalPass();
-
-/// Create pass that performs if reversal for inner loops.
-FunctionPass *createHIRIfReversalPass();
 
 /// createHIRLMMPass - This creates a HIR Loop pass that performs Loop
 /// Memory Motion.
@@ -132,9 +117,6 @@ FunctionPass *createHIRScalarReplArrayPass();
 /// Creates pass that splits loops based on variant predicates.
 FunctionPass *createHIROptVarPredicatePass();
 
-/// Creates pass that replaces loads and stores with memsets and memcpys.
-FunctionPass *createHIRIdiomRecognitionPass();
-
 /// Creates pass that multiversions loop for the probable trip count value.
 FunctionPass *createHIRMVForConstUBPass();
 
@@ -150,9 +132,6 @@ FunctionPass *createHIRLoopFusionPass();
 /// This creates a pass that emits HIR opt report.
 FunctionPass *createHIROptReportEmitterWrapperPass();
 
-/// Create pass that eliminates dead store.
-FunctionPass *createHIRDeadStoreEliminationPass();
-
 /// Create pass that computes last value of a temp.
 FunctionPass *createHIRLastValueComputationPass();
 
@@ -167,9 +146,6 @@ FunctionPass *createHIRRecognizeParLoopPass();
 
 /// Create pass that performs min/max idiom recognition for inner loops.
 FunctionPass *createHIRMinMaxRecognitionPass();
-
-/// Create pass that recognize identity matrix.
-FunctionPass *createHIRIdentityMatrixIdiomRecognitionPass();
 
 /// Create pass that prefetches memrefs.
 FunctionPass *createHIRPrefetchingPass();
@@ -195,16 +171,8 @@ FunctionPass *createHIRSumWindowReusePass();
 /// Create pass that implements non-zero sinking for perfect loopnest.
 FunctionPass *createHIRNonZeroSinkingForPerfectLoopnestPass();
 
-/// Create pass that substitutes identity matrix.
-FunctionPass *createHIRIdentityMatrixSubstitutionPass();
-
 /// Create pass that marks stores as nontemporal where appropriate.
 FunctionPass *createHIRNontemporalMarkingPass();
-
-#if INTEL_FEATURE_SW_ADVANCED
-/// Creates pass that performs inter-loopnest-tiling.
-FunctionPass *createHIRInterLoopBlockingPass();
-#endif // INTEL_FEATURE_SW_ADVANCED
 
 } // namespace llvm
 

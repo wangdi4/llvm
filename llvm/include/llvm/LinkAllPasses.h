@@ -279,10 +279,8 @@ namespace {
       (void) llvm::createHIRLoopInterchangePass();
       (void) llvm::createHIRLoopBlockingPass();
       (void) llvm::createHIRPragmaLoopBlockingPass();
-      (void) llvm::createHIRGenerateMKLCallPass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIROptVarPredicatePass();
-      (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRUnrollAndJamPass();
       (void) llvm::createHIRParDirInsertPass();
       (void) llvm::createHIRVecDirInsertPass();
@@ -291,25 +289,17 @@ namespace {
       (void) llvm::createHIRLoopRematerializePass();
       (void) llvm::createHIRLoopRerollPass();
       (void) llvm::createHIRLoopReversalPass();
-      (void) llvm::createHIRIfReversalPass();
       (void) llvm::createHIRLoopCollapsePass();
       (void) llvm::createHIRPMSymbolicTripCountCompleteUnrollLegacyPass();
       (void) llvm::createHIRScalarReplArrayPass();
-      (void) llvm::createHIRIdiomRecognitionPass();
       (void) llvm::createHIRMVForConstUBPass();
       (void) llvm::createHIRMVForVariableStridePass();
       (void) llvm::createHIRLoopConcatenationPass();
-#if INTEL_FEATURE_SW_ADVANCED
-      (void) llvm::createHIRInterLoopBlockingPass();
-#endif // INTEL_FEATURE_SW_ADVANCED
       (void) llvm::createHIRLoopFusionPass();
-      (void) llvm::createHIRDummyTransformationPass();
-      (void) llvm::createHIRDeadStoreEliminationPass();
       (void) llvm::createHIRLastValueComputationPass();
       (void) llvm::createHIRPropagateCastedIVPass();
       (void) llvm::createHIRMultiExitLoopRerollPass();
       (void) llvm::createHIRMinMaxRecognitionPass();
-      (void) llvm::createHIRIdentityMatrixIdiomRecognitionPass();
       (void) llvm::createHIRPrefetchingPass();
       (void) llvm::createHIRSinkingForPerfectLoopnestPass();
       (void) llvm::createHIRUndoSinkingForPerfectLoopnestPass();
@@ -318,7 +308,6 @@ namespace {
       (void) llvm::createHIRStoreResultIntoTempArrayPass();
       (void) llvm::createHIRSumWindowReusePass();
       (void) llvm::createHIRNonZeroSinkingForPerfectLoopnestPass();
-      (void) llvm::createHIRIdentityMatrixSubstitutionPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

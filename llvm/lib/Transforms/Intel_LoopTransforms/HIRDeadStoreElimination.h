@@ -58,24 +58,6 @@ struct NonLinearTempInfo {
 
 namespace dse {
 
-class HIRDeadStoreEliminationLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-  HIRDeadStoreEliminationLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRDeadStoreEliminationLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-
 class HIRDeadStoreElimination {
   HIRDDAnalysis &HDDA;
   HIRLoopStatistics &HLS;
