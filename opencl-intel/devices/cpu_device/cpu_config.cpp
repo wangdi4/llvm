@@ -97,10 +97,7 @@ PassManagerType CPUDeviceConfig::GetPassManagerType() const {
 bool CPUDeviceConfig::IsSpirSupported() const { return true; }
 
 bool CPUDeviceConfig::IsHalfSupported() const {
-  std::string Env;
-  return FPGA_EMU_DEVICE != GetDeviceMode() &&
-         Intel::OpenCL::Utils::getEnvVar(Env,
-                                         "CL_CONFIG_CPU_EXPERIMENTAL_FP16");
+  return FPGA_EMU_DEVICE != GetDeviceMode();
 }
 
 bool CPUDeviceConfig::IsDoubleSupported() const {

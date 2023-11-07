@@ -243,13 +243,10 @@ void ReadWriteImageHalfTest() {
       clCreateCommandQueueWithProperties(Context, Device, NULL, &Err);
   ASSERT_OCL_SUCCESS(Err, "clCreateCommandQueueWithProperties");
 
-  ASSERT_TRUE(SETENV("CL_CONFIG_CPU_EXPERIMENTAL_FP16", "1"));
-
   testImage1D(Context, Queue);
   testImage2D(Context, Queue);
   testImage3D(Context, Queue);
 
-  ASSERT_TRUE(UNSETENV("CL_CONFIG_CPU_EXPERIMENTAL_FP16"));
   Err = clReleaseContext(Context);
   ASSERT_OCL_SUCCESS(Err, "clReleaseContext");
 }

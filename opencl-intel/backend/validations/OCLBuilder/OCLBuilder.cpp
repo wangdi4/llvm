@@ -123,9 +123,7 @@ OCLBuilder &OCLBuilder::withExtensions(bool IsFPGA) {
   std::string ext = std::string(BE_FE_COMPILER_USE_EXTENSIONS) +
                     std::string(IsFPGA ? BE_FE_COMPILER_USE_EXTENSIONS_FPGA
                                        : BE_FE_COMPILER_USE_EXTENSIONS_CPU);
-  std::string Env;
-  if (!IsFPGA &&
-      Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_CPU_EXPERIMENTAL_FP16"))
+  if (!IsFPGA)
     ext += " cl_khr_fp16";
   m_CommonBuilder.withExtensions(ext);
   return *this;
