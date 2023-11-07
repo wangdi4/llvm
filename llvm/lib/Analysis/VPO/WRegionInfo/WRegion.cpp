@@ -1318,6 +1318,12 @@ void WRNGenericLoopNode::mapLoopScheme0() {
 //
 //   if (Bind == thread)
 //     MappedDir = DIR_OMP_SIMD;
+#if INTEL_CUSTOMIZATION
+//   else if (is DO CONCURRENT)
+//     // It's incorrect to change DO CONCURRENT under PARALLEL into the
+//     // worksharing construct OMP DO. We map it to OMP PARALLEL DO instead.
+//     MappedDir = DIR_OMP_PARALLEL_LOOP;
+#endif // INTEL_CUSTOMIZATION
 //   else // Bind == parallel or absent
 //     MappedDir = DIR_OMP_LOOP;
 //
@@ -1406,6 +1412,10 @@ void WRNGenericLoopNode::mapLoopScheme1() {
   case DIR_OMP_PARALLEL:
     if (Bind == WRNLoopBindThread)
       MappedDir = DIR_OMP_SIMD;
+#if INTEL_CUSTOMIZATION
+    else if (getIsDoConcurrent())
+      MappedDir = DIR_OMP_PARALLEL_LOOP;
+#endif // INTEL_CUSTOMIZATION
     else // bind(parallel) or absent
       MappedDir = DIR_OMP_LOOP;
     break;
