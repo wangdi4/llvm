@@ -1865,7 +1865,12 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::EarlyExitID)
     NewShape = getUniformVectorShape();
-  else {
+  else if (Opcode == VPInstruction::SelectValOrLane) {
+    assert(getObservedShape(ParentBB, *cast<VPSelectValOrLane>(I)->getVal())
+               .isUniform() &&
+           "Value operand of SelectValOrLane is expected to be uniform.");
+    NewShape = getUniformVectorShape();
+  } else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
     assert(Opcode <= Instruction::OtherOpsEnd &&

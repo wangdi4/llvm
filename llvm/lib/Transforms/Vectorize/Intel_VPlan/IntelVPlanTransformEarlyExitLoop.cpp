@@ -158,6 +158,19 @@ void VPTransformEarlyExitLoop::transform() {
       Plan.getVPConstant(ConstantInt::get(ExitIDPhi->getType(), 0)));
   auto *EELane = Builder.create<VPEarlyExitLane>("early.exit.lane", EEIDMask);
 
+  // Emit custom select operations to choose between valid early-exit lane or
+  // first/last lane -
+  //   %cond = icmp ne %ee.lane, -1
+  //   %ee.or.first.lane = select-val-or-lane %cond, %ee.lane, first
+  //   %ee.or.last.lane = select-val-or-lane %cond, %ee.lane, last
+  auto *ValidEELaneCond = Builder.createCmpInst(
+      CmpInst::ICMP_NE, EELane,
+      Plan.getVPConstant(ConstantInt::get(EELane->getType(), -1)));
+  auto *EEOrFirstLane = Builder.create<VPSelectValOrLane>(
+      "ee.or.first.lane", ValidEELaneCond, EELane, true /*UseFirstLane*/);
+  auto *EEOrLastLane = Builder.create<VPSelectValOrLane>(
+      "ee.or.last.lane", ValidEELaneCond, EELane, false /*UseFirstLane*/);
+
   // Step 4
   // ======
   //
@@ -188,20 +201,20 @@ void VPTransformEarlyExitLoop::transform() {
       VPPHINode *MainIVPhi = EEVPLoop->getInductionPHI();
       LLVM_DEBUG(dbgs() << "Main IV phi: "; MainIVPhi->dump(); dbgs() << "\n");
       VPValue *MainIVLatchVal = MainIVPhi->getIncomingValue(EELoopLatch);
-      IndFinal->setExtractOperands(MainIVLatchVal, EELane);
+      IndFinal->setExtractOperands(MainIVLatchVal, EEOrFirstLane);
       InstsToMove.push_back(IndFinal);
     } else if (I.getOpcode() == VPInstruction::PrivateFinalUncond) {
       // Unconditional lastprivate finalization -
       // Add early-exit lane as an extra operand to specify lane to extract
       // from.
       auto *PvtFinal = &I;
-      PvtFinal->addOperand(EELane);
+      PvtFinal->addOperand(EEOrLastLane);
       InstsToMove.push_back(PvtFinal);
     }
   }
 
   // Track the last inserted instruction in current BB.
-  VPInstruction *LastInsertInst = EELane;
+  VPInstruction *LastInsertInst = EEOrLastLane;
   for (auto *I : InstsToMove) {
     MainExitBB->removeInstruction(I);
     EEMergedExit->addInstructionAfter(I, LastInsertInst);
@@ -216,7 +229,7 @@ void VPTransformEarlyExitLoop::transform() {
   // loop iterations take the early-exit.
   Builder.setInsertPoint(CascadedIfCond);
   auto *EEID =
-      Builder.create<VPEarlyExitID>("early.exit.id", ExitIDPhi, EELane);
+      Builder.create<VPEarlyExitID>("early.exit.id", ExitIDPhi, EEOrLastLane);
   // Use the final value of exit ID to divert control flow in the cascaded-if.
   CascadedIfCond->replaceUsesOfWith(ExitIDPhi, EEID);
 

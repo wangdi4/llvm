@@ -93,36 +93,26 @@ for.body:                                         ; preds = %for.body.preheader,
   %1 = mul nsw i64 %indvars.iv, %indvars.iv
   %2 = add nsw i64 %1, %0
   %arrayidx = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %indvars.iv
-  store i64 %2, ptr %arrayidx, align 16, !tbaa !2
+  store i64 %2, ptr %arrayidx, align 16
   %3 = or i64 %indvars.iv, 1
   %4 = mul nsw i64 %3, %3
   %5 = sub nsw i64 %0, %4
   %arrayidx8 = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %3
-  store i64 %5, ptr %arrayidx8, align 8, !tbaa !2
+  store i64 %5, ptr %arrayidx8, align 8
   %6 = or i64 %indvars.iv, 2
   %7 = mul nsw i64 %6, %6
   %8 = add nsw i64 %7, %0
   %arrayidx16 = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %6
-  store i64 %8, ptr %arrayidx16, align 16, !tbaa !2
+  store i64 %8, ptr %arrayidx16, align 16
   %9 = or i64 %indvars.iv, 3
   %10 = mul nsw i64 %9, %9
   %11 = add nsw i64 %10, %0
   %arrayidx24 = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %9
-  store i64 %11, ptr %arrayidx24, align 8, !tbaa !2
+  store i64 %11, ptr %arrayidx24, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 4
   %cmp = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp, label %for.body, label %for.cond.cleanup.loopexit
 }
 
-attributes #0 = { norecurse nounwind uwtable writeonly "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
 
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang e6de10bf60ed5be7555542cd7b35318c8f7cb851) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 1288f20472d2bee9e7b78f36105668969392d751)"}
-!2 = !{!3, !4, i64 0}
-!3 = !{!"array@_ZTSA10_l", !4, i64 0}
-!4 = !{!"long", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C/C++ TBAA"}

@@ -750,6 +750,16 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::SelectValOrLane: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    // Condition for select is expected to be scalar.
+    setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
+    // Value operand is expected to be scalar.
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::Not:
   case VPInstruction::SMax:
   case VPInstruction::UMax:
@@ -1313,6 +1323,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::SOAExtractValue:
   case VPInstruction::EarlyExitLane:
   case VPInstruction::EarlyExitID:
+  case VPInstruction::SelectValOrLane:
     return true;
   default:
     return false;
