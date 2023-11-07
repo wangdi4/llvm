@@ -213,6 +213,11 @@ CPUDetect *CPUDetect::GetInstance() {
 
 CPUDetect::CPUDetect(void) : m_is64BitOS(sizeof(void *) == 8) {
   m_HostCPUString = llvm::sys::getHostCPUName().str();
+#ifdef INTEL_PRODUCT_RELEASE
+  if (m_HostCPUString == "generic")
+    reportWarning("Unknown host CPU.");
+#endif // INTEL_PRODUCT_RELEASE
+  assert(m_HostCPUString != "generic" && "Unknown host CPU.");
   llvm::sys::getHostCPUFeatures(m_HostCPUFeatures);
   GetHostCPUBrandInfo();
   // If CL_CONFIG_CPU_TARGET_ARCH is not used, m_CPUFeatures and
