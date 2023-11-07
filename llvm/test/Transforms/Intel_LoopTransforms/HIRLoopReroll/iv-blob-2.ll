@@ -83,40 +83,30 @@ for.body:                                         ; preds = %for.body.preheader,
   %mul1 = mul i64 %indvars.iv, %indvars.iv
   %add2 = add i64 %mul1, %1
   %2 = and i64 %add2, 4294967293
-  %arrayidx = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i64 %2, ptr %arrayidx, align 16, !tbaa !2
+  %arrayidx = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %indvars.iv
+  store i64 %2, ptr %arrayidx, align 16
   %3 = add nuw nsw i64 %1, 1
   %4 = mul nsw i64 %1, %1
   %5 = add nuw nsw i64 %3, %4
   %6 = and i64 %5, 4294967295
-  %arrayidx12 = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %1, !intel-tbaa !2
-  store i64 %6, ptr %arrayidx12, align 8, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %1
+  store i64 %6, ptr %arrayidx12, align 8
   %7 = or i64 %indvars.iv, 3
   %8 = or i64 %indvars.iv, 2
   %9 = mul nsw i64 %8, %8
   %10 = add nuw nsw i64 %9, %7
   %11 = and i64 %10, 4294967295
-  %arrayidx22 = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %8, !intel-tbaa !2
-  store i64 %11, ptr %arrayidx22, align 16, !tbaa !2
+  %arrayidx22 = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %8
+  store i64 %11, ptr %arrayidx22, align 16
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 4
   %12 = mul nsw i64 %7, %7
   %13 = add nuw nsw i64 %indvars.iv.next, %12
   %14 = and i64 %13, 4294967293
-  %arrayidx32 = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %7, !intel-tbaa !2
-  store i64 %14, ptr %arrayidx32, align 8, !tbaa !2
+  %arrayidx32 = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %7
+  store i64 %14, ptr %arrayidx32, align 8
   %cmp = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp, label %for.body, label %for.cond.cleanup.loopexit
 }
 
-attributes #0 = { norecurse nounwind uwtable writeonly "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
 
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 81a88af0f8e5fbc44460e0e3d157b6ba6d246190) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 0cafc90f06328d1ee0589dc32b6c293f8f548162)"}
-!2 = !{!3, !4, i64 0}
-!3 = !{!"array@_ZTSA10_l", !4, i64 0}
-!4 = !{!"long", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C/C++ TBAA"}

@@ -9,7 +9,6 @@
 ;          BEGIN REGION { modified }
 ;                + DO i1 = 0, 4, 1   <DO_LOOP>
 ;                |   + DO i2 = 0, 1, 1   <DO_LOOP>
-;                |   |   %2 = (-1 * i2 + -1 != 0) ? 4 : 8;
 ;                |   |
 ;                |   |   + DO i3 = 0, 3, 1   <DO_LOOP>
 ;                |   |   |   + DO i4 = 0, 4, 1   <DO_LOOP>
@@ -50,10 +49,10 @@ for.body10.preheader:                             ; preds = %for.cond.cleanup9, 
 
 for.cond.cleanup3:                                ; preds = %for.cond.cleanup9
   %cmp = icmp ult i32 %.floor_0.iv.i1.089, 16
-  br i1 %cmp, label %for.cond1.preheader, label %for.cond.cleanup, !llvm.loop !5
+  br i1 %cmp, label %for.cond1.preheader, label %for.cond.cleanup
 
 for.cond.cleanup9:                                ; preds = %for.cond.cleanup21
-  br i1 %1, label %for.body10.preheader, label %for.cond.cleanup3, !llvm.loop !7
+  br i1 %1, label %for.body10.preheader, label %for.cond.cleanup3
 
 for.body10:                                       ; preds = %for.cond.cleanup21, %for.body10.preheader
   %.tile_0.iv.i1.086 = phi i32 [ %inc45, %for.cond.cleanup21 ], [ %.floor_0.iv.i1.089, %for.body10.preheader ]
@@ -70,7 +69,7 @@ for.cond.cleanup21.loopexit:                      ; preds = %for.cond.cleanup28
 for.cond.cleanup21:                               ; preds = %for.cond.cleanup21.loopexit, %for.body10
   %inc45 = add nuw nsw i32 %.tile_0.iv.i1.086, 1
   %exitcond92.not = icmp eq i32 %inc45, %0
-  br i1 %exitcond92.not, label %for.cond.cleanup9, label %for.body10, !llvm.loop !8
+  br i1 %exitcond92.not, label %for.cond.cleanup9, label %for.body10
 
 for.body22:                                       ; preds = %for.cond.cleanup28, %for.body22.preheader
   %.tile_1.iv.j1.084 = phi i32 [ %inc42, %for.cond.cleanup28 ], [ %.floor_1.iv.j1.087, %for.body22.preheader ]
@@ -86,43 +85,22 @@ for.cond30.preheader:                             ; preds = %for.cond.cleanup33,
 for.cond.cleanup28:                               ; preds = %for.cond.cleanup33
   %inc42 = add nuw nsw i32 %.tile_1.iv.j1.084, 1
   %exitcond91.not = icmp eq i32 %inc42, %2
-  br i1 %exitcond91.not, label %for.cond.cleanup21.loopexit, label %for.body22, !llvm.loop !9
+  br i1 %exitcond91.not, label %for.cond.cleanup21.loopexit, label %for.body22
 
 for.cond.cleanup33:                               ; preds = %for.body34
   %inc39 = add nuw nsw i32 %i2.082, 1
   %exitcond90.not = icmp eq i32 %inc39, %add26
-  br i1 %exitcond90.not, label %for.cond.cleanup28, label %for.cond30.preheader, !llvm.loop !10
+  br i1 %exitcond90.not, label %for.cond.cleanup28, label %for.cond30.preheader
 
 for.body34:                                       ; preds = %for.body34, %for.cond30.preheader
   %j2.081 = phi i32 [ %mul23, %for.cond30.preheader ], [ %inc, %for.body34 ]
   %add36 = add nuw nsw i32 %j2.081, %mul35
   %arrayidx37 = getelementptr inbounds [128 x i32], ptr %A, i32 %i2.082, i32 %j2.081
-  store i32 %add36, ptr %arrayidx37, align 4, !tbaa !11
+  store i32 %add36, ptr %arrayidx37, align 4
   %inc = add nuw nsw i32 %j2.081, 1
   %exitcond.not = icmp eq i32 %inc, %add31
-  br i1 %exitcond.not, label %for.cond.cleanup33, label %for.body34, !llvm.loop !16
+  br i1 %exitcond.not, label %for.cond.cleanup33, label %for.body34
 }
 
-attributes #0 = { nofree norecurse nosync nounwind uwtable writeonly "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="corei7" "target-features"="+crc32,+cx16,+cx8,+fxsr,+mmx,+popcnt,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87" "unsafe-fp-math"="true" }
 
-!llvm.module.flags = !{!0, !1, !2, !3}
-!llvm.ident = !{!4}
-!nvvm.annotations = !{}
 
-!0 = !{i32 1, !"NumRegisterParameters", i32 0}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{i32 7, !"openmp", i32 51}
-!3 = !{i32 7, !"uwtable", i32 1}
-!4 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
-!5 = distinct !{!5, !6}
-!6 = !{!"llvm.loop.mustprogress"}
-!7 = distinct !{!7, !6}
-!8 = distinct !{!8, !6}
-!9 = distinct !{!9, !6}
-!10 = distinct !{!10, !6}
-!11 = !{!12, !13, i64 0}
-!12 = !{!"array@_ZTSA128_i", !13, i64 0}
-!13 = !{!"int", !14, i64 0}
-!14 = !{!"omnipotent char", !15, i64 0}
-!15 = !{!"Simple C/C++ TBAA"}
-!16 = distinct !{!16, !6}

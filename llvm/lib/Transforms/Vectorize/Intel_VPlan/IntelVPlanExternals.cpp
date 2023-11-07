@@ -468,7 +468,7 @@ template <class LoopTy>
 void VPLiveInOutCreator::createInOutValues(LoopTy *OrigLoop) {
   VPlanVector &VecPlan = cast<VPlanVector>(Plan);
   const VPLoop *VLoop = *VecPlan.getVPLoopInfo()->begin();
-  if (!VLoop->getUniqueExitBlock())
+  if (!VLoop->getUniqueExitBlock() && !VecPlan.isEarlyExitLoop())
     return;
 
   VPExternalValues &ExtVals = Plan.getExternals();

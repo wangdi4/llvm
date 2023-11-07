@@ -1462,8 +1462,16 @@ public:
     for (const RegDDRef *Ref : make_range(SelfInst->rval_op_ddref_begin(),
                                           SelfInst->rval_op_ddref_end())) {
       if (Ref->isMemRef()) {
+        if (MemRef) {
+          // Current HIR input has at most one memref in a self SR.
+          // E.g.) %t = A[2*i]; S = S + %t + A[2*i + 1];
+          // Thus, this part of the code is not exercized.
+          // If the input form is broken in the future, currently,
+          // reroll doesn't have a support for rerolling those pattern.
+          LLVM_DEBUG(dbgs() << "A self SR has more than one memref addends.\n");
+          return false;
+        }
         MemRef = Ref;
-        break;
       }
     }
 

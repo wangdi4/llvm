@@ -728,6 +728,8 @@ public:
                        // loop.
     EarlyExitID, // Compute the final value of exit ID at the merged exit block
                  // of an early-exit loop.
+    SelectValOrLane, // Custom select operation to choose between given VPValue
+                     // and first/last vector lane.
   };
 
 private:
@@ -5280,15 +5282,13 @@ public:
 // appropriate value at the exit block to divert control flow.
 class VPEarlyExitID final : public VPInstruction {
 public:
-  VPEarlyExitID(VPPHINode *ExitIDPhi, VPEarlyExitLane *ExitLane)
-      : VPInstruction(VPInstruction::EarlyExitID, ExitIDPhi->getType(),
-                      {ExitIDPhi, ExitLane}) {}
+  VPEarlyExitID(VPValue *ExitIDPhiOrBlend, VPValue *ExitLane)
+      : VPInstruction(VPInstruction::EarlyExitID, ExitIDPhiOrBlend->getType(),
+                      {ExitIDPhiOrBlend, ExitLane}) {}
 
   // Getters for operands
-  VPPHINode *getExitIDPhi() const { return cast<VPPHINode>(getOperand(0)); }
-  VPEarlyExitLane *getEarlyExitLane() const {
-    return cast<VPEarlyExitLane>(getOperand(1));
-  }
+  VPValue *getExitIDPhiOrBlend() const { return getOperand(0); }
+  VPValue *getEarlyExitLane() const { return getOperand(1); }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static inline bool classof(const VPInstruction *VPI) {
@@ -5300,8 +5300,42 @@ public:
   }
 
   VPEarlyExitID *cloneImpl() const override {
-    return new VPEarlyExitID(getExitIDPhi(), getEarlyExitLane());
+    return new VPEarlyExitID(getExitIDPhiOrBlend(), getEarlyExitLane());
   }
+};
+
+// Custom select operation to choose between given VPValue and first/last vector
+// lane during codegen. Depending on the first operand value select either
+// second operand or a constant which is equal to 0 if useFirstLane() is true or
+// (VF-1) otherwise. The instruction is needed as we can't encode VF in VPlan.
+class VPSelectValOrLane : public VPInstruction {
+public:
+  VPSelectValOrLane(VPCmpInst *Cond, VPEarlyExitLane *Val, bool UseFirstLane)
+      : VPInstruction(VPInstruction::SelectValOrLane, Val->getType(),
+                      {Cond, Val}),
+        UseFirstLane(UseFirstLane) {}
+
+  VPValue *getCond() const { return getOperand(0); }
+  VPValue *getVal() const { return getOperand(1); }
+  bool useFirstLane() const { return UseFirstLane; }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::SelectValOrLane;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPSelectValOrLane *cloneImpl() const override {
+    return new VPSelectValOrLane(cast<VPCmpInst>(getCond()),
+                                 cast<VPEarlyExitLane>(getVal()),
+                                 useFirstLane());
+  }
+
+private:
+  bool UseFirstLane;
 };
 
 /// VPlan models a candidate for vectorization, encoding various decisions take
