@@ -48,8 +48,8 @@ using namespace llvm::vpo;
 // The interface getUniqueExitBlock() asserts that the loop has dedicated
 // exits. Check that a loop has dedicated exits before the check for unique
 // exit block. This is especially needed when stress testing VPlan builds.
-bool VPlanDriverLLVMImpl::hasDedicatedAndUniqueExits(Loop *Lp,
-                                                     WRNVecLoopNode *WRLp) {
+bool DriverLLVMImpl::hasDedicatedAndUniqueExits(Loop *Lp,
+                                                WRNVecLoopNode *WRLp) {
 
   if (!Lp->hasDedicatedExits()) {
     LLVM_DEBUG(dbgs() << "VD: loop form "
@@ -76,7 +76,7 @@ bool VPlanDriverLLVMImpl::hasDedicatedAndUniqueExits(Loop *Lp,
 
 // Auxiliary function that checks only loop-specific constraints. Generic loop
 // nest constraints are in 'isSupported' function.
-bool VPlanDriverLLVMImpl::isSupportedRec(Loop *Lp, WRNVecLoopNode *WRLp) {
+bool DriverLLVMImpl::isSupportedRec(Loop *Lp, WRNVecLoopNode *WRLp) {
 
   if (!LoopMassagingEnabled && !hasDedicatedAndUniqueExits(Lp, WRLp))
     return false;
@@ -89,8 +89,7 @@ bool VPlanDriverLLVMImpl::isSupportedRec(Loop *Lp, WRNVecLoopNode *WRLp) {
   return true;
 }
 
-bool VPlanDriverLLVMImpl::processLoop(Loop *Lp, Function &Fn,
-                                      WRNVecLoopNode *WRLp) {
+bool DriverLLVMImpl::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   // Enable peeling for LLVM-IR path from command line switch
   VPlanEnablePeeling = VPlanEnablePeelingOpt;
   VPlanEnableGeneralPeeling = VPlanEnableGeneralPeelingOpt;
@@ -387,9 +386,9 @@ bool VPlanDriverLLVMImpl::processLoop(Loop *Lp, Function &Fn,
 // Bail-out reasons with messages of more interest to compiler maintainers
 // than to users should be marked with verbosity High and never emitted in
 // release compilers.  For these, we first emit a more generic Medium message.
-bool VPlanDriverLLVMImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
-                                  WRNVecLoopNode *WRLp,
-                                  VPlanBailoutRemark RemarkData) {
+bool DriverLLVMImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
+                             WRNVecLoopNode *WRLp,
+                             VPlanBailoutRemark RemarkData) {
 
   OptRemarkID ID = RemarkData.BailoutRemark.getRemarkID();
 
@@ -449,7 +448,7 @@ static bool isIrreducibleCFG(Loop *Lp, LoopInfo *LI) {
 }
 
 // Return true if this loop is supported in VPlan
-bool VPlanDriverLLVMImpl::isSupported(Loop *Lp, WRNVecLoopNode *WRLp) {
+bool DriverLLVMImpl::isSupported(Loop *Lp, WRNVecLoopNode *WRLp) {
   // TODO: Ensure this is true for the new pass manager. Currently, vplan-driver
   // isn't added to the pass manager at all. Once it's done there would be three
   // options probably:
@@ -503,8 +502,8 @@ bool VPlanDriverLLVMImpl::isSupported(Loop *Lp, WRNVecLoopNode *WRLp) {
   return true;
 }
 
-llvm::Loop *VPlanDriverLLVMImpl::adjustLoopIfNeeded(llvm::Loop *Lp,
-                                                    BasicBlock *Header) {
+llvm::Loop *DriverLLVMImpl::adjustLoopIfNeeded(llvm::Loop *Lp,
+                                               BasicBlock *Header) {
   // We recalculate LoopInfo after each loop processed (see processLoop) so
   // can't use Loop* from WRNVecLoopNode as in the HIR path.
   //
@@ -517,7 +516,7 @@ llvm::Loop *VPlanDriverLLVMImpl::adjustLoopIfNeeded(llvm::Loop *Lp,
   return LI->getLoopFor(Header);
 }
 
-bool VPlanDriverLLVMImpl::formLCSSAIfNeeded(Loop *Lp) {
+bool DriverLLVMImpl::formLCSSAIfNeeded(Loop *Lp) {
   // Inner loop vectorization might cause LCSSA form breakage. For example:
   //
   //   vector.body:
@@ -543,11 +542,11 @@ bool VPlanDriverLLVMImpl::formLCSSAIfNeeded(Loop *Lp) {
   return false;
 }
 
-VPlanDriverLLVMPass::VPlanDriverLLVMPass() { Impl = new VPlanDriverLLVMImpl(); }
+VPlanDriverLLVMPass::VPlanDriverLLVMPass() { Impl = new DriverLLVMImpl(); }
 
 VPlanDriverLLVMPass::VPlanDriverLLVMPass(const VPlanDriverLLVMPass &P) noexcept
     : PassInfoMixin<VPlanDriverLLVMPass>(P) {
-  Impl = new VPlanDriverLLVMImpl();
+  Impl = new DriverLLVMImpl();
 }
 
 VPlanDriverLLVMPass::~VPlanDriverLLVMPass() { delete Impl; }
@@ -586,7 +585,7 @@ PreservedAnalyses VPlanDriverLLVMPass::run(Function &F,
   return PA;
 }
 
-bool VPlanDriverLLVMImpl::runImpl(
+bool DriverLLVMImpl::runImpl(
     Function &Fn, LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT,
     AssumptionCache *AC, AliasAnalysis *AA, DemandedBits *DB,
     LoopAccessInfoManager *LAIs, OptimizationRemarkEmitter *ORE,
@@ -634,7 +633,7 @@ bool VPlanDriverLLVMImpl::runImpl(
   return ModifiedFunc;
 }
 
-void VPlanDriverLLVMImpl::collectAllLoops(SmallVectorImpl<Loop *> &Loops) {
+void DriverLLVMImpl::collectAllLoops(SmallVectorImpl<Loop *> &Loops) {
 
   std::function<void(Loop *)> collectSubLoops = [&](Loop *Lp) {
     Loops.push_back(Lp);
@@ -653,7 +652,7 @@ void VPlanDriverLLVMImpl::collectAllLoops(SmallVectorImpl<Loop *> &Loops) {
 
 namespace llvm {
 namespace vpo {
-bool VPlanDriverLLVMImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
+bool DriverLLVMImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
   // Only consider inner loops
   if (!Lp->isInnermost())
     return false;

@@ -121,7 +121,7 @@ static cl::opt<bool> VPlanPrintAfterFinalCondTransform(
 
 cl::opt<bool, true> PrintHIRBeforeVPlanOpt(
     "print-hir-before-vplan", cl::location(PrintHIRBeforeVPlan),
-    cl::desc("Print HLLoop which we attempt to vectorize via VPlanDriverHIR"));
+    cl::desc("Print HLLoop which we attempt to vectorize via DriverHIR"));
 
 static cl::opt<bool, /*ExternalStorage=*/true> VPlanDebugOptReportOpt(
     "vplan-debug-opt-report", cl::location(EmitDebugOptRemarks),
@@ -217,7 +217,7 @@ static bool canProcessMaskedVariant(const VPlanVector &P) {
 // BB2:
 // ...
 
-void VPlanDriverImpl::preprocessDopeVectorInstructions(VPlanVector *Plan) {
+void DriverImpl::preprocessDopeVectorInstructions(VPlanVector *Plan) {
   VPLoopInfo *VPLI = Plan->getVPLoopInfo();
   VPDominatorTree *DT = Plan->getDT();
   VPPostDominatorTree *PDT = Plan->getPDT();
@@ -280,8 +280,7 @@ void VPlanDriverImpl::preprocessDopeVectorInstructions(VPlanVector *Plan) {
   }
 }
 
-void VPlanDriverImpl::preprocessPrivateFinalCondInstructions(
-    VPlanVector *Plan) {
+void DriverImpl::preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
 
   VPLoopInfo *VPLI = Plan->getVPLoopInfo();
   VPDominatorTree *DT = Plan->getDT();
@@ -422,107 +421,101 @@ void VPlanDriverImpl::preprocessPrivateFinalCondInstructions(
 }
 
 template <>
-bool VPlanDriverImpl::processLoop<vpo::HLLoop>(vpo::HLLoop *Lp, Function &Fn,
-                                               WRNVecLoopNode *WRLp) {
-  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
+bool DriverImpl::processLoop<vpo::HLLoop>(vpo::HLLoop *Lp, Function &Fn,
+                                          WRNVecLoopNode *WRLp) {
+  auto *Self = static_cast<DriverHIRImpl *>(this);
   return Self->processLoop(Lp, Fn, WRLp);
 }
 
 template <>
-bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
-                                              WRNVecLoopNode *WRLp) {
-  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+bool DriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
+                                         WRNVecLoopNode *WRLp) {
+  auto *Self = static_cast<DriverLLVMImpl *>(this);
   return Self->processLoop(Lp, Fn, WRLp);
 }
 
 template <>
-bool VPlanDriverImpl::bailout<vpo::HLLoop>(VPlanOptReportBuilder &VPORB,
-                                           vpo::HLLoop *Lp,
-                                           WRNVecLoopNode *WRLp,
-                                           VPlanBailoutRemark RemarkData) {
-  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
+bool DriverImpl::bailout<vpo::HLLoop>(VPlanOptReportBuilder &VPORB,
+                                      vpo::HLLoop *Lp, WRNVecLoopNode *WRLp,
+                                      VPlanBailoutRemark RemarkData) {
+  auto *Self = static_cast<DriverHIRImpl *>(this);
   return Self->bailout(VPORB, Lp, WRLp, RemarkData);
 }
 
 template <>
-bool VPlanDriverImpl::bailout<llvm::Loop>(VPlanOptReportBuilder &VPORB,
-                                          llvm::Loop *Lp, WRNVecLoopNode *WRLp,
-                                          VPlanBailoutRemark RemarkData) {
-  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+bool DriverImpl::bailout<llvm::Loop>(VPlanOptReportBuilder &VPORB,
+                                     llvm::Loop *Lp, WRNVecLoopNode *WRLp,
+                                     VPlanBailoutRemark RemarkData) {
+  auto *Self = static_cast<DriverLLVMImpl *>(this);
   return Self->bailout(VPORB, Lp, WRLp, RemarkData);
 }
 
 template <>
-bool VPlanDriverImpl::isSupported<vpo::HLLoop>(vpo::HLLoop *Lp,
-                                               WRNVecLoopNode *WRLp) {
-  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
+bool DriverImpl::isSupported<vpo::HLLoop>(vpo::HLLoop *Lp,
+                                          WRNVecLoopNode *WRLp) {
+  auto *Self = static_cast<DriverHIRImpl *>(this);
   return Self->isSupported(Lp, WRLp);
 }
 
 template <>
-bool VPlanDriverImpl::isSupported<llvm::Loop>(Loop *Lp, WRNVecLoopNode *WRLp) {
-  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+bool DriverImpl::isSupported<llvm::Loop>(Loop *Lp, WRNVecLoopNode *WRLp) {
+  auto *Self = static_cast<DriverLLVMImpl *>(this);
   return Self->isSupported(Lp, WRLp);
 }
 
 template <>
-vpo::HLLoop *
-VPlanDriverImpl::adjustLoopIfNeeded<vpo::HLLoop>(vpo::HLLoop *Lp,
-                                                 BasicBlock *Header) {
+vpo::HLLoop *DriverImpl::adjustLoopIfNeeded<vpo::HLLoop>(vpo::HLLoop *Lp,
+                                                         BasicBlock *Header) {
   // No adjustment for HIR.
   return Lp;
 }
 
 template <>
-llvm::Loop *
-VPlanDriverImpl::adjustLoopIfNeeded<llvm::Loop>(llvm::Loop *Lp,
-                                                BasicBlock *Header) {
-  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+llvm::Loop *DriverImpl::adjustLoopIfNeeded<llvm::Loop>(llvm::Loop *Lp,
+                                                       BasicBlock *Header) {
+  auto *Self = static_cast<DriverLLVMImpl *>(this);
   return Self->adjustLoopIfNeeded(Lp, Header);
 }
 
-template <>
-bool VPlanDriverImpl::formLCSSAIfNeeded<vpo::HLLoop>(vpo::HLLoop *Lp) {
+template <> bool DriverImpl::formLCSSAIfNeeded<vpo::HLLoop>(vpo::HLLoop *Lp) {
   // No recalculation needed for HIR.
   return false;
 }
 
-template <>
-bool VPlanDriverImpl::formLCSSAIfNeeded<llvm::Loop>(llvm::Loop *Lp) {
-  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+template <> bool DriverImpl::formLCSSAIfNeeded<llvm::Loop>(llvm::Loop *Lp) {
+  auto *Self = static_cast<DriverLLVMImpl *>(this);
   return Self->formLCSSAIfNeeded(Lp);
 }
 
 template <>
-void VPlanDriverImpl::collectAllLoops<vpo::HLLoop>(
+void DriverImpl::collectAllLoops<vpo::HLLoop>(
     SmallVectorImpl<vpo::HLLoop *> &Loops) {
-  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
+  auto *Self = static_cast<DriverHIRImpl *>(this);
   return Self->collectAllLoops(Loops);
 }
 
 template <>
-void VPlanDriverImpl::collectAllLoops<Loop>(SmallVectorImpl<Loop *> &Loops) {
-  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+void DriverImpl::collectAllLoops<Loop>(SmallVectorImpl<Loop *> &Loops) {
+  auto *Self = static_cast<DriverLLVMImpl *>(this);
   return Self->collectAllLoops(Loops);
 }
 
 template <>
-bool VPlanDriverImpl::isVPlanCandidate<vpo::HLLoop>(Function &Fn,
-                                                    vpo::HLLoop *Lp) {
-  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
+bool DriverImpl::isVPlanCandidate<vpo::HLLoop>(Function &Fn, vpo::HLLoop *Lp) {
+  auto *Self = static_cast<DriverHIRImpl *>(this);
   return Self->isVPlanCandidate(Fn, Lp);
 }
 
 template <>
-bool VPlanDriverImpl::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
-  auto *Self = static_cast<VPlanDriverLLVMImpl *>(this);
+bool DriverImpl::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
+  auto *Self = static_cast<DriverLLVMImpl *>(this);
   return Self->isVPlanCandidate(Fn, Lp);
 }
 
 /// Standard Mode: standard path for automatic and explicit vectorization.
 /// Explicit vectorization: it uses WRegion analysis to collect and vectorize
 /// all the WRNVecLoopNode's.
-template <typename Loop> bool VPlanDriverImpl::runStandardMode(Function &Fn) {
+template <typename Loop> bool DriverImpl::runStandardMode(Function &Fn) {
   const bool ShouldVectorizeChildren =
       NestedSimdStrategy == NestedSimdStrategies::Innermost ||
       NestedSimdStrategy == NestedSimdStrategies::FromInside;
@@ -627,7 +620,7 @@ template <typename Loop> bool VPlanDriverImpl::runStandardMode(Function &Fn) {
 /// function.
 /// TODO: WIP for HIR.
 template <typename Loop>
-bool VPlanDriverImpl::runConstructStressTestMode(Function &Fn) {
+bool DriverImpl::runConstructStressTestMode(Function &Fn) {
 
   LLVM_DEBUG(dbgs() << "VD: VPlan Construction Stress Test mode\n");
 
@@ -650,14 +643,13 @@ bool VPlanDriverImpl::runConstructStressTestMode(Function &Fn) {
   return ModifiedFunc;
 }
 
-void VPlanDriverImpl::incrementCandLoopsVectorized() { CandLoopsVectorized++; }
+void DriverImpl::incrementCandLoopsVectorized() { CandLoopsVectorized++; }
 
 /// CG Stress Testing Mode: generates vector code for the first VPlanVectCand
 /// number of loops marked as vectorizable using LoopVectorize analysis. When
 /// debugging vector CG issues, we can do a binary search to find out the
 /// problem loop by setting VPlanVectCand appropriately.
-template <typename Loop>
-bool VPlanDriverImpl::runCGStressTestMode(Function &Fn) {
+template <typename Loop> bool DriverImpl::runCGStressTestMode(Function &Fn) {
 
   LLVM_DEBUG(dbgs() << "VD: VPlan CG Stress Test mode\n");
 
@@ -677,7 +669,7 @@ bool VPlanDriverImpl::runCGStressTestMode(Function &Fn) {
 
 // Common LLVM-IR/HIR high-level implementation to process a function. It gets
 // LLVM-IR-HIR common analyses and choose an execution mode.
-template <typename Loop> bool VPlanDriverImpl::processFunction(Function &Fn) {
+template <typename Loop> bool DriverImpl::processFunction(Function &Fn) {
 
   // We cannot rely on compiler driver not invoking vectorizer for
   // non-vector targets. Ensure vectorizer won't cause any issues for
@@ -708,10 +700,10 @@ template <typename Loop> bool VPlanDriverImpl::processFunction(Function &Fn) {
   return ModifiedFunc;
 }
 
-template bool VPlanDriverImpl::processFunction<llvm::Loop>(Function &Fn);
-template bool VPlanDriverImpl::processFunction<vpo::HLLoop>(Function &Fn);
+template bool DriverImpl::processFunction<llvm::Loop>(Function &Fn);
+template bool DriverImpl::processFunction<vpo::HLLoop>(Function &Fn);
 
-void VPlanDriverImpl::addOptReportRemarksForMainPlan(
+void DriverImpl::addOptReportRemarksForMainPlan(
     WRNVecLoopNode *WRLp, const CfgMergerPlanDescr &MainPlanDescr) {
   assert(MainPlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTMain &&
          "Only main loop plan descriptors expected here.");
@@ -761,7 +753,7 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
         Twine(MainPlanDescr.getUF()).str());
 }
 
-void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
+void DriverImpl::addOptReportRemarksForVecRemainder(
     const CfgMergerPlanDescr &PlanDescr) {
   assert(PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTRemainder &&
          "Only remainder loop plan descriptors expected here.");
@@ -787,7 +779,7 @@ void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
                                           Twine(PlanDescr.getVF()).str());
 }
 
-void VPlanDriverImpl::addOptReportRemarksForScalRemainder(
+void DriverImpl::addOptReportRemarksForScalRemainder(
     const CfgMergerPlanDescr &PlanDescr) {
   assert(PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTRemainder &&
          "Only remainder loop plan descriptors expected here.");
@@ -830,12 +822,12 @@ getPeeledMemrefRemark(LLVMContext &C, const VPlanPeelingVariant *V) {
                           .str();
   }
 
-  return VPlanDriverImpl::getDebugRemark<RemarkRecord>(
+  return DriverImpl::getDebugRemark<RemarkRecord>(
       C, "peeled by memref ", NameAndDbgLoc, "(",
       Memref->getOpcode() == Instruction::Load ? "load" : "store", ")");
 }
 
-void VPlanDriverImpl::addOptReportRemarksForVecPeel(
+void DriverImpl::addOptReportRemarksForVecPeel(
     const CfgMergerPlanDescr &PlanDescr, const VPlanPeelingVariant *Variant) {
   assert(PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTPeel &&
          "Only peel loop plan descriptors expected here.");
@@ -870,7 +862,7 @@ void VPlanDriverImpl::addOptReportRemarksForVecPeel(
     OptRptStats.GeneralRemarks.push_back(*std::move(PeeledMemrefRemark));
 }
 
-void VPlanDriverImpl::addOptReportRemarksForScalPeel(
+void DriverImpl::addOptReportRemarksForScalPeel(
     const CfgMergerPlanDescr &PlanDescr, const VPlanPeelingVariant *Variant) {
   assert(PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTPeel &&
          "Only peel loop plan descriptors expected here.");
@@ -895,14 +887,14 @@ void VPlanDriverImpl::addOptReportRemarksForScalPeel(
     ScalarLpI->addGeneralRemark(*std::move(PeeledMemrefRemark));
 }
 
-void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
-                                            VPAnalysesFactoryBase &VPAF) {
+void DriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
+                                       VPAnalysesFactoryBase &VPAF) {
   for (auto &Pair : LVP.getAllVPlans())
     VPAF.populateVPlanAnalyses(*Pair.second.MainPlan);
 }
 
-void VPlanDriverImpl::generateMaskedModeVPlans(LoopVectorizationPlanner *LVP,
-                                               VPAnalysesFactoryBase *VPAF) {
+void DriverImpl::generateMaskedModeVPlans(LoopVectorizationPlanner *LVP,
+                                          VPAnalysesFactoryBase *VPAF) {
   DenseMap<VPlanVector *, std::shared_ptr<VPlanMasked>> OrigClonedVPlans;
   for (auto &Pair : LVP->getAllVPlans()) {
     std::shared_ptr<VPlanVector> Plan = Pair.second.MainPlan;

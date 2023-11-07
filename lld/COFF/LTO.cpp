@@ -119,6 +119,7 @@ lto::Config BitcodeCompiler::createConfig() {
   c.ShouldDiscardValueNames = ctx.config.intelShouldDiscardValueNames;
   c.PTO.LoopVectorization = c.OptLevel > 1;
   c.PTO.SLPVectorization = c.OptLevel > 1;
+  c.VerifyEach = ctx.config.llvmVerifyEach;
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

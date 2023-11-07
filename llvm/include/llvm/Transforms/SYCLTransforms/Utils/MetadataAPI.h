@@ -160,6 +160,8 @@ struct KernelInternalMetadataAPI {
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> UseFPGAPipesTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy>
       SubGroupConstructionModeTy;
+  typedef NamedMDValue<bool, MDValueGlobalObjectStrategy>
+      UseAddrSpaceQualifierFuncTy;
   typedef NamedMDList<llvm::Constant, MDValueGlobalObjectStrategy>
       ArgTypeNullValListTy;
 
@@ -185,6 +187,7 @@ struct KernelInternalMetadataAPI {
         ScalarKernel(Func, "scalar_kernel"),
         UseFPGAPipes(Func, "use_fpga_pipes"),
         SubGroupConstructionMode(Func, "sg_construction_mode"),
+        UseAddrSpaceQualifierFunc(Func, "use_addrspace_qualifier_func"),
         ArgTypeNullValList(Func, "arg_type_null_val") {}
 
   // internal attributes
@@ -209,24 +212,35 @@ struct KernelInternalMetadataAPI {
   NamedMDValueAccessor<ScalarizedKernelTy> ScalarKernel;
   NamedMDValueAccessor<UseFPGAPipesTy> UseFPGAPipes;
   NamedMDValueAccessor<SubGroupConstructionModeTy> SubGroupConstructionMode;
+  NamedMDValueAccessor<UseAddrSpaceQualifierFuncTy> UseAddrSpaceQualifierFunc;
   ArgTypeNullValListTy ArgTypeNullValList;
 
 public:
   const llvm::SmallVectorImpl<llvm::StringRef> &getMDNames() const {
     // Lazily initialize MDNames.
     if (MDNames.empty()) {
-      MDNames = {
-          LocalBufferSize.getID(),        BarrierBufferSize.getID(),
-          KernelExecutionLength.getID(),  MaxWGDimensions.getID(),
-          KernelHasGlobalSync.getID(),    KernelHasSubgroups.getID(),
-          NoBarrierPath.getID(),          VectorizedWidth.getID(),
-          RecommendedVL.getID(),          BlockLiteralSize.getID(),
-          PrivateMemorySize.getID(),      VectorizationDimension.getID(),
-          CanUniteWorkgroups.getID(),     VectorizedKernel.getID(),
-          VectorizedMaskedKernel.getID(), KernelWrapper.getID(),
-          ScalarKernel.getID(),           UseFPGAPipes.getID(),
-          HasMatrixCall.getID(),          SubGroupConstructionMode.getID(),
-          ArgTypeNullValList.getID()};
+      MDNames = {LocalBufferSize.getID(),
+                 BarrierBufferSize.getID(),
+                 KernelExecutionLength.getID(),
+                 MaxWGDimensions.getID(),
+                 KernelHasGlobalSync.getID(),
+                 KernelHasSubgroups.getID(),
+                 NoBarrierPath.getID(),
+                 VectorizedWidth.getID(),
+                 RecommendedVL.getID(),
+                 BlockLiteralSize.getID(),
+                 PrivateMemorySize.getID(),
+                 VectorizationDimension.getID(),
+                 CanUniteWorkgroups.getID(),
+                 VectorizedKernel.getID(),
+                 VectorizedMaskedKernel.getID(),
+                 KernelWrapper.getID(),
+                 ScalarKernel.getID(),
+                 UseFPGAPipes.getID(),
+                 HasMatrixCall.getID(),
+                 SubGroupConstructionMode.getID(),
+                 UseAddrSpaceQualifierFunc.getID(),
+                 ArgTypeNullValList.getID()};
     }
     return MDNames;
   }

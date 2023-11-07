@@ -1,39 +1,23 @@
-; XFAIL: *
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s
 
-; Reassociation of (%0 + %1) and (%3 + %4) is not implemented.
-; See the self safe reduction inst.
-
-; #define SIZE 10
-; #include <stdint.h>
-; int64_t A[SIZE];
-; int64_t B[SIZE];
-
+; Verify that the loop with self safe reduction inst can be correctly rerolled.
 
 ; CHECK:Function: foo
-
-; CHECK:        BEGIN REGION { }
-; CHECK:              + DO i1 = 0, 49, 1   <DO_LOOP>
-; CHECK:              |   %0 = (@C)[0][2 * i1];
-; CHECK:              |   %1 = (@B)[0][2 * i1];
-; CHECK:              |   (@A)[0][2 * i1] = %0 + %1;
-; CHECK:              |   %3 = (@C)[0][2 * i1 + 1];
-; CHECK:              |   %4 = (@B)[0][2 * i1 + 1];
-; CHECK:              |   (@A)[0][2 * i1 + 1] = %3 + %4;
-; CHECK:              |   %S.036 = %0 + %1 + %S.036  +  %3 + %4;
-; CHECK:              + END LOOP
-; CHECK:        END REGION
+; CHECK:      + DO i1 = 0, 49, 1   <DO_LOOP>
+; CHECK:      |   %0 = (@C)[0][2 * i1];
+; CHECK:      |   %1 = (@B)[0][2 * i1];
+; CHECK:      |   %3 = (@C)[0][2 * i1 + 1];
+; CHECK:      |   %4 = (@B)[0][2 * i1 + 1];
+; CHECK:      |   %S.036 = %0 + %1 + %S.036  +  %3 + %4;
+; CHECK:      + END LOOP
 
 ; CHECK:Function: foo
+; CHECK:      + DO i1 = 0, 99, 1   <DO_LOOP>
+; CHECK:      |   %0 = (@C)[0][i1];
+; CHECK:      |   %1 = (@B)[0][i1];
+; CHECK:      |   %S.036 = %0 + %S.036  +  %1;
+; CHECK:      + END LOOP
 
-; CHECK:        BEGIN REGION { }
-; CHECK:              + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:              |   %0 = (@C)[0][i1];
-; CHECK:              |   %1 = (@B)[0][i1];
-; CHECK:              |   (@A)[0][i1] = %0 + %1;
-; CHECK:              |   %S.036 = %0 + %1 + %S.036;
-; CHECK:              + END LOOP
-; CHECK:        END REGION
 
 ;Module Before HIR
 ; ModuleID = 'store-red-2.c'
@@ -62,8 +46,6 @@ for.body:                                         ; preds = %entry, %for.body
   %arrayidx2 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
   %1 = load i32, ptr %arrayidx2, align 8, !tbaa !2
   %add = add nsw i32 %1, %0
-  %arrayidx4 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %add, ptr %arrayidx4, align 8, !tbaa !2
   %add7 = add nsw i32 %add, %S.036
   %2 = or i64 %indvars.iv, 1
   %arrayidx10 = getelementptr inbounds [100 x i32], ptr @C, i64 0, i64 %2, !intel-tbaa !2
@@ -71,8 +53,6 @@ for.body:                                         ; preds = %entry, %for.body
   %arrayidx13 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %2, !intel-tbaa !2
   %4 = load i32, ptr %arrayidx13, align 4, !tbaa !2
   %add14 = add nsw i32 %4, %3
-  %arrayidx17 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %2, !intel-tbaa !2
-  store i32 %add14, ptr %arrayidx17, align 4, !tbaa !2
   %add21 = add nsw i32 %add7, %add14
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %cmp = icmp ult i64 %indvars.iv.next, 100

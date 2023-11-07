@@ -20,16 +20,13 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRPMSymbolicTripCountCompleteUnrollLegacyPassPass(Registry);
   initializeHIRLoopInterchangeLegacyPassPass(Registry);
   initializeHIROptPredicateLegacyPassPass(Registry);
-  initializeHIRGeneralUnrollLegacyPassPass(Registry);
   initializeHIRUnrollAndJamLegacyPassPass(Registry);
-  initializeHIRDummyTransformationPass(Registry);
   initializeHIRLoopReversalLegacyPassPass(Registry);
   initializeHIRLoopCollapseLegacyPassPass(Registry);
   initializeHIRRuntimeDDLegacyPassPass(Registry);
   initializeHIRScalarReplArrayLegacyPassPass(Registry);
   initializeHIRLoopBlockingLegacyPassPass(Registry);
   initializeHIRPragmaLoopBlockingLegacyPassPass(Registry);
-  initializeHIRGenerateMKLCallLegacyPassPass(Registry);
   initializeHIRLoopDistributionForMemRecLegacyPassPass(Registry);
   initializeHIRLoopDistributionForLoopNestLegacyPassPass(Registry);
   initializeHIRLoopRematerializeLegacyPassPass(Registry);
@@ -38,17 +35,14 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRParDirInsertPass(Registry);
   initializeHIRVecDirInsertPass(Registry);
   initializeHIROptVarPredicateLegacyPassPass(Registry);
-  initializeHIRIdiomRecognitionLegacyPassPass(Registry);
   initializeHIRMVForConstUBLegacyPassPass(Registry);
   initializeHIRMVForVariableStrideLegacyPassPass(Registry);
   initializeHIRLoopConcatenationLegacyPassPass(Registry);
   initializeHIRLoopFusionLegacyPassPass(Registry);
-  initializeHIRDeadStoreEliminationLegacyPassPass(Registry);
   initializeHIRLastValueComputationLegacyPassPass(Registry);
   initializeHIRPropagateCastedIVLegacyPassPass(Registry);
   initializeHIRMultiExitLoopRerollLegacyPassPass(Registry);
   initializeHIRRecognizeParLoopPass(Registry);
-  initializeHIRIdentityMatrixIdiomRecognitionLegacyPassPass(Registry);
   initializeHIRMinMaxRecognitionLegacyPassPass(Registry);
   initializeHIRPrefetchingLegacyPassPass(Registry);
   initializeHIRSinkingForPerfectLoopnestLegacyPassPass(Registry);
@@ -58,9 +52,4 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRStoreResultIntoTempArrayLegacyPassPass(Registry);
   initializeHIRSumWindowReuseLegacyPassPass(Registry);
   initializeHIRNonZeroSinkingForPerfectLoopnestLegacyPassPass(Registry);
-  initializeHIRIdentityMatrixSubstitutionLegacyPassPass(Registry);
-  initializeHIRIfReversalLegacyPassPass(Registry);
-#if INTEL_FEATURE_SW_ADVANCED
-  initializeHIRInterLoopBlockingLegacyPassPass(Registry);
-#endif // INTEL_FEATURE_SW_ADVANCED
 }

@@ -2118,11 +2118,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     }
     return CL_DEV_SUCCESS;
   case (CL_DEVICE_HALF_FP_CONFIG): {
-    std::string Env;
-    if (isCPUDeviceMode && !Intel::OpenCL::Utils::getEnvVar(
-                               Env, "CL_CONFIG_CPU_EXPERIMENTAL_FP16")) {
-      return CL_DEV_INVALID_VALUE;
-    }
     cl_device_fp_config fpConfig = 0;
     fpConfig = CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST;
     *pinternalRetunedValueSize = sizeof(cl_device_fp_config);

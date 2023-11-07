@@ -23,14 +23,14 @@
 namespace llvm {
 namespace vpo {
 
-class VPlanDriverHIRImpl;
-class VPlanDriverLLVMImpl;
+class DriverHIRImpl;
+class DriverLLVMImpl;
 
 class VPlanDriverLLVMPass : public PassInfoMixin<VPlanDriverLLVMPass> {
-  VPlanDriverLLVMImpl *Impl = nullptr;
+  DriverLLVMImpl *Impl = nullptr;
   static bool RunForSycl;
   static bool RunForO0;
-  /// Error handler, see the corresponding commment in VPlanDriverImpl.
+  /// Error handler, see the corresponding commment in DriverImpl.
   static VecErrorHandlerTy VecErrorHandler;
 
 public:
@@ -49,7 +49,7 @@ public:
 
 class VPlanDriverHIRPass
     : public loopopt::HIRPassInfoMixin<VPlanDriverHIRPass> {
-  VPlanDriverHIRImpl *Impl = nullptr;
+  DriverHIRImpl *Impl = nullptr;
 
 public:
   static constexpr auto PassName = "hir-vplan-vec";

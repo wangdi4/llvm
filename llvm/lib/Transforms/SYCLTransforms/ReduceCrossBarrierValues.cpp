@@ -36,6 +36,14 @@ static bool isSafeToCopy(Instruction *Inst, RuntimeService &RTS) {
   if (isa<AllocaInst>(Inst))
     return false;
 
+  // A few TID builtins's memory(none) attribute is removed in AddFunctionAttrs
+  // pass. Check their names before checking if it may read or write memory.
+  if (auto *Call = dyn_cast<CallBase>(Inst)) {
+    Function *CalledFunc = Call->getCalledFunction();
+    if (CalledFunc && RTS.isSafeToSpeculativeExecute(CalledFunc->getName()))
+      return true;
+  }
+
   // TODO:
   // If the instruction is a load, we must guarantee that all paths from where
   // it's defined to where it will be cloned have no write to the memory it
@@ -48,15 +56,10 @@ static bool isSafeToCopy(Instruction *Inst, RuntimeService &RTS) {
       Inst->mayThrow())
     return false;
 
-  if (auto *Call = dyn_cast<CallBase>(Inst)) {
-    Function *CalledFunc = Call->getCalledFunction();
-    if (CalledFunc && RTS.isSafeToSpeculativeExecute(CalledFunc->getName()))
-      return true;
-
-    // For other function calls, cloning them can be more expensive than save
-    // to/load from special buffer. So we choose to bail out.
+  // For other function calls, cloning them can be more expensive than save
+  // to/load from special buffer. So we choose to bail out.
+  if (isa<CallBase>(Inst))
     return false;
-  }
 
   return true;
 }

@@ -1611,6 +1611,16 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   // Remove the OrigLoop for merged CFG approach or if remainder is not needed.
   if ((!isSearchLoop() && OrigLoop->isAttached()) || !NeedRemainderLoop)
     HLNodeUtils::remove(OrigLoop);
+
+  // For vectorized multi-exit loops we need to update number of exits starting
+  // from outermost parent loop (if any).
+  // TODO: Handle cases where multi-exit vectorized loop is partially unrolled.
+  // This may happen only with explicit early-exit loops. In such cases we need
+  // to call HLNodeUtils::updateNumLoopExits on the main vectorized loop.
+  if (MainLoop->isMultiExit()) {
+    if (auto *OuterLp = MainLoop->getOutermostParentLoop())
+      HLNodeUtils::updateNumLoopExits(OuterLp);
+  }
 }
 
 // This function replaces scalar math lib calls in the remainder loop with

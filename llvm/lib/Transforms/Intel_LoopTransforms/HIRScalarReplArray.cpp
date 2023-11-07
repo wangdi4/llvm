@@ -1394,13 +1394,6 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp) {
 
   assert(Transformed && "At least one transformed group expected!");
 
-  // Loop independent scalar replacement happens early in the pipeline so
-  // cleaning up temps helps downstream optimizations.
-  if (LoopIndependentReplOnly) {
-    HIRTransformUtils::doConstantAndCopyPropagation(Lp);
-    HLNodeUtils::removeRedundantNodes(Lp);
-  }
-
   OptReportBuilder &ORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
@@ -1416,6 +1409,13 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp) {
   Lp->getParentRegion()->setGenCode();
   HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(Lp);
+
+  // Loop independent scalar replacement happens early in the pipeline so
+  // cleaning up temps helps downstream optimizations.
+  if (LoopIndependentReplOnly) {
+    HIRTransformUtils::doConstantAndCopyPropagation(Lp);
+    HLNodeUtils::removeRedundantNodes(Lp);
+  }
 }
 
 void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {

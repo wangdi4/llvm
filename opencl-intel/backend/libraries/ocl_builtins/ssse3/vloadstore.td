@@ -1584,38 +1584,38 @@ code Stored_half_rtz16 = [{
 
 
 
-OclBuiltinImpl vloadcas = OclBuiltinImpl<vload_cas, [v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
+OclBuiltinImpl vloadcas = OclBuiltinImpl<vload_cas, [v2f16, v4f16, v8f16, v16f16, v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
                                                      v2i32, v4i32, v8i32, v16i32, v2i64, v4i64, v8i64, v16i64,
                                                      v2u32, v4u32, v8u32, v16u32, v2u64, v4u64, v8u64, v16u64,
                                                      v2i8,  v4i8, v8i8, v16i8, v2i16, v4i16, v8i16, v16i16,
                                                      v2u8,  v4u8, v8u8, v16u8, v2u16, v4u16, v8u16, v16u16], 0, LoadC>;
-OclBuiltinImpl vloadgas = OclBuiltinImpl<vload_gas, [v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
+OclBuiltinImpl vloadgas = OclBuiltinImpl<vload_gas, [v2f16, v4f16, v8f16, v16f16, v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
                                                      v2i32, v4i32, v8i32, v16i32, v2i64, v4i64, v8i64, v16i64,
                                                      v2u32, v4u32, v8u32, v16u32, v2u64, v4u64, v8u64, v16u64,
                                                      v2i8,  v4i8, v8i8, v16i8, v2i16, v4i16, v8i16, v16i16,
                                                      v2u8,  v4u8, v8u8, v16u8, v2u16, v4u16, v8u16, v16u16], 0, Load>;
-OclBuiltinImpl vloadlas = OclBuiltinImpl<vload_las, [v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
+OclBuiltinImpl vloadlas = OclBuiltinImpl<vload_las, [v2f16, v4f16, v8f16, v16f16, v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
                                                      v2i32, v4i32, v8i32, v16i32, v2i64, v4i64, v8i64, v16i64,
                                                      v2u32, v4u32, v8u32, v16u32, v2u64, v4u64, v8u64, v16u64,
                                                      v2i8,  v4i8, v8i8, v16i8, v2i16, v4i16, v8i16, v16i16,
                                                      v2u8,  v4u8, v8u8, v16u8, v2u16, v4u16, v8u16, v16u16], 0, Load>;
-OclBuiltinImpl vloadpas = OclBuiltinImpl<vload_pas, [v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
-                                                     v2i32, v4i32, v8i32, v16i32, v2i64, v4i64, v8i64, v16i64,
-                                                     v2u32, v4u32, v8u32, v16u32, v2u64, v4u64, v8u64, v16u64,
-                                                     v2i8,  v4i8, v8i8, v16i8, v2i16, v4i16, v8i16, v16i16,
-                                                     v2u8,  v4u8, v8u8, v16u8, v2u16, v4u16, v8u16, v16u16], 0, Load>;
-
-OclBuiltinImpl vloadgen = OclBuiltinImpl<vload_gen, [v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
+OclBuiltinImpl vloadpas = OclBuiltinImpl<vload_pas, [v2f16, v4f16, v8f16, v16f16, v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
                                                      v2i32, v4i32, v8i32, v16i32, v2i64, v4i64, v8i64, v16i64,
                                                      v2u32, v4u32, v8u32, v16u32, v2u64, v4u64, v8u64, v16u64,
                                                      v2i8,  v4i8, v8i8, v16i8, v2i16, v4i16, v8i16, v16i16,
                                                      v2u8,  v4u8, v8u8, v16u8, v2u16, v4u16, v8u16, v16u16], 0, Load>;
 
-OclBuiltinImpl vloadcas3 = OclBuiltinImpl<vload_cas, [v3i8, v3u8, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, LoadC3>;
-OclBuiltinImpl vloadgas3 = OclBuiltinImpl<vload_gas, [v3i8, v3u8, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Load3>;
-OclBuiltinImpl vloadlas3 = OclBuiltinImpl<vload_las, [v3i8, v3u8, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Load3>;
-OclBuiltinImpl vloadpas3 = OclBuiltinImpl<vload_pas, [v3i8, v3u8, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Load3>;
-OclBuiltinImpl vloadgen3 = OclBuiltinImpl<vload_gen, [v3i8, v3u8, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Load3>;
+OclBuiltinImpl vloadgen = OclBuiltinImpl<vload_gen, [v2f16, v4f16, v8f16, v16f16, v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
+                                                     v2i32, v4i32, v8i32, v16i32, v2i64, v4i64, v8i64, v16i64,
+                                                     v2u32, v4u32, v8u32, v16u32, v2u64, v4u64, v8u64, v16u64,
+                                                     v2i8,  v4i8, v8i8, v16i8, v2i16, v4i16, v8i16, v16i16,
+                                                     v2u8,  v4u8, v8u8, v16u8, v2u16, v4u16, v8u16, v16u16], 0, Load>;
+
+OclBuiltinImpl vloadcas3 = OclBuiltinImpl<vload_cas, [v3i8, v3u8, v3f16, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, LoadC3>;
+OclBuiltinImpl vloadgas3 = OclBuiltinImpl<vload_gas, [v3i8, v3u8, v3f16, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Load3>;
+OclBuiltinImpl vloadlas3 = OclBuiltinImpl<vload_las, [v3i8, v3u8, v3f16, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Load3>;
+OclBuiltinImpl vloadpas3 = OclBuiltinImpl<vload_pas, [v3i8, v3u8, v3f16, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Load3>;
+OclBuiltinImpl vloadgen3 = OclBuiltinImpl<vload_gen, [v3i8, v3u8, v3f16, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Load3>;
 
 
 OclBuiltinImpl vload_halfcas = OclBuiltinImpl<vload_half_cas, [v1f16], 0, Load_const_half>;
@@ -1684,31 +1684,31 @@ OclBuiltinImpl vloada_half_las16 = OclBuiltinImpl<vloada_half_las, [v16f16], 0, 
 OclBuiltinImpl vloada_half_pas16 = OclBuiltinImpl<vloada_half_pas, [v16f16], 0, Load_half16>;
 OclBuiltinImpl vloada_half_gen16 = OclBuiltinImpl<vloada_half_gen, [v16f16], 0, Load_half16>;
 
-OclBuiltinImpl vstoregas = OclBuiltinImpl<vstore_gas, [v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
+OclBuiltinImpl vstoregas = OclBuiltinImpl<vstore_gas, [v2f16, v4f16, v8f16, v16f16, v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
                                                      v2i32, v4i32, v8i32, v16i32, v2i64, v4i64, v8i64, v16i64,
                                                      v2u32, v4u32, v8u32, v16u32, v2u64, v4u64, v8u64, v16u64,
                                                      v2i8,  v4i8, v8i8, v16i8, v2i16, v4i16, v8i16, v16i16,
                                                      v2u8,  v4u8, v8u8, v16u8, v2u16, v4u16, v8u16, v16u16], 0, Store>;
-OclBuiltinImpl vstorelas = OclBuiltinImpl<vstore_las, [v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
+OclBuiltinImpl vstorelas = OclBuiltinImpl<vstore_las, [v2f16, v4f16, v8f16, v16f16, v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
                                                      v2i32, v4i32, v8i32, v16i32, v2i64, v4i64, v8i64, v16i64,
                                                      v2u32, v4u32, v8u32, v16u32, v2u64, v4u64, v8u64, v16u64,
                                                      v2i8,  v4i8, v8i8, v16i8, v2i16, v4i16, v8i16, v16i16,
                                                      v2u8,  v4u8, v8u8, v16u8, v2u16, v4u16, v8u16, v16u16], 0, Store>;
-OclBuiltinImpl vstorepas = OclBuiltinImpl<vstore_pas, [v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
+OclBuiltinImpl vstorepas = OclBuiltinImpl<vstore_pas, [v2f16, v4f16, v8f16, v16f16, v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
                                                      v2i32, v4i32, v8i32, v16i32, v2i64, v4i64, v8i64, v16i64,
                                                      v2u32, v4u32, v8u32, v16u32, v2u64, v4u64, v8u64, v16u64,
                                                      v2i8,  v4i8, v8i8, v16i8, v2i16, v4i16, v8i16, v16i16,
                                                      v2u8,  v4u8, v8u8, v16u8, v2u16, v4u16, v8u16, v16u16], 0, Store>;
-OclBuiltinImpl vstoregen = OclBuiltinImpl<vstore_gen, [v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
+OclBuiltinImpl vstoregen = OclBuiltinImpl<vstore_gen, [v2f16, v4f16, v8f16, v16f16, v2f32, v4f32, v8f32, v16f32, v2f64, v4f64, v8f64, v16f64,
                                                      v2i32, v4i32, v8i32, v16i32, v2i64, v4i64, v8i64, v16i64,
                                                      v2u32, v4u32, v8u32, v16u32, v2u64, v4u64, v8u64, v16u64,
                                                      v2i8,  v4i8, v8i8, v16i8, v2i16, v4i16, v8i16, v16i16,
                                                      v2u8,  v4u8, v8u8, v16u8, v2u16, v4u16, v8u16, v16u16], 0, Store>;
 
-OclBuiltinImpl vstoregas3 = OclBuiltinImpl<vstore_gas, [v3i8, v3u8, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Store3>;
-OclBuiltinImpl vstorelas3 = OclBuiltinImpl<vstore_las, [v3i8, v3u8, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Store3>;
-OclBuiltinImpl vstorepas3 = OclBuiltinImpl<vstore_pas, [v3i8, v3u8, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Store3>;
-OclBuiltinImpl vstoregen3 = OclBuiltinImpl<vstore_gen, [v3i8, v3u8, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Store3>;
+OclBuiltinImpl vstoregas3 = OclBuiltinImpl<vstore_gas, [v3i8, v3u8, v3f16, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Store3>;
+OclBuiltinImpl vstorelas3 = OclBuiltinImpl<vstore_las, [v3i8, v3u8, v3f16, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Store3>;
+OclBuiltinImpl vstorepas3 = OclBuiltinImpl<vstore_pas, [v3i8, v3u8, v3f16, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Store3>;
+OclBuiltinImpl vstoregen3 = OclBuiltinImpl<vstore_gen, [v3i8, v3u8, v3f16, v3i16, v3u16, v3f32, v3i32, v3u32, v3f64, v3i64, v3u64], 0, Store3>;
 
 OclBuiltinImpl vstoread_halfgas = OclBuiltinImpl<vstoread_half_gas, [v1f16], 0, Stored_half>;
 OclBuiltinImpl vstoread_halflas = OclBuiltinImpl<vstoread_half_las, [v1f16], 0, Stored_half>;

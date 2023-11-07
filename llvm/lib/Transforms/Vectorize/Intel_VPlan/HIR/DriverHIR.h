@@ -32,8 +32,8 @@
 namespace llvm {
 namespace vpo {
 
-class VPlanDriverHIRImpl : public VPlanDriverImpl {
-  friend VPlanDriverImpl;
+class DriverHIRImpl : public DriverImpl {
+  friend DriverImpl;
 
 private:
   loopopt::HIRFramework *HIRF;
@@ -67,8 +67,8 @@ public:
                TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
                AssumptionCache *AC, DominatorTree *DT);
 
-  VPlanDriverHIRImpl(bool LightWeightMode, bool WillRunLLVMIRVPlan)
-      : VPlanDriverImpl(), HIRF(nullptr), HIRLoopStats(nullptr), DDA(nullptr),
+  DriverHIRImpl(bool LightWeightMode, bool WillRunLLVMIRVPlan)
+      : DriverImpl(), HIRF(nullptr), HIRLoopStats(nullptr), DDA(nullptr),
         SafeRedAnalysis(nullptr), LightWeightMode(LightWeightMode),
         WillRunLLVMIRVPlan(WillRunLLVMIRVPlan){};
 

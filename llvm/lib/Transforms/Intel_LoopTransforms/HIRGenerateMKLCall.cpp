@@ -173,38 +173,7 @@ private:
 
 namespace {
 
-class HIRGenerateMKLCallLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRGenerateMKLCallLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRGenerateMKLCallLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &Func) override;
-  void releaseMemory() override{};
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-
 } // namespace
-
-char HIRGenerateMKLCallLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRGenerateMKLCallLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRGenerateMKLCallLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIRGenerateMKLCallPass() {
-  return new HIRGenerateMKLCallLegacyPass();
-}
 
 PreservedAnalyses HIRGenerateMKLCallPass::runImpl(Function &Func,
                                                   FunctionAnalysisManager &AM,
@@ -224,17 +193,6 @@ bool HIRGenerateMKLCall::run() {
                     << HIRF.getFunction().getName() << "\n");
 
   return generateMKLCall(HIRF.getFunction().getContext());
-}
-
-bool HIRGenerateMKLCallLegacyPass::runOnFunction(Function &Func) {
-  if (skipFunction(Func)) {
-    return false;
-  }
-
-  return HIRGenerateMKLCall(
-             getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
-      .run();
 }
 
 // Gather all perfect Loop Nests with level 2/3
