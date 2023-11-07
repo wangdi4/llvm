@@ -58,6 +58,8 @@ private:
 
   /// Callgraph of current module.
   CallGraph *CG = nullptr;
+
+  SmallVector<unsigned, 8> ImplicitArgEnums;
 };
 
 } // namespace llvm

@@ -22,5 +22,6 @@ protected:
 };
 
 bool atomic_min_max_float_test();
+bool address_space_quailier_test();
 
 #endif // __BI_TESTS_H__

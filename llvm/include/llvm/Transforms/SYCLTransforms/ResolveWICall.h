@@ -130,6 +130,9 @@ private:
   Value *WGId = nullptr;
   /// This holds the pBaseGlbId implicit argumnet of current handled function.
   Value *BaseGlbId = nullptr;
+  /// This holds the pBufferRanges implicit argumnet of current
+  /// handled function.
+  Value *BufferRanges = nullptr;
 
   /// This is flag indicates that Prefetch declarations already added to module.
   bool PrefetchDecl = false;
@@ -153,6 +156,8 @@ private:
   bool IsUniformWG = false;
   // Has TLS globals instead of implicit arguments.
   bool HasTLSGlobals = false;
+
+  bool HasASQualifierBuiltin = false;
 };
 
 } // namespace llvm

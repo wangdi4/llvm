@@ -92,6 +92,10 @@ TEST(BuiltinTestType, Test_atomic_min_max_float) {
   EXPECT_TRUE(atomic_min_max_float_test());
 }
 
+TEST(BuiltinTestType, Test_address_space_quailier) {
+  EXPECT_TRUE(address_space_quailier_test());
+}
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 int main(int argc, char **argv) {

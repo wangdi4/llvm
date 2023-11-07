@@ -25572,8 +25572,11 @@
 ; CHECK-NEXT: __read_pipe_2_fpga_v8u64
 ; CHECK-NEXT: __read_pipe_2_fpga_v8u8
 ; CHECK-NEXT: __to_global
+; CHECK-NEXT: __to_global_addrspacecast
 ; CHECK-NEXT: __to_local
+; CHECK-NEXT: __to_local_addrspacecast
 ; CHECK-NEXT: __to_private
+; CHECK-NEXT: __to_private_addrspacecast
 ; CHECK-NEXT: __translate_sampler_initializer
 ; CHECK-NEXT: __write_pipe_2_fpga_v16f16
 ; CHECK-NEXT: __write_pipe_2_fpga_v16f32
