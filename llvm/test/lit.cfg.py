@@ -492,10 +492,6 @@ if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
     config.available_features.add("intel_opencl")
 # end INTEL_CUSTOMIZATION
 
-# Allow checking for specific details in the host triple
-if config.host_triple:
-    config.available_features.add('host=%s' % config.host_triple)
-
 if config.have_llvm_driver:
     config.available_features.add("llvm-driver")
 
