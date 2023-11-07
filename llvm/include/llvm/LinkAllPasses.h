@@ -108,8 +108,6 @@ namespace {
       if (std::getenv("bar") != (char*) -1)
         return;
 
-<<<<<<< HEAD
-      (void) llvm::createAAEvalPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createNonLTOGlobalOptimizerPass();
       (void) llvm::createTbaaMDPropagationLegacyPass();
@@ -125,8 +123,6 @@ namespace {
       (void) llvm::createTransformFPGARegPass();
       (void) llvm::createTransformSinAndCosCallsPass();
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 02230e12d77a19e4e21ad55ce9738faf84a95903
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
       (void) llvm::createTypeBasedAAWrapperPass();

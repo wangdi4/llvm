@@ -35,11 +35,7 @@ using namespace llvm;
 
 /// initializeAnalysis - Initialize all passes linked into the Analysis library.
 void llvm::initializeAnalysis(PassRegistry &Registry) {
-<<<<<<< HEAD
-  initializeAAEvalLegacyPassPass(Registry);
   initializeArrayUseWrapperPassPass(Registry);  // INTEL
-=======
->>>>>>> 02230e12d77a19e4e21ad55ce9738faf84a95903
   initializeBasicAAWrapperPassPass(Registry);
   initializeBlockFrequencyInfoWrapperPassPass(Registry);
   initializeBranchProbabilityInfoWrapperPassPass(Registry);

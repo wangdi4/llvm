@@ -65,7 +65,6 @@ void initializeGlobalISel(PassRegistry&);
 /// Initialize all passes linked into the CodeGen library.
 void initializeTarget(PassRegistry&);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 
 /// initializeIntel_LoopAnalysis - Initialize all passes linked into the
@@ -87,9 +86,6 @@ void initializeVPOAnalysis(PassRegistry&);
 void initializeVPOTransforms(PassRegistry&);
 #endif // INTEL_COLLAB
 
-void initializeAAEvalLegacyPassPass(PassRegistry&);
-=======
->>>>>>> 02230e12d77a19e4e21ad55ce9738faf84a95903
 void initializeAAResultsWrapperPassPass(PassRegistry&);
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAssignmentTrackingAnalysisPass(PassRegistry &);
