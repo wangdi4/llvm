@@ -10253,6 +10253,12 @@ ScalarEvolution::computeExitLimit(const Loop *L, BasicBlock *ExitingBlock,
   if (BranchInst *BI = dyn_cast<BranchInst>(Term)) {
     assert(BI->isConditional() && "If unconditional, it can't be in loop!");
     bool ExitIfTrue = !L->contains(BI->getSuccessor(0));
+#if INTEL_CUSTOMIZATION
+    // 53339: Sometimes non-conformant loops are passed through by HIRCG.
+    // Don't assert on these.
+    if (ExitIfTrue != L->contains(BI->getSuccessor(1)))
+      return getCouldNotCompute();
+#endif // INTEL_CUSTOMIZATION
     assert(ExitIfTrue == L->contains(BI->getSuccessor(1)) &&
            "It should have one successor in loop and one exit block!");
     // Proceed to the next level to examine the exit condition expression.
