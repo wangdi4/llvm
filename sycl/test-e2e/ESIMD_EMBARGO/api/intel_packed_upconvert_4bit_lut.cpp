@@ -8,6 +8,9 @@
 //===-------------------------------------------------------------------===//
 // REQUIRES: intel_feature_esimd_embargo
 
+// RUN: %{build} -fsycl-esimd-force-stateless-mem -o %t.out
+// RUN: env IGC_VCApiOptions=-ftranslate-legacy-memory-intrinsics %{run} %t.out
+
 #include "../../ESIMD/esimd_test_utils.hpp"
 
 #include <iostream>
