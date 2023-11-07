@@ -59010,13 +59010,27 @@ static SDValue combineUIntToFP(SDNode *N, SelectionDAG &DAG,
   // UINT_TO_FP(vXi33~63) -> UINT_TO_FP(ZEXT(vXi33~63 to vXi64))
   if (InVT.isVector() && VT.getVectorElementType() == MVT::f16) {
     unsigned ScalarSize = InVT.getScalarSizeInBits();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if ((ScalarSize == 16 && (Subtarget.hasFP16() || Subtarget.hasAVX256P())) ||
+        ScalarSize == 32 || ScalarSize >= 64)
+#else  // INTEL_FEATURE_ISA_AVX256P
     if ((ScalarSize == 16 && Subtarget.hasFP16()) || ScalarSize == 32 ||
         ScalarSize >= 64)
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return SDValue();
     SDLoc dl(N);
     EVT DstVT =
         EVT::getVectorVT(*DAG.getContext(),
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+                         ((Subtarget.hasFP16() || Subtarget.hasAVX256P())
+                                              && ScalarSize < 16) ? MVT::i16
+#else  // INTEL_FEATURE_ISA_AVX256P
                          (Subtarget.hasFP16() && ScalarSize < 16) ? MVT::i16
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
                          : ScalarSize < 32                        ? MVT::i32
                                                                   : MVT::i64,
                          InVT.getVectorNumElements());
@@ -59080,13 +59094,27 @@ static SDValue combineSIntToFP(SDNode *N, SelectionDAG &DAG,
   // SINT_TO_FP(vXi33~63) -> SINT_TO_FP(SEXT(vXi33~63 to vXi64))
   if (InVT.isVector() && VT.getVectorElementType() == MVT::f16) {
     unsigned ScalarSize = InVT.getScalarSizeInBits();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if ((ScalarSize == 16 && (Subtarget.hasFP16() || Subtarget.hasAVX256P())) ||
+        ScalarSize == 32 || ScalarSize >= 64)
+#else  // INTEL_FEATURE_ISA_AVX256P
     if ((ScalarSize == 16 && Subtarget.hasFP16()) || ScalarSize == 32 ||
         ScalarSize >= 64)
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return SDValue();
     SDLoc dl(N);
     EVT DstVT =
         EVT::getVectorVT(*DAG.getContext(),
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+                         ((Subtarget.hasFP16() || Subtarget.hasAVX256P())
+                                              && ScalarSize < 16) ? MVT::i16
+#else  // INTEL_FEATURE_ISA_AVX256P
                          (Subtarget.hasFP16() && ScalarSize < 16) ? MVT::i16
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
                          : ScalarSize < 32                        ? MVT::i32
                                                                   : MVT::i64,
                          InVT.getVectorNumElements());
