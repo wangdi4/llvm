@@ -61,7 +61,7 @@ a producer string based on a variable (DPCPP_BITCODE_PRODUCER_STR) defined in
 the llvm/CMakeLists.txt file. This string will closely reflect the product
 name string (DPCPP_PRODUCT_NAME), but it must be reformatted to meet the
 constraints of the char6 format used by LLVM bitcode files. See
-`6-bit charachter encoding <https://llvm.org/docs/BitCodeFormat.html#bit-characters>'_.
+`6-bit character encoding <https://llvm.org/docs/BitCodeFormat.html#bit-characters>`_.
 
 The epoch number used by Intel compilers will be defined using the current
 LLVM epoch number but with an Intel-specific "sub-epoch" defined in the high

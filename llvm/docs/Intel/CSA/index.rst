@@ -15,6 +15,7 @@ CSA
    DataflowMIR
    MemoryOrdering
    PathfindingBuiltins
+   MIRMatcher
 
 Introduction
 ============

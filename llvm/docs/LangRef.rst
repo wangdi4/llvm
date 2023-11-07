@@ -1715,6 +1715,7 @@ example:
     define void @f() optsize { ... }
 
 .. INTEL_CUSTOMIZATION
+
 ``"advanced-optim"``
     This attribute tells the optimizer whether Intel Advanced optimizations are
     enabled or not (controlled with -x or -ax). The precise effect of this
@@ -1725,6 +1726,7 @@ example:
      * ``"false"`` - disable Intel Advanced optimizations.
 
     If this attribute is not specified, the default is ``"false"``.
+
 .. END INTEL_CUSTOMIZATION
 
 ``alignstack(<n>)``
@@ -1896,7 +1898,9 @@ example:
     a new pointer for the original function, which means that code that depends
     on function-pointer identity can break. So, any function annotated with
     ``jumptable`` must also be ``unnamed_addr``.
+
 .. INTEL_CUSTOMIZATION
+
 ``"loopopt-pipeline"``
     This attribute tells the optimizer to run loopopt framework passes for this
     function. The precise effect of this attribute depends on its string value,
@@ -1907,7 +1911,9 @@ example:
      * ``"full"`` - enable all loopopt framework based loop optimization passes.
 
     If this attribute is not specified, the default is ``"none"``.
+
 .. END INTEL_CUSTOMIZATION
+
 ``memory(...)``
     This attribute specifies the possible memory effects of the call-site or
     function. It allows specifying the possible access kinds (``none``,
@@ -3149,6 +3155,7 @@ code for the proper architecture. It's possible to override this on the
 command line with the ``-mtriple`` command line option.
 
 .. INTEL_COLLAB
+
 .. _target_devices_triples:
 
 Devices Triples
@@ -3167,6 +3174,7 @@ minus sign character ('-'), is in the same format of the *target triple*.
 
 This information is passed along to the backend so that it generates
 code for the proper architecture.
+
 .. END INTEL_COLLAB
 
 .. _objectlifetime:
@@ -6767,11 +6775,13 @@ Note that the fields need not be contiguous. In this example, there is a
 does not carry useful data and need not be preserved.
 
 .. INTEL_CUSTOMIZATION
+
 .. _noalias_metadata:
-.. END INTEL_CUSTOMIZATION
 
 '``noalias``' and '``alias.scope``' Metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. END INTEL_CUSTOMIZATION
 
 ``noalias`` and ``alias.scope`` metadata provide the ability to specify generic
 noalias memory-access sets. This means that some collection of memory access
@@ -7543,7 +7553,7 @@ loop distribution pass. See
 .. INTEL_CUSTOMIZATION
 
 '``llvm.loop.intel.loopcount*``'
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The metadata specifies the minimum, maximum or average number of
 iterations of a loop. In addition, a list of commonly occurring values
@@ -7944,6 +7954,7 @@ hashes of the 2 hottest target functions' names (this is the same hash used
 to represent function names in the profile database), and the 5th and 7th
 operands give the execution count that each of the respective prior target
 functions was called.
+
 .. INTEL_CUSTOMIZATION
 
 '``in.de.ssa``' Metadata
@@ -14135,10 +14146,12 @@ Semantics:
 Syntax:
 """""""
 
+.. INTEL_CUSTOMIZATION
+
 ::
 
-.. INTEL_CUSTOMIZATION
       declare void @llvm.prefetch(ptr <address>, i32 <rws>, i32 <locality>, i32 <cache type>)
+
 .. END INTEL_CUSTOMIZATION
 
 Overview:
@@ -14153,6 +14166,7 @@ Arguments:
 """"""""""
 
 .. INTEL_CUSTOMIZATION
+
 ``address`` is the address to be prefetched, ``rws`` is the specifier
 determining if the fetch should be for a read (0), write (1) or shared
 between read and write (2), and ``locality`` is a temporal locality
@@ -14160,6 +14174,7 @@ specifier ranging from (0) - no locality, to (3) - extremely local keep
 in cache. The ``cache type`` specifies whether the prefetch is performed
 on the data (1) or instruction (0) cache. The ``rws``, ``locality`` and
 ``cache type`` arguments must be constant integers.
+
 .. END INTEL_CUSTOMIZATION
 
 Semantics:
@@ -19072,7 +19087,7 @@ Intrinsics for complex addition and subtraction are not provided, as these are
 equivalent to ``fadd`` and ``fsub`` instructions, respectively.
 
 '``llvm.intel.complex.fmul.*``' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Syntax:
 """""""
@@ -19106,6 +19121,7 @@ If the ``complex-limited-range`` attribute is provided, or the ``noinf`` or
 following code:
 
 ::
+
       declare <2 x float> limited_complex_mul(<2 x float> %op1, <2 x float> %op2) {
         %x = extractelement <2 x float> %op1, i32 0 ; real of %op1
         %y = extractelement <2 x float> %op1, i32 1 ; imag of %op1
@@ -19129,7 +19145,7 @@ a NaN value.
 
 
 '``llvm.intel.complex.fdiv.*``' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Syntax:
 """""""
@@ -19162,6 +19178,7 @@ If the ``complex-limited-range`` attribute is provided, the output will be
 equivalent to the following code:
 
 ::
+
       declare <2 x float> limited_complex_div(<2 x float> %op1, <2 x float> %op2) {
         %x = extractelement <2 x float> %op1, i32 0 ; real of %op1
         %y = extractelement <2 x float> %op1, i32 1 ; imag of %op1
@@ -19750,7 +19767,7 @@ Example:
 
 
 '``llvm.experimental.matrix.wi.element.coordinate.*``' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Syntax:
 """""""
@@ -19868,7 +19885,7 @@ is the product of a sum of a multiplication of ``8 x 16`` and ``16 x 8`` float
 matrices and ``8 x 8`` float accumulator matrix.
 
 '``llvm.experimental.matrix.sumad.*``' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Syntax:
 """""""
@@ -19929,7 +19946,7 @@ is the product of a sum of a signed multiplication of ``8 x 16`` and ``16 x 8`` 
 matrices and ``8 x 8`` i32 accumulator matrix.
 
 '``llvm.experimental.matrix.usmad.*``' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Syntax:
 """""""
@@ -19993,7 +20010,7 @@ is the product of a sum of a signed multiplication of ``8 x 16`` and ``16 x 8`` 
 matrices and ``8 x 8`` i32 accumulator matrix.
 
 '``llvm.experimental.matrix.uumad.*``' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Syntax:
 """""""
@@ -26044,7 +26061,7 @@ for the input type.
 
 
 '``llvm.fpbuilt.expm1``' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Syntax:
 """""""

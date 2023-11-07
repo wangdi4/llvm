@@ -51,6 +51,7 @@ additional pass MLPGOInference is scheduled in the same place in the
 optimization pipeline where regular PGO passes are.
 
 The pass goes over code and for each conditional branch instruction:
+
 1. Generates a feature vector
 2. Calls machine learning engine providing it the feature vector to get branch
    probability
