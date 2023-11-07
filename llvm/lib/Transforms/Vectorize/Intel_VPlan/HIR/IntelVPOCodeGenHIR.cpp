@@ -561,9 +561,12 @@ public:
     // to support in CG. However, doing this leads to performance regressions
     // due to cost modeling issues in cpu2017ref/538@opt_base6_core_avx512 and
     // sycl_benchmarks_omp/mandelbrot-dpd@opt_O3_ipo_iopenmp_zmm_xH_fast. So,
-    // for now only allow search loops and loops with compress/expand where
-    // we need this support.
-    if (!CG->isSearchLoop() && !CG->getPlan()->getCompressExpandUsed()) {
+    // for now only allow search loops, explicit early-exit loops and loops with
+    // compress/expand where we need this support.
+    bool IsEarlyExitLoop = isa<VPlanVector>(CG->getPlan()) &&
+                           cast<VPlanVector>(CG->getPlan())->isEarlyExitLoop();
+    if (!CG->isSearchLoop() && !CG->getPlan()->getCompressExpandUsed() &&
+        !IsEarlyExitLoop) {
       IsHandled = false;
       CG->bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
                   INTERNAL("Unsupported HLNode."));
@@ -5033,10 +5036,20 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     RegDDRef *LastValue = nullptr;
     if (IndFinal->isExtractVersion()) {
       // Extract final value from vector.
-      // TODO: Obtain lane to extract from using the instruction operand.
       RegDDRef *VecVal = widenRef(VPInst->getOperand(0), VF);
+      RegDDRef *IdxRef = nullptr;
+      if (VPInst->getNumOperands() == 2) {
+        // If lane to extract from is provided then use its corresponding scalar
+        // DDRef.
+        IdxRef =
+            getOrCreateScalarRef(IndFinal->getLaneForExtract(), 0 /*Lane*/);
+      } else {
+        // By default extract value from last lane.
+        IdxRef = DDRefUtilities.createConstDDRef(
+            Type::getInt64Ty(DDRefUtilities.getContext()), getVF() - 1);
+      }
       HLInst *LastValueExtract = HLNodeUtilities.createExtractElementInst(
-          VecVal, getVF() - 1, "extracted.lval");
+          VecVal, IdxRef, "extracted.lval");
       addInstUnmasked(LastValueExtract);
       LastValue = LastValueExtract->getLvalDDRef()->clone();
     } else {
@@ -5308,14 +5321,25 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       OrigPrivDescr = getUniformScalarRef(ExtUse);
     }
     RegDDRef *VecRef = widenRef(VPInst->getOperand(0), getVF());
+    RegDDRef *IdxRef = nullptr;
+    if (VPInst->getNumOperands() == 2) {
+      // If lane to extract from is provided then use its corresponding scalar
+      // DDRef.
+      IdxRef = getOrCreateScalarRef(VPInst->getOperand(1), 0 /*Lane*/);
+    } else {
+      // By default we extract from last vector lane.
+      IdxRef = DDRefUtilities.createConstDDRef(
+          Type::getInt64Ty(DDRefUtilities.getContext()), getVF() - 1);
+    }
 
     HLInst *PrivExtract;
     if (VPInst->getOperand(0)->getType()->isVectorTy()) {
+      // TODO: Account for IdxRef here instead of using VF-1.
       PrivExtract =
           extractSubVector(VecRef, getVF() - 1, getVF(), OrigPrivDescr);
     } else {
       PrivExtract = HLNodeUtilities.createExtractElementInst(
-          VecRef, getVF() - 1, "extracted.priv", OrigPrivDescr);
+          VecRef, IdxRef, "extracted.priv", OrigPrivDescr);
     }
     addInstUnmasked(PrivExtract);
     RegDDRef *ResultRef = PrivExtract->getLvalDDRef();
@@ -6455,8 +6479,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
             ? VPInst->HIR().getUnderlyingNode()
             : VPInst->HIR().getMaster()->HIR().getUnderlyingNode();
     if (isa<HLLoop>(HNode) && HNode == OrigLoop) {
-      // Ignore backedge compare.
-      if (VPInst->getOpcode() == Instruction::ICmp)
+      // Ignore backedge compare, except for explicit early-exit loops since it
+      // can trigger early-exit from vector loop.
+      if (VPInst->getOpcode() == Instruction::ICmp && !Plan->isEarlyExitLoop())
         return;
 
       if (isSearchLoop() &&
@@ -7107,6 +7132,171 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     AddrOfRef->getDimensionIndex(1)->removeIV(OrigLoop->getNestingLevel());
     AddrOfRef->makeConsistent({}, getNestingLevelFromInsertPoint());
     addVPValueScalRefMapping(VPInst, AddrOfRef, 0);
+    return;
+  }
+
+  case VPInstruction::EarlyExitExecMask: {
+    // Generate mask that indicates which lanes of the early-exit loop's body is
+    // executed. This is determined by checking the early-exit condition - if
+    // it's true for any lane of current vector iteration, then all lanes after
+    // that should be masked out. Mathematically we can obtain the integer that
+    // represents this mask using the formula -
+    //
+    // mask_int = 2 ^ (first_true_lane) - 1
+    //
+    // We use the below algorithm to implement this -
+    //
+    // cond_int = cast <VF x i1> cond to iVF
+    // first_true_lane = cttz(cond_int) --> returns VF if cond_int = 0
+    // ext = zext first_true_lane to i(VF + 1)
+    // pow_of_2 = shl 1, ext
+    // mask_int = sub pow_of_2, 1
+    // mask_int_trunc = trunc mask_int to iVF
+    // mask = cast iVF mask_int_trunc to <VF x i1>
+    //
+    // We can trace the above algorithm with a simple example -
+    //
+    // cond = <0, 1, 0, 1>    --> early-exit is taken in 2nd lane
+    // cond_int = 10
+    // first_true_lane = 1
+    // pow_of_2 = 2
+    // mask_int = 1
+    // mask_int_sel = 1
+    // mask = <1, 0, 0, 0>    --> body should be executed only for 1st lane
+    //
+    // For more experiments - https://godbolt.org/z/rq3bqavhE
+
+    // Get the early-exit condition mask.
+    RegDDRef *EEMask = widenRef(VPInst->getOperand(0), getVF());
+
+    // Convert condition mask to integer of VF-size bits.
+    Type *EEMaskIntTy =
+        IntegerType::get(*Plan->getLLVMContext(),
+                         EEMask->getDestType()->getPrimitiveSizeInBits());
+    // Arithmetic should be performed in larger sized integer since we have
+    // corner-case of mask being all-zero. We choose (VF+1)-size bits for this.
+    Type *EEMaskIntExtTy = IntegerType::get(
+        *Plan->getLLVMContext(), EEMaskIntTy->getPrimitiveSizeInBits() + 1);
+
+    // Find the earliest lane ID where condition is true.
+    HLInst *BsfCall =
+        createCTZCall(EEMask->clone(), Intrinsic::cttz, false /*MaskIsNonZero*/,
+                      nullptr /*Container*/, "ee.execmask.ctz.");
+    // Zero-extend the results to integer of (VF+1)-size bits.
+    HLInst *BsfCallExt = HLNodeUtilities.createZExt(
+        EEMaskIntExtTy, BsfCall->getLvalDDRef()->clone(), "ee.execmask.zext");
+    addInstUnmasked(BsfCallExt);
+    RegDDRef *OneConst = DDRefUtilities.createConstDDRef(EEMaskIntExtTy, 1);
+    // Compute pow(2, first_true_lane).
+    HLInst *Shl = HLNodeUtilities.createShl(OneConst->clone(),
+                                            BsfCallExt->getLvalDDRef()->clone(),
+                                            "ee.execmask.shl");
+    addInstUnmasked(Shl);
+    // Subtract one to obtain execution mask as integer.
+    HLInst *ExecMaskInt = HLNodeUtilities.createSub(
+        Shl->getLvalDDRef()->clone(), OneConst->clone(), "ee.execmask.int");
+    addInstUnmasked(ExecMaskInt);
+
+    // Truncate the results back to integer of VF-size bits to bitcast to VF
+    // number of bools.
+    HLInst *ExecMaskIntTrunc = HLNodeUtilities.createTrunc(
+        EEMaskIntTy, ExecMaskInt->getLvalDDRef()->clone(),
+        "ee.execmask.int.trunc");
+    addInstUnmasked(ExecMaskIntTrunc);
+
+    // Convert execution mask integer back to <VF x i1>
+    HLInst *ExecMask = createBitCast(EEMask->getDestType(),
+                                     ExecMaskIntTrunc->getLvalDDRef()->clone(),
+                                     nullptr /*Container*/, "ee.execmask");
+    addVPValueWideRefMapping(VPInst, ExecMask->getLvalDDRef());
+    return;
+  }
+
+  case VPInstruction::EarlyExitLane: {
+    // Early-exit lane is obtained by identifying first true lane in given mask
+    // (transformEarlyExitLoop sets up the condition ExitID != 0 for this). If
+    // the mask is all-zero then we return -1.
+
+    // Get the wide exit-ID mask.
+    RegDDRef *ExitIDMask = widenRef(VPInst->getOperand(0), getVF());
+
+    // Convert mask to integer of VF-size bits and identify first true lane.
+    Type *ExitIDMaskIntTy =
+        IntegerType::get(*Plan->getLLVMContext(),
+                         ExitIDMask->getDestType()->getPrimitiveSizeInBits());
+    HLInst *BsfCall = createCTZCall(ExitIDMask->clone(), Intrinsic::cttz,
+                                    false /*MaskIsNonZero*/,
+                                    nullptr /*Container*/, "ee.lane.");
+    RegDDRef *BsfCallLval = BsfCall->getLvalDDRef();
+    RegDDRef *VFConst =
+        DDRefUtilities.createConstDDRef(ExitIDMaskIntTy, getVF());
+    RegDDRef *MinusOneConst =
+        DDRefUtilities.createConstDDRef(ExitIDMaskIntTy, -1);
+
+    // Select operation to account for corner-case where mask is all-zero i.e.
+    // none of the iterations took early-exit.
+    // ee_lane = first_true_lane == VF ? -1 : first_true_lane
+    HLInst *EELane = HLNodeUtilities.createSelect(
+        CmpInst::ICMP_EQ, BsfCallLval->clone(), VFConst, MinusOneConst,
+        BsfCallLval->clone());
+    addInstUnmasked(EELane);
+
+    // Sign-extend the result back to instruction type for downstream users.
+    HLInst *EELaneSext = HLNodeUtilities.createSExt(
+        VPInst->getType(), EELane->getLvalDDRef()->clone(), "ee.lane.sext");
+    addInstUnmasked(EELaneSext);
+    addVPValueScalRefMapping(VPInst, EELaneSext->getLvalDDRef(), 0 /*Lane*/);
+
+    return;
+  }
+
+  case VPInstruction::EarlyExitID: {
+    // Obtain exit-ID of exit that was taken in last vector iteration. This will
+    // be used to redirect control-flow after loop.
+    auto *VPEEID = cast<VPEarlyExitID>(VPInst);
+
+    // Using the exit-ID Phi/Blend obtain the value at lane which takes
+    // early-exit.
+    HLInst *IDLane = HLNodeUtilities.createExtractElementInst(
+        widenRef(VPEEID->getExitIDPhiOrBlend(), getVF()),
+        getOrCreateScalarRef(VPEEID->getEarlyExitLane(), 0 /*Lane*/),
+        "ee.id.final");
+    addInstUnmasked(IDLane);
+
+    addVPValueScalRefMapping(VPEEID, IDLane->getLvalDDRef(), 0 /*Lane*/);
+    return;
+  }
+
+  case VPInstruction::SelectValOrLane: {
+    // Generate a scalar select operation between provided value and first/last
+    // vector lane based on condition.
+    auto *SelValOrLane = cast<VPSelectValOrLane>(VPInst);
+    auto *CondInst = dyn_cast<VPCmpInst>(SelValOrLane->getCond());
+    CmpInst::Predicate Pred;
+    RegDDRef *Cond0, *Cond1;
+
+    if (CondInst) {
+      Cond0 = getOrCreateScalarRef(CondInst->getOperand(0), 0 /*Lane*/);
+      Cond1 = getOrCreateScalarRef(CondInst->getOperand(1), 0 /*Lane*/);
+      Pred = CondInst->getPredicate();
+    } else {
+      llvm_unreachable("Expected CmpInst for VPSelectValOrLane condition.");
+    }
+
+    RegDDRef *ValRef = getOrCreateScalarRef(SelValOrLane->getVal(), 0 /*Lane*/);
+    // Decide the lane to use whenever condition fails.
+    unsigned Lane = SelValOrLane->useFirstLane() ? 0 : getVF() - 1;
+    StringRef LaneName = SelValOrLane->useFirstLane() ? "first" : "last";
+    RegDDRef *LaneRef =
+        DDRefUtilities.createConstDDRef(SelValOrLane->getType(), Lane);
+    assert(LaneRef->getDestType() == ValRef->getDestType() &&
+           "Type mismatch for select-val-or-lane.");
+
+    HLInst *Select = createSelectHelper(Pred, Cond0, Cond1, ValRef, LaneRef,
+                                        0 /*ReplicateFactor*/,
+                                        "ee.or." + LaneName + ".lane.sel");
+    addInstUnmasked(Select);
+    addVPValueScalRefMapping(SelValOrLane, Select->getLvalDDRef(), 0 /*Lane*/);
     return;
   }
   }
@@ -8058,7 +8248,8 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask) {
           auto *UserInst = dyn_cast<VPInstruction>(U);
           if (!UserInst)
             return false;
-          return UserInst->getOpcode() == Instruction::Select &&
+          return (UserInst->getOpcode() == Instruction::Select ||
+                  UserInst->getOpcode() == VPInstruction::SelectValOrLane) &&
                  UserInst->getOperand(0) == VPInst &&
                  llvm::count(UserInst->operands(), VPInst) == 1;
         });
@@ -8658,6 +8849,15 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
   if (isSearchLoop())
     return;
 
+  // Emit explicit gotos that represent jumps to external labels when dealing
+  // with early-exit loops.
+  if (auto *HGoto = SourceBB->getTerminator()->getHLGoto()) {
+    assert(Plan->isEarlyExitLoop() &&
+           "Expected external jump only for earl-exit loops.");
+    addInst(HGoto->clone(), nullptr /*Mask*/);
+    return;
+  }
+
   // Get or create the label corresponding to Block start and create a HLGoto
   // with target set to this label. Return the created HLGoto after adding it
   // to the needed vector.
@@ -8680,6 +8880,46 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
   // gotos in the vector DO-loop latch block. TODO - look into why we need
   // to suppress goto in PreHeader.
   auto *VLoop = Plan->getVPLoopInfo()->getLoopFor(SourceBB);
+  bool IsEarlyExitLoopLatch = VLoop != nullptr &&
+                              VLoop->isLoopLatch(SourceBB) &&
+                              Plan->isEarlyExitLoop();
+
+  // Process early exit loop latch by generating an appropriate if that jumps to
+  // the loop exit block and prevents a backedge.
+  // For:
+  //    br cond exit_block, loop_header
+  // Generate:
+  //    if (cond == 1)
+  //      goto exit_block
+  // For:
+  //    br cond loop_header, exit_block
+  // Generate:
+  //    if (cond != 1)
+  //      goto exit_block
+  if (IsEarlyExitLoopLatch) {
+    assert(SourceBB->getNumSuccessors() == 2 &&
+           "Expected early exit loop latch to have 2 successors");
+    PredicateTy Pred = PredicateTy::ICMP_EQ;
+    auto *LoopExitBlock = SourceBB->getSuccessor(0);
+    if (LoopExitBlock == VLoop->getHeader()) {
+      Pred = PredicateTy::ICMP_NE;
+      LoopExitBlock = SourceBB->getSuccessor(1);
+    }
+
+    auto *CondRef =
+        getOrCreateScalarRef(SourceBB->getCondBit(), 0 /*ScalarLaneID*/);
+    assert(CondRef && "Null scalar condition ref!");
+    auto *If = HLNodeUtilities.createHLIf(
+        Pred, CondRef,
+        DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
+    addInst(If, nullptr /* Mask */);
+    HLGoto *ThenGoto = createGotoAndSetTargetLabel(LoopExitBlock);
+    HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
+    return;
+  }
+
+  // Don't consider latch of early-exit loop as a normal do-loop's latch. We
+  // need to process it since it leads to side-exit from vector loop.
   bool IsDoLoopLatch = VLoop != nullptr && VLoop->isLoopLatch(SourceBB) &&
                        VPLoopHLLoopMap[VLoop]->isDo();
   if (SourceBB->getNumSuccessors() && !IsDoLoopLatch &&

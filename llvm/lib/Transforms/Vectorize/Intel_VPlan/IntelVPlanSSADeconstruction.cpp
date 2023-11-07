@@ -40,8 +40,15 @@ static void validateInductionPHI(VPPHINode *Phi, VPLoop *VLp,
   unsigned NextOpNum = 1 - InitOpNum;
   auto *IVInit = cast<VPInductionInit>(Phi->getOperand(InitOpNum));
   auto *IVNext = cast<VPInstruction>(Phi->getOperand(NextOpNum));
+  // IVNext can be a blend instruction in case of explicit early-exit loops.
+  // Look through its operands to find the actual IV updating instruction. In
+  // such cases blend will look like -
+  // %iv_next_blend = blend [ %iv_next, BB1 ], [ %iv_phi, BB2 ]
+  if (auto *Blend = dyn_cast<VPBlendInst>(IVNext)) {
+    unsigned OpNum = Blend->getIncomingValue(0) == Phi ? 1 : 0;
+    IVNext = cast<VPInstruction>(Blend->getIncomingValue(OpNum));
+  }
   (void)IVInit;
-  (void)IVNext;
 
   assert(Plan.getDT()->dominates(IVNext->getParent(), VLp->getLoopLatch()) &&
          "IV's next instruction should dominate loop latch.");

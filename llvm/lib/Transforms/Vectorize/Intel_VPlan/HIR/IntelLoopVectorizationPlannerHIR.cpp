@@ -131,10 +131,12 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
 
   // Search loop representation is not yet explicit and search loop idiom
   // recognition is picky. Avoid any changes in predicator behavior for search
-  // loops such as avoiding predicate calculations.
+  // loops such as avoiding predicate calculations. Early-exit loops that are
+  // represented in VPlan CFG do not fall into this category.
   auto *VPLI = Plan->getVPLoopInfo();
   assert(VPLI->size() == 1 && "Expected 1 loop");
-  if ((*VPLI->begin())->getUniqueExitBlock() == nullptr)
+  if ((*VPLI->begin())->getUniqueExitBlock() == nullptr &&
+      !Plan->isEarlyExitLoop())
     setIsSearchLoop();
 
   if (ForceLinearizationHIR || isSearchLoop())

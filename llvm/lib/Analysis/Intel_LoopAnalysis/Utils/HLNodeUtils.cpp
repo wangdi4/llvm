@@ -2332,8 +2332,17 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
       if (std::next(Iter) != Loop->Children.end()) {
         Succ = &*(std::next(Iter));
         break;
-      }
+      } else {
+        // Iter can be the last child of preheader, body or loop depending on
+        // whether the later sections of the loop are empty. We should return
+        // null if Iter is the loops's last child because it has two possible
+        // control flow successors depending on whether we exit the loop. For
+        // the other cases, we can continue looking up the parent chain.
+        auto *Inst = dyn_cast<HLInst>(&*Iter);
 
+        if (!Inst || !Inst->isInPreheaderOrPostexit(Loop))
+          return nullptr;
+      }
     } else if (auto Reg = dyn_cast<HLRegion>(Parent)) {
       if (std::next(Iter) != Reg->Children.end()) {
         Succ = &*(std::next(Iter));
@@ -5814,7 +5823,7 @@ void HLNodeUtils::eliminateRedundantGotos(
 
       if (!Successor) {
         auto TargetBB = Goto->getTargetBBlock();
-        if (TargetBB == Goto->getParentRegion()->getSuccBBlock()) {
+        if (TargetBB && TargetBB == Goto->getParentRegion()->getSuccBBlock()) {
           // Goto is redundant if it has no lexical successor and jumps to
           // region exit.
           Erase = true;

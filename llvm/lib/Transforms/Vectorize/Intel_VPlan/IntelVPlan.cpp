@@ -410,6 +410,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "early-exit-lane";
   case VPInstruction::EarlyExitID:
     return "early-exit-id";
+  case VPInstruction::SelectValOrLane:
+    return "select-val-or-lane";
   default:
     return Instruction::getOpcodeName(Opcode);
   }
@@ -820,6 +822,12 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
       O << " { Redux Opcode: ";
       O << getOpcodeName(TreeConf->getRednOpcode());
       O << " }";
+      break;
+    }
+    case VPInstruction::SelectValOrLane: {
+      auto *SelValOrLane = cast<VPSelectValOrLane>(this);
+      StringRef Lane = SelValOrLane->useFirstLane() ? "first" : "last";
+      O << ", " << Lane << " lane";
       break;
     }
     }
