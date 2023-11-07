@@ -3,8 +3,8 @@
 ; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes=sycl-kernel-reduce-cross-barrier-values %s -pass-remarks=sycl-kernel-reduce-cross-barrier-values -disable-output 2>&1 | FileCheck -check-prefix=REMARK %s
 
 declare void @_Z7barrierj(i32)
-declare i64 @_Z13get_global_idj(i32) #0
-declare i64 @_Z12get_local_idj(i32) #0
+declare i64 @_Z13get_global_idj(i32)
+declare i64 @_Z12get_local_idj(i32)
 declare i64 @foo()
 
 define void @test_basic(ptr %dst) !kernel_arg_base_type !0 !arg_type_null_val !1 {
@@ -425,8 +425,6 @@ SyncBB:
 ed:
   ret void
 }
-
-attributes #0 = { convergent nounwind readnone willreturn }
 
 !0 = !{!"char*"}
 !1 = !{ptr null}
