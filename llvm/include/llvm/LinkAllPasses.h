@@ -70,9 +70,9 @@
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Transforms/Vectorize.h"
 
 #if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Vectorize.h"
 #include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
@@ -92,6 +92,7 @@
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #endif // INTEL_COLLAB
 
+#include "llvm/Transforms/Vectorize/LoadStoreVectorizer.h"
 #include <cstdlib>
 
 namespace {
