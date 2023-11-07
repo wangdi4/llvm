@@ -136,6 +136,10 @@ RegDDRef *DDRefUtils::createConstDDRef(Value *Val) {
     return createConstDDRef(Val->getType(), CI->getSExtValue());
   }
 
+  if (isa<ConstantPointerNull>(Val)) {
+    return createNullDDRef(Val->getType());
+  }
+
   RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   // Create a linear self-blob constant canon expr.
   auto CE = getCanonExprUtils().createConstStandAloneBlobCanonExpr(Val);
