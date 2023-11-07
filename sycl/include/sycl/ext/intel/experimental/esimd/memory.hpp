@@ -905,8 +905,8 @@ packed_4bit_upconvert_lut(__ESIMD_NS::simd<uint32_t, N> lookup_table,
                 "Source data type must be a byte or word type");
   static_assert(index * sizeof(T) < sizeof(uint32_t),
                 "Index must be within dword size");
-  auto loc_src =
-      __esimd_rdregion<T, N * stride, N, stride, 1, 0>(src.data(), index);
+  auto loc_src = __esimd_rdregion<T, N * stride, N, stride, 1, 0>(
+      src.data(), index * sizeof(T));
   return __esimd_packed_4bit_upconvert_lut<T>(lookup_table.data(), loc_src);
 }
 /* end INTEL_CUSTOMIZATION */
