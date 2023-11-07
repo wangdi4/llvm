@@ -112,19 +112,6 @@ public:
   Result run(Module &M, ModuleAnalysisManager &AM);
 };
 
-class DTransImmutableAnalysisWrapper : public ImmutablePass {
-  DTransImmutableInfo Impl;
-
-public:
-  static char ID;
-
-  DTransImmutableAnalysisWrapper();
-
-  DTransImmutableInfo &getResult() { return Impl; }
-};
-
-ImmutablePass *createDTransImmutableAnalysisWrapperPass();
-
 } // namespace llvm
 
 #endif
