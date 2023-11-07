@@ -62,42 +62,32 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %arrayidx = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %indvars.iv
-  %1 = load i32, ptr %arrayidx, align 16, !tbaa !2
+  %1 = load i32, ptr %arrayidx, align 16
   %mul2 = mul nsw i32 %1, %mul
   %arrayidx4 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %indvars.iv
-  store i32 %mul2, ptr %arrayidx4, align 16, !tbaa !2
+  store i32 %mul2, ptr %arrayidx4, align 16
   %2 = or i64 %indvars.iv, 1
   %arrayidx7 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %2
-  %3 = load i32, ptr %arrayidx7, align 4, !tbaa !2
+  %3 = load i32, ptr %arrayidx7, align 4
   %mul8 = mul nsw i32 %mul1, %3
   %arrayidx11 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %2
-  store i32 %mul8, ptr %arrayidx11, align 4, !tbaa !2
+  store i32 %mul8, ptr %arrayidx11, align 4
   %4 = or i64 %indvars.iv, 2
   %arrayidx14 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %4
-  %5 = load i32, ptr %arrayidx14, align 8, !tbaa !2
+  %5 = load i32, ptr %arrayidx14, align 8
   %mul15 = mul nsw i32 %5, %n
   %arrayidx18 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %4
-  store i32 %mul15, ptr %arrayidx18, align 8, !tbaa !2
+  store i32 %mul15, ptr %arrayidx18, align 8
   %6 = or i64 %indvars.iv, 3
   %arrayidx21 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %6
-  %7 = load i32, ptr %arrayidx21, align 4, !tbaa !2
+  %7 = load i32, ptr %arrayidx21, align 4
   %mul22 = mul nsw i32 %7, %mul
   %arrayidx25 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %6
-  store i32 %mul22, ptr %arrayidx25, align 4, !tbaa !2
+  store i32 %mul22, ptr %arrayidx25, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 4
   %cmp = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp, label %for.body, label %for.cond.cleanup.loopexit
 }
 
-attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
 
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang e6de10bf60ed5be7555542cd7b35318c8f7cb851) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 9418b1697133fe6fb0d391d3b1aea154274a2b79)"}
-!2 = !{!3, !4, i64 0}
-!3 = !{!"array@_ZTSA10_i", !4, i64 0}
-!4 = !{!"int", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C/C++ TBAA"}

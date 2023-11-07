@@ -91,8 +91,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %mul3 = mul nsw i32 %4, %add
   %add4 = add nuw nsw i32 %mul3, 1
   %5 = zext i32 %add4 to i64
-  %arrayidx = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i64 %5, ptr %arrayidx, align 16, !tbaa !2
+  %arrayidx = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %indvars.iv
+  store i64 %5, ptr %arrayidx, align 16
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %add5 = add nuw nsw i32 %i.028, 2
   %6 = trunc i64 %2 to i32
@@ -100,21 +100,11 @@ for.body:                                         ; preds = %for.body.preheader,
   %mul8 = mul nsw i32 %7, %add5
   %add9 = add nuw nsw i32 %mul8, 2
   %8 = zext i32 %add9 to i64
-  %arrayidx13 = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %1, !intel-tbaa !2
-  store i64 %8, ptr %arrayidx13, align 8, !tbaa !2
+  %arrayidx13 = getelementptr inbounds [10 x i64], ptr @B, i64 0, i64 %1
+  store i64 %8, ptr %arrayidx13, align 8
   %cmp = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp, label %for.body, label %for.cond.cleanup.loopexit
 }
 
-attributes #0 = { norecurse nounwind uwtable writeonly "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
 
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 81a88af0f8e5fbc44460e0e3d157b6ba6d246190) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 0cafc90f06328d1ee0589dc32b6c293f8f548162)"}
-!2 = !{!3, !4, i64 0}
-!3 = !{!"array@_ZTSA10_l", !4, i64 0}
-!4 = !{!"long", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C/C++ TBAA"}

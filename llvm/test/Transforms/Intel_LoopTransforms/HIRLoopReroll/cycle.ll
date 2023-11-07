@@ -108,19 +108,19 @@ entry:
   %i2 = alloca [100 x [100 x i32]], align 16
   %0 = bitcast ptr %id4 to ptr
   call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %0) #5
-  store i32 44, ptr %id4, align 4, !tbaa !2
+  store i32 44, ptr %id4, align 4
   %1 = bitcast ptr %y to ptr
   call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %1) #5
-  store i32 92, ptr %y, align 4, !tbaa !2
+  store i32 92, ptr %y, align 4
   %2 = bitcast ptr %o to ptr
   call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %2) #5
-  store i32 45, ptr %o, align 4, !tbaa !2
+  store i32 45, ptr %o, align 4
   %3 = bitcast ptr %j6 to ptr
   call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %3) #5
-  store i32 41, ptr %j6, align 4, !tbaa !2
+  store i32 41, ptr %j6, align 4
   %4 = bitcast ptr %jy3 to ptr
   call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %4) #5
-  store i32 85, ptr %jy3, align 4, !tbaa !2
+  store i32 85, ptr %jy3, align 4
   %5 = bitcast ptr %e to ptr
   call void @llvm.lifetime.start.p0(i64 400, ptr nonnull %5) #5
   call void @llvm.memset.p0.i64(ptr nonnull align 16 dereferenceable(400) %5, i8 0, i64 400, i1 false)
@@ -142,11 +142,11 @@ entry:
   %9 = getelementptr inbounds [100 x [100 x i32]], ptr %i2, i64 0, i64 0, i64 0
   %call6 = call i32 (ptr, i32, i32, ...) @init(ptr nonnull %9, i32 10000, i32 44) #5
   %call7 = call i32 (ptr, ...) @__isoc99_scanf(ptr @.str, ptr nonnull %id4, ptr nonnull %y, ptr nonnull %o, ptr nonnull %j6, ptr nonnull %jy3)
-  store i32 1, ptr %id4, align 4, !tbaa !2
+  store i32 1, ptr %id4, align 4
   br label %for.body
 for.cond.loopexit:                                ; preds = %for.inc70
   %add64.lcssa.lcssa = phi i32 [ %add64.lcssa, %for.inc70 ]
-  store i32 %add64.lcssa.lcssa, ptr %y, align 4, !tbaa !2
+  store i32 %add64.lcssa.lcssa, ptr %y, align 4
   %cmp = icmp ult i32 %10, 91
   br i1 %cmp, label %for.body, label %for.end73
 for.body:                                         ; preds = %entry, %for.cond.loopexit
@@ -155,27 +155,27 @@ for.body:                                         ; preds = %entry, %for.cond.lo
   %add = add nuw nsw i32 %10, 1
   %idxprom = zext i32 %add to i64
   %arrayidx = getelementptr inbounds [100 x i32], ptr %e, i64 0, i64 %idxprom
-  %11 = load i32, ptr %arrayidx, align 4, !tbaa !6
+  %11 = load i32, ptr %arrayidx, align 4
   %sub = add nsw i32 %10, -1
   %idxprom8 = zext i32 %sub to i64
   %arrayidx9 = getelementptr inbounds [100 x i32], ptr %e, i64 0, i64 %idxprom8
   %mul = mul i32 %11, %11
   %sub19 = sub i32 %11, %mul
-  store i32 %sub19, ptr %y, align 4, !tbaa !2
+  store i32 %sub19, ptr %y, align 4
   %idxprom20 = zext i32 %10 to i64
-  %arrayidx21 = getelementptr inbounds [100 x i32], ptr %cw, i64 0, i64 %idxprom20, !intel-tbaa !6
-  %12 = load i32, ptr %arrayidx21, align 4, !tbaa !6
-  store i32 %12, ptr %p4.0100, align 4, !tbaa !2
-  %arrayidx27 = getelementptr inbounds [100 x i32], ptr %cw, i64 0, i64 %idxprom, !intel-tbaa !6
-  %13 = load i32, ptr %arrayidx27, align 4, !tbaa !6
+  %arrayidx21 = getelementptr inbounds [100 x i32], ptr %cw, i64 0, i64 %idxprom20
+  %12 = load i32, ptr %arrayidx21, align 4
+  store i32 %12, ptr %p4.0100, align 4
+  %arrayidx27 = getelementptr inbounds [100 x i32], ptr %cw, i64 0, i64 %idxprom
+  %13 = load i32, ptr %arrayidx27, align 4
   %add28 = add i32 %13, %11
-  store i32 %add28, ptr %o, align 4, !tbaa !2
-  %14 = load i32, ptr %y, align 4, !tbaa !2
-  %arrayidx34 = getelementptr inbounds [100 x i32], ptr %o1, i64 0, i64 %idxprom8, !intel-tbaa !6
-  %15 = load i32, ptr %arrayidx34, align 4, !tbaa !6
+  store i32 %add28, ptr %o, align 4
+  %14 = load i32, ptr %y, align 4
+  %arrayidx34 = getelementptr inbounds [100 x i32], ptr %o1, i64 0, i64 %idxprom8
+  %15 = load i32, ptr %arrayidx34, align 4
   %sub35.neg = sub i32 %11, %14
   %sub36 = add i32 %sub35.neg, %15
-  store i32 %sub36, ptr %arrayidx9, align 4, !tbaa !6
+  store i32 %sub36, ptr %arrayidx9, align 4
   br label %for.cond43.preheader
 for.cond43.preheader:                             ; preds = %for.body, %for.inc70
   %y.promoted = phi i32 [ %14, %for.body ], [ %add64.lcssa, %for.inc70 ]
@@ -188,16 +188,16 @@ for.body45:                                       ; preds = %for.cond43.preheade
   %indvars.iv = phi i64 [ 1, %for.cond43.preheader ], [ %indvars.iv.next, %for.body45 ]
   %add64101 = phi i32 [ %y.promoted, %for.cond43.preheader ], [ %add64, %for.body45 ]
   %19 = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx50 = getelementptr inbounds [100 x [100 x i32]], ptr %i2, i64 0, i64 %19, i64 %indvars.iv, !intel-tbaa !8
-  %20 = load i32, ptr %arrayidx50, align 4, !tbaa !8
-  %arrayidx55 = getelementptr inbounds [100 x [100 x i32]], ptr %i2, i64 0, i64 %16, i64 %indvars.iv, !intel-tbaa !8
-  store i32 %20, ptr %arrayidx55, align 4, !tbaa !8
+  %arrayidx50 = getelementptr inbounds [100 x [100 x i32]], ptr %i2, i64 0, i64 %19, i64 %indvars.iv
+  %20 = load i32, ptr %arrayidx50, align 4
+  %arrayidx55 = getelementptr inbounds [100 x [100 x i32]], ptr %i2, i64 0, i64 %16, i64 %indvars.iv
+  store i32 %20, ptr %arrayidx55, align 4
   %mul63 = mul i32 %add64101, %add28
   %add64 = add i32 %mul63, %add64101
-  %arrayidx67 = getelementptr inbounds [100 x i32], ptr %cw, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %21 = load i32, ptr %arrayidx67, align 4, !tbaa !6
+  %arrayidx67 = getelementptr inbounds [100 x i32], ptr %cw, i64 0, i64 %indvars.iv
+  %21 = load i32, ptr %arrayidx67, align 4
   %add68 = add i32 %18, %21
-  store i32 %add68, ptr %arrayidx67, align 4, !tbaa !6
+  store i32 %add68, ptr %arrayidx67, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
   %cmp44 = icmp ult i64 %indvars.iv, 3
   br i1 %cmp44, label %for.body45, label %for.inc70
@@ -210,9 +210,9 @@ for.end73:                                        ; preds = %for.cond.loopexit
   %add.lcssa = phi i32 [ %add, %for.cond.loopexit ]
   %add28.lcssa = phi i32 [ %add28, %for.cond.loopexit ]
   %add64.lcssa.lcssa.lcssa = phi i32 [ %add64.lcssa.lcssa, %for.cond.loopexit ]
-  store i32 1, ptr %j6, align 4, !tbaa !2
-  store i32 7, ptr %jy3, align 4, !tbaa !2
-  store i32 %add.lcssa, ptr %id4, align 4, !tbaa !2
+  store i32 1, ptr %j6, align 4
+  store i32 7, ptr %jy3, align 4
+  store i32 %add.lcssa, ptr %id4, align 4
   %call77 = call i32 (ptr, i32, ...) @checkSum(ptr nonnull %arraydecay, i32 100) #5
   %call79 = call i32 (ptr, i32, ...) @checkSum(ptr nonnull %arraydecay1, i32 100) #5
   %call82 = call i32 (ptr, i32, ...) @checkSum(ptr nonnull %arraydecay3, i32 100) #5
@@ -247,21 +247,3 @@ declare dso_local i32 @checkSum(...) local_unnamed_addr #3
 declare dso_local i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #4
 ; Function Attrs: argmemonly nounwind willreturn
 declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind willreturn }
-attributes #2 = { argmemonly nounwind willreturn writeonly }
-attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #4 = { nofree nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #5 = { nounwind }
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
-!2 = !{!3, !3, i64 0}
-!3 = !{!"int", !4, i64 0}
-!4 = !{!"omnipotent char", !5, i64 0}
-!5 = !{!"Simple C/C++ TBAA"}
-!6 = !{!7, !3, i64 0}
-!7 = !{!"array@_ZTSA100_j", !3, i64 0}
-!8 = !{!9, !3, i64 0}
-!9 = !{!"array@_ZTSA100_A100_j", !7, i64 0}
