@@ -26,21 +26,14 @@
 using namespace llvm;
 extern cl_device_type gDeviceType;
 
-class CheckExtensions : public ::testing::TestWithParam<bool> {
+class CheckExtensions : public ::testing::Test {
 protected:
   virtual void SetUp() {
-    if (GetParam() && !SETENV("CL_CONFIG_CPU_EXPERIMENTAL_FP16", "1"))
-      FAIL() << "Failed to set CL_CONFIG_CPU_EXPERIMENTAL_FP16";
     cl_int err = clGetPlatformIDs(1, &m_platform, NULL);
     ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");
 
     err = clGetDeviceIDs(m_platform, gDeviceType, 1, &m_device, NULL);
     ASSERT_OCL_SUCCESS(err, "clGetDeviceIDs");
-  }
-
-  virtual void TearDown() {
-    if (GetParam() && !UNSETENV("CL_CONFIG_CPU_EXPERIMENTAL_FP16"))
-      FAIL() << "Failed to unset CL_CONFIG_CPU_EXPERIMENTAL_FP16";
   }
 
 protected:
@@ -53,6 +46,7 @@ protected:
 static const StringMap<cl_version> extRefCPU = {
     {OCL_EXT_KHR_SPIRV_LINKONCE_ODR, CL_MAKE_VERSION(1, 0, 0)},
     {OCL_EXT_KHR_FP64, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_FP16, CL_MAKE_VERSION(1, 0, 0)},
 
     {OCL_EXT_INTEL_SUBGROUPS, CL_MAKE_VERSION(1, 0, 0)},
     {OCL_EXT_INTEL_SUBGROUPS_CHAR, CL_MAKE_VERSION(1, 0, 0)},
@@ -90,7 +84,7 @@ static const StringMap<cl_version> extRefCPU = {
     {OCL_EXT_KHR_IMAGE2D_FROM_BUFFER, CL_MAKE_VERSION(1, 0, 0)},
 };
 
-TEST_P(CheckExtensions, CpuDevice) {
+TEST_F(CheckExtensions, CpuDevice) {
   // Query list of extension names from clGetPlatformInfo/clGetDeviceInfo
   size_t retSize;
   cl_int err = clGetPlatformInfo(m_platform, CL_PLATFORM_EXTENSIONS, 0, nullptr,
@@ -117,17 +111,13 @@ TEST_P(CheckExtensions, CpuDevice) {
   extensions.erase(std::find(extensions.begin(), extensions.end(), '\0'),
                    extensions.end());
   // Check each queried extension is present in reference extensions
-  StringMap<cl_version> extRef(extRefCPU);
-  if (GetParam())
-    extRef.insert({OCL_EXT_KHR_FP16, CL_MAKE_VERSION(1, 0, 0)});
-
   StringRef exts{extensions};
   SmallVector<StringRef, 64> extensionVec;
   SplitString(exts.substr(0, exts.find_first_of('\0')), extensionVec);
-  ASSERT_EQ(extensionVec.size(), extRef.size());
+  ASSERT_EQ(extensionVec.size(), extRefCPU.size());
 
   for (const auto &ext : extensionVec)
-    ASSERT_TRUE(extRef.count(ext))
+    ASSERT_TRUE(extRefCPU.count(ext))
         << ext.str() << " is not in reference extensions";
 }
 
@@ -146,7 +136,7 @@ static bool operator==(const cl_name_version &lhs, const cl_name_version &rhs) {
   return strcmp(lhs.name, rhs.name) == 0 && lhs.version == rhs.version;
 }
 
-TEST_P(CheckExtensions, WithVersion) {
+TEST_F(CheckExtensions, WithVersion) {
   // Query list of extension names from clGetPlatformInfo/clGetDeviceInfo
   size_t retSize;
   size_t numOfExts;
@@ -174,21 +164,14 @@ TEST_P(CheckExtensions, WithVersion) {
       << " Expected that platform and device extensions are equal!";
 
   // Check each queried extension is present in reference extensions
-  StringMap<cl_version> extRef(extRefCPU);
-  if (GetParam())
-    extRef.insert({OCL_EXT_KHR_FP16, CL_MAKE_VERSION(1, 0, 0)});
-
-  ASSERT_EQ(extsWithVer.size(), extRef.size());
+  ASSERT_EQ(extsWithVer.size(), extRefCPU.size());
 
   for (const auto &extVer : extsWithVer) {
-    auto it = extRef.find(extVer.name);
-    ASSERT_NE(it, extRef.end())
+    auto it = extRefCPU.find(extVer.name);
+    ASSERT_NE(it, extRefCPU.end())
         << extVer.name << " is not in reference extensions";
     ASSERT_EQ(extVer.version, it->second)
         << extVer.name << "(" << makeVersonString(extVer.version) << ")"
         << " is not in reference extensions";
   }
 }
-
-INSTANTIATE_TEST_SUITE_P(FrameworkTestType, CheckExtensions,
-                         ::testing::Values(false, true));

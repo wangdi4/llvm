@@ -26,7 +26,6 @@ public:
 
 protected:
   void SetUp() override {
-    ASSERT_TRUE(SETENV("CL_CONFIG_CPU_EXPERIMENTAL_FP16", "1"));
     // Make sure we will call the soft math builtins
     ASSERT_TRUE(SETENV("CL_CONFIG_CPU_TARGET_ARCH", "corei7"));
     m_options = "-cl-opt-disable -g";

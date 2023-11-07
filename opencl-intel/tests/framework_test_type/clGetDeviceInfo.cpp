@@ -384,17 +384,11 @@ TEST_F(GetDeviceInfoTest, basic) {
         CL_DEVICE_ATOMIC_SCOPE_DEVICE | CL_DEVICE_ATOMIC_SCOPE_WORK_ITEM;
   ASSERT_EQ(expectedCapabilities, atomicFenceCapabilities)
       << "CL_DEVICE_ATOMIC_FENCE_CAPABILITIES";
-}
 
-// TODO move to basic test when cl_khr_fp16 is enabled for cpu device.
-TEST_F(GetDeviceInfoTest, CL_DEVICE_HALF_FP_CONFIG) {
-  ASSERT_TRUE(SETENV("CL_CONFIG_CPU_EXPERIMENTAL_FP16", "1"));
   cl_device_fp_config config;
-  size_t size_ret;
-  cl_int err = clGetDeviceInfo(m_device, CL_DEVICE_HALF_FP_CONFIG,
-                               sizeof(config), &config, &size_ret);
+  err = clGetDeviceInfo(m_device, CL_DEVICE_HALF_FP_CONFIG, sizeof(config),
+                        &config, &size_ret);
   ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo") << "CL_DEVICE_HALF_FP_CONFIG";
   ASSERT_EQ(sizeof(config), size_ret);
   ASSERT_EQ(CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST, config);
-  ASSERT_TRUE(UNSETENV("CL_CONFIG_CPU_EXPERIMENTAL_FP16"));
 }
