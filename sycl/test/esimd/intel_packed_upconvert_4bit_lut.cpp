@@ -32,7 +32,7 @@ SYCL_EXTERNAL void fourtosixteen() SYCL_ESIMD_FUNCTION {
 SYCL_EXTERNAL void fourtoeight() SYCL_ESIMD_FUNCTION {
   // CHECK: [[RD2:%.*]] = call <16 x i16> @llvm.genx.rdregioni.v16i16.v32i16.i16(<32 x i16> zeroinitializer, i32 2, i32 1, i32 0, i16 0, i32 0)
   // CHECK: = call <16 x i32> @llvm.genx.packed.4bit.upconvert.lut.v16i16(<16 x i32> zeroinitializer, <16 x i16> [[RD2]])
-  // CHECK: [[RD3:%.*]] = call <16 x i16> @llvm.genx.rdregioni.v16i16.v32i16.i16(<32 x i16> zeroinitializer, i32 2, i32 1, i32 0, i16 1, i32 0)
+  // CHECK: [[RD3:%.*]] = call <16 x i16> @llvm.genx.rdregioni.v16i16.v32i16.i16(<32 x i16> zeroinitializer, i32 2, i32 1, i32 0, i16 2, i32 0)
   // CHECK: = call <16 x i32> @llvm.genx.packed.4bit.upconvert.lut.v16i16(<16 x i32> zeroinitializer, <16 x i16> [[RD3]])
   simd<uint32_t, 16> lut = 0;
 
