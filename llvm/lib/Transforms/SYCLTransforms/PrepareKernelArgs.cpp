@@ -71,6 +71,8 @@ bool PrepareKernelArgsPass::runImpl(
 
   HasTLSGlobals = CompilationUtils::hasTLSGlobals(M);
 
+  ImplicitArgsUtils::getImplicitArgEnums(ImplicitArgEnums, &M);
+
   // Get all kernels (original scalar kernels and vectorized kernels).
   auto kernelsFuncSet = CompilationUtils::getAllKernels(*this->M);
 
@@ -136,12 +138,19 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   std::vector<Value *> Params;
   Function::arg_iterator CallIt = WrappedKernel->arg_begin();
   SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(WrappedKernel);
+  size_t AllocaSize = 0;
+  AllocaInst *SlmBuffer;
+  SmallVector<std::pair<Value *, Value *>, 4> LocalArgsAlloc;
+  size_t GlobalArgCount = 0;
+  size_t LocalArgCount = 0;
 
   const DataLayout &DL = M->getDataLayout();
   // TODO :  get common code from the following 2 for loops into a function
   // Handle explicit arguments
   for (unsigned ArgNo = 0; ArgNo < Arguments.size(); ++ArgNo) {
     KernelArgument KArg = Arguments[ArgNo];
+    if (KArg.Ty == KRNL_ARG_PTR_GLOBAL)
+      GlobalArgCount++;
     //  %0 = getelementptr i8* %pBuffer, i32 CurrOffset
     Value *GEP = Builder.CreateGEP(ArgsBufferValueTy, ArgsBuffer,
                                    ConstantInt::get(I32Ty, KArg.OffsetInBytes));
@@ -161,6 +170,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       Value *PointerCast = Builder.CreatePointerCast(GEP, CallIt->getType());
       Arg = PointerCast;
     } else if (KArg.Ty == KRNL_ARG_PTR_LOCAL) {
+      LocalArgCount++;
       // The argument is actually the size of the buffer
       Value *PointerCast =
           Builder.CreatePointerCast(GEP, PointerType::get(SizetTy, 0));
@@ -210,6 +220,9 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       AllocaInst *Allocation =
           new AllocaInst(I8Ty, AllocaAddrSpace, BufferSize, Align(Alignment));
       Builder.Insert(Allocation);
+
+      LocalArgsAlloc.push_back(std::make_pair(Allocation, BufferSize));
+
       Arg = Builder.CreatePointerCast(Allocation, CallIt->getType());
     } else if (KArg.Ty == KRNL_ARG_PTR_BLOCK_LITERAL) {
       Arg = Builder.CreateAddrSpaceCast(GEP, CallIt->getType());
@@ -269,8 +282,9 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   // LocalSize for each dimension. Used several times below.
   SmallVector<Value *, 4> LocalSize;
   unsigned PtrSizeInBytes = M->getDataLayout().getPointerSize();
-  ImplicitArgsUtils::initImplicitArgProps(PtrSizeInBytes);
-  for (unsigned int I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
+  ImplicitArgsUtils::initImplicitArgProps(PtrSizeInBytes, GlobalArgCount);
+
+  for (unsigned int I : ImplicitArgEnums) {
     Value *Arg = nullptr;
     if (!HasTLSGlobals)
       assert(CallIt->getType() == IAInfo->getArgType(I) &&
@@ -280,7 +294,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
             I == ImplicitArgsUtils::IA_RUNTIME_HANDLE ||
             I == ImplicitArgsUtils::IA_GLOBAL_BASE_ID ||
             I == ImplicitArgsUtils::IA_BARRIER_BUFFER ||
-            I == ImplicitArgsUtils::IA_WORK_GROUP_INFO) &&
+            I == ImplicitArgsUtils::IA_WORK_GROUP_INFO ||
+            I == ImplicitArgsUtils::IA_BUFFER_RANGE_INFO) &&
            "Invalid implicit argument index!");
     switch (I) {
     case ImplicitArgsUtils::IA_SLM_BUFFER: {
@@ -291,18 +306,17 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       } else {
         // add stack padding before and after this alloca, to allow unmasked
         // wide loads inside the vectorizer.
-        Type *SLMType =
-            ArrayType::get(I8Ty, SizeInBytes + STACK_PADDING_BUFFER * 2);
+        AllocaSize = SizeInBytes + STACK_PADDING_BUFFER * 2;
+        Type *SLMType = ArrayType::get(I8Ty, AllocaSize);
         const auto AllocaAddrSpace = DL.getAllocaAddrSpace();
         // Set alignment of implicit local buffer to max alignment.
         // TODO: we should choose the min required alignment size
         // move argument up over the lower side padding.
-        AllocaInst *slmBuffer =
-            new AllocaInst(SLMType, AllocaAddrSpace, nullptr,
-                           Align(TypeAlignment::MAX_ALIGNMENT));
-        Builder.Insert(slmBuffer);
+        SlmBuffer = new AllocaInst(SLMType, AllocaAddrSpace, nullptr,
+                                   Align(TypeAlignment::MAX_ALIGNMENT));
+        Builder.Insert(SlmBuffer);
         Value *CastBuf =
-            Builder.CreatePointerCast(slmBuffer, PointerType::get(I8Ty, 3));
+            Builder.CreatePointerCast(SlmBuffer, PointerType::get(I8Ty, 3));
         Arg = Builder.CreateGEP(I8Ty, CastBuf,
                                 ConstantInt::get(I32Ty, STACK_PADDING_BUFFER));
       }
@@ -422,11 +436,156 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       // Advance the ArgsBuffer offset based on the size
       CurrOffset += ImplicitArgProp.Size;
     } break;
+    case ImplicitArgsUtils::IA_BUFFER_RANGE_INFO: {
+      // These values are pointers that just need to be loaded from the
+      // UniformKernelArgs structure and passed on to the kernel
+      const ImplicitArgProperties &ImplicitArgProp =
+          ImplicitArgsUtils::getImplicitArgProps(I);
+      Arg = Constant::getNullValue(PointerType::get(I8Ty, 0));
+
+      bool UseAddrSpaceQualifierFunc =
+          KIMD.UseAddrSpaceQualifierFunc.hasValue()
+              ? KIMD.UseAddrSpaceQualifierFunc.get()
+              : 0;
+      if (UseAddrSpaceQualifierFunc) {
+        /*
+          BufferRanges's struct is as follow.
+          (Each element's size 8 Byte)
+            [LocalBufferCount],[GlobalBufferCount]
+            [LocalMemBaseAddr][LocalMemSize]
+            [LocalArg1Addr ][LocalArg1Size ],[LocalArg2Addr ][LocalArg2Size ]...
+            [GlobalArg1Addr][GlobalArg1Size],[GlobalArg2Addr][GlobalArg2Size]...
+            [GlobalVar1Addr][GlobalVar1Size],[GlobalVar2Addr][GlobalVar2Size]...
+
+          LocalBufferCount = LocalArgCount + 1;
+          GlobalBufferCount = GlobalArgCount + GlobalVarCount;
+
+          [GlobalArg*Addr], [GlobalArg*Size], have been initialized in
+          UniformArgs. So memcpy them from UniformArgs to the corresponding
+          positions in the new array BufferRanges. Then, will initialize other
+          parts.
+        */
+        SmallVector<GlobalVariable *, 4> GVList;
+        for (auto &GV : M->globals()) {
+          if (GV.getName().startswith("llvm.") || GV.getName().startswith("__"))
+            continue;
+          if (GV.getType()->getAddressSpace() !=
+              CompilationUtils::ADDRESS_SPACE_GLOBAL)
+            continue;
+          GVList.push_back(&GV);
+        }
+        size_t GlobalBufferCount = GlobalArgCount + GVList.size();
+        size_t LocalBufferCount =
+            AllocaSize > 0 ? LocalArgCount + 1 : LocalArgCount;
+
+        // 1. Alloca an array BufferRanges to store all info.
+        Value *BufferInfoAllocaSize = ConstantInt::get(
+            SizetTy, (1 + LocalBufferCount + GlobalBufferCount) * 2);
+        Value *BufferRanges = Builder.CreateAlloca(
+            SizetTy, 0, BufferInfoAllocaSize, "BufferRanges");
+        Arg = BufferRanges;
+
+        // 2. Store LocalBufferCount, GlobalBufferCount
+        size_t CurrInfoOffset = 0;
+        Value *LocalCount = ConstantInt::get(SizetTy, LocalBufferCount);
+        Value *Position =
+            Builder.CreateGEP(Builder.getInt8Ty(), BufferRanges,
+                              ConstantInt::get(I32Ty, CurrInfoOffset));
+        Builder.CreateStore(LocalCount, Position);
+        CurrInfoOffset += sizeof(size_t);
+
+        Value *GlobalCount = ConstantInt::get(SizetTy, GlobalBufferCount);
+        Position = Builder.CreateGEP(Builder.getInt8Ty(), BufferRanges,
+                                     ConstantInt::get(I32Ty, CurrInfoOffset));
+        Builder.CreateStore(GlobalCount, Position);
+        CurrInfoOffset += sizeof(size_t);
+
+        // 3. Store LocalMemBaseAddr, LocalMemSize
+        if (AllocaSize > 0) {
+          // store LocalMemBaseAddr
+          Position = Builder.CreateGEP(Builder.getInt8Ty(), BufferRanges,
+                                       ConstantInt::get(I32Ty, CurrInfoOffset));
+          Builder.CreateStore(SlmBuffer, Position);
+          CurrInfoOffset += sizeof(size_t);
+
+          // store LocalMemSize
+          Value *LocalBufferBaseAddr = ConstantInt::get(SizetTy, AllocaSize);
+          Position = Builder.CreateGEP(Builder.getInt8Ty(), BufferRanges,
+                                       ConstantInt::get(I32Ty, CurrInfoOffset));
+          Builder.CreateStore(LocalBufferBaseAddr, Position);
+          CurrInfoOffset += sizeof(size_t);
+        }
+
+        // 4. Store __local arguments' address and size.
+        assert(LocalArgsAlloc.size() == LocalArgCount);
+        for (auto &Addr : LocalArgsAlloc) {
+          // store LocalArg*Addr
+          Position = Builder.CreateGEP(Builder.getInt8Ty(), BufferRanges,
+                                       ConstantInt::get(I32Ty, CurrInfoOffset));
+          Builder.CreateStore(Addr.first, Position);
+          CurrInfoOffset += sizeof(size_t);
+          // store LocalArg*Size
+          Position = Builder.CreateGEP(Builder.getInt8Ty(), BufferRanges,
+                                       ConstantInt::get(I32Ty, CurrInfoOffset));
+          Builder.CreateStore(Addr.second, Position);
+          CurrInfoOffset += sizeof(size_t);
+        }
+
+        // 5. Memcpy the arguments' buffer range Info in UniformArgs to the
+        // array.
+        size_t InfoSizeInUniformArgs = GlobalArgCount * 2;
+        if (InfoSizeInUniformArgs > 0) {
+          Value *ArgsInfoPosition =
+              Builder.CreateGEP(Builder.getInt8Ty(), ArgsBuffer,
+                                ConstantInt::get(I32Ty, CurrOffset));
+          Position = Builder.CreateGEP(Builder.getInt8Ty(), BufferRanges,
+                                       ConstantInt::get(I32Ty, CurrInfoOffset));
+          Builder.CreateMemCpy(Position, MaybeAlign(Align(1)), ArgsInfoPosition,
+                               MaybeAlign(Align(1)),
+                               InfoSizeInUniformArgs * sizeof(size_t));
+        }
+
+        // 6. Store address and size of global variables with __global qualifier
+        CurrInfoOffset += GlobalArgCount * 2 * sizeof(size_t);
+        for (auto *GV : GVList) {
+          // Store address
+          Position = Builder.CreateGEP(Builder.getInt8Ty(), BufferRanges,
+                                       ConstantInt::get(I32Ty, CurrInfoOffset));
+          Builder.CreateStore(GV, Position);
+          CurrInfoOffset += sizeof(size_t);
+          // Store variables' size in byte
+          const DataLayout &DL = M->getDataLayout();
+          unsigned int BufferSize = 0;
+          if (GV->getValueType()->isStructTy()) {
+            BufferSize =
+                DL.getStructLayout(dyn_cast<StructType>(GV->getValueType()))
+                    ->getSizeInBytes();
+          } else {
+            BufferSize = DL.getTypeAllocSize(GV->getValueType());
+          }
+          // Store size
+          Value *GVSize = ConstantInt::get(SizetTy, BufferSize);
+          Position = Builder.CreateGEP(Builder.getInt8Ty(), BufferRanges,
+                                       ConstantInt::get(I32Ty, CurrInfoOffset));
+          Builder.CreateStore(GVSize, Position);
+          CurrInfoOffset += sizeof(size_t);
+        }
+      }
+      CurrOffset += ImplicitArgProp.Size;
+    } break;
     }
 
     if (HasTLSGlobals) {
       assert(Arg && "No value was created for this TLS global!");
       auto *C = dyn_cast<Constant>(Arg);
+      if (I == ImplicitArgsUtils::IA_BUFFER_RANGE_INFO) {
+        bool UseAddrSpaceQualifierFunc =
+            KIMD.UseAddrSpaceQualifierFunc.hasValue()
+                ? KIMD.UseAddrSpaceQualifierFunc.get()
+                : 0;
+        if (!UseAddrSpaceQualifierFunc)
+          continue;
+      }
       if (!(C && C->isNullValue() &&
             (I == ImplicitArgsUtils::IA_SLM_BUFFER ||
              I == ImplicitArgsUtils::IA_BARRIER_BUFFER))) {

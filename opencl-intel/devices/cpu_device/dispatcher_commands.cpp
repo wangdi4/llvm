@@ -735,6 +735,51 @@ NDRange::NDRange(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd, ITaskList *pList,
   m_numThreads = pList->GetDeviceConcurency();
 }
 
+static void prepareKernelArgsAddrSpaceInfo(
+    unsigned int MemArgCount, const unsigned int *MemoryObjectArgumentIndexes,
+    const KernelArgument *ExplicitArgument, char *LockedParams, int ParamsCount,
+    size_t ExplicitArgsSizeInBytes) {
+  std::vector<std::pair<size_t, size_t>> ArgBufferRange;
+  // get buffer size, buffer addr
+  for (unsigned int i = 0; i < MemArgCount; ++i) {
+    const KernelArgument &param =
+        ExplicitArgument[MemoryObjectArgumentIndexes[i]];
+    size_t Offset = param.OffsetInBytes;
+    char *KernelArgsPosition = (char *)LockedParams;
+    IOCLDevMemoryObject *memObj =
+        *(IOCLDevMemoryObject **)(KernelArgsPosition + Offset);
+    if (nullptr != memObj) {
+      cl_mem_obj_descriptor *objHandle;
+      memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CPU, 0,
+                                       (void **)&objHandle);
+      if (objHandle->memObjType == CL_MEM_OBJECT_BUFFER) {
+        ArgBufferRange.push_back(std::make_pair(
+            (size_t)objHandle->pData, objHandle->dimensions.buffer_size));
+      }
+    } else {
+      // args input pointer is setted with nullptr
+      ArgBufferRange.push_back(std::make_pair(0, 0));
+    }
+  }
+
+  /*
+    ArgBufferRanges's struct is as follow. (Each element's size is 8 Byte)
+      [GlobalArg1Addr][ GlobalArg1Size] [GlobalArg2Addr][ GlobalArg2Size]...
+  */
+  void *KernelArgsInfoPosition =
+      (LockedParams) + ExplicitArgsSizeInBytes + sizeof(UniformKernelArgs);
+  size_t *KernelArgsInfo = (size_t *)KernelArgsInfoPosition;
+  // Store __local arg's addr and size
+  int BufferIdx = 0;
+  for (int I = 0; I < ParamsCount; I++) {
+    if (ExplicitArgument[I].Ty == KRNL_ARG_PTR_GLOBAL) {
+      *(KernelArgsInfo++) = ArgBufferRange[BufferIdx].first;
+      *(KernelArgsInfo++) = ArgBufferRange[BufferIdx].second;
+      BufferIdx++;
+    }
+  }
+}
+
 int NDRange::Init(size_t region[], unsigned int &dimCount,
                   size_t numberOfThreads) {
   cl_dev_cmd_param_kernel *cmdParams =
@@ -797,6 +842,11 @@ int NDRange::Init(size_t region[], unsigned int &dimCount,
   for (cl_uint i = 0; i < cmdParams->uiNonArgUsmBuffersCount; ++i)
     cmdParams->ppNonArgUsmBuffers[i]->clDevMemObjGetDescriptor(
         CL_DEVICE_TYPE_CPU, 0, (void **)&devMemObjects[offset + i]);
+
+  prepareKernelArgsAddrSpaceInfo(
+      uiMemArgCount, pKernel->GetMemoryObjectArgumentIndexes(), pParams,
+      pLockedParams, pKernel->GetKernelParamsCount(),
+      pKernel->GetExplicitArgumentBufferSize());
 
   std::vector<char> kernelParamsVec;
 
@@ -1439,7 +1489,8 @@ void DeviceNDRange::InitBlockCmdDesc(
          "Explicit arguments buffer size is not as expected");
 
   // We should also allocate space for the implicit arguments
-  size_t const total_size = exp_arg_size + sizeof(UniformKernelArgs);
+  size_t const total_size = exp_arg_size + sizeof(UniformKernelArgs) +
+                            pKernel->GetSizeOfBufferRangeInfo();
 
   char *pAllocatedContext = (char *)ALIGNED_MALLOC(
       total_size, pKernel->GetArgumentBufferRequiredAlignment());

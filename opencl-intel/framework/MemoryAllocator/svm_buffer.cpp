@@ -151,6 +151,8 @@ BufferPointerArg::GetBackingStoreData(const size_t * /*pszOrigin*/) const {
   return (char *)m_pBuf->GetAddr() + m_szOffset;
 }
 
+size_t BufferPointerArg::getBackingStoreDataSize() { return m_pBuf->GetSize(); }
+
 cl_err_code BufferPointerArg::CreateDeviceResource(
     const SharedPtr<FissionableDevice> &pDevice) {
   return m_pBuf->CreateDeviceResource(pDevice);
@@ -181,7 +183,7 @@ SharedPointerArg::PointerArgDevMemoryObject::PointerArgDevMemoryObject(
     const SharedPtr<SharedPointerArg> &pPtrArg,
     IOCLDevMemoryObject *pBufDevMemObj, size_t /*szOffset*/)
     : m_pBufDevMemObj(pBufDevMemObj) {
-  m_objDecr.dimensions.buffer_size = 0; // unknown
+  m_objDecr.dimensions.buffer_size = pPtrArg->getBackingStoreDataSize();
   m_objDecr.dim_count = 1;
   m_objDecr.memObjType = CL_MEM_OBJECT_BUFFER;
   m_objDecr.pData = pPtrArg->GetBackingStoreData();

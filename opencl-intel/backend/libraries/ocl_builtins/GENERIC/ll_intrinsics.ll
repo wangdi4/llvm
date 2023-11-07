@@ -313,17 +313,17 @@ define %struct.__pipe_t addrspace(1)* @__ocl_rpipe2ptr(%opencl.pipe_ro_t addrspa
   ret %struct.__pipe_t addrspace(1)* %1
 }
 
-define i8 addrspace(1)* @__to_global(i8 addrspace(4)* %p) {
+define i8 addrspace(1)* @__to_global_addrspacecast(i8 addrspace(4)* %p) {
   %1 = addrspacecast i8 addrspace(4)* %p to i8 addrspace(1)*
   ret i8 addrspace(1)* %1
 }
 
-define i8 addrspace(3)* @__to_local(i8 addrspace(4)* %p) {
+define i8 addrspace(3)* @__to_local_addrspacecast(i8 addrspace(4)* %p) {
   %1 = addrspacecast i8 addrspace(4)* %p to i8 addrspace(3)*
   ret i8 addrspace(3)* %1
 }
 
-define i8* @__to_private(i8 addrspace(4)* %p) {
+define i8* @__to_private_addrspacecast(i8 addrspace(4)* %p) {
   %1 = addrspacecast i8 addrspace(4)* %p to i8*
   ret i8* %1
 }
