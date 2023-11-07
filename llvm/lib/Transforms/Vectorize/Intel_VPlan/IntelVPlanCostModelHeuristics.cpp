@@ -296,6 +296,9 @@ void HeuristicSLP::apply(const VPInstructionCost &, VPInstructionCost &Cost,
                          VPInstructionCost &OvhCost, const VPlanVector *Plan,
                          raw_ostream *OS) const {
 
+  if (!Cost.isValid() || !OvhCost.isValid())
+    return;
+
   if (VF == 1 && CMScalarSLPAnalysis && CM->DDG) {
     // Apply cost reduction once SLP pattern is discovered in scalar Plan.
     // TODO: Eventually SLP cost modelling on scalar Plan should completely
@@ -719,6 +722,9 @@ void HeuristicGatherScatter::apply(const VPInstructionCost &TTICost,
                                    VPInstructionCost &OvhCost,
                                    const VPlanVector *Plan,
                                    raw_ostream *OS) const {
+  if (!TTICost.isValid() || !Cost.isValid() || !OvhCost.isValid())
+    return;
+
   VPlanCostPair GSCost = (*this)(Plan);
   if (GSCost.first == 0 && GSCost.second == 0)
     return;
