@@ -998,7 +998,7 @@ adjusted by the CSAInnerLoopPrep pass and then fully ILPL'd during dataflow
 conversion.
 
 pipeline.limited.{entry,exit}
---------------------------
+-----------------------------
 
 Syntax:
 ~~~~~~~
