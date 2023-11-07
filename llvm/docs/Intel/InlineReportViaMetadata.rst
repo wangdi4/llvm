@@ -35,9 +35,11 @@ an opportunity to switch between individual inlining report for each inliner
 pass and a composite report for the whole inlining that ever happened for
 a particular function. There are two main issues that need to be resolved if
 we need to keep inline report consistent between two inlining passes:
+
 * The inlining report should follow IR changes;
 * The inlining report nodes should have up-to-date information and be properly
   attached to the IR before inliner pass.
+
 Thus a new inline report setup pass was introduced. It conducts two functions.
 First, if there are no inline report metadata in the IR yet, it constructs
 basic metadata nodes and attaches them to the IR. The setup and inliner passes

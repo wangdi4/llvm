@@ -62,6 +62,7 @@ IR. The algorithm proceeds as follows:
 
   #. **Multiple-exit-to-single-exit loop massaging**: This transformation
      removes the side exits of the inner loop by doing the following:
+
      * For each exit block, a new intermediate basic block is created. The
        exiting block is disconnected from the exit block and is connected as
        predecessor to the new intermediate block.

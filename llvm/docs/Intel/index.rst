@@ -28,6 +28,8 @@ Xmain
    GapAnalysis/index
    Tools/index
    MLPGO/index
+   NoAlias
+   Subscript
 
 .. INTEL_FEATURE_MARKERCOUNT
 

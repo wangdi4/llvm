@@ -70,7 +70,8 @@ selection, but not all such optimizations can be done that early.) This
 example is extracted from the unit test and is described more completely in
 the accompanying PowerPoint slides from Pablo's CppCon 2018 talk.
 
-::
+.. code-block:: c++
+
   using namespace mirmatch;
 
   constexpr OpcodeGroupMatcher<X86::MULSDrm, X86::MULSDrr,
@@ -97,7 +98,6 @@ the accompanying PowerPoint slides from Pablo's CppCon 2018 talk.
 
   EXPECT_EQ(mul, result.instr(REG_AX   = MULS(AnyOperand, REG_X) ));
   EXPECT_EQ(add, result.instr(REG_AXPY = ADDS(REG_AX, REG_Y)     ));
-::
 
 Ever-so-brief user manual:
 ==========================
@@ -112,7 +112,8 @@ Class ``MatchResult``
 An object of class ``MatchResult`` holds the result of an attempted pattern
 match at runtime.
 
-::
+.. code-block:: c++
+
   class MatchResult
   {
   public:
@@ -132,7 +133,6 @@ match at runtime.
     template <instruction-type>
       MachineInstr* instr(instruction-expression) const;
   };
-::
 
 Class templates ``OpcodeMatcher``, ``OpcodeRangeMatcher``, and ``OpcodeGroupMatcher``
 -------------------------------------------------------------------------------------
@@ -142,11 +142,11 @@ instruction pattern within a match pattern. The instruction pattern will match
 an instruction that matches a single opcode, a range of opcodes, or an
 arbitrary group of opcodes, respectively.
 
-::
+.. code-block:: c++
+
   template <unsigned Opcode> class OpcodeMatcher;
   template <unsigned OpcodeFirst, unsigned OpcodeLast> class OpcodeRangeMatcher;
   template <unsigned Opcode1, unsigned... Opcodes> class OpcodeGroupMatcher;
-::
 
 Macro ``MIR_MATCHER_REGS(r1, r2, ...)``
 ---------------------------------------
@@ -186,10 +186,10 @@ libraries.)
 Function ``match``
 ------------------
 
-::
+.. code-block:: c++
+
   bool match(MatchResult& result, Pattern pat, MachineInstr* mi);
   MatchResult match(Pattern pat, MachineInstr* mi);
-::
 
 Given a pattern and a pointer to an instruction, these functions find a match
 if the instruction is the first instruction in the pattern graph. The first

@@ -219,7 +219,7 @@ with the pointer operand %tmp2 (%p2). In this case, both %struct.A and
   }
 
 FieldAddressTakenMemory
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 This indicates that the addresses of one or more fields within the type were
 written to memory.
 
@@ -465,7 +465,8 @@ where c1 and c2 are constants, and n is the size of the structure.
 
 Transformations that need to modify the size of an allocation when changing
 a structure definition may not be able to simply adjust the allocation size
-with the following formula when this flag is set.
+with the following formula when this flag is set::
+
   byte_count = old_byte_count * new_struct_size / old_struct_size
 
 FieldAddressTakenCall
