@@ -108,7 +108,6 @@ namespace {
       if (std::getenv("bar") != (char*) -1)
         return;
 
-      (void) llvm::createAAEvalPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createNonLTOGlobalOptimizerPass();
       (void) llvm::createTbaaMDPropagationLegacyPass();
