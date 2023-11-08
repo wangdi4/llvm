@@ -76,10 +76,7 @@ bool ExternalizeGlobalVariablesPass::runImpl(Module &M) {
   // clSetKernelExecInfo. So we have to externalize globals for IR generated
   // from OpenMP.
   SmallSet<Value *, 8> TLSGlobals;
-  SmallVector<unsigned, 8> ImplicitArgEnums;
-  ImplicitArgsUtils::getImplicitArgEnums(ImplicitArgEnums, &M);
-
-  for (unsigned I : ImplicitArgEnums) {
+  for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
     GlobalVariable *GV = CompilationUtils::getTLSGlobal(&M, I);
     TLSGlobals.insert(GV);
   }

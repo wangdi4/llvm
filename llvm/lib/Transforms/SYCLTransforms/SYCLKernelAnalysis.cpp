@@ -123,25 +123,6 @@ void SYCLKernelAnalysisPass::fillSubgroupCallingFuncs(CallGraph &CG) {
   }
 }
 
-static bool hasAddrSpaceQualifierFunc(CallGraph &CG, const RuntimeService &RTS,
-                                      Function *F) {
-  auto *Node = CG[F];
-  for (auto It = df_begin(Node), E = df_end(Node); It != E; ++It) {
-    for (const auto &Pair : **It) {
-      if (!Pair.first)
-        continue;
-      Function *CalledFunc = Pair.second->getFunction();
-      if (!CalledFunc)
-        continue;
-      if (CompilationUtils::isAddrspaceQualifierBuiltins(
-              CalledFunc->getName())) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 static bool hasAtomicBuiltinCall(CallGraph &CG, const RuntimeService &RTS,
                                  Function *F) {
   auto *Node = CG[F];
@@ -229,8 +210,6 @@ bool SYCLKernelAnalysisPass::runImpl(
     KIMD.NoBarrierPath.set(!UnsupportedFuncs.contains(Kernel));
     KIMD.KernelHasSubgroups.set(SubgroupCallingFuncs.contains(Kernel));
     KIMD.KernelHasGlobalSync.set(hasAtomicBuiltinCall(CG, RTS, Kernel));
-    if (hasAddrSpaceQualifierFunc(CG, RTS, Kernel))
-      KIMD.UseAddrSpaceQualifierFunc.set(true);
     KIMD.KernelExecutionLength.set(getExecutionLength(Kernel, GetLI(*Kernel)));
   }
 
@@ -262,9 +241,6 @@ void SYCLKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
                  << "\n";
     OS.indent(2) << "KernelExecutionLength=" << KIMD.KernelExecutionLength.get()
                  << "\n";
-    if (KIMD.UseAddrSpaceQualifierFunc.hasValue())
-      OS.indent(2) << "UseAddrSpaceQualifierFunc="
-                   << KIMD.UseAddrSpaceQualifierFunc.get() << "\n";
   }
 
   OS << "\nFunctions that call subgroup builtins:\n";

@@ -11,9 +11,7 @@
 #ifndef LLVM_TRANSFORMS_SYCLTRANSFORMS_UTILS_IMPLICIT_ARGS_UTILS_H
 #define LLVM_TRANSFORMS_SYCLTRANSFORMS_UTILS_IMPLICIT_ARGS_UTILS_H
 
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Module.h"
 
 namespace llvm {
 
@@ -151,7 +149,6 @@ public:
     IA_GLOBAL_BASE_ID,
     IA_BARRIER_BUFFER,
     IA_RUNTIME_HANDLE,
-    IA_BUFFER_RANGE_INFO,
     IA_NUMBER
   };
   static const unsigned int NUM_IMPLICIT_ARGS = IA_NUMBER;
@@ -160,9 +157,6 @@ public:
 
   ~ImplicitArgsUtils() {}
 
-  static void getImplicitArgEnums(SmallVector<unsigned, 8> &ImplicitArgEnums,
-                                  Module *M);
-
   /// Return the implicit argument properties of given argument index.
   /// \param Arg the implicit argument index.
   /// @returns the implicit argument properties.
@@ -170,8 +164,7 @@ public:
 
   /// Initialize properties on implicit arguments in run time.
   /// \param SizeOfPtr size of pointer, depends on target machine.
-  static void initImplicitArgProps(unsigned int SizeOfPtr,
-                                   size_t GlobalBufferCount);
+  static void initImplicitArgProps(unsigned int SizeOfPtr);
 
   /// Indicate that the properties were initialized.
   static bool Initialized;

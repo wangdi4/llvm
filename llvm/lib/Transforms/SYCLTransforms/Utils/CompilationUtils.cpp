@@ -1494,23 +1494,6 @@ FuncSet getAllSyncBuiltinsDeclsForKernelUniformCallAttr(Module &M) {
   return FSet;
 }
 
-bool isAddrspaceQualifierBuiltins(StringRef FName) {
-  return FName == "__to_local" || FName == "__to_global" ||
-         FName == "__to_private";
-}
-
-bool hasAddrspaceQualifierBuiltins(Module *M) {
-  for (Function &F : *M) {
-    SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(&F);
-    bool HasAsQualifierBuiltin = KIMD.UseAddrSpaceQualifierFunc.hasValue()
-                                     ? KIMD.UseAddrSpaceQualifierFunc.get()
-                                     : 0;
-    if (HasAsQualifierBuiltin)
-      return true;
-  }
-  return false;
-}
-
 static std::string addSuffixInFunctionName(std::string FuncName,
                                            StringRef Suffix) {
   return (Twine("__") + FuncName + Twine("_before.") + Suffix).str();
@@ -1734,20 +1717,18 @@ bool hasOcl20Support(const Module &M) {
 
 void getImplicitArgs(Function *pFunc, Value **LocalMem, Value **WorkDim,
                      Value **WGId, Value **BaseGlbId, Value **SpecialBuf,
-                     Value **RunTimeHandle, Value **BufferRanges) {
-
-  SmallVector<unsigned, 8> ImplicitArgEnums;
-  ImplicitArgsUtils::getImplicitArgEnums(ImplicitArgEnums, pFunc->getParent());
+                     Value **RunTimeHandle) {
 
   assert(pFunc && "Function cannot be null");
-  assert(pFunc->arg_size() >= ImplicitArgEnums.size() &&
+  assert(pFunc->arg_size() >= ImplicitArgsUtils::NUM_IMPLICIT_ARGS &&
          "implicit args was not added!");
 
   // Iterating over explicit arguments
   Function::arg_iterator DestI = pFunc->arg_begin();
 
   // Go over the explicit arguments
-  for (unsigned int i = 0; i < pFunc->arg_size() - ImplicitArgEnums.size(); ++i)
+  for (unsigned int i = 0;
+       i < pFunc->arg_size() - ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i)
     ++DestI;
 
   // Retrieve all the implicit arguments which are not NULL
@@ -1775,13 +1756,6 @@ void getImplicitArgs(Function *pFunc, Value **LocalMem, Value **WorkDim,
   if (nullptr != RunTimeHandle)
     *RunTimeHandle = &*DestI;
   ++DestI;
-
-  if (hasAddrspaceQualifierBuiltins(pFunc->getParent())) {
-    if (nullptr != BufferRanges)
-      *BufferRanges = &*DestI;
-    ++DestI;
-  }
-
   assert(DestI == pFunc->arg_end());
 }
 
@@ -1822,10 +1796,8 @@ void parseKernelArguments(Module *M, Function *F, bool HasTLSGlobals,
                           std::vector<KernelArgument> &Arguments,
                           std::vector<unsigned int> &MemArguments) {
   size_t ArgsCount = F->arg_size();
-  SmallVector<unsigned, 8> ImplicitArgEnums;
-  ImplicitArgsUtils::getImplicitArgEnums(ImplicitArgEnums, M);
   if (!HasTLSGlobals)
-    ArgsCount -= ImplicitArgEnums.size();
+    ArgsCount -= ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
 
   SYCLKernelMetadataAPI::KernelMetadataAPI KMD(F);
   SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);

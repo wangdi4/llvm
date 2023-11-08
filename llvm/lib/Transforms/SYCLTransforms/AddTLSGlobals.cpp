@@ -27,11 +27,9 @@ PreservedAnalyses AddTLSGlobalsPass::run(Module &M, ModuleAnalysisManager &AM) {
   bool NoLocalBuffer = llvm::all_of(M.functions(), [&](const Function &F) {
     return F.isDeclaration() ? true : !LBInfo->getDirectLocalsMap().count(&F);
   });
-  SmallVector<unsigned, 8> ImplicitArgEnums;
-  ImplicitArgsUtils::getImplicitArgEnums(ImplicitArgEnums, &M);
 
   // Create TLS globals
-  for (unsigned I : ImplicitArgEnums) {
+  for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
     if (I == ImplicitArgsUtils::IA_SLM_BUFFER && NoLocalBuffer)
       continue;
     if (I == ImplicitArgsUtils::IA_BARRIER_BUFFER && NoBarrier)

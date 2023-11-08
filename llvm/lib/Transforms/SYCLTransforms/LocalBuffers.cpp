@@ -312,7 +312,7 @@ void LocalBuffersPass::runOnFunction(Function *F) {
                            LocalMem, "LocalMemBase");
   } else {
     CompilationUtils::getImplicitArgs(F, &LocalMem, nullptr, nullptr, nullptr,
-                                      nullptr, nullptr, nullptr);
+                                      nullptr, nullptr);
   }
 
   assert(LocalMem && "LocalMem should not be nullptr.");
