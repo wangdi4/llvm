@@ -73,15 +73,51 @@ KnownBits VPlanValueTrackingHIR::getKnownBitsImpl(VPlanAddRecHIR *AddRec) {
              }))
     return KnownBits{BitWidth};
 
+  // A CE consists of a sum of IVs, blobs, and a single constant. We can
+  // break it down into its parts:
+  //
+  //    C + B1 + B2 + ... + I1 + I2 + ...
+  //
+  // By determining the KB for each part and accumulating the results, we obtain
+  // a final KB for the whole CE.
+
   KnownBits KB =
       KnownBits::makeConstant(APInt{BitWidth, (uint64_t)Base->getConstant()});
 
   for (auto &B : make_range(Base->blob_begin(), Base->blob_end())) {
-    const SCEV *ScevExpr = BU.getBlob(B.Index);
-    KnownBits BlobKB = computeKnownBitsForScev(ScevExpr, CtxI);
-    BlobKB = KnownBits::mul(
-        KnownBits::makeConstant(APInt{BitWidth, (uint64_t)B.Coeff}), BlobKB);
-    KB = KnownBits::computeForAddSub(/*Add:*/ true, /*NSW:*/ false, BlobKB, KB);
+    // A blob consists of a coefficient and a SCEV:
+    //    B1 = <coeff> * <SCEV>
+    KnownBits BlobKB = computeKnownBitsForScev(BU.getBlob(B.Index), CtxI);
+    if (B.Coeff != 1) {
+      BlobKB =
+          KnownBits::mul(KnownBits::makeConstant(APInt{
+                             BitWidth, (uint64_t)B.Coeff, /*isSigned=*/true}),
+                         BlobKB);
+    }
+    KB = KnownBits::computeForAddSub(/*Add:*/ true, /*NSW:*/ false, KB,
+                                     std::move(BlobKB));
+  }
+
+  for (auto &IV : make_range(Base->iv_begin(), Base->iv_end())) {
+    if (IV.Coeff == 0)
+      continue;
+
+    // An IV is an unknown value, scaled by a constant coefficient and/or a blob
+    // coefficient:
+    //    I1 = <const-coeff> * <blob-coeff> * {UNKNOWN}
+    KnownBits IVKB{BitWidth};
+    if (IV.Coeff != 1) {
+      IVKB =
+          KnownBits::mul(KnownBits::makeConstant(APInt{
+                             BitWidth, (uint64_t)IV.Coeff, /*isSigned=*/true}),
+                         IVKB);
+    }
+    if (IV.Index != InvalidBlobIndex) {
+      IVKB = KnownBits::mul(computeKnownBitsForScev(BU.getBlob(IV.Index), CtxI),
+                            IVKB);
+    }
+    KB = KnownBits::computeForAddSub(/*Add:*/ true, /*NSW:*/ false, KB,
+                                     std::move(IVKB));
   }
 
   return KB;
