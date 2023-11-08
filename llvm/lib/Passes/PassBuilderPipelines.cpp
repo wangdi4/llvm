@@ -1430,10 +1430,9 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
                                     bool IsCS, bool AtomicCounterUpdate,
                                     std::string ProfileFile,
                                     std::string ProfileRemappingFile,
+				    ThinOrFullLTOPhase LTOPhase,
                                     IntrusiveRefCntPtr<vfs::FileSystem> FS) {
   assert(Level != OptimizationLevel::O0 && "Not expecting O0 here!");
-<<<<<<< HEAD
-=======
   if (!IsCS && !DisablePreInliner) {
     InlineParams IP;
 
@@ -1486,7 +1485,6 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
     // dramatically increase code size.
     MPM.addPass(GlobalDCEPass());
   }
->>>>>>> 58dcc1634a5873a92dccce067b36852dda6b1e3a
 
 #if INTEL_CUSTOMIZATION
   if (PGOAction == PGOOptions::MLUse) {
@@ -2024,7 +2022,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
        PGOOpt->Action == PGOOptions::MLUse)) {
     addPGOInstrPasses(MPM, Level, PGOOpt->Action,
                       /*IsCS=*/false, PGOOpt->AtomicCounterUpdate,
-                      PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
+                      PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile, Phase,
                       PGOOpt->FS);
     MPM.addPass(PGOIndirectCallPromotion(false, false));
   }
@@ -3000,12 +2998,12 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
       addPGOInstrPasses(MPM, Level, PGOOptions::IRInstr, // INTEL
                         /*IsCS=*/true, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->CSProfileGenFile, PGOOpt->ProfileRemappingFile,
-                        PGOOpt->FS);
+                        LTOPhase, PGOOpt->FS);
     else if (PGOOpt->CSAction == PGOOptions::CSIRUse)
       addPGOInstrPasses(MPM, Level, PGOOptions::IRUse, // INTEL
                         /*IsCS=*/true, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
-                        PGOOpt->FS);
+                        LTOPhase, PGOOpt->FS);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -3277,7 +3275,7 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
       addPGOInstrPasses(MPM, Level, PGOOpt->Action,
                         /* IsCS */ false, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
-                        PGOOpt->FS);
+                        LTOPhase, PGOOpt->FS);
       MPM.addPass(PGOIndirectCallPromotion(false, false));
     }
     if (PGOOpt && PGOOpt->IsCGPGO &&
@@ -3904,12 +3902,12 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       addPGOInstrPasses(MPM, Level, PGOOptions::IRInstr, // INTEL
                         /*IsCS=*/true, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->CSProfileGenFile, PGOOpt->ProfileRemappingFile,
-                        PGOOpt->FS);
+                        ThinOrFullLTOPhase::FullLTOPostLink, PGOOpt->FS);
     else if (PGOOpt->CSAction == PGOOptions::CSIRUse)
       addPGOInstrPasses(MPM, Level, PGOOptions::IRUse, // INTEL
                         /*IsCS=*/true, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
-                        PGOOpt->FS);
+                        ThinOrFullLTOPhase::FullLTOPostLink, PGOOpt->FS);
   }
 
   // Break up allocas
@@ -4162,7 +4160,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     addPGOInstrPasses(MPM, Level, PGOOpt->Action, // INTEL
                       /* IsCS */ false, PGOOpt->AtomicCounterUpdate,
                       PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
-                      PGOOpt->FS);
+                      ThinOrFullLTOPhase::FullLTOPostLink, PGOOpt->FS);
     MPM.addPass(PGOIndirectCallPromotion(false, false));
   }
 #endif // !INTEL_PRODUCT_RELEASE

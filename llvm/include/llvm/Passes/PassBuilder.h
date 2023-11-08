@@ -726,6 +726,7 @@ private:
                          PGOOptions::PGOAction PGOAction, bool IsCS, // INTEL
                          bool AtomicCounterUpdate, std::string ProfileFile,
                          std::string ProfileRemappingFile,
+                         ThinOrFullLTOPhase LTOPhase,
                          IntrusiveRefCntPtr<vfs::FileSystem> FS);
 
   // Extension Point callbacks
