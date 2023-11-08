@@ -31,6 +31,8 @@
 ; CHECK-EP: Running pass: NoOpModulePass
 ; CHECK-O: Running pass: CrossDSOCFIPass
 ; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: RequireAnalysisPass<llvm::DopeVectorTypeAnalysis, llvm::Module, llvm::AnalysisManager<Module>> on [module]
+; CHECK-O-NEXT: Running analysis: DopeVectorTypeAnalysis on [module]
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis

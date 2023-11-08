@@ -120,6 +120,7 @@ add_llvm_component_library(LLVMAnalysis
   Intel_Andersens.cpp
   Intel_ArrayUseAnalysis.cpp
   Intel_DopeVectorAnalysis.cpp
+  Intel_DopeVectorTypeAnalysis.cpp
   Intel_FPValueRange.cpp
   Intel_FPValueRangeAnalysis.cpp
 # INTEL_FEATURE_SW_ADVANCED

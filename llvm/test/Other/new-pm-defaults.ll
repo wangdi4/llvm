@@ -106,9 +106,13 @@
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-O-NEXT: Running pass: InlineReportSetupPass ;INTEL
-; CHECK-O-NEXT: Running pass: InlineForceInlinePass ;INTEL
-; CHECK-O-NEXT: Running pass: InlineListsPass ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: RequireAnalysisPass<llvm::DopeVectorTypeAnalysis, llvm::Module, llvm::AnalysisManager<Module>> on [module]
+; CHECK-O-NEXT: Running analysis: DopeVectorTypeAnalysis on [module]
+; CHECK-O-NEXT: Running pass: InlineReportSetupPass
+; CHECK-O-NEXT: Running pass: InlineForceInlinePass
+; CHECK-O-NEXT: Running pass: InlineListsPass
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: CoroEarlyPass
 ; CHECK-O-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
 ; CHECK-O-NEXT: Running pass: DopeVectorConstPropPass ;INTEL

@@ -57,6 +57,7 @@ MODULE_ANALYSIS("module-summary", ModuleSummaryIndexAnalysis())
 MODULE_ANALYSIS("no-op-module", NoOpModuleAnalysis())
 MODULE_ANALYSIS("profile-summary", ProfileSummaryAnalysis())
 MODULE_ANALYSIS("stack-safety", StackSafetyGlobalAnalysis())
+MODULE_ANALYSIS("dopevectortype", DopeVectorTypeAnalysis())     // INTEL
 MODULE_ANALYSIS("wholeprogram", WholeProgramAnalysis(WPUtils))     // INTEL
 MODULE_ANALYSIS("xm-module-opt-level", XmainOptLevelAnalysis()) // INTEL
 MODULE_ANALYSIS("verify", VerifierAnalysis())
