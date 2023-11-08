@@ -254,7 +254,6 @@ static int initLibrary(DeviceTy &Device) {
             return OFFLOAD_FAIL;
           CurrDeviceEntryAddr = DevPtr;
         }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         if (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR) {
           if (CurrDeviceEntry->size != 0) {
@@ -269,7 +268,6 @@ static int initLibrary(DeviceTy &Device) {
                                   (uint64_t)CurrDeviceEntry->addr);
         }
 #endif // INTEL_CUSTOMIZATION
-=======
 
         DP("Add mapping from host " DPxMOD " to device " DPxMOD " with size %zu"
            ", name \"%s\"\n",
@@ -287,7 +285,6 @@ static int initLibrary(DeviceTy &Device) {
         // Notify about the new mapping.
         if (Device.notifyDataMapped(CurrHostEntry->addr, CurrHostEntry->size))
           return OFFLOAD_FAIL;
->>>>>>> 2d739f13d49363dd55867e1d8cda80d92d617675
       }
     }
   }
