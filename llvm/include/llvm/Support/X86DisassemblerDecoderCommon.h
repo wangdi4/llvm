@@ -105,7 +105,8 @@ enum attributeBits {
   ATTR_XUCCXD = 0x1 << 15,
   ATTR_EVEXP10= 0x1 << 16,
   ATTR_EVEXNF = 0x1 << 17,
-  ATTR_max    = 0x1 << 18,
+  ATTR_REX2   = 0x1 << 18,
+  ATTR_max    = 0x1 << 19,
 #else // INTEL_FEATURE_XISA_COMMON
   ATTR_max    = 0x1 << 13,
 #endif // INTEL_FEATURE_XISA_COMMON
@@ -162,6 +163,7 @@ enum attributeBits {
   ENUM_ENTRY(IC_64BIT_REXW_OPSIZE,  8,  "The Dynamic Duo!  Prefer over all "   \
                                         "else because this changes most "      \
                                         "operands' meaning")                   \
+  ENUM_ENTRY(IC_64BIT_REX2,         2,  "requires a REX2 prefix")              \
   ENUM_ENTRY(IC_VEX,                1,  "requires a VEX prefix")               \
   ENUM_ENTRY(IC_VEX_XS,             2,  "requires VEX and the XS prefix")      \
   ENUM_ENTRY(IC_VEX_XD,             2,  "requires VEX and the XD prefix")      \

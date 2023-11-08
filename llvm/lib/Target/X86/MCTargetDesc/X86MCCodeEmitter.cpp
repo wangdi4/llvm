@@ -1761,6 +1761,12 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
   Prefix.setW(TSFlags & X86II::REX_W);
   unsigned NumOps = MI.getNumOperands();
   bool UsesHighByteReg = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  if (TSFlags & X86II::ExplicitREX2Prefix)
+    Prefix.setLowerBound(REX2);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 #ifndef NDEBUG
   bool HasRegOp = false;
 #endif

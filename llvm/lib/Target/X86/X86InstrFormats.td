@@ -358,6 +358,12 @@ class NotEVEX2VEXConvertible { bit notEVEX2VEXConvertible = 1; }
 
 // Force the instruction to use VEX encoding.
 class ExplicitVEXPrefix { bit ExplicitVEXPrefix = 1; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// Force the instruction to use REX2 encoding.
+class ExplicitREX2Prefix { bit explicitREX2Prefix = 1; }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 // Force the instruction to emit prefix.
@@ -457,6 +463,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
 #if INTEL_FEATURE_ISA_APX_F
   bit hasEVEX_NF = 0;      // Does this inst set the EVEX_NF field?
   bit hasTwoConditionalOps = 0;   // Does this inst have two conditional operands?
+  bit explicitREX2Prefix = 0; // Force the instruction to use REX2 prefix.
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   // Force to check predicate before compress EVEX to VEX encoding.
@@ -498,6 +505,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
 #if INTEL_FEATURE_ISA_APX_F
   let TSFlags{55}    = hasEVEX_NF;
   let TSFlags{56}    = hasTwoConditionalOps;
+  let TSFlags{57}    = explicitREX2Prefix;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }
