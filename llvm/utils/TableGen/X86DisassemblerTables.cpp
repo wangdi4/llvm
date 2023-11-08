@@ -165,6 +165,11 @@ static inline bool inheritsFrom(InstructionContext child,
   case IC_64BIT_REXW_XS:
   case IC_64BIT_REXW_OPSIZE:
   case IC_64BIT_REXW_ADSIZE:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case IC_64BIT_REX2:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     return false;
   case IC_VEX:
     return (VEX_LIG && WIG && inheritsFrom(child, IC_VEX_L_W)) ||
@@ -974,6 +979,8 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
 
       o << "_NF";
     }
+    else if ((index & ATTR_64BIT) && (index & ATTR_REX2))
+      o << "IC_64BIT_REX2";
     else if ((index & ATTR_EVEX) || (index & ATTR_VEX) || (index & ATTR_VEXL)) {
 #else // INTEL_FEATURE_ISA_APX_F
     if ((index & ATTR_EVEX) || (index & ATTR_VEX) || (index & ATTR_VEXL)) {

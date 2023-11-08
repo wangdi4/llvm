@@ -45,8 +45,6 @@ bool ResolveWICallPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo,
   PrefetchDecl = false;
   HasTLSGlobals = CompilationUtils::hasTLSGlobals(M);
 
-  HasASQualifierBuiltin = CompilationUtils::hasAddrspaceQualifierBuiltins(&M);
-
   // extended execution flags
   ExtExecDecls.clear();
 
@@ -100,13 +98,9 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
         Builder, M, ImplicitArgsUtils::IA_BARRIER_BUFFER);
     RuntimeHandle = createLoadForTLSGlobal(
         Builder, M, ImplicitArgsUtils::IA_RUNTIME_HANDLE);
-    if (HasASQualifierBuiltin)
-      BufferRanges = createLoadForTLSGlobal(
-          Builder, M, ImplicitArgsUtils::IA_BUFFER_RANGE_INFO);
   } else {
     CompilationUtils::getImplicitArgs(F, nullptr, &WorkInfo, &WGId, &BaseGlbId,
-                                      &SpecialBuf, &RuntimeHandle,
-                                      &BufferRanges);
+                                      &SpecialBuf, &RuntimeHandle);
   }
 
   std::vector<Instruction *> ToRemoveInsts;
@@ -175,8 +169,6 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
       ExtExecArgs.push_back(getOrCreateBlock2KernelMapper());
       // Add the RuntimeHandle arg if needed
       ExtExecArgs.push_back(RuntimeHandle);
-      if (HasASQualifierBuiltin)
-        ExtExecArgs.push_back(BufferRanges);
       NewRes =
           updateEnqueueKernelFunction(Builder, ExtExecArgs, CallbackName, CI);
       assert(NewRes && "Expected non-NULL results");
@@ -787,8 +779,6 @@ ResolveWICallPass::getOrCreateEnqueueKernelFuncType(unsigned FuncType) {
   Params.push_back(
       IAInfo->getWorkGroupInfoMemberType(NDInfo::BLOCK2KERNEL_MAPPER));
   Params.push_back(RuntimeHandle->getType());
-  if (HasASQualifierBuiltin)
-    Params.push_back(BufferRanges->getType());
   // create function type
   return FunctionType::get(getEnqueueKernelRetType(), Params, false);
 }

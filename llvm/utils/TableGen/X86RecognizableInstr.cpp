@@ -155,6 +155,7 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
 #if INTEL_FEATURE_ISA_APX_F
   HasEVEX_NF = Rec->getValueAsBit("hasEVEX_NF");
   HasTwoConditionalOps = Rec->getValueAsBit("hasTwoConditionalOps");
+  ExplicitREX2Prefix = Rec->getValueAsBit("explicitREX2Prefix");
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   IsCodeGenOnly = Rec->getValueAsBit("isCodeGenOnly");
@@ -458,6 +459,12 @@ InstructionContext RecognizableInstr::insnContext() const {
       insnContext = IC_64BIT_XS;
     else if (HasREX_W)
       insnContext = IC_64BIT_REXW;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    else if (ExplicitREX2Prefix)
+      insnContext = IC_64BIT_REX2;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     else
       insnContext = IC_64BIT;
   } else {
@@ -1293,9 +1300,11 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("i16imm_brtarget",     TYPE_REL)
   TYPE("i32imm_brtarget",     TYPE_REL)
   TYPE("ccode",               TYPE_IMM)
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   TYPE("cflags",              TYPE_IMM)
 #endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   TYPE("AVX512RC",            TYPE_IMM)
   TYPE("brtarget32",          TYPE_REL)
   TYPE("brtarget16",          TYPE_REL)

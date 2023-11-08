@@ -1207,11 +1207,13 @@ ArrayRef<unsigned> LoopVectorizationPlanner::getVectorFactors() { return VFs; }
 
 void LoopVectorizationPlanner::selectSimplestVecScenario(unsigned VF,
                                                          unsigned UF,
-                                                         bool MainIsMasked) {
+                                                         bool MainIsMasked,
+                                                         bool AddRemainder) {
   VecScenario.resetPeel();
   VecScenario.resetRemainders();
   if (!MainIsMasked) {
-    VecScenario.addScalarRemainder();
+    if (AddRemainder)
+      VecScenario.addScalarRemainder();
     VecScenario.setVectorMain(VF, UF);
   } else {
     assert(UF == 1 && "unrolling not supported for masked mode of main loop");
@@ -1650,7 +1652,10 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
           // If the VF is forced and loop cost for it is unknown/invalid select
           // the simplest configuration: non-masked main loop + scalar
           // remainder.
-          selectSimplestVecScenario(VF, UF, UseMasked);
+          selectSimplestVecScenario(
+              VF, UF, UseMasked,
+              !UseMasked && (IsTripCountEstimated ||
+                             (TripCount % VF) != 0) /* addRemainder*/);
         } else
           LLVM_DEBUG(dbgs()
                      << "Cost for VF = " << VF << ", UF = " << UF << " is "
@@ -1949,7 +1954,11 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   if (getBestVF() == 1 && IsVectorAlways) {
     bool IsMasked = !IsTripCountEstimated && TripCount < VFs[0] &&
                     EnableMaskedMainLoop && hasMaskedVPlanForVF(VFs[0]);
-    selectSimplestVecScenario(VFs[0], 1, IsMasked);
+
+    selectSimplestVecScenario(VFs[0], 1, IsMasked,
+                              !IsMasked &&
+                                  (IsTripCountEstimated ||
+                                   (TripCount % VFs[0]) != 0) /*addRemainder*/);
   }
 
   // Workaround for using DefaultTripCount: in some cases we can have situation

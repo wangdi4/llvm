@@ -37,8 +37,6 @@ static ImplicitArgAccessorFunc ImplicitArgAccessorFuncList[] = {
     {"__get_device_command_manager", ImplicitArgsUtils::IA_WORK_GROUP_INFO,
      NDInfo::RUNTIME_INTERFACE},
     {"__get_runtime_handle", ImplicitArgsUtils::IA_RUNTIME_HANDLE,
-     NDInfo::LAST},
-    {"__get_buffer_range_info", ImplicitArgsUtils::IA_BUFFER_RANGE_INFO,
      NDInfo::LAST}};
 
 PreservedAnalyses PatchCallbackArgsPass::run(Module &M,
@@ -55,13 +53,8 @@ PreservedAnalyses PatchCallbackArgsPass::run(Module &M,
 bool PatchCallbackArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
   bool Changed = false;
   bool HasTLSGlobals = CompilationUtils::hasTLSGlobals(M);
-  bool HasASQualifierBuiltin =
-      CompilationUtils::hasAddrspaceQualifierBuiltins(&M);
   SmallVector<CallInst *, 16> ToErase;
   for (const ImplicitArgAccessorFunc &IAAF : ImplicitArgAccessorFuncList) {
-    if (!HasASQualifierBuiltin &&
-        IAAF.ArgId == ImplicitArgsUtils::IA_BUFFER_RANGE_INFO)
-      continue;
     Function *CalledF = M.getFunction(IAAF.FuncName);
     if (!CalledF)
       continue;
@@ -72,12 +65,12 @@ bool PatchCallbackArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
         continue;
       Changed = true;
       Function *CallingF = CI->getFunction();
-      ValueTuple &ImplicitArgs = FuncToImplicitArgs[CallingF];
-      if (!std::get<0>(ImplicitArgs)) {
-        assert(!std::get<1>(ImplicitArgs));
+      ValuePair &ImplicitArgs = FuncToImplicitArgs[CallingF];
+      if (!ImplicitArgs.first) {
+        assert(!ImplicitArgs.second);
         // Need to create a cache entry for implicit arg values
         if (HasTLSGlobals) {
-          ValueTuple &ImplicitArgs = FuncToImplicitArgs[CallingF];
+          ValuePair &ImplicitArgs = FuncToImplicitArgs[CallingF];
           GlobalValue *WorkInfo = CompilationUtils::getTLSGlobal(
               &M, ImplicitArgsUtils::IA_WORK_GROUP_INFO);
           GlobalValue *RuntimeHandle = CompilationUtils::getTLSGlobal(
@@ -85,37 +78,26 @@ bool PatchCallbackArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
           assert(WorkInfo && "WorkInfo should be nullptr");
           assert(RuntimeHandle && "RuntimeHandle should not be null");
           IRBuilder<> B(&*CallingF->getEntryBlock().begin());
-          std::get<0>(ImplicitArgs) =
-              B.CreateLoad(WorkInfo->getValueType(), WorkInfo);
-          std::get<1>(ImplicitArgs) =
+          ImplicitArgs.first = B.CreateLoad(WorkInfo->getValueType(), WorkInfo);
+          ImplicitArgs.second =
               B.CreateLoad(RuntimeHandle->getValueType(), RuntimeHandle);
-          if (HasASQualifierBuiltin) {
-            GlobalValue *BufferInfoHandle = CompilationUtils::getTLSGlobal(
-                &M, ImplicitArgsUtils::IA_BUFFER_RANGE_INFO);
-            assert(BufferInfoHandle && "BufferInfoHandle should not be null");
-            std::get<2>(ImplicitArgs) =
-                B.CreateLoad(WorkInfo->getValueType(), BufferInfoHandle);
-          }
         } else {
           Value *WorkInfo;      // Used to access CallbackContext
           Value *RuntimeHandle; // Needed by some callbacks
-          Value *BufferInfoHandle;
           CompilationUtils::getImplicitArgs(CallingF, nullptr, &WorkInfo,
                                             nullptr, nullptr, nullptr,
-                                            &RuntimeHandle, &BufferInfoHandle);
-          std::get<0>(ImplicitArgs) = WorkInfo;
-          std::get<1>(ImplicitArgs) = RuntimeHandle;
-          std::get<2>(ImplicitArgs) = BufferInfoHandle;
+                                            &RuntimeHandle);
+          ImplicitArgs.first = WorkInfo;
+          ImplicitArgs.second = RuntimeHandle;
         }
       }
-      assert(std::get<1>(ImplicitArgs));
-
+      assert(ImplicitArgs.second);
       Value *Val = 0;
       switch (IAAF.ArgId) {
       default:
         llvm_unreachable("Unhandled arguemnt ID");
       case ImplicitArgsUtils::IA_RUNTIME_HANDLE:
-        Val = std::get<1>(ImplicitArgs);
+        Val = ImplicitArgs.second;
         break;
       case ImplicitArgsUtils::IA_WORK_GROUP_INFO: {
         unsigned NDInfoId = IAAF.ArgSecondaryId;
@@ -125,13 +107,10 @@ bool PatchCallbackArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
         // When using tls insert after load instead
         if (HasTLSGlobals) {
           Builder.SetInsertPoint(
-              cast<Instruction>(std::get<0>(ImplicitArgs))->getNextNode());
+              cast<Instruction>(ImplicitArgs.first)->getNextNode());
         }
-        Val = IAInfo->GenerateGetFromWorkInfo(
-            NDInfoId, std::get<0>(ImplicitArgs), Builder);
-      } break;
-      case ImplicitArgsUtils::IA_BUFFER_RANGE_INFO: {
-        Val = std::get<2>(ImplicitArgs);
+        Val = IAInfo->GenerateGetFromWorkInfo(NDInfoId, ImplicitArgs.first,
+                                              Builder);
       } break;
       }
       if (Val->getType() != CI->getType())

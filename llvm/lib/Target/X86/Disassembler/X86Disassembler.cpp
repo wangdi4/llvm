@@ -1642,6 +1642,14 @@ static int getInstructionID(struct InternalInstruction *insn,
       }
     }
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  // Absolute jump needs special handling
+  if (insn->rex2ExtensionPrefix[0] == 0xd5 && insn->opcodeType == ONEBYTE &&
+      insn->opcode & 0xA1)
+    attrMask |= ATTR_REX2;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
   // Absolute moves, umonitor, and movdir64b need special handling.
   // -For 16-bit mode because the meaning of the AdSize and OpSize prefixes are

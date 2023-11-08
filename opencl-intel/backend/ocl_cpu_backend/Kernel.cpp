@@ -469,14 +469,6 @@ size_t Kernel::GetExplicitArgumentBufferSize() const {
   return m_explicitArgsSizeInBytes;
 }
 
-size_t Kernel::GetSizeOfBufferRangeInfo() const {
-  size_t BufferArgCount = 0;
-  for (size_t I = 0; I < m_explicitArgs.size(); I++)
-    if (m_explicitArgs[I].Ty == KRNL_ARG_PTR_GLOBAL)
-      BufferArgCount++;
-  return (BufferArgCount) * sizeof(size_t) * 2;
-}
-
 unsigned int Kernel::GetMemoryObjectArgumentCount() const {
   return m_memArgs.size();
 }

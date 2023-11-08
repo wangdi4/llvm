@@ -683,8 +683,8 @@ protected:
 
   /// Select simplest vectorization scenario: no peel, non-masked main loop with
   /// specified vector and unroll factors, scalar remainder.
-  void selectSimplestVecScenario(unsigned VF, unsigned UF,
-                                 bool IsMainMasked = false);
+  void selectSimplestVecScenario(unsigned VF, unsigned UF, bool IsMainMasked,
+                                 bool AddRemainder);
 
   /// Fill in the map of top loops descriptors (see TopLoopDescrs and its type
   /// for details). The scalar loops are skipped due to we don't have VPLoops

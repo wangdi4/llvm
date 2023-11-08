@@ -127,8 +127,6 @@ public:
   virtual bool
   IsSupportedByDevice(const SharedPtr<FissionableDevice> &pDevice) override;
 
-  virtual size_t getBackingStoreDataSize() = 0;
-
 protected:
   virtual cl_err_code
   MemObjCreateDevMappedRegion(const SharedPtr<FissionableDevice> &,
@@ -256,8 +254,6 @@ class BufferPointerArg : public SharedPointerArg {
   virtual void *
   GetBackingStoreData(const size_t *pszOrigin = nullptr) const override;
 
-  virtual size_t getBackingStoreDataSize() override;
-
   virtual cl_err_code
   CreateDeviceResource(const SharedPtr<FissionableDevice> &pDevice) override;
 
@@ -341,8 +337,6 @@ public:
   GetBackingStoreData(const size_t * /*pszOrigin*/ = nullptr) const override {
     return const_cast<void *>(m_ptr);
   }
-
-  virtual size_t getBackingStoreDataSize() override { return 0; }
 
   virtual cl_err_code CreateDeviceResource(
       const SharedPtr<FissionableDevice> & /*pDevice*/) override {

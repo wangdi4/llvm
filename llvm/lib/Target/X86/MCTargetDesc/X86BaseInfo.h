@@ -1165,6 +1165,10 @@ namespace X86II {
     // TwoConditionalOps - Set if this instruction has two conditional operands
     TwoConditionalOps_Shift = EVEX_NFShift + 1,
     TwoConditionalOps       = 1ULL << TwoConditionalOps_Shift,
+
+    // ExplicitREX2Prefix - Force REX2 encoding
+    ExplicitREX2Prefix_Shift = TwoConditionalOps_Shift + 1,
+    ExplicitREX2Prefix       = 1ULL << ExplicitREX2Prefix_Shift,
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   };

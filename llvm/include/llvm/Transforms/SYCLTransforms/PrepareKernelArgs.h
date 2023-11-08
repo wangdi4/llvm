@@ -104,8 +104,6 @@ private:
 
   /// OpenCL 2.0 enqueue_kernel and kernel query functions.
   SmallVector<Function *, 8> EnqueueKernelAndQueryFuncs;
-
-  SmallVector<unsigned, 8> ImplicitArgEnums;
 };
 
 } // namespace llvm
