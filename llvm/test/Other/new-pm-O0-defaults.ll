@@ -54,6 +54,8 @@
 ; CHECK-THINLTO-NEXT: Running pass: GlobalDCEPass
 ; CHECK-LTO: Running pass: CrossDSOCFIPass on [module]
 ; INTEL_CUSTOMIZATION
+; CHECK-LTO-NEXT: Running pass: RequireAnalysisPass<llvm::DopeVectorTypeAnalysis, llvm::Module, llvm::AnalysisManager<Module>> on [module]
+; CHECK-LTO-NEXT: Running analysis: DopeVectorTypeAnalysis on [module]
 ; CHECK-LTO-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-LTO-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-LTO-NEXT: Running analysis: XmainOptLevelAnalysis

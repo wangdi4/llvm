@@ -160,6 +160,7 @@
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
+#include "llvm/Analysis/Intel_DopeVectorTypeAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/DebugInfo/Intel_Debug/Intel_Debug.h"
@@ -1786,6 +1787,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
+    MPM.addPass(RequireAnalysisPass<DopeVectorTypeAnalysis, Module>());
     // Parse -[no]inline-list and -forceinline options and set corresponding
     // attributes.
     MPM.addPass(InlineReportSetupPass());
@@ -3340,6 +3342,7 @@ ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
   if (Level == OptimizationLevel::O0) {
 
 #if INTEL_CUSTOMIZATION
+    MPM.addPass(RequireAnalysisPass<DopeVectorTypeAnalysis, Module>());
     MPM.addPass(InlineReportSetupPass());
 #endif // INTEL_CUSTOMIZATION
 
@@ -3405,6 +3408,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   if (Level == OptimizationLevel::O0) {
 #if INTEL_CUSTOMIZATION
+    MPM.addPass(RequireAnalysisPass<DopeVectorTypeAnalysis, Module>());
     MPM.addPass(InlineReportSetupPass());
     vpo::VPlanDriverLLVMPass::setRunForO0(EnableO0Vectorization);
     if (EnableWPA) {
@@ -3442,6 +3446,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   }
 
 #if INTEL_CUSTOMIZATION
+  MPM.addPass(RequireAnalysisPass<DopeVectorTypeAnalysis, Module>());
   MPM.addPass(InlineReportSetupPass());
 #endif // INTEL_CUSTOMIZATION
   if (PGOOpt && PGOOpt->Action == PGOOptions::SampleUse) {
