@@ -3,9 +3,6 @@
 
 // only run for x86_64 host offloading:
 // REQUIRES: x86_64-pc-linux-gnu
-// INTEL_CUSTOMIZATION
-// REQUIRES: FurtherInvestigation
-// end INTEL_CUSTOMIZATION
 
 #include <omp.h>
 #include <stdio.h>

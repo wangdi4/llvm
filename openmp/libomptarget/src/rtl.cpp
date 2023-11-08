@@ -550,6 +550,7 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
   SET_OPTIONAL_INTERFACE_FN(get_mem_resources);
   SET_OPTIONAL_INTERFACE_FN(omp_alloc);
   SET_OPTIONAL_INTERFACE_FN(omp_free);
+  SET_OPTIONAL_INTERFACE_FN(notify_legacy_offload);
 #undef SET_OPTIONAL_INTERFACE
 #undef SET_OPTIONAL_INTERFACE_FN
 

@@ -38,14 +38,6 @@ foreach(CURRENT_TARGET IN LISTS SYSTEM_TARGETS)
   list(APPEND LIBOMPTARGET_LIT_TESTSUITES ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_TARGET})
 
 if(INTEL_CUSTOMIZATION)
-  if(UNIX)
-    # Use oneAPI compiler since llorg changed kernel launch interface.
-    # We also need to disable a few tests that are supposed to work only with
-    # llorg code generation.
-    set(OPENMP_TEST_C_COMPILER ${LLVM_RUNTIME_OUTPUT_INTDIR}/icx)
-    set(OPENMP_TEST_CXX_COMPILER ${LLVM_RUNTIME_OUTPUT_INTDIR}/icpx)
-    set(OPENMP_TEST_FLAGS -fiopenmp)
-  endif()
   configure_lit_site_cfg(
     "${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.in"
     "${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_TARGET}/lit.site.cfg"

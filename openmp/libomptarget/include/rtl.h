@@ -149,6 +149,7 @@ struct RTLInfoTy {
                                         omp_memspace_handle_t, int32_t *);
   typedef void *(omp_alloc_ty)(size_t, omp_allocator_handle_t);
   typedef void(omp_free_ty)(void *, omp_allocator_handle_t);
+  typedef void(notify_legacy_offload_ty)(void);
 #endif // INTEL_CUSTOMIZATION
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
@@ -252,6 +253,7 @@ struct RTLInfoTy {
   get_mem_resources_ty *get_mem_resources = nullptr;
   omp_alloc_ty *omp_alloc = nullptr;
   omp_free_ty *omp_free = nullptr;
+  notify_legacy_offload_ty *notify_legacy_offload = nullptr;
 #endif // INTEL_CUSTOMIZATION
   // Are there images associated with this RTL.
   bool IsUsed = false;

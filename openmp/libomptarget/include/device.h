@@ -660,6 +660,7 @@ struct DeviceTy {
   int32_t getGroupsShape(void *TgtEntryPtr, int32_t NumTeams,
                          int32_t ThreadLimit, void *GroupSizes,
                          void *GroupCounts, void *LoopDesc);
+  void notifyLegacyOffload(void);
 #endif // INTEL_CUSTOMIZATION
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return

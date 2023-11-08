@@ -1,9 +1,6 @@
 // RUN: %libomptarget-compile-generic
 // RUN: %libomptarget-run-generic 2>&1 \
 // RUN: | %fcheck-generic
-// INTEL_CUSTOMIZATION
-// REQUIRES: FurtherInvestigation
-// end INTEL_CUSTOMIZATION
 
 #include <stdio.h>
 

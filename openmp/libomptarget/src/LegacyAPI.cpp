@@ -13,6 +13,20 @@
 #include "omptarget.h"
 #include "private.h"
 
+#if INTEL_CUSTOMIZATION
+#include <atomic>
+// Notify RTL that we are using legacy interface
+static void notifyLegacyOffload(int64_t DeviceId) {
+  static std::atomic_uint Notified = 0;
+  // Just do minimal device ID check and notify only once
+  if (Notified == 0 && DeviceId >= 0 && DeviceId < __tgt_get_num_devices()) {
+    auto &Device = PM->Devices[DeviceId];
+    Device->notifyLegacyOffload();
+    Notified.fetch_add(1);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 EXTERN void __tgt_target_data_begin(int64_t DeviceId, int32_t ArgNum,
                                     void **ArgsBase, void **Args,
                                     int64_t *ArgSizes, int64_t *ArgTypes) {
@@ -75,6 +89,9 @@ EXTERN int __tgt_target_mapper(ident_t *Loc, int64_t DeviceId, void *HostPtr,
                                uint32_t ArgNum, void **ArgsBase, void **Args,
                                int64_t *ArgSizes, int64_t *ArgTypes,
                                map_var_info_t *ArgNames, void **ArgMappers) {
+#if INTEL_CUSTOMIZATION
+  notifyLegacyOffload(DeviceId);
+#endif // INTEL_CUSTOMIZATION
   TIMESCOPE_WITH_IDENT(Loc);
   KernelArgsTy KernelArgs{1,        ArgNum,   ArgsBase,   Args, ArgSizes,
                           ArgTypes, ArgNames, ArgMappers, 0};
@@ -117,6 +134,9 @@ EXTERN int __tgt_target_teams_mapper(ident_t *Loc, int64_t DeviceId,
                                      map_var_info_t *ArgNames,
                                      void **ArgMappers, int32_t NumTeams,
                                      int32_t ThreadLimit) {
+#if INTEL_CUSTOMIZATION
+  notifyLegacyOffload(DeviceId);
+#endif // INTEL_CUSTOMIZATION
   TIMESCOPE_WITH_IDENT(Loc);
 
   KernelArgsTy KernelArgs{1,        ArgNum,   ArgsBase,   Args, ArgSizes,
