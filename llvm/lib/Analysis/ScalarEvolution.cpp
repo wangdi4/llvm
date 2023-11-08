@@ -14265,6 +14265,9 @@ bool ScalarEvolution::isImpliedCondBalancedTypes(
       if (isImpliedCondOperands(FoundPred, LHS, RHS, FoundLHS, FoundRHS, CtxI))
         return true;
 
+  if (isImpliedCondOperandsViaRanges(Pred, LHS, RHS, FoundPred, FoundLHS, FoundRHS))
+    return true;
+
   // Otherwise assume the worst.
   return false;
 }
@@ -14566,7 +14569,7 @@ bool ScalarEvolution::isImpliedViaMerge(ICmpInst::Predicate Pred,
 
   auto ProvedEasily = [&](const SCEV *S1, const SCEV *S2) {
     return isKnownViaNonRecursiveReasoning(Pred, S1, S2) ||
-           isImpliedCondOperandsViaRanges(Pred, S1, S2, FoundLHS, FoundRHS) ||
+           isImpliedCondOperandsViaRanges(Pred, S1, S2, Pred, FoundLHS, FoundRHS) ||
            isImpliedViaOperations(Pred, S1, S2, FoundLHS, FoundRHS, Depth);
   };
 
@@ -14668,7 +14671,7 @@ bool ScalarEvolution::isImpliedCondOperands(ICmpInst::Predicate Pred,
                                             const SCEV *FoundLHS,
                                             const SCEV *FoundRHS,
                                             const Instruction *CtxI) {
-  if (isImpliedCondOperandsViaRanges(Pred, LHS, RHS, FoundLHS, FoundRHS))
+  if (isImpliedCondOperandsViaRanges(Pred, LHS, RHS, Pred, FoundLHS, FoundRHS))
     return true;
 
   if (isImpliedCondOperandsViaNoOverflow(Pred, LHS, RHS, FoundLHS, FoundRHS))
@@ -15037,6 +15040,7 @@ ScalarEvolution::isImpliedCondOperandsHelper(ICmpInst::Predicate Pred,
 bool ScalarEvolution::isImpliedCondOperandsViaRanges(ICmpInst::Predicate Pred,
                                                      const SCEV *LHS,
                                                      const SCEV *RHS,
+                                                     ICmpInst::Predicate FoundPred,
                                                      const SCEV *FoundLHS,
                                                      const SCEV *FoundRHS) {
   if (!isa<SCEVConstant>(RHS) || !isa<SCEVConstant>(FoundRHS))
@@ -15051,9 +15055,9 @@ bool ScalarEvolution::isImpliedCondOperandsViaRanges(ICmpInst::Predicate Pred,
   const APInt &ConstFoundRHS = cast<SCEVConstant>(FoundRHS)->getAPInt();
 
   // `FoundLHSRange` is the range we know `FoundLHS` to be in by virtue of the
-  // antecedent "`FoundLHS` `Pred` `FoundRHS`".
+  // antecedent "`FoundLHS` `FoundPred` `FoundRHS`".
   ConstantRange FoundLHSRange =
-      ConstantRange::makeExactICmpRegion(Pred, ConstFoundRHS);
+      ConstantRange::makeExactICmpRegion(FoundPred, ConstFoundRHS);
 
   // Since `LHS` is `FoundLHS` + `Addend`, we can compute a range for `LHS`:
   ConstantRange LHSRange = FoundLHSRange.add(ConstantRange(*Addend));
