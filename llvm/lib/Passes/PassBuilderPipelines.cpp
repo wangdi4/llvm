@@ -1408,7 +1408,12 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
     CGSCCPassManager &CGPipeline = MIWP.getPM();
 
     FunctionPassManager FPM;
-    FPM.addPass(CleanupFakeLoadsPass()); // INTEL
+#if INTEL_CUSTOMIZATION
+    if (EnableTbaaProp)
+      FPM.addPass(TbaaMDPropagationPass());
+    else
+      FPM.addPass(CleanupFakeLoadsPass());
+#endif // INTEL_CUSTOMIZATION
     FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
     FPM.addPass(EarlyCSEPass()); // Catch trivial redundancies.
     FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
