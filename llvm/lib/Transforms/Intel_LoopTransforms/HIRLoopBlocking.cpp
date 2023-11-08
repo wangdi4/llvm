@@ -133,6 +133,9 @@ using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::blocking;
 
+STATISTIC(LoopsBlocked, "Number of HIR loops blocked not by pragma");
+STATISTIC(LoopsBlockedByPragma, "Number of HIR loops blocked by pragma");
+
 static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
@@ -176,6 +179,10 @@ static cl::opt<bool> DisableSinkForMultiCopy(
 static cl::opt<bool> DisableLoopDepthCheck(
     "disable-" OPT_SWITCH "-loop-depth-check", cl::init(true), cl::Hidden,
     cl::desc("Disable loop depth check in " OPT_DESC " pass"));
+
+static cl::opt<bool> DisableLoopDepthCheckForAdvanced(
+    "disable-" OPT_SWITCH "-loop-depth-check-advanced", cl::init(false),
+    cl::Hidden, cl::desc("Disable loop depth check in " OPT_DESC " pass"));
 
 static cl::opt<bool> DisableStrideProfitablity(
     "disable-" OPT_SWITCH "-stride-profit", cl::init(false), cl::Hidden,
@@ -1320,7 +1327,8 @@ public:
 
     unsigned MaxDimension =
         calcMaxVariantDimension(OutermostLoop->getNestingLevel());
-    if (Advanced || !DisableLoopDepthCheck) {
+    if ((Advanced && !DisableLoopDepthCheckForAdvanced) ||
+        !DisableLoopDepthCheck) {
       // A heuristic choice: Choose not to block. Stop here.
       // This check is useful for blocking typical matrix multiplication.
       if (LoopNestDepth <= MaxDimension) {
@@ -2399,6 +2407,11 @@ void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
       ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
                                OptRemarkID::LoopBlockingFactor,
                                LoopToBS[OrigLoop]);
+
+      if (!ByPragma)
+        LoopsBlocked++;
+      else
+        LoopsBlockedByPragma++;
     }
   }
 
@@ -2590,6 +2603,7 @@ bool HIRLoopBlockingLegacyPass::runOnFunction(Function &F) {
 PreservedAnalyses HIRLoopBlockingPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   if (DisablePass) {
+    ModifiedHIR = false;
     return PreservedAnalyses::all();
   }
 
@@ -2624,6 +2638,7 @@ bool HIRPragmaLoopBlockingLegacyPass::runOnFunction(Function &F) {
 PreservedAnalyses HIRPragmaLoopBlockingPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   if (DisablePass) {
+    ModifiedHIR = false;
     return PreservedAnalyses::all();
   }
 
