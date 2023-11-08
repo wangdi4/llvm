@@ -110,18 +110,8 @@ foreach vf = [4, 8, 16, 32, 64] in {
   // Use `vloadn` to get the broadcast value.
   foreach orig_vec_len = [2, 3, 4, 8, 16] in {
     defvar broadcast_expression = !interleave(!listsplat("_t", vf), ",");
-
-    // For `halfn` types, we need to use `vload_halfn`.
-    defvar vector_half_widened_types = [!cast<OclType>("v" # !mul(vf, orig_vec_len) # "f16")];
-    def : OclBuiltinImpl<sub_group_broadcast_vec, vector_half_widened_types, false, [{
-      half$N _t = convert_half$N(vload_half$N($Arg1VarName, (half *)&$Arg0VarName));
-      return ($ReturnType)($BROADCAST);
-    }], [["$N", !cast<string>(orig_vec_len)], ["$BROADCAST", broadcast_expression]]>, SHARED;
-
-    // For types other than `halfn`, we use `vloadn`.
-    defvar non_half_scalar_types = !filter(t, sub_group_extended_scalar_types, !not(!eq(t, v1f16)));
-    defvar vector_non_half_widened_types = WidenTypeForList<non_half_scalar_types, !mul(vf, orig_vec_len)>.Tout;
-    def : OclBuiltinImpl<sub_group_broadcast_vec, vector_non_half_widened_types, false, [{
+    defvar vector_widened_types = WidenTypeForList<sub_group_extended_scalar_types, !mul(vf, orig_vec_len)>.Tout;
+    def : OclBuiltinImpl<sub_group_broadcast_vec, vector_widened_types, false, [{
       $Arg0BaseType$N _t = vload$N($Arg1VarName, ($Arg0BaseType *)&$Arg0VarName);
       return ($ReturnType)($BROADCAST);
     }], [["$N", !cast<string>(orig_vec_len)], ["$BROADCAST", broadcast_expression]]>, SHARED;
