@@ -1,9 +1,9 @@
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 
-// Check the math result for edge cases (NaN, 0, Inf, ...)
+// Check the builtin result for edge cases (NaN, 0, Inf, ...)
 // We don't care about execution parallelism so the kernel is executed by 1
 // single item.
-__kernel void test(__global uint *out) {
+__kernel void test(__global int *out) {
   half h_nan = nan((ushort)1);
   half h_inf = __builtin_astype((ushort)0x7c00, half);
   float f_nan = nan((uint)1);
@@ -62,4 +62,14 @@ __kernel void test(__global uint *out) {
   // double
   out[34] = isnan(hypot((double)1, d_nan));
   out[35] = isnan(hypot(d_nan, (double)1));
+
+  // sub_group_broadcast
+  // This is a SNaN (Signaling NaN):
+  // exponent bits all set + MSB of mantissa unset + non-zero mantissa
+  // Make sure we don't touch data bits when broadcasting SNaN inputs
+  ushort2 h_snan = 0x7CBD;
+  half2 broadcasted_nan =
+      sub_group_broadcast(__builtin_astype(h_snan, half2), 0);
+  short2 res = __builtin_astype(broadcasted_nan, ushort2) == h_snan;
+  out[36] = res[0] & res[1];
 }
