@@ -70,6 +70,8 @@
 ; CHECK-O-NODIS-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: RequireAnalysisPass<llvm::DopeVectorTypeAnalysis, llvm::Module, llvm::AnalysisManager<Module>> on [module]
+; CHECK-O-NEXT: Running analysis: DopeVectorTypeAnalysis on [module]
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass on [module]
 ; CHECK-O-NEXT: Running pass: InlineForceInlinePass on [module]
 ; CHECK-O-NEXT: Running pass: InlineListsPass on [module]

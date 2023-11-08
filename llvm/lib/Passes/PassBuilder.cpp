@@ -59,6 +59,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
+#include "llvm/Analysis/Intel_DopeVectorTypeAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #endif // INTEL_CUSTOMIZATION

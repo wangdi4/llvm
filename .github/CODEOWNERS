@@ -248,6 +248,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/Analysis/Intel_Andersens.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/Intel_ArrayUseAnalysis.h  @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/Intel_DopeVectorAnalysis.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/Intel_DopeVectorTypeAnalysis.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/Intel_InlineCost.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/Intel_IPCloningAnalysis.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/Intel_OPAnalysisUtils.h @robertcox-github @pvbattin
@@ -305,6 +306,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Analysis/Intel_Andersens.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_ArrayUseAnalysis.cpp @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/Intel_DopeVectorAnalysis.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/Intel_DopeVectorTypeAnalysis.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_InlineCost.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_InlineReport @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_IPCloningAnalysis.cpp @robertcox-github @pvbattin
@@ -357,6 +359,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Analysis/GlobalsModRef/ @robertcox-github @pvbattin
 /llvm/test/Analysis/Intel_AndersenAA/ @robertcox-github @pvbattin
 /llvm/test/Analysis/Intel_ArrayUseAnalysis/ @robertcox-github @pvbattin
+/llvm/test/Analysis/Intel_DopeVectorType/ @robertcox-github @pvbattin
 /llvm/test/Analysis/Intel_WP/ @robertcox-github @pvbattin
 /llvm/test/Analysis/LazyCallGraph/ @robertcox-github @pvbattin
 /llvm/test/Intel_MLPGO/ @romanovvlad @smaslov-intel
