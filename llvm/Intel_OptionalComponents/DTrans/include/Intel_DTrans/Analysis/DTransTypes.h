@@ -735,7 +735,7 @@ public:
     // type recovery a function type can be created for something that is known
     // to be a pointer to a function, even if the individual parameter types or
     // return type is not known at the time.
-    auto *Int8PtrTy = llvm::Type::getInt8PtrTy(getContext());
+    auto *Int8PtrTy = llvm::PointerType::getUnqual(getContext());
 
     llvm::Type *FuncRetTy = Int8PtrTy;
     DTransType *RetTy = getReturnType();

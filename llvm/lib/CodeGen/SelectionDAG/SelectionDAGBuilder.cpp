@@ -6486,7 +6486,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
       Args.push_back(Entry);
     };
     auto *Context = DAG.getContext();
-    Type *Int8PtrTy = Type::getInt8PtrTy(*Context);
+    Type *Int8PtrTy = PointerType::getUnqual(*Context);
     Type *IntPtrTy = DAG.getDataLayout().getIntPtrType(*Context);
     setArgs(getValue(I.getArgOperand(0)), Int8PtrTy);
     setArgs(getValue(I.getArgOperand(1)), IntPtrTy);

@@ -142,10 +142,10 @@ Instruction *DTransAnnotator::createPtrAnnotation(
     unsigned LineNum, const Twine &NameStr, Instruction *InsertBefore) {
   LLVMContext &Ctx = M.getContext();
   auto *Intrin = Intrinsic::getDeclaration(
-      &M, Intrinsic::ptr_annotation, {Ptr.getType(), Type::getInt8PtrTy(Ctx)});
+      &M, Intrinsic::ptr_annotation, {Ptr.getType(), PointerType::getUnqual(Ctx)});
   Value *Args[] = {&Ptr, &AnnotVal, &FileNameVal,
                    ConstantInt::get(Type::getInt32Ty(Ctx), LineNum),
-                   ConstantPointerNull::get(Type::getInt8PtrTy(Ctx))};
+                   ConstantPointerNull::get(PointerType::getUnqual(Ctx))};
   Instruction *Call = CallInst::Create(Intrin, Args, NameStr, InsertBefore);
   return Call;
 }

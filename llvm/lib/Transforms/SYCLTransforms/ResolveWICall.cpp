@@ -631,11 +631,11 @@ TInternalCallType ResolveWICallPass::getCallFunctionType(StringRef FuncName) {
 const int EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE =
     CompilationUtils::ADDRESS_SPACE_GLOBAL;
 Type *ResolveWICallPass::getQueueType() const {
-  return PointerType::getInt8PtrTy(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
+  return PointerType::get(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
 }
 
 Type *ResolveWICallPass::getClkEventType() const {
-  return PointerType::getInt8PtrTy(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
+  return PointerType::get(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
 }
 
 Type *ResolveWICallPass::getKernelEnqueueFlagsType() const {
@@ -643,7 +643,7 @@ Type *ResolveWICallPass::getKernelEnqueueFlagsType() const {
 }
 
 Type *ResolveWICallPass::getNDRangeType() const {
-  return PointerType::getInt8PtrTy(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
+  return PointerType::get(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
 }
 
 Type *ResolveWICallPass::getBlockLocalMemType() const {

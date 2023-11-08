@@ -238,7 +238,7 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
   if (FTy->getReturnType()==Type::getVoidTy(FTy->getContext()) &&
       (FTy->getNumParams()==FnData->NumParams) &&
        (FstParam >= 0 &&
-        FTy->getParamType(FstParam) == Type::getInt8PtrTy(FTy->getContext())) &&
+        FTy->getParamType(FstParam) == PointerType::getUnqual(FTy->getContext())) &&
       (SndParam < 0))
     return *FnData;
 #endif // INTEL_CUSTOMIZATION
@@ -660,7 +660,7 @@ bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
     return false;
   if (FTy->getNumParams() != FnData->NumParams)
     return false;
-  if (FTy->getParamType(0) != Type::getInt8PtrTy(F->getContext()))
+  if (FTy->getParamType(0) != PointerType::getUnqual(F->getContext()))
     return false;
 
   return true;
@@ -757,7 +757,7 @@ bool llvm::IntelMemoryBuiltins::isFreeFn(const Function *F, const TargetLibraryI
     return false;
   if (FTy->getNumParams() != 1)
     return false;
-  if (FTy->getParamType(0) != Type::getInt8PtrTy(F->getContext()))
+  if (FTy->getParamType(0) != PointerType::getUnqual(F->getContext()))
     return false;
   return true;
 }

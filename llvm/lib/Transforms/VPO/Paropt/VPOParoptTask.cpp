@@ -291,7 +291,7 @@ void VPOParoptTransform::genKmpRoutineEntryT() {
   if (!KmpRoutineEntryPtrTy) {
     LLVMContext &C = F->getContext();
     IntegerType *Int32Ty = Type::getInt32Ty(C);
-    Type *KmpRoutineEntryTyArgs[] = {Int32Ty, Type::getInt8PtrTy(C)};
+    Type *KmpRoutineEntryTyArgs[] = {Int32Ty, PointerType::getUnqual(C)};
     FunctionType *KmpRoutineEntryTy =
         FunctionType::get(Int32Ty, KmpRoutineEntryTyArgs, false);
     KmpRoutineEntryPtrTy = PointerType::getUnqual(KmpRoutineEntryTy);
@@ -328,7 +328,7 @@ void VPOParoptTransform::genTaskTRedType() {
 
   LLVMContext &C = F->getContext();
   IntegerType *Int32Ty = Type::getInt32Ty(C);
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  PointerType *Int8PtrTy = PointerType::getUnqual(C);
   const DataLayout &DL = F->getParent()->getDataLayout();
   IntegerType *SizeTTy = DL.getIntPtrType(C);
 
@@ -392,7 +392,7 @@ void VPOParoptTransform::genKmpTaskTRecordDecl() {
   IntegerType *Int64Ty = Type::getInt64Ty(C);
   Type *IntPtrTy = GeneralUtils::getSizeTTy(F); // i32/i64 matching ptr size
 
-  Type *KmpTaskTyArgs[] = {Type::getInt8PtrTy(C),
+  Type *KmpTaskTyArgs[] = {PointerType::getUnqual(C),
                            KmpRoutineEntryPtrTy,
                            Int32Ty,
                            KmpRoutineEntryPtrTy,
@@ -1016,7 +1016,7 @@ void VPOParoptTransform::copySharedStructToTaskThunk(
         ".shareds");
 
     LLVMContext &C = F->getContext();
-    Value *SrcCast = Builder.CreateBitCast(Src, Type::getInt8PtrTy(C));
+    Value *SrcCast = Builder.CreateBitCast(Src, PointerType::getUnqual(C));
 
     Value *Size;
 
@@ -1692,7 +1692,7 @@ AllocaInst *VPOParoptTransform::genTaskTRedRec(WRegionNode *W,
           RedIBase, RedI->getArraySectionElementType(),
           RedI->getArraySectionOffset(), RedI->getArraySectionBaseIsPointer(),
           InsertBefore);
-    Builder.CreateStore(Builder.CreateBitCast(RedIBase, Type::getInt8PtrTy(C)),
+    Builder.CreateStore(Builder.CreateBitCast(RedIBase, PointerType::getUnqual(C)),
                         Gep);
 
     if (!(Mode & OmpTbb)) {
@@ -1703,7 +1703,7 @@ AllocaInst *VPOParoptTransform::genTaskTRedRec(WRegionNode *W,
                                       {Zero, Builder.getInt32(Idx++)},
                                       NamePrefix + ".red.orig");
       Builder.CreateStore(
-          Builder.CreateBitCast(RedIBase, Type::getInt8PtrTy(C)), Gep);
+          Builder.CreateBitCast(RedIBase, PointerType::getUnqual(C)), Gep);
     }
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
@@ -1723,19 +1723,19 @@ AllocaInst *VPOParoptTransform::genTaskTRedRec(WRegionNode *W,
                                     {Zero, Builder.getInt32(Idx++)},
                                     NamePrefix + ".red.init");
     Builder.CreateStore(
-        Builder.CreateBitCast(RedInitFunc, Type::getInt8PtrTy(C)), Gep);
+        Builder.CreateBitCast(RedInitFunc, PointerType::getUnqual(C)), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
                                     {Zero, Builder.getInt32(Idx++)},
                                     NamePrefix + ".red.fini");
-    Builder.CreateStore(ConstantPointerNull::get(Type::getInt8PtrTy(C)), Gep);
+    Builder.CreateStore(ConstantPointerNull::get(PointerType::getUnqual(C)), Gep);
 
     Function *RedCombFunc = genTaskLoopRedCombFunc(W, RedI);
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
                                     {Zero, Builder.getInt32(Idx++)},
                                     NamePrefix + ".red.comb");
     Builder.CreateStore(
-        Builder.CreateBitCast(RedCombFunc, Type::getInt8PtrTy(C)), Gep);
+        Builder.CreateBitCast(RedCombFunc, PointerType::getUnqual(C)), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
                                     {Zero, Builder.getInt32(Idx++)},
@@ -1881,7 +1881,7 @@ void VPOParoptTransform::genTaskDeps(WRegionNode *W, StructType *IdentTy,
         DummyTaskTDependRec->getAllocatedType(), DummyTaskTDependRec,
         {Builder.getInt32(0), Builder.getInt32(0)});
     LLVMContext &C = F->getContext();
-    Dep = Builder.CreateBitCast(BaseTaskTDependGep, Type::getInt8PtrTy(C));
+    Dep = Builder.CreateBitCast(BaseTaskTDependGep, PointerType::getUnqual(C));
     DependClause const &DepClause = W->getDepend();
     NumDeps = Builder.getInt32(DepClause.size());
   }
