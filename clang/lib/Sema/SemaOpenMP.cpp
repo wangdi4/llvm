@@ -205,6 +205,7 @@ private:
     bool CancelRegion = false;
     bool LoopStart = false;
     bool BodyComplete = false;
+    bool HasCollapseClause = false; // INTEL
     SourceLocation PrevScanLocation;
     SourceLocation PrevOrderedLocation;
     SourceLocation InnerTeamsRegionLoc;
@@ -939,6 +940,19 @@ public:
       return Parent->NowaitRegion;
     return false;
   }
+#if INTEL_CUSTOMIZATION
+  /// Mark current region has collapse clause
+  void setCurentHasCollapseClause() {
+    getTopOfStack().HasCollapseClause = true;
+  }
+  /// Return true, if parent region has collapse clause.
+  bool isParentHasCollapseClause() const {
+    if (const SharingMapTy *Parent = getSecondOnStackOrNull())
+      return Parent->HasCollapseClause;
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Marks current region as untied (it has a 'untied' clause).
   void setUntiedRegion(bool IsUntied = true) {
     getTopOfStack().UntiedRegion = IsUntied;
@@ -16693,6 +16707,20 @@ StmtResult Sema::ActOnOpenMPUnrollDirective(ArrayRef<OMPClause *> Clauses,
   // The generated loop may only be passed to other loop-associated directive
   // when a partial clause is specified. Without the requirement it is
   // sufficient to generate loop unroll metadata at code-generation.
+#if INTEL_CUSTOMIZATION
+  bool IsIntelUnroll =
+      getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIntelUnroll;
+  OpenMPDirectiveKind ParentRegion = DSAStack->getParentDirective();
+  if (ParentRegion == OMPD_tile || DSAStack->isParentHasCollapseClause())
+    IsIntelUnroll = false;
+
+  if (IsIntelUnroll) {
+    return OMPUnrollDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt,
+                                      /*NumGeneratedLoops=*/0, nullptr,
+                                      nullptr);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (NumGeneratedLoops == 0)
     return OMPUnrollDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt,
                                       NumGeneratedLoops, nullptr, nullptr);
@@ -18660,6 +18688,7 @@ OMPClause *Sema::ActOnOpenMPCollapseClause(Expr *NumForLoops,
       VerifyPositiveIntegerConstantInClause(NumForLoops, OMPC_collapse);
   if (NumForLoopsResult.isInvalid())
     return nullptr;
+  DSAStack->setCurentHasCollapseClause(); // INTEL
   return new (Context)
       OMPCollapseClause(NumForLoopsResult.get(), StartLoc, LParenLoc, EndLoc);
 }

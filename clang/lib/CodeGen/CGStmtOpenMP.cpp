@@ -1920,6 +1920,11 @@ static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
     return;
   }
   if (SimplifiedS == NextLoop) {
+#if INTEL_CUSTOMIZATION
+    if (auto *UD = dyn_cast<OMPUnrollDirective>(SimplifiedS))
+      if (UD->getNumGeneratedLoops() == 0)
+        SimplifiedS = UD->getAssociatedStmt();
+#endif // INTEL_CUSTOMIZATION
     if (auto *Dir = dyn_cast<OMPLoopTransformationDirective>(SimplifiedS))
       SimplifiedS = Dir->getTransformedStmt();
     if (const auto *CanonLoop = dyn_cast<OMPCanonicalLoop>(SimplifiedS))
@@ -8647,6 +8652,21 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
       Outliner.emitVLAExpressions();
 
 #if INTEL_CUSTOMIZATION
+      OpenMPLateOutliner *UnrollOutliner = nullptr;
+      if (CGM.getLangOpts().OpenMPIntelUnroll) {
+        const Stmt *CS = nullptr;
+        if (OpenMPLateOutliner::hasCapturedStmt(S))
+          CS = (cast<CapturedStmt>(S.getInnermostCapturedStmt()))
+                   ->getCapturedStmt();
+        else
+          CS = S.getAssociatedStmt();
+        if (const auto *UD = dyn_cast<OMPUnrollDirective>(CS)) {
+          UnrollOutliner = new OpenMPLateOutliner(*this, *UD, OMPD_unroll);
+          UnrollOutliner->emitOMPUnrollDirective();
+          *UnrollOutliner << UD->clauses();
+          UnrollOutliner->insertMarker();
+        }
+      }
       if (useUncollapsedLoop(S)) {
         if (CGM.getCodeGenOpts().OpenMPRotateLoops & 0x2)
           EmitLateOutlineOMPUncollapsedLoopRotated(S, Kind, /*Depth=*/0);
@@ -8676,6 +8696,7 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
             [&S](CodeGenFunction &CGF) { CGF.EmitLateOutlineOMPFinals(S); });
         EmitBlock(LoopExit.getBlock());
       }
+      delete UnrollOutliner;
     }
 
     // We're now done with the loop, so jump to the continuation block.
@@ -8943,9 +8964,15 @@ void CodeGenFunction::EmitSimpleOMPExecutableDirective(
 #if INTEL_CUSTOMIZATION
 bool CodeGenFunction::useFrontEndOutlining(const Stmt *S) {
   switch (S->getStmtClass()) {
+  case Stmt::OMPUnrollDirectiveClass: {
+    // Late-outlining only works when no generated loops.
+    const auto *UD = cast<OMPUnrollDirective>(S);
+    if (UD->getNumGeneratedLoops() != 0)
+      return true;
+    return !CGM.getLangOpts().OpenMPIntelUnroll;
+  }
   case Stmt::OMPDepobjDirectiveClass:
   case Stmt::OMPTileDirectiveClass:
-  case Stmt::OMPUnrollDirectiveClass:
   case Stmt::OMPErrorDirectiveClass:
     return true;
   case Stmt::OMPTargetDirectiveClass:
