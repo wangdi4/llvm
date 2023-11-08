@@ -299,7 +299,7 @@ StructType *VPOParoptUtils::getIdentStructType(Function *F) {
                          Type::getInt32Ty(C),        // flags
                          Type::getInt32Ty(C),        // reserved_2
                          Type::getInt32Ty(C),        // reserved_3
-                         Type::getInt8PtrTy(C, AS)}; // *psource
+                         PointerType::get(C, AS)}; // *psource
 
   StructType *IdentTy = getOrCreateStructType(F, "struct.ident_t",
                                               IdentTyArgs);
@@ -876,13 +876,13 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
 
   Value *RedGetNthDataArgs[] = {
       Builder.CreateLoad(Builder.getInt32Ty(), TidPtr),
-      ConstantPointerNull::get(Type::getInt8PtrTy(C)),
-      Builder.CreateBitCast(SharedGep, Type::getInt8PtrTy(C))};
+      ConstantPointerNull::get(PointerType::getUnqual(C)),
+      Builder.CreateBitCast(SharedGep, PointerType::getUnqual(C))};
 
-  Type *TypeParams[] = {Type::getInt32Ty(C), Type::getInt8PtrTy(C),
-                        Type::getInt8PtrTy(C)};
+  Type *TypeParams[] = {Type::getInt32Ty(C), PointerType::getUnqual(C),
+                        PointerType::getUnqual(C)};
   FunctionType *FnTy =
-      FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
+      FunctionType::get(PointerType::getUnqual(C), TypeParams, false);
 
   StringRef FnName = UseTbb ? "__tbb_omp_task_reduction_get_th_data" :
                               "__kmpc_task_reduction_get_th_data";
@@ -1180,7 +1180,7 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
   Type *ReturnTy; // void for _tgt_target_data_*(); i32 otherwise
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   Value *NumTeams = nullptr;
   Value *ThreadLimit = nullptr;
@@ -1330,7 +1330,7 @@ CallInst *VPOParoptUtils::genTgtPushCodeLocation(Instruction *Location,
   BasicBlock *B = Location->getParent();
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   DILocation *Loc1 = Location->getDebugLoc();
   DILocation *Loc2 = nullptr;
@@ -1551,7 +1551,7 @@ CallInst *VPOParoptUtils::genCxaAtExit(Value *TgtDescUnregFn, Value *Desc,
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
 
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
   Value *BitCast = Builder.CreateBitCast(Desc, Int8PtrTy);
 
   SmallVector<Value *, 3> Args    = { TgtDescUnregFn, BitCast, Handle };
@@ -1572,7 +1572,7 @@ CallInst *VPOParoptUtils::genTgtIsDeviceAvailable(Value *DeviceNum,
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   assert(DeviceType && DeviceType->getType()->isPointerTy() &&
          "DeviceType expected to be pointer");
@@ -1592,7 +1592,7 @@ CallInst *VPOParoptUtils::genTgtCreateBuffer(Value *DeviceNum, Value *HostPtr,
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
   Type *Int64Ty = Type::getInt64Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   assert(HostPtr && HostPtr->getType() == Int8PtrTy &&
          "HostPtr expected to be void*");
@@ -1614,7 +1614,7 @@ CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   assert(TgtBuffer && TgtBuffer->getType() == Int8PtrTy &&
          "TgtBuffer expected to be void*");
@@ -1633,7 +1633,7 @@ static Value *genPreferArray(const SmallVectorImpl<unsigned> &PreferList,
   BasicBlock *B = InsertPt->getParent();
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  PointerType *Int8PtrTy = PointerType::getUnqual(C);
 
   if (PreferList.empty()) {
     ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
@@ -1665,7 +1665,7 @@ VPOParoptUtils::genTgtCreateInterop(Value *DeviceNum, int OmpInteropContext,
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  PointerType *Int8PtrTy = PointerType::getUnqual(C);
   IRBuilder<> Builder(InsertPt);
 
   DeviceNum = Builder.CreateSExt(DeviceNum, Int64Ty);
@@ -1705,7 +1705,7 @@ CallInst *VPOParoptUtils::genTgtCreateInteropObj(Value *DeviceNum, bool IsAsync,
   LLVMContext &C = F->getContext();
   Type *Int8Ty = Type::getInt8Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   assert((IsAsync && AsyncObj || !IsAsync && !AsyncObj) &&
          "AsyncObj must be null iff IsAsync is false");
@@ -1742,7 +1742,7 @@ CallInst *VPOParoptUtils::genTgtReleaseInterop(Value* InteropObj,
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
          "InteropObj expected to be void*");
@@ -1765,7 +1765,7 @@ CallInst* VPOParoptUtils::genTgtUseInterop(Value* InteropObj,
   Function* F = B->getParent();
   LLVMContext& C = F->getContext();
   Type* Int32Ty = Type::getInt32Ty(C);
-  Type* Int8PtrTy = Type::getInt8PtrTy(C);
+  Type* Int8PtrTy = PointerType::getUnqual(C);
 
   assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
          "InteropObj expected to be void*");
@@ -1845,7 +1845,7 @@ CallInst *VPOParoptUtils::genTgtGetInteropObj(
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  PointerType *Int8PtrTy = PointerType::getUnqual(C);
 
   SmallVector<Value *, 7> Args;
   SmallVector<Type *, 7> ArgTypes;
@@ -1902,7 +1902,7 @@ CallInst *VPOParoptUtils::genTgtTargetSync(WRegionNode *W, StructType *IdentTy,
   LLVMContext &C = F->getContext();
   Type *VoidTy = Type::getVoidTy(C);
   Type *Int32Ty = Type::getInt32Ty(C);
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  PointerType *Int8PtrTy = PointerType::getUnqual(C);
 
   SmallVector<Value *, 4> Args;
   SmallVector<Type *, 4> ArgTypes;
@@ -2180,17 +2180,17 @@ CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
   TaskArgs.push_back(NumDeps);
   TaskArgs.push_back(Dep);
   TaskArgs.push_back(Builder.getInt32(0));
-  TaskArgs.push_back(ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+  TaskArgs.push_back(ConstantPointerNull::get(PointerType::getUnqual(C)));
 
   std::vector<Type *> TypeParams;
   TypeParams.push_back(Loc->getType());
   TypeParams.push_back(Type::getInt32Ty(C));
   if (TaskAlloc)
-    TypeParams.push_back(Type::getInt8PtrTy(C));
+    TypeParams.push_back(PointerType::getUnqual(C));
   TypeParams.push_back(Type::getInt32Ty(C));
-  TypeParams.push_back(Type::getInt8PtrTy(C));
+  TypeParams.push_back(PointerType::getUnqual(C));
   TypeParams.push_back(Type::getInt32Ty(C));
-  TypeParams.push_back(Type::getInt8PtrTy(C));
+  TypeParams.push_back(PointerType::getUnqual(C));
 
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
@@ -2281,7 +2281,7 @@ CallInst *VPOParoptUtils::genKmpcTaskGeneric(WRegionNode *W,
   Value *TaskArgs[] = {
       Loc, Builder.CreateLoad(Builder.getInt32Ty(), TidPtr), TaskAlloc};
   Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C),
-                        Type::getInt8PtrTy(C)};
+                        PointerType::getUnqual(C)};
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
   Function *FnTask = M->getFunction(FnName);
@@ -2314,8 +2314,8 @@ CallInst *VPOParoptUtils::genKmpcCopyPrivate(WRegionNode *W,
   LLVMContext &C = F->getContext();
   Value *CprivArgs[] = {
       Builder.getInt32(Size),
-      Builder.CreateBitCast(CpyData, Type::getInt8PtrTy(C)),
-      Builder.CreateBitCast(FnCopyPriv, Type::getInt8PtrTy(C)), IsSingleThread};
+      Builder.CreateBitCast(CpyData, PointerType::getUnqual(C)),
+      Builder.CreateBitCast(FnCopyPriv, PointerType::getUnqual(C)), IsSingleThread};
   CallInst *CprivCall =
       genKmpcCallWithTid(W, IdentTy, TidPtr, InsertPt, "__kmpc_copyprivate",
                          Type::getVoidTy(C), CprivArgs);
@@ -2465,9 +2465,9 @@ CallInst *VPOParoptUtils::genKmpcTaskRedModifierInit(
       Builder.CreatePointerCast(RedRecord, Builder.getInt8PtrTy())};
   Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C),
                         Type::getInt32Ty(C), Type::getInt32Ty(C),
-                        Type::getInt8PtrTy(C)};
+                        PointerType::getUnqual(C)};
   FunctionType *FnTy =
-      FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
+      FunctionType::get(PointerType::getUnqual(C), TypeParams, false);
 
   StringRef FnName = UseTbb ? "__tbb_omp_taskred_modifier_init"
                             : "__kmpc_taskred_modifier_init";
@@ -2549,9 +2549,9 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
       Builder.getInt32(ParmNum),
       Builder.CreatePointerCast(RedRecord, Builder.getInt8PtrTy())};
   Type *TypeParams[] = {Type::getInt32Ty(C), Type::getInt32Ty(C),
-                        Type::getInt8PtrTy(C)};
+                        PointerType::getUnqual(C)};
   FunctionType *FnTy =
-      FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
+      FunctionType::get(PointerType::getUnqual(C), TypeParams, false);
 
   StringRef FnName = UseTbb ? "__tbb_omp_task_reduction_init" :
                               "__kmpc_taskred_init";
@@ -2646,7 +2646,7 @@ CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
                         SizeTTy,        TaskEntryPtr->getType()};
 
   FunctionType *FnTy =
-      FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
+      FunctionType::get(PointerType::getUnqual(C), TypeParams, false);
 
   StringRef FnName = UseTbb? "__tbb_omp_task_alloc" : "__kmpc_omp_task_alloc";
   Function *FnTaskAlloc = M->getFunction(FnName);
@@ -3428,7 +3428,7 @@ CallInst *VPOParoptUtils::genKmpcThreadPrivateCachedCall(
   FnGetTpvArgs.push_back(GVSize);
   FnGetTpvArgs.push_back(TpvGV);
 
-  auto ReturnTy = Type::getInt8PtrTy(C);
+  auto ReturnTy = PointerType::getUnqual(C);
   return genCall(M, "__kmpc_threadprivate_cached", ReturnTy, FnGetTpvArgs);
 }
 
@@ -3985,7 +3985,7 @@ CallInst *VPOParoptUtils::genKmpcScopeOrEndScopeCall(
   BasicBlock *B = W->getEntryBBlock();
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  PointerType *Int8PtrTy = PointerType::getUnqual(C);
 
   Type *RetTy = nullptr;
   StringRef FnName;
@@ -5000,7 +5000,7 @@ CallInst *VPOParoptUtils::genVariantCall(
   Module *M = BaseCall->getModule();
   Function *F = BaseCall->getFunction();
   LLVMContext &C = F->getContext();
-  Type *Int8PtrTy = Type::getInt8PtrTy(C); // void*
+  Type *Int8PtrTy = PointerType::getUnqual(C); // void*
 
   Type *ReturnTy = BaseCall->getType();
   FunctionType *BaseFnTy = BaseCall->getFunctionType();

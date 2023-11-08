@@ -347,7 +347,7 @@ Type *GeneralUtils::getSizeTTy(Module *M) {
   IntegerType *IntTy;
   const DataLayout &DL = M->getDataLayout();
 
-  if (DL.getIntPtrType(Type::getInt8PtrTy(C))->getIntegerBitWidth() == 64)
+  if (DL.getIntPtrType(PointerType::getUnqual(C))->getIntegerBitWidth() == 64)
     IntTy = Type::getInt64Ty(C);
   else
     IntTy = Type::getInt32Ty(C);

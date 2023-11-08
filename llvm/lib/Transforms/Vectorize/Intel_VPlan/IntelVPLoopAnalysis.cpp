@@ -2695,7 +2695,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
     } else if (auto *PrivateF90DV = dyn_cast<VPPrivateF90DV>(Private)) {
       VPInstruction *VPStackSave = nullptr;
       auto *I64 = Type::getInt64Ty(*Plan.getLLVMContext());
-      auto *ptrI8 = Type::getInt8PtrTy(*Plan.getLLVMContext());
+      auto *ptrI8 = PointerType::getUnqual(*Plan.getLLVMContext());
       auto *StackSavePtrTy =
           Plan.getDataLayout()->getAllocaPtrType(*Plan.getLLVMContext());
       FunctionType *NewFnTy = FunctionType::get(I64, {ptrI8, ptrI8}, false);

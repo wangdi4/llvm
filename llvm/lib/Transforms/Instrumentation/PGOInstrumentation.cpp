@@ -1175,15 +1175,11 @@ static void instrumentOneFunc(
       F, TLI, ComdatMembers, true, BPI, BFI, IsCS, PGOInstrumentEntry,
       PGOBlockCoverage);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   cleanupLoopTripCountInstrumentation(MarkedInstrs);
 #endif // INTEL_CUSTOMIZATION
 
-  Type *I8PtrTy = Type::getInt8PtrTy(M->getContext());
-=======
   Type *I8PtrTy = PointerType::getUnqual(M->getContext());
->>>>>>> ab83849773d0cfdee3d2622b537ed26e8275a07d
   auto Name = ConstantExpr::getBitCast(FuncInfo.FuncNameVar, I8PtrTy);
   auto CFGHash = ConstantInt::get(Type::getInt64Ty(M->getContext()),
                                   FuncInfo.FunctionHash);

@@ -482,14 +482,6 @@ public:
   //===--------------------------------------------------------------------===//
   // Convenience methods for getting pointer types.
   //
-<<<<<<< HEAD
-
-  // TODO: After opaque pointer transition this can be replaced by simply
-  //       calling PointerType::get(C, AS).
-  static PointerType *getInt8PtrTy(LLVMContext &C, unsigned AS = 0);
-
-=======
->>>>>>> ab83849773d0cfdee3d2622b537ed26e8275a07d
   static Type *getWasm_ExternrefTy(LLVMContext &C);
   static Type *getWasm_FuncrefTy(LLVMContext &C);
 

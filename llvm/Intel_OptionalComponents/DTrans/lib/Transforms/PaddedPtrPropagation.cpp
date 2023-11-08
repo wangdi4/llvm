@@ -490,10 +490,10 @@ void insertPaddedMarkUpInt(IRBuilder<> &Builder, Value *V, int Padding,
   Value *MarkupStrPtr = Builder.CreateGlobalStringPtr(MarkupStr);
   Value *File = Builder.CreateGlobalStringPtr(M->getSourceFileName());
   Constant *LNum = Constant::getIntegerValue(I32Ty, APInt(32, 0, false));
-  ConstantPointerNull *CPN = ConstantPointerNull::get(Type::getInt8PtrTy(Ctx));
+  ConstantPointerNull *CPN = ConstantPointerNull::get(PointerType::getUnqual(Ctx));
   auto *F =
       Intrinsic::getDeclaration(M, Intrinsic::ptr_annotation,
-                                {PType, Type::getInt8PtrTy(M->getContext())});
+                                {PType, PointerType::getUnqual(M->getContext())});
   assert(F && "Can't find appropriate ptr_annotation intrinsic");
   auto *A = Builder.CreateCall(F, {V, MarkupStrPtr, File, LNum, CPN},
       V->getName());
