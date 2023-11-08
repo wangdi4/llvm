@@ -4311,43 +4311,145 @@ void VPOParoptTransform::genAtomicFreeReductionGlobalFini(
 
   // Making the new loop use reduction buffer, using its existing
   // GEP by group_id but omitting that GEP
+  //
+  // IR expected at this point (scalar item):
+  //   UseParallelReduction = false:
+  //   -----------------------------
+  //     %1 = call spir_func i64 @_Z12get_group_idj(i32 0)
+  //     %team.buf.baseptr = getelementptr inbounds i32,
+  //       ptr addrspace(1) @red_buf, i64 %1
+  //     %2 = addrspacecast ptr addrspace(1) %team.buf.baseptr
+  //       to ptr addrspace(4)
+  //     ...
+  //   atomic.free.red.global.update.header:
+  //     %idx.phi = phi i64 [ 0, %team.red.buffers.ready ],              <--- i
+  //                        [ %23, %atomic.free.red.global.update.latch ]
+  //     %red.sum.phi =
+  //        phi i32 [ %init, %team.red.buffers.ready ],
+  //                [ %22, %atomic.free.red.global.update.latch ]
+  //     %18 = call spir_func i64 @_Z14get_num_groupsj(i32 0)
+  //     %19 = icmp uge i64 %idx.phi, %18
+  //     br i1 %19,
+  //        label %atomic.free.red.global.update.store,
+  //        label %atomic.free.red.global.update.body
+  //
+  //   atomic.free.red.global.update.body:
+  //     %20 = load i32, ptr addrspace(4) %2, align 4  <- replacing this ptr:
+  //                                                      red_buf[group_id] =>
+  //                                                      red_buf[idx.phi]  (*)
+  //     %21 = add i32 %red.sum.phi, %20
+  //     br label %item.exit
+  //
+  //   item.exit:
+  //     br label %atomic.free.red.global.update.latch
+  //   ----------------------------
+  //   UseParallelReduction = true:
+  //   ----------------------------
+  //     %1 = call spir_func i64 @_Z12get_group_idj(i32 0)
+  //     %team.buf.baseptr = getelementptr inbounds i32,
+  //       ptr addrspace(1) @red_buf, i64 %1
+  //     %2 = addrspacecast ptr addrspace(1) %team.buf.baseptr
+  //       to ptr addrspace(4)
+  //    ...
+  //   atomic.free.red.global.pretree.header:
+  //     %teams.idx.phi = phi i64                                 <--- arr_off
+  //        [ 0, %counter_check ],
+  //        [ %29, %atomic.free.red.global.update.pretree.latch ]
+  //     %red.sum.phi = phi i32
+  //        [ %init, %counter_check ],
+  //        [ %31, %atomic.free.red.global.update.pretree.latch ]
+  //     %11 = call spir_func i64 @_Z14get_local_sizej(i32 0)
+  //     %12 = call spir_func i64 @_Z14get_num_groupsj(i32 0)
+  //     %13 = icmp uge i64 %teams.idx.phi, %12
+  //     %14 = call spir_func i64 @_Z12get_local_idj(i32 0)
+  //     %15 = add i64 %teams.idx.phi, %14
+  //     %16 = getelementptr i32, ptr addrspace(1) @red_buf, i64 %15
+  //     br i1 %13, label %atomic.free.red.global.update.store,
+  //                label %atomic.free.red.global.update.header
+  //
+  //   atomic.free.red.global.update.header:
+  //     %idx.phi = phi i64                                       <--- tree_off
+  //        [ 1, %atomic.free.red.global.pretree.header ],
+  //        [ %28, %atomic.free.red.global.update.latch ]
+  //     %17 = icmp uge i64 %idx.phi, %11
+  //     br i1 %17, label %atomic.free.red.global.update.pretree.latch,
+  //                label %atomic.free.red.global.update.tree.check
+  //
+  //   atomic.free.red.global.update.tree.check:
+  //     ...
+  //     br i1 %27, label %atomic.free.red.global.update.latch,
+  //                label %atomic.free.red.global.update.body
+  //
+  //   atomic.free.red.global.update.body:  <--- inserting combiner of     (**)
+  //     br label %item.exit                 red_buf[local_id+arr_off] and
+  //                                         red_buf[local_id+arr_off+tree_off]
+  //
+  //   item.exit:
+  //     br label %atomic.free.red.global.update.latch
+  //
+  //   atomic.free.red.global.update.latch:
+  //     %28 = shl i64 %idx.phi, 1
+  //     call spir_func void @_Z22__spirv_ControlBarrieriii
+  //     br label %atomic.free.red.global.update.header
+  //
+  //   atomic.free.red.global.update.pretree.latch:
+  //     %29 = add i64 %teams.idx.phi, %11
+  //     %30 = load i32, ptr addrspace(4) %2, align 4   <- replacing this ptr:
+  //                                                       red_buf[group_id] =>
+  //                                                       red_buf[arr_off] (*)
+  //     %31 = add i32 %red.sum.phi, %30
+  //     br label %atomic.free.red.global.pretree.header
+
   if (auto *GepToSkip =
           dyn_cast<GetElementPtrInst>(PtrInitToReplace->stripPointerCasts())) {
     auto *InsertPt =
         (UseParallelReduction ? HeaderBB : InnerHeaderBB)->getTerminator();
     Builder.SetInsertPoint(InsertPt);
     auto *GepPtr = GepToSkip->getPointerOperand();
+    // Step (*)
+    //
     // each loop iteration ptr for the element currently being processed is:
     // scalar:
     //  serial update: red_buf+idx_phi
     //  parallel update: red_buf+local_id(0)
     // array section: red_buf+idx_phi
-    Value *Idx = IdxPhi;
-    if (UseParallelReduction)
-      Idx = VPOParoptUtils::genLocalIdCall(0, InsertPt);
+    Value *Idx = UseParallelReduction ? TeamsIdxPhi : IdxPhi;
 
-    if (UseParallelReduction)
-      Idx = Builder.CreateAdd(Idx, TeamsIdxPhi);
     // NOTE: with UseParallelReduction==true this gep is invariant to the loop,
     // but here we rely on device compiler to run LICM to not overcomplicate
     // this code
+    if (UseParallelReduction) {
+      auto *ThreadIdx = VPOParoptUtils::genLocalIdCall(0, InsertPt);
+      Idx = Builder.CreateAdd(Idx, ThreadIdx);
+    }
     auto *GlobalGep =
         Builder.CreateGEP(GepToSkip->getSourceElementType(), GepPtr, Idx);
     // TODO: consider cloning the exisitng addrspacecast
     if (IsArrayOrArraySection || IsUDR)
       GlobalGep = Builder.CreatePointerBitCastOrAddrSpaceCast(
           GlobalGep, PointerType::get(RedElemType, AddrSpace));
-    if (PtrUseToFix)
-      PtrUseToFix->replaceUsesOfWith(PtrInitToReplace, GlobalGep);
-    else
-      Combiner->setLocalValueLoc(GlobalGep);
 
+    if (PtrUseToFix) {
+      PtrUseToFix->replaceUsesOfWith(PtrInitToReplace, GlobalGep);
+    } else {
+      if (UseParallelReduction) {
+        // A pointer to current arr_off result, ie red_buf[arr_off]
+        auto *ResultGep = Builder.CreateGEP(GepToSkip->getSourceElementType(),
+                                            GepPtr, TeamsIdxPhi);
+        Combiner->setLocalValueLoc(ResultGep);
+      } else {
+        Combiner->setLocalValueLoc(GlobalGep);
+      }
+    }
+
+    // Step (**)
+    //
     // For parallel update loop there's no phi because in a tree pattern
     // everything needs to be spilled back to the buffer in the end of each
     // iteration, i.e.
-    //  red_buf[local_id(0)] = red_op(red_buf[local_id(0)],
-    //  red_buf[local_id(0)+tree_offset]);
-    // performs a store to red_buf[local_id(0)] in the end.
+    //  red_buf[local_id(0)+arr_off] = red_op(red_buf[local_id(0)+arr_off],
+    //  red_buf[local_id(0)+arr_off+tree_offset]);
+    // performs a store to red_buf[local_id(0)+arr_off] in the end.
     if (UseParallelReduction) {
       Builder.SetInsertPoint(InnerHeaderBB->getTerminator());
       auto *LocalOffGep = Builder.CreateGEP(GepToSkip->getSourceElementType(),
