@@ -2023,6 +2023,22 @@ void OpenMPLateOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
   // The 'depend' clause is handled by emitOMPAllDependClauses.
 }
 
+#if INTEL_CUSTOMIZATION
+void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_full, "QUAL.OMP.FULL");
+  addArg(CEH.getBuilder().getString());
+}
+
+void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_partial, "QUAL.OMP.PARTIAL");
+  addArg(CEH.getBuilder().getString());
+  uint64_t Factor = 0;
+  if (Expr *FactorExpr = Cl->getFactor())
+    Factor = FactorExpr->EvaluateKnownConstInt(CGF.getContext()).getZExtValue();
+  addArg(llvm::ConstantInt::get(CGF.Int64Ty, Factor));
+}
+#endif // INTEL_CUSTOMIZATION
+
 void OpenMPLateOutliner::emitOMPXAttributeClause(const OMPXAttributeClause *) {}
 
 void OpenMPLateOutliner::emitOMPDoacrossClause(const OMPDoacrossClause *Cl) {
@@ -3197,8 +3213,6 @@ void OpenMPLateOutliner::emitOMPXRegisterAllocModeClause(
 #endif // INTEL_CUSTOMIZATION
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
-void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
-void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
 void OpenMPLateOutliner::emitOMPXDynCGroupMemClause(
     const OMPXDynCGroupMemClause *) {}
 void OpenMPLateOutliner::emitOMPXBareClause(const OMPXBareClause *) {}
@@ -3318,15 +3332,18 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
   if (CurrentDirectiveKind == OMPD_unknown)
     CurrentDirectiveKind = D.getDirectiveKind();
 
-  if (D.hasAssociatedStmt() && needsVLAExprEmission()) {
-    const auto *CS = cast_or_null<CapturedStmt>(D.getAssociatedStmt());
-    CGF.VLASizeMapHandler->ModifyVLASizeMap(CS);
-  }
-
   RegionEntryDirective =
       CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry);
   RegionExitDirective =
       CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit);
+
+  if (CurrentDirectiveKind == OMPD_unroll)
+    return;
+
+  if (D.hasAssociatedStmt() && needsVLAExprEmission()) {
+    const auto *CS = cast_or_null<CapturedStmt>(D.getAssociatedStmt());
+    CGF.VLASizeMapHandler->ModifyVLASizeMap(CS);
+  }
 
   if (isOpenMPLoopDirective(CurrentDirectiveKind)) {
     auto *LoopDir = cast<OMPLoopDirective>(&D);
@@ -3488,6 +3505,13 @@ void OpenMPLateOutliner::emitOMPForSimdDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.LOOP", "DIR.OMP.END.LOOP", OMPD_for);
   startDirectiveIntrinsicSet("DIR.OMP.SIMD", "DIR.OMP.END.SIMD", OMPD_simd);
 }
+
+#if INTEL_CUSTOMIZATION
+void OpenMPLateOutliner::emitOMPUnrollDirective() {
+  startDirectiveIntrinsicSet("DIR.OMP.UNROLL", "DIR.OMP.END.UNROLL",
+                             OMPD_unroll);
+}
+#endif // INTEL_CUSTOMIZATION
 
 void OpenMPLateOutliner::emitOMPParallelForSimdDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.PARALLEL.LOOP",
@@ -3952,6 +3976,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_prefetch:
   case OMPD_scope:
   case OMPD_interop:
+  case OMPD_unroll:
     return false;
   case OMPD_unknown:
   default:
@@ -4483,11 +4508,16 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     Outliner.emitOMPScopeDirective();
     break;
 
+#if INTEL_CUSTOMIZATION
+  case OMPD_unroll:
+    Outliner.emitOMPUnrollDirective();
+    break;
+#endif // INTEL_CUSTOMIZATION
+
   // These directives are not yet implemented.
   case OMPD_requires:
   case OMPD_depobj:
   case OMPD_tile:
-  case OMPD_unroll:
     break;
 
   // These directives do not create region directives.
