@@ -36,6 +36,7 @@
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
@@ -246,6 +247,9 @@ std::string getIRName(Any IR) {
 
   if (const auto **L = llvm::any_cast<const Loop *>(&IR))
     return (*L)->getName().str();
+
+  if (const auto **MF = llvm::any_cast<const MachineFunction *>(&IR))
+    return (*MF)->getName().str();
 
   llvm_unreachable("Unknown wrapped IR type");
 }
