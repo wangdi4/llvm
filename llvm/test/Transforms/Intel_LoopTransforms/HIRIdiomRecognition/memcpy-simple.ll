@@ -25,6 +25,7 @@
 ; OPTREPORT-NEXT: <Multiversioned v1>
 ; OPTREPORT-NEXT: remark #25399: memcopy generated
 ; OPTREPORT-NEXT: remark #25562: The loop has been multiversioned for the small trip count
+; OPTREPORT-NEXT: remark #25260: Dead loop optimized away
 ; OPTREPORT-NEXT: LOOP END
 
 ; OPTREPORT: LOOP BEGIN

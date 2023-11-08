@@ -1179,6 +1179,9 @@ void HLLoop::replaceByFirstIteration(bool ExtractPostexit,
   if (PreserveOptReport) {
     OptReportBuilder &ORBuilder =
         this->getHLNodeUtils().getHIRFramework().getORBuilder();
+
+    ORBuilder(*this).addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::SingleIterationLoopOptimizedAway);
     ORBuilder(*this).preserveLostOptReport();
   }
 

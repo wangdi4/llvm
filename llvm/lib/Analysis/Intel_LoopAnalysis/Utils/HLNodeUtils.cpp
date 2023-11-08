@@ -5023,6 +5023,8 @@ public:
       OptReportBuilder &ORBuilder =
           Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
+      ORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                 OptRemarkID::DeadLoopOptimizedAway);
       ORBuilder(*Loop).preserveLostOptReport();
 
       HLNodeUtils::remove(Loop);
@@ -5219,6 +5221,8 @@ public:
       OptReportBuilder &ORBuilder =
           Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
+      ORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                 OptRemarkID::DeadLoopOptimizedAway);
       ORBuilder(*Loop).preserveLostOptReport();
 
       HLNodeUtils::remove(Loop);
@@ -5415,13 +5419,8 @@ public:
 
       notifyWillRemoveNode(Loop);
 
-      OptReportBuilder &ORBuilder =
-          Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
-
-      ORBuilder(*Loop).preserveLostOptReport();
-
       // Do not extract postexit as they will become dead nodes because of goto.
-      Loop->replaceByFirstIteration(false);
+      Loop->replaceByFirstIteration(false, true);
       RedundantEarlyExitLoops++;
 
       // Have to handle the label again in the context of parent loop.

@@ -134,6 +134,8 @@ enum class OptRemarkID {
   LoopMultiversionedForDD = 25228,
   LoopPeeledUsingCondition = 25258,
   LoopOptimizedAwayUsingCondition = 25259,
+  DeadLoopOptimizedAway = 25260,
+  SingleIterationLoopOptimizedAway = 25261,
   LoopRerollFactor = 25264,
   MaterializedLoopTripCount = 25397,
   MemcopyGenerated = 25399,
