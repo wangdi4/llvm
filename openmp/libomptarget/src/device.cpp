@@ -1206,6 +1206,11 @@ int DeviceTy::prefetchSharedMem(size_t NumPtrs, void **Ptrs, size_t *Sizes) {
   else
     return OFFLOAD_SUCCESS; // no-op if not supported
 }
+
+void DeviceTy::notifyLegacyOffload(void) {
+  if (RTL->notify_legacy_offload)
+    RTL->notify_legacy_offload();
+}
 #endif // INTEL_CUSTOMIZATION
 
 // Whether data can be copied to DstDevice directly

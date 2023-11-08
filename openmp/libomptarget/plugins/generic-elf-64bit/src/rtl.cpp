@@ -76,6 +76,7 @@ public:
   std::list<DynLibTy> DynLibs;
   std::unordered_set<void *> DevicePtrs;
   std::mutex Mtx;
+  bool UsingLegacyOffload = false;
 
   // Record entry point associated with device.
   void createOffloadTable(int32_t DeviceId, __tgt_offload_entry *Begin,
@@ -140,6 +141,11 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
 #else
   return elf_check_machine(Image, TARGET_ELF_ID);
 #endif
+}
+
+EXTERN void __tgt_rtl_notify_legacy_offload(void) {
+  DP("Using legacy offload interface\n");
+  DeviceInfo.UsingLegacyOffload = true;
 }
 
 int32_t __tgt_rtl_number_of_devices() { return NUMBER_OF_DEVICES; }
@@ -332,19 +338,34 @@ int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
   // Use libffi to launch execution.
   ffi_cif Cif;
 
+  bool LegacyOffload = DeviceInfo.UsingLegacyOffload;
+  uint32_t ArgShift;
+  if (LegacyOffload) {
+    ArgShift = 0;
+  } else {
+    KernelArgs->NumArgs++;
+    ArgShift = 1;
+  }
+
   // All args are references.
   std::vector<ffi_type *> ArgsTypes(KernelArgs->NumArgs, &ffi_type_pointer);
   std::vector<void *> Args(KernelArgs->NumArgs);
   std::vector<void *> Ptrs(KernelArgs->NumArgs);
 
-  for (uint32_t I = 0; I < KernelArgs->NumArgs; ++I) {
-    ptrdiff_t offset = TgtOffsets[I];
+  if (!LegacyOffload) {
+    Ptrs[0] = malloc(sizeof(KernelLaunchEnvironmentTy));
+    Args[0] = Ptrs.data();
+  }
+
+  for (uint32_t I = ArgShift; I < KernelArgs->NumArgs; ++I) {
+    uint32_t J = I - ArgShift;
+    ptrdiff_t offset = TgtOffsets[J];
     // Offset equal to MAX(ptrdiff_t) means that the argument
     // must be passed as literal, and the offset should be ignored.
     if (offset == (std::numeric_limits<ptrdiff_t>::max)())
-      Ptrs[I] = TgtArgs[I];
+      Ptrs[I] = TgtArgs[J];
     else
-      Ptrs[I] = (void *)((intptr_t)TgtArgs[I] + offset);
+      Ptrs[I] = (void *)((intptr_t)TgtArgs[J] + offset);
     Args[I] = Ptrs.data() + I;
   }
 
@@ -362,6 +383,9 @@ int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
   *((void **)&Entry) = TgtEntryPtr;
 
   ffi_call(&Cif, Entry, NULL, Args.data());
+
+  if (!LegacyOffload)
+    free(Ptrs[0]);
 
   return OFFLOAD_SUCCESS;
 }

@@ -7,9 +7,6 @@
 // RUN: %libomptarget-run-generic | %fcheck-generic
 // RUN: %libomptarget-compileopt-generic -fopenmp-version=51
 // RUN: %libomptarget-run-generic | %fcheck-generic
-// INTEL_CUSTOMIZATION
-// REQUIRES: FurtherInvestigation
-// end INTEL_CUSTOMIZATION
 
 // High parallelism increases our chances of detecting a lack of atomicity.
 #define NUM_THREADS_TRY 256

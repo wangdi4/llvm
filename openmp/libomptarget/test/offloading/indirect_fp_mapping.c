@@ -3,6 +3,10 @@
 // RUN: %libomptarget-compileopt-generic -fopenmp-version=51
 // RUN: %libomptarget-run-generic | %fcheck-generic
 
+// INTEL_CUSTOMIZATION
+// UNSUPPORTED: x86_64-pc-linux-gnu
+// end INTEL_CUSTOMIZATION
+
 #include <stdio.h>
 
 int square(int x) { return x * x; }

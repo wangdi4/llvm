@@ -1,9 +1,6 @@
 // RUN: %libomptarget-compile-run-and-check-generic
 
 // UNSUPPORTED: amdgcn-amd-amdhsa
-// INTEL_CUSTOMIZATION
-// REQUIRES: FurtherInvestigation
-// end INTEL_CUSTOMIZATION
 
 #include <omp.h>
 #include <stdio.h>
