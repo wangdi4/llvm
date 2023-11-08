@@ -604,19 +604,10 @@ declare void @llvm.assume(i1)
 define void @step_is_neg_addrec_slt_8(i64 %n) {
 ; CHECK-LABEL: 'step_is_neg_addrec_slt_8'
 ; CHECK-NEXT:  Determining loop execution counts for: @step_is_neg_addrec_slt_8
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:  Loop %inner: backedge-taken count is (7 /u {0,+,-1}<nsw><%outer.header>)
-; CHECK-NEXT:  Loop %inner: constant max backedge-taken count is 8
-; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is (7 /u {0,+,-1}<nsw><%outer.header>)
-; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is (7 /u {0,+,-1}<nsw><%outer.header>)
-; end INTEL_CUSTOMIZATION
-=======
 ; CHECK-NEXT:  Loop %inner: backedge-taken count is (7 /u {0,+,-1}<%outer.header>)
 ; CHECK-NEXT:  Loop %inner: constant max backedge-taken count is 8
 ; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is (7 /u {0,+,-1}<%outer.header>)
 ; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is (7 /u {0,+,-1}<%outer.header>)
->>>>>>> a7f35d54eef95e308ed13af5f46dbfc6c559cb9b
 ; CHECK-NEXT:   Predicates:
 ; CHECK-NEXT:  Loop %inner: Trip multiple is 1
 ; CHECK-NEXT:  Loop %outer.header: backedge-taken count is 0
