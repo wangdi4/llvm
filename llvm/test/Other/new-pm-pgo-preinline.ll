@@ -10,7 +10,7 @@
 ; CHECK-Osz-NEXT: Running pass: InlinerPass on (foo)
 ; CHECK-Osz-NEXT: Running pass: InlinerPass on (foo)
 ; INTEL_CUSTOMIZATION
-; CHECK-Osz-NEXT: Running pass: CleanupFakeLoadsPass on foo
+; CHECK-Osz-NEXT: Running pass: TbaaMDPropagationPass on foo
 ; end INTEL_CUSTOMIZATION
 ; CHECK-Osz-NEXT: Running pass: SROAPass on foo
 ; CHECK-Osz-NEXT: Running pass: EarlyCSEPass on foo
