@@ -9267,6 +9267,11 @@ defm openmp_declare_target_global_default_map
                   LangOpts<"OpenMPDeclareTargetGlobalDefaultMap">,
                   DefaultFalse, PosFlag<SetTrue>, NegFlag<SetFalse>,
                   BothFlags<[NoArgumentUnused, HelpHidden], [ClangOption, CC1Option]>>;
+defm openmp_intel_unroll
+    : BoolFOption<"openmp-intel-unroll",
+                  LangOpts<"OpenMPIntelUnroll">,
+                  DefaultFalse, PosFlag<SetTrue>, NegFlag<SetFalse>,
+                  BothFlags<[NoArgumentUnused, HelpHidden], [ClangOption, CC1Option]>>;
 defm openmp_use_host_usm_for_implicit_reduction_map
     : BoolFOption<"openmp-use-host-usm-for-implicit-reduction-map",
                   LangOpts<"OpenMPUseHostUSMForImpicitReductionMap">,

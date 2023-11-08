@@ -130,6 +130,9 @@ LANGOPT(
     OpenMPDeclareTargetScalarDefaultMapFirstPrivate	, 1, 0,
     "Specify defaultmap for scalar variable with declare target attribute")
 LANGOPT(
+    OpenMPIntelUnroll	, 1, 0,
+    "Generate late-outline directives for unroll when possible")
+LANGOPT(
     OpenMPDeclareTargetGlobalDefaultMap	, 1, 0,
     "Specify defaultmap for Global variable with declare target attribute")
 LANGOPT(

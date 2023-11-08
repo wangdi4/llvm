@@ -147,6 +147,15 @@ bool OMPLoopBasedDirective::doForAllLoops(
   CurStmt = CurStmt->IgnoreContainers();
   for (unsigned Cnt = 0; Cnt < NumLoops; ++Cnt) {
     while (true) {
+#if INTEL_CUSTOMIZATION
+      if (auto *UD = dyn_cast<OMPUnrollDirective>(CurStmt)) {
+        if (UD->hasClausesOfKind<OMPPartialClause>() &&
+            UD->getNumGeneratedLoops() == 0) {
+          CurStmt = UD->getAssociatedStmt();
+          break;
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
       auto *Dir = dyn_cast<OMPLoopTransformationDirective>(CurStmt);
       if (!Dir)
         break;

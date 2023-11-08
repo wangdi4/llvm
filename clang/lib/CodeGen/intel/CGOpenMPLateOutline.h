@@ -568,6 +568,7 @@ public:
                              OpenMPMapClauseKind MapType,
                              bool IsCaptureByLambda, SourceLocation Loc);
   void emitImplicitFirstPrivateRemark(const ValueDecl *Var, PresumedLoc PLoc);
+  void emitOMPUnrollDirective();
 #endif // INTEL_CUSTOMIZATION
   bool isImplicitTask(OpenMPDirectiveKind K);
   bool isImplicitTaskgroup(OpenMPDirectiveKind K);
@@ -719,6 +720,9 @@ public:
     auto Kind = S.getDirectiveKind();
     if (Kind == llvm::omp::OMPD_atomic || Kind == llvm::omp::OMPD_critical ||
         Kind == llvm::omp::OMPD_section || Kind == llvm::omp::OMPD_master ||
+#if INTEL_CUSTOMIZATION
+        Kind == llvm::omp::OMPD_unroll ||
+#endif // INTEL_CUSTOMIZATION
         Kind == llvm::omp::OMPD_masked)
       return false;
     return true;
