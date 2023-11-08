@@ -620,11 +620,20 @@ InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
   bool AdviceT = MandatoryInliningKind::Always == MIK && &Caller != &Callee;
   bool IsAlways = AdviceT && (&Caller != &Callee);
   InlineCost MIC =
-      IsAlways ? (CB.hasFnAttr(Attribute::AlwaysInlineRecursive)
-                      ? llvm::InlineCost::getAlways("always inline (recursive)",
-                                                    InlrAlwaysInlineRecursive)
-                      : llvm::InlineCost::getAlways("always inline",
-                                                    InlrAlwaysInline))
+      IsAlways
+          ? (CB.hasFnAttr(Attribute::AlwaysInlineRecursive)
+                 ? (CB.hasFnAttrOnCallsite(Attribute::AlwaysInlineRecursive)
+                        ? llvm::InlineCost::getAlways(
+                              "always inline (recursive)",
+                              InlrCSAlwaysInlineRecursive)
+                        : llvm::InlineCost::getAlways(
+                              "always inline (recursive)",
+                              InlrAlwaysInlineRecursive))
+             : CB.hasFnAttrOnCallsite(Attribute::AlwaysInline)
+                 ? llvm::InlineCost::getAlways("always inline",
+                                               InlrCSAlwaysInline)
+                 : llvm::InlineCost::getAlways("always inline",
+                                               InlrAlwaysInline))
       : MandatoryInliningKind::Never == MIK
           ? llvm::InlineCost::getNever("never inline", NinlrNeverInline)
           : llvm::InlineCost::getNever("not mandatory", NinlrNotMandatory);
