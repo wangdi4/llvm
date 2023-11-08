@@ -267,6 +267,8 @@ struct RecognizableInstrBase {
   bool HasEVEX_NF;
   /// The hasTwoConditionalOps field from the record
   bool HasTwoConditionalOps;
+  /// The explicitREX2Prefix field from the record
+  bool ExplicitREX2Prefix;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
