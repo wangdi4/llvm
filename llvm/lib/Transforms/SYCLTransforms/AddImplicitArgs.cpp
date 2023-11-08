@@ -104,8 +104,6 @@ bool AddImplicitArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo,
   // Clear functions refs to fix container
   FixupFunctionsRefs.clear();
 
-  ImplicitArgsUtils::getImplicitArgEnums(ImplicitArgEnums, &M);
-
   // Collect all module functions that are not declarations into work list.
   SmallVector<Function *, 4> WorkList;
   for (auto &F : M) {
@@ -142,7 +140,7 @@ bool AddImplicitArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo,
   for (auto *CI : IndirectCalls) {
     Value **Args = FixupCalls[CI];
     SmallVector<Type *, 16> ArgTys;
-    for (unsigned I : ImplicitArgEnums)
+    for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I)
       ArgTys.push_back(Args[I]->getType());
 
     replaceCallInst(CI, ArgTys, nullptr);
@@ -155,12 +153,12 @@ bool AddImplicitArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo,
   for (auto &It : FixupCalls) {
     CallInst *CI = It.first;
     Value **CallArgs = It.second;
-    assert(CI->arg_size() >= ImplicitArgEnums.size() &&
-           "The number of arguments should be greater than or "
-           "equal to the number of implicit args types");
-    unsigned ImplicitArgStart = CI->arg_size() - ImplicitArgEnums.size();
-    for (auto [I, Ty] : llvm::enumerate(ImplicitArgEnums))
-      CI->setArgOperand(I + ImplicitArgStart, CallArgs[Ty]);
+
+    unsigned ImplicitArgStart =
+        CI->arg_size() - ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
+    for (unsigned i = ImplicitArgStart, j = 0;
+         j < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i, ++j)
+      CI->setArgOperand(i, CallArgs[j]);
 
     delete[] CallArgs;
   }
@@ -179,7 +177,7 @@ void AddImplicitArgsPass::runOnFunction(Function *F) {
   AttributeSet NoAlias = AttributeSet::get(F->getContext(), B);
   AttributeSet NoAttr;
   // For each implicit arg, setup its type, name and attributes.
-  for (unsigned I : ImplicitArgEnums) {
+  for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
     Type *ArgType = IAInfo->getArgType(I);
     NewTypes.push_back(ArgType);
     NewNames.push_back(ImplicitArgsUtils::getArgName(I));
@@ -228,9 +226,8 @@ void AddImplicitArgsPass::runOnFunction(Function *F) {
     for (unsigned I = 0; I < NumExplicitArgs; ++I, ++IA)
       ;
     // Copy over implicit args.
-    for (unsigned I : ImplicitArgEnums) {
-      CallArgs[ImplicitArgEnums[I]] = static_cast<Value *>(IA++);
-    }
+    for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I, ++IA)
+      CallArgs[I] = static_cast<Value *>(&*IA);
     assert(IA == NewF->arg_end());
 
     FixupCalls[CI] = CallArgs;
@@ -274,8 +271,8 @@ void AddImplicitArgsPass::replaceCallInst(CallInst *CI,
   }
   SmallVector<Value *, 16> NewArgs;
   // Push undefs for new arguments.
-  assert(ImplicitArgsTypes.size() == ImplicitArgEnums.size());
-  for (unsigned I : ImplicitArgEnums) {
+  assert(ImplicitArgsTypes.size() == ImplicitArgsUtils::NUM_IMPLICIT_ARGS);
+  for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
     NewArgs.push_back(UndefValue::get(ImplicitArgsTypes[I]));
   }
   CallInst *NewCI =

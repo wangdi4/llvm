@@ -23,8 +23,8 @@
 namespace llvm {
 
 class PatchCallbackArgsPass : public PassInfoMixin<PatchCallbackArgsPass> {
-  using ValueTuple = std::tuple<Value *, Value *, Value *>;
-  using FuncToValueTuple = DenseMap<Function *, ValueTuple>;
+  using ValuePair = std::pair<Value *, Value *>;
+  using FuncToValuePair = DenseMap<Function *, ValuePair>;
 
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
@@ -34,7 +34,7 @@ public:
   static bool isRequired() { return true; }
 
 private:
-  FuncToValueTuple FuncToImplicitArgs;
+  FuncToValuePair FuncToImplicitArgs;
 };
 
 } // namespace
