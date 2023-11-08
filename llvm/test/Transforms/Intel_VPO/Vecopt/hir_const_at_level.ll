@@ -21,7 +21,7 @@ define void @fbuild_(i64 %n, i32 %v) local_unnamed_addr #1 {
 ; CHECK:        |   + DO i2 = 7, [[LOOP_UB120:%.*]], 8   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:        |   + END LOOP
 ; Remai
-; CHECK:        |   + DO i2 = [[LB_TMP0:%.*]], -1 * i1 + [[N0:%.*]] + -3, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 7>
+; CHECK:        |   + DO i2 = [[LB_TMP0:%.*]], [[N0:%.*]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 7>
 ; CHECK:        |   + END LOOP
 ; CHECK:  END REGION
 ;
@@ -33,10 +33,11 @@ bb373:                                            ; preds = %bb396, %alloca_14
   br label %bb377
 
 bb377:                                            ; preds = %bb377, %bb373
-  %indvars.iv130 = phi i64 [ %indvars.iv, %bb373 ], [ %indvars.iv.next131, %bb377 ]
+  %indvars.iv130 = phi i64 [ 0, %bb373 ], [ %indvars.iv.next131, %bb377 ]
   %rel.183 = icmp ugt i64 %indvars.iv, 2
   %sub.70 = select i1 %rel.183, double 1.000000e+00, double 0.000000e+00
-  %"val$[]46" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) @scratc_, i64 %indvars.iv130)
+  %ndx = add i64 %indvars.iv130, 2
+  %"val$[]46" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) @scratc_, i64 %ndx)
   store i32 %v, ptr %"val$[]46", align 4
   %indvars.iv.next131 = add nuw nsw i64 %indvars.iv130, 1
   %exitcond = icmp eq i64 %indvars.iv.next131, %n
