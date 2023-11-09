@@ -90,31 +90,6 @@ static cl::opt<unsigned> LoopRematerializeTCLowerBound(
 
 namespace {
 
-class HIRLoopRematerializeLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRLoopRematerializeLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRLoopRematerializeLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override{};
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-
-    AU.setPreservesAll();
-  }
-};
-
-} // namespace
-
-namespace {
-
 // Hard to estimate the size: not using small vector.
 typedef std::set<const HLNode *> SetNodesTy;        // SmallSet allows < 32
 typedef DenseMap<BlobTy, unsigned> InvariantBlobTy; // SCEV, BID
@@ -1401,31 +1376,6 @@ bool HIRLoopRematerialize::run() {
 }
 
 } // namespace
-
-char HIRLoopRematerializeLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopRematerializeLegacyPass, OPT_SWITCH, OPT_DESC,
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRLoopRematerializeLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIRLoopRematerializePass() {
-  return new HIRLoopRematerializeLegacyPass();
-}
-
-bool HIRLoopRematerializeLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    return false;
-  }
-
-  LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
-
-  return HIRLoopRematerialize(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                              getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
-      .run();
-}
 
 PreservedAnalyses HIRLoopRematerializePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {

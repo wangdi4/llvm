@@ -59,24 +59,6 @@ static cl::opt<bool> DisableConditionalReductions(
 
 namespace {
 
-class HIRMemoryReductionSinkingLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-  HIRMemoryReductionSinkingLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRMemoryReductionSinkingLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-
 // The memory reduction is described by a load ref and a store ref.
 // There are two kinds of patterns-
 // 1) Load inst followed by store inst with terminal ref-
@@ -202,19 +184,6 @@ private:
 };
 
 } // namespace
-
-char HIRMemoryReductionSinkingLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRMemoryReductionSinkingLegacyPass, OPT_SWITCH, OPT_DESC,
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRMemoryReductionSinkingLegacyPass, OPT_SWITCH, OPT_DESC,
-                    false, false)
-
-FunctionPass *llvm::createHIRMemoryReductionSinkingPass() {
-  return new HIRMemoryReductionSinkingLegacyPass();
-}
 
 static HLInst *getReductionStore(HLInst *LoadInst, bool CheckSelfBlobRval) {
   // We only handle consecutive load and store instructions when looking for
@@ -1008,19 +977,6 @@ static bool runMemoryReductionSinking(HIRFramework &HIRF,
     Result = MRS.run(Lp) || Result;
   }
 
-  return Result;
-}
-
-bool HIRMemoryReductionSinkingLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    return false;
-  }
-
-  bool Result = runMemoryReductionSinking(
-      getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-      getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-      getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-      true /* AllowConditionalReductionSinking */);
   return Result;
 }
 

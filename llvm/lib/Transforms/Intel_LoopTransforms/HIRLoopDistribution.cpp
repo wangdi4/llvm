@@ -2325,36 +2325,3 @@ void HIRLoopDistribution::invalidateLoop(loopopt::HLLoop *Loop) const {
       Loop);
   HIRInvalidationUtils::invalidateBody(Loop);
 }
-
-void HIRLoopDistributionLegacyPass::getAnalysisUsage(
-    llvm::AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  // Loop Statistics is not used by this pass directly but it used by
-  // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
-  // manager from freeing it.
-  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
-  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRSparseArrayReductionAnalysisWrapperPass>();
-}
-
-bool HIRLoopDistributionLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    return false;
-  }
-
-  return HIRLoopDistribution(
-             getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-             getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
-             getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
-             getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-             getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
-             getAnalysis<HIRSparseArrayReductionAnalysisWrapperPass>()
-                 .getHSAR(),
-             getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
-             getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(), DistCostModel)
-      .run();
-}
