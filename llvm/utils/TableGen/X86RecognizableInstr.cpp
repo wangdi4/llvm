@@ -457,14 +457,14 @@ InstructionContext RecognizableInstr::insnContext() const {
       insnContext = IC_64BIT_XD;
     else if (OpPrefix == X86Local::XS)
       insnContext = IC_64BIT_XS;
-    else if (HasREX_W)
-      insnContext = IC_64BIT_REXW;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
     else if (ExplicitREX2Prefix)
       insnContext = IC_64BIT_REX2;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+    else if (HasREX_W)
+      insnContext = IC_64BIT_REXW;
     else
       insnContext = IC_64BIT;
   } else {
