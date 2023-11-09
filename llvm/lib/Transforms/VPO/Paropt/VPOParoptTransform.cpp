@@ -7555,8 +7555,8 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
 #if INTEL_CUSTOMIZATION
     // For dope vectors we need to add base pointer users to the work list.
     if (NtmpItem->getIsF90DopeVector()) {
-      for (auto *U : Val->users())
-        if (auto *GEP = dyn_cast<GEPOperator>(U))
+      for (auto *U : Val->users()) {
+        if (auto *GEP = dyn_cast<GEPOperator>(U)) {
           if (GEP->hasAllZeroIndices())
             for (auto *U : GEP->users())
               if (auto *Load = dyn_cast<LoadInst>(U)) {
@@ -7564,6 +7564,11 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
                        "dope vector base should have pointer type");
                 growWorkList(Load);
               }
+        } else if (auto *Load = dyn_cast<LoadInst>(U)) {
+          if (Load->getType()->isPointerTy())
+            growWorkList(Load);
+        }
+      }
     } else
 #endif // INTEL_CUSTOMIZATION
     if (NtmpItem->getIsPointerToPointer()) {
