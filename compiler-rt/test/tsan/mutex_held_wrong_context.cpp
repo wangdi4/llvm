@@ -1,3 +1,9 @@
+// INTEL_CUSTOMIZATION
+// JIRA: CMPLRLLVM-42333, CMPLRLLVM-53303
+// Only in debug build the sanitizers will have debug info for symbolizer to generate the result this test needs
+// REQUIRES: intel-debug-build
+// end INTEL_CUSTOMIZATION
+
 // RUN: %clangxx_tsan -O1 %s -o %t && %deflake %run %t | FileCheck %s
 #include "test.h"
 
