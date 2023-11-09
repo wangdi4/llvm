@@ -204,9 +204,13 @@ bool DriverLLVMImpl::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 
     const auto *PreferredPeeling = Plan->getPreferredPeeling(VF);
     // TODO: remove this hack after getGuaranteedPeeling is fixed.
-    const auto *GuaranteedPeeling = LVP.peelWasSelected()
-                                        ? Plan->getGuaranteedPeeling(VF)
-                                        : &VPlanNoPeeling::NoPeelLoop;
+    const auto *GuaranteedPeeling =
+        LVP.peelWasSelected() ||
+                (PreferredPeeling &&
+                 (dyn_cast<VPlanNoPeelingAligned>(PreferredPeeling) ||
+                  dyn_cast<VPlanNoPeelingUnaligned>(PreferredPeeling)))
+            ? Plan->getGuaranteedPeeling(VF)
+            : &VPlanNoPeeling::LoopObject;
 
     // Note, the loop is executed only when new cfg merger is enabled.
     for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
@@ -222,8 +226,9 @@ bool DriverLLVMImpl::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
         // For non-peel loops, if we have a guaranteed peel, we should propagate
         // the alignment from that peel. Do so now before CG.
         if (LpKind != CfgMergerPlanDescr::LoopType::LTPeel)
-          VPlanAlignmentAnalysis::propagateAlignment(
-              cast<VPlanVector>(Plan), PlanDescr.getVF(), GuaranteedPeeling);
+          VPlanAlignmentAnalysis::propagateAlignment(cast<VPlanVector>(Plan),
+                                                     TTI, PlanDescr.getVF(),
+                                                     GuaranteedPeeling);
       }
 
       // For unroller, we only want to pass the main-vector, i.e., the unmasked

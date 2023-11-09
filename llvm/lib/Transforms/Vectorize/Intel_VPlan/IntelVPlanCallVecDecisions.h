@@ -82,7 +82,7 @@ private:
   void getVectorVariantsForCallParameters(
       const VPCallInstruction *VPCall, bool Masked, int VF,
       SmallVectorImpl<bool> &ArgIsLinearPrivateMem,
-      SmallVectorImpl<VFInfo> &VFInfos);
+      SmallVectorImpl<VFInfo> &VFInfos, const TargetTransformInfo *TTI);
 
   VPlanVector &Plan;
 };

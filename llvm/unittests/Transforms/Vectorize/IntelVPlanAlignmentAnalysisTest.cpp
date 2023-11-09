@@ -890,7 +890,7 @@ protected:
 
   void expectAlignment(const VPValue *V, const VPInstruction *I, unsigned VF,
                        MaybeAlign Expected) const {
-    VPlanAlignmentAnalysis AA(*VPSE, *VPVT, VF);
+    VPlanAlignmentAnalysis AA(*VPSE, *VPVT, *TTI, VF);
     EXPECT_EQ(AA.tryGetKnownAlignment(V, I).valueOrOne().value(),
               Expected.valueOrOne().value());
   }
@@ -930,25 +930,25 @@ TEST_F(VPlanAlignmentAnalysisTest, StaticPeeling) {
   setupPeelingAnalysis();
   VPLoadStoreInst *S = findStoreInst();
 
-  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, 1);
-  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, 2);
-  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, 4);
-  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, 8);
+  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, *TTI, 1);
+  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, *TTI, 2);
+  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, *TTI, 4);
+  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, *TTI, 8);
 
-  VPlanStaticPeeling SP0(0);
+  VPlanNoPeeling NP;
   VPlanStaticPeeling SP1(1);
   VPlanStaticPeeling SP2(2);
   VPlanStaticPeeling SP3(3);
   VPlanStaticPeeling SP7(7);
 
-  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP0));
-  EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, &SP0));
-  EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, &SP0));
-  EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, &SP0));
-  EXPECT_TRUE(AA1.isAlignedUnitStride(*S, &SP0));
-  EXPECT_FALSE(AA2.isAlignedUnitStride(*S, &SP0));
-  EXPECT_FALSE(AA4.isAlignedUnitStride(*S, &SP0));
-  EXPECT_FALSE(AA8.isAlignedUnitStride(*S, &SP0));
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &NP));
+  EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, &NP));
+  EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, &NP));
+  EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, &NP));
+  EXPECT_TRUE(AA1.isAlignedUnitStride(*S, &NP));
+  EXPECT_FALSE(AA2.isAlignedUnitStride(*S, &NP));
+  EXPECT_FALSE(AA4.isAlignedUnitStride(*S, &NP));
+  EXPECT_FALSE(AA8.isAlignedUnitStride(*S, &NP));
 
   EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP1));
   EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, &SP1));
@@ -1021,10 +1021,10 @@ TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Full) {
   VPLoadStoreInst *L = findLoadInst();
   VPLoadStoreInst *S = findStoreInst();
 
-  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, 1);
-  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, 2);
-  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, 4);
-  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, 8);
+  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, *TTI, 1);
+  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, *TTI, 2);
+  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, *TTI, 4);
+  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, *TTI, 8);
 
   VPConstStepInduction Address =
       *VPSE->asConstStepInduction(S->getAddressSCEV());
@@ -1085,10 +1085,10 @@ TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Partial) {
   VPLoadStoreInst *L = findLoadInst();
   VPLoadStoreInst *S = findStoreInst();
 
-  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, 1);
-  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, 2);
-  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, 4);
-  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, 8);
+  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, *TTI, 1);
+  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, *TTI, 2);
+  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, *TTI, 4);
+  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, *TTI, 8);
 
   VPConstStepInduction Address =
       *VPSE->asConstStepInduction(S->getAddressSCEV());
@@ -1222,14 +1222,15 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignmentPropagation) {
   {
     // Format is {VF, Peel, ExpectedAlign}
     const std::tuple<unsigned, VPlanNoPeeling, uint64_t> InputAndExpecteds[] = {
-        {1, VPlanNoPeeling::NoPeelLoop, 4},
-        {2, VPlanNoPeeling::NoPeelLoop, 8},
-        {4, VPlanNoPeeling::NoPeelLoop, 16},
-        {8, VPlanNoPeeling::NoPeelLoop, 16},
+        {1, VPlanNoPeeling::LoopObject, 4},
+        {2, VPlanNoPeeling::LoopObject, 8},
+        {4, VPlanNoPeeling::LoopObject, 16},
+        {8, VPlanNoPeeling::LoopObject, 16},
     };
     for (const auto &[VF, Peel, ExpectedAlign] : InputAndExpecteds) {
       ResetAlign(LS);
-      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, &Peel);
+      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), TTI.get(), VF,
+                                                 &Peel);
       EXPECT_EQ(LS.getAlignment().value(), ExpectedAlign)
           << ", VF = " << VF << " (disabled)";
     }
@@ -1240,17 +1241,16 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignmentPropagation) {
     // Format is {VF, Peel, ExpectedAlign}
     const std::tuple<unsigned, VPlanStaticPeeling, uint64_t>
         InputAndExpecteds[] = {
-            {1, VPlanStaticPeeling{0}, 4},  {2, VPlanStaticPeeling{0}, 8},
-            {2, VPlanStaticPeeling{1}, 4},  {4, VPlanStaticPeeling{0}, 16},
-            {4, VPlanStaticPeeling{1}, 4},  {4, VPlanStaticPeeling{2}, 8},
-            {4, VPlanStaticPeeling{3}, 4},  {8, VPlanStaticPeeling{0}, 16},
+            {2, VPlanStaticPeeling{1}, 4},  {4, VPlanStaticPeeling{1}, 4},
+            {4, VPlanStaticPeeling{2}, 8},  {4, VPlanStaticPeeling{3}, 4},
             {8, VPlanStaticPeeling{1}, 4},  {8, VPlanStaticPeeling{2}, 8},
             {8, VPlanStaticPeeling{4}, 16}, {8, VPlanStaticPeeling{5}, 4},
             {8, VPlanStaticPeeling{6}, 8},  {8, VPlanStaticPeeling{7}, 4},
         };
     for (const auto &[VF, Peel, ExpectedAlign] : InputAndExpecteds) {
       ResetAlign(LS);
-      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, &Peel);
+      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), TTI.get(), VF,
+                                                 &Peel);
       EXPECT_EQ(LS.getAlignment().value(), ExpectedAlign)
           << ", VF = " << VF << ", peel count = " << Peel.peelCount()
           << " (static)";
@@ -1279,7 +1279,8 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignmentPropagation) {
         };
     for (const auto &[VF, Peel, ExpectedAlign] : InputAndExpecteds) {
       ResetAlign(LS);
-      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, &Peel);
+      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), TTI.get(), VF,
+                                                 &Peel);
       EXPECT_EQ(LS.getAlignment().value(), ExpectedAlign)
           << "VF = " << VF
           << ", target align = " << Peel.targetAlignment().value()
@@ -1290,7 +1291,8 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignmentPropagation) {
   // Null alignment tests
   for (const unsigned VF : {1, 2, 4, 8}) {
     ResetAlign(LS);
-    VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, nullptr);
+    VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), TTI.get(), VF,
+                                               nullptr);
     EXPECT_EQ(LS.getAlignment().value(), (uint64_t)4) << "peel = nullptr";
   }
 }

@@ -55,7 +55,7 @@ public:
               VecErrorHandlerTy VecErrorHandler = nullptr)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
         Legal(LVL), VLSA(VLSA),
-        VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
+        VPAA(*Plan->getVPSE(), *Plan->getVPVT(), *TTI, VecWidth), Plan(Plan),
         VF(VecWidth), UF(UnrollFactor), Builder(Context),
         OrigPreHeader(OrigLoop->getLoopPreheader()), ORBuilder(ORBuilder),
         IsOmpSIMD(IsOmpSIMD), VecErrorHandler(VecErrorHandler) {}
