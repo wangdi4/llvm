@@ -6847,9 +6847,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     A->render(Args, CmdArgs);
   }
 
-  if (Arg *A = Args.getLastArg(options::OPT_faltmathlib_EQ)) {
+  if (Arg *A = Args.getLastArg(options::OPT_faltmathlib_EQ))
     A->render(Args, CmdArgs);
-  }
 
   if (Args.hasFlag(options::OPT_fmerge_all_constants,
                    options::OPT_fno_merge_all_constants, false))
