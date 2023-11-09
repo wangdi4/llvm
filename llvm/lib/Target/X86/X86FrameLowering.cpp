@@ -2845,13 +2845,19 @@ bool X86FrameLowering::assignCalleeSavedSpillSlots(
   //    b. Start to use push2 from the 2nd push if stack is not 16B aligned.
   // 3. When the number of CSR push is even, start to use push2 from the 1st
   //    push and make the stack 16B aligned before the push
-  bool UsePush2Pop2 = STI.hasPush2Pop2() && CSI.size() > 1;
-  X86FI->setPadForPush2Pop2(UsePush2Pop2 && CSI.size() % 2 == 0 &&
-                            SpillSlotOffset % 16 != 0);
-  unsigned NumRegsForPush2 = UsePush2Pop2 ? alignDown(CSI.size(), 2) : 0;
-  if (X86FI->padForPush2Pop2()) {
-    SpillSlotOffset -= SlotSize;
-    MFI.CreateFixedSpillStackObject(SlotSize, SpillSlotOffset);
+  unsigned NumRegsForPush2 = 0;
+  if (STI.hasPush2Pop2()) {
+    unsigned NumCSGPR = llvm::count_if(CSI, [](const CalleeSavedInfo &I) {
+      return X86::GR64RegClass.contains(I.getReg());
+    });
+    bool UsePush2Pop2 = NumCSGPR > 1;
+    X86FI->setPadForPush2Pop2(UsePush2Pop2 && NumCSGPR % 2 == 0 &&
+                              SpillSlotOffset % 16 != 0);
+    NumRegsForPush2 = UsePush2Pop2 ? alignDown(NumCSGPR, 2) : 0;
+    if (X86FI->padForPush2Pop2()) {
+      SpillSlotOffset -= SlotSize;
+      MFI.CreateFixedSpillStackObject(SlotSize, SpillSlotOffset);
+    }
   }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
