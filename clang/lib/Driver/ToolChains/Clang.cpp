@@ -6847,11 +6847,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     A->render(Args, CmdArgs);
   }
 
-<<<<<<< HEAD
-  if (Arg *A = Args.getLastArg(options::OPT_faltmathlib_EQ)) {
-=======
   if (Arg *A = Args.getLastArg(options::OPT_faltmathlib_EQ))
->>>>>>> 516d2a26a88f849e1a3655321ecfb2e65dd552f8
     A->render(Args, CmdArgs);
 
   if (Args.hasFlag(options::OPT_fmerge_all_constants,
