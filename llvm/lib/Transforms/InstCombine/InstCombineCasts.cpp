@@ -1409,6 +1409,9 @@ static bool hasOneLoadStoreUser(const GetElementPtrInst *CI) {
       return false;
     I = CastI->user_back();
   }
+  // No need to process further if we don't have users.
+  if (I->user_empty())
+    return false;
   // tolerate one more GEP in the sequence (sext,gep,gep,load)
   if (isa<GetElementPtrInst>(I))
     I = I->user_back();
