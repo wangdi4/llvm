@@ -72,7 +72,9 @@ static int computeMultiplierForPeeling(int Step, Align RequiredAlignment,
 
 VPlanPeelingVariant::~VPlanPeelingVariant() {}
 
-VPlanNoPeeling VPlanNoPeeling::NoPeelLoop;
+template <> VPlanNoPeeling VPlanNoPeeling::LoopObject{};
+template <> VPlanNoPeelingAligned VPlanNoPeelingAligned::LoopObject{};
+template <> VPlanNoPeelingUnaligned VPlanNoPeelingUnaligned::LoopObject{};
 
 VPlanDynamicPeeling::VPlanDynamicPeeling(VPLoadStoreInst *Memref,
                                          VPConstStepInduction AccessAddress,
@@ -163,7 +165,7 @@ VPlanPeelingAnalysis::selectBestPeelingVariant(int VF,
     return std::make_unique<VPlanStaticPeeling>(
         VPlanStaticPeeling(Static.first));
   else
-    return std::make_unique<VPlanNoPeeling>(VPlanNoPeeling::NoPeelLoop);
+    return std::make_unique<VPlanNoPeeling>(VPlanNoPeeling::LoopObject);
 }
 
 std::pair<int, VPInstructionCost>
@@ -452,6 +454,18 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
     return Memref.getAlignment();
   if (auto *NP = dyn_cast<VPlanNoPeeling>(Peeling))
     return getAlignmentUnitStrideImpl(Memref, *NP);
+  if (auto *NP = dyn_cast<VPlanNoPeelingAligned>(Peeling)) {
+    if (Memref.getValueType()->isAggregateType())
+      return Memref.getAlignment();
+    Type *VecTy = getWidenedType(Memref.getValueType(), VF);
+    auto *DL = Memref.getParent()->getParent()->getDataLayout();
+    // need to align on one register size
+    unsigned DataWidth =
+        DL->getTypeAllocSize(VecTy) / TTI->getNumberOfParts(VecTy);
+    return Align(DataWidth);
+  }
+  if (auto *NP = dyn_cast<VPlanNoPeelingUnaligned>(Peeling))
+    return Align(Memref.getAlignment());
   if (auto *SP = dyn_cast<VPlanStaticPeeling>(Peeling))
     return getAlignmentUnitStrideImpl(Memref, *SP);
   if (auto *DP = dyn_cast<VPlanDynamicPeeling>(Peeling))
@@ -490,7 +504,7 @@ VPlanAlignmentAnalysis::tryGetKnownAlignment(const VPValue *Val,
 }
 
 void VPlanAlignmentAnalysis::propagateAlignment(
-    VPlanVector *Plan, unsigned VF,
+    VPlanVector *Plan, const TargetTransformInfo *TTI, unsigned VF,
     const VPlanPeelingVariant *GuaranteedPeeling) {
   LLVM_DEBUG(dbgs() << "Propagating alignment for " << Plan->getName() << "\n");
 
@@ -500,14 +514,14 @@ void VPlanAlignmentAnalysis::propagateAlignment(
   }
 
   bool NegOneStride;
-  VPlanAlignmentAnalysis VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF);
+  VPlanAlignmentAnalysis VPAA(*Plan->getVPSE(), *Plan->getVPVT(), *TTI, VF);
   for (auto &Inst : vpinstructions(Plan)) {
     if (auto *LS = dyn_cast<VPLoadStoreInst>(&Inst)) {
       if (!isVectorizableLoadStore(LS) ||
           !Plan->getVPlanDA()->isUnitStrideLoadStore(LS, NegOneStride))
         continue;
-
-      const auto TargetAlign = VPAA.getAlignmentUnitStride(*LS, GuaranteedPeeling);
+      const auto TargetAlign =
+          VPAA.getAlignmentUnitStride(*LS, GuaranteedPeeling);
       if (TargetAlign > LS->getAlignment()) {
         LLVM_DEBUG(dbgs() << "Upgrading alignment of " << *LS << "from "
                           << LS->getAlignment().value() << " to "

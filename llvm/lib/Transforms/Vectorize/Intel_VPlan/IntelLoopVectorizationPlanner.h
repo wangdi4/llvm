@@ -467,6 +467,7 @@ public:
     VectorlengthMD =
         findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.vectorlength");
     IsVecRemainder = readVecRemainderEnabled();
+    IsVecAlign = readVecAlignEnabled();
     IsDynAlign = readDynAlignEnabled();
     UnrollCount =
         getOptionalIntLoopAttribute(TheLoop, "llvm.loop.unroll.count");
@@ -635,6 +636,11 @@ protected:
   /// Otherwise, it is std::nullopt.
   std::optional<bool> IsVecRemainder;
 
+  /// Contains true if "llvm.loop.intel.vector.aligned" metadata is specified
+  /// and false if "llvm.loop.intel.vector.unaligned" metadata is specified.
+  /// Otherwise, it is std::nullopt.
+  std::optional<bool> IsVecAlign;
+
   /// Contains true or false value from "llvm.loop.vectorize.dynamic_align"
   /// metadata
   bool IsDynAlign = true;
@@ -646,6 +652,11 @@ protected:
   /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
   ///  no such metadata, returns std::nullopt.
   std::optional<bool> readVecRemainderEnabled();
+
+  /// Returns true if "llvm.loop.intel.vector.aligned" metadata is specified
+  /// and false if "llvm.loop.intel.vector.unaligned" metadata is specified.
+  /// Otherwise, it is std::nullopt.
+  std::optional<bool> readVecAlignEnabled();
 
   /// Returns true/false value if "llvm.loop.intel.vector.dynamic_align"/
   /// "llvm.loop.intel.vector.nodynamic_align" metadata is specified. If there

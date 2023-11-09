@@ -1090,11 +1090,12 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
   Builder.setInsertPoint(TestBB);
   VPlanPeelingVariant *PeelVariant = Plan.getPreferredPeeling(MainVF);
 
+  assert((dyn_cast<VPlanStaticPeeling>(PeelVariant) ||
+          dyn_cast<VPlanDynamicPeeling>(PeelVariant)) &&
+         "expected static or dynamic peeling");
   // Create the needed checks
   auto StaticPeel = dyn_cast<VPlanStaticPeeling>(PeelVariant);
   if (StaticPeel) {
-    // No check for static peel count
-    assert(StaticPeel->peelCount() && "unexpected zero peel count");
     PeelCount = Plan.getVPConstant(
         ConstantInt::get(OrigUB->getType(), StaticPeel->peelCount()));
     TestBB->setTerminator(P.FirstBB);
