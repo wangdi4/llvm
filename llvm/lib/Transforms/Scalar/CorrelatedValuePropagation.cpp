@@ -347,8 +347,9 @@ static bool processICmp(ICmpInst *Cmp, LazyValueInfo *LVI) {
 
   ICmpInst::Predicate UnsignedPred =
       ConstantRange::getEquivalentPredWithFlippedSignedness(
-          Cmp->getPredicate(), LVI->getConstantRange(Cmp->getOperand(0), Cmp),
-          LVI->getConstantRange(Cmp->getOperand(1), Cmp));
+          Cmp->getPredicate(),
+          LVI->getConstantRangeAtUse(Cmp->getOperandUse(0)),
+          LVI->getConstantRangeAtUse(Cmp->getOperandUse(1)));
 
   if (UnsignedPred == ICmpInst::Predicate::BAD_ICMP_PREDICATE)
     return false;
@@ -1069,6 +1070,7 @@ static bool processSExt(SExtInst *SDI, LazyValueInfo *LVI) {
   auto *ZExt = CastInst::CreateZExtOrBitCast(Base, SDI->getType(), "", SDI);
   ZExt->takeName(SDI);
   ZExt->setDebugLoc(SDI->getDebugLoc());
+  ZExt->setNonNeg();
   SDI->replaceAllUsesWith(ZExt);
   SDI->eraseFromParent();
 

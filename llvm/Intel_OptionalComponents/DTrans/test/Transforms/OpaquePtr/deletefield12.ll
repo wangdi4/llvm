@@ -1,6 +1,7 @@
 ; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This test verifies that the size by which the result of a pointer sub is
 ; divided is correctly updated after field deletion.
@@ -11,7 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !6 {
   ; Allocate an array of structures.
-  %p = call ptr @malloc(i64 64)
+  %p = call ptr @malloc(i64 96)
 
   ; Get a pointer to the first struct in the array.
   %p_test1 = getelementptr %struct.test, ptr %p, i64 0
@@ -23,19 +24,19 @@ define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtra
   %t1 = ptrtoint ptr %p_test1 to i64
   %t2 = ptrtoint ptr %p_test2 to i64
   %sub = sub i64 %t1, %t2
-  %offset_idx = sdiv i64 %sub, 16
+  %offset_idx = sdiv i64 %sub, 24
 
   ; Get a pointer to the fourth struct in the array.
   %p_test3 = getelementptr %struct.test, ptr %p, i64 3
 
   ; Calculate its distance from the base as an index of two-struct pairs.
   %t3 = ptrtoint ptr %p_test3 to i64
-  %pair_size = mul i64 16, 2
+  %pair_size = mul i64 24, 2
   %sub2 = sub i64 %t1, %t3
   %offset_idx2 = sdiv i64 %sub2, %pair_size
 
   ; Cause %pair_size to be cloned by using it again.
-  %test = icmp eq i64 %pair_size, 16
+  %test = icmp eq i64 %pair_size, 24
 
   ; Call a function to do something.
   %val = call i32 @doSomething(ptr %p)
@@ -52,10 +53,10 @@ define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtra
 ; CHECK: %offset_idx = sdiv i64 %sub, 8
 
 ; CHECK: %pair_size.dt = mul i64 8, 2
-; CHECK: %pair_size = mul i64 16, 2
+; CHECK: %pair_size = mul i64 24, 2
 ; CHECK: %sub2 = sub i64 %t1, %t3
 ; CHECK: %offset_idx2 = sdiv i64 %sub2, %pair_size.dt
-; CHECK: %test = icmp eq i64 %pair_size, 16
+; CHECK: %test = icmp eq i64 %pair_size, 24
 
 define i32 @doSomething(ptr "intel_dtrans_func_index"="1" %p_test) !intel.dtrans.func.type !4 {
   ; Get pointers to each field

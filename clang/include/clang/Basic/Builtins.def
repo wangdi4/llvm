@@ -553,6 +553,9 @@ BUILTIN(__builtin_finite,   "i.", "Fnct")
 BUILTIN(__builtin_finitef,   "if", "Fnc")
 BUILTIN(__builtin_finitel,   "iLd", "Fnc")
 #endif // INTEL_CUSTOMIZATION
+BUILTIN(__builtin_issubnormal,"i.", "FnctE")
+BUILTIN(__builtin_iszero,     "i.", "FnctE")
+BUILTIN(__builtin_issignaling,"i.", "FnctE")
 BUILTIN(__builtin_isfpclass,  "i.", "nctE")
 
 // FP signbit builtins
@@ -739,6 +742,7 @@ BUILTIN(__builtin_debugtrap, "v", "n")
 BUILTIN(__builtin_unreachable, "v", "nr")
 BUILTIN(__builtin_shufflevector, "v."   , "nct")
 BUILTIN(__builtin_convertvector, "v."   , "nct")
+BUILTIN(__builtin_vectorelements, "v."  , "nct")
 BUILTIN(__builtin_alloca, "v*z"   , "Fn")
 BUILTIN(__builtin_alloca_uninitialized, "v*z", "Fn")
 BUILTIN(__builtin_alloca_with_align, "v*zIz", "Fn")

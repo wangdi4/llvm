@@ -4111,21 +4111,22 @@ unsigned X86TargetLowering::preferedOpcodeForCmpEqPiecesOfOperand(
       // If the current setup has imm64 mask, then inverse will have
       // at least imm32 mask (or be zext i32 -> i64).
       if (VT == MVT::i64)
-        return AndMask->getSignificantBits() > 32 ? ISD::SRL : ShiftOpc;
+        return AndMask->getSignificantBits() > 32 ? (unsigned)ISD::SRL
+                                                  : ShiftOpc;
 
       // We can only benefit if req at least 7-bit for the mask. We
       // don't want to replace shl of 1,2,3 as they can be implemented
       // with lea/add.
-      return ShiftOrRotateAmt.uge(7) ? ISD::SRL : ShiftOpc;
+      return ShiftOrRotateAmt.uge(7) ? (unsigned)ISD::SRL : ShiftOpc;
     }
 
     if (VT == MVT::i64)
       // Keep exactly 32-bit imm64, this is zext i32 -> i64 which is
       // extremely efficient.
-      return AndMask->getSignificantBits() > 33 ? ISD::SHL : ShiftOpc;
+      return AndMask->getSignificantBits() > 33 ? (unsigned)ISD::SHL : ShiftOpc;
 
     // Keep small shifts as shl so we can generate add/lea.
-    return ShiftOrRotateAmt.ult(7) ? ISD::SHL : ShiftOpc;
+    return ShiftOrRotateAmt.ult(7) ? (unsigned)ISD::SHL : ShiftOpc;
   }
 
   // We prefer rotate for vectors of if we won't get a zext mask with SRL
@@ -16355,6 +16356,12 @@ static SDValue lowerShuffleAsRepeatedMaskAndLanePermute(
       for (int i = 0; i != NumElts; i += NumBroadcastElts)
         for (int j = 0; j != NumBroadcastElts; ++j)
           BroadcastMask[i + j] = j;
+
+      // Avoid returning the same shuffle operation. For example,
+      // v8i32 = vector_shuffle<0,1,0,1,0,1,0,1> t5, undef:v8i32
+      if (BroadcastMask == Mask)
+        return SDValue();
+
       return DAG.getVectorShuffle(VT, DL, RepeatShuf, DAG.getUNDEF(VT),
                                   BroadcastMask);
     }
@@ -48329,10 +48336,15 @@ static SDValue combineArithReduction(SDNode *ExtElt, SelectionDAG &DAG,
        Subtarget.hasAVX512())) {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-    EVT ByteVT = VecVT.changeVectorElementType(MVT::i8);
-    Rdx = DAG.getNode(ISD::TRUNCATE, DL, ByteVT, Rdx);
-    if (ByteVT.getSizeInBits() < 128)
-      Rdx = WidenToV16I8(Rdx, true);
+    if (Rdx.getValueType() == MVT::v8i16) {
+      Rdx = DAG.getNode(X86ISD::PACKUS, DL, MVT::v16i8, Rdx,
+                        DAG.getUNDEF(MVT::v8i16));
+    } else {
+      EVT ByteVT = VecVT.changeVectorElementType(MVT::i8);
+      Rdx = DAG.getNode(ISD::TRUNCATE, DL, ByteVT, Rdx);
+      if (ByteVT.getSizeInBits() < 128)
+        Rdx = WidenToV16I8(Rdx, true);
+    }
 
     // Build the PSADBW, split as 128/256/512 bits for SSE/AVX2/AVX512BW.
     auto PSADBWBuilder = [](SelectionDAG &DAG, const SDLoc &DL,
@@ -54607,14 +54619,12 @@ static SDValue combineTruncateWithSat(SDValue In, EVT VT, const SDLoc &DL,
                       (Subtarget.hasVLX() || InVT.getSizeInBits() > 256) &&
                       !(!Subtarget.useAVX512Regs() && VT.getSizeInBits() >= 256);
 
-  if (isPowerOf2_32(VT.getVectorNumElements()) && !PreferAVX512 &&
-      VT.getSizeInBits() >= 64 &&
+  if (!PreferAVX512 && VT.getVectorNumElements() > 1 &&
+      isPowerOf2_32(VT.getVectorNumElements()) &&
       (SVT == MVT::i8 || SVT == MVT::i16) &&
       (InSVT == MVT::i16 || InSVT == MVT::i32)) {
     if (SDValue USatVal = detectSSatPattern(In, VT, true)) {
       // vXi32 -> vXi8 must be performed as PACKUSWB(PACKSSDW,PACKSSDW).
-      // Only do this when the result is at least 64 bits or we'll leaving
-      // dangling PACKSSDW nodes.
       if (SVT == MVT::i8 && InSVT == MVT::i32) {
         EVT MidVT = VT.changeVectorElementType(MVT::i16);
         SDValue Mid = truncateVectorWithPACK(X86ISD::PACKSS, MidVT, USatVal, DL,
@@ -58990,19 +59000,40 @@ static SDValue combineUIntToFP(SDNode *N, SelectionDAG &DAG,
   EVT VT = N->getValueType(0);
   EVT InVT = Op0.getValueType();
 
-  // UINT_TO_FP(vXi1~15)  -> UINT_TO_FP(ZEXT(vXi1~15  to vXi16))
-  // UINT_TO_FP(vXi17~31) -> UINT_TO_FP(ZEXT(vXi17~31 to vXi32))
+  // Using i16 as an intermediate type is a bad idea, unless we have HW support
+  // for it. Therefore for type sizes equal or smaller than 32 just go with i32.
+  // if hasFP16 support:
+  //   UINT_TO_FP(vXi1~15)  -> UINT_TO_FP(ZEXT(vXi1~15  to vXi16))
+  //   UINT_TO_FP(vXi17~31) -> UINT_TO_FP(ZEXT(vXi17~31 to vXi32))
+  // else
+  //   UINT_TO_FP(vXi1~31) -> UINT_TO_FP(ZEXT(vXi1~31 to vXi32))
   // UINT_TO_FP(vXi33~63) -> UINT_TO_FP(ZEXT(vXi33~63 to vXi64))
   if (InVT.isVector() && VT.getVectorElementType() == MVT::f16) {
     unsigned ScalarSize = InVT.getScalarSizeInBits();
-    if (ScalarSize == 16 || ScalarSize == 32 || ScalarSize >= 64)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if ((ScalarSize == 16 && (Subtarget.hasFP16() || Subtarget.hasAVX256P())) ||
+        ScalarSize == 32 || ScalarSize >= 64)
+#else  // INTEL_FEATURE_ISA_AVX256P
+    if ((ScalarSize == 16 && Subtarget.hasFP16()) || ScalarSize == 32 ||
+        ScalarSize >= 64)
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return SDValue();
     SDLoc dl(N);
-    EVT DstVT = EVT::getVectorVT(*DAG.getContext(),
-                                 ScalarSize < 16   ? MVT::i16
-                                 : ScalarSize < 32 ? MVT::i32
-                                                   : MVT::i64,
-                                 InVT.getVectorNumElements());
+    EVT DstVT =
+        EVT::getVectorVT(*DAG.getContext(),
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+                         ((Subtarget.hasFP16() || Subtarget.hasAVX256P())
+                                              && ScalarSize < 16) ? MVT::i16
+#else  // INTEL_FEATURE_ISA_AVX256P
+                         (Subtarget.hasFP16() && ScalarSize < 16) ? MVT::i16
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
+                         : ScalarSize < 32                        ? MVT::i32
+                                                                  : MVT::i64,
+                         InVT.getVectorNumElements());
     SDValue P = DAG.getNode(ISD::ZERO_EXTEND, dl, DstVT, Op0);
     if (IsStrict)
       return DAG.getNode(ISD::STRICT_UINT_TO_FP, dl, {VT, MVT::Other},
@@ -59053,19 +59084,40 @@ static SDValue combineSIntToFP(SDNode *N, SelectionDAG &DAG,
   EVT VT = N->getValueType(0);
   EVT InVT = Op0.getValueType();
 
-  // SINT_TO_FP(vXi1~15)  -> SINT_TO_FP(SEXT(vXi1~15  to vXi16))
-  // SINT_TO_FP(vXi17~31) -> SINT_TO_FP(SEXT(vXi17~31 to vXi32))
+  // Using i16 as an intermediate type is a bad idea, unless we have HW support
+  // for it. Therefore for type sizes equal or smaller than 32 just go with i32.
+  // if hasFP16 support:
+  //   SINT_TO_FP(vXi1~15)  -> SINT_TO_FP(SEXT(vXi1~15  to vXi16))
+  //   SINT_TO_FP(vXi17~31) -> SINT_TO_FP(SEXT(vXi17~31 to vXi32))
+  // else
+  //   SINT_TO_FP(vXi1~31) -> SINT_TO_FP(ZEXT(vXi1~31 to vXi32))
   // SINT_TO_FP(vXi33~63) -> SINT_TO_FP(SEXT(vXi33~63 to vXi64))
   if (InVT.isVector() && VT.getVectorElementType() == MVT::f16) {
     unsigned ScalarSize = InVT.getScalarSizeInBits();
-    if (ScalarSize == 16 || ScalarSize == 32 || ScalarSize >= 64)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if ((ScalarSize == 16 && (Subtarget.hasFP16() || Subtarget.hasAVX256P())) ||
+        ScalarSize == 32 || ScalarSize >= 64)
+#else  // INTEL_FEATURE_ISA_AVX256P
+    if ((ScalarSize == 16 && Subtarget.hasFP16()) || ScalarSize == 32 ||
+        ScalarSize >= 64)
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return SDValue();
     SDLoc dl(N);
-    EVT DstVT = EVT::getVectorVT(*DAG.getContext(),
-                                 ScalarSize < 16   ? MVT::i16
-                                 : ScalarSize < 32 ? MVT::i32
-                                                   : MVT::i64,
-                                 InVT.getVectorNumElements());
+    EVT DstVT =
+        EVT::getVectorVT(*DAG.getContext(),
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+                         ((Subtarget.hasFP16() || Subtarget.hasAVX256P())
+                                              && ScalarSize < 16) ? MVT::i16
+#else  // INTEL_FEATURE_ISA_AVX256P
+                         (Subtarget.hasFP16() && ScalarSize < 16) ? MVT::i16
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
+                         : ScalarSize < 32                        ? MVT::i32
+                                                                  : MVT::i64,
+                         InVT.getVectorNumElements());
     SDValue P = DAG.getNode(ISD::SIGN_EXTEND, dl, DstVT, Op0);
     if (IsStrict)
       return DAG.getNode(ISD::STRICT_SINT_TO_FP, dl, {VT, MVT::Other},

@@ -107,7 +107,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for ptr [[VP_ST_IDX:%.*]] = getelementptr inbounds [1024 x i32], ptr @arr.i32.2 i64 1024 i64 [[VP_INDVARS_IV_NEG]]
 ; VPLAN-CM-VF4-NEXT:    Cost 2.1875 for store i32 [[VP_SDIV]] ptr [[VP_ST_IDX]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for ptr [[VP_ST_64_IDX:%.*]] = getelementptr inbounds [1024 x i64], ptr @arr.i64.1 i64 1024 i64 [[VP_INDVARS_IV_NEG]]
-; VPLAN-CM-VF4-NEXT:    Cost 2.4375 for store i64 [[VP_SDIV64]] ptr [[VP_ST_64_IDX]]
+; VPLAN-CM-VF4-NEXT:    Cost 2.375 for store i64 [[VP_SDIV64]] ptr [[VP_ST_64_IDX]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for ptr [[VP_FLOAT_ST_IDX:%.*]] = getelementptr inbounds [1024 x float], ptr @arr.float.2 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for ptr [[VP_FLOAT2_ST_IDX:%.*]] = getelementptr inbounds [1024 x float], ptr @arr.float.3 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for store float [[VP_FDIV]] ptr [[VP_FLOAT_ST_IDX]]
@@ -115,8 +115,8 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
-; VPLAN-CM-VF4-NEXT:  [[BB2]]: base cost: 1063.71875
-; VPLAN-CM-VF4-NEXT:  Base Cost: 1063.71875
+; VPLAN-CM-VF4-NEXT:  [[BB2]]: base cost: 1063.65625
+; VPLAN-CM-VF4-NEXT:  Base Cost: 1063.65625
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -249,7 +249,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds ptr @arr.i32.2 i64 1024 i64 [[VP2]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 2.1875 for store i32 [[VP13]] ptr [[VP_SUBSCRIPT_6]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds ptr @arr.i64.1 i64 1024 i64 [[VP2]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 2.4375 for store i64 [[VP21]] ptr [[VP_SUBSCRIPT_7]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 2.375 for store i64 [[VP21]] ptr [[VP_SUBSCRIPT_7]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_8:%.*]] = subscript inbounds ptr @arr.float.2 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for store float [[VP26]] ptr [[VP_SUBSCRIPT_8]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_9:%.*]] = subscript inbounds ptr @arr.float.3 i64 0 i64 [[VP0]]
@@ -257,9 +257,9 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for i1 [[VP28:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP28]], [[BB2]], [[BB3:BB[0-9]+]]
-; VPLAN-HIR-CM-VF4-NEXT:  [[BB2]]: base cost: 191.71875
+; VPLAN-HIR-CM-VF4-NEXT:  [[BB2]]: base cost: 191.65625
 ; VPLAN-HIR-CM-VF4-NEXT:  Block total cost includes HW GS Cost: 28
-; VPLAN-HIR-CM-VF4-NEXT:  Base Cost: 191.71875
+; VPLAN-HIR-CM-VF4-NEXT:  Base Cost: 191.65625
 ; VPLAN-HIR-CM-VF4-NEXT:  Plan total cost includes HW GS Cost: 28
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -346,7 +346,7 @@ define void @foo() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[SCALAR_GEP0:%.*]] = getelementptr inbounds [1024 x i32], ptr @arr.i32.1, i64 0, i64 [[UNI_PHI0]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[MM_VECTORGEP0:%.*]] = getelementptr inbounds [1024 x i32], <4 x ptr> <ptr @arr.i32.1, ptr @arr.i32.1, ptr @arr.i32.1, ptr @arr.i32.1>, <4 x i64> zeroinitializer, <4 x i64> [[VEC_PHI0]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD0:%.*]] = load <4 x i32>, ptr [[SCALAR_GEP0]], align 16
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 14 for instruction:   [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> [[MM_VECTORGEP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> poison)
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 14 for instruction:   [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> [[MM_VECTORGEP0]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> poison)
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP0:%.*]] = sub nsw <4 x i64> zeroinitializer, [[VEC_PHI0]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i64> [[TMP0]], i64 0
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[SCALAR_GEP30:%.*]] = getelementptr inbounds [1024 x i32], ptr @arr.i32.3, i64 1024, i64 [[DOTEXTRACT_0_0]]
@@ -354,7 +354,7 @@ define void @foo() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP1:%.*]] = getelementptr i32, ptr [[SCALAR_GEP30]], i64 -3
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD50:%.*]] = load <4 x i32>, ptr [[TMP1]], align 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[REVERSE0:%.*]] = shufflevector <4 x i32> [[WIDE_LOAD50]], <4 x i32> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 14 for instruction:   [[WIDE_MASKED_GATHER60:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> [[MM_VECTORGEP40]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> poison)
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 14 for instruction:   [[WIDE_MASKED_GATHER60:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> [[MM_VECTORGEP40]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> poison)
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[SCALAR_GEP70:%.*]] = getelementptr inbounds [1024 x float], ptr @arr.float.1, i64 0, i64 [[UNI_PHI0]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD80:%.*]] = load <4 x float>, ptr [[SCALAR_GEP70]], align 16
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[SCALAR_GEP90:%.*]] = getelementptr inbounds [1024 x float], ptr @arr.float.2, i64 0, i64 [[UNI_PHI0]]
@@ -405,11 +405,11 @@ define void @foo() local_unnamed_addr #0 {
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0]] ]
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD_IDX0:%.*]] = getelementptr inbounds [1024 x i32], ptr @arr.i32.1, i64 0, i64 [[INDVARS_IV0]]
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD0:%.*]] = load i32, ptr [[LD_IDX0]], align 4
-; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD_640:%.*]] = load i64, ptr [[LD_IDX0]], align 4
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD_640:%.*]] = load i64, ptr [[LD_IDX0]], align 8
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[INDVARS_IV_NEG0:%.*]] = sub i64 0, [[INDVARS_IV0]]
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD2_IDX0:%.*]] = getelementptr inbounds [1024 x i32], ptr @arr.i32.3, i64 1024, i64 [[INDVARS_IV_NEG0]]
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD20:%.*]] = load i32, ptr [[LD2_IDX0]], align 4
-; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD2_640:%.*]] = load i64, ptr [[LD2_IDX0]], align 4
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[LD2_640:%.*]] = load i64, ptr [[LD2_IDX0]], align 8
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[FLOAT_LD_IDX0:%.*]] = getelementptr inbounds [1024 x float], ptr @arr.float.1, i64 0, i64 [[INDVARS_IV0]]
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[FLOAT_LD0:%.*]] = load float, ptr [[FLOAT_LD_IDX0]], align 4
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[FLOAT2_LD_IDX0:%.*]] = getelementptr inbounds [1024 x float], ptr @arr.float.2, i64 0, i64 [[INDVARS_IV0]]
@@ -444,7 +444,7 @@ define void @foo() local_unnamed_addr #0 {
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[ST_IDX0:%.*]] = getelementptr inbounds [1024 x i32], ptr @arr.i32.2, i64 1024, i64 [[INDVARS_IV_NEG0]]
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store i32 [[SDIV0]], ptr [[ST_IDX0]], align 4
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[ST_64_IDX0:%.*]] = getelementptr inbounds [1024 x i64], ptr @arr.i64.1, i64 1024, i64 [[INDVARS_IV_NEG0]]
-; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store i64 [[SDIV640]], ptr [[ST_64_IDX0]], align 4
+; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store i64 [[SDIV640]], ptr [[ST_64_IDX0]], align 8
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[FLOAT_ST_IDX0:%.*]] = getelementptr inbounds [1024 x float], ptr @arr.float.2, i64 0, i64 [[INDVARS_IV0]]
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[FLOAT2_ST_IDX0:%.*]] = getelementptr inbounds [1024 x float], ptr @arr.float.3, i64 0, i64 [[INDVARS_IV0]]
 ; LLVM-CM-VF1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store float [[FDIV0]], ptr [[FLOAT_ST_IDX0]], align 4

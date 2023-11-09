@@ -70,7 +70,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
 #endif // INTEL_CUSTOMIZATION
   initializeLowerAtomicLegacyPassPass(Registry);
   initializeLowerConstantIntrinsicsPass(Registry);
-  initializeLowerExpectIntrinsicPass(Registry);
   initializeLowerWidenableConditionLegacyPassPass(Registry);
   initializeLowerSubscriptIntrinsicLegacyPassPass(Registry); // INTEL
   initializeMergeICmpsLegacyPassPass(Registry);

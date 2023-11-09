@@ -434,7 +434,7 @@ void ASTDeclWriter::VisitTypeAliasDecl(TypeAliasDecl *D) {
 }
 
 void ASTDeclWriter::VisitTagDecl(TagDecl *D) {
-  static_assert(DeclContext::NumTagDeclBits == 10,
+  static_assert(DeclContext::NumTagDeclBits == 23,
                 "You need to update the serializer after you change the "
                 "TagDeclBits");
 
@@ -462,7 +462,7 @@ void ASTDeclWriter::VisitTagDecl(TagDecl *D) {
 }
 
 void ASTDeclWriter::VisitEnumDecl(EnumDecl *D) {
-  static_assert(DeclContext::NumEnumDeclBits == 20,
+  static_assert(DeclContext::NumEnumDeclBits == 43,
                 "You need to update the serializer after you change the "
                 "EnumDeclBits");
 
@@ -509,7 +509,7 @@ void ASTDeclWriter::VisitEnumDecl(EnumDecl *D) {
 }
 
 void ASTDeclWriter::VisitRecordDecl(RecordDecl *D) {
-  static_assert(DeclContext::NumRecordDeclBits == 41,
+  static_assert(DeclContext::NumRecordDeclBits == 64,
                 "You need to update the serializer after you change the "
                 "RecordDeclBits");
 
@@ -525,7 +525,7 @@ void ASTDeclWriter::VisitRecordDecl(RecordDecl *D) {
   Record.push_back(D->hasNonTrivialToPrimitiveDestructCUnion());
   Record.push_back(D->hasNonTrivialToPrimitiveCopyCUnion());
   Record.push_back(D->isParamDestroyedInCallee());
-  Record.push_back(D->getArgPassingRestrictions());
+  Record.push_back(llvm::to_underlying(D->getArgPassingRestrictions()));
   // Only compute this for C/Objective-C, in C++ this is computed as part
   // of CXXRecordDecl.
   if (!isa<CXXRecordDecl>(D))
@@ -581,7 +581,7 @@ void ASTDeclWriter::VisitDeclaratorDecl(DeclaratorDecl *D) {
 }
 
 void ASTDeclWriter::VisitFunctionDecl(FunctionDecl *D) {
-  static_assert(DeclContext::NumFunctionDeclBits == 31,
+  static_assert(DeclContext::NumFunctionDeclBits == 44,
                 "You need to update the serializer after you change the "
                 "FunctionDeclBits");
 
@@ -686,7 +686,7 @@ void ASTDeclWriter::VisitFunctionDecl(FunctionDecl *D) {
   Record.push_back(D->isMultiVersion());
   Record.push_back(D->isLateTemplateParsed());
   Record.push_back(D->FriendConstraintRefersToEnclosingTemplate());
-  Record.push_back(D->getLinkageInternal());
+  Record.push_back(llvm::to_underlying(D->getLinkageInternal()));
   Record.AddSourceLocation(D->getEndLoc());
   Record.AddSourceLocation(D->getDefaultLoc());
 
@@ -729,7 +729,7 @@ void ASTDeclWriter::VisitCXXDeductionGuideDecl(CXXDeductionGuideDecl *D) {
 }
 
 void ASTDeclWriter::VisitObjCMethodDecl(ObjCMethodDecl *D) {
-  static_assert(DeclContext::NumObjCMethodDeclBits == 24,
+  static_assert(DeclContext::NumObjCMethodDeclBits == 37,
                 "You need to update the serializer after you change the "
                 "ObjCMethodDeclBits");
 
@@ -759,7 +759,7 @@ void ASTDeclWriter::VisitObjCMethodDecl(ObjCMethodDecl *D) {
   }
 
   // FIXME: stable encoding for @required/@optional
-  Record.push_back(D->getImplementationControl());
+  Record.push_back(llvm::to_underlying(D->getImplementationControl()));
   // FIXME: stable encoding for in/out/inout/bycopy/byref/oneway/nullability
   Record.push_back(D->getObjCDeclQualifier());
   Record.push_back(D->hasRelatedResultType());
@@ -791,7 +791,7 @@ void ASTDeclWriter::VisitObjCTypeParamDecl(ObjCTypeParamDecl *D) {
 }
 
 void ASTDeclWriter::VisitObjCContainerDecl(ObjCContainerDecl *D) {
-  static_assert(DeclContext::NumObjCContainerDeclBits == 51,
+  static_assert(DeclContext::NumObjCContainerDeclBits == 64,
                 "You need to update the serializer after you change the "
                 "ObjCContainerDeclBits");
 
@@ -1070,7 +1070,7 @@ void ASTDeclWriter::VisitVarDecl(VarDecl *D) {
     HasDeducedType = D->getType()->getContainedDeducedType();
     Record.push_back(HasDeducedType);
   }
-  Record.push_back(D->getLinkageInternal());
+  Record.push_back(llvm::to_underlying(D->getLinkageInternal()));
 
   if (D->hasAttr<BlocksAttr>()) {
     BlockVarCopyInit Init = Writer.Context->getBlockVarCopyInit(D);
@@ -1271,12 +1271,12 @@ void ASTDeclWriter::VisitCapturedDecl(CapturedDecl *CD) {
 }
 
 void ASTDeclWriter::VisitLinkageSpecDecl(LinkageSpecDecl *D) {
-  static_assert(DeclContext::NumLinkageSpecDeclBits == 4,
+  static_assert(DeclContext::NumLinkageSpecDeclBits == 17,
                 "You need to update the serializer after you change the"
                 "LinkageSpecDeclBits");
 
   VisitDecl(D);
-  Record.push_back(D->getLanguage());
+  Record.push_back(llvm::to_underlying(D->getLanguage()));
   Record.AddSourceLocation(D->getExternLoc());
   Record.AddSourceLocation(D->getRBraceLoc());
   Code = serialization::DECL_LINKAGE_SPEC;
@@ -1482,7 +1482,7 @@ void ASTDeclWriter::VisitCXXMethodDecl(CXXMethodDecl *D) {
 }
 
 void ASTDeclWriter::VisitCXXConstructorDecl(CXXConstructorDecl *D) {
-  static_assert(DeclContext::NumCXXConstructorDeclBits == 20,
+  static_assert(DeclContext::NumCXXConstructorDeclBits == 64,
                 "You need to update the serializer after you change the "
                 "CXXConstructorDeclBits");
 
@@ -1971,7 +1971,7 @@ void ASTDeclWriter::VisitOMPRequiresDecl(OMPRequiresDecl *D) {
 }
 
 void ASTDeclWriter::VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D) {
-  static_assert(DeclContext::NumOMPDeclareReductionDeclBits == 2,
+  static_assert(DeclContext::NumOMPDeclareReductionDeclBits == 15,
                 "You need to update the serializer after you change the "
                 "NumOMPDeclareReductionDeclBits");
 
@@ -1983,7 +1983,7 @@ void ASTDeclWriter::VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D) {
   Record.AddStmt(D->getInitOrig());
   Record.AddStmt(D->getInitPriv());
   Record.AddStmt(D->getInitializer());
-  Record.push_back(D->getInitializerKind());
+  Record.push_back(llvm::to_underlying(D->getInitializerKind()));
   Record.AddDeclRef(D->getPrevDeclInScope());
   Code = serialization::DECL_OMP_DECLARE_REDUCTION;
 }
@@ -2225,7 +2225,7 @@ void ASTWriter::WriteDeclAbbrevs() {
   Abv->Add(BitCodeAbbrevOp(0));                       // TSCSpec
   Abv->Add(BitCodeAbbrevOp(0));                       // InitStyle
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // isARCPseudoStrong
-  Abv->Add(BitCodeAbbrevOp(0));                       // Linkage
+  Abv->Add(BitCodeAbbrevOp(1));                         // Linkage::None
   Abv->Add(BitCodeAbbrevOp(0));                       // ModulesCodegen
   Abv->Add(BitCodeAbbrevOp(0));                       // VarKind (local enum)
   // ParmVarDecl

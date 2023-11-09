@@ -8,18 +8,18 @@
 %struct.baz = type { i64 }
 
 define internal spir_func void @wibble(ptr byval(%struct.baz) %arg1) !work_group_scope !0 {
-; CHECK-PTX:   call i64 @_Z27__spirv_LocalInvocationId_xv()
-; CHECK-PTX:   call i64 @_Z27__spirv_LocalInvocationId_yv()
-; CHECK-PTX:   call i64 @_Z27__spirv_LocalInvocationId_zv()
+; CHECK-PTX:   call i32 @_Z27__spirv_LocalInvocationId_xv()
+; CHECK-PTX:   call i32 @_Z27__spirv_LocalInvocationId_yv()
+; CHECK-PTX:   call i32 @_Z27__spirv_LocalInvocationId_zv()
 ; CHECK:   call void @_Z22__spirv_ControlBarrierjjj(i32 2, i32 2, i32 272)
   ret void
 }
 
-; CHECK-PTX: declare i64 @_Z27__spirv_LocalInvocationId_xv()
+; CHECK-PTX: declare i32 @_Z27__spirv_LocalInvocationId_xv()
 
-; CHECK-PTX: declare i64 @_Z27__spirv_LocalInvocationId_yv()
+; CHECK-PTX: declare i32 @_Z27__spirv_LocalInvocationId_yv()
 
-; CHECK-PTX: declare i64 @_Z27__spirv_LocalInvocationId_zv()
+; CHECK-PTX: declare i32 @_Z27__spirv_LocalInvocationId_zv()
 
 ; CHECK: ; Function Attrs: convergent
 ; CHECK: declare void @_Z22__spirv_ControlBarrierjjj(i32, i32, i32) #[[ATTR_NUM:[0-9]+]]

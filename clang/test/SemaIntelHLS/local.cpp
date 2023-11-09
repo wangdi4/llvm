@@ -783,7 +783,7 @@ T type_temp(T t) {
 //CHECK: FunctionDecl{{.*}}type_temp 'T (T)'{{$}}
 //CHECK: FunctionDecl{{.*}}type_temp 'int (int)' implicit_instantiation{{$}}
 //CHECK: TemplateArgument type 'int'
-//CHECK: VarDecl{{.*}}t1 'int':'int'{{$}}
+//CHECK: VarDecl{{.*}}t1 'int'{{$}}
 //CHECK: MemoryAttr
 //CHECK: NumBanksAttr
 //CHECK: IntegerLiteral{{.*}}8{{$}}

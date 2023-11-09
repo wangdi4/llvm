@@ -2,6 +2,7 @@
 ; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -passes 'unaligned-nontemporal,verify' < %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 
 define void @compress(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: define void @compress(
@@ -11,12 +12,12 @@ define void @compress(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds [[__NONTEMPORAL_BUFFER_DATA:%.*]], ptr [[ADDR_NT_STORE_ALLOCA]], i32 0, i32 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = ptrtoint ptr [[DEST]] to i64
 ; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr [[__NONTEMPORAL_BUFFER_DATA]], ptr [[ADDR_NT_STORE_ALLOCA]], i32 0, i32 1
-; CHECK-NEXT:    store i64 [[TMP1]], ptr [[TMP2]], align 4
+; CHECK-NEXT:    store i64 [[TMP1]], ptr [[TMP2]], align 8
 ; CHECK-NEXT:    [[TMP3:%.*]] = and i64 [[TMP1]], 63
 ; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr [[__NONTEMPORAL_BUFFER_DATA]], ptr [[ADDR_NT_STORE_ALLOCA]], i32 0, i32 2
-; CHECK-NEXT:    store i64 [[TMP3]], ptr [[TMP4]], align 4
+; CHECK-NEXT:    store i64 [[TMP3]], ptr [[TMP4]], align 8
 ; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr [[__NONTEMPORAL_BUFFER_DATA]], ptr [[ADDR_NT_STORE_ALLOCA]], i32 0, i32 3
-; CHECK-NEXT:    store i64 0, ptr [[TMP5]], align 4
+; CHECK-NEXT:    store i64 0, ptr [[TMP5]], align 8
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT:%.*]], [[LOOP_SPLIT:%.*]] ]

@@ -1,19 +1,20 @@
 ; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This test verifies that the DTtrans delete pass correctly transforms
 ; structures that have unused fields and handles a structure allocation
 ; size that is based on a left shift instrution.
 
-%struct.test = type { i32, i64, i32 }
+%struct.test = type { i32, i64, i32, i64 }
 ; CHECK: %__DFT_struct.test = type { i32, i32 }
 
 define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !6 {
   ; Allocate a structure.
   ; The use of argc here is an arbitrary way to introduce a non-constant value.
   %tmp = zext i32 %argc to i64
-  %size = shl i64 %tmp, 4
+  %size = shl i64 %tmp, 5
   %p = call ptr @malloc(i64 %size)
 
   ; Call a function to do something.
@@ -33,6 +34,7 @@ define i32 @doSomething(ptr "intel_dtrans_func_index"="1" %p_test) !intel.dtrans
   %p_test_A = getelementptr %struct.test, ptr %p_test, i64 0, i32 0
   %p_test_B = getelementptr %struct.test, ptr %p_test, i64 0, i32 1
   %p_test_C = getelementptr %struct.test, ptr %p_test, i64 0, i32 2
+  %p_test_D = getelementptr %struct.test, ptr %p_test, i64 0, i32 3
 
   ; read and write A and C
   store i32 1, ptr %p_test_A
@@ -46,6 +48,7 @@ define i32 @doSomething(ptr "intel_dtrans_func_index"="1" %p_test) !intel.dtrans
 ; CHECK: %p_test_A = getelementptr %__DFT_struct.test, ptr %p_test, i64 0, i32 0
 ; CHECK-NOT: %p_test_B = getelementptr
 ; CHECK: %p_test_C = getelementptr %__DFT_struct.test, ptr %p_test, i64 0, i32 1
+; CHECK-NOT: %p_test_D = getelementptr
 
 
 declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" ptr @malloc(i64) #0
@@ -63,6 +66,6 @@ attributes #1 = { allockind("free") "alloc-family"="malloc" }
 !7 = !{i8 0, i32 1}  ; i8*
 !8 = distinct !{!7}
 !9 = distinct !{!7}
-!10 = !{!"S", %struct.test zeroinitializer, i32 3, !1, !2, !1} ; { i32, i64, i32 }
+!10 = !{!"S", %struct.test zeroinitializer, i32 4, !1, !2, !1, !2} ; { i32, i64, i32, i64 }
 
 !intel.dtrans.types = !{!10}

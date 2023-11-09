@@ -22,6 +22,8 @@
 ; CHECK-NOT: call{{.*}}@fun01_({{.*}}) #1{{ *$}}
 ; CHECK-NOT: attributes #1 = { "prefer-inline-tile-choice" }
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+
 @anon.0 = internal unnamed_addr constant i32 2
 @"main_$A" = internal global [100 x [100 x double]] zeroinitializer, align 16
 @"main_$B" = internal global [100 x [100 x double]] zeroinitializer, align 16

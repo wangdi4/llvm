@@ -1853,9 +1853,12 @@ public:
   /// preferred.
   void addOperand(const MachineOperand &Op);
 
+  /// Inserts Ops BEFORE It. Can untie/retie tied operands.
+  void insert(mop_iterator InsertBefore, ArrayRef<MachineOperand> Ops);
+
   /// Replace the instruction descriptor (thus opcode) of
   /// the current instruction with a new one.
-  void setDesc(const MCInstrDesc &TID) { MCID = &TID; }
+  void setDesc(const MCInstrDesc &TID);
 
   /// Replace current source information with new such.
   /// Avoid using this, the constructor argument is preferable.

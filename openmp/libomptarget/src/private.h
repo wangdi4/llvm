@@ -59,7 +59,7 @@ extern int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
                   KernelArgsTy &KernelArgs, AsyncInfoTy &AsyncInfo);
 
 extern int target_activate_rr(DeviceTy &Device, uint64_t MemorySize,
-                              bool isRecord, bool SaveOutput);
+                              void *ReqAddr, bool isRecord, bool SaveOutput);
 
 extern int target_replay(ident_t *Loc, DeviceTy &Device, void *HostPtr,
                          void *DeviceMemory, int64_t DeviceMemorySize,
@@ -339,6 +339,17 @@ struct TargetMemcpyArgsTy {
         DstDimensions(DstDimensions), SrcDimensions(SrcDimensions){};
 #endif // INTEL_CUSTOMIZATION
 };
+
+struct TargetMemsetArgsTy {
+  // Common attributes of a memset operation
+  void *Ptr;
+  int C;
+  size_t N;
+  int DeviceNum;
+
+  // no constructors defined, because this is a PoD
+};
+
 // Invalid GTID as defined by libomp; keep in sync
 #define KMP_GTID_DNE (-2)
 #ifdef __cplusplus

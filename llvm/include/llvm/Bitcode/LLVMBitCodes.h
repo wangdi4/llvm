@@ -527,6 +527,9 @@ enum FastMathMap {
   AllowReassoc    = (1 << 7)
 };
 
+/// Flags for serializing PossiblyNonNegInst's SubclassOptionalData contents.
+enum PossiblyNonNegInstOptionalFlags { PNNI_NON_NEG = 0 };
+
 /// PossiblyExactOperatorOptionalFlags - Flags for serializing
 /// PossiblyExactOperator's SubclassOptionalData contents.
 enum PossiblyExactOperatorOptionalFlags { PEO_EXACT = 0 };
@@ -736,9 +739,10 @@ enum AttributeKindCodes {
   ATTR_KIND_MEMORY = 86,
   ATTR_KIND_NOFPCLASS = 87,
   ATTR_KIND_OPTIMIZE_FOR_DEBUGGING = 88,
+  ATTR_KIND_WRITABLE = 89,
 #if INTEL_CUSTOMIZATION
-  ATTR_KIND_ALWAYS_INLINE_RECURSIVE = 89,
-  ATTR_KIND_INLINE_HINT_RECURSIVE = 90,
+  ATTR_KIND_ALWAYS_INLINE_RECURSIVE = 90,
+  ATTR_KIND_INLINE_HINT_RECURSIVE = 91,
 #endif // INTEL_CUSTOMIZATION
 };
 

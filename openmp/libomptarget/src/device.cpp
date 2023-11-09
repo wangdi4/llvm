@@ -551,7 +551,8 @@ void *DeviceTy::getTgtPtrBegin(HDTTMapAccessorTy &HDTTMap, void *HstPtrBegin,
 int DeviceTy::eraseMapEntry(HDTTMapAccessorTy &HDTTMap,
                             HostDataToTargetTy *Entry, int64_t Size) {
   assert(Entry && "Trying to delete a null entry from the HDTT map.");
-  assert(Entry->getTotalRefCount() == 0 && Entry->getDataEndThreadCount() == 0 &&
+  assert(Entry->getTotalRefCount() == 0 &&
+         Entry->getDataEndThreadCount() == 0 &&
          "Trying to delete entry that is in use or owned by another thread.");
 
   INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
@@ -620,7 +621,7 @@ void DeviceTy::init() {
 
     RTL->activate_record_replay(RTLDeviceID,
                                 OMPX_DeviceMemorySize * 1024 * 1024 * 1024,
-                                true, OMPX_ReplaySaveOutput);
+                                nullptr, true, OMPX_ReplaySaveOutput);
   }
 
   IsInit = true;
@@ -1204,6 +1205,11 @@ int DeviceTy::prefetchSharedMem(size_t NumPtrs, void **Ptrs, size_t *Sizes) {
     return RTL->prefetch_shared_mem(RTLDeviceID, NumPtrs, Ptrs, Sizes);
   else
     return OFFLOAD_SUCCESS; // no-op if not supported
+}
+
+void DeviceTy::notifyLegacyOffload(void) {
+  if (RTL->notify_legacy_offload)
+    RTL->notify_legacy_offload();
 }
 #endif // INTEL_CUSTOMIZATION
 

@@ -174,6 +174,7 @@ bool X86TargetInfo::initFeatureMap(
   std::vector<std::string> UpdatedFeaturesVec;
   bool HasEVEX512 = true;
   bool HasAVX512F = false;
+  bool HasAVX10 = false;
   for (const auto &Feature : FeaturesVec) {
     // Expand general-regs-only to -x86, -mmx and -sse
     if (Feature == "+general-regs-only") {
@@ -183,17 +184,35 @@ bool X86TargetInfo::initFeatureMap(
       continue;
     }
 
-    if (!HasAVX512F && Feature.substr(0, 7) == "+avx512")
+    if (Feature.substr(0, 7) == "+avx10.") {
+      HasAVX10 = true;
       HasAVX512F = true;
-    if (HasAVX512F && Feature == "-avx512f")
+      if (Feature.substr(Feature.size() - 3, 3) == "512") {
+        HasEVEX512 = true;
+      } else if (Feature.substr(7, 2) == "1-") {
+        HasEVEX512 = false;
+      }
+    } else if (!HasAVX512F && Feature.substr(0, 7) == "+avx512") {
+      HasAVX512F = true;
+    } else if (HasAVX512F && Feature == "-avx512f") {
       HasAVX512F = false;
-    if (HasEVEX512 && Feature == "-evex512")
+    } else if (HasAVX10 && Feature == "-avx10.1-256") {
+      HasAVX10 = false;
+      HasAVX512F = false;
+    } else if (!HasEVEX512 && Feature == "+evex512") {
+      HasEVEX512 = true;
+    } else if (HasEVEX512 && Feature == "-avx10.1-512") {
       HasEVEX512 = false;
+    } else if (HasEVEX512 && Feature == "-evex512") {
+      HasEVEX512 = false;
+    }
 
     UpdatedFeaturesVec.push_back(Feature);
   }
   if (HasAVX512F && HasEVEX512)
     UpdatedFeaturesVec.push_back("+evex512");
+  else if (HasAVX10)
+    UpdatedFeaturesVec.push_back("-evex512");
 
   if (!TargetInfo::initFeatureMap(Features, Diags, CPU, UpdatedFeaturesVec))
     return false;
@@ -294,6 +313,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasGFNI = true;
     } else if (Feature == "+evex512") {
       HasEVEX512 = true;
+    } else if (Feature == "+avx10.1-256") {
+      HasAVX10_1 = true;
+    } else if (Feature == "+avx10.1-512") {
+      HasAVX10_1_512 = true;
     } else if (Feature == "+avx512cd") {
       HasAVX512CD = true;
     } else if (Feature == "+avx512vpopcntdq") {
@@ -905,11 +928,13 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Arrowlake:
   case CK_ArrowlakeS:
   case CK_Lunarlake:
+  case CK_Pantherlake:
   case CK_Sierraforest:
   case CK_Grandridge:
   case CK_Graniterapids:
   case CK_GraniterapidsD:
   case CK_Emeraldrapids:
+  case CK_Clearwaterforest:
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
@@ -1095,6 +1120,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 
   if (HasEVEX512)
     Builder.defineMacro("__EVEX512__");
+  if (HasAVX10_1)
+    Builder.defineMacro("__AVX10_1__");
+  if (HasAVX10_1_512)
+    Builder.defineMacro("__AVX10_1_512__");
   if (HasAVX512CD)
     Builder.defineMacro("__AVX512CD__");
   if (HasAVX512VPOPCNTDQ)
@@ -1702,6 +1731,8 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #endif // INTEL_FEATURE_ISA_AMX_TF32
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", true)
+      .Case("avx10.1-256", true)
+      .Case("avx10.1-512", true)
       .Case("avx2", true)
       .Case("avx512f", true)
       .Case("avx512cd", true)
@@ -2014,6 +2045,8 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", SSELevel >= AVX)
+      .Case("avx10.1-256", HasAVX10_1)
+      .Case("avx10.1-512", HasAVX10_1_512)
       .Case("avx2", SSELevel >= AVX2)
       .Case("avx512f", SSELevel >= AVX512F)
       .Case("avx512cd", HasAVX512CD)
@@ -2568,11 +2601,13 @@ std::optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Arrowlake:
     case CK_ArrowlakeS:
     case CK_Lunarlake:
+    case CK_Pantherlake:
     case CK_Sierraforest:
     case CK_Grandridge:
     case CK_Graniterapids:
     case CK_GraniterapidsD:
     case CK_Emeraldrapids:
+    case CK_Clearwaterforest:
     case CK_KNL:
     case CK_KNM:
     // K7

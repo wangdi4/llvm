@@ -528,6 +528,7 @@ namespace {
     SDValue visitUINT_TO_FP(SDNode *N);
     SDValue visitFP_TO_SINT(SDNode *N);
     SDValue visitFP_TO_UINT(SDNode *N);
+    SDValue visitXRINT(SDNode *N);
     SDValue visitFP_ROUND(SDNode *N);
     SDValue visitFP_EXTEND(SDNode *N);
     SDValue visitFNEG(SDNode *N);
@@ -1934,6 +1935,7 @@ void DAGCombiner::Run(CombineLevel AtLevel) {
 }
 
 SDValue DAGCombiner::visit(SDNode *N) {
+  // clang-format off
   switch (N->getOpcode()) {
   default: break;
   case ISD::TokenFactor:        return visitTokenFactor(N);
@@ -2034,6 +2036,8 @@ SDValue DAGCombiner::visit(SDNode *N) {
   case ISD::UINT_TO_FP:         return visitUINT_TO_FP(N);
   case ISD::FP_TO_SINT:         return visitFP_TO_SINT(N);
   case ISD::FP_TO_UINT:         return visitFP_TO_UINT(N);
+  case ISD::LRINT:
+  case ISD::LLRINT:             return visitXRINT(N);
   case ISD::FP_ROUND:           return visitFP_ROUND(N);
   case ISD::FP_EXTEND:          return visitFP_EXTEND(N);
   case ISD::FNEG:               return visitFNEG(N);
@@ -2088,6 +2092,7 @@ SDValue DAGCombiner::visit(SDNode *N) {
 #include "llvm/IR/VPIntrinsics.def"
     return visitVPOp(N);
   }
+  // clang-format on
   return SDValue();
 }
 
@@ -5369,6 +5374,10 @@ SDValue DAGCombiner::visitSMUL_LOHI(SDNode *N) {
   EVT VT = N->getValueType(0);
   SDLoc DL(N);
 
+  // Constant fold.
+  if (isa<ConstantSDNode>(N0) && isa<ConstantSDNode>(N1))
+    return DAG.getNode(ISD::SMUL_LOHI, DL, N->getVTList(), N0, N1);
+
   // canonicalize constant to RHS (vector doesn't have to splat)
   if (DAG.isConstantIntBuildVectorOrConstantInt(N0) &&
       !DAG.isConstantIntBuildVectorOrConstantInt(N1))
@@ -5406,6 +5415,10 @@ SDValue DAGCombiner::visitUMUL_LOHI(SDNode *N) {
   SDValue N1 = N->getOperand(1);
   EVT VT = N->getValueType(0);
   SDLoc DL(N);
+
+  // Constant fold.
+  if (isa<ConstantSDNode>(N0) && isa<ConstantSDNode>(N1))
+    return DAG.getNode(ISD::UMUL_LOHI, DL, N->getVTList(), N0, N1);
 
   // canonicalize constant to RHS (vector doesn't have to splat)
   if (DAG.isConstantIntBuildVectorOrConstantInt(N0) &&
@@ -17538,6 +17551,21 @@ SDValue DAGCombiner::visitFP_TO_UINT(SDNode *N) {
   return FoldIntToFPToInt(N, DAG);
 }
 
+SDValue DAGCombiner::visitXRINT(SDNode *N) {
+  SDValue N0 = N->getOperand(0);
+  EVT VT = N->getValueType(0);
+
+  // fold (lrint|llrint undef) -> undef
+  if (N0.isUndef())
+    return DAG.getUNDEF(VT);
+
+  // fold (lrint|llrint c1fp) -> c1
+  if (DAG.isConstantFPBuildVectorOrConstantFP(N0))
+    return DAG.getNode(N->getOpcode(), SDLoc(N), VT, N0);
+
+  return SDValue();
+}
+
 SDValue DAGCombiner::visitFP_ROUND(SDNode *N) {
   SDValue N0 = N->getOperand(0);
   SDValue N1 = N->getOperand(1);
@@ -27377,10 +27405,7 @@ SDValue DAGCombiner::SimplifySelectCC(const SDLoc &DL, SDValue N0, SDValue N1,
     // zext (setcc n0, n1)
     if (LegalTypes) {
       SCC = DAG.getSetCC(DL, CmpResVT, N0, N1, CC);
-      if (VT.bitsLT(SCC.getValueType()))
-        Temp = DAG.getZeroExtendInReg(SCC, SDLoc(N2), VT);
-      else
-        Temp = DAG.getNode(ISD::ZERO_EXTEND, SDLoc(N2), VT, SCC);
+      Temp = DAG.getZExtOrTrunc(SCC, SDLoc(N2), VT);
     } else {
       SCC = DAG.getSetCC(SDLoc(N0), MVT::i1, N0, N1, CC);
       Temp = DAG.getNode(ISD::ZERO_EXTEND, SDLoc(N2), VT, SCC);

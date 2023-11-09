@@ -9043,7 +9043,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(
               ValueTySize.isScalable())
             return std::make_tuple(nullptr, nullptr);
 
-          uint64_t ValueSize = ValueTySize.getFixedSize();
+          uint64_t ValueSize = ValueTySize.getFixedValue();
           // ValueTySize.getFixedSize() returns 0 for array-types like [1 x i8],
           // so the non-zero check on ValueSize below causes null to be returned
           // for them for non-typed clauses.

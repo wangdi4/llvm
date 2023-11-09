@@ -195,7 +195,6 @@ public:
   /// Return whether \p Val is a divergent value
   bool isDivergent(const VPValue &Val) const override;
 
-#if INTEL_CUSTOMIZATION
   /// Return the vector shape for \p V.
   VPVectorShape getVectorShape(const VPValue &V) const override;
 
@@ -206,7 +205,6 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const VPLoop *VPLp = nullptr);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
 
   /// Return \p true if the given pointer is unit-strided(1 or -1).
   bool isUnitStridePtr(const VPValue *Ptr, Type *AccessType) const;
@@ -316,7 +314,7 @@ private:
   /// Push all phi nodes in \p Block to the worklist if \p PushAll is true.
   /// If \p PushAll is false, only those phi nodes that have not already been
   /// identified as divergent are pushed.
-  void pushPHINodes(const VPBasicBlock &Block, bool PushAll); // INTEL
+  void pushPHINodes(const VPBasicBlock &Block, bool PushAll);
 
   /// Mark \p Block as join divergent
   ///
@@ -377,12 +375,11 @@ private:
 
   /// Propagate induced value divergence due to control divergence in the
   /// CondBit of \p CondBlock.
-  void propagateBranchDivergence(const VPBasicBlock *CondBlock); // INTEL
+  void propagateBranchDivergence(const VPBasicBlock *CondBlock);
 
   /// Return the type size in bytes.
   unsigned getTypeSizeInBytes(Type *Ty) const;
 
-#if INTEL_CUSTOMIZATION
   /// Compute vector shape of \p I.
   VPVectorShape computeVectorShape(const VPInstruction *I);
 
@@ -494,7 +491,6 @@ private:
 
   // Shape information of divergent values.
   DenseMap<const VPValue *, VPVectorShape> VectorShapes;
-#endif // INTEL_CUSTOMIZATION
 
   VPDominatorTree *DT = nullptr;
   VPPostDominatorTree *PDT = nullptr;

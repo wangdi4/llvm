@@ -29,7 +29,6 @@
 
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/ADT/EquivalenceClasses.h"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h" // INTEL
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/LoopInfo.h"

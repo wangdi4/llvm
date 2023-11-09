@@ -268,7 +268,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         // must be declared as 64-bit integers.
         Type *ArgTy = Type::getInt64Ty(C);
         ParamsTy.push_back(ArgTy);
-        ArgSize = DL.getTypeStoreSize(ArgTy).getFixedSize();
+        ArgSize = DL.getTypeStoreSize(ArgTy).getFixedValue();
         KernelArgInfo.emplace_back(false, ArgSize);
       } else {
 #if INTEL_CUSTOMIZATION
@@ -333,7 +333,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
       // A non-pointer argument may appear as a result of scalar
       // FIRSTPRIVATE.
       ParamsTy.push_back(*ArgTyI);
-      ArgSize = DL.getTypeStoreSize(*ArgTyI).getFixedSize();
+      ArgSize = DL.getTypeStoreSize(*ArgTyI).getFixedValue();
       KernelArgInfo.emplace_back(false, ArgSize);
     }
     ByValLimit -= std::min(ByValLimit, ArgSize);

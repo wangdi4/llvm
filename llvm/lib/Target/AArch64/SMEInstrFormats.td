@@ -2161,15 +2161,16 @@ multiclass sme2_frint_vector_vg4_multi<string mnemonic, bits<7> op> {
                                          mnemonic>;
 }
 
-class sme2_cvt_vg2_single<string mnemonic, bits<4> op>
-    : I<(outs ZPR16:$Zd), (ins ZZ_s_mul_r:$Zn),
+class sme2_cvt_vg2_single<string mnemonic, bits<5> op,
+                           RegisterOperand first_ty, RegisterOperand second_ty>
+    : I<(outs first_ty:$Zd), (ins second_ty:$Zn),
         mnemonic, "\t$Zd, $Zn", "", []>, Sched<[]> {
   bits<4> Zn;
   bits<5> Zd;
   let Inst{31-23} = 0b110000010;
-  let Inst{22}    = op{3};
-  let Inst{21-18} = 0b1000;
-  let Inst{17-16} = op{2-1};
+  let Inst{22}    = op{4};
+  let Inst{21-19} = 0b100;
+  let Inst{18-16} = op{3-1};
   let Inst{15-10} = 0b111000;
   let Inst{9-6}   = Zn;
   let Inst{5}     = op{0};
@@ -2178,10 +2179,15 @@ class sme2_cvt_vg2_single<string mnemonic, bits<4> op>
 
 // SME2 multi-vec FP down convert two registers
 // SME2 multi-vec int down convert two registers
-multiclass sme2_cvt_vg2_single<string mnemonic, bits<4> op, ValueType out_vt,
+multiclass sme2_cvt_vg2_single<string mnemonic, bits<5> op, ValueType out_vt,
                                ValueType in_vt, SDPatternOperator intrinsic> {
-  def NAME :  sme2_cvt_vg2_single<mnemonic, op>;
+  def NAME :  sme2_cvt_vg2_single<mnemonic, op, ZPR16, ZZ_s_mul_r>;
   def : SVE2p1_Cvt_VG2_Pat<NAME, intrinsic, out_vt, in_vt>;
+}
+
+// SME2 multi-vec FP8 down convert two registers
+multiclass sme2_fp8_cvt_vg2_single<string mnemonic, bit op> {
+  def NAME :  sme2_cvt_vg2_single<mnemonic, {op, 0b1000}, ZPR8, ZZ_h_mul_r>;
 }
 
 class sme2_cvt_unpk_vector_vg2<bits<2>sz, bits<3> op, bit u, RegisterOperand first_ty,
@@ -2212,7 +2218,13 @@ multiclass sme2p1_fp_cvt_vector_vg2_single<string mnemonic, bit l> {
   def _S : sme2_cvt_unpk_vector_vg2<0b10, 0b000, l, ZZ_s_mul_r, ZPR16, mnemonic>;
 }
 
-class sme2_cvt_vg4_single<bit sz, bits<3> op, RegisterOperand first_ty,
+// SME2 multi-vec FP8 up convert two registers
+multiclass sme2p1_fp8_cvt_vector_vg2_single<string mnemonic, bits<2> opc, bit L> {
+  def _NAME : sme2_cvt_unpk_vector_vg2<opc, 0b110, L, ZZ_h_mul_r, ZPR8, mnemonic>;
+}
+
+
+class sme2_cvt_vg4_single<bit sz, bits<3> op, bits<4>op2,  RegisterOperand first_ty,
                           RegisterOperand second_ty, string mnemonic>
     : I<(outs first_ty:$Zd), (ins second_ty:$Zn),
         mnemonic, "\t$Zd, $Zn", "", []>, Sched<[]> {
@@ -2221,7 +2233,9 @@ class sme2_cvt_vg4_single<bit sz, bits<3> op, RegisterOperand first_ty,
   let Inst{31-24} = 0b11000001;
   let Inst{23}    = sz;
   let Inst{22}    = op{2};
-  let Inst{21-10} = 0b110011111000;
+  let Inst{21-20} = 0b11;
+  let Inst{19-16} = op2;
+  let Inst{15-10} = 0b111000;
   let Inst{9-7}   = Zn;
   let Inst{6-5}   = op{1-0};
   let Inst{4-0}   = Zd;
@@ -2229,11 +2243,16 @@ class sme2_cvt_vg4_single<bit sz, bits<3> op, RegisterOperand first_ty,
 
 // SME2 multi-vec int down convert four registers
 multiclass sme2_int_cvt_vg4_single<string mnemonic, bits<3> op, SDPatternOperator intrinsic> {
-  def _StoB : sme2_cvt_vg4_single<0, op, ZPR8, ZZZZ_s_mul_r, mnemonic>;
-  def _DtoH : sme2_cvt_vg4_single<1, op, ZPR16, ZZZZ_d_mul_r, mnemonic>;
+  def _StoB : sme2_cvt_vg4_single<0, op, 0b0011, ZPR8, ZZZZ_s_mul_r, mnemonic>;
+  def _DtoH : sme2_cvt_vg4_single<1, op, 0b0011, ZPR16, ZZZZ_d_mul_r, mnemonic>;
 
   def : SME2_Cvt_VG4_Pat<NAME # _StoB, intrinsic, nxv16i8, nxv4i32>;
   def : SME2_Cvt_VG4_Pat<NAME # _DtoH, intrinsic, nxv8i16, nxv2i64>;
+}
+
+//SME2 multi-vec FP8 down convert four registers
+multiclass sme2_fp8_cvt_vg4_single<string mnemonic, bit N> {
+ def _NAME : sme2_cvt_vg4_single<0b0, {0b00, N}, 0b0100, ZPR8, ZZZZ_s_mul_r, mnemonic>;
 }
 
 class sme2_unpk_vector_vg4<bits<2>sz, bit u, RegisterOperand first_ty,
@@ -3038,6 +3057,25 @@ class sme2_movt_scalar_to_zt<string mnemonic, bits<7> opc>
   let Inst{14-12} = imm3;
   let Inst{11-5}  = opc;
   let Inst{4-0}   = Rt;
+}
+
+// SME2 move vector to lookup table
+class sme2_movt_zt_to_zt<string mnemonic, bits<7> opc>
+   : I<(outs ZTR:$ZTt), (ins sme_elm_idx0_3:$off2, ZPRAny:$Zt),
+        mnemonic, "\t$ZTt[$off2, mul vl], $Zt",
+        "", []>, Sched<[]> {
+  bits<5> Zt;
+  bits<2> off2;
+  let Inst{31-14} = 0b110000000100111100;
+  let Inst{13-12} = off2;
+  let Inst{11-5}  = opc;
+  let Inst{4-0}   = Zt;
+}
+
+multiclass sme2_movt_zt_to_zt<string mnemonic, bits<7> opc> {
+  def NAME : sme2_movt_zt_to_zt<mnemonic, opc>;
+  def : InstAlias<mnemonic # "\t$ZTt, $Zt",
+                 (!cast<Instruction>(NAME) ZTR:$ZTt, 0, ZPRAny:$Zt), 1>;
 }
 
 //===----------------------------------------------------------------------===//
@@ -4693,4 +4731,37 @@ class sme2p1_luti4_vector_vg4_index<bits<2> sz, RegisterOperand vector_ty,
 
 multiclass sme2p1_luti4_vector_vg4_index<string mnemonic> {
   def _H: sme2p1_luti4_vector_vg4_index<0b01, ZZZZ_h_strided, VectorIndexD, mnemonic>;
+}
+
+// SME2 lookup table two source registers expand to four contiguous destination registers
+class sme2_luti4_vector_vg4<bits<2> sz, bits<2> op, string mnemonic>
+  : I<(outs ZZZZ_b_mul_r:$Zd), (ins ZTR:$ZTt, ZZ_mul_r:$Zn),
+       mnemonic, "\t$Zd, $ZTt, $Zn",
+       "", []>, Sched<[]> {
+  bits<4> Zn;
+  bits<3> Zd;
+  let Inst{31-14} = 0b110000001000101100;
+  let Inst{13-12} = sz;
+  let Inst{11-10} = op;
+  let Inst{9-6}   = Zn;
+  let Inst{5}     = 0b0;
+  let Inst{4-2}   = Zd;
+  let Inst{1-0}   = 0b00;
+}
+
+// SME2 lookup table two source registers expand to four non-contiguous destination registers
+class sme2_luti4_vector_vg4_strided<bits<2> sz, bits<2> op, string mnemonic>
+   : I<(outs ZZZZ_b_strided:$Zd), (ins ZTR:$ZTt, ZZ_mul_r:$Zn),
+        mnemonic, "\t$Zd, $ZTt, $Zn",
+        "", []>, Sched<[]> {
+  bits<4> Zn;
+  bits<3> Zd;
+  let Inst{31-14} = 0b110000001001101100;
+  let Inst{13-12} = sz;
+  let Inst{11-10} = op;
+  let Inst{9-6}   = Zn;
+  let Inst{5}     = 0b0;
+  let Inst{4}     = Zd{2};
+  let Inst{3-2}   = 0b00;
+  let Inst{1-0}   = Zd{1-0};
 }

@@ -16,39 +16,39 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef readonly %A, <32 x ptr> noalias nocapture noundef readonly %B, <32 x ptr> noalias nocapture noundef writeonly %C, <32 x i32> noundef %N) local_unnamed_addr #1 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:  {[[FREQ0:freq: 0]]}
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:  {freq: 0}
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]] {[[FREQ8:freq: 8]]}
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]] {freq: 55415386039910}
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]] {[[FREQ255:freq: 255]]}
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]] {freq: 1773292353277132}
 ; CHECK-NEXT:     i32 [[VP_INDEX:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ]
-; CHECK-NEXT:     ptr [[VP_VEC_N_CAST_GEP1:%.*]] = getelementptr i32, ptr [[VEC_N_CAST0:%.*]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     ptr [[VP_VEC_N_CAST_GEP1:%.*]] = getelementptr i32, ptr [[VEC_N0:%.*]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_VEC_N_ELEM2:%.*]] = load ptr [[VP_VEC_N_CAST_GEP1]]
 ; CHECK-NEXT:     i1 [[VP_CMP15:%.*]] = icmp sgt i32 [[VP_VEC_N_ELEM2]] i32 0
 ; CHECK-NEXT:     br i1 [[VP_CMP15]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]] {[[FREQ159:freq: 159]]}
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]] {freq: 1108307720798208}
 ; CHECK-NEXT:       i64 [[VP_WIDE_TRIP_COUNT18:%.*]] = zext i32 [[VP_VEC_N_ELEM2]] to i64
-; CHECK-NEXT:       ptr [[VP_VEC_B_CAST_GEP:%.*]] = getelementptr ptr, ptr [[VEC_B_CAST0:%.*]] i32 [[VP_INDEX]]
+; CHECK-NEXT:       ptr [[VP_VEC_B_CAST_GEP:%.*]] = getelementptr ptr, ptr [[VEC_B0:%.*]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:       br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]: # preds: [[BB4]], [[BB7:BB[0-9]+]] {[[FREQ2600:freq: 2600]]}
+; CHECK-NEXT:      [[BB6]]: # preds: [[BB4]], [[BB7:BB[0-9]+]] {freq: 18014398509481984}
 ; CHECK-NEXT:       i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB7]] ]
-; CHECK-NEXT:       ptr [[VP_VEC_A_CAST_GEP:%.*]] = getelementptr ptr, ptr [[VEC_A_CAST0:%.*]] i32 [[VP_INDEX]]
+; CHECK-NEXT:       ptr [[VP_VEC_A_CAST_GEP:%.*]] = getelementptr ptr, ptr [[VEC_A0:%.*]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:       ptr [[VP_VEC_A_ELEM:%.*]] = load ptr [[VP_VEC_A_CAST_GEP]]
 ; CHECK-NEXT:       ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[VP_VEC_A_ELEM]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:       i32 [[VP0:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       i1 [[VP_CMP1:%.*]] = icmp sgt i32 [[VP0]] i32 7
 ; CHECK-NEXT:       br i1 [[VP_CMP1]], [[BB8:BB[0-9]+]], [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB7]]: # preds: [[BB6]] {[[FREQ2519:freq: 2519]]}
+; CHECK-NEXT:        [[BB7]]: # preds: [[BB6]] {freq: 17451448556060672}
 ; CHECK-NEXT:         ptr [[VP_VEC_B_ELEM:%.*]] = load ptr [[VP_VEC_B_CAST_GEP]]
 ; CHECK-NEXT:         ptr [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds i32, ptr [[VP_VEC_B_ELEM]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:         i32 [[VP1:%.*]] = load ptr [[VP_ARRAYIDX5]]
 ; CHECK-NEXT:         i32 [[VP_ADD:%.*]] = add i32 [[VP1]] i32 [[VP0]]
-; CHECK-NEXT:         ptr [[VP_VEC_C_CAST_GEP:%.*]] = getelementptr ptr, ptr [[VEC_C_CAST0:%.*]] i32 [[VP_INDEX]]
+; CHECK-NEXT:         ptr [[VP_VEC_C_CAST_GEP:%.*]] = getelementptr ptr, ptr [[VEC_C0:%.*]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:         ptr [[VP_VEC_C_ELEM:%.*]] = load ptr [[VP_VEC_C_CAST_GEP]]
 ; CHECK-NEXT:         ptr [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32, ptr [[VP_VEC_C_ELEM]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:         store i32 [[VP_ADD]] ptr [[VP_ARRAYIDX7]]
@@ -56,61 +56,61 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef rea
 ; CHECK-NEXT:         i1 [[VP_EXITCOND_NOT:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_WIDE_TRIP_COUNT18]]
 ; CHECK-NEXT:         br i1 [[VP_EXITCOND_NOT]], [[BB8]], [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]: # preds: [[BB6]], [[BB7]] {[[FREQ159]]}
+; CHECK-NEXT:      [[BB8]]: # preds: [[BB6]], [[BB7]] {freq: 1108307720798208}
 ; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]], [[BB8]] {[[FREQ255]]}
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]], [[BB8]] {freq: 1773292353277132}
 ; CHECK-NEXT:     br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]] {[[FREQ255]]}
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]] {freq: 1773292353277132}
 ; CHECK-NEXT:     i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 1
 ; CHECK-NEXT:     i1 [[VP_VL_COND:%.*]] = icmp ult i32 [[VP_INDVAR]] i32 32
 ; CHECK-NEXT:     br i1 [[VP_VL_COND]], [[BB2]], [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]] {[[FREQ8]]}
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]] {freq: 55415386039910}
 ; CHECK-NEXT:     br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]] {[[FREQ0]]}
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]] {freq: 0}
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after loop massaging:
 ; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}
-; CHECK-NEXT:    [[BB0]]: # preds:  {[[FREQ0]]}
+; CHECK-NEXT:    [[BB0]]: # preds:  {freq: 0}
 ; CHECK-NEXT:     br [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]] {[[FREQ8]]}
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]] {freq: 55415386039910}
 ; CHECK-NEXT:     i32 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i32 live-in0 i32 1
 ; CHECK-NEXT:     i32 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 32, UF = 1
 ; CHECK-NEXT:     br [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3]] {[[FREQ255]]}
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3]] {freq: 1773292353277132}
 ; CHECK-NEXT:     i32 [[VP_INDEX]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR]], [[BB3]] ]
-; CHECK-NEXT:     ptr [[VP_VEC_N_CAST_GEP1]] = getelementptr i32, ptr [[VEC_N_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     ptr [[VP_VEC_N_CAST_GEP1]] = getelementptr i32, ptr [[VEC_N0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_VEC_N_ELEM2]] = load ptr [[VP_VEC_N_CAST_GEP1]]
 ; CHECK-NEXT:     i1 [[VP_CMP15]] = icmp sgt i32 [[VP_VEC_N_ELEM2]] i32 0
 ; CHECK-NEXT:     br i1 [[VP_CMP15]], [[BB4]], [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]] {[[FREQ159]]}
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]] {freq: 1108307720798208}
 ; CHECK-NEXT:       i64 [[VP_WIDE_TRIP_COUNT18]] = zext i32 [[VP_VEC_N_ELEM2]] to i64
-; CHECK-NEXT:       ptr [[VP_VEC_B_CAST_GEP]] = getelementptr ptr, ptr [[VEC_B_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:       ptr [[VP_VEC_B_CAST_GEP]] = getelementptr ptr, ptr [[VEC_B0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:       br [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]: # preds: [[BB4]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] {[[FREQ2600]]}
+; CHECK-NEXT:      [[BB6]]: # preds: [[BB4]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] {freq: 18014398509481984}
 ; CHECK-NEXT:       i64 [[VP_INDVARS_IV]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP_INDVARS_IV_NEXT_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ]
-; CHECK-NEXT:       ptr [[VP_VEC_A_CAST_GEP]] = getelementptr ptr, ptr [[VEC_A_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:       ptr [[VP_VEC_A_CAST_GEP]] = getelementptr ptr, ptr [[VEC_A0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:       ptr [[VP_VEC_A_ELEM]] = load ptr [[VP_VEC_A_CAST_GEP]]
 ; CHECK-NEXT:       ptr [[VP_ARRAYIDX]] = getelementptr inbounds i32, ptr [[VP_VEC_A_ELEM]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:       i32 [[VP0]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       i1 [[VP_CMP1]] = icmp sgt i32 [[VP0]] i32 7
 ; CHECK-NEXT:       br i1 [[VP_CMP1]], [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]], [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB7]]: # preds: [[BB6]] {[[FREQ2519]]}
+; CHECK-NEXT:        [[BB7]]: # preds: [[BB6]] {freq: 17451448556060672}
 ; CHECK-NEXT:         ptr [[VP_VEC_B_ELEM]] = load ptr [[VP_VEC_B_CAST_GEP]]
 ; CHECK-NEXT:         ptr [[VP_ARRAYIDX5]] = getelementptr inbounds i32, ptr [[VP_VEC_B_ELEM]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:         i32 [[VP1]] = load ptr [[VP_ARRAYIDX5]]
 ; CHECK-NEXT:         i32 [[VP_ADD]] = add i32 [[VP1]] i32 [[VP0]]
-; CHECK-NEXT:         ptr [[VP_VEC_C_CAST_GEP]] = getelementptr ptr, ptr [[VEC_C_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:         ptr [[VP_VEC_C_CAST_GEP]] = getelementptr ptr, ptr [[VEC_C0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:         ptr [[VP_VEC_C_ELEM]] = load ptr [[VP_VEC_C_CAST_GEP]]
 ; CHECK-NEXT:         ptr [[VP_ARRAYIDX7]] = getelementptr inbounds i32, ptr [[VP_VEC_C_ELEM]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:         store i32 [[VP_ADD]] ptr [[VP_ARRAYIDX7]]
@@ -118,31 +118,31 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef rea
 ; CHECK-NEXT:         i1 [[VP_EXITCOND_NOT]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_WIDE_TRIP_COUNT18]]
 ; CHECK-NEXT:         br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[INTERMEDIATE_BB0]]: # preds: [[BB6]] {[[FREQ159]]}
+; CHECK-NEXT:        [[INTERMEDIATE_BB0]]: # preds: [[BB6]] {freq: 1108307720798208}
 ; CHECK-NEXT:         br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[NEW_LOOP_LATCH0]]: # preds: [[BB7]], [[INTERMEDIATE_BB0]] {[[FREQ2519]]}
+; CHECK-NEXT:      [[NEW_LOOP_LATCH0]]: # preds: [[BB7]], [[INTERMEDIATE_BB0]] {freq: 17451448556060672}
 ; CHECK-NEXT:       i64 [[VP_INDVARS_IV_NEXT_SSA_PHI]] = phi  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB7]] ],  [ i64 undef, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:       i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB7]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:       i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_EXITCOND_NOT]], [[BB7]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:       br i1 [[VP_TAKE_BACKEDGE_COND]], [[BB8]], [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]: # preds: [[NEW_LOOP_LATCH0]] {[[FREQ159]]}
+; CHECK-NEXT:      [[BB8]]: # preds: [[NEW_LOOP_LATCH0]] {freq: 1108307720798208}
 ; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]], [[BB8]] {[[FREQ255]]}
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]], [[BB8]] {freq: 1773292353277132}
 ; CHECK-NEXT:     br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]] {[[FREQ255]]}
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]] {freq: 1773292353277132}
 ; CHECK-NEXT:     i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_INDVAR]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]] {[[FREQ8]]}
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]] {freq: 55415386039910}
 ; CHECK-NEXT:     i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     br [[BB10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]] {[[FREQ0]]}
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]] {freq: 0}
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
@@ -150,46 +150,46 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef rea
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after LoopCFU transformation:
 ; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}
-; CHECK-NEXT:    [[BB0]]: # preds:  {[[FREQ0]]}
+; CHECK-NEXT:    [[BB0]]: # preds:  {freq: 0}
 ; CHECK-NEXT:     [DA: Uni] br [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]] {[[FREQ8]]}
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]] {freq: 55415386039910}
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX_IND_INIT]] = induction-init{add} i32 live-in0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_INDEX_IND_INIT_STEP]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i32 32, UF = 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3]] {[[FREQ255]]}
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3]] {freq: 1773292353277132}
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_N_CAST_GEP1]] = getelementptr i32, ptr [[VEC_N_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_N_CAST_GEP1]] = getelementptr i32, ptr [[VEC_N0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_N_ELEM2]] = load ptr [[VP_VEC_N_CAST_GEP1]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP15]] = icmp sgt i32 [[VP_VEC_N_ELEM2]] i32 0
 ; CHECK-NEXT:     [DA: Div] br i1 [[VP_CMP15]], [[BB4]], [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]] {[[FREQ159]]}
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]] {freq: 1108307720798208}
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_WIDE_TRIP_COUNT18]] = zext i32 [[VP_VEC_N_ELEM2]] to i64
-; CHECK-NEXT:       [DA: Div] ptr [[VP_VEC_B_CAST_GEP]] = getelementptr ptr, ptr [[VEC_B_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_VEC_B_CAST_GEP]] = getelementptr ptr, ptr [[VEC_B0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]: # preds: [[BB4]], [[BB11:BB[0-9]+]] {[[FREQ2600]]}
+; CHECK-NEXT:      [[BB6]]: # preds: [[BB4]], [[BB11:BB[0-9]+]] {freq: 18014398509481984}
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP_INDVARS_IV_NEXT_SSA_PHI]], [[BB11]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP15]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB11]] ]
 ; CHECK-NEXT:       [DA: Div] br i1 [[VP_LOOP_MASK]], [[BB12:BB[0-9]+]], [[BB11]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB12]]: # preds: [[BB6]] {[[FREQ2600]]}
-; CHECK-NEXT:         [DA: Div] ptr [[VP_VEC_A_CAST_GEP]] = getelementptr ptr, ptr [[VEC_A_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:        [[BB12]]: # preds: [[BB6]] {freq: 18014398509481984}
+; CHECK-NEXT:         [DA: Div] ptr [[VP_VEC_A_CAST_GEP]] = getelementptr ptr, ptr [[VEC_A0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:         [DA: Div] ptr [[VP_VEC_A_ELEM]] = load ptr [[VP_VEC_A_CAST_GEP]]
 ; CHECK-NEXT:         [DA: Div] ptr [[VP_ARRAYIDX]] = getelementptr inbounds i32, ptr [[VP_VEC_A_ELEM]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:         [DA: Div] i32 [[VP0]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:         [DA: Div] i1 [[VP_CMP1]] = icmp sgt i32 [[VP0]] i32 7
 ; CHECK-NEXT:         [DA: Div] br i1 [[VP_CMP1]], [[INTERMEDIATE_BB0]], [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:          [[BB7]]: # preds: [[BB12]] {[[FREQ2519]]}
+; CHECK-NEXT:          [[BB7]]: # preds: [[BB12]] {freq: 17451448556060672}
 ; CHECK-NEXT:           [DA: Div] ptr [[VP_VEC_B_ELEM]] = load ptr [[VP_VEC_B_CAST_GEP]]
 ; CHECK-NEXT:           [DA: Div] ptr [[VP_ARRAYIDX5]] = getelementptr inbounds i32, ptr [[VP_VEC_B_ELEM]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:           [DA: Div] i32 [[VP1]] = load ptr [[VP_ARRAYIDX5]]
 ; CHECK-NEXT:           [DA: Div] i32 [[VP_ADD]] = add i32 [[VP1]] i32 [[VP0]]
-; CHECK-NEXT:           [DA: Div] ptr [[VP_VEC_C_CAST_GEP]] = getelementptr ptr, ptr [[VEC_C_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:           [DA: Div] ptr [[VP_VEC_C_CAST_GEP]] = getelementptr ptr, ptr [[VEC_C0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:           [DA: Div] ptr [[VP_VEC_C_ELEM]] = load ptr [[VP_VEC_C_CAST_GEP]]
 ; CHECK-NEXT:           [DA: Div] ptr [[VP_ARRAYIDX7]] = getelementptr inbounds i32, ptr [[VP_VEC_C_ELEM]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:           [DA: Div] store i32 [[VP_ADD]] ptr [[VP_ARRAYIDX7]]
@@ -197,37 +197,37 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef rea
 ; CHECK-NEXT:           [DA: Div] i1 [[VP_EXITCOND_NOT]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_WIDE_TRIP_COUNT18]]
 ; CHECK-NEXT:           [DA: Uni] br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:          [[INTERMEDIATE_BB0]]: # preds: [[BB12]] {[[FREQ159]]}
+; CHECK-NEXT:          [[INTERMEDIATE_BB0]]: # preds: [[BB12]] {freq: 1108307720798208}
 ; CHECK-NEXT:           [DA: Uni] br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[NEW_LOOP_LATCH0]]: # preds: [[BB7]], [[INTERMEDIATE_BB0]] {[[FREQ2519]]}
+; CHECK-NEXT:        [[NEW_LOOP_LATCH0]]: # preds: [[BB7]], [[INTERMEDIATE_BB0]] {freq: 17451448556060672}
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_NEXT_SSA_PHI]] = phi  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB7]] ],  [ i64 undef, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:         [DA: Div] i32 [[VP_EXIT_ID_PHI]] = phi  [ i32 0, [[BB7]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:         [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND]] = phi  [ i1 [[VP_EXITCOND_NOT]], [[BB7]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:         [DA: Uni] br [[BB11]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB11]]: # preds: [[NEW_LOOP_LATCH0]], [[BB6]] {[[FREQ2519]]}
+; CHECK-NEXT:      [[BB11]]: # preds: [[NEW_LOOP_LATCH0]], [[BB6]] {freq: 17451448556060672}
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND_NOT:%.*]] = not i1 [[VP_TAKE_BACKEDGE_COND]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 false
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP2:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP2]], [[BB8]], [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]: # preds: [[BB11]] {[[FREQ159]]}
+; CHECK-NEXT:      [[BB8]]: # preds: [[BB11]] {freq: 1108307720798208}
 ; CHECK-NEXT:       [DA: Uni] br [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]], [[BB8]] {[[FREQ255]]}
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]], [[BB8]] {freq: 1773292353277132}
 ; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]] {[[FREQ255]]}
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]] {freq: 1773292353277132}
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND]] = icmp ult i32 [[VP_INDVAR]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]] {[[FREQ8]]}
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]] {freq: 55415386039910}
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_INDEX_IND_FINAL]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]] {[[FREQ0]]}
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]] {freq: 0}
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
@@ -235,41 +235,41 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef rea
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after predicator:
 ; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}
-; CHECK-NEXT:    [[BB0]]: # preds:  {[[FREQ0]]}
+; CHECK-NEXT:    [[BB0]]: # preds:  {freq: 0}
 ; CHECK-NEXT:     [DA: Uni] br [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]] {[[FREQ8]]}
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]] {freq: 55415386039910}
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX_IND_INIT]] = induction-init{add} i32 live-in0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_INDEX_IND_INIT_STEP]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i32 32, UF = 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3]] {[[FREQ255]]}
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3]] {freq: 1773292353277132}
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_N_CAST_GEP1]] = getelementptr i32, ptr [[VEC_N_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_N_CAST_GEP1]] = getelementptr i32, ptr [[VEC_N0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_N_ELEM2]] = load ptr [[VP_VEC_N_CAST_GEP1]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP15]] = icmp sgt i32 [[VP_VEC_N_ELEM2]] i32 0
 ; CHECK-NEXT:     [DA: Uni] br [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]] {[[FREQ159]]}
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]] {freq: 1108307720798208}
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_CMP15]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_WIDE_TRIP_COUNT18]] = zext i32 [[VP_VEC_N_ELEM2]] to i64
-; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_B_CAST_GEP]] = getelementptr ptr, ptr [[VEC_B_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_B_CAST_GEP]] = getelementptr ptr, ptr [[VEC_B0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]: # preds: [[BB4]], [[BB11]] {[[FREQ2600]]}
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB4]], [[BB11]] {freq: 18014398509481984}
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB11]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_CMP15]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB11]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_CMP15]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB13:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB13]]: # preds: [[BB6]] {[[FREQ2600]]}
+; CHECK-NEXT:    [[BB13]]: # preds: [[BB6]] {freq: 18014398509481984}
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_LOOP_MASK:%.*]] = select i1 [[VP_CMP15]] i1 [[VP_LOOP_MASK]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB12]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB12]]: # preds: [[BB13]] {[[FREQ2600]]}
+; CHECK-NEXT:    [[BB12]]: # preds: [[BB13]] {freq: 18014398509481984}
 ; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
-; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_A_CAST_GEP]] = getelementptr ptr, ptr [[VEC_A_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_A_CAST_GEP]] = getelementptr ptr, ptr [[VEC_A0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_A_ELEM]] = load ptr [[VP_VEC_A_CAST_GEP]]
 ; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX]] = getelementptr inbounds i32, ptr [[VP_VEC_A_ELEM]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0]] = load ptr [[VP_ARRAYIDX]]
@@ -277,18 +277,18 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef rea
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1_NOT:%.*]] = not i1 [[VP_CMP1]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB14:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB14]]: # preds: [[BB12]] {[[FREQ2600]]}
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB14_BR_VP_CMP1_NOT:%.*]] = select i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_CMP1_NOT]] i1 false
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB14_BR_VP_CMP1:%.*]] = select i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_CMP1]] i1 false
+; CHECK-NEXT:    [[BB14]]: # preds: [[BB12]] {freq: 18014398509481984}
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB29_BR_VP_CMP1_NOT:%.*]] = select i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_CMP1_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB29_BR_VP_CMP1:%.*]] = select i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_CMP1]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]: # preds: [[BB14]] {[[FREQ2519]]}
-; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB14_BR_VP_CMP1_NOT]]
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB14]] {freq: 17451448556060672}
+; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB29_BR_VP_CMP1_NOT]]
 ; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_B_ELEM]] = load ptr [[VP_VEC_B_CAST_GEP]]
 ; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX5]] = getelementptr inbounds i32, ptr [[VP_VEC_B_ELEM]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP1]] = load ptr [[VP_ARRAYIDX5]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD]] = add i32 [[VP1]] i32 [[VP0]]
-; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_C_CAST_GEP]] = getelementptr ptr, ptr [[VEC_C_CAST0]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_C_CAST_GEP]] = getelementptr ptr, ptr [[VEC_C0]] i32 [[VP_INDEX]]
 ; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_C_ELEM]] = load ptr [[VP_VEC_C_CAST_GEP]]
 ; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX7]] = getelementptr inbounds i32, ptr [[VP_VEC_C_ELEM]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP_ADD]] ptr [[VP_ARRAYIDX7]]
@@ -296,44 +296,256 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef rea
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND_NOT]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_WIDE_TRIP_COUNT18]]
 ; CHECK-NEXT:     [DA: Uni] br [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[INTERMEDIATE_BB0]]: # preds: [[BB7]] {[[FREQ159]]}
-; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB14_BR_VP_CMP1]]
+; CHECK-NEXT:    [[INTERMEDIATE_BB0]]: # preds: [[BB7]] {freq: 1108307720798208}
+; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB29_BR_VP_CMP1]]
 ; CHECK-NEXT:     [DA: Uni] br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[NEW_LOOP_LATCH0]]: # preds: [[INTERMEDIATE_BB0]] {[[FREQ2519]]}
-; CHECK-NEXT:     [DA: Div] i32 [[VP_EXIT_ID_PHI_BLEND_INTERMEDIATE_BB13:%.*]] = blend [ i32 0, i1 [[VP_BB14_BR_VP_CMP1_NOT]] ], [ i32 1, i1 [[VP_BB14_BR_VP_CMP1]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND_BLEND_INTERMEDIATE_BB13:%.*]] = blend [ i1 [[VP_EXITCOND_NOT]], i1 [[VP_BB14_BR_VP_CMP1_NOT]] ], [ i1 true, i1 [[VP_BB14_BR_VP_CMP1]] ]
+; CHECK-NEXT:    [[NEW_LOOP_LATCH0]]: # preds: [[INTERMEDIATE_BB0]] {freq: 17451448556060672}
+; CHECK-NEXT:     [DA: Div] i32 [[VP_EXIT_ID_PHI_BLEND_INTERMEDIATE_BB13:%.*]] = blend [ i32 0, i1 [[VP_BB29_BR_VP_CMP1_NOT]] ], [ i32 1, i1 [[VP_BB29_BR_VP_CMP1]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND_BLEND_INTERMEDIATE_BB13:%.*]] = blend [ i1 [[VP_EXITCOND_NOT]], i1 [[VP_BB29_BR_VP_CMP1_NOT]] ], [ i1 true, i1 [[VP_BB29_BR_VP_CMP1]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB11]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB11]]: # preds: [[NEW_LOOP_LATCH0]] {[[FREQ2519]]}
+; CHECK-NEXT:    [[BB11]]: # preds: [[NEW_LOOP_LATCH0]] {freq: 17451448556060672}
 ; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = block-predicate i1 [[VP_CMP15]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND_NOT]] = not i1 [[VP_TAKE_BACKEDGE_COND_BLEND_INTERMEDIATE_BB13]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP2]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP2]], [[BB8]], [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]: # preds: [[BB11]] {[[FREQ159]]}
+; CHECK-NEXT:    [[BB8]]: # preds: [[BB11]] {freq: 1108307720798208}
 ; CHECK-NEXT:     [DA: Div] i1 [[VP10:%.*]] = block-predicate i1 [[VP_CMP15]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: [[BB8]] {[[FREQ255]]}
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB8]] {freq: 1773292353277132}
 ; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]] {[[FREQ255]]}
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]] {freq: 1773292353277132}
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND]] = icmp ult i32 [[VP_INDVAR]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]] {[[FREQ8]]}
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]] {freq: 55415386039910}
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_INDEX_IND_FINAL]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]] {[[FREQ0]]}
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]] {freq: 0}
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP_INDEX_IND_FINAL]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlan after LoopCFU transformation:
+; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}.cloned.masked
+; CHECK-NEXT:    [[BB15:BB[0-9]+]]: # preds:  {freq: 0}
+; CHECK-NEXT:     [DA: Uni] br [[BB16:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB16]]: # preds: [[BB15]] {freq: 55415386039910}
+; CHECK-NEXT:     [DA: Div] i32 [[VP11:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP12:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_NORM_UB:%.*]] = sub i32 32 i32 live-in0
+; CHECK-NEXT:     [DA: Uni] br [[BB17:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB17]]: # preds: [[BB16]], new_latch {freq: 1773292353277132}
+; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX_1:%.*]] = phi  [ i32 [[VP11]], [[BB16]] ],  [ i32 [[VP_INDVAR_1:%.*]], new_latch ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_NEW_IND:%.*]] = add i32 [[VP_INDEX_1]] i32 live-in0
+; CHECK-NEXT:     [DA: Div] i1 [[VP13:%.*]] = icmp ult i32 [[VP_INDEX_1]] i32 [[VP_NORM_UB]]
+; CHECK-NEXT:     [DA: Div] br i1 [[VP13]], [[BB18:BB[0-9]+]], new_latch
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB18]]: # preds: [[BB17]] {freq: 1773292353277132}
+; CHECK-NEXT:       [DA: Div] ptr [[VP_VEC_N_CAST_GEP1_1:%.*]] = getelementptr i32, ptr [[VEC_N0]] i32 [[VP_NEW_IND]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_VEC_N_ELEM2_1:%.*]] = load ptr [[VP_VEC_N_CAST_GEP1_1]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_CMP15_1:%.*]] = icmp sgt i32 [[VP_VEC_N_ELEM2_1]] i32 0
+; CHECK-NEXT:       [DA: Div] br i1 [[VP_CMP15_1]], [[BB19:BB[0-9]+]], [[BB20:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB19]]: # preds: [[BB18]] {freq: 1108307720798208}
+; CHECK-NEXT:         [DA: Div] i64 [[VP_WIDE_TRIP_COUNT18_1:%.*]] = zext i32 [[VP_VEC_N_ELEM2_1]] to i64
+; CHECK-NEXT:         [DA: Div] ptr [[VP_VEC_B_CAST_GEP_1:%.*]] = getelementptr ptr, ptr [[VEC_B0]] i32 [[VP_NEW_IND]]
+; CHECK-NEXT:         [DA: Uni] br [[BB21:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB21]]: # preds: [[BB19]], [[BB22:BB[0-9]+]] {freq: 18014398509481984}
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_1:%.*]] = phi  [ i64 0, [[BB19]] ],  [ i64 [[VP14:%.*]], [[BB22]] ]
+; CHECK-NEXT:         [DA: Div] i1 [[VP_LOOP_MASK_1:%.*]] = phi  [ i1 [[VP_CMP15_1]], [[BB19]] ],  [ i1 [[VP_LOOP_MASK_NEXT_1:%.*]], [[BB22]] ]
+; CHECK-NEXT:         [DA: Div] br i1 [[VP_LOOP_MASK_1]], [[BB23:BB[0-9]+]], [[BB22]]
+; CHECK-EMPTY:
+; CHECK-NEXT:          [[BB23]]: # preds: [[BB21]] {freq: 18014398509481984}
+; CHECK-NEXT:           [DA: Div] ptr [[VP_VEC_A_CAST_GEP_1:%.*]] = getelementptr ptr, ptr [[VEC_A0]] i32 [[VP_NEW_IND]]
+; CHECK-NEXT:           [DA: Div] ptr [[VP_VEC_A_ELEM_1:%.*]] = load ptr [[VP_VEC_A_CAST_GEP_1]]
+; CHECK-NEXT:           [DA: Div] ptr [[VP_ARRAYIDX_1:%.*]] = getelementptr inbounds i32, ptr [[VP_VEC_A_ELEM_1]] i64 [[VP_INDVARS_IV_1]]
+; CHECK-NEXT:           [DA: Div] i32 [[VP15:%.*]] = load ptr [[VP_ARRAYIDX_1]]
+; CHECK-NEXT:           [DA: Div] i1 [[VP_CMP1_1:%.*]] = icmp sgt i32 [[VP15]] i32 7
+; CHECK-NEXT:           [DA: Div] br i1 [[VP_CMP1_1]], [[INTERMEDIATE_BB1:intermediate.bb[0-9]+]], [[BB24:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:            [[BB24]]: # preds: [[BB23]] {freq: 17451448556060672}
+; CHECK-NEXT:             [DA: Div] ptr [[VP_VEC_B_ELEM_1:%.*]] = load ptr [[VP_VEC_B_CAST_GEP_1]]
+; CHECK-NEXT:             [DA: Div] ptr [[VP_ARRAYIDX5_1:%.*]] = getelementptr inbounds i32, ptr [[VP_VEC_B_ELEM_1]] i64 [[VP_INDVARS_IV_1]]
+; CHECK-NEXT:             [DA: Div] i32 [[VP16:%.*]] = load ptr [[VP_ARRAYIDX5_1]]
+; CHECK-NEXT:             [DA: Div] i32 [[VP_ADD_1:%.*]] = add i32 [[VP16]] i32 [[VP15]]
+; CHECK-NEXT:             [DA: Div] ptr [[VP_VEC_C_CAST_GEP_1:%.*]] = getelementptr ptr, ptr [[VEC_C0]] i32 [[VP_NEW_IND]]
+; CHECK-NEXT:             [DA: Div] ptr [[VP_VEC_C_ELEM_1:%.*]] = load ptr [[VP_VEC_C_CAST_GEP_1]]
+; CHECK-NEXT:             [DA: Div] ptr [[VP_ARRAYIDX7_1:%.*]] = getelementptr inbounds i32, ptr [[VP_VEC_C_ELEM_1]] i64 [[VP_INDVARS_IV_1]]
+; CHECK-NEXT:             [DA: Div] store i32 [[VP_ADD_1]] ptr [[VP_ARRAYIDX7_1]]
+; CHECK-NEXT:             [DA: Uni] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV_1]] i64 1
+; CHECK-NEXT:             [DA: Div] i1 [[VP_EXITCOND_NOT_1:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_WIDE_TRIP_COUNT18_1]]
+; CHECK-NEXT:             [DA: Uni] br [[NEW_LOOP_LATCH1:new.loop.latch[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:            [[INTERMEDIATE_BB1]]: # preds: [[BB23]] {freq: 1108307720798208}
+; CHECK-NEXT:             [DA: Uni] br [[NEW_LOOP_LATCH1]]
+; CHECK-EMPTY:
+; CHECK-NEXT:          [[NEW_LOOP_LATCH1]]: # preds: [[INTERMEDIATE_BB1]], [[BB24]] {freq: 17451448556060672}
+; CHECK-NEXT:           [DA: Uni] i64 [[VP14]] = phi  [ i64 [[VP_INDVARS_IV_NEXT_1]], [[BB24]] ],  [ i64 undef, [[INTERMEDIATE_BB1]] ]
+; CHECK-NEXT:           [DA: Div] i32 [[VP17:%.*]] = phi  [ i32 0, [[BB24]] ],  [ i32 1, [[INTERMEDIATE_BB1]] ]
+; CHECK-NEXT:           [DA: Div] i1 [[VP18:%.*]] = phi  [ i1 [[VP_EXITCOND_NOT_1]], [[BB24]] ],  [ i1 true, [[INTERMEDIATE_BB1]] ]
+; CHECK-NEXT:           [DA: Uni] br [[BB22]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB22]]: # preds: [[NEW_LOOP_LATCH1]], [[BB21]] {freq: 17451448556060672}
+; CHECK-NEXT:         [DA: Div] i1 [[VP__NOT:%.*]] = not i1 [[VP18]]
+; CHECK-NEXT:         [DA: Div] i1 [[VP_LOOP_MASK_NEXT_1]] = select i1 [[VP_LOOP_MASK_1]] i1 [[VP__NOT]] i1 false
+; CHECK-NEXT:         [DA: Uni] i1 [[VP19:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT_1]]
+; CHECK-NEXT:         [DA: Uni] br i1 [[VP19]], [[BB25:BB[0-9]+]], [[BB21]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB25]]: # preds: [[BB22]] {freq: 1108307720798208}
+; CHECK-NEXT:         [DA: Uni] br [[BB20]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB20]]: # preds: [[BB25]], [[BB18]] {freq: 1773292353277132}
+; CHECK-NEXT:       [DA: Uni] br [[BB26:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB26]]: # preds: [[BB20]] {freq: 1773292353277132}
+; CHECK-NEXT:       [DA: Uni] br new_latch
+; CHECK-EMPTY:
+; CHECK-NEXT:    new_latch: # preds: [[BB26]], [[BB17]] {freq: 1773292353277132}
+; CHECK-NEXT:     [DA: Div] i32 [[VP_INDVAR_1]] = add i32 [[VP_INDEX_1]] i32 [[VP12]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP20:%.*]] = icmp ult i32 [[VP_INDVAR_1]] i32 [[VP_NORM_UB]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP21:%.*]] = all-zero-check i1 [[VP20]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP21]], [[BB27:BB[0-9]+]], [[BB17]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB27]]: # preds: new_latch {freq: 55415386039910}
+; CHECK-NEXT:     [DA: Uni] i32 [[VP22:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] br [[BB28:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB28]]: # preds: [[BB27]] {freq: 0}
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP22]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlan after predicator:
+; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}.cloned.masked
+; CHECK-NEXT:    [[BB15]]: # preds:  {freq: 0}
+; CHECK-NEXT:     [DA: Uni] br [[BB16]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB16]]: # preds: [[BB15]] {freq: 55415386039910}
+; CHECK-NEXT:     [DA: Div] i32 [[VP11]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP12]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_NORM_UB]] = sub i32 32 i32 live-in0
+; CHECK-NEXT:     [DA: Uni] br [[BB17]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB17]]: # preds: [[BB16]], new_latch {freq: 1773292353277132}
+; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX_1]] = phi  [ i32 [[VP11]], [[BB16]] ],  [ i32 [[VP_INDVAR_1]], new_latch ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_NEW_IND]] = add i32 [[VP_INDEX_1]] i32 live-in0
+; CHECK-NEXT:     [DA: Div] i1 [[VP13]] = icmp ult i32 [[VP_INDEX_1]] i32 [[VP_NORM_UB]]
+; CHECK-NEXT:     [DA: Uni] br [[BB18]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB18]]: # preds: [[BB17]] {freq: 1773292353277132}
+; CHECK-NEXT:     [DA: Div] i1 [[VP23:%.*]] = block-predicate i1 [[VP13]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_N_CAST_GEP1_1]] = getelementptr i32, ptr [[VEC_N0]] i32 [[VP_NEW_IND]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_N_ELEM2_1]] = load ptr [[VP_VEC_N_CAST_GEP1_1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP15_1]] = icmp sgt i32 [[VP_VEC_N_ELEM2_1]] i32 0
+; CHECK-NEXT:     [DA: Uni] br [[BB29:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB29]]: # preds: [[BB18]] {freq: 1773292353277132}
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB28_BR_VP_CMP15:%.*]] = select i1 [[VP13]] i1 [[VP_CMP15_1]] i1 false
+; CHECK-NEXT:     [DA: Uni] br [[BB19]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB19]]: # preds: [[BB29]] {freq: 1108307720798208}
+; CHECK-NEXT:     [DA: Div] i1 [[VP24:%.*]] = block-predicate i1 [[VP_BB28_BR_VP_CMP15]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_WIDE_TRIP_COUNT18_1]] = zext i32 [[VP_VEC_N_ELEM2_1]] to i64
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_B_CAST_GEP_1]] = getelementptr ptr, ptr [[VEC_B0]] i32 [[VP_NEW_IND]]
+; CHECK-NEXT:     [DA: Uni] br [[BB21]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB21]]: # preds: [[BB19]], [[BB22]] {freq: 18014398509481984}
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_1]] = phi  [ i64 0, [[BB19]] ],  [ i64 [[VP_INDVARS_IV_NEXT_1]], [[BB22]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_1]] = phi  [ i1 [[VP_CMP15_1]], [[BB19]] ],  [ i1 [[VP_LOOP_MASK_NEXT_1]], [[BB22]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP25:%.*]] = block-predicate i1 [[VP_BB28_BR_VP_CMP15]]
+; CHECK-NEXT:     [DA: Uni] br [[BB30:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB30]]: # preds: [[BB21]] {freq: 18014398509481984}
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB519_BR_VP_LOOP_MASK:%.*]] = select i1 [[VP_BB28_BR_VP_CMP15]] i1 [[VP_LOOP_MASK_1]] i1 false
+; CHECK-NEXT:     [DA: Uni] br [[BB23]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB23]]: # preds: [[BB30]] {freq: 18014398509481984}
+; CHECK-NEXT:     [DA: Div] i1 [[VP26:%.*]] = block-predicate i1 [[VP_BB519_BR_VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_A_CAST_GEP_1]] = getelementptr ptr, ptr [[VEC_A0]] i32 [[VP_NEW_IND]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_A_ELEM_1]] = load ptr [[VP_VEC_A_CAST_GEP_1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX_1]] = getelementptr inbounds i32, ptr [[VP_VEC_A_ELEM_1]] i64 [[VP_INDVARS_IV_1]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP15]] = load ptr [[VP_ARRAYIDX_1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1_1]] = icmp sgt i32 [[VP15]] i32 7
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1_NOT_1:%.*]] = not i1 [[VP_CMP1_1]]
+; CHECK-NEXT:     [DA: Uni] br [[BB31:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB31]]: # preds: [[BB23]] {freq: 18014398509481984}
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB33_BR_VP_CMP1_NOT:%.*]] = select i1 [[VP_BB519_BR_VP_LOOP_MASK]] i1 [[VP_CMP1_NOT_1]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB33_BR_VP_CMP1:%.*]] = select i1 [[VP_BB519_BR_VP_LOOP_MASK]] i1 [[VP_CMP1_1]] i1 false
+; CHECK-NEXT:     [DA: Uni] br [[BB24]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB24]]: # preds: [[BB31]] {freq: 17451448556060672}
+; CHECK-NEXT:     [DA: Div] i1 [[VP27:%.*]] = block-predicate i1 [[VP_BB33_BR_VP_CMP1_NOT]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_B_ELEM_1]] = load ptr [[VP_VEC_B_CAST_GEP_1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX5_1]] = getelementptr inbounds i32, ptr [[VP_VEC_B_ELEM_1]] i64 [[VP_INDVARS_IV_1]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP16]] = load ptr [[VP_ARRAYIDX5_1]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_1]] = add i32 [[VP16]] i32 [[VP15]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_C_CAST_GEP_1]] = getelementptr ptr, ptr [[VEC_C0]] i32 [[VP_NEW_IND]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_VEC_C_ELEM_1]] = load ptr [[VP_VEC_C_CAST_GEP_1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX7_1]] = getelementptr inbounds i32, ptr [[VP_VEC_C_ELEM_1]] i64 [[VP_INDVARS_IV_1]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP_ADD_1]] ptr [[VP_ARRAYIDX7_1]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_NEXT_1]] = add i64 [[VP_INDVARS_IV_1]] i64 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND_NOT_1]] = icmp eq i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_WIDE_TRIP_COUNT18_1]]
+; CHECK-NEXT:     [DA: Uni] br [[INTERMEDIATE_BB1]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[INTERMEDIATE_BB1]]: # preds: [[BB24]] {freq: 1108307720798208}
+; CHECK-NEXT:     [DA: Div] i1 [[VP28:%.*]] = block-predicate i1 [[VP_BB33_BR_VP_CMP1]]
+; CHECK-NEXT:     [DA: Uni] br [[NEW_LOOP_LATCH1]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[NEW_LOOP_LATCH1]]: # preds: [[INTERMEDIATE_BB1]] {freq: 17451448556060672}
+; CHECK-NEXT:     [DA: Div] i32 [[VP__BLEND_INTERMEDIATE_BB1320:%.*]] = blend [ i32 0, i1 [[VP_BB33_BR_VP_CMP1_NOT]] ], [ i32 1, i1 [[VP_BB33_BR_VP_CMP1]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP__BLEND_INTERMEDIATE_BB1320_1:%.*]] = blend [ i1 [[VP_EXITCOND_NOT_1]], i1 [[VP_BB33_BR_VP_CMP1_NOT]] ], [ i1 true, i1 [[VP_BB33_BR_VP_CMP1]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP29:%.*]] = block-predicate i1 [[VP_BB519_BR_VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Uni] br [[BB22]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB22]]: # preds: [[NEW_LOOP_LATCH1]] {freq: 17451448556060672}
+; CHECK-NEXT:     [DA: Div] i1 [[VP30:%.*]] = block-predicate i1 [[VP_BB28_BR_VP_CMP15]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP__NOT]] = not i1 [[VP__BLEND_INTERMEDIATE_BB1320_1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT_1]] = select i1 [[VP_LOOP_MASK_1]] i1 [[VP__NOT]] i1 false
+; CHECK-NEXT:     [DA: Uni] i1 [[VP19]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT_1]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP19]], [[BB25]], [[BB21]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB25]]: # preds: [[BB22]] {freq: 1108307720798208}
+; CHECK-NEXT:     [DA: Div] i1 [[VP31:%.*]] = block-predicate i1 [[VP_BB28_BR_VP_CMP15]]
+; CHECK-NEXT:     [DA: Uni] br [[BB20]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB20]]: # preds: [[BB25]] {freq: 1773292353277132}
+; CHECK-NEXT:     [DA: Div] i1 [[VP32:%.*]] = block-predicate i1 [[VP13]]
+; CHECK-NEXT:     [DA: Uni] br [[BB26]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB26]]: # preds: [[BB20]] {freq: 1773292353277132}
+; CHECK-NEXT:     [DA: Div] i1 [[VP33:%.*]] = block-predicate i1 [[VP13]]
+; CHECK-NEXT:     [DA: Uni] br new_latch
+; CHECK-EMPTY:
+; CHECK-NEXT:    new_latch: # preds: [[BB26]] {freq: 1773292353277132}
+; CHECK-NEXT:     [DA: Div] i32 [[VP_INDVAR_1]] = add i32 [[VP_INDEX_1]] i32 [[VP12]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP20]] = icmp ult i32 [[VP_INDVAR_1]] i32 [[VP_NORM_UB]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP21]] = all-zero-check i1 [[VP20]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP21]], [[BB27]], [[BB17]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB27]]: # preds: new_latch {freq: 55415386039910}
+; CHECK-NEXT:     [DA: Uni] i32 [[VP22]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] br [[BB28]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB28]]: # preds: [[BB27]] {freq: 0}
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP22]]
 ;
 ; FIXME: loop massaging splits block BB7 to create new loop latch, so frequency is inherited
 ;        from BB7. However, control flow is changed and frequency should reflect the dominator

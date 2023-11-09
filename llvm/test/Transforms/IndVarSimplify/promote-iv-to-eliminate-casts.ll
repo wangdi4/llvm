@@ -13,8 +13,7 @@ define i64 @test(ptr nocapture %first, i32 %count) nounwind readonly {
 ; CHECK-NEXT:    [[T0:%.*]] = icmp sgt i32 [[COUNT:%.*]], 0
 ; CHECK-NEXT:    br i1 [[T0]], label [[BB_NPH:%.*]], label [[BB2:%.*]]
 ; CHECK:       bb.nph:
-; We have sext instead of zext here ;INTEL
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[COUNT]] to i64 ;INTEL
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[COUNT]] to i64
 ; CHECK-NEXT:    br label [[BB:%.*]]
 ; CHECK:       bb:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[BB1:%.*]] ], [ 0, [[BB_NPH]] ]
@@ -72,8 +71,7 @@ define void @foo(i16 signext %N, ptr nocapture %P) nounwind {
 ; CHECK-NEXT:    [[T0:%.*]] = icmp sgt i16 [[N:%.*]], 0
 ; CHECK-NEXT:    br i1 [[T0]], label [[BB_NPH:%.*]], label [[RETURN:%.*]]
 ; CHECK:       bb.nph:
-; We have sext instead of zext here ;INTEL
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i16 [[N]] to i64 ;INTEL
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i16 [[N]] to i64
 ; CHECK-NEXT:    br label [[BB:%.*]]
 ; CHECK:       bb:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[BB1:%.*]] ], [ 0, [[BB_NPH]] ]
@@ -234,7 +232,7 @@ define void @promote_latch_condition_decrementing_loop_02(ptr %p, ptr %a) {
 ; CHECK-NEXT:    [[ZERO_CHECK:%.*]] = icmp eq i32 [[LEN]], 0
 ; CHECK-NEXT:    br i1 [[ZERO_CHECK]], label [[LOOPEXIT:%.*]], label [[PREHEADER:%.*]]
 ; CHECK:       preheader:
-; CHECK-NEXT:    [[TMP0:%.*]] = zext i32 [[LEN]] to i64
+; CHECK-NEXT:    [[TMP0:%.*]] = zext nneg i32 [[LEN]] to i64
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loopexit.loopexit:
 ; CHECK-NEXT:    br label [[LOOPEXIT]]
@@ -277,7 +275,7 @@ define void @promote_latch_condition_decrementing_loop_03(ptr %p, ptr %a) {
 ; CHECK-NEXT:    [[ZERO_CHECK:%.*]] = icmp eq i32 [[LEN]], 0
 ; CHECK-NEXT:    br i1 [[ZERO_CHECK]], label [[LOOPEXIT:%.*]], label [[PREHEADER:%.*]]
 ; CHECK:       preheader:
-; CHECK-NEXT:    [[TMP0:%.*]] = zext i32 [[LEN]] to i64
+; CHECK-NEXT:    [[TMP0:%.*]] = zext nneg i32 [[LEN]] to i64
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nuw nsw i64 [[TMP0]], 1
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loopexit.loopexit:

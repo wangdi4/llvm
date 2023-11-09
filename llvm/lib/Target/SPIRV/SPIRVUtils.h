@@ -88,6 +88,9 @@ Type *getMDOperandAsType(const MDNode *N, unsigned I);
 // name, otherwise return an empty string.
 std::string getOclOrSpirvBuiltinDemangledName(StringRef Name);
 
+// Check if a string contains a builtin prefix.
+bool hasBuiltinTypePrefix(StringRef Name);
+
 // Check if given LLVM type is a special opaque builtin type.
 bool isSpecialOpaqueType(const Type *Ty);
 } // namespace llvm

@@ -182,6 +182,10 @@ int __signbit(double x) { return __devicelib___signbit(x); }
 extern "C" SYCL_EXTERNAL double __nv_nearbyint(double);
 DEVICE_EXTERN_C_INLINE
 double nearbyint(double x) { return __nv_nearbyint(x); }
+
+extern "C" SYCL_EXTERNAL double __nv_rint(double);
+DEVICE_EXTERN_C_INLINE
+double rint(double x) { return __nv_rint(x); }
 #endif // __NVPTX__
 
 #if defined(_MSC_VER)

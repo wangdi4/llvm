@@ -134,8 +134,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_CUSTOMIZATION
-
 #include "SyncDependenceAnalysis.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringExtras.h"
@@ -147,9 +145,7 @@
 
 #include <functional>
 
-#if INTEL_CUSTOMIZATION
 #include "llvm/IR/Intel_VPlanTemplateHelper.h"
-#endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "sync-dependence"
 
@@ -176,7 +172,6 @@ using VisitedSet = std::set<const BasicBlock *>;
 using BlockStack = std::vector<const BasicBlock *>;
 
 // forward
-#if INTEL_CUSTOMIZATION
 template <class LoopInfo, class LoopTy, class POCB, class VisitedSet>
 static void computeLoopPO(const LoopInfo &LI, LoopTy &Loop, POCB CallBack,
                           VisitedSet &Finalized);
@@ -188,7 +183,6 @@ static void computeStackPO(BlockStack &Stack, const LoopInfo &LI, LoopTy *Loop,
   using BasicBlock =
       std::conditional_t<std::is_same<LoopInfo, llvm::LoopInfo>::value,
                          llvm::BasicBlock, vpo::VPBasicBlock>;
-#endif // INTEL_CUSTOMIZATION
   const auto *LoopHeader = Loop ? Loop->getHeader() : nullptr;
   while (!Stack.empty()) {
     const auto *NextBB = Stack.back();
@@ -241,9 +235,8 @@ static void computeStackPO(BlockStack &Stack, const LoopInfo &LI, LoopTy *Loop,
   }
 }
 
-template <class Function, class LoopInfo, class POCB> // INTEL
+template <class Function, class LoopInfo, class POCB>
 static void computeTopLevelPO(Function &F, const LoopInfo &LI, POCB CallBack) {
-#if INTEL_CUSTOMIZATION
   using BasicBlock =
       std::conditional_t<std::is_same<Function, llvm::Function>::value,
                          llvm::BasicBlock, vpo::VPBasicBlock>;
@@ -252,22 +245,19 @@ static void computeTopLevelPO(Function &F, const LoopInfo &LI, POCB CallBack) {
                          llvm::Loop, vpo::VPLoop>;
   using VisitedSet = std::set<const BasicBlock *>;
   using BlockStack = std::vector<const BasicBlock *>;
-#endif // INTEL_CUSTOMIZATION
   VisitedSet Finalized;
   BlockStack Stack;
   Stack.reserve(24); // FIXME made-up number
   Stack.push_back(&F.getEntryBlock());
-  computeStackPO(Stack, LI, (Loop*)nullptr, CallBack, Finalized); // INTEL
+  computeStackPO(Stack, LI, (Loop *)nullptr, CallBack, Finalized);
 }
 
-template <class LoopInfo, class LoopTy, class POCB, class VisitedSet> // INTEL
+template <class LoopInfo, class LoopTy, class POCB, class VisitedSet>
 static void computeLoopPO(const LoopInfo &LI, LoopTy &Loop, POCB CallBack,
                           VisitedSet &Finalized) {
-#if INTEL_CUSTOMIZATION
   using BasicBlock =
       std::conditional_t<std::is_same<LoopInfo, llvm::LoopInfo>::value,
                          llvm::BasicBlock, vpo::VPBasicBlock>;
-#endif // INTEL_CUSTOMIZATION
   /// Call CallBack on all loop blocks.
   std::vector<const BasicBlock *> Stack;
   const auto *LoopHeader = Loop.getHeader();
@@ -293,7 +283,6 @@ static void computeLoopPO(const LoopInfo &LI, LoopTy &Loop, POCB CallBack,
 
 namespace llvm {
 
-#if INTEL_CUSTOMIZATION
 template <class BasicBlockTy>
 ControlDivergenceDesc<BasicBlockTy>
     SyncDependenceAnalysisImpl<BasicBlockTy>::EmptyDivergenceDesc;
@@ -308,17 +297,13 @@ SyncDependenceAnalysisImpl<BasicBlock>::SyncDependenceAnalysisImpl(
 
 template <class BasicBlock>
 SyncDependenceAnalysisImpl<BasicBlock>::~SyncDependenceAnalysisImpl() {}
-#endif // INTEL_CUSTOMIZATION
 
 namespace {
 // divergence propagator for reducible CFGs
-template <class BasicBlockTy> // INTEL
-struct DivergencePropagator {
-#if INTEL_CUSTOMIZATION
+template <class BasicBlockTy> struct DivergencePropagator {
   INTEL_INJECT_VPLAN_TEMPLATIZATION(BasicBlockTy);
   using ModifiedPO = llvm::ModifiedPO<BasicBlock>;
   using ControlDivergenceDesc = llvm::ControlDivergenceDesc<BasicBlock>;
-#endif // INTEL_CUSTOMIZATION
   const ModifiedPO &LoopPOT;
   const DominatorTree &DT;
   const PostDominatorTree &PDT;
@@ -496,10 +481,8 @@ struct DivergencePropagator {
 } // end anonymous namespace
 
 #ifndef NDEBUG
-#if INTEL_CUSTOMIZATION
 template <class BasicBlock>
 static void printBlockSet(ConstBlockSet<BasicBlock> &Blocks, raw_ostream &Out) {
-#endif // INTEL_CUSTOMIZATION
   Out << "[";
   ListSeparator LS;
   for (const auto *BB : Blocks)
@@ -508,13 +491,11 @@ static void printBlockSet(ConstBlockSet<BasicBlock> &Blocks, raw_ostream &Out) {
 }
 #endif
 
-#if INTEL_CUSTOMIZATION
 template <class BasicBlockTy>
 const ControlDivergenceDesc<BasicBlockTy> &
 SyncDependenceAnalysisImpl<BasicBlockTy>::getJoinBlocks(
     const SyncDependenceAnalysisImpl<BasicBlockTy>::Instruction &Term) {
   using DivergencePropagator = DivergencePropagator<BasicBlockTy>;
-#endif // INTEL_CUSTOMIZATION
   // trivial case
   if (Term.getNumSuccessors() <= 1) {
     return EmptyDivergenceDesc;
@@ -541,13 +522,9 @@ SyncDependenceAnalysisImpl<BasicBlockTy>::getJoinBlocks(
   assert(ItInserted.second);
   return *ItInserted.first->second;
 }
-#if INTEL_CUSTOMIZATION
 #ifdef SDA_VPLAN_INSTANCE
 template class SyncDependenceAnalysisImpl<vpo::VPBasicBlock>;
 #else
 template class SyncDependenceAnalysisImpl<llvm::BasicBlock>;
 #endif
-#endif // INTEL_CUSTOMIZATION
 } // namespace llvm
-
-#endif // INTEL_CUSTOMIZATION

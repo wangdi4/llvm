@@ -342,7 +342,7 @@ EVT X86TargetLowering::getOptimalMemOpType(
       if (Op.size() >= 64 && Subtarget.useAVX512Regs() &&
           (Subtarget.getPreferVectorWidth() >= 512)) {
 #else  // INTEL_FEATURE_ISA_AVX256P
-      if (Op.size() >= 64 && Subtarget.hasAVX512() &&
+      if (Op.size() >= 64 && Subtarget.hasAVX512() && Subtarget.hasEVEX512() &&
           (Subtarget.getPreferVectorWidth() >= 512)) {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
@@ -498,7 +498,7 @@ bool X86TargetLowering::allowsMemoryAccess(LLVMContext &Context,
         return true;
       return false;
     case 512:
-      if (Subtarget.hasAVX512())
+      if (Subtarget.hasAVX512() && Subtarget.hasEVEX512())
         return true;
       return false;
     default:

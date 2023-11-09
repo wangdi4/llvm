@@ -221,6 +221,11 @@ public:
   static bool classofKind(Kind K) { return K == OMPGroupPrivate; }
 };
 #endif // INTEL_COLLAB
+enum class OMPDeclareReductionInitKind {
+  Call,   // Initialized by function call.
+  Direct, // omp_priv(<expr>)
+  Copy    // omp_priv = <expr>
+};
 
 /// This represents '#pragma omp declare reduction ...' directive.
 /// For example, in the following, declared reduction 'foo' for types 'int' and
@@ -235,14 +240,7 @@ public:
 class OMPDeclareReductionDecl final : public ValueDecl, public DeclContext {
   // This class stores some data in DeclContext::OMPDeclareReductionDeclBits
   // to save some space. Use the provided accessors to access it.
-public:
-  enum InitKind {
-    CallInit,   // Initialized by function call.
-    DirectInit, // omp_priv(<expr>)
-    CopyInit    // omp_priv = <expr>
-  };
 
-private:
   friend class ASTDeclReader;
   /// Combiner for declare reduction construct.
   Expr *Combiner = nullptr;
@@ -303,8 +301,9 @@ public:
   Expr *getInitializer() { return Initializer; }
   const Expr *getInitializer() const { return Initializer; }
   /// Get initializer kind.
-  InitKind getInitializerKind() const {
-    return static_cast<InitKind>(OMPDeclareReductionDeclBits.InitializerKind);
+  OMPDeclareReductionInitKind getInitializerKind() const {
+    return static_cast<OMPDeclareReductionInitKind>(
+        OMPDeclareReductionDeclBits.InitializerKind);
   }
   /// Get Orig variable of the initializer.
   Expr *getInitOrig() { return Orig; }
@@ -313,9 +312,9 @@ public:
   Expr *getInitPriv() { return Priv; }
   const Expr *getInitPriv() const { return Priv; }
   /// Set initializer expression for the declare reduction construct.
-  void setInitializer(Expr *E, InitKind IK) {
+  void setInitializer(Expr *E, OMPDeclareReductionInitKind IK) {
     Initializer = E;
-    OMPDeclareReductionDeclBits.InitializerKind = IK;
+    OMPDeclareReductionDeclBits.InitializerKind = llvm::to_underlying(IK);
   }
   /// Set initializer Orig and Priv vars.
   void setInitializerData(Expr *OrigE, Expr *PrivE) {

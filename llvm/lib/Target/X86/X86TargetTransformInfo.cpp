@@ -218,24 +218,24 @@ X86TTIImpl::getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
   unsigned PreferVectorWidth = ST->getPreferVectorWidth();
   switch (K) {
   case TargetTransformInfo::RGK_Scalar:
-    return TypeSize::getFixed(ST->is64Bit() ? 64 : 32);
+    return TypeSize::Fixed(ST->is64Bit() ? 64 : 32);
   case TargetTransformInfo::RGK_FixedWidthVector:
-    if (ST->hasAVX512() && PreferVectorWidth >= 512)
-      return TypeSize::getFixed(512);
+    if (ST->hasAVX512() && ST->hasEVEX512() && PreferVectorWidth >= 512)
+      return TypeSize::Fixed(512);
     if (ST->hasAVX() && PreferVectorWidth >= 256)
-      return TypeSize::getFixed(256);
+      return TypeSize::Fixed(256);
 #if INTEL_CUSTOMIZATION
     // Avoid vectorization for SSE1 targets which will just need to be undone
     // in the backend for vXf64 and integer vectors. Also prevents creation
     // of v2f64 SVML functions the backend can't handle until SSE2.
     if (ST->hasSSE2() && PreferVectorWidth >= 128)
-      return TypeSize::getFixed(128);
+      return TypeSize::Fixed(128);
 #endif
     if (ST->hasSSE1() && PreferVectorWidth >= 128)
-      return TypeSize::getFixed(128);
-    return TypeSize::getFixed(0);
+      return TypeSize::Fixed(128);
+    return TypeSize::Fixed(0);
   case TargetTransformInfo::RGK_ScalableVector:
-    return TypeSize::getScalable(0);
+    return TypeSize::Scalable(0);
   }
 
   llvm_unreachable("Unsupported register kind");
@@ -7122,7 +7122,8 @@ X86TTIImpl::enableMemCmpExpansion(bool OptSize, bool IsZeroCmp) const {
     // Only enable vector loads for equality comparison. Right now the vector
     // version is not as fast for three way compare (see #33329).
     const unsigned PreferredWidth = ST->getPreferVectorWidth();
-    if (PreferredWidth >= 512 && ST->hasAVX512()) Options.LoadSizes.push_back(64);
+    if (PreferredWidth >= 512 && ST->hasAVX512() && ST->hasEVEX512())
+      Options.LoadSizes.push_back(64);
     if (PreferredWidth >= 256 && ST->hasAVX()) Options.LoadSizes.push_back(32);
     if (PreferredWidth >= 128 && ST->hasSSE2()) Options.LoadSizes.push_back(16);
   }

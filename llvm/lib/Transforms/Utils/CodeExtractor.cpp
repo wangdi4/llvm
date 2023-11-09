@@ -313,13 +313,17 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              bool AggregateArgs, BlockFrequencyInfo *BFI,
                              BranchProbabilityInfo *BPI, AssumptionCache *AC,
                              bool AllowVarArgs, bool AllowAlloca,
-#if INTEL_COLLAB
                              BasicBlock *AllocationBlock, std::string Suffix,
+#if INTEL_COLLAB
+                             // "," was added
+                             bool ArgsInZeroAddressSpace,
+                             // Intel args start here. New args from llorg
+                             // need to be merged above this line.
                              bool AllowEHTypeID, bool AllowUnreachableBlocks,
                              const OrderedArgs *TgtClauseArgs,
                              bool SimdPrivatization)
-#else  // INTEL_COLLAB
-                             BasicBlock *AllocationBlock, std::string Suffix)
+#else // INTEL_COLLAB
+                             bool ArgsInZeroAddressSpace)
 #endif // INTEL_COLLAB
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
       BPI(BPI), AC(AC), AllocationBlock(AllocationBlock),
@@ -327,12 +331,13 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 #if INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca,
                                      AllowEHTypeID, AllowUnreachableBlocks)),
+      Suffix(Suffix), ArgsInZeroAddressSpace(ArgsInZeroAddressSpace),
       TgtClauseArgs(TgtClauseArgs), SimdPrivatization(SimdPrivatization),
-      DeclLoc(),
-#else  // INTEL_COLLAB
+      DeclLoc() {}
+#else // INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
+      Suffix(Suffix), ArgsInZeroAddressSpace(ArgsInZeroAddressSpace) {}
 #endif // INTEL_COLLAB
-      Suffix(Suffix) {}
 
 CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
                              BlockFrequencyInfo *BFI,
@@ -346,11 +351,11 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
                                      /* AllowAlloca */ false,
                                      /* AllowEHTypeID */ false,
                                      /* AllowUnreachableBlocks */ false)),
-      DeclLoc(),
+      Suffix(Suffix), DeclLoc() {}
 #else // INTEL_COLLAB
                                      /* AllowAlloca */ false)),
-#endif // INTEL_COLLAB
       Suffix(Suffix) {}
+#endif // INTEL_COLLAB
 
 /// definedInRegion - Return true if the specified value is defined in the
 /// extracted region.
@@ -1258,7 +1263,8 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   StructType *StructTy = nullptr;
   if (AggregateArgs && !AggParamTy.empty()) {
     StructTy = StructType::get(M->getContext(), AggParamTy);
-    ParamTy.push_back(PointerType::get(StructTy, DL.getAllocaAddrSpace()));
+    ParamTy.push_back(PointerType::get(
+        StructTy, ArgsInZeroAddressSpace ? 0 : DL.getAllocaAddrSpace()));
   }
 
   LLVM_DEBUG({
@@ -1388,6 +1394,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::ImmArg:
       case Attribute::ByRef:
       case Attribute::WriteOnly:
+      case Attribute::Writable:
       //  These are not really attributes.
       case Attribute::None:
       case Attribute::EndAttrKinds:
@@ -1648,8 +1655,15 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
         StructArgTy, DL.getAllocaAddrSpace(), nullptr, "structArg",
         AllocationBlock ? &*AllocationBlock->getFirstInsertionPt()
                         : &codeReplacer->getParent()->front().front());
-    params.push_back(Struct);
 
+    if (ArgsInZeroAddressSpace && DL.getAllocaAddrSpace() != 0) {
+      auto *StructSpaceCast = new AddrSpaceCastInst(
+          Struct, PointerType ::get(Context, 0), "structArg.ascast");
+      StructSpaceCast->insertAfter(Struct);
+      params.push_back(StructSpaceCast);
+    } else {
+      params.push_back(Struct);
+    }
     // Store aggregated inputs in the struct.
     for (unsigned i = 0, e = StructValues.size(); i != e; ++i) {
       if (inputs.contains(StructValues[i])) {

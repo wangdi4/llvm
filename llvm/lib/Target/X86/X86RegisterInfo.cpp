@@ -793,8 +793,9 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   if (!Is64Bit || !MF.getSubtarget<X86Subtarget>().hasAVX512()) {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-    for (unsigned n = 16; n != 32; ++n) {
-      for (MCRegAliasIterator AI(X86::XMM0 + n, this, true); AI.isValid(); ++AI)
+    for (unsigned n = 0; n != 16; ++n) {
+      for (MCRegAliasIterator AI(X86::XMM16 + n, this, true); AI.isValid();
+           ++AI)
         Reserved.set(*AI);
     }
   }
@@ -817,6 +818,56 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
                                  {X86::SIL, X86::DIL, X86::BPL, X86::SPL,
                                   X86::SIH, X86::DIH, X86::BPH, X86::SPH}));
   return Reserved;
+}
+
+unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
+  // All existing Intel CPUs that support AMX support AVX512 and all existing
+  // Intel CPUs that support APX support AMX. AVX512 implies AVX.
+  //
+  // We enumerate the registers in X86GenRegisterInfo.inc in this order:
+  //
+  // Registers before AVX512,
+  // AVX512 registers (X/YMM16-31, ZMM0-31, K registers)
+  // AMX registers (TMM)
+  // APX registers (R16-R31)
+  //
+  // and try to return the minimum number of registers supported by the target.
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  assert(
+      (X86::XMM14_XMM15 + 1 == X86 ::YMM0) && (X86::YMM14_YMM15 + 1 == X86::K0) &&
+      (X86::ZMM16_ZMM17_ZMM18_ZMM19_ZMM20_ZMM21_ZMM22_ZMM23_ZMM24_ZMM25_ZMM26_ZMM27_ZMM28_ZMM29_ZMM30_ZMM31 +
+           1 ==
+       X86::TMMCFG) &&
+      (X86::TMM4_TMM5_TMM6_TMM7 + 1 == X86::R16) &&
+      (X86::R31WH + 1 == X86::NUM_TARGET_REGS) &&
+      "Register number may be incorrect");
+
+  const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
+  bool HasAVX = ST.hasAVX();
+  bool HasAVX3 = ST.hasAVX3();
+  bool HasAMX = ST.hasAMXTILE();
+  bool HasEGPR = ST.hasEGPR();
+  if (HasEGPR)
+    return X86::NUM_TARGET_REGS;
+  if (HasAMX)
+    return X86::TMM4_TMM5_TMM6_TMM7 + 1;
+  if (HasAVX3)
+    return X86::
+               ZMM16_ZMM17_ZMM18_ZMM19_ZMM20_ZMM21_ZMM22_ZMM23_ZMM24_ZMM25_ZMM26_ZMM27_ZMM28_ZMM29_ZMM30_ZMM31 +
+           1;
+  if (HasAVX)
+    return X86::YMM14_YMM15 + 1;
+  return X86::YMM0;
+#else // INTEL_FEATURE_ISA_APX_F
+  assert((X86::R15WH + 1 == X86 ::YMM0) && (X86::YMM15 + 1 == X86::K0) &&
+         (X86::K6_K7 + 1 == X86::TMMCFG) &&
+         (X86::TMM7 + 1 == X86::NUM_TARGET_REGS) &&
+         "Register number may be incorrect");
+  return X86::NUM_TARGET_REGS;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86RegisterInfo::isArgumentRegister(const MachineFunction &MF,

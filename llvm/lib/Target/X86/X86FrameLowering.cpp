@@ -4368,20 +4368,20 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
         FirstMI = &*MRII; // Find setup frame instruction
     }
     assert(FirstMI);
-    int RegNum = MFI.VecSpillPhysRegMap[MBB] - X86::XMM0;
+    unsigned XMMReg = MFI.VecSpillPhysRegMap[MBB];
     int Offset = 0;
     if (STI.useAVX512Regs()) {
       int ZMMNum = TotalSz / 64;
       TotalSz -= ZMMNum * 64;
       if (ZMMNum) {
-        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr),
-            X86::XMM0+RegNum).
-          addReg(X86::XMM0+RegNum).
-          addReg(X86::XMM0+RegNum);
+        unsigned ZMMReg = X86II::getZMMFromXMM(XMMReg);
+        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr), XMMReg)
+            .addReg(XMMReg)
+            .addReg(XMMReg);
         for (int i = 0; i < ZMMNum; i++) {
           addFrameReference(BuildMI(*MBB, FirstMI, DebugLoc(),
               TII.get(X86::VMOVUPSZmr)),
-              LastFI, Offset).addReg(X86::ZMM0+RegNum);
+              LastFI, Offset).addReg(ZMMReg);
           Offset += 64;
         }
       }
@@ -4390,15 +4390,16 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
     int YMMNum = TotalSz / 32;
     TotalSz -= YMMNum * 32;
     if (YMMNum) {
+      unsigned YMMReg = X86II::getYMMFromXMM(XMMReg);
       if (!Offset)
-        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr),
-            X86::XMM0+RegNum).
-          addReg(X86::XMM0+RegNum).
-          addReg(X86::XMM0+RegNum);
+        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr), XMMReg)
+            .addReg(XMMReg)
+            .addReg(XMMReg);
       for (int i = 0; i < YMMNum; i++) {
-        addFrameReference(BuildMI(*MBB, FirstMI, DebugLoc(),
-            TII.get(X86::VMOVUPSZ256mr)),
-            LastFI, Offset).addReg(X86::YMM0+RegNum);
+        addFrameReference(
+            BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VMOVUPSZ256mr)),
+            LastFI, Offset)
+            .addReg(YMMReg);
         Offset += 32;
       }
     }
@@ -4407,14 +4408,14 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
     TotalSz -= XMMNum * 16;
     if (XMMNum) {
       if (!Offset)
-        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr),
-            X86::XMM0+RegNum).
-          addReg(X86::XMM0+RegNum).
-          addReg(X86::XMM0+RegNum);
+        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr), XMMReg)
+            .addReg(XMMReg)
+            .addReg(XMMReg);
       for (int i = 0; i < XMMNum; i++) {
-        addFrameReference(BuildMI(*MBB, FirstMI, DebugLoc(),
-            TII.get(X86::VMOVAPSZ128mr)),
-            LastFI, Offset).addReg(X86::XMM0+RegNum);
+        addFrameReference(
+            BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VMOVAPSZ128mr)),
+            LastFI, Offset)
+            .addReg(XMMReg);
         Offset += 16;
       }
     }

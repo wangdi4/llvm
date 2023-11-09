@@ -151,6 +151,7 @@ def R15B : X86Reg<"r15b", 15>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
 // APX only, requires REX2 or EVEX.
+let PositionOrder = 4 in {
 def R16B : X86Reg<"r16b", 16>;
 def R17B : X86Reg<"r17b", 17>;
 def R18B : X86Reg<"r18b", 18>;
@@ -167,6 +168,7 @@ def R28B : X86Reg<"r28b", 28>;
 def R29B : X86Reg<"r29b", 29>;
 def R30B : X86Reg<"r30b", 30>;
 def R31B : X86Reg<"r31b", 31>;
+}
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
@@ -186,6 +188,7 @@ def R14BH : X86Reg<"", -1>;
 def R15BH : X86Reg<"", -1>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
+let PositionOrder = 4 in {
 def R16BH : X86Reg<"", -1>;
 def R17BH : X86Reg<"", -1>;
 def R18BH : X86Reg<"", -1>;
@@ -202,6 +205,7 @@ def R28BH : X86Reg<"", -1>;
 def R29BH : X86Reg<"", -1>;
 def R30BH : X86Reg<"", -1>;
 def R31BH : X86Reg<"", -1>;
+}
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 // High word of the low 32 bits of the super-register:
@@ -224,6 +228,7 @@ def R14WH : X86Reg<"", -1>;
 def R15WH : X86Reg<"", -1>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
+let PositionOrder = 4 in {
 def R16WH : X86Reg<"", -1>;
 def R17WH : X86Reg<"", -1>;
 def R18WH : X86Reg<"", -1>;
@@ -240,6 +245,7 @@ def R28WH : X86Reg<"", -1>;
 def R29WH : X86Reg<"", -1>;
 def R30WH : X86Reg<"", -1>;
 def R31WH : X86Reg<"", -1>;
+}
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }
@@ -275,6 +281,7 @@ def R15W : X86Reg<"r15w", 15, [R15B,R15BH]>;
 #if INTEL_FEATURE_ISA_APX_F
 // APX only, requires REX2 or EVEX.
 let SubRegIndices = [sub_8bit, sub_8bit_hi_phony], CoveredBySubRegs = 1 in {
+let PositionOrder = 4 in {
 def R16W : X86Reg<"r16w", 16, [R16B,R16BH]>;
 def R17W : X86Reg<"r17w", 17, [R17B,R17BH]>;
 def R18W : X86Reg<"r18w", 18, [R18B,R18BH]>;
@@ -291,6 +298,7 @@ def R28W : X86Reg<"r28w", 28, [R28B,R28BH]>;
 def R29W : X86Reg<"r29w", 29, [R29B,R29BH]>;
 def R30W : X86Reg<"r30w", 30, [R30B,R30BH]>;
 def R31W : X86Reg<"r31w", 31, [R31B,R31BH]>;
+}
 }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
@@ -324,6 +332,7 @@ def R15D : X86Reg<"r15d", 15, [R15W,R15WH]>;
 #if INTEL_FEATURE_ISA_APX_F
 // APX only, requires REX2 or EVEX.
 let SubRegIndices = [sub_16bit, sub_16bit_hi], CoveredBySubRegs = 1 in {
+let PositionOrder = 4 in {
 def R16D : X86Reg<"r16d", 16, [R16W,R16WH]>;
 def R17D : X86Reg<"r17d", 17, [R17W,R17WH]>;
 def R18D : X86Reg<"r18d", 18, [R18W,R18WH]>;
@@ -340,6 +349,7 @@ def R28D : X86Reg<"r28d", 28, [R28W,R28WH]>;
 def R29D : X86Reg<"r29d", 29, [R29W,R29WH]>;
 def R30D : X86Reg<"r30d", 30, [R30W,R30WH]>;
 def R31D : X86Reg<"r31d", 31, [R31W,R31WH]>;
+}
 }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
@@ -369,6 +379,7 @@ def RIP : X86Reg<"rip",  0, [EIP]>,  DwarfRegNum<[16, -2, -2]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
 // APX only, requires REX2 or EVEX.
+let PositionOrder = 4 in {
 def R16 : X86Reg<"r16", 16, [R16D]>, DwarfRegNum<[130, -2, -2]>;
 def R17 : X86Reg<"r17", 17, [R17D]>, DwarfRegNum<[131, -2, -2]>;
 def R18 : X86Reg<"r18", 18, [R18D]>, DwarfRegNum<[132, -2, -2]>;
@@ -385,6 +396,7 @@ def R28 : X86Reg<"r28", 28, [R28D]>, DwarfRegNum<[142, -2, -2]>;
 def R29 : X86Reg<"r29", 29, [R29D]>, DwarfRegNum<[143, -2, -2]>;
 def R30 : X86Reg<"r30", 30, [R30D]>, DwarfRegNum<[144, -2, -2]>;
 def R31 : X86Reg<"r31", 31, [R31D]>, DwarfRegNum<[145, -2, -2]>;
+}
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }
@@ -429,6 +441,8 @@ def XMM13: X86Reg<"xmm13", 13>, DwarfRegNum<[30, -2, -2]>;
 def XMM14: X86Reg<"xmm14", 14>, DwarfRegNum<[31, -2, -2]>;
 def XMM15: X86Reg<"xmm15", 15>, DwarfRegNum<[32, -2, -2]>;
 
+let PositionOrder = 2 in {
+// XMM16-31 registers, used by AVX-512 instructions.
 def XMM16:  X86Reg<"xmm16", 16>, DwarfRegNum<[67, -2, -2]>;
 def XMM17:  X86Reg<"xmm17", 17>, DwarfRegNum<[68, -2, -2]>;
 def XMM18:  X86Reg<"xmm18", 18>, DwarfRegNum<[69, -2, -2]>;
@@ -445,27 +459,100 @@ def XMM28:  X86Reg<"xmm28", 28>, DwarfRegNum<[79, -2, -2]>;
 def XMM29:  X86Reg<"xmm29", 29>, DwarfRegNum<[80, -2, -2]>;
 def XMM30:  X86Reg<"xmm30", 30>, DwarfRegNum<[81, -2, -2]>;
 def XMM31:  X86Reg<"xmm31", 31>, DwarfRegNum<[82, -2, -2]>;
+}
 
 // YMM0-15 registers, used by AVX instructions and
 // YMM16-31 registers, used by AVX-512 instructions.
-let SubRegIndices = [sub_xmm] in {
-  foreach  Index = 0-31 in {
+let SubRegIndices = [sub_xmm], PositionOrder = 1 in {
+  foreach  Index = 0-15 in {
+    def YMM#Index : X86Reg<"ymm"#Index, Index, [!cast<X86Reg>("XMM"#Index)]>,
+                    DwarfRegAlias<!cast<X86Reg>("XMM"#Index)>;
+  }
+}
+let SubRegIndices = [sub_xmm], PositionOrder = 2 in {
+  foreach  Index = 16-31 in {
     def YMM#Index : X86Reg<"ymm"#Index, Index, [!cast<X86Reg>("XMM"#Index)]>,
                     DwarfRegAlias<!cast<X86Reg>("XMM"#Index)>;
   }
 }
 
+
 // ZMM Registers, used by AVX-512 instructions.
-let SubRegIndices = [sub_ymm] in {
+let SubRegIndices = [sub_ymm], PositionOrder = 2 in {
   foreach  Index = 0-31 in {
     def ZMM#Index : X86Reg<"zmm"#Index, Index, [!cast<X86Reg>("YMM"#Index)]>,
                     DwarfRegAlias<!cast<X86Reg>("XMM"#Index)>;
   }
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XISA_COMMON
+let PositionOrder = 2 in {
+// XMM pair registers XMM0-XMM1, XMM2-XMM3 ... XMM30-XMM31.
+def XPAIRSX : RegisterTuples<[sub_x0, sub_x1],
+                             [(add XMM0, XMM2, XMM4, XMM6,
+                                   XMM8, XMM10, XMM12, XMM14,
+                                   XMM16, XMM18, XMM20, XMM22,
+                                   XMM24, XMM26, XMM28, XMM30),
+                              (add XMM1, XMM3, XMM5, XMM7,
+                                   XMM9, XMM11, XMM13, XMM15,
+                                   XMM17, XMM19, XMM21, XMM23,
+                                   XMM25, XMM27, XMM29, XMM31)]>;
+// YMM pair registers YMM0-YMM1, YMM2-YMM3 ... YMM30-YMM31.
+def YPAIRSX : RegisterTuples<[sub_y0, sub_y1],
+                             [(add YMM0, YMM2, YMM4, YMM6,
+                                   YMM8, YMM10, YMM12, YMM14,
+                                   YMM16, YMM18, YMM20, YMM22,
+                                   YMM24, YMM26, YMM28, YMM30),
+                              (add YMM1, YMM3, YMM5, YMM7,
+                                   YMM9, YMM11, YMM13, YMM15,
+                                   YMM17, YMM19, YMM21, YMM23,
+                                   YMM25, YMM27, YMM29, YMM31)]>;
+// ZMM pair registers ZMM0-ZMM1, ZMM2-ZMM3 ... ZMM30-ZMM31.
+def ZPAIRSX : RegisterTuples<[sub_z0, sub_z1],
+                             [(add ZMM0, ZMM2, ZMM4, ZMM6,
+                                   ZMM8, ZMM10, ZMM12, ZMM14,
+                                   ZMM16, ZMM18, ZMM20, ZMM22,
+                                   ZMM24, ZMM26, ZMM28, ZMM30),
+                              (add ZMM1, ZMM3, ZMM5, ZMM7,
+                                   ZMM9, ZMM11, ZMM13, ZMM15,
+                                   ZMM17, ZMM19, ZMM21, ZMM23,
+                                   ZMM25, ZMM27, ZMM29, ZMM31)]>;
+}
+
+// FIXME: Now we only support ZMM16-ZMM31 for ZMM16TUPLES, but the tile16move
+// can also choose ZMM0-ZMM15, so we should support ZMM0-ZMM15 too.
+def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, sub_z6,
+                                sub_z7, sub_z8, sub_z9, sub_z10, sub_z11, sub_z12,
+                                sub_z13, sub_z14, sub_z15],
+                               [(add ZMM16), (add ZMM17), (add ZMM18),
+                                (add ZMM19), (add ZMM20), (add ZMM21),
+                                (add ZMM22), (add ZMM23), (add ZMM24),
+                                (add ZMM25), (add ZMM26), (add ZMM27),
+                                (add ZMM28), (add ZMM29), (add ZMM30),
+                                (add ZMM31)]>;
+#endif // INTEL_FEATURE_XISA_COMMON
+#endif // INTEL_CUSTOMIZATION
+
+let PositionOrder = 2 in {
+// Mask Registers, used by AVX-512 instructions.
+def K0 : X86Reg<"k0", 0>, DwarfRegNum<[118,  93,  93]>;
+def K1 : X86Reg<"k1", 1>, DwarfRegNum<[119,  94,  94]>;
+def K2 : X86Reg<"k2", 2>, DwarfRegNum<[120,  95,  95]>;
+def K3 : X86Reg<"k3", 3>, DwarfRegNum<[121,  96,  96]>;
+def K4 : X86Reg<"k4", 4>, DwarfRegNum<[122,  97,  97]>;
+def K5 : X86Reg<"k5", 5>, DwarfRegNum<[123,  98,  98]>;
+def K6 : X86Reg<"k6", 6>, DwarfRegNum<[124,  99,  99]>;
+def K7 : X86Reg<"k7", 7>, DwarfRegNum<[125, 100, 100]>;
+// Mask register pairs
+def KPAIRS : RegisterTuples<[sub_mask_0, sub_mask_1],
+                             [(add K0, K2, K4, K6), (add K1, K3, K5, K7)]>;
+}
+
+// TMM registers, used by AMX instructions.
+let PositionOrder = 3 in {
 // Tile config registers.
 def TMMCFG: X86Reg<"tmmcfg", 0>;
-
 // Tile "registers".
 def TMM0:  X86Reg<"tmm0",   0>;
 def TMM1:  X86Reg<"tmm1",   1>;
@@ -501,18 +588,28 @@ def TMM28: X86Reg<"tmm28", 28>;
 def TMM29: X86Reg<"tmm29", 29>;
 def TMM30: X86Reg<"tmm30", 30>;
 def TMM31: X86Reg<"tmm31", 31>;
-#endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#endif // INTEL_CUSTOMIZATION
+// TMM0-TMM31 register pairs
+def TPAIRSX : RegisterTuples<[sub_t0, sub_t1],
+                             [(add TMM8, TMM10, TMM12,
+                               TMM14, TMM16, TMM18, TMM20, TMM22, TMM24, TMM26,
+                               TMM28, TMM30),
+                              (add TMM9, TMM11, TMM13,
+                               TMM15, TMM17, TMM19, TMM21, TMM23, TMM25, TMM27,
+                               TMM29, TMM31)]>;
+// TMM register quad
+def TQUADS : RegisterTuples<[sub_t0, sub_t1, sub_t2, sub_t3],
+                            [(add TMM0, TMM4), (add TMM1, TMM5),
+                             (add TMM2, TMM6), (add TMM3, TMM7)]>;
 
-// Mask Registers, used by AVX-512 instructions.
-def K0 : X86Reg<"k0", 0>, DwarfRegNum<[118,  93,  93]>;
-def K1 : X86Reg<"k1", 1>, DwarfRegNum<[119,  94,  94]>;
-def K2 : X86Reg<"k2", 2>, DwarfRegNum<[120,  95,  95]>;
-def K3 : X86Reg<"k3", 3>, DwarfRegNum<[121,  96,  96]>;
-def K4 : X86Reg<"k4", 4>, DwarfRegNum<[122,  97,  97]>;
-def K5 : X86Reg<"k5", 5>, DwarfRegNum<[123,  98,  98]>;
-def K6 : X86Reg<"k6", 6>, DwarfRegNum<[124,  99,  99]>;
-def K7 : X86Reg<"k7", 7>, DwarfRegNum<[125, 100, 100]>;
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+// TMM register pairs
+def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
+                            [(add TMM0, TMM2, TMM4, TMM6),
+                             (add TMM1, TMM3, TMM5, TMM7)]>;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+#endif // INTEL_CUSTOMIZATION
+}
 
 // Floating point stack registers. These don't map one-to-one to the FP
 // pseudo registers, but we still mark them as aliasing FP registers. That
@@ -977,10 +1074,6 @@ def VK16    : RegisterClass<"X86", [v16i1], 16, (add VK8)> {let Size = 16;}
 def VK32    : RegisterClass<"X86", [v32i1], 32, (add VK16)> {let Size = 32;}
 def VK64    : RegisterClass<"X86", [v64i1], 64, (add VK32)> {let Size = 64;}
 
-// Mask register pairs
-def KPAIRS : RegisterTuples<[sub_mask_0, sub_mask_1],
-                             [(add K0, K2, K4, K6), (add K1, K3, K5, K7)]>;
-
 def VK1PAIR   : RegisterClass<"X86", [untyped], 16, (add KPAIRS)> {let Size = 32;}
 def VK2PAIR   : RegisterClass<"X86", [untyped], 16, (add KPAIRS)> {let Size = 32;}
 def VK4PAIR   : RegisterClass<"X86", [untyped], 16, (add KPAIRS)> {let Size = 32;}
@@ -1002,27 +1095,9 @@ def TILE : RegisterClass<"X86", [x86amx], 8192,
                          (sequence "TMM%u", 0, 7)> {let Size = 8192;}
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE
-// TMM register pairs
-def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
-                            [(add TMM0, TMM2, TMM4, TMM6),
-                             (add TMM1, TMM3, TMM5, TMM7)]>;
-
 // Need check alignment 3rd operand size=1024*2*8
 let isAllocatable = 1 in
 def TILEPAIR : RegisterClass<"X86", [untyped], 512, (add TPAIRS)> {let Size = 16384;}
-
-// FIXME: Now we only support ZMM16-ZMM31 for ZMM16TUPLES, but the tile16move
-// can also choose ZMM0-ZMM15, so we should support ZMM0-ZMM15 too.
-def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, sub_z6,
-                                sub_z7, sub_z8, sub_z9, sub_z10, sub_z11, sub_z12,
-                                sub_z13, sub_z14, sub_z15],
-                               [(add ZMM16), (add ZMM17), (add ZMM18),
-                                (add ZMM19), (add ZMM20), (add ZMM21),
-                                (add ZMM22), (add ZMM23), (add ZMM24),
-                                (add ZMM25), (add ZMM26), (add ZMM27),
-                                (add ZMM28), (add ZMM29), (add ZMM30),
-                                (add ZMM31)]>;
-
 // Need check alignment 3rd operand size=512*16
 def ZMM16TUPLES : RegisterClass<"X86", [untyped], 512, (add Z16TUPLES)> {let Size = 8196;}
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
@@ -1032,23 +1107,9 @@ let isAllocatable = 1 in
 def TILEX : RegisterClass<"X86", [x86amx], 8192,
                           (sequence "TMM%u", 0, 31)> {let Size = 8192;}
 
-// TMM0-TMM31 register pairs
-def TPAIRSX : RegisterTuples<[sub_t0, sub_t1],
-                             [(add TMM8, TMM10, TMM12,
-                               TMM14, TMM16, TMM18, TMM20, TMM22, TMM24, TMM26,
-                               TMM28, TMM30),
-                              (add TMM9, TMM11, TMM13,
-                               TMM15, TMM17, TMM19, TMM21, TMM23, TMM25, TMM27,
-                               TMM29, TMM31)]>;
-
 // Need check alignment 3rd operand size=1024*2*8
 let isAllocatable = 1 in
 def TILEPAIRX : RegisterClass<"X86", [untyped], 0, (add TPAIRSX)> {let Size = 16384;}
-
-// TMM register quad
-def TQUADS : RegisterTuples<[sub_t0, sub_t1, sub_t2, sub_t3],
-                            [(add TMM0, TMM4), (add TMM1, TMM5),
-                             (add TMM2, TMM6), (add TMM3, TMM7)]>;
 
 // Need check alignment 3rd operand size=1024*4*8
 let isAllocatable = 0 in
@@ -1056,46 +1117,11 @@ def TILEQUAD : RegisterClass<"X86", [untyped], 0, (add TQUADS)> {let Size = 3276
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 
 #if INTEL_FEATURE_XISA_COMMON
-// Support XMM pair registers XMM0-XMM1, XMM2-XMM3 ... XMM30-XMM31.
-def XPAIRSX : RegisterTuples<[sub_x0, sub_x1],
-                             [(add XMM0, XMM2, XMM4, XMM6,
-                                   XMM8, XMM10, XMM12, XMM14,
-                                   XMM16, XMM18, XMM20, XMM22,
-                                   XMM24, XMM26, XMM28, XMM30),
-                              (add XMM1, XMM3, XMM5, XMM7,
-                                   XMM9, XMM11, XMM13, XMM15,
-                                   XMM17, XMM19, XMM21, XMM23,
-                                   XMM25, XMM27, XMM29, XMM31)]>;
-
 def XMMPAIRX : RegisterClass<"X86", [v8f32], 128, (add XPAIRSX)> {let Size = 256;}
 
-// Support ymm pair registers YMM0-YMM1, YMM2-YMM3 ... YMM30-YMM31.
-def YPAIRSX : RegisterTuples<[sub_y0, sub_y1],
-                             [(add YMM0, YMM2, YMM4, YMM6,
-                                   YMM8, YMM10, YMM12, YMM14,
-                                   YMM16, YMM18, YMM20, YMM22,
-                                   YMM24, YMM26, YMM28, YMM30),
-                              (add YMM1, YMM3, YMM5, YMM7,
-                                   YMM9, YMM11, YMM13, YMM15,
-                                   YMM17, YMM19, YMM21, YMM23,
-                                   YMM25, YMM27, YMM29, YMM31)]>;
-
 def YMMPAIRX : RegisterClass<"X86", [v16f32], 256, (add YPAIRSX)> {let Size = 512;}
-
-// Support zmm pair registers ZMM0-ZMM1, ZMM2-ZMM3 ... ZMM30-ZMM31.
-def ZPAIRSX : RegisterTuples<[sub_z0, sub_z1],
-                             [(add ZMM0, ZMM2, ZMM4, ZMM6,
-                                   ZMM8, ZMM10, ZMM12, ZMM14,
-                                   ZMM16, ZMM18, ZMM20, ZMM22,
-                                   ZMM24, ZMM26, ZMM28, ZMM30),
-                              (add ZMM1, ZMM3, ZMM5, ZMM7,
-                                   ZMM9, ZMM11, ZMM13, ZMM15,
-                                   ZMM17, ZMM19, ZMM21, ZMM23,
-                                   ZMM25, ZMM27, ZMM29, ZMM31)]>;
-
 def ZMMPAIRX : RegisterClass<"X86", [v32f32], 512, (add ZPAIRSX)> {let Size = 1024;}
 #endif // INTEL_FEATURE_XISA_COMMON
-
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

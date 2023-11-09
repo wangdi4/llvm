@@ -327,7 +327,7 @@ std::string getOclOrSpirvBuiltinDemangledName(StringRef Name) {
 
 const Type *getTypedPtrEltType(const Type *Ty) { return Ty; }
 
-static bool hasBuiltinTypePrefix(StringRef Name) {
+bool hasBuiltinTypePrefix(StringRef Name) {
   if (Name.starts_with("opencl.") || Name.starts_with("spirv."))
     return true;
   return false;

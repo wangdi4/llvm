@@ -1,52 +1,67 @@
 RUN: printf '\377lprofr\201' > %t
-RUN: printf '\0\0\0\0\0\0\0\10' >> %t
+RUN: printf '\0\0\0\0\0\0\0\11' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\0\0\0\0\2' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\0\0\0\0\3' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
+RUN: printf '\0\0\0\0\0\0\0\4' >> %t
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\0\0\0\0\20' >> %t
 RUN: printf '\0\0\0\1\0\4\0\0' >> %t
+RUN: printf '\0\0\0\3\0\4\0\0' >> %t
 RUN: printf '\0\0\0\2\0\4\0\0' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 
 RUN: printf '\134\370\302\114\333\030\275\254' >> %t
 RUN: printf '\0\0\0\0\0\0\0\1' >> %t
 RUN: printf '\0\0\0\1\0\4\0\0' >> %t
+RUN: printf '\0\0\0\3\0\4\0\0' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\1\0\0\0\0' >> %t
 // INTEL_CUSTOMIZATION
 // Add 2 bytes of 0 for the number of profiled loops,
-// plus 6 bytes of 0 to pad to a 64-bit aligmnent to
+// plus 2 bytes of 0 to pad to a 32-bit alignment to
 // support the addition of loop trip count value
-// profiling types done by the xmain compiler.
-RUN: printf '\0\0\0\0\0\0\0\0' >> %t
+// profiling types done by the xmain compiler, before
+// the '0003' value that represents the NumBitmapBytes
+// field of the record header.
+RUN: printf '\0\0\0\0\0\0\0\3' >> %t
 // end INTEL_CUSTOMIZATION
 
 RUN: printf '\344\023\165\112\031\035\265\067' >> %t
 RUN: printf '\0\0\0\0\0\0\0\02' >> %t
 // INTEL_CUSTOMIZATION
-// The addition of 8 bytes due to record descriptor increasing,
-// causes the pointer offset to the counters to change by 8
-// bytes in opposite direction.
-RUN: printf '\0\0\0\1\0\3\xff\xd0' >> %t
+// Note: The additional value profile in xmain can
+// cause the following line to change due to it
+// being a relative offset, although due to padding
+// bytes to end the NumBitmapBytes field at a 64-bit
+// boundary, the value is currently the same. This
+// comment serves as a placeholder for triggering
+// where a change may be necessary if the header changes.
 // end INTEL_CUSTOMIZATION
+RUN: printf '\0\0\0\1\0\3\xff\xc8' >> %t
+RUN: printf '\0\0\0\3\0\3\xff\xc3' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t
 RUN: printf '\0\0\0\02\0\0\0\0' >> %t
 // INTEL_CUSTOMIZATION
 // Add 2 bytes of 0 for the number of profiled loops,
-// plus 6 bytes of 0 to pad to a 64-bit aligmnent.
-RUN: printf '\0\0\0\0\0\0\0\0' >> %t
+// plus 2 bytes of 0 to pad to a 32-bit alignment, before
+// the '0001' value that represents the NumBitmapBytes
+// field of the record header.
+RUN: printf '\0\0\0\0\0\0\0\1' >> %t
 // end INTEL_CUSTOMIZATION
 
 RUN: printf '\0\0\0\0\0\0\0\023' >> %t
 RUN: printf '\0\0\0\0\0\0\0\067' >> %t
 RUN: printf '\0\0\0\0\0\0\0\101' >> %t
+RUN: printf '\125\125\125\052' >> %t
 RUN: printf '\7\0foo\1bar\0\0\0\0\0\0\0' >> %t
 
 RUN: llvm-profdata show %t -all-functions -counts | FileCheck %s
+RUN: llvm-profdata show %t -all-functions -text | FileCheck %s -check-prefix=MCDC
 
 CHECK: Counters:
 CHECK:   foo:
@@ -63,3 +78,14 @@ CHECK: Functions shown: 2
 CHECK: Total functions: 2
 CHECK: Maximum function count: 55
 CHECK: Maximum internal block count: 65
+
+MCDC: Num Bitmap Bytes:
+MCDC-NEXT: $3
+MCDC-NEXT: Bitmap Byte Values:
+MCDC-NEXT: 55
+MCDC-NEXT: 55
+MCDC-NEXT: 55
+MCDC: Num Bitmap Bytes:
+MCDC-NEXT: $1
+MCDC-NEXT: Bitmap Byte Values:
+MCDC-NEXT: 0x2a

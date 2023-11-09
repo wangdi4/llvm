@@ -1,6 +1,7 @@
 ; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This test verifies that the size by which the result of a pointer sub is
 ; divided is correctly updated after field deletion when the sub takes place in
@@ -11,7 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !6 {
   ; Allocate an array of structures.
-  %p = call ptr @malloc(i64 64)
+  %p = call ptr @malloc(i64 96)
 
   ; Call a function to do something.
   %val = call i32 @doSomething(ptr %p)
@@ -43,7 +44,7 @@ define i32 @doSomething(ptr "intel_dtrans_func_index"="1" %p_test) !intel.dtrans
   %t2 = ptrtoint ptr %p_test2 to i64
   %t3 = ptrtoint ptr %p_test3 to i64
   %sub = sub i64 %t2, %t3
-  %offset_idx = sdiv i64 %sub, 16
+  %offset_idx = sdiv i64 %sub, 24
 
   %sum = add i32 %valA, %valC
   ret i32 %sum

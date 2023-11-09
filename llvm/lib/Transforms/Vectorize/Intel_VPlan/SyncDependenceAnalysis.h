@@ -30,8 +30,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_CUSTOMIZATION
-
 #ifndef LLVM_ANALYSIS_SYNCDEPENDENCEANALYSIS_H
 #define LLVM_ANALYSIS_SYNCDEPENDENCEANALYSIS_H
 
@@ -41,7 +39,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "llvm/IR/Intel_VPlanTemplateHelper.h" // INTEL
+#include "llvm/IR/Intel_VPlanTemplateHelper.h"
 
 namespace llvm {
 
@@ -51,19 +49,17 @@ class Instruction;
 class LoopInfo;
 class PostDominatorTree;
 
-template <class BasicBlock> // INTEL
+template <class BasicBlock>
 using ConstBlockSet = SmallPtrSet<const BasicBlock *, 4>;
-template <class BasicBlock> // INTEL
-struct ControlDivergenceDesc {
-  using ConstBlockSet = llvm::ConstBlockSet<BasicBlock>; // INTEL
+template <class BasicBlock> struct ControlDivergenceDesc {
+  using ConstBlockSet = llvm::ConstBlockSet<BasicBlock>;
   // Join points of divergent disjoint paths.
   ConstBlockSet JoinDivBlocks;
   // Divergent loop exits
   ConstBlockSet LoopDivBlocks;
 };
 
-template <class BasicBlock> // INTEL
-struct ModifiedPO {
+template <class BasicBlock> struct ModifiedPO {
   std::vector<const BasicBlock *> LoopPO;
   std::unordered_map<const BasicBlock *, unsigned> POIndex;
   void appendBlock(const BasicBlock &BB) {
@@ -82,7 +78,6 @@ struct ModifiedPO {
 ///
 /// This analysis relates points of divergent control to points of converging
 /// divergent control. The analysis requires all loops to be reducible.
-#if INTEL_CUSTOMIZATION
 // INTEL: Templatize for VPlan hierarchy.
 template <class BasicBlockTy> class SyncDependenceAnalysisImpl {
   INTEL_INJECT_VPLAN_TEMPLATIZATION(BasicBlockTy);
@@ -92,7 +87,6 @@ public:
   ~SyncDependenceAnalysisImpl();
   SyncDependenceAnalysisImpl(const DominatorTree &DT,
                              const PostDominatorTree &PDT, const LoopInfo &LI);
-#endif // INTEL_CUSTOMIZATION
 
   /// \brief Computes divergent join points and loop exits caused by branch
   /// divergence in \p Term.
@@ -108,7 +102,7 @@ public:
 private:
   static ControlDivergenceDesc EmptyDivergenceDesc;
 
-  ModifiedPO<BasicBlock> LoopPO; // INTEL
+  ModifiedPO<BasicBlock> LoopPO;
 
   const DominatorTree &DT;
   const PostDominatorTree &PDT;
@@ -118,12 +112,8 @@ private:
       CachedControlDivDescs;
 };
 
-#if INTEL_CUSTOMIZATION
 using SyncDependenceAnalysis = SyncDependenceAnalysisImpl<llvm::BasicBlock>;
-#endif // INTEL_CUSTOMIZATION
 
 } // namespace llvm
 
 #endif // LLVM_ANALYSIS_SYNCDEPENDENCEANALYSIS_H
-
-#endif // INTEL_CUSTOMIZATION

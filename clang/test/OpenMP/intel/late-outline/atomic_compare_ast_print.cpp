@@ -101,14 +101,14 @@ T foo(T t) {
 //DUMP:FunctionDecl{{.*}}foo 'float (float)'
 //DUMP:OMPAtomicDirective
 //DUMP:OMPCompareClause
-//DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-//DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-//DUMP:ConditionalOperator {{.*}}'float':'float' lvalue
+//DUMP:BinaryOperator {{.*}}'float' lvalue '='
+//DUMP:DeclRefExpr {{.*}}'x' 'float'
+//DUMP:ConditionalOperator {{.*}}'float' lvalue
 //DUMP:BinaryOperator {{.*}}'bool' '<'
-//DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
-//DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-//DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
-//DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+//DUMP:DeclRefExpr {{.*}}'expr' 'float'
+//DUMP:DeclRefExpr {{.*}}'x' 'float'
+//DUMP:DeclRefExpr {{.*}}'expr' 'float'
+//DUMP:DeclRefExpr {{.*}}'x' 'float'
 
 //PRINT:void bar() {
 //PRINT:#pragma omp atomic compare

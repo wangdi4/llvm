@@ -357,7 +357,7 @@ bool VPLoop::isRecursivelyLCSSAForm(const VPLoopInfo &LI) const {
   });
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI,
                        unsigned Indent) const {
   ReversePostOrderTraversal<
@@ -388,7 +388,7 @@ void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI,
   }
   OS << "\n";
 }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void VPLoop::setTripCountInfo(TripCountInfo TCInfo) {
   VPBasicBlock *Latch = getLoopLatch();

@@ -5,16 +5,12 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// TODO: remove fno-fast-math option once the issue is investigated and the test
-// is fixed.
-// UNSUPPORTED: esimd_emulator
-// DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
 // INTEL_CUSTOMIZATION
 // this is a temporary fix for CMPLRTST-21037
 // we pass -fno-inline-functions to sure it won't hang in host compile
 // we don't do the same thing in intel/llvm since it will lead to runfail
 // DEFINE: %{noinlineflags} = %if cl_options %{/clang:-fno-inline-functions%} %else %{-fno-inline-functions%}
-// RUN: %{build} %{mathflags} %{noinlineflags} -I%S/.. -O2 -o %t.out
+// RUN: %{build} %{noinlineflags} -I%S/.. -O2 -o %t.out
 // end INTEL_CUSTOMIZATION
 // RUN: %{run} %t.out 3 2 1
 //

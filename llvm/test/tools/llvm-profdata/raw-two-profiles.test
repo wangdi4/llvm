@@ -1,12 +1,15 @@
 RUN: printf '\201rforpl\377' > %t-foo.profraw
-RUN: printf '\10\0\0\0\0\0\0\0' >> %t-foo.profraw
+RUN: printf '\11\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\1\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\1\0\0\0\0\0\0\0' >> %t-foo.profraw
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\10\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\0\0\4\0\1\0\0\0' >> %t-foo.profraw
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\0\0\4\0\2\0\0\0' >> %t-foo.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 
@@ -15,27 +18,37 @@ RUN: printf '\1\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\0\0\4\0\1\0\0\0' >> %t-foo.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\1\0\0\0\0\0\0\0' >> %t-foo.profraw
 // INTEL_CUSTOMIZATION
 // Add 2 bytes of 0 for the number of profiled loops,
-// plus 6 bytes of 0 to pad to a 64-bit aligmnent to
+// plus 2 bytes of 0 to pad to a 32-bit alignment to
 // support the addition of loop trip count value
-// profiling types done by the xmain compiler.
-RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
+// profiling types done by the xmain compiler, followed
+// by 4 bytes for the NumBitmapBytes field.
+// Note: This line is currently the same as the LLORG
+// version because they have 4 bytes for NumBitmapBytes
+// following the value profile data + padding. But,
+// leaving this comment here for the location that holds
+// xmain specific data.
 // end INTEL_CUSTOMIZATION
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t-foo.profraw
 
 RUN: printf '\023\0\0\0\0\0\0\0' >> %t-foo.profraw
 RUN: printf '\3\0foo\0\0\0' >> %t-foo.profraw
 
 RUN: printf '\201rforpl\377' > %t-bar.profraw
-RUN: printf '\10\0\0\0\0\0\0\0' >> %t-bar.profraw
+RUN: printf '\11\0\0\0\0\0\0\0' >> %t-bar.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-bar.profraw
 RUN: printf '\1\0\0\0\0\0\0\0' >> %t-bar.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-bar.profraw
 RUN: printf '\2\0\0\0\0\0\0\0' >> %t-bar.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-bar.profraw
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t-bar.profraw
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t-bar.profraw
 RUN: printf '\10\0\0\0\0\0\0\0' >> %t-bar.profraw
 RUN: printf '\0\0\6\0\1\0\0\0' >> %t-bar.profraw
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t-bar.profraw
 RUN: printf '\0\0\6\0\2\0\0\0' >> %t-bar.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-bar.profraw
 
@@ -44,12 +57,22 @@ RUN: printf '\02\0\0\0\0\0\0\0' >> %t-bar.profraw
 RUN: printf '\0\0\6\0\1\0\0\0' >> %t-bar.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-bar.profraw
 RUN: printf '\0\0\0\0\0\0\0\0' >> %t-bar.profraw
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t-bar.profraw
 RUN: printf '\02\0\0\0\0\0\0\0' >> %t-bar.profraw
+
 // INTEL_CUSTOMIZATION
 // Add 2 bytes of 0 for the number of profiled loops,
-// plus 6 bytes of 0 to pad to a 64-bit aligmnent.
-RUN: printf '\0\0\0\0\0\0\0\0' >> %t-bar.profraw
+// plus 2 bytes of 0 to pad to a 32-bit alignment to
+// support the addition of loop trip count value
+// profiling types done by the xmain compiler, followed
+// by 4 bytes for the NumBitmapBytes field.
+// Note: This line is currently the same as the LLORG
+// version because they have 4 bytes for NumBitmapBytes
+// following the value profile data + padding. But,
+// leaving this comment here for the location that holds
+// xmain specific data.
 // end INTEL_CUSTOMIZATION
+RUN: printf '\0\0\0\0\0\0\0\0' >> %t-bar.profraw
 
 RUN: printf '\067\0\0\0\0\0\0\0' >> %t-bar.profraw
 RUN: printf '\101\0\0\0\0\0\0\0' >> %t-bar.profraw

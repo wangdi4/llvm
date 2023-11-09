@@ -18,6 +18,8 @@
 ; Test case uses 1 rank dope vector which looks like:
 ; { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+
 ; Uplevel variable will consist of a single dope vector
 %uplevel_type = type { ptr }
 
