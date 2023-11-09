@@ -353,6 +353,13 @@ bool DriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     LVP.createMergerVPlans(VPAF);
 
     const auto *PreferredPeeling = Plan->getPreferredPeeling(VF);
+    // TODO: remove this hack after getGuaranteedPeeling is fixed in #17045
+    const auto *GuaranteedPeeling =
+        PreferredPeeling &&
+                (dyn_cast<VPlanNoPeelingAligned>(PreferredPeeling) ||
+                 dyn_cast<VPlanNoPeelingUnaligned>(PreferredPeeling))
+            ? Plan->getGuaranteedPeeling(VF)
+            : nullptr;
 
     // Run some VPlan-to-VPlan transforms for each new auxiliary loop created by
     // CFGMerger.
@@ -379,6 +386,12 @@ bool DriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         // instructions.
         TreeConflictsLowered = lowerTreeConflictsToDoublePermuteTreeReduction(
             VectorPlan, VectorPlanVF, Fn);
+
+        // For non-peel loops, if we have a guaranteed peel, we should propagate
+        // the alignment from that peel. Do so now before CG.
+        if (LpKind != CfgMergerPlanDescr::LoopType::LTPeel)
+          VPlanAlignmentAnalysis::propagateAlignment(
+              VectorPlan, TTI, PlanDescr.getVF(), GuaranteedPeeling);
       }
 
       // TODO: SOA transform missing here.

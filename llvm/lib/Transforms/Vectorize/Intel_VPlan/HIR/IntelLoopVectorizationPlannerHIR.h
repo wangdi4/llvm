@@ -118,6 +118,26 @@ public:
     return std::nullopt;
   }
 
+  /// Returns true if "llvm.loop.intel.vector.aligned" metadata is specified
+  /// and false if "llvm.loop.intel.vector.unaligned" metadata is specified.
+  /// Otherwise, it is std::nullopt.
+  std::optional<bool> readVecAlignEnabledHIR() {
+    if (TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.aligned")) {
+      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                      dbgs() << "Vector Aligned was set by the user's "
+                                "#pragma vector aligned\n");
+      return true;
+    }
+    if (TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.unaligned")) {
+      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                      dbgs()
+                          << "Vector Unaligned was set by the user's #pragma "
+                             "vector unaligned\n");
+      return false;
+    }
+    return std::nullopt;
+  }
+
   /// Returns true/false value if "llvm.loop.intel.vector.dynamic_align"/
   /// "llvm.loop.intel.vector.nodynamic_align" metadata is specified. If there
   /// is no such metadata returns corresponding switches value.
@@ -142,6 +162,7 @@ public:
     VectorlengthMD =
         TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.vectorlength");
     IsVecRemainder = readVecRemainderEnabledHIR();
+    IsVecAlign = readVecAlignEnabledHIR();
     IsDynAlign = readDynAlignEnabledHIR();
 
     // Temporarily suppress dynamic alignment if the explicit simd loop has

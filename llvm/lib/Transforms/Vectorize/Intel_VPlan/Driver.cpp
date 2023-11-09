@@ -849,7 +849,9 @@ void DriverImpl::addOptReportRemarksForVecPeel(
 
   OptRptStats.GeneralRemarks.emplace_back(
       C,
-      isa<VPlanStaticPeeling>(Variant) || isa<VPlanNoPeeling>(Variant)
+      isa<VPlanStaticPeeling>(Variant) || isa<VPlanNoPeeling>(Variant) ||
+              isa<VPlanNoPeelingAligned>(Variant) ||
+              isa<VPlanNoPeelingUnaligned>(Variant)
           ? OptRemarkID::VectorizerStaticPeeling
           : OptRemarkID::VectorizerDynamicPeeling,
       OptReportVerbosity::High);
@@ -874,7 +876,9 @@ void DriverImpl::addOptReportRemarksForScalPeel(
 
   ScalarLpI->addGeneralRemark(RemarkRecord{
       C,
-      isa<VPlanStaticPeeling>(Variant) || isa<VPlanNoPeeling>(Variant)
+      isa<VPlanStaticPeeling>(Variant) || isa<VPlanNoPeeling>(Variant) ||
+              isa<VPlanNoPeelingAligned>(Variant) ||
+              isa<VPlanNoPeelingUnaligned>(Variant)
           ? OptRemarkID::VectorizerStaticPeeling
           : OptRemarkID::VectorizerDynamicPeeling,
       OptReportVerbosity::High});

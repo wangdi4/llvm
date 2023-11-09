@@ -1043,8 +1043,6 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
   // consistent gains, and it complicates cost modeling for the main and
   // remainder loops.
   bool EnableDP = isDynAlignEnabled();
-  if (!VPlanEnableGeneralPeeling && !EnableDP)
-    return;
 
   std::map<VPlanNonMasked *, VPlanPeelingAnalysis> VPPACache;
 
@@ -1065,7 +1063,17 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
     VPlanPeelingAnalysis &VPPA = Found->second;
 
     std::unique_ptr<VPlanPeelingVariant> BestPeeling;
-    if (EnableGeneralPeelingCostModel) {
+    if (IsVecAlign.has_value()) {
+      if (IsVecAlign.value())
+        BestPeeling = std::make_unique<VPlanNoPeelingAligned>(
+            VPlanNoPeelingAligned::LoopObject);
+      else
+        BestPeeling = std::make_unique<VPlanNoPeelingUnaligned>(
+            VPlanNoPeelingUnaligned::LoopObject);
+    } else if (!VPlanEnableGeneralPeeling && !EnableDP) {
+      BestPeeling =
+          std::make_unique<VPlanNoPeeling>(VPlanNoPeeling::LoopObject);
+    } else if (EnableGeneralPeelingCostModel) {
       std::unique_ptr<VPlanCostModelInterface> CMPtr =
         createCostModel(Plan, VF);
       VPlanPeelingCostModelGeneral PeelingCM(CMPtr.get());
@@ -1232,6 +1240,22 @@ std::optional<bool> LoopVectorizationPlanner::readVecRemainderEnabled() {
     DEBUG_WITH_TYPE("VPlan_pragma_metadata",
                      dbgs() << "Scalar Remainder was set by the user's #pragma "
                                 "novecremainder\n");
+    return false;
+  }
+  return std::nullopt;
+}
+
+std::optional<bool> LoopVectorizationPlanner::readVecAlignEnabled() {
+  if (findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.aligned")) {
+    DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                    dbgs() << "Vector Aligned was set by the user's "
+                              "#pragma vector aligned\n");
+    return true;
+  }
+  if (findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.unaligned")) {
+    DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                    dbgs() << "Vector Unaligned was set by the user's #pragma "
+                              "vector unaligned\n");
     return false;
   }
   return std::nullopt;
@@ -1633,7 +1657,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       // Peeling is not supported for non-normalized loops.
       VPLoop *L = Plan->getMainLoop(true);
       if (!L->hasNormalizedInduction())
-        PeelingVariant = &VPlanNoPeeling::NoPeelLoop;
+        PeelingVariant = &VPlanNoPeeling::LoopObject;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       OS = is_contained(VPlanCostModelPrintAnalysisForVF, VF) ? &outs()
@@ -1671,6 +1695,10 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
             dbgs() << "Dynamic\n";
           else if (isa<VPlanNoPeeling>(PeelingVariant))
             dbgs() << "Disabled\n";
+          else if (isa<VPlanNoPeelingAligned>(PeelingVariant))
+            dbgs() << "Disabled(Aligned)\n";
+          else if (isa<VPlanNoPeelingUnaligned>(PeelingVariant))
+            dbgs() << "Disabled(Unaligned)\n";
           else
             dbgs() << "Static("
                    << cast<VPlanStaticPeeling>(PeelingVariant)->peelCount()
@@ -1994,13 +2022,15 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
       // If peel was forced, ensure we have a valid peel variant selected
       const auto *Peel = MPlan->getPreferredPeeling(VF);
-      if (!Peel || dyn_cast_or_null<VPlanNoPeeling>(Peel))
+      if (!Peel || dyn_cast<VPlanNoPeeling>(Peel) ||
+          dyn_cast<VPlanNoPeelingAligned>(Peel) ||
+          dyn_cast<VPlanNoPeelingUnaligned>(Peel))
         MPlan->setPreferredPeeling(VF, std::make_unique<VPlanStaticPeeling>(1));
     } else {
       // Peel was disabled: ensure peeling is unselected for all VFs.
       for (auto VF : UsedVFs) {
         MPlan->setPreferredPeeling(
-            VF, std::make_unique<VPlanNoPeeling>(VPlanNoPeeling::NoPeelLoop));
+            VF, std::make_unique<VPlanNoPeeling>(VPlanNoPeeling::LoopObject));
       }
     }
   }

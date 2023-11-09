@@ -184,8 +184,8 @@ protected:
                     const TargetLibraryInfo *TLI, const DataLayout *DL,
                     VPlanVLSAnalysis *VLSAin,
                     const loopopt::DDGraph *DDG = nullptr)
-    : Plan(Plan), VF(VF), UF(UF), TLI(TLI), DL(DL), TTI(*TTIin), VLSA(VLSAin),
-      DDG(DDG), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
+      : Plan(Plan), VF(VF), UF(UF), TLI(TLI), DL(DL), TTI(*TTIin), VLSA(VLSAin),
+        DDG(DDG), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), *TTIin, VF) {
 
     // CallVecDecisions analysis invocation.
     VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlanVector *>(Plan));
@@ -588,7 +588,7 @@ public:
     // Assume no peeling if it is not specified.
     SaveAndRestore<VPlanPeelingVariant *> RestoreOnExit(
         DefaultPeelingVariant,
-        PeelingVariant ? PeelingVariant : &VPlanNoPeeling::NoPeelLoop);
+        PeelingVariant ? PeelingVariant : &VPlanNoPeeling::LoopObject);
 
     VPInstructionCost Cost = getRangeCost(sese_depth_first(Begin, End), OS);
     CM_DEBUG(OS,
@@ -608,7 +608,7 @@ public:
     // Assume no peeling if it is not specified.
     SaveAndRestore<VPlanPeelingVariant *> RestoreOnExit(
         DefaultPeelingVariant,
-        PeelingVariant ? PeelingVariant : &VPlanNoPeeling::NoPeelLoop);
+        PeelingVariant ? PeelingVariant : &VPlanNoPeeling::LoopObject);
 
     // Initialize heuristics VPlan level data for each VPlan level getCost
     // call.

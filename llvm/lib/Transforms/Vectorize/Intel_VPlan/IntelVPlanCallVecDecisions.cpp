@@ -132,10 +132,11 @@ static VPVectorShape getShapeFromTrunc(VPlanVector &Plan,
 void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
     const VPCallInstruction *VPCall, bool Masked, int VF,
     SmallVectorImpl<bool> &ArgIsLinearPrivateMem,
-    SmallVectorImpl<VFInfo> &VFInfos) {
+    SmallVectorImpl<VFInfo> &VFInfos, const TargetTransformInfo *TTI) {
 
   std::vector<std::vector<VFParameter>> Encodings;
-  auto VPAA = VPlanAlignmentAnalysis(*Plan.getVPSE(), *Plan.getVPVT(), VF);
+  auto VPAA =
+      VPlanAlignmentAnalysis(*Plan.getVPSE(), *Plan.getVPVT(), *TTI, VF);
 
   auto *DA = Plan.getVPlanDA();
   auto SkippedArgs = VPCall->isIntelIndirectCall() ? 1 : 0;
@@ -340,7 +341,7 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
   SmallVector<bool, 8> ArgIsLinearPrivateMem;
   SmallVector<VFInfo, 8> VFInfos;
   getVectorVariantsForCallParameters(VPCall, Masked, VF, ArgIsLinearPrivateMem,
-                                     VFInfos);
+                                     VFInfos, TTI);
 
   int VariantIdx =
       TTI->getMatchingVectorVariant(VFInfos, FilteredVariants,

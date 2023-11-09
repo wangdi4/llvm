@@ -103,7 +103,9 @@ VPlanCostPair VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan,
 // then we set the trip count to MainLoopVF-1.
 unsigned VPlanPeelEvaluator::getScalarPeelTripCount(unsigned MainLoopVF) const {
   if (PeelingVariant) {
-    if (PeelingVariant->getKind() == VPPK_NoPeeling)
+    if (PeelingVariant->getKind() == VPPK_NoPeeling ||
+        PeelingVariant->getKind() == VPPK_NoPeelingAligned ||
+        PeelingVariant->getKind() == VPPK_NoPeelingUnaligned)
       return 0;
     return PeelingVariant->getKind() == VPPK_StaticPeeling
                ? cast<VPlanStaticPeeling>(PeelingVariant)->peelCount()
@@ -187,6 +189,14 @@ void VPlanPeelEvaluator::dump(raw_ostream &OS) const {
   if (PeelingVariant) {
     if (isa<VPlanNoPeeling>(PeelingVariant)) {
       PeelLoopModeStr = "(disabled)";
+      TripCountStr = "known";
+    }
+    if (isa<VPlanNoPeelingAligned>(PeelingVariant)) {
+      PeelLoopModeStr = "(disabled, aligned)";
+      TripCountStr = "known";
+    }
+    if (isa<VPlanNoPeelingUnaligned>(PeelingVariant)) {
+      PeelLoopModeStr = "(disabled, unaligned)";
       TripCountStr = "known";
     }
     if (isa<VPlanStaticPeeling>(PeelingVariant)) {

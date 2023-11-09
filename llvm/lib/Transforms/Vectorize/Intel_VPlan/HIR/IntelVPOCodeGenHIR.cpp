@@ -6238,7 +6238,7 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
 
   // For the opt-report, check if this memref was aligned by peeling.
   const bool ReportAsAligned =
-      VPlanAlignmentAnalysis(*Plan->getVPSE(), *Plan->getVPVT(), VF)
+      VPlanAlignmentAnalysis(*Plan->getVPSE(), *Plan->getVPVT(), *TTI, VF)
           .isAlignedUnitStride(*VPLoadStore, Plan->getPreferredPeeling(VF));
   auto &OptRptStats = getOptReportStats(VPLoadStore);
 
