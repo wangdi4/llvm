@@ -4768,7 +4768,7 @@ static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
             int64_t MulScale = PotentialScale / TriedScale;
 
             if (IndexValueBits + Log2_64_Ceil(MulScale) >= IndexBits)
-              return false;
+              continue;
           }
           LastLegalScale = TriedScale;
         }
@@ -4798,10 +4798,15 @@ static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
   }
 
   // Try to truncate Index's type to Data's type when it is profitable.
-  if ((IndexValueBits >= PtrBits) ||
-      ((DataBits < IndexBits) &&
-       ((IndexValueBits < DataBits) ||
-        (ZExtBits && IndexValueBits == DataBits) || AssumeNotOverflow))) {
+  if (IndexBits > PtrBits) {
+    EVT ResultVT =
+        TLI.getValueType(DL, Type::getIntNTy(*DAG.getContext(), PtrBits));
+    ElementCount NumElts = cast<VectorType>(Ptr->getType())->getElementCount();
+    EVT VT = EVT::getVectorVT(*DAG.getContext(), ResultVT, NumElts);
+    Index = DAG.getNode(ISD::TRUNCATE, Loc, VT, Index);
+  } else if ((DataBits < IndexBits) &&
+             ((IndexValueBits < DataBits) ||
+              (ZExtBits && IndexValueBits == DataBits) || AssumeNotOverflow)) {
     EVT ResultVT =
         TLI.getValueType(DL, Type::getIntNTy(*DAG.getContext(), DataBits));
     ElementCount NumElts = cast<VectorType>(Ptr->getType())->getElementCount();
@@ -4812,8 +4817,7 @@ static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
     // and transform the type of INDEX to signed type.
     // base -> base + (0x80000000 * scale)
     // index -> index - 0x80000000
-    if ((DataBits < IndexBits) && ZExtBits && (DataBits == IndexValueBits) &&
-        !AssumeNotOverflow) {
+    if (ZExtBits && (DataBits == IndexValueBits) && !AssumeNotOverflow) {
       Index = DAG.getNode(
           ISD::SUB, Loc, VT, Index,
           DAG.getConstant(1ull << (ZExtBits - 1), Loc, Index.getValueType()));

@@ -868,10 +868,68 @@ define <8 x float> @test_f32v8_dword_index_11(ptr %base, <8 x i64> %idx, <8 x i1
   ret <8 x float> %res
 }
 
+define <4 x i64> @test_i64v4_32bits_ptr_12(ptr %base, <4 x i32> %idx)
+; SKL-LABEL: test_i64v4_32bits_ptr_12:
+; SKL:       # %bb.0:
+; SKL-NEXT:    vpbroadcastd {{.*#+}} xmm1 = [12,12,12,12]
+; SKL-NEXT:    vpmulld %xmm1, %xmm0, %xmm1
+; SKL-NEXT:    vpcmpeqd %ymm2, %ymm2, %ymm2
+; SKL-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; SKL-NEXT:    vpgatherdq %ymm2, 4(%rdi,%xmm1), %ymm0
+; SKL-NEXT:    retq
+;
+; SKL-DWORD-IDX-LABEL: test_i64v4_32bits_ptr_12:
+; SKL-DWORD-IDX:       # %bb.0:
+; SKL-DWORD-IDX-NEXT:    vpaddd %xmm0, %xmm0, %xmm1
+; SKL-DWORD-IDX-NEXT:    vpaddd %xmm1, %xmm0, %xmm1
+; SKL-DWORD-IDX-NEXT:    vpcmpeqd %ymm2, %ymm2, %ymm2
+; SKL-DWORD-IDX-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; SKL-DWORD-IDX-NEXT:    vpgatherdq %ymm2, 4(%rdi,%xmm1,4), %ymm0
+; SKL-DWORD-IDX-NEXT:    retq
+;
+; SKL-32-LABEL: test_i64v4_32bits_ptr_12:
+; SKL-32:       # %bb.0:
+; SKL-32-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; SKL-32-NEXT:    vpbroadcastd {{.*#+}} xmm1 = [12,12,12,12]
+; SKL-32-NEXT:    vpmulld %xmm1, %xmm0, %xmm1
+; SKL-32-NEXT:    vpcmpeqd %ymm2, %ymm2, %ymm2
+; SKL-32-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; SKL-32-NEXT:    vpgatherdq %ymm2, 4(%eax,%xmm1), %ymm0
+; SKL-32-NEXT:    retl
+;
+; SKX-LABEL: test_i64v4_32bits_ptr_12:
+; SKX:       # %bb.0:
+; SKX-NEXT:    vpslld $2, %xmm0, %xmm1
+; SKX-NEXT:    vpslld $3, %xmm0, %xmm0
+; SKX-NEXT:    vpaddd %xmm1, %xmm0, %xmm1
+; SKX-NEXT:    kxnorw %k0, %k0, %k1
+; SKX-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; SKX-NEXT:    vpgatherdq 4(%rdi,%xmm1), %ymm0 {%k1}
+; SKX-NEXT:    retq
+;
+; SKX-32-LABEL: test_i64v4_32bits_ptr_12:
+; SKX-32:       # %bb.0:
+; SKX-32-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; SKX-32-NEXT:    vpslld $2, %xmm0, %xmm1
+; SKX-32-NEXT:    vpslld $3, %xmm0, %xmm0
+; SKX-32-NEXT:    vpaddd %xmm1, %xmm0, %xmm1
+; SKX-32-NEXT:    kxnorw %k0, %k0, %k1
+; SKX-32-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; SKX-32-NEXT:    vpgatherdq 4(%eax,%xmm1), %ymm0 {%k1}
+; SKX-32-NEXT:    retl
+{
+  %gep = getelementptr inbounds %F20, ptr %base, <4 x i32> %idx, i32 1
+  %res = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> %gep, i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> poison)
+  ret <4 x i64> %res
+}
+
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(read)
 declare <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr>, i32 immarg, <8 x i1>, <8 x i32>) #0
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(read)
 declare <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr>, i32 immarg, <8 x i1>, <8 x float>) #0
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(read)
+declare <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr>, i32 immarg, <4 x i1>, <4 x i64>) #0
 
 attributes #0 = { nocallback nofree nosync nounwind willreturn memory(read) }
