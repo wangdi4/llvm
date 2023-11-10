@@ -795,20 +795,6 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
         Reserved.set(*AI);
     }
   }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  // Reserve the extended general purpose registers.
-  // NOTE: `Is64Bit` is added here to allow passsing EGPR flags to 32-bit tests
-  // (for convenience)
-  // TODO: Remove it when upstreaming
-  if (!Is64Bit || !MF.getSubtarget<X86Subtarget>().hasEGPR()) {
-    for (unsigned n = 0; n != 16; ++n) {
-      for (MCRegAliasIterator AI(X86::R16 + n, this, true); AI.isValid(); ++AI)
-        Reserved.set(*AI);
-    }
-  }
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
 
   // Reserve the extended general purpose registers.
   if (!Is64Bit || !MF.getSubtarget<X86Subtarget>().hasEGPR())
@@ -832,10 +818,15 @@ unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
   // APX registers (R16-R31)
   //
   // and try to return the minimum number of registers supported by the target.
-  assert((X86::R15WH + 1 == X86 ::YMM0) && (X86::YMM15 + 1 == X86::K0) &&
-         (X86::K6_K7 + 1 == X86::TMMCFG) && (X86::TMM7 + 1 == X86::R16) &&
-         (X86::R31WH + 1 == X86::NUM_TARGET_REGS) &&
-         "Register number may be incorrect");
+#if INTEL_CUSTOMIZATION
+    assert(
+          (X86::XMM14_XMM15 + 1 == X86 ::YMM0) && (X86::YMM14_YMM15 + 1 == X86::K0) &&
+          (X86::ZMM16_ZMM17_ZMM18_ZMM19_ZMM20_ZMM21_ZMM22_ZMM23_ZMM24_ZMM25_ZMM26_ZMM27_ZMM28_ZMM29_ZMM30_ZMM31 +
+          1 == X86::TMMCFG) &&
+          (X86::TMM4_TMM5_TMM6_TMM7 + 1 == X86::R16) &&
+          (X86::R31WH + 1 == X86::NUM_TARGET_REGS) &&
+          "Register number may be incorrect");
+#endif // INTEL_CUSTOMIZATION
 
   const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
   if (ST.hasEGPR())

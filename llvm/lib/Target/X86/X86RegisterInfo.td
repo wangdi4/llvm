@@ -186,30 +186,6 @@ def R31B : X86Reg<"r31b", 31>;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-// APX only, requires REX2 or EVEX.
-let PositionOrder = 4 in {
-def R16B : X86Reg<"r16b", 16>;
-def R17B : X86Reg<"r17b", 17>;
-def R18B : X86Reg<"r18b", 18>;
-def R19B : X86Reg<"r19b", 19>;
-def R20B : X86Reg<"r20b", 20>;
-def R21B : X86Reg<"r21b", 21>;
-def R22B : X86Reg<"r22b", 22>;
-def R23B : X86Reg<"r23b", 23>;
-def R24B : X86Reg<"r24b", 24>;
-def R25B : X86Reg<"r25b", 25>;
-def R26B : X86Reg<"r26b", 26>;
-def R27B : X86Reg<"r27b", 27>;
-def R28B : X86Reg<"r28b", 28>;
-def R29B : X86Reg<"r29b", 29>;
-def R30B : X86Reg<"r30b", 30>;
-def R31B : X86Reg<"r31b", 31>;
-}
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-
 let isArtificial = 1 in {
 // High byte of the low 16 bits of the super-register:
 def SIH   : X86Reg<"", -1>;
@@ -327,32 +303,6 @@ def R30W : X86Reg<"r30w", 30, [R30B,R30BH]>;
 def R31W : X86Reg<"r31w", 31, [R31B,R31BH]>;
 }
 }
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-// APX only, requires REX2 or EVEX.
-let SubRegIndices = [sub_8bit, sub_8bit_hi_phony], CoveredBySubRegs = 1 in {
-let PositionOrder = 4 in {
-def R16W : X86Reg<"r16w", 16, [R16B,R16BH]>;
-def R17W : X86Reg<"r17w", 17, [R17B,R17BH]>;
-def R18W : X86Reg<"r18w", 18, [R18B,R18BH]>;
-def R19W : X86Reg<"r19w", 19, [R19B,R19BH]>;
-def R20W : X86Reg<"r20w", 20, [R20B,R20BH]>;
-def R21W : X86Reg<"r21w", 21, [R21B,R21BH]>;
-def R22W : X86Reg<"r22w", 22, [R22B,R22BH]>;
-def R23W : X86Reg<"r23w", 23, [R23B,R23BH]>;
-def R24W : X86Reg<"r24w", 24, [R24B,R24BH]>;
-def R25W : X86Reg<"r25w", 25, [R25B,R25BH]>;
-def R26W : X86Reg<"r26w", 26, [R26B,R26BH]>;
-def R27W : X86Reg<"r27w", 27, [R27B,R27BH]>;
-def R28W : X86Reg<"r28w", 28, [R28B,R28BH]>;
-def R29W : X86Reg<"r29w", 29, [R29B,R29BH]>;
-def R30W : X86Reg<"r30w", 30, [R30B,R30BH]>;
-def R31W : X86Reg<"r31w", 31, [R31B,R31BH]>;
-}
-}
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
 
 // 32-bit registers
 let SubRegIndices = [sub_16bit, sub_16bit_hi], CoveredBySubRegs = 1 in {
@@ -916,20 +866,6 @@ def GR32_NOREX2_NOSP : RegisterClass<"X86", [i32], 32,
 def GR64_NOREX2_NOSP : RegisterClass<"X86", [i64], 64,
                                     (sub GR64_NOREX2, RSP, RIP)>;
 }
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-let GeneratePressureSet = 0 in {
-// GR32_NOREX2_NOSP - GR32_NOREX2 registers except ESP.
-def GR32_NOREX2_NOSP : RegisterClass<"X86", [i32], 32,
-                                    (sub GR32_NOREX2, ESP)>;
-
-// GR64_NOREX2_NOSP - GR64_NOREX2 registers except RSP, RIP.
-def GR64_NOREX2_NOSP : RegisterClass<"X86", [i64], 64,
-                                    (sub GR64_NOREX2, RSP, RIP)>;
-}
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
 
 // Register classes used for ABIs that use 32-bit address accesses,
 // while using the whole x86_64 ISA.
