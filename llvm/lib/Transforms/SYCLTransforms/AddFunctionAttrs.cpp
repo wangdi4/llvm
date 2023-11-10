@@ -107,24 +107,22 @@ static bool handleSyncBuiltinAttributes(Module &M) {
   return true;
 }
 
-// Remove memory(none) attribute from TID builtin and its user functions /
-// callsites recursively to resolve following two vectorization issues:
-// * In IR translated from spirv, tid builtins have memory(none) attribute, but
-//   don't have convergent attribute. If a not-inlined function only calls these
-//   builtins, it also has memory(none) attribute.
-//   LICM pass hoists the function to SIMD loop preheader, thus breaking
-//   vectorized code.
-// * TID builtin's memory(none) attribute may be proprogated to a
-//   user function. Call to the function is then uniform in vectorizer
-//   divergence analysis. However, the call should be divergent.
+// In IR translated from spirv, tid builtins have memory(none) attribute, but
+// don't have convergent attribute. If a not-inlined function only calls these
+// builtins, it also has memory(none) attribute.
+// LICM pass hoists a call of the function to SIMD loop preheader, thus breaking
+// vectorized code. Therefore, we add convergent attribute to forbid the hoist.
+// The attribute is propagated recursively to user functions and calls.
+//
+// This aligns with behavior of OpenCL input that conservatively tid builtin has
+// convergent attribute.
 static bool handleTidFuncAttributes(Module &M) {
   SmallVector<Function *> WorkList;
   DenseSet<Function *> Visited;
   std::string Names[] = {mangledGetGID(), mangledGetLID(),
-                         mangledGetGlobalLinearId(), mangledGetLocalLinearId(),
                          mangledGetSubGroupLocalId()};
-  for (auto Name : Names) {
-    if (auto *F = M.getFunction(Name)) {
+  for (const auto &Name : Names) {
+    if (auto *F = M.getFunction(Name); F && !F->isConvergent()) {
       WorkList.push_back(F);
       Visited.insert(F);
     }
@@ -132,12 +130,10 @@ static bool handleTidFuncAttributes(Module &M) {
 
   while (!WorkList.empty()) {
     Function *F = WorkList.pop_back_val();
-    if (F->doesNotAccessMemory())
-      F->removeFnAttr(Attribute::Memory);
+    F->setConvergent();
     for (User *U : F->users()) {
       if (auto *CI = dyn_cast<CallInst>(U)) {
-        if (CI->doesNotAccessMemory())
-          CI->removeFnAttr(Attribute::Memory);
+        CI->setConvergent();
         Function *Caller = CI->getFunction();
         if (Visited.insert(Caller).second)
           WorkList.push_back(Caller);

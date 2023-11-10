@@ -1,0 +1,27 @@
+# REQUIRES: intel_feature_isa_apx_f
+# RUN: llvm-mc -triple x86_64 -show-encoding -x86-asm-syntax=intel -output-asm-variant=1 %s | FileCheck %s
+
+# CHECK: push2p	rcx, rax
+# CHECK: encoding: [0x62,0xf4,0xfc,0x18,0xff,0xf1]
+         push2p	rcx, rax
+# CHECK: push2p	rcx, r16
+# CHECK: encoding: [0x62,0xf4,0xfc,0x10,0xff,0xf1]
+         push2p	rcx, r16
+# CHECK: push2p	r17, rax
+# CHECK: encoding: [0x62,0xfc,0xfc,0x18,0xff,0xf1]
+         push2p	r17, rax
+# CHECK: push2p	r17, r16
+# CHECK: encoding: [0x62,0xfc,0xfc,0x10,0xff,0xf1]
+         push2p	r17, r16
+# CHECK: pop2p	rcx, rax
+# CHECK: encoding: [0x62,0xf4,0xfc,0x18,0x8f,0xc1]
+         pop2p	rcx, rax
+# CHECK: pop2p	rcx, r16
+# CHECK: encoding: [0x62,0xf4,0xfc,0x10,0x8f,0xc1]
+         pop2p	rcx, r16
+# CHECK: pop2p	r17, rax
+# CHECK: encoding: [0x62,0xfc,0xfc,0x18,0x8f,0xc1]
+         pop2p	r17, rax
+# CHECK: pop2p	r17, r16
+# CHECK: encoding: [0x62,0xfc,0xfc,0x10,0x8f,0xc1]
+         pop2p	r17, r16

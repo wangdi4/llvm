@@ -7,16 +7,14 @@
 ; CHECK-NEXT: Running pass: ExternalizeGlobalVariablesPass
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
-; CHECK-NEXT: Running pass: AddFunctionAttrsPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
+; CHECK:      Running pass: AddFunctionAttrsPass
+; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK-NEXT: Running pass: SGRemapWICallPass
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: DetectRecursionPass
-; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
+; CHECK:      Running analysis: ImplicitArgsAnalysis
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT: Running pass: TaskSeqAsyncHandling
 ; CHECK-NEXT: Running pass: ResolveMatrixFillPass

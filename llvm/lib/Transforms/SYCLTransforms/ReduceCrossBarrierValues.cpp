@@ -36,8 +36,8 @@ static bool isSafeToCopy(Instruction *Inst, RuntimeService &RTS) {
   if (isa<AllocaInst>(Inst))
     return false;
 
-  // A few TID builtins's memory(none) attribute is removed in AddFunctionAttrs
-  // pass. Check their names before checking if it may read or write memory.
+  // In case TID builtins's memory(none) attribute is removed, check their names
+  // before checking if it may read or write memory.
   if (auto *Call = dyn_cast<CallBase>(Inst)) {
     Function *CalledFunc = Call->getCalledFunction();
     if (CalledFunc && RTS.isSafeToSpeculativeExecute(CalledFunc->getName()))
