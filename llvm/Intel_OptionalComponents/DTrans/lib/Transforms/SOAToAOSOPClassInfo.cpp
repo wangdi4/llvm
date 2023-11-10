@@ -202,6 +202,10 @@ ClassInfo::categorizeFunctionUsingSignature(Function *F,
 // %b = getelementptr %"class.Base", %"class.Base"* %Obj, i64 0, i32 1
 // %d = getelementptr %"class.D", %"class.D"* %b, i64 0, i32 0
 //
+// or
+//
+// getelementptr i8, ptr %Obj, i32 8
+//
 bool ClassInfo::isAccessingFieldOfArgClass(const GetElementPtrInst *GEP,
                                            Value *Obj, int32_t *Idx) {
   // Return true if GEP is computing address of base object.
@@ -219,19 +223,38 @@ bool ClassInfo::isAccessingFieldOfArgClass(const GetElementPtrInst *GEP,
   };
   Value *GEPOp = GEP->getOperand(0);
 
+  llvm::Type *SrcTy = GEP->getSourceElementType();
   auto *G = dyn_cast<GetElementPtrInst>(GEPOp);
   // Get Base object if it is computing address of base object.
   if (G && IsGEPBaseObjAddr(G))
     GEPOp = G->getOperand(0);
   if (GEPOp != Obj)
     return false;
-  if (!isa<StructType>(GEP->getSourceElementType()))
-    return false;
-  if (GEP->getNumIndices() != 2 || !GEP->hasAllConstantIndices())
-    return false;
-  if (!cast<Constant>(GEP->getOperand(1))->isZeroValue())
-    return false;
-  *Idx = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
+  if (isa<StructType>(SrcTy)) {
+    if (GEP->getNumIndices() != 2 || !GEP->hasAllConstantIndices())
+      return false;
+    if (!cast<Constant>(GEP->getOperand(1))->isZeroValue())
+      return false;
+    *Idx = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
+  } else {
+    // Check if this is ByteFlattened GEP.
+    if (GEP->getNumIndices() != 1 || !GEP->hasAllConstantIndices())
+      return false;
+    auto InfoPair =
+        DTInfo.getByteFlattenedGEPElement(const_cast<GetElementPtrInst *>(GEP));
+    if (!InfoPair.first)
+      return false;
+    auto *SType = dyn_cast<DTransStructType>(InfoPair.first);
+    if (!SType)
+      return false;
+    DTransType *GEPTy = SType->getFieldType(InfoPair.second);
+    if (isa<DTransStructType>(GEPTy))
+      GEPTy = cast<DTransStructType>(GEPTy)->getFieldType(0);
+    // Don't handle PtrToVFTable here.
+    if (isPtrToVFTable(GEPTy))
+      return false;
+    *Idx = InfoPair.second;
+  }
   if (G)
     Visited.insert(G);
   Visited.insert(GEP);
@@ -244,17 +267,37 @@ bool ClassInfo::isAccessingFieldOfArgClass(const GetElementPtrInst *GEP,
 // Ex:
 // getelementptr %"class.Ref", %"class.Ref"* %Obj, i64 0, i32 0, i32 0
 //
+// or
+//
+// getelementptr i8, ptr %Obj, i32 0
+//
 bool ClassInfo::isAccessingVTableFieldInBaseClass(const GetElementPtrInst *GEP,
                                                   Argument *Obj) {
   if (GEP->getOperand(0) != Obj)
     return false;
-  if (!isa<StructType>(GEP->getSourceElementType()))
-    return false;
-  if (GEP->getNumIndices() != 3)
-    return false;
+  llvm::Type *SrcTy = GEP->getSourceElementType();
+  DTransType *GEPTy;
   if (!GEP->hasAllZeroIndices())
     return false;
-  auto *GEPTy = getResultElementDTransType(GEP);
+  if (isa<StructType>(SrcTy)) {
+    if (GEP->getNumIndices() != 3)
+      return false;
+    GEPTy = getResultElementDTransType(GEP);
+  } else {
+    // Check if this is ByteFlattened GEP.
+    if (GEP->getNumIndices() != 1)
+      return false;
+    auto InfoPair =
+        DTInfo.getByteFlattenedGEPElement(const_cast<GetElementPtrInst *>(GEP));
+    if (!InfoPair.first)
+      return false;
+    auto *SType = dyn_cast<DTransStructType>(InfoPair.first);
+    if (!SType)
+      return false;
+    GEPTy = SType->getFieldType(InfoPair.second);
+    if (isa<DTransStructType>(GEPTy))
+      GEPTy = cast<DTransStructType>(GEPTy)->getFieldType(0);
+  }
   if (!isPtrToVFTable(GEPTy))
     return false;
   Visited.insert(GEP);

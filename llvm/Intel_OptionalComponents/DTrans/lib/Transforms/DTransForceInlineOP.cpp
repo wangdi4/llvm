@@ -177,7 +177,7 @@ bool DTransForceInlineOP::run(
     if (!IsEmptyFunction(F))
       F->addFnAttr("noinline-dtrans");
 
-  SmallSet<Function *, 32> MemInitFuncs;
+  SmallSetVector<Function *, 32> MemInitFuncs;
   // Only SOAToAOS candidates are considered for MemInitTrimDown.
   for (auto *TI : SOAToAOSCandidates) {
     dtransOP::SOACandidateInfo MemInfo(MDReader);
