@@ -6338,18 +6338,15 @@ static void *libigdrcl_so_handle = nullptr;
 INTERCEPTOR(void*, dlopen, const char *filename, int flag) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER_NOIGNORE(ctx, dlopen, filename, flag);
-<<<<<<< HEAD
-  if (filename) COMMON_INTERCEPTOR_READ_STRING(ctx, filename, 0);
+
+  if (filename) {
+    COMMON_INTERCEPTOR_READ_STRING(ctx, filename, 0);
 #if INTEL_CUSTOMIZATION
   if (IsInSyclContext() && (flag & RTLD_DEEPBIND)) {
     // TODO: Only clear this flag for our libraries, not for user's libraries
     flag &= ~RTLD_DEEPBIND;
   }
 #endif  // INTEL_CUSTOMIZATION
-=======
-
-  if (filename) {
-    COMMON_INTERCEPTOR_READ_STRING(ctx, filename, 0);
 
 #  if !SANITIZER_DYNAMIC
     // We care about a very specific use-case: dladdr on
@@ -6377,7 +6374,6 @@ INTERCEPTOR(void*, dlopen, const char *filename, int flag) {
 #  endif  // !SANITIZER_DYNAMIC
   }
 
->>>>>>> 0be4c6b9483594494051e8f1f67afc2b516270ca
   void *res = COMMON_INTERCEPTOR_DLOPEN(filename, flag);
 #if INTEL_CUSTOMIZATION
   if (IsInSyclContext() && filename &&
