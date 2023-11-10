@@ -218,20 +218,10 @@ X86RegisterInfo::getLargestLegalSuperClass(const TargetRegisterClass *RC,
     case X86::GR16RegClassID:
     case X86::GR32RegClassID:
     case X86::GR64RegClassID:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-=======
->>>>>>> c9017bc79397e12734b58165273ae70f328d0002
     case X86::GR8_NOREX2RegClassID:
     case X86::GR16_NOREX2RegClassID:
     case X86::GR32_NOREX2RegClassID:
     case X86::GR64_NOREX2RegClassID:
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> c9017bc79397e12734b58165273ae70f328d0002
     case X86::RFP32RegClassID:
     case X86::RFP64RegClassID:
     case X86::RFP80RegClassID:
@@ -842,34 +832,6 @@ unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
   // APX registers (R16-R31)
   //
   // and try to return the minimum number of registers supported by the target.
-<<<<<<< HEAD
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  assert(
-      (X86::XMM14_XMM15 + 1 == X86 ::YMM0) && (X86::YMM14_YMM15 + 1 == X86::K0) &&
-      (X86::ZMM16_ZMM17_ZMM18_ZMM19_ZMM20_ZMM21_ZMM22_ZMM23_ZMM24_ZMM25_ZMM26_ZMM27_ZMM28_ZMM29_ZMM30_ZMM31 +
-           1 ==
-       X86::TMMCFG) &&
-      (X86::TMM4_TMM5_TMM6_TMM7 + 1 == X86::R16) &&
-      (X86::R31WH + 1 == X86::NUM_TARGET_REGS) &&
-      "Register number may be incorrect");
-
-  const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
-  if (ST.hasEGPR())
-    return X86::NUM_TARGET_REGS;
-  if (ST.hasAMXTILE())
-    return X86::TMM4_TMM5_TMM6_TMM7 + 1;
-  if (ST.hasAVX3())
-    return X86::
-               ZMM16_ZMM17_ZMM18_ZMM19_ZMM20_ZMM21_ZMM22_ZMM23_ZMM24_ZMM25_ZMM26_ZMM27_ZMM28_ZMM29_ZMM30_ZMM31 +
-           1;
-  if (ST.hasAVX())
-    return X86::YMM14_YMM15 + 1;
-  return X86::R15WH + 1;
-#else // INTEL_FEATURE_ISA_APX_F
-=======
->>>>>>> c9017bc79397e12734b58165273ae70f328d0002
   assert((X86::R15WH + 1 == X86 ::YMM0) && (X86::YMM15 + 1 == X86::K0) &&
          (X86::K6_K7 + 1 == X86::TMMCFG) && (X86::TMM7 + 1 == X86::R16) &&
          (X86::R31WH + 1 == X86::NUM_TARGET_REGS) &&
@@ -885,8 +847,6 @@ unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
   if (ST.hasAVX())
     return X86::YMM15 + 1;
   return X86::R15WH + 1;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86RegisterInfo::isArgumentRegister(const MachineFunction &MF,

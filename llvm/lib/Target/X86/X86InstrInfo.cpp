@@ -170,7 +170,6 @@ X86InstrInfo::X86InstrInfo(X86Subtarget &STI)
       Subtarget(STI), RI(STI.getTargetTriple()) {
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // CMPLRLLVM-40015: Skip doing FMA for some expressions to accommodate precision
 // tolerance.
@@ -201,10 +200,8 @@ bool X86InstrInfo::shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
   }
   return true;
 }
+#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_FEATURE_ISA_APX_F
-=======
->>>>>>> c9017bc79397e12734b58165273ae70f328d0002
 const TargetRegisterClass *
 X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
                           const TargetRegisterInfo *TRI,
@@ -215,12 +212,14 @@ X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
   if (!RC || !Subtarget.hasEGPR())
     return RC;
 
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
   if (X86II::canUseApxExtendedReg(MCID) &&
       !X86II::isUnImplementedForEGPR(MCID.Opcode))
-=======
+#else  // INTEL_FEATURE_ISA_APX_F
   if (X86II::canUseApxExtendedReg(MCID))
->>>>>>> c9017bc79397e12734b58165273ae70f328d0002
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     return RC;
 
   switch (RC->getID()) {
@@ -240,11 +239,6 @@ X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
     return &X86::GR64_NOREX2_NOSPRegClass;
   }
 }
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> c9017bc79397e12734b58165273ae70f328d0002
 
 bool
 X86InstrInfo::isCoalescableExtInstr(const MachineInstr &MI,
