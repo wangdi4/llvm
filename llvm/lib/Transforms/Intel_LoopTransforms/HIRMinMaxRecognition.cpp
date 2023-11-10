@@ -360,38 +360,3 @@ PreservedAnalyses HIRMinMaxRecognitionPass::runImpl(
 
   return PreservedAnalyses::all();
 }
-
-class HIRMinMaxRecognitionLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRMinMaxRecognitionLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRMinMaxRecognitionLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRMinMaxRecognition(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
-        .run();
-  }
-};
-
-char HIRMinMaxRecognitionLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRMinMaxRecognitionLegacyPass, "hir-minmax-recognition",
-                      "HIR MinMax Recognition", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRMinMaxRecognitionLegacyPass, "hir-minmax-recognition",
-                    "HIR MinMax Recognition", false, false)
-
-FunctionPass *llvm::createHIRMinMaxRecognitionPass() {
-  return new HIRMinMaxRecognitionLegacyPass();
-}

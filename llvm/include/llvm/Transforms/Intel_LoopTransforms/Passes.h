@@ -48,34 +48,6 @@ FunctionPass *createHIRPreVecCompleteUnrollPass(unsigned OptLevel = 0,
 FunctionPass *createHIRPostVecCompleteUnrollPass(unsigned OptLevel = 0,
                                                  bool PragmaOnlyUnroll = false);
 
-/// createHIRLoopDistributionForMemRecPass - This creates a pass that
-/// performs Loop Distribution for breaking memory recurrences.
-FunctionPass *createHIRLoopDistributionForMemRecPass();
-
-/// createHIRLoopDistributionForLoopNestPass - This creates a pass that
-/// performs Loop Distribution for enabling perfect Loop Nests.
-FunctionPass *createHIRLoopDistributionForLoopNestPass();
-
-/// createHIRLoopInterchangePass - This creates a pass that performs Loop
-/// Interchange.
-FunctionPass *createHIRLoopInterchangePass();
-
-/// createHIRLoopBlockingPass - This creates a pass that performs Loop
-/// Blocking.
-FunctionPass *createHIRLoopBlockingPass(bool SinkForMultiCopy = true);
-
-/// createHIRPragmaLoopBlockingPass - This creates a pass that performs Loop
-/// Blocking for pragma directives.
-FunctionPass *createHIRPragmaLoopBlockingPass();
-
-/// createHIRLoopRematerializePass - This creates a pass that performs Loop
-/// Rematerialize.
-FunctionPass *createHIRLoopRematerializePass();
-
-/// createHIRLoopRerollPass - This creates a pass that performs Loop
-/// Reroll.
-FunctionPass *createHIRLoopRerollPass();
-
 /// createHIRRuntimeDDPass - This creates a HIR Loop pass that is used
 /// for Runtime DD transformation.
 FunctionPass *createHIRRuntimeDDPass();
@@ -83,20 +55,6 @@ FunctionPass *createHIRRuntimeDDPass();
 /// createHIRUnrollAndJamPass - This creates a pass that performs unroll & jam
 /// on loops.
 FunctionPass *createHIRUnrollAndJamPass(bool PragmaOnlyUnroll = false);
-
-/// createHIRLoopReversalPass - This creates a HIR Loop pass that performs Loop
-/// Reversal.
-FunctionPass *createHIRLoopReversalPass();
-
-/// createHIRLMMPass - This creates a HIR Loop pass that performs Loop
-/// Memory Motion.
-/// \p LoopNestLevelOnly indicates whether the hoisting is only allowed outside
-/// the outermost loop.
-FunctionPass *createHIRLMMPass(bool LoopNestLevelOnly = false);
-
-/// createHIRLoopCollapsePass - This creates a HIR Loop pass that performs Loop
-/// Collapse
-FunctionPass *createHIRLoopCollapsePass();
 
 /// createHIRSymbolicTripCountCompleteUnrollLegacyPass - This creates a HIR Loop
 /// pass that performs Loop based pattern matching.
@@ -117,35 +75,14 @@ FunctionPass *createHIRScalarReplArrayPass();
 /// Creates pass that splits loops based on variant predicates.
 FunctionPass *createHIROptVarPredicatePass();
 
-/// Creates pass that multiversions loop for the probable trip count value.
-FunctionPass *createHIRMVForConstUBPass();
-
-/// Creates pass that multiversions loop for variable strides.
-FunctionPass *createHIRMVForVariableStridePass();
-
-/// Creates pass that performs loop concatenation.
-FunctionPass *createHIRLoopConcatenationPass();
-
-/// Creates pass that fuses loops.
-FunctionPass *createHIRLoopFusionPass();
-
 /// This creates a pass that emits HIR opt report.
 FunctionPass *createHIROptReportEmitterWrapperPass();
-
-/// Create pass that computes last value of a temp.
-FunctionPass *createHIRLastValueComputationPass();
 
 /// Create pass that propagate casted IV for memory references.
 FunctionPass *createHIRPropagateCastedIVPass();
 
-/// Create pass that rerolls multi-exit loops.
-FunctionPass *createHIRMultiExitLoopRerollPass();
-
 /// Creates a pass that recognizes parallel loops.
 FunctionPass *createHIRRecognizeParLoopPass();
-
-/// Create pass that performs min/max idiom recognition for inner loops.
-FunctionPass *createHIRMinMaxRecognitionPass();
 
 /// Create pass that prefetches memrefs.
 FunctionPass *createHIRPrefetchingPass();
@@ -155,9 +92,6 @@ FunctionPass *createHIRSinkingForPerfectLoopnestPass();
 
 /// Create pass that enables undosinking for perfect Loop nest.
 FunctionPass *createHIRUndoSinkingForPerfectLoopnestPass();
-
-/// Create pass that sinks loop invariant memory reductions.
-FunctionPass *createHIRMemoryReductionSinkingPass();
 
 /// Create pass that performs row-wise multiversioning.
 FunctionPass *createHIRRowWiseMVPass();

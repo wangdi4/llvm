@@ -418,17 +418,6 @@ private:
   unsigned getScaledScalarExpandedTempThreshold() const;
 };
 
-class HIRLoopDistributionLegacyPass : public HIRTransformPass {
-  DistHeuristics DistCostModel;
-
-public:
-  HIRLoopDistributionLegacyPass(char &ID, DistHeuristics DistCostModel)
-      : HIRTransformPass(ID), DistCostModel(DistCostModel) {}
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  bool runOnFunction(Function &F) override;
-};
-
 } // namespace distribute
 } // namespace loopopt
 } // namespace llvm
