@@ -451,7 +451,7 @@ public:
   }
 };
 
-class MCLEBFragment : public MCFragment {
+class MCLEBFragment final : public MCEncodedFragmentWithFixups<10, 1> {
   /// True if this is a sleb128, false if uleb128.
   bool IsSigned;
 
@@ -461,17 +461,16 @@ class MCLEBFragment : public MCFragment {
   SmallString<8> Contents;
 
 public:
-  MCLEBFragment(const MCExpr &Value_, bool IsSigned_, MCSection *Sec = nullptr)
-      : MCFragment(FT_LEB, false, Sec), IsSigned(IsSigned_), Value(&Value_) {
+  MCLEBFragment(const MCExpr &Value, bool IsSigned, MCSection *Sec = nullptr)
+      : MCEncodedFragmentWithFixups<10, 1>(FT_LEB, false, Sec),
+        IsSigned(IsSigned), Value(&Value) {
     Contents.push_back(0);
   }
 
   const MCExpr &getValue() const { return *Value; }
+  void setValue(const MCExpr *Expr) { Value = Expr; }
 
   bool isSigned() const { return IsSigned; }
-
-  SmallString<8> &getContents() { return Contents; }
-  const SmallString<8> &getContents() const { return Contents; }
 
   /// @}
 
