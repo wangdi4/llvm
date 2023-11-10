@@ -127,7 +127,6 @@ void Instruction::handleMarkerRemoval() {
 }
 
 BasicBlock::iterator Instruction::eraseFromParent() {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #ifndef NDEBUG
   // Deleting a terminator instruction with an attached opt-report metadata
@@ -146,9 +145,7 @@ BasicBlock::iterator Instruction::eraseFromParent() {
           llvm_unreachable("The deleted OptReport will be missing.");
 #endif  // NDEBUG
 #endif  // INTEL_CUSTOMIZATION
-=======
   handleMarkerRemoval();
->>>>>>> b002b38fd9f9bd66c7364eb4e9d639da9a5a66c7
   return getParent()->getInstList().erase(getIterator());
 }
 
