@@ -38,8 +38,17 @@ const size_t MAX_FORMAT_LEN = 128;
 // by __opencl_printf
 const size_t MAX_CONVERSION_LEN = 1024; // <- was 4096;
 
+#ifdef __INTEL_LLVM_COMPILER
+#define COMPILER_RT_HAS_FLOAT16
+#endif
+#ifdef COMPILER_RT_HAS_FLOAT16
+typedef _Float16 fp16_repr_t;
+#else
+typedef uint16_t fp16_repr_t;
+#endif
+
 // Defined in backend/libraries/ocl_builtins/soft_math
-extern "C" LLVM_BACKEND_API float __gnu_h2f_ieee(uint16_t a);
+extern "C" LLVM_BACKEND_API float __gnu_h2f_ieee(fp16_repr_t a);
 
 // This function allows working with the packed args buffer similarly to the
 // way the standard va_* macros work.
@@ -99,7 +108,7 @@ const char *CopyAndAdvance(const char *src, const char *srcEnd, size_t size,
 
   switch (size) {
   case 2: {
-    uint16_t u16;
+    fp16_repr_t u16;
     std::copy(src, src + size, (char *)&u16);
     dest = __gnu_h2f_ieee(u16);
     break;
