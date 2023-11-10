@@ -265,7 +265,7 @@ block_load_impl(const T *p, simd_mask<1> pred, FlagsT flags) {
 
   constexpr int SmallIntFactor64Bit = sizeof(uint64_t) / sizeof(T);
   constexpr int SmallIntFactor32Bit =
-      (std::max)(static_cast<size_t>(1), sizeof(uint32_t) / sizeof(T));
+      sizeof(uint32_t) / sizeof(T) > 1 ? sizeof(uint32_t) / sizeof(T) : 1;
   static_assert(NElts > 0 && NElts % SmallIntFactor32Bit == 0,
                 "Number of elements is not supported by Transposed load");
 
@@ -351,7 +351,7 @@ block_load_impl(const T *p, simd_mask<1> pred, simd<T, NElts> pass_thru,
 
   constexpr int SmallIntFactor64Bit = sizeof(uint64_t) / sizeof(T);
   constexpr int SmallIntFactor32Bit =
-      (std::max)(static_cast<size_t>(1), sizeof(uint32_t) / sizeof(T));
+      sizeof(uint32_t) / sizeof(T) > 1 ? sizeof(uint32_t) / sizeof(T) : 1;
   static_assert(NElts > 0 && NElts % SmallIntFactor32Bit == 0,
                 "Number of elements is not supported by Transposed load");
 
@@ -449,7 +449,7 @@ __ESIMD_API
 
   constexpr int SmallIntFactor64Bit = sizeof(uint64_t) / sizeof(T);
   constexpr int SmallIntFactor32Bit =
-      (std::max)(static_cast<size_t>(1), sizeof(uint32_t) / sizeof(T));
+      sizeof(uint32_t) / sizeof(T) > 1 ? sizeof(uint32_t) / sizeof(T) : 1;
   static_assert(NElts > 0 && NElts % SmallIntFactor32Bit == 0,
                 "Number of elements is not supported by Transposed load");
 
@@ -549,7 +549,7 @@ __ESIMD_API
 
   constexpr int SmallIntFactor64Bit = sizeof(uint64_t) / sizeof(T);
   constexpr int SmallIntFactor32Bit =
-      (std::max)(static_cast<size_t>(1), sizeof(uint32_t) / sizeof(T));
+      sizeof(uint32_t) / sizeof(T) > 1 ? sizeof(uint32_t) / sizeof(T) : 1;
   static_assert(NElts > 0 && NElts % SmallIntFactor32Bit == 0,
                 "Number of elements is not supported by Transposed load");
 
@@ -606,9 +606,7 @@ block_store_impl(T *p, simd<T, NElts> vals, simd_mask<1> pred, FlagsT flags) {
 
   constexpr int SmallIntFactor64Bit = sizeof(uint64_t) / sizeof(T);
   constexpr int SmallIntFactor32Bit =
-      sizeof(uint32_t) / sizeof(T) > static_cast<size_t>(1)
-          ? sizeof(uint32_t) / sizeof(T)
-          : static_cast<size_t>(1);
+      sizeof(uint32_t) / sizeof(T) > 1 ? sizeof(uint32_t) / sizeof(T) : 1;
   static_assert(NElts > 0 && NElts % SmallIntFactor32Bit == 0,
                 "Number of elements is not supported by Transposed store");
 
@@ -1112,7 +1110,7 @@ block_load_impl(const T *p, simd_mask<1> pred = 1, FlagsT flags = FlagsT{}) {
 
   constexpr int SmallIntFactor64Bit = sizeof(uint64_t) / sizeof(T);
   constexpr int SmallIntFactor32Bit =
-      (std::max)(static_cast<size_t>(1), sizeof(uint32_t) / sizeof(T));
+      sizeof(uint32_t) / sizeof(T) > 1 ? sizeof(uint32_t) / sizeof(T) : 1;
   static_assert(NElts > 0 && NElts % SmallIntFactor32Bit == 0,
                 "Number of elements is not supported by Transposed load");
 
@@ -1204,7 +1202,7 @@ block_load_impl(const T *p, simd_mask<1> pred, simd<T, NElts> old_values,
 
   constexpr int SmallIntFactor64Bit = sizeof(uint64_t) / sizeof(T);
   constexpr int SmallIntFactor32Bit =
-      (std::max)(static_cast<size_t>(1), sizeof(uint32_t) / sizeof(T));
+      sizeof(uint32_t) / sizeof(T) > 1 ? sizeof(uint32_t) / sizeof(T) : 1;
   static_assert(NElts > 0 && NElts % SmallIntFactor32Bit == 0,
                 "Number of elements is not supported by Transposed load");
 
