@@ -182,18 +182,30 @@ class X86InstrInfo final : public X86GenInstrInfo {
 public:
   explicit X86InstrInfo(X86Subtarget &STI);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-40015: Skip doing FMA for some expressions to accommodate
   // precision tolerance.
   bool shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
                                bool DisableGFMAForPrecision) const override;
 #if INTEL_FEATURE_ISA_APX_F
+=======
+  /// Given a machine instruction descriptor, returns the register
+  /// class constraint for OpNum, or NULL. Returned register class
+  /// may be different from the definition in the TD file, e.g.
+  /// GR*RegClass (definition in TD file)
+  /// ->
+  /// GR*_NOREX2RegClass (Returned register class)
+>>>>>>> c9017bc79397e12734b58165273ae70f328d0002
   const TargetRegisterClass *
   getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
               const TargetRegisterInfo *TRI,
               const MachineFunction &MF) const override;
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> c9017bc79397e12734b58165273ae70f328d0002
 
   /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
   /// such, whenever a client has an instance of instruction info, it should
