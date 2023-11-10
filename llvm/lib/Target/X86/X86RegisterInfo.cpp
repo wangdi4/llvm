@@ -845,27 +845,31 @@ unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
       "Register number may be incorrect");
 
   const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
-  bool HasAVX = ST.hasAVX();
-  bool HasAVX3 = ST.hasAVX3();
-  bool HasAMX = ST.hasAMXTILE();
-  bool HasEGPR = ST.hasEGPR();
-  if (HasEGPR)
+  if (ST.hasEGPR())
     return X86::NUM_TARGET_REGS;
-  if (HasAMX)
+  if (ST.hasAMXTILE())
     return X86::TMM4_TMM5_TMM6_TMM7 + 1;
-  if (HasAVX3)
+  if (ST.hasAVX3())
     return X86::
                ZMM16_ZMM17_ZMM18_ZMM19_ZMM20_ZMM21_ZMM22_ZMM23_ZMM24_ZMM25_ZMM26_ZMM27_ZMM28_ZMM29_ZMM30_ZMM31 +
            1;
-  if (HasAVX)
+  if (ST.hasAVX())
     return X86::YMM14_YMM15 + 1;
-  return X86::YMM0;
+  return X86::R15WH + 1;
 #else // INTEL_FEATURE_ISA_APX_F
   assert((X86::R15WH + 1 == X86 ::YMM0) && (X86::YMM15 + 1 == X86::K0) &&
          (X86::K6_K7 + 1 == X86::TMMCFG) &&
          (X86::TMM7 + 1 == X86::NUM_TARGET_REGS) &&
          "Register number may be incorrect");
-  return X86::NUM_TARGET_REGS;
+
+  const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
+  if (ST.hasAMXTILE())
+    return X86::TMM7 + 1;
+  if (ST.hasAVX512())
+    return X86::K6_K7 + 1;
+  if (ST.hasAVX())
+    return X86::YMM15 + 1;
+  return X86::R15WH + 1;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }
