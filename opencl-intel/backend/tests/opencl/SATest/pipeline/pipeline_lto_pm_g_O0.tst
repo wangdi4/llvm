@@ -18,8 +18,8 @@
 ; CHECK:      Running pass: ExternalizeGlobalVariablesPass
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
-; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: LinearIdResolverPass
+; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK:      Running pass: SGRemapWICallPass
 ; CHECK:      Running pass: BuiltinCallToInstPass
