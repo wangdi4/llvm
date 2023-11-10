@@ -184,7 +184,10 @@ def POPPr  : I<0x58, AddRegFrm, (outs GR64:$reg), (ins), "popp\t$reg", []>,
                REX_W, ExplicitREX2Prefix, Requires<[In64BitMode]>;
 def POP2: I<0x8F, MRM0r, (outs GR64:$reg1, GR64:$reg2), (ins),
             "pop2\t{$reg1, $reg2|$reg2, $reg1}",
-	    []>, OpSize32, EVEX_4V, EVEX_B, T_MAP4PS;
+	    []>, EVEX_4V, EVEX_B, T_MAP4PS;
+def POP2P: I<0x8F, MRM0r, (outs GR64:$reg1, GR64:$reg2), (ins),
+             "pop2p\t{$reg1, $reg2|$reg2, $reg1}",
+	     []>, EVEX_4V, EVEX_B, T_MAP4PS, REX_W;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 } // mayLoad, SchedRW
@@ -205,7 +208,10 @@ def PUSHPr  : I<0x50, AddRegFrm, (outs), (ins GR64:$reg), "pushp\t$reg", []>,
                 REX_W, ExplicitREX2Prefix, Requires<[In64BitMode]>;
 def PUSH2: I<0xFF, MRM6r, (outs), (ins GR64:$reg1, GR64:$reg2),
             "push2\t{$reg1, $reg2 |$reg2, $reg1}",
-	    []>, OpSize32, EVEX_4V, EVEX_B, T_MAP4PS;
+	    []>, EVEX_4V, EVEX_B, T_MAP4PS;
+def PUSH2P: I<0xFF, MRM6r, (outs), (ins GR64:$reg1, GR64:$reg2),
+             "push2p\t{$reg1, $reg2 |$reg2, $reg1}",
+	     []>, EVEX_4V, EVEX_B, T_MAP4PS, REX_W;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 } // mayStore, SchedRW
