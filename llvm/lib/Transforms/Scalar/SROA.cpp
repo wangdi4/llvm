@@ -5175,18 +5175,6 @@ SROAPass::runOnAlloca(AllocaInst &AI) {
   if (AS.isEscaped())
     return {Changed, CFGChanged};
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (std::distance(AS.begin(), AS.end()) > SROAMaxAllocaSlices) {
-    LLVM_DEBUG(dbgs() << "SROA: Hit slice limit\n");
-    if (!IgnoreSliceLimit)
-      return {Changed, CFGChanged};
-    LLVM_DEBUG(dbgs() << "Ignoring limit, -x option seen\n");
-  }
-#endif // INTEL_CUSTOMIZATION
-
-=======
->>>>>>> ed86e740effaf1de540820a145a9df44eaf0df0e
   // Delete all the dead users of this alloca before splitting and rewriting it.
   for (Instruction *DeadUser : AS.getDeadUsers()) {
     // Free up everything used by this instruction.
