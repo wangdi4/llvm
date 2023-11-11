@@ -162,30 +162,6 @@ def R30B : X86Reg<"r30b", 30>;
 def R31B : X86Reg<"r31b", 31>;
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-// RAGreedy prefers to select a cheaper register
-// For x86,
-//   Cost(caller-save reg) < Cost(callee-save reg)
-// b/c callee-save register needs push/pop in prolog/epilog.
-// If both registers are callee-saved or caller-saved,
-//   Cost(short-encoding reg) < Cost(long-encoding reg)
-//
-// To achieve this, we do the following things:
-//   1. Set CostPerUse=1 for registers that need prefix
-//   2. Consider callee-save register is never cheaper than a register w/ cost 1
-//   3. List caller-save register before callee-save regsiter in RegisterClass
-//      or AllocationOrder
-//
-// NOTE:
-//   D133902 stopped assigning register costs for R8-R15, which brought gain
-//   and regression. We don't know if we should assign cost to R16-R31 w/o
-//   performance data.
-// TODO:
-//   Update the comment/cost after tuning.
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-
 let isArtificial = 1 in {
 // High byte of the low 16 bits of the super-register:
 def SIH   : X86Reg<"", -1>;

@@ -1,3 +1,9 @@
+; INTEL_CUSTOMIZATION
+; INTEL_FEATURE_XISA_COMMON
+; UNSUPPORTED: intel_feature_xisa_common
+; end INTEL_FEATURE_XISA_COMMON
+; end INTEL_CUSTOMIZATION
+
 ; RUN: llc -enable-ipra -print-regusage -o /dev/null 2>&1 < %s | FileCheck %s
 
 target triple = "x86_64-unknown-unknown"
