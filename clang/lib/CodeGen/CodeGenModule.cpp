@@ -4484,7 +4484,6 @@ ConstantAddress CodeGenModule::GetWeakRefReference(const ValueDecl *VD) {
   return ConstantAddress(Aliasee, DeclTy, Alignment);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 static bool canDefineAliasOnTarget(CodeGenModule &CGM, GlobalDecl GD) {
   if (!CGM.getLangOpts().OpenMPIsTargetDevice)
@@ -4509,7 +4508,7 @@ static bool canDefineAliasOnTarget(CodeGenModule &CGM, GlobalDecl GD) {
   return false;
 }
 #endif // INTEL_COLLAB
-=======
+
 template <typename AttrT> static bool hasImplicitAttr(const ValueDecl *D) {
   if (!D)
     return false;
@@ -4517,7 +4516,6 @@ template <typename AttrT> static bool hasImplicitAttr(const ValueDecl *D) {
     return A->isImplicit();
   return D->isImplicit();
 }
->>>>>>> b0d11c6aea468d321d3bb4b589c128d7de64d49a
 
 void CodeGenModule::EmitGlobal(GlobalDecl GD) {
   const auto *Global = cast<ValueDecl>(GD.getDecl());
