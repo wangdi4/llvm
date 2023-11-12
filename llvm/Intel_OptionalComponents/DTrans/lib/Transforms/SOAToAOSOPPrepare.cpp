@@ -1930,7 +1930,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
       if (Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Free) {
         if (FreeCB)
           return false;
-	FreeCB = CB;
+        FreeCB = CB;
         continue;
       }
       // Make sure dest vector doesn't have any other uses except CtorCB
@@ -2036,8 +2036,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     Indices.push_back(IRB.getInt32(BaseArrayIdx));
     // Load base array of vector
     Value *GEP = IRB.CreateInBoundsGEP(NewLLVMElemTy, ThisPtr, Indices, "");
-    auto Align =
-        MaybeAlign(M.getDataLayout().getABITypeAlign(Elem->getType()));
+    auto Align = MaybeAlign(M.getDataLayout().getABITypeAlign(Elem->getType()));
     LoadInst *Load = IRB.CreateAlignedLoad(
         PointerType::getUnqual(M.getContext()), GEP, Align, "");
     Value *NewIdx = IRB.CreateZExtOrTrunc(Idx, IRB.getInt64Ty());
@@ -2653,6 +2652,7 @@ private:
   SmallPtrSet<SOAToAOSPrepCandidateInfo *, MaxNumCandidates> Candidates;
 
   bool gatherCandidateInfo(void);
+  bool convertByteFlattenedGEPs(void);
 };
 
 bool SOAToAOSPrepareImpl::gatherCandidateInfo() {
@@ -2700,7 +2700,159 @@ bool SOAToAOSPrepareImpl::gatherCandidateInfo() {
   return true;
 }
 
+// Convert ByteFlattened GEPs to regular GEPs in member functions
+// of SOAToAOS candidates.
+//
+// Before:
+//   %flag = getelementptr i8, ptr %this, i32 8
+//
+// After:
+//   %flag = getelementptr %struct.BaseArr, ptr %this, i64 0, i32 1
+//
+bool SOAToAOSPrepareImpl::convertByteFlattenedGEPs(void) {
+
+  // Returns true if
+  auto IsAggregateTyInBase = [](DTransStructType *StructTy, unsigned FIndex) {
+    DTransType *BTy = getSOASimpleBaseType(StructTy);
+    auto *BSTy = dyn_cast_or_null<DTransStructType>(BTy);
+    return !BSTy || BSTy->getNumFields() <= FIndex ||
+           BSTy->getFieldType(FIndex)->isAggregateType();
+  };
+
+  // Collect SOAToAOS candidates.
+  SmallVector<SOACandidateInfo *, MaxNumCandidates> SOACandidates;
+  for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
+    std::unique_ptr<SOACandidateInfo> CInfo(
+        new SOACandidateInfo(DTInfo.getTypeMetadataReader()));
+
+    auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
+    if (!StInfo)
+      continue;
+
+    if (!CInfo->isCandidateType(StInfo->getDTransType()))
+      continue;
+
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE, {
+      dbgs() << "  Considering candidate for ByteFlattened GEP conv: ";
+      TI->getLLVMType()->print(dbgs(), true, true);
+      dbgs() << "\n";
+    });
+
+    if (DTInfo.testSafetyData(StInfo, dtrans::DT_SOAToAOS)) {
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE, {
+        dbgs() << "  Failed: safety test for candidate struct.\n";
+      });
+      continue;
+    }
+    // Check SafetyData for candidate field array structs.
+    bool FieldSafetyCheck = true;
+    for (auto Loc : CInfo->candidate_fields()) {
+      auto *FInfo = DTInfo.getTypeInfo(CInfo->getFieldElemTy(Loc));
+      if (!FInfo || DTInfo.testSafetyData(FInfo, dtrans::DT_SOAToAOS)) {
+        FieldSafetyCheck = false;
+        break;
+      }
+    }
+    if (!FieldSafetyCheck) {
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE, {
+        dbgs() << "  Failed: safety test for field array struct.\n";
+      });
+      continue;
+    }
+
+    if (!CInfo->collectMemberFunctions(M)) {
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE,
+                      { dbgs() << "  Failed: member function collection.\n"; });
+      continue;
+    }
+
+    if (SOACandidates.size() >= MaxNumCandidates) {
+      DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE, {
+        dbgs() << "  Failed: Exceeding maximum candidate limit.\n";
+      });
+      return false;
+    }
+    SOACandidates.push_back(CInfo.release());
+  }
+
+  if (SOACandidates.empty()) {
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE,
+                    { dbgs() << "  Failed: No candidates found.\n"; });
+    return false;
+  }
+
+  // Collect member functions of SOACandidates.
+  SmallSetVector<Function *, 32> MemInitFuncs;
+  for (auto *Cand : SOACandidates)
+    Cand->collectFuncs(M, &MemInitFuncs);
+
+  // Collect ByteFlattened GEPs in member functions.
+  SetVector<std::tuple<GetElementPtrInst *, DTransStructType *, unsigned>>
+      GepsToProcess;
+  for (Function *F : MemInitFuncs) {
+    for (Instruction &I : instructions(F)) {
+      auto *GEP = dyn_cast<GetElementPtrInst>(&I);
+      if (!GEP || GEP->getNumIndices() != 1)
+        continue;
+      auto GEPInfo = DTInfo.getByteFlattenedGEPElement(GEP);
+      if (!GEPInfo.first)
+        continue;
+      DTransType *SourceTy = GEPInfo.first;
+      DTransStructType *StructTy = dyn_cast<DTransStructType>(SourceTy);
+      if (!StructTy)
+        continue;
+      unsigned FIndex = GEPInfo.second;
+      DTransType *FTy = StructTy->getFieldType(FIndex);
+      if (FTy->isAggregateType() && IsAggregateTyInBase(StructTy, FIndex))
+        continue;
+      GepsToProcess.insert({GEP, StructTy, FIndex});
+    }
+  }
+
+  if (GepsToProcess.empty()) {
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE,
+                    { dbgs() << "  No ByteFlattened GEPs selected\n"; });
+    return false;
+  }
+
+  // Convert GEPs in GepsToProcess to regular GEPs.
+  DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE,
+                  { dbgs() << "  Converting ByteFlattened GEPs\n"; });
+  LLVMContext &Ctx = M.getContext();
+  ConstantInt *Zero32 = ConstantInt::get(llvm::Type::getInt32Ty(Ctx), 0);
+  ConstantInt *ZeroPtrSizedInt = ConstantInt::get(
+      llvm::Type::getIntNTy(Ctx, M.getDataLayout().getPointerSizeInBits()), 0);
+
+  for (auto &GEPInfo : GepsToProcess) {
+    auto *GEP = std::get<0>(GEPInfo);
+    auto *STy = std::get<1>(GEPInfo);
+    auto FIndex = std::get<2>(GEPInfo);
+    SmallVector<Value *, 4> IdxList;
+
+    IdxList.push_back(ZeroPtrSizedInt);
+    if (STy->getFieldType(FIndex)->isAggregateType())
+      IdxList.push_back(Zero32);
+    ConstantInt *Index32 =
+        ConstantInt::get(llvm::Type::getInt32Ty(Ctx), FIndex);
+    IdxList.push_back(Index32);
+    auto *NewGEP = GetElementPtrInst::Create(
+        STy->getLLVMType(), GEP->getPointerOperand(), IdxList, "", GEP);
+    GEP->replaceAllUsesWith(NewGEP);
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE,
+                    { dbgs() << "      Original GEP: " << *GEP << "\n"; });
+    NewGEP->takeName(GEP);
+    GEP->eraseFromParent();
+    DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE,
+                    { dbgs() << "      New GEP: " << *NewGEP << "\n"; });
+  }
+  return true;
+}
+
 bool SOAToAOSPrepareImpl::run(void) {
+  if (convertByteFlattenedGEPs()) {
+    DTInfo.reset();
+    DTInfo.analyzeModule(M, GetTLI, WPInfo, /*DTImmutInfo=*/nullptr, GetBFI);
+  }
   if (!gatherCandidateInfo())
     return false;
   if (Candidates.size() != MaxNumCandidates) {

@@ -68,7 +68,8 @@ public:
   inline DTransType *isSimpleVectorType(DTransType *STy, int32_t Offset,
                                         bool AllowOnlyDerived);
   inline bool collectMemberFunctions(Module &M, bool AtLTO = true);
-  inline void collectFuncs(Module &M, SmallSet<Function *, 32> *SOACallSites);
+  inline void collectFuncs(Module &M,
+                           SmallSetVector<Function *, 32> *SOACallSites);
   inline void printCandidateInfo(void);
 
   using FieldPositionTy = SmallVector<int32_t, MaxNumElemsInCandidate>;
@@ -520,7 +521,7 @@ bool SOACandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
 //   3. In struct methods, calls that are passed as arguments to other
 //      direct calls.
 void SOACandidateInfo::collectFuncs(Module &M,
-                                    SmallSet<Function *, 32> *SOAFuncs) {
+                                    SmallSetVector<Function *, 32> *SOAFuncs) {
   SmallPtrSet<DTransType *, 4> InterestedClasses;
 
   InterestedClasses.insert(SType);
