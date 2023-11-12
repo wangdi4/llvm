@@ -33,7 +33,16 @@ PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
       EmitSummaryIndex(EmitSummaryIndex) {}
 
 PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+  // RemoveDIs: there's no textual representation of the DPValue debug-info,
+  // convert to dbg.values before writing out.
+  bool ShouldConvert = M.IsNewDbgInfoFormat;
+  if (ShouldConvert)
+    M.convertFromNewDbgValues();
+
+>>>>>>> 10a9e7442c4c4e09ee94f6e1d67e2ba7396bf7cb
   if (llvm::isFunctionInPrintList("*")) {
     if (!Banner.empty())
       OS << Banner << "\n";
@@ -61,6 +70,9 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
     Index->print(OS);
   }
 
+  if (ShouldConvert)
+    M.convertToNewDbgValues();
+
   return PreservedAnalyses::all();
 }
 
@@ -70,13 +82,29 @@ PrintFunctionPass::PrintFunctionPass(raw_ostream &OS, const std::string &Banner)
 
 PreservedAnalyses PrintFunctionPass::run(Function &F,
                                          FunctionAnalysisManager &) {
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+  // RemoveDIs: there's no textual representation of the DPValue debug-info,
+  // convert to dbg.values before writing out.
+  bool ShouldConvert = F.IsNewDbgInfoFormat;
+  if (ShouldConvert)
+    F.convertFromNewDbgValues();
+
+>>>>>>> 10a9e7442c4c4e09ee94f6e1d67e2ba7396bf7cb
   if (isFunctionInPrintList(F.getName())) {
     if (forcePrintModuleIR())
       OS << Banner << " (function: " << F.getName() << ")\n" << *F.getParent();
     else
       OS << Banner << '\n' << static_cast<Value &>(F);
   }
+<<<<<<< HEAD
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+
+  if (ShouldConvert)
+    F.convertToNewDbgValues();
+
+>>>>>>> 10a9e7442c4c4e09ee94f6e1d67e2ba7396bf7cb
   return PreservedAnalyses::all();
 }
