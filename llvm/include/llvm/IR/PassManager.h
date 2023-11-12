@@ -63,11 +63,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassInstrumentation.h"
 #include "llvm/IR/PassManagerInternal.h"
-<<<<<<< HEAD
 #include "llvm/Support/Intel_WP_utils.h"  // INTEL
-=======
 #include "llvm/Support/CommandLine.h"
->>>>>>> 10a9e7442c4c4e09ee94f6e1d67e2ba7396bf7cb
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/TypeName.h"
 #include <cassert>
