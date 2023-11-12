@@ -64,6 +64,12 @@ public:
 
   bool runOnModule(Module &M) override {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+    // RemoveDIs: there's no textual representation of the DPValue debug-info,
+    // convert to dbg.values before writing out.
+    bool IsNewDbgInfoFormat = M.IsNewDbgInfoFormat;
+    if (IsNewDbgInfoFormat)
+      M.convertFromNewDbgValues();
+
     if (llvm::isFunctionInPrintList("*")) {
       if (!Banner.empty())
         OS << Banner << "\n";
@@ -81,6 +87,10 @@ public:
       }
     }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+
+    if (IsNewDbgInfoFormat)
+      M.convertToNewDbgValues();
+
     return false;
   }
 
@@ -104,6 +114,12 @@ public:
   // This pass just prints a banner followed by the function as it's processed.
   bool runOnFunction(Function &F) override {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+    // RemoveDIs: there's no textual representation of the DPValue debug-info,
+    // convert to dbg.values before writing out.
+    bool IsNewDbgInfoFormat = F.IsNewDbgInfoFormat;
+    if (IsNewDbgInfoFormat)
+      F.convertFromNewDbgValues();
+
     if (isFunctionInPrintList(F.getName())) {
       if (forcePrintModuleIR())
         OS << Banner << " (function: " << F.getName() << ")\n"
@@ -112,6 +128,10 @@ public:
         OS << Banner << '\n' << static_cast<Value &>(F);
     }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+
+    if (IsNewDbgInfoFormat)
+      F.convertToNewDbgValues();
+
     return false;
   }
 

@@ -34,6 +34,12 @@ PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
 
 PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  // RemoveDIs: there's no textual representation of the DPValue debug-info,
+  // convert to dbg.values before writing out.
+  bool ShouldConvert = M.IsNewDbgInfoFormat;
+  if (ShouldConvert)
+    M.convertFromNewDbgValues();
+
   if (llvm::isFunctionInPrintList("*")) {
     if (!Banner.empty())
       OS << Banner << "\n";
@@ -61,6 +67,9 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
     Index->print(OS);
   }
 
+  if (ShouldConvert)
+    M.convertToNewDbgValues();
+
   return PreservedAnalyses::all();
 }
 
@@ -71,6 +80,12 @@ PrintFunctionPass::PrintFunctionPass(raw_ostream &OS, const std::string &Banner)
 PreservedAnalyses PrintFunctionPass::run(Function &F,
                                          FunctionAnalysisManager &) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  // RemoveDIs: there's no textual representation of the DPValue debug-info,
+  // convert to dbg.values before writing out.
+  bool ShouldConvert = F.IsNewDbgInfoFormat;
+  if (ShouldConvert)
+    F.convertFromNewDbgValues();
+
   if (isFunctionInPrintList(F.getName())) {
     if (forcePrintModuleIR())
       OS << Banner << " (function: " << F.getName() << ")\n" << *F.getParent();
@@ -78,5 +93,9 @@ PreservedAnalyses PrintFunctionPass::run(Function &F,
       OS << Banner << '\n' << static_cast<Value &>(F);
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+
+  if (ShouldConvert)
+    F.convertToNewDbgValues();
+
   return PreservedAnalyses::all();
 }
