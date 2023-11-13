@@ -4,7 +4,7 @@
 ; This test checks transformations are not triggered as no targets are
 ; selected for indirect calls.
 
-; RUN: opt < %s -debug-only=ippredopt -disable-output -whole-program-assume -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=ippredopt 2>&1 | FileCheck %s
+; RUN: opt < %s -ippred-skip-indirect-target-heuristic=false -debug-only=ippredopt -disable-output -whole-program-assume -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=ippredopt 2>&1 | FileCheck %s
 
 
 ; CHECK: No targets selected by heuristics

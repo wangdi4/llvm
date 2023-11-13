@@ -10,7 +10,7 @@
 ; CHECK:  %0 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 2
 ; CHECK:  %1 = load ptr, ptr %0, align 8
 ; CHECK:  %2 = icmp ne ptr %1, null
-; CHECK:  br i1 %2, label %3, label %36
+; CHECK:  br i1 %2, label %3, label %35
 
 
 ; CHECK:   %4 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 0
@@ -46,24 +46,11 @@
 ; CHECK:  %34 = select i1 %14, i1 true, i1 %33
 ; CHECK:  br i1 %34, label %35, label %bb347
 
-; CHECK: 35:                                               ; preds = %3
+; CHECK: 35:                                               ; preds = %bb314, %3
 ; CHECK:  %i315 = tail call fastcc noundef zeroext i1 @_ZN11xercesc_2_710ValueStore8containsEPKNS_13FieldValueMapE
+; CHECK: br i1 %i315, label %bb316, label %bb347
 
-; CHECK: 36
-; CHECK:   %i315.clone = tail call fastcc noundef zeroext i1 @_ZN11xercesc_2_710ValueStore8containsEPKNS_13FieldValueMapE
-; CHECK:  br i1 %i315.clone, label %bb316.clone, label %bb347.clone
-
-; CHECK:bb316.clone:                                      ; preds = %36
-; CHECK:  %i317.clone = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 0
-
-; CHECK: bb347.clone:
-; CHECK:   br label %37
-
-; CHECK: bb347:
-; CHECK:   br label %37
-
-; CHECK: 37:
-; CHECK:   %i348 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 4
+; CHECK: bb316:
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
