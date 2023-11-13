@@ -1481,6 +1481,7 @@ namespace X86II {
     return RegNo >= X86::ZMM0 && RegNo <= X86::ZMM31;
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   inline unsigned getYMMFromXMM(unsigned RegNo) {
     assert(isXMMReg(RegNo) && "Not a XMM reg");
@@ -1493,6 +1494,13 @@ namespace X86II {
                               : X86::ZMM16 + RegNo - X86::XMM16;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// \returns true if \p RegNo is an apx extended register.
+  inline bool isApxExtendedReg(unsigned RegNo) {
+    assert(X86::R31WH - X86::R16 == 95 && "EGPRs are not continuous");
+    return RegNo >= X86::R16 && RegNo <= X86::R31WH;
+  }
+>>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
 
   /// \returns true if the MachineOperand is a x86-64 extended (r8 or
   /// higher) register,  e.g. r8, xmm8, xmm13, etc.
@@ -1504,12 +1512,17 @@ namespace X86II {
         (RegNo >= X86::ZMM8 && RegNo <= X86::ZMM31))
       return true;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
     if (isApxExtendedReg(RegNo))
       return true;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+=======
+    if (isApxExtendedReg(RegNo))
+      return true;
+>>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
 
     switch (RegNo) {
     default: break;
