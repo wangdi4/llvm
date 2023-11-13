@@ -53,17 +53,7 @@ using namespace llvm;
 
 namespace {
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-enum PrefixKind { None, REX,
-#if INTEL_FEATURE_ISA_APX_F
-  REX2,
-#endif // INTEL_FEATURE_ISA_APX_F
-  XOP, VEX2, VEX3, EVEX };
-#endif // INTEL_CUSTOMIZATION
-=======
 enum PrefixKind { None, REX, REX2, XOP, VEX2, VEX3, EVEX };
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
 
 static void emitByte(uint8_t C, SmallVectorImpl<char> &CB) { CB.push_back(C); }
 
@@ -73,21 +63,10 @@ class X86OpcodePrefixHelper {
   // | 40H | | WRXB |
   // +-----+ +------+
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  // REX2 (2 byte)
-  // +-----+ +------------------+
-  // | D5H | | M | R'X'B' | WRXB
-  // +-----+ +------------------+
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
   // REX2 (2 bytes)
   // +-----+ +-------------------+
   // | D5H | | M | R'X'B' | WRXB |
   // +-----+ +-------------------+
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
 
   // XOP (3-byte)
   // +-----+ +--------------+ +-------------------+
@@ -184,23 +163,10 @@ private:
   unsigned R : 1;
   unsigned X : 1;
   unsigned B : 1;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  unsigned M : 1;
-  // TODO: Rename EVEX_R2 to R2，EVEX_P10 to X2 and move the def here
-  // after APX is disclosed.
-  // unsigned R2 : 1;
-  // unsigned X2 : 1;
-  unsigned B2 : 1;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
   unsigned M : 1;
   unsigned R2 : 1;
   unsigned X2 : 1;
   unsigned B2 : 1;
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
   unsigned VEX_4V : 4;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
@@ -226,25 +192,6 @@ private:
   }
 
   void setR(unsigned Encoding) { R = Encoding >> 3 & 1; }
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  void setR2(unsigned Encoding) {
-    EVEX_R2 = Encoding >> 4 & 1;
-    assert((!EVEX_R2 || (Kind <= REX2 || Kind == EVEX)) && "invalid setting");
-  }
-#else // INTEL_FEATURE_ISA_APX_F
-  void setR2(unsigned Encoding) { EVEX_R2 = Encoding >> 4 & 1; }
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  void setX(unsigned Encoding) { X = Encoding >> 3 & 1; }
-  void setX2(unsigned Encoding) {
-    assert((Kind <= REX2 || Kind == EVEX) && "invalid setting");
-    EVEX_P10 = Encoding >> 4 & 1;
-=======
   void setR2(unsigned Encoding) {
     R2 = Encoding >> 4 & 1;
     assert((!R2 || (Kind <= REX2 || Kind == EVEX)) && "invalid setting");
@@ -253,18 +200,12 @@ private:
   void setX2(unsigned Encoding) {
     assert((Kind <= REX2 || Kind == EVEX) && "invalid setting");
     X2 = Encoding >> 4 & 1;
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
   }
   void setB(unsigned Encoding) { B = Encoding >> 3 & 1; }
   void setB2(unsigned Encoding) {
     assert((Kind <= REX2 || Kind == EVEX) && "invalid setting");
     B2 = Encoding >> 4 & 1;
   }
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
   void set4V(unsigned Encoding) { VEX_4V = Encoding & 0xf; }
   void setV2(unsigned Encoding) { EVEX_V2 = Encoding >> 4 & 1; }
 
@@ -274,23 +215,11 @@ public:
     setR(getRegEncoding(MI, OpNum));
   }
   void setX(const MCInst &MI, unsigned OpNum, unsigned Shift = 3) {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    unsigned Reg = MI.getOperand(OpNum).getReg();
-#if INTEL_FEATURE_ISA_APX_F
-    // X is used to extend vector register only when shift is not 3
-    if (Shift != 3 && X86II::isApxExtendedReg(Reg))
-      return;
-#endif // INTEL_FEATURE_ISA_APX_F
-    unsigned Encoding = MRI.getEncodingValue(Reg);
-#endif // INTEL_CUSTOMIZATION
-=======
     unsigned Reg = MI.getOperand(OpNum).getReg();
     // X is used to extend vector register only when shift is not 3.
     if (Shift != 3 && X86II::isApxExtendedReg(Reg))
       return;
     unsigned Encoding = MRI.getEncodingValue(Reg);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     X = Encoding >> Shift & 1;
   }
   void setB(const MCInst &MI, unsigned OpNum) {
@@ -325,21 +254,11 @@ public:
     setR(Encoding);
     setR2(Encoding);
   }
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-=======
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
   void setM(bool V) { M = V; }
   void setXX2(const MCInst &MI, unsigned OpNum) {
     unsigned Reg = MI.getOperand(OpNum).getReg();
     unsigned Encoding = MRI.getEncodingValue(Reg);
     setX(Encoding);
-<<<<<<< HEAD
-    // Index can be a vector register while X2 is used to extend GPR only
-    if (Kind <= REX2 || X86II::isApxExtendedReg(Reg))
-      setX2(Encoding);
-=======
     // Index can be a vector register while X2 is used to extend GPR only.
     if (Kind <= REX2 || X86II::isApxExtendedReg(Reg))
       setX2(Encoding);
@@ -353,7 +272,6 @@ public:
       setB2(Encoding);
   }
   void setZ(bool V) { EVEX_z = V; }
-  void setL2(bool V) { EVEX_L2 = V; }
   void setEVEX_b(bool V) { EVEX_b = V; }
   void setV2(const MCInst &MI, unsigned OpNum, bool HasVEX_4V) {
     // Only needed with VSIB which don't use VVVV.
@@ -363,19 +281,7 @@ public:
     if (X86II::isApxExtendedReg(Reg))
       return;
     setV2(MRI.getEncodingValue(Reg));
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
   }
-  void setBB2(const MCInst &MI, unsigned OpNum) {
-    unsigned Reg = MI.getOperand(OpNum).getReg();
-    unsigned Encoding = MRI.getEncodingValue(Reg);
-    setB(Encoding);
-    // Base can be a vector register while B2 is used to extend GPR only
-    if (Kind <= REX2 || X86II::isApxExtendedReg(Reg))
-      setB2(Encoding);
-  }
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-  void setZ(bool V) { EVEX_z = V; }
 #if INTEL_CUSTOMIZATION
   void setL2(bool V) {
     EVEX_L2 = V;
@@ -392,25 +298,6 @@ public:
 #endif // INTEL_FEATURE_CPU_RYL
   }
 #endif // INTEL_CUSTOMIZATION
-  void setEVEX_b(bool V) { EVEX_b = V; }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  void setV2(const MCInst &MI, unsigned OpNum, bool IsND = false) {
-#else // INTEL_FEATURE_ISA_APX_F
-  void setV2(const MCInst &MI, unsigned OpNum) {
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-    unsigned Reg = MI.getOperand(OpNum).getReg();
-#if INTEL_FEATURE_ISA_APX_F
-    // V2 is used to extend vector register or ND gpr only.
-    if (X86II::isApxExtendedReg(Reg) && !IsND)
-      return;
-#endif // INTEL_FEATURE_ISA_APX_F
-    unsigned Encoding = MRI.getEncodingValue(Reg);
-    setV2(Encoding);
-#endif // INTEL_CUSTOMIZATION
-  }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   void set4VV2(const MCInst &MI, unsigned OpNum, bool IsND = false) {
@@ -448,68 +335,43 @@ public:
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   X86OpcodePrefixHelper(const MCRegisterInfo &MRI, const MCSubtargetInfo &STI)
       : W(0), R(0), X(0), B(0),
 #if INTEL_FEATURE_ISA_APX_F
         M(0),
         B2(0),
+        R2(0),
+        X2(0),
 #endif // INTEL_FEATURE_ISA_APX_F
         VEX_4V(0),
 #if INTEL_FEATURE_ISA_AVX256P
         EVEX_P10(0),
 #endif // INTEL_FEATURE_ISA_AVX256P
         VEX_L(0), VEX_PP(0), VEX_5M(0),
-        EVEX_R2(0), EVEX_z(0), EVEX_L2(0), EVEX_b(0), EVEX_V2(0), EVEX_aaa(0),
+        EVEX_z(0), EVEX_L2(0), EVEX_b(0), EVEX_V2(0), EVEX_aaa(0),
         MRI(MRI), STI(STI) {}
-#endif // INTEL_CUSTOMIZATION
-=======
+#else
   X86OpcodePrefixHelper(const MCRegisterInfo &MRI)
       : W(0), R(0), X(0), B(0), M(0), R2(0), X2(0), B2(0), VEX_4V(0), VEX_L(0),
         VEX_PP(0), VEX_5M(0), EVEX_z(0), EVEX_L2(0), EVEX_b(0), EVEX_V2(0),
         EVEX_aaa(0), MRI(MRI) {}
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
+#endif // INTEL_CUSTOMIZATION
 
   void setLowerBound(PrefixKind K) { Kind = K; }
 
   PrefixKind determineOptimalKind() {
     switch (Kind) {
     case None:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-      // Not M bit here by intention b/c
-      // 1. There is no guarantee that REX2 is supported by arch w/o explict EGPR
-      // 2. REX2 is longer than 0FH
-      Kind = (EVEX_R2 | EVEX_P10 | B2) ? REX2 : (W | R | X | B) ? REX : None;
-#else // INTEL_FEATURE_ISA_APX_F
-      Kind = (W | R | X | B) ? REX : None;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
       // Not M bit here by intention b/c
       // 1. No guarantee that REX2 is supported by arch w/o explict EGPR
       // 2. REX2 is longer than 0FH
       Kind = (R2 | X2 | B2) ? REX2 : (W | R | X | B) ? REX : None;
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
       break;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case REX:
-<<<<<<< HEAD
-      Kind = (EVEX_R2 | EVEX_P10 | B2) ? REX2 : REX;
-      break;
-    case REX2:
-#else // INTEL_FEATURE_ISA_APX_F
-    case REX:
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
       Kind = (R2 | X2 | B2) ? REX2 : REX;
       break;
     case REX2:
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     case XOP:
     case VEX3:
     case EVEX:
@@ -531,25 +393,12 @@ public:
     case REX:
       emitByte(0x40 | W << 3 | R << 2 | X << 1 | B, CB);
       return;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    case REX2:
-      emitByte(0xD5, CB);
-      emitByte(M << 7 | EVEX_R2 << 6 | EVEX_P10 << 5 | B2 << 4 | W << 3 |
-                   R << 2 | X << 1 | B,
-               CB);
-      return;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
     case REX2:
       emitByte(0xD5, CB);
       emitByte(M << 7 | R2 << 6 | X2 << 5 | B2 << 4 | W << 3 | R << 2 | X << 1 |
                    B,
                CB);
       return;
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     case VEX2:
       emitByte(0xC5, CB);
       emitByte(((~R) & 1) << 7 | LastPayload, CB);
@@ -563,28 +412,9 @@ public:
     case EVEX:
       assert(VEX_5M && !(VEX_5M & 0x8) && "invalid mmm fields for EVEX!");
       emitByte(0x62, CB);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-      emitByte(FirstPayload | ((~EVEX_R2) & 0x1) << 4 | B2 << 3 | VEX_5M, CB);
-#else // INTEL_FEATURE_ISA_APX_F
-      emitByte(FirstPayload | ((~EVEX_R2) & 0x1) << 4 | VEX_5M, CB);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-      emitByte(W << 7 | ((~VEX_4V) & 0xf) << 3 | ((~EVEX_P10) & 0x1) << 2 |
-                   VEX_PP,
-               CB);
-#else // INTEL_FEATURE_ISA_AVX256P
-      emitByte(W << 7 | ((~VEX_4V) & 0xf) << 3 | 1 << 2 | VEX_PP, CB);
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-=======
       emitByte(FirstPayload | ((~R2) & 0x1) << 4 | B2 << 3 | VEX_5M, CB);
       emitByte(W << 7 | ((~VEX_4V) & 0xf) << 3 | ((~X2) & 0x1) << 2 | VEX_PP,
                CB);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
       emitByte(EVEX_z << 7 | EVEX_L2 << 6 | VEX_L << 5 | EVEX_b << 4 |
                    ((~EVEX_V2) & 0x1) << 3 | EVEX_aaa,
                CB);
@@ -902,18 +732,8 @@ void X86MCCodeEmitter::emitMemModRMByte(
         // movq loads is a subset of reloc_riprel_4byte_relax_rex. It is a
         // special case because COFF and Mach-O don't support ELF's more
         // flexible R_X86_64_REX_GOTPCRELX relaxation.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-        assert(Kind == REX || Kind == REX2);
-#else // INTEL_FEATURE_ISA_APX_F
-        assert(Kind == REX);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
         // TODO: Support new relocation for REX2.
         assert(Kind == REX || Kind == REX2);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
         return X86::reloc_riprel_4byte_movq_load;
       case X86::ADC32rm:
       case X86::ADD32rm:
@@ -937,25 +757,11 @@ void X86MCCodeEmitter::emitMemModRMByte(
       case X86::SBB64rm:
       case X86::SUB64rm:
       case X86::XOR64rm:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-        // We haven't support relocation for REX2 prefix, so temporarily use REX relocation
-        // TODO: Support new relocation for REX2.
-        return (Kind == REX || Kind == REX2) ? X86::reloc_riprel_4byte_relax_rex
-                                             : X86::reloc_riprel_4byte_relax;
-#else // INTEL_FEATURE_ISA_APX_F
-        return Kind == REX ? X86::reloc_riprel_4byte_relax_rex
-                           : X86::reloc_riprel_4byte_relax;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
         // We haven't support relocation for REX2 prefix, so temporarily use REX
         // relocation.
         // TODO: Support new relocation for REX2.
         return (Kind == REX || Kind == REX2) ? X86::reloc_riprel_4byte_relax_rex
                                              : X86::reloc_riprel_4byte_relax;
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
       }
     }();
 
@@ -1065,27 +871,11 @@ void X86MCCodeEmitter::emitMemModRMByte(
       return;
     }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    // If the base is not EBP/ESP/R12/R13/R20/R21/R28/R29 and there is no displacement, use
-    // simple indirect register encoding, this handles addresses like [EAX].
-    // The encoding for [EBP], [R13], [R20], [R21], [R28] or [R29] with no displacement means [disp32] so we
-    // handle it by emitting a displacement of 0 later.
-#else // INTEL_FEATURE_ISA_APX_F
-    // If the base is not EBP/ESP/R12/R13 and there is no displacement, use
-    // simple indirect register encoding, this handles addresses like [EAX].
-    // The encoding for [EBP] or[R13] with no displacement means [disp32] so we
-    // handle it by emitting a displacement of 0 later.
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
     // If the base is not EBP/ESP/R12/R13/R20/R21/R28/R29 and there is no
     // displacement, use simple indirect register encoding, this handles
     // addresses like [EAX]. The encoding for [EBP], [R13], [R20], [R21], [R28]
     // or [R29] with no displacement means [disp32] so we handle it by emitting
     // a displacement of 0 later.
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     if (BaseRegNo != N86::EBP) {
       if (Disp.isImm() && Disp.getImm() == 0 && AllowNoDisp) {
         emitByte(modRMByte(0, RegOpcodeField, BaseRegNo), CB);
@@ -1107,19 +897,8 @@ void X86MCCodeEmitter::emitMemModRMByte(
 
     // Otherwise, if the displacement fits in a byte, encode as [REG+disp8].
     // Including a compressed disp8 for EVEX instructions that support it.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    // This also handles the 0 displacement for [EBP], [R13], [R21] or [R29]. We can't use
-#else // INTEL_FEATURE_ISA_APX_F
-    // This also handles the 0 displacement for [EBP] or [R13]. We can't use
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-    // disp8 if the {disp32} pseudo prefix is present.
-=======
     // This also handles the 0 displacement for [EBP], [R13], [R21] or [R29]. We
     // can't use disp8 if the {disp32} pseudo prefix is present.
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     if (Disp.isImm() && AllowDisp8) {
       int ImmOffset = 0;
       if (isDispOrCDisp8(TSFlags, Disp.getImm(), ImmOffset, ForceSIB)) { // INTEL
@@ -1131,19 +910,8 @@ void X86MCCodeEmitter::emitMemModRMByte(
     }
 
     // Otherwise, emit the most general non-SIB encoding: [REG+disp32].
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    // Displacement may be 0 for [EBP], [R13], [R21], [R29] case if {disp32} pseudo prefix
-#else // INTEL_FEATURE_ISA_APX_F
-    // Displacement may be 0 for [EBP] or [R13] case if {disp32} pseudo prefix
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-    // prevented using disp8 above.
-=======
     // Displacement may be 0 for [EBP], [R13], [R21], [R29] case if {disp32}
     // pseudo prefix prevented using disp8 above.
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     emitByte(modRMByte(2, RegOpcodeField, BaseRegNo), CB);
     unsigned Opcode = MI.getOpcode();
     unsigned FixupKind = Opcode == X86::MOV32rm ? X86::reloc_signed_4byte_relax
@@ -1167,23 +935,10 @@ void X86MCCodeEmitter::emitMemModRMByte(
     emitByte(modRMByte(0, RegOpcodeField, 4), CB);
     ForceDisp32 = true;
   } else if (Disp.isImm() && Disp.getImm() == 0 && AllowNoDisp &&
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-             // Base reg can't be EBP/RBP/R13/R21/R29 as that would end up with '5' as
-#else // INTEL_FEATURE_ISA_APX_F
-             // Base reg can't be EBP/RBP/R13 as that would end up with '5' as
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-             // the base field, but that is the magic [*] nomenclature that
-             // indicates no base when mod=0. For these cases we'll emit a 0
-             // displacement instead.
-=======
              // Base reg can't be EBP/RBP/R13/R21/R29 as that would end up with
              // '5' as the base field, but that is the magic [*] nomenclature
              // that indicates no base when mod=0. For these cases we'll emit a
              // 0 displacement instead.
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
              BaseRegNo != N86::EBP) {
     // Emit no displacement ModR/M byte
     emitByte(modRMByte(0, RegOpcodeField, 4), CB);
@@ -1303,12 +1058,7 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
 
   assert(!(TSFlags & X86II::LOCK) && "Can't have LOCK VEX.");
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-=======
 #ifndef NDEBUG
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
   unsigned NumOps = MI.getNumOperands();
   for (unsigned I = NumOps ? X86II::getOperandBias(Desc) : 0; I != NumOps;
        ++I) {
@@ -1320,16 +1070,13 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
       report_fatal_error(
           "Cannot encode high byte register in VEX/EVEX-prefixed instruction");
   }
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-
+#if INTEL_CUSTOMIZATION
   X86OpcodePrefixHelper Prefix(*Ctx.getRegisterInfo(), STI); // INTEL
-=======
+#else
+  X86OpcodePrefixHelper Prefix(*Ctx.getRegisterInfo());
+#endif // INTEL_CUSTOMIZATION
 #endif
 
-  X86OpcodePrefixHelper Prefix(*Ctx.getRegisterInfo());
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
   switch (TSFlags & X86II::EncodingMask) {
   default:
     break;
@@ -1433,7 +1180,6 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   switch (TSFlags & X86II::FormMask) {
   default:
     llvm_unreachable("Unexpected form in emitVEXOpcodePrefix!");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case X86II::MRMDestMem4VOp3:
   case X86II::MRMDestMem4VOp2FSIB: {
@@ -1465,30 +1211,10 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   }
 #endif // INTEL_CUSTOMIZATION
   case X86II::MRMDestMem4VOp3CC: {
-    //  MemAddr, src1(ModR/M), src2(VEX_4V)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setRR2(MI, CurOp++);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setR(MI, CurOp++);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
-  case X86II::MRMDestMem4VOp3CC: {
     //  src1(ModR/M), MemAddr, src2(VEX_4V)
     Prefix.setRR2(MI, CurOp++);
     Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     CurOp += X86::AddrNumOperands;
     Prefix.set4V(MI, CurOp++);
     break;
@@ -1508,23 +1234,9 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     //  MemAddr, src1(VEX_4V), src2(ModR/M)
     //  MemAddr, src1(ModR/M), imm8
     //
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-    if (!HasVEX_4V) // Only needed with VSIB which don't use VVVV.
-      Prefix.setV2(MI, MemOperand + X86::AddrIndexReg);
-=======
     Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
     Prefix.setV2(MI, MemOperand + X86::AddrIndexReg, HasVEX_4V);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
@@ -1593,23 +1305,9 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
 #endif // INTEL_CUSTOMIZATION
       Prefix.set4VV2(MI, CurOp++);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-    if (!HasVEX_4V) // Only needed with VSIB which don't use VVVV.
-      Prefix.setV2(MI, MemOperand + X86::AddrIndexReg);
-=======
     Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
     Prefix.setV2(MI, MemOperand + X86::AddrIndexReg, HasVEX_4V);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
@@ -1627,20 +1325,8 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     // Instruction format for 4VOp3:
     //   src1(ModR/M), MemAddr, src3(VEX_4V)
     Prefix.setR(MI, CurOp++);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
-    Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     Prefix.set4V(MI, CurOp + X86::AddrNumOperands);
     break;
   }
@@ -1648,20 +1334,8 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     //  dst(ModR/M.reg), src1(VEX_4V), src2(Imm[7:4]), src3(ModR/M),
     Prefix.setR(MI, CurOp++);
     Prefix.set4V(MI, CurOp++);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
-    Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     break;
   }
   case X86II::MRM0m:
@@ -1687,23 +1361,9 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     if (HasEVEX_K)
       Prefix.setAAA(MI, CurOp++);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-    if (!HasVEX_4V) // Only needed with VSIB which don't use VVVV.
-      Prefix.setV2(MI, MemOperand + X86::AddrIndexReg);
-=======
     Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
     Prefix.setV2(MI, MemOperand + X86::AddrIndexReg, HasVEX_4V);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
@@ -1749,17 +1409,7 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
       Prefix.set4VV2(MI, CurOp++);
 #endif // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     Prefix.setBB2(MI, CurOp);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, CurOp);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
-    Prefix.setBB2(MI, CurOp);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     Prefix.setX(MI, CurOp, 4);
     ++CurOp;
 
@@ -1786,7 +1436,6 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   case X86II::MRMSrcReg4VOp3: {
     // Instruction format for 4VOp3:
     //   src1(ModR/M), src2(ModR/M), src3(VEX_4V)
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if ((TSFlags & X86II::EncodingMask) == X86II::EVEX) {
       Prefix.setRR2(MI, CurOp++);
@@ -1801,12 +1450,8 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
       break;
     }
 #endif // INTEL_CUSTOMIZATION
-    Prefix.setR(MI, CurOp++);
-    Prefix.setB(MI, CurOp++);
-=======
     Prefix.setRR2(MI, CurOp++);
     Prefix.setBB2(MI, CurOp++);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     Prefix.set4V(MI, CurOp++);
     break;
   }
@@ -1844,20 +1489,13 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     //  dst(ModR/M), src(ModR/M)
     //  dst(ModR/M), src(ModR/M), imm8
     //  dst(ModR/M), src1(VEX_4V), src2(ModR/M)
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
     if (IsND)
       Prefix.set4VV2(MI, CurOp++, true);
-
-    Prefix.setBB2(MI, CurOp);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, CurOp);
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-=======
     Prefix.setBB2(MI, CurOp);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     Prefix.setX(MI, CurOp, 4);
     ++CurOp;
 
@@ -1935,17 +1573,7 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     if (HasEVEX_K)
       Prefix.setAAA(MI, CurOp++);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     Prefix.setBB2(MI, CurOp);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, CurOp);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
-    Prefix.setBB2(MI, CurOp);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     Prefix.setX(MI, CurOp, 4);
     ++CurOp;
 #if INTEL_CUSTOMIZATION
@@ -2032,72 +1660,6 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
   case X86II::RawFrmDstSrc:
     break;
   case X86II::AddRegFrm:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setBB2(MI, CurOp++);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, CurOp++);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-    break;
-  case X86II::MRMSrcReg:
-  case X86II::MRMSrcRegCC:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setRR2(MI, CurOp++);
-    Prefix.setBB2(MI, CurOp++);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setR(MI, CurOp++);
-    Prefix.setB(MI, CurOp++);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-    break;
-  case X86II::MRMSrcMem:
-  case X86II::MRMSrcMemCC:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setRR2(MI, CurOp++);
-    Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setR(MI, CurOp++);
-    Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-    CurOp += X86::AddrNumOperands;
-    break;
-  case X86II::MRMDestReg:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setBB2(MI, CurOp++);
-    Prefix.setRR2(MI, CurOp++);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, CurOp++);
-    Prefix.setR(MI, CurOp++);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-    break;
-  case X86II::MRMDestMem:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-    CurOp += X86::AddrNumOperands;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setRR2(MI, CurOp++);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setR(MI, CurOp++);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
     Prefix.setBB2(MI, CurOp++);
     break;
   case X86II::MRMSrcReg:
@@ -2121,7 +1683,6 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
     Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
     CurOp += X86::AddrNumOperands;
     Prefix.setRR2(MI, CurOp++);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     break;
   case X86II::MRMXmCC:
   case X86II::MRMXm:
@@ -2133,20 +1694,8 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
   case X86II::MRM5m:
   case X86II::MRM6m:
   case X86II::MRM7m:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
-    Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
     break;
   case X86II::MRMXrCC:
   case X86II::MRMXr:
@@ -2158,27 +1707,10 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
   case X86II::MRM5r:
   case X86II::MRM6r:
   case X86II::MRM7r:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    Prefix.setBB2(MI, CurOp++);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, CurOp++);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-    break;
-  }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  Prefix.setM((TSFlags & X86II::OpMapMask) == X86II::TB);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
     Prefix.setBB2(MI, CurOp++);
     break;
   }
   Prefix.setM((TSFlags & X86II::OpMapMask) == X86II::TB);
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
   PrefixKind Kind = Prefix.determineOptimalKind();
   if (Kind && UsesHighByteReg)
     report_fatal_error(
@@ -2257,21 +1789,10 @@ PrefixKind X86MCCodeEmitter::emitOpcodePrefix(int MemOperand, const MCInst &MI,
   // 0x0F escape code must be emitted just before the opcode.
   switch (TSFlags & X86II::OpMapMask) {
   case X86II::TB:        // Two-byte opcode map
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    // Encoded by M bit in REX2
-    if (Kind == REX2)
-      break;
-    LLVM_FALLTHROUGH;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
     // Encoded by M bit in REX2
     if (Kind == REX2)
       break;
     [[fallthrough]];
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
   case X86II::T8:        // 0F 38
   case X86II::TA:        // 0F 3A
   case X86II::ThreeDNow: // 0F 0F, second 0F emitted by caller.

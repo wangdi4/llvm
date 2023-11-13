@@ -123,19 +123,15 @@ class X86AsmParser : public MCTargetAsmParser {
 
   DispEncoding ForcedDispEncoding = DispEncoding_Default;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   // Is this instruction explicitly required not to update flags?
   bool ForcedNoFlag = false;
-  // Does this instruction use apx extended register?
-  bool UseApxExtendedReg = false;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // Does this instruction use apx extended register?
   bool UseApxExtendedReg = false;
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
 
 private:
   SMLoc consumeToken() {
@@ -1446,17 +1442,8 @@ bool X86AsmParser::MatchRegisterByName(MCRegister &RegNo, StringRef RegName,
     }
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   if (X86II::isApxExtendedReg(RegNo))
     UseApxExtendedReg = true;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-=======
-  if (X86II::isApxExtendedReg(RegNo))
-    UseApxExtendedReg = true;
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
 
   // If this is "db[0-15]", match it as an alias
   // for dr[0-15].
@@ -3188,16 +3175,13 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
   // Reset the forced VEX encoding.
   ForcedVEXEncoding = VEXEncoding_Default;
   ForcedDispEncoding = DispEncoding_Default;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   ForcedNoFlag = false;
-  UseApxExtendedReg = false;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-=======
+
   UseApxExtendedReg = false;
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
 
   // Parse pseudo prefixes.
   while (true) {
@@ -4154,19 +4138,15 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
   unsigned Opc = Inst.getOpcode();
   const MCInstrDesc &MCID = MII.get(Opc);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   if (ForcedNoFlag && !(MCID.TSFlags & X86II::EVEX_NF))
     return Match_Unsupported;
-  if (UseApxExtendedReg && !X86II::canUseApxExtendedReg(MCID))
-    return Match_Unsupported;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-=======
+
   if (UseApxExtendedReg && !X86II::canUseApxExtendedReg(MCID))
     return Match_Unsupported;
->>>>>>> 58bb2d19560471ad94dea505f2283bad9d7c2850
 
   if (ForcedVEXEncoding == VEXEncoding_EVEX &&
       (MCID.TSFlags & X86II::EncodingMask) != X86II::EVEX)
