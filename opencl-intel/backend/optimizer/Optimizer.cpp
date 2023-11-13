@@ -112,13 +112,6 @@ public:
     DI.print(OS);
     OS << "\n";
 
-    if (auto *SKDI = dyn_cast<SYCLKernelAnalysisDiagInfo>(&DI);
-        SKDI &&
-        SKDI->getDKDiagKind() == SYCLKernelAnalysisDiagKind::
-                                     SKDK_Error_FPGA_UnsupportedMemoryScope &&
-        Opt->isFpgaEmulator())
-      Opt->setExceptionMsg(ExceptionMsg);
-
     if (DI.getSeverity() == DS_Error)
       Opt->setExceptionMsg(ExceptionMsg);
 
