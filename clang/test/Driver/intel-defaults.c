@@ -78,6 +78,7 @@
 // CHECK-INTEL-LIBS-WIN: "--dependent-lib=libircmt"
 // CHECK-INTEL-LIBS-WIN: "--dependent-lib=svml_dispmt"
 // CHECK-INTEL-LIBS-WIN: "--dependent-lib=libdecimal"
+// CHECK-INTEL-LIBS-WIN: "--dependent-lib={{.*}}clang_rt.builtins{{.*}}"
 
 // default libs with --intel (Windows)
 // RUN: touch %t.obj
@@ -85,6 +86,7 @@
 // CHECK-INTEL-LIBS-WIN2: "-defaultlib:libircmt"
 // CHECK-INTEL-LIBS-WIN2: "-defaultlib:svml_dispmt"
 // CHECK-INTEL-LIBS-WIN2: "-defaultlib:libdecimal"
+// CHECK-INTEL-LIBS-WIN2: "{{.*}}clang_rt.builtins{{.*}}"
 
 // -fveclib=SVML can be overridden
 // RUN: %clang -### -c --intel -fveclib=none %s 2>&1 | FileCheck -check-prefix CHECK-VECLIB %s
