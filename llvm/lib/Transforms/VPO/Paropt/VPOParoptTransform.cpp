@@ -151,6 +151,14 @@ static cl::opt<bool> AllowDistributeDimension(
      cl::desc("Allow using separate ND-range dimension "
               "for OpenMP distribute."));
 
+static cl::opt<bool> NontemporalLoadsOnly(
+    "omp-simd-nontemporal-loads-only", cl::Hidden, cl::init(false),
+    cl::desc("Makes omp simd nontemporal only apply to loads"));
+
+static cl::opt<bool> NontemporalStoresOnly(
+    "omp-simd-nontemporal-stores-only", cl::Hidden, cl::init(false),
+    cl::desc("Makes omp simd nontemporal only apply to stores"));
+
 namespace {
 enum class OCLLoopProcessingKind { NonStridedLWS, NonStridedGWS, Strided };
 } // namespace
@@ -7584,8 +7592,9 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
 
       // Check if the nontemporal address is passed as a pointer argument to a
       // store or load instruction.
-      if ((isa<StoreInst>(Usr) && U->getOperandNo() == 1) ||
-          isa<LoadInst>(Usr)) {
+      if ((!NontemporalLoadsOnly && isa<StoreInst>(Usr) &&
+           U->getOperandNo() == 1) ||
+          (!NontemporalStoresOnly && isa<LoadInst>(Usr))) {
         // Attach !nontemporal metadata to the instruction.
         Instruction *Mrf = cast<Instruction>(Usr);
         if (!NtmpMD) {
