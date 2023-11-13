@@ -37,9 +37,6 @@ namespace llvm {
 
 namespace vpo {
 
-// Shorthand for SmallVector of VPValues.
-using VPlanSLPValuesTy = SmallVector<const VPValue *, 32>;
-
 const VPValue *VPlanSLP::VPlanSLPNodeElement::getOperand(unsigned N) const {
   // Only first two operands replacement is supported so far.
   if (N >= 2 || AltOpcode == 0)
@@ -105,15 +102,15 @@ bool VPlanSLP::canMoveTo(const VPLoadStoreInst *FromInst,
 }
 
 void VPlanSLP::collectMemRefDistances(const VPLoadStoreInst *BaseMem,
-                                      ArrayRef<const VPValue *> Values,
+                                      ElemArrayRef Values,
                                       SmallVectorImpl<ssize_t> &Distances) {
 
   const auto *BaseDDRef = BaseMem->getHIRMemoryRef();
   assert(BaseDDRef && "No DDRef for Base memref.");
   unsigned ElSize = BaseDDRef->getDestTypeSizeInBytes();
 
-  for (const auto *V : Values) {
-    const auto *InstMem = dyn_cast<VPLoadStoreInst>(V);
+  for (const auto &E : Values) {
+    const auto *InstMem = dyn_cast<VPLoadStoreInst>(E.getValue());
     assert(InstMem && "Only memrefs are expected on input.");
     const auto *InstDDRef = InstMem->getHIRMemoryRef();
     assert(InstDDRef && "No DDRef for memref.");
@@ -303,7 +300,7 @@ bool VPlanSLP::getVecInstsVector(ElemArrayRef InValues,
     // in the same BB.
     if (Inst->getParent() !=
             cast<VPInstruction>(BaseE->getValue())->getParent() ||
-        Inst->getOpcode() != BaseE->getOpcode() ||
+        E.getOpcode() != BaseE->getOpcode() ||
         Inst->getNumOperands() !=
             cast<VPInstruction>(BaseE->getValue())->getNumOperands())
       continue;
@@ -376,7 +373,7 @@ VPlanSLP::getVectorizableValues(ElemArrayRef InValues,
 }
 
 VPInstructionCost
-VPlanSLP::estimateSLPCostDifference(ArrayRef<const VPValue *> Values,
+VPlanSLP::estimateSLPCostDifference(ElemArrayRef Values,
                                     VPlanSLPNodeTy NType) const {
   assert(NType != NotVector && "Invalid Node Type");
 
@@ -409,8 +406,8 @@ VPlanSLP::estimateSLPCostDifference(ArrayRef<const VPValue *> Values,
 
     // Special case integer constants.
     // Those which fit 32 bits do not contribute. Other contribute TCC_Basic.
-    for (const auto *V : Values) {
-      const auto *VPConst = cast<VPConstant>(V);
+    for (const auto &E : Values) {
+      const auto *VPConst = cast<VPConstant>(E.getValue());
       if (const auto *IntConst =
               dyn_cast<ConstantInt>(VPConst->getConstant())) {
         if (!llvm::isIntN(32, IntConst->getSExtValue()))
@@ -436,7 +433,8 @@ VPlanSLP::estimateSLPCostDifference(ArrayRef<const VPValue *> Values,
   // the cost of a single scalar instruction.
   if (NType == SplatVector) {
     auto DiffCost = CM->TTI.getShuffleCost(
-        TTI::SK_Broadcast, getWidenedType(Values[0]->getType(), Values.size()));
+        TTI::SK_Broadcast,
+        getWidenedType(Values[0].getValue()->getType(), Values.size()));
 
     if (SLPReportDetailLevel >= 1) {
       LLVM_DEBUG(dbgs() << "VSLP estimated costs for bundle/graph # "
@@ -451,14 +449,14 @@ VPlanSLP::estimateSLPCostDifference(ArrayRef<const VPValue *> Values,
     return VPInstructionCost::getUnknown();
 
   // Only VPInstructions in Values are expected below this point.
-  const auto *BaseI = cast<VPInstruction>(Values.front());
+  const auto *BaseI = cast<VPInstruction>(Values.front().getValue());
   assert(BaseI && "Base VPInstruction is missed");
 
   // ScalCost is just a sum of TTI cost of everything in Insts.
   VPInstructionCost ScalCost = std::accumulate(
       Values.begin(), Values.end(), VPInstructionCost(0),
-      [this](VPInstructionCost Cost, const VPValue *V) {
-        return Cost + CM->getTTICostForVF(cast<VPInstruction>(V), 1);
+      [this](VPInstructionCost Cost, const auto &E) {
+        return Cost + CM->getTTICostForVF(cast<VPInstruction>(E.getValue()), 1);
       });
 
   SmallVector<ssize_t, 8> Distances;
@@ -580,16 +578,8 @@ VPInstructionCost VPlanSLP::buildGraph(ElemArrayRef Seed) {
     VPlanSLPNodeTy NType = getVectorizableValues(Values, VecValues);
     VPInstructionCost VCost = VPInstructionCost::getInvalid();
 
-    // TODO:
-    // The conversion from ElemVectorTy to VPlanSLPValuesTy will be removed once
-    // utilities take ElemVectorTy on input.
-    VPlanSLPValuesTy VecVPValues;
-    auto Range =
-        map_range(VecValues, [](const auto &E) { return E.getValue(); });
-    VecVPValues.assign(Range.begin(), Range.end());
-
     if (NType != NotVector)
-      VCost = estimateSLPCostDifference(VecVPValues, NType);
+      VCost = estimateSLPCostDifference(VecValues, NType);
 
     if (SLPReportDetailLevel >= 1) {
       LLVM_DEBUG(dbgs() << "VSLP: bundle/graph " << BundleID << '/' << GraphID
