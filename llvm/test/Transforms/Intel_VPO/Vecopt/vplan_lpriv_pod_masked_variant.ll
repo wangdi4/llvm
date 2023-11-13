@@ -3,6 +3,18 @@
 
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-vec-scenario="n1;v16;m16" -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-print-after-final-cond-transform -vplan-enable-masked-variant-hir -vplan-enable-peel-rem-strip=0 < %s  2>&1 | FileCheck %s --check-prefix=HIR
 
+; HIR before vectorization:
+; BEGIN REGION { }
+;       %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.LASTPRIVATE:TYPED(&((%xp)[0]), 0, 1) ]
+;
+;       + DO i1 = 0, 127, 1   <DO_LOOP> <simd>
+;       |   %x = i1  +  1;
+;       + END LOOP
+;
+;       (%xp)[0] = %x;
+;       @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+; END REGION
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 define i32 @main() {
@@ -154,7 +166,7 @@ define i32 @main() {
 ;
 ; HIR:             [[X0:%.*]] = extractelement [[LIVEOUTCOPY40]],  15
 ;
-; HIR:             + DO i1 = 0, [[LOOP_UB0:%.*]], 16   <DO_LOOP> <vector-remainder> <nounroll> <novectorize>
+; HIR:             + DO i1 = 0, [[LOOP_UB0:%.*]], 16   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 1>
 ; HIR-NEXT:        |   [[DOTVEC170:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> <u [[DOTVEC150:%.*]]
 ; HIR-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC170]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? i1 + [[PHI_TEMP20:%.*]] + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 1 : [[PHI_TEMP0:%.*]];
 ; HIR-NEXT:        |   [[DOTVEC180:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 16 <u [[DOTVEC150]]

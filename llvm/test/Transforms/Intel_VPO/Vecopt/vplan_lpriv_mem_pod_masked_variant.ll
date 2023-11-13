@@ -6,6 +6,16 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
+; HIR before vectorization:
+; BEGIN REGION { }
+;       %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.LASTPRIVATE:TYPED(&((%x)[0]), 0, 1) ]
+;
+;       + DO i1 = 0, 127, 1   <DO_LOOP> <simd>
+;       |   (%x)[0] = i1 + 1;
+;       + END LOOP
+;
+;       @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+; END REGION
 
 define i32 @main() {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
@@ -131,7 +141,7 @@ define i32 @main() {
 ; HIR-NEXT:        [[EXTRACTED_PRIV0:%.*]] = extractelement [[DOTVEC20]],  15
 ; HIR-NEXT:        ([[X0]])[0] = [[EXTRACTED_PRIV0]]
 ;
-; HIR:             + DO i1 = 0, [[LOOP_UB0:%.*]], 16   <DO_LOOP> <vector-remainder> <nounroll> <novectorize>
+; HIR:             + DO i1 = 0, [[LOOP_UB0:%.*]], 16   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 1>
 ; HIR-NEXT:        |   [[DOTVEC120:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> <u [[DOTVEC100:%.*]];
 ; HIR-NEXT:        |   (<16 x i32>*)([[PRIV_MEM80:%.*]])[0] = i1 + [[PHI_TEMP0:%.*]] + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 1, Mask = @{[[DOTVEC120]]}
 ; HIR-NEXT:        |   [[DOTVEC130:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 16 <u [[DOTVEC100]]
