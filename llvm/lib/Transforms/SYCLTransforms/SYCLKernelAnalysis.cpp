@@ -64,7 +64,7 @@ void SYCLKernelAnalysisPass::fillMatrixCallFuncs() {
             "AMX matrix primitives are being used on an arch older than "
             "Sapphire Rapids! DPC++ joint matrix extension requires presence "
             "of AMX on Sapphire Rapids or later)",
-            SKDK_Error_MatrixIntrinOnUnsupportedCPU));
+            DKDK_Error_MatrixIntrinOnUnsupportedCPU));
       Type *MatrixElemType =
           F.getIntrinsicID() != Intrinsic::experimental_matrix_store
               ? cast<FixedVectorType>(F.getReturnType())->getElementType()
@@ -76,7 +76,7 @@ void SYCLKernelAnalysisPass::fillMatrixCallFuncs() {
             "AMX-FP16 matrix primitives are being used on an arch older than "
             "Granite Rapids! DPC++ joint matrix extension requires presence "
             "of AMX on Sapphire Rapids or later)",
-            SKDK_Error_MatrixIntrinOnUnsupportedCPU));
+            DKDK_Error_MatrixIntrinOnUnsupportedCPU));
       }
       MatrixIntrins.insert(&F);
       break;
@@ -139,18 +139,6 @@ static bool hasAtomicBuiltinCall(CallGraph &CG, const RuntimeService &RTS,
       // handle atomic_work_item_fence(cl_mem_fence_flags flags,
       // memory_order order, memory_scope scope) builtin.
       if (isAtomicWorkItemFenceBuiltin(CalledFunc->getName())) {
-        if (auto *MemoryScope = dyn_cast<ConstantInt>(CI->getOperand(2))) {
-          unsigned int MemoryScopeAttr = MemoryScope->getZExtValue();
-          if (MemoryScopeAttr != __OPENCL_MEMORY_SCOPE_WORK_GROUP &&
-              MemoryScopeAttr != __OPENCL_MEMORY_SCOPE_WORK_ITEM &&
-              MemoryScopeAttr != __OPENCL_MEMORY_SCOPE_SUB_GROUP) {
-            F->getContext().diagnose(SYCLKernelAnalysisDiagInfo(
-                *F,
-                "memory_scope::system and memory_scope::device "
-                "are not supported on FPGA emulator platform!",
-                SKDK_Error_FPGA_UnsupportedMemoryScope, DS_Note));
-          }
-        }
         // !!! MUST be aligned with define in clang/lib/Headers/opencl-c-base.h
         // #define CLK_GLOBAL_MEM_FENCE   0x2
         static const uint64_t CLK_GLOBAL_MEM_FENCE = 2;

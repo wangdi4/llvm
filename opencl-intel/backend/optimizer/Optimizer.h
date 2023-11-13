@@ -49,7 +49,6 @@ public:
 
   void setExceptionMsg(std::string &Msg) { ExceptionMsg = Msg; }
   const std::string &getExceptionMsg() const { return ExceptionMsg; }
-  bool isFpgaEmulator() const { return m_IsFpgaEmulator; }
 
 protected:
   /// Register OCLDiagnosticHandler callback to LLVMContext.
