@@ -1049,16 +1049,6 @@ lsc_format_ret(__ESIMD_NS::simd<T1, N> Vals) {
   }
 }
 
-<<<<<<< HEAD
-/// Check the legality of lsc atomic call in terms of size and type.
-template <__ESIMD_NS::native::lsc::atomic_op Op, typename T, int N,
-          unsigned NumSrc>
-constexpr void check_lsc_atomic() {
-  __ESIMD_DNS::check_atomic<__ESIMD_DNS::to_atomic_op<Op>(), T, N, NumSrc>();
-}
-
-=======
->>>>>>> 7c9b9e61178a1ca3cdd9546e30297f3b4d9f6424
 template <cache_hint L1H = cache_hint::none, cache_hint L3H = cache_hint::none>
 constexpr uint32_t get_lsc_load_cache_mask() {
   if constexpr (L1H == cache_hint::read_invalidate &&
