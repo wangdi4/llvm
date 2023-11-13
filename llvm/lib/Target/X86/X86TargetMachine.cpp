@@ -185,6 +185,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86PreISelIntrinsicLoweringPass(PR);
   initializeX86StackRealignPass(PR);
   initializeX86HeteroArchOptPass(PR);
+  initializeX86FixupMemInstsPassPass(PR);
 #if INTEL_FEATURE_ISA_APX_F
   initializeX86ConditionalComparesPass(PR);
 #endif // INTEL_FEATURE_ISA_APX_F
@@ -752,6 +753,8 @@ void X86PassConfig::addPreEmitPass() {
   addPass(createX86IndirectBranchTrackingPass());
 
   addPass(createX86IssueVZeroUpperPass());
+
+  addPass(createX86FixupMemInstsPass()); // INTEL
 
   if (getOptLevel() != CodeGenOptLevel::None) {
     addPass(createX86FixupBWInsts());
