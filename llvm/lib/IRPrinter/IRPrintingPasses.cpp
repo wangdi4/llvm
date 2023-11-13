@@ -56,7 +56,6 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
       }
     }
   }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   ModuleSummaryIndex *Index =
       EmitSummaryIndex ? &(AM.getResult<ModuleSummaryIndexAnalysis>(M))
@@ -70,6 +69,7 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
   if (ShouldConvert)
     M.convertToNewDbgValues();
 
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return PreservedAnalyses::all();
 }
 
@@ -92,10 +92,10 @@ PreservedAnalyses PrintFunctionPass::run(Function &F,
     else
       OS << Banner << '\n' << static_cast<Value &>(F);
   }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   if (ShouldConvert)
     F.convertToNewDbgValues();
 
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return PreservedAnalyses::all();
 }

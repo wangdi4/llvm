@@ -86,10 +86,10 @@ public:
         }
       }
     }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
     if (IsNewDbgInfoFormat)
       M.convertToNewDbgValues();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
     return false;
   }
@@ -127,10 +127,10 @@ public:
       else
         OS << Banner << '\n' << static_cast<Value &>(F);
     }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
     if (IsNewDbgInfoFormat)
       F.convertToNewDbgValues();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
     return false;
   }
