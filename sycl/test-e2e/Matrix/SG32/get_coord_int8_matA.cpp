@@ -7,14 +7,10 @@
 //===----------------------------------------------------------------------===//
 // REQUIRES: matrix
 
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // get_coord() is implemented in xmain OCL CPU
 // TODO: enable the upstream test when OCL CPU 2024.0 is uplifted
-// RUN: %{build} -o %t.out -DSYCL_EXT_ONEAPI_MATRIX_VERSION=4
-=======
 // RUN: %{build} -o %t.out
->>>>>>> 1957f7501caa98febae177ec39ac3a09e98845d0
 // RUN: %{run} %t.out
 // end INTEL_CUSTOMIZATION
 
