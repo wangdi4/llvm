@@ -233,8 +233,21 @@ void aix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
+<<<<<<< HEAD
     addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
                   D.getLTOMode() == LTOK_Thin, JA);   // INTEL
+=======
+    // Find the first filename InputInfo object.
+    auto Input = llvm::find_if(
+        Inputs, [](const InputInfo &II) -> bool { return II.isFilename(); });
+    if (Input == Inputs.end())
+      // For a very rare case, all of the inputs to the linker are
+      // InputArg. If that happens, just use the first InputInfo.
+      Input = Inputs.begin();
+
+    addLTOOptions(ToolChain, Args, CmdArgs, Output, *Input,
+                  D.getLTOMode() == LTOK_Thin);
+>>>>>>> d51dd892ad451c9cebc43f4de5d2758c423a91c4
   }
 
   if (Args.hasArg(options::OPT_shared) && !hasExportListLinkerOpts(CmdArgs)) {
