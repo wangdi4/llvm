@@ -1389,6 +1389,7 @@ void PassBuilder::addPreInlinerPasses(ModulePassManager &MPM,
   // performance testing.
   // FIXME: this comment is cargo culted from the old pass manager, revisit).
   IP.HintThreshold = Level.isOptimizingForSize() ? PreInlineThreshold : 325;
+
 #if INTEL_CUSTOMIZATION
   IP.PrepareForLTO = PrepareForLTO;
   // Parse - inline-forceinline option and transforms corresponding attributes
@@ -1396,21 +1397,32 @@ void PassBuilder::addPreInlinerPasses(ModulePassManager &MPM,
   // Parse -[no]inline-list option and set corresponding attributes.
   MPM.addPass(InlineListsPass());
 #endif //INTEL_CUSTOMIZATION
+
   ModuleInlinerWrapperPass MIWP(
       IP, /* MandatoryFirst */ true,
       InlineContext{LTOPhase, InlinePass::EarlyInliner});
   CGSCCPassManager &CGPipeline = MIWP.getPM();
 
   FunctionPassManager FPM;
+
+#if INTEL_CUSTOMIZATION
+  if (EnableTbaaProp)
+    FPM.addPass(TbaaMDPropagationPass());
+  else
+    FPM.addPass(CleanupFakeLoadsPass());
+#endif // INTEL_CUSTOMIZATION
+
   FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
   FPM.addPass(EarlyCSEPass()); // Catch trivial redundancies.
   FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
       true)));                    // Merge & remove basic blocks.
+
 #if INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
   // if IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
 #endif // INTEL_CUSTOMIZATION
+
   invokePeepholeEPCallbacks(FPM, Level);
 
   CGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
@@ -1430,61 +1442,8 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
                                     bool IsCS, bool AtomicCounterUpdate,
                                     std::string ProfileFile,
                                     std::string ProfileRemappingFile,
-				    ThinOrFullLTOPhase LTOPhase,
                                     IntrusiveRefCntPtr<vfs::FileSystem> FS) {
   assert(Level != OptimizationLevel::O0 && "Not expecting O0 here!");
-  if (!IsCS && !DisablePreInliner) {
-    InlineParams IP;
-
-    IP.DefaultThreshold = PreInlineThreshold;
-
-    // FIXME: The hint threshold has the same value used by the regular inliner
-    // when not optimzing for size. This should probably be lowered after
-    // performance testing.
-    // FIXME: this comment is cargo culted from the old pass manager, revisit).
-    IP.HintThreshold = Level.isOptimizingForSize() ? PreInlineThreshold : 325;
-    IP.PrepareForLTO = PrepareForLTO; // INTEL
-
-#if INTEL_CUSTOMIZATION
-    // Parse - inline-forceinline option and transforms corresponding attributes
-    MPM.addPass(InlineForceInlinePass());
-    // Parse -[no]inline-list option and set corresponding attributes.
-    MPM.addPass(InlineListsPass());
-#endif //INTEL_CUSTOMIZATION
-
-    ModuleInlinerWrapperPass MIWP(
-        IP, /* MandatoryFirst */ true,
-        InlineContext{LTOPhase, InlinePass::EarlyInliner});
-    CGSCCPassManager &CGPipeline = MIWP.getPM();
-
-    FunctionPassManager FPM;
-#if INTEL_CUSTOMIZATION
-    if (EnableTbaaProp)
-      FPM.addPass(TbaaMDPropagationPass());
-    else
-      FPM.addPass(CleanupFakeLoadsPass());
-#endif // INTEL_CUSTOMIZATION
-    FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
-    FPM.addPass(EarlyCSEPass()); // Catch trivial redundancies.
-    FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
-        true)));                    // Merge & remove basic blocks.
-#if INTEL_CUSTOMIZATION
-    // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
-    // if IP ArrayTranspose is enabled.
-    addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
-#endif // INTEL_CUSTOMIZATION
-    invokePeepholeEPCallbacks(FPM, Level);
-
-    CGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
-        std::move(FPM), PTO.EagerlyInvalidateAnalyses));
-
-    MPM.addPass(std::move(MIWP));
-
-    // Delete anything that is now dead to make sure that we don't instrument
-    // dead code. Instrumentation can end up keeping dead code around and
-    // dramatically increase code size.
-    MPM.addPass(GlobalDCEPass());
-  }
 
 #if INTEL_CUSTOMIZATION
   if (PGOAction == PGOOptions::MLUse) {
@@ -1492,6 +1451,7 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
     return;
   } else if (PGOAction == PGOOptions::IRUse) {
 #endif // INTEL_CUSTOMIZATION
+
     assert(!ProfileFile.empty() && "Profile use expecting a profile file!");
     MPM.addPass(
         PGOInstrumentationUse(ProfileFile, ProfileRemappingFile, IsCS, FS));
@@ -2022,7 +1982,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
        PGOOpt->Action == PGOOptions::MLUse)) {
     addPGOInstrPasses(MPM, Level, PGOOpt->Action,
                       /*IsCS=*/false, PGOOpt->AtomicCounterUpdate,
-                      PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile, Phase,
+                      PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
                       PGOOpt->FS);
     MPM.addPass(PGOIndirectCallPromotion(false, false));
   }
@@ -2998,12 +2958,12 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
       addPGOInstrPasses(MPM, Level, PGOOptions::IRInstr, // INTEL
                         /*IsCS=*/true, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->CSProfileGenFile, PGOOpt->ProfileRemappingFile,
-                        LTOPhase, PGOOpt->FS);
+                        PGOOpt->FS);
     else if (PGOOpt->CSAction == PGOOptions::CSIRUse)
       addPGOInstrPasses(MPM, Level, PGOOptions::IRUse, // INTEL
                         /*IsCS=*/true, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
-                        LTOPhase, PGOOpt->FS);
+                        PGOOpt->FS);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -3275,7 +3235,7 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
       addPGOInstrPasses(MPM, Level, PGOOpt->Action,
                         /* IsCS */ false, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
-                        LTOPhase, PGOOpt->FS);
+                        PGOOpt->FS);
       MPM.addPass(PGOIndirectCallPromotion(false, false));
     }
     if (PGOOpt && PGOOpt->IsCGPGO &&
@@ -3902,12 +3862,12 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       addPGOInstrPasses(MPM, Level, PGOOptions::IRInstr, // INTEL
                         /*IsCS=*/true, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->CSProfileGenFile, PGOOpt->ProfileRemappingFile,
-                        ThinOrFullLTOPhase::FullLTOPostLink, PGOOpt->FS);
+                        PGOOpt->FS);
     else if (PGOOpt->CSAction == PGOOptions::CSIRUse)
       addPGOInstrPasses(MPM, Level, PGOOptions::IRUse, // INTEL
                         /*IsCS=*/true, PGOOpt->AtomicCounterUpdate,
                         PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
-                        ThinOrFullLTOPhase::FullLTOPostLink, PGOOpt->FS);
+                        PGOOpt->FS);
   }
 
   // Break up allocas
@@ -4160,7 +4120,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     addPGOInstrPasses(MPM, Level, PGOOpt->Action, // INTEL
                       /* IsCS */ false, PGOOpt->AtomicCounterUpdate,
                       PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
-                      ThinOrFullLTOPhase::FullLTOPostLink, PGOOpt->FS);
+                      PGOOpt->FS);
     MPM.addPass(PGOIndirectCallPromotion(false, false));
   }
 #endif // !INTEL_PRODUCT_RELEASE
