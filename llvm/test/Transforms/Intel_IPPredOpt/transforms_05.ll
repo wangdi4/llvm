@@ -13,36 +13,42 @@
 ; CHECK:  %4 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 4
 ; CHECK:  %5 = load ptr, ptr %4
 ; CHECK:  %callee.check = icmp ne ptr %5, null
-; CHECK:  br i1 %callee.check, label %6, label %54
+; CHECK:  br i1 %callee.check, label %6, label %56
 
 ; CHECK: 6:
 ; CHECK:  %7 = getelementptr inbounds %"__DFT___SOADT__DPRE_class._ZTSN11xercesc_2_713FieldValueMapE.xercesc_2_7::FieldValueMap", ptr %i226, i64 0, i32 0
 ; CHECK:  %8 = load ptr, ptr %7
 ; CHECK:  %callee.check1 = icmp ne ptr %8, null
-; CHECK:  br i1 %callee.check1, label %9, label %54
+; CHECK:  br i1 %callee.check1, label %9, label %56
 
 ; CHECK: 9:
 ; CHECK:  %10 = getelementptr inbounds %"__SOADT_AR_class._ZTSN11xercesc_2_713ValueVectorOfIPNS_8IC_FieldEEE.xercesc_2_7::ValueVectorOf", ptr %8, i64 0, i32 1
 ; CHECK:  %11 = load i32, ptr %10
-; CHECK:  %callee.check2 = icmp eq i32 %11, 1
-; CHECK:  br i1 %callee.check2, label %12, label %54
+; CHECK:  %callee.check2 = icmp uge i32 %11, 1
+; CHECK:  br i1 %callee.check2, label %12, label %56
 
 ; CHECK: 12:
 ; CHECK:  %13 = tail call noundef ptr @_ZNK11xercesc_2_713FieldValueMap22getDatatypeValidatorAtEj(ptr noundef nonnull align 8 dereferenceable(32) %i226, i32 noundef 0)
 ; CHECK:  %nunull = icmp ne ptr %13, null
-; CHECK:  br i1 %nunull, label %14, label %54
+; CHECK:  br i1 %nunull, label %14, label %56
 
 ; CHECK: 14:
 ; CHECK:  %15 = getelementptr %"class._ZTSN11xercesc_2_717DatatypeValidatorE.xercesc_2_7::DatatypeValidator", ptr %13, i64 0, i32 0, i32 0
 ; CHECK:  %16 = load ptr, ptr %15
 ; CHECK:  %17 = getelementptr inbounds ptr, ptr %16, i64 10
-; CHECK:  %18 = load ptr, ptr %17, align 8
-; CHECK:  %callee.check3 = icmp eq ptr %18, @_ZN11xercesc_2_721NameDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
-; CHECK:  %callee.check4 = icmp eq ptr %18, @_ZN11xercesc_2_723ENTITYDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %18 = load ptr, ptr %17
+; CHECK:  %callee.check3 = icmp eq ptr %18, @_ZN11xercesc_2_717DatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %callee.check4 = icmp eq ptr %18, @_ZN11xercesc_2_721NameDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
 ; CHECK:  %19 = select i1 %callee.check3, i1 true, i1 %callee.check4
-; CHECK:  %callee.check5 = icmp eq ptr %18, @_ZN11xercesc_2_723NCNameDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %callee.check5 = icmp eq ptr %18, @_ZN11xercesc_2_723AbstractStringValidator7compareEPKtS2_PNS_13MemoryManagerE
 ; CHECK:  %20 = select i1 %19, i1 true, i1 %callee.check5
-; CHECK:  br i1 %20, label %21, label %54
+; CHECK:  %callee.check6 = icmp eq ptr %18, @_ZN11xercesc_2_723ENTITYDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %21 = select i1 %20, i1 true, i1 %callee.check6
+; CHECK:  %callee.check7 = icmp eq ptr %18, @_ZN11xercesc_2_723NCNameDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %22 = select i1 %21, i1 true, i1 %callee.check7
+; CHECK:  %callee.check8 = icmp eq ptr %18, @_ZN11xercesc_2_724BooleanDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %23 = select i1 %22, i1 true, i1 %callee.check8
+; CHECK:  br i1 %23, label %24, label %56
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
