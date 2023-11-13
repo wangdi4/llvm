@@ -314,6 +314,8 @@ def FeatureCCMP : SubtargetFeature<"ccmp", "HasCCMP", "true",
                                    "Support conditional cmp & test instructions">;
 def FeatureCF : SubtargetFeature<"cf", "HasCF", "true",
                                    "Support conditional faulting">;
+def FeaturePPX : SubtargetFeature<"ppx", "HasPPX", "true",
+                                   "Support Push-Pop Acceleration">;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
