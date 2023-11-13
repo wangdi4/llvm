@@ -29,6 +29,7 @@
 #ifndef __AVX512VLINTRIN_H
 #define __AVX512VLINTRIN_H
 
+<<<<<<< HEAD
 #define __DEFAULT_FN_ATTRS128 __attribute__((__always_inline__, __nodebug__, __target__("avx512vl"), __min_vector_width__(128)))
 #define __DEFAULT_FN_ATTRS256 __attribute__((__always_inline__, __nodebug__, __target__("avx512vl"), __min_vector_width__(256)))
 /* INTEL_CUSTOMIZATION */
@@ -39,6 +40,16 @@
 #endif
 /* end INTEL_FEATURE_ISA_AVX256P */
 /* end INTEL_CUSTOMIZATION */
+=======
+#define __DEFAULT_FN_ATTRS128                                                  \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx512vl,no-evex512"),                            \
+                 __min_vector_width__(128)))
+#define __DEFAULT_FN_ATTRS256                                                  \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx512vl,no-evex512"),                            \
+                 __min_vector_width__(256)))
+>>>>>>> f229ba4e8d6bb24622b2d41b3c89585cb9005d8d
 
 typedef short __v2hi __attribute__((__vector_size__(4)));
 typedef char __v4qi __attribute__((__vector_size__(4)));

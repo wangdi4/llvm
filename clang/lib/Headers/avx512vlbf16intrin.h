@@ -31,12 +31,14 @@
 #ifndef __AVX512VLBF16INTRIN_H
 #define __AVX512VLBF16INTRIN_H
 
-#define __DEFAULT_FN_ATTRS128 \
-  __attribute__((__always_inline__, __nodebug__, \
-                 __target__("avx512vl, avx512bf16"), __min_vector_width__(128)))
-#define __DEFAULT_FN_ATTRS256 \
-  __attribute__((__always_inline__, __nodebug__, \
-                 __target__("avx512vl, avx512bf16"), __min_vector_width__(256)))
+#define __DEFAULT_FN_ATTRS128                                                  \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx512vl,avx512bf16,no-evex512"),                 \
+                 __min_vector_width__(128)))
+#define __DEFAULT_FN_ATTRS256                                                  \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx512vl,avx512bf16,no-evex512"),                 \
+                 __min_vector_width__(256)))
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX256P */

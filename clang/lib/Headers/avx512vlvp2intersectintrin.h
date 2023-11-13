@@ -44,12 +44,14 @@
 #ifndef _AVX512VLVP2INTERSECT_H
 #define _AVX512VLVP2INTERSECT_H
 
-#define __DEFAULT_FN_ATTRS128 \
-  __attribute__((__always_inline__, __nodebug__,  __target__("avx512vl,avx512vp2intersect"), \
+#define __DEFAULT_FN_ATTRS128                                                  \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx512vl,avx512vp2intersect,no-evex512"),         \
                  __min_vector_width__(128)))
 
-#define __DEFAULT_FN_ATTRS256 \
-  __attribute__((__always_inline__, __nodebug__,  __target__("avx512vl,avx512vp2intersect"), \
+#define __DEFAULT_FN_ATTRS256                                                  \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx512vl,avx512vp2intersect,no-evex512"),         \
                  __min_vector_width__(256)))
 
 /* INTEL_CUSTOMIZATION */

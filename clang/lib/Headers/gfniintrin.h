@@ -29,10 +29,15 @@
 #define __GFNIINTRIN_H
 
 /* Default attributes for simple form (no masking). */
-#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("gfni"), __min_vector_width__(128)))
+#define __DEFAULT_FN_ATTRS                                                     \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("gfni,no-evex512"), __min_vector_width__(128)))
 
 /* Default attributes for YMM unmasked form. */
-#define __DEFAULT_FN_ATTRS_Y __attribute__((__always_inline__, __nodebug__, __target__("avx,gfni"), __min_vector_width__(256)))
+#define __DEFAULT_FN_ATTRS_Y                                                   \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx,gfni,no-evex512"),                            \
+                 __min_vector_width__(256)))
 
 /* Default attributes for ZMM unmasked forms. */
 #define __DEFAULT_FN_ATTRS_Z                                                   \
@@ -46,8 +51,14 @@
                  __min_vector_width__(512)))
 
 /* Default attributes for VLX masked forms. */
-#define __DEFAULT_FN_ATTRS_VL128 __attribute__((__always_inline__, __nodebug__, __target__("avx512bw,avx512vl,gfni"), __min_vector_width__(128)))
-#define __DEFAULT_FN_ATTRS_VL256 __attribute__((__always_inline__, __nodebug__, __target__("avx512bw,avx512vl,gfni"), __min_vector_width__(256)))
+#define __DEFAULT_FN_ATTRS_VL128                                               \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx512bw,avx512vl,gfni,no-evex512"),              \
+                 __min_vector_width__(128)))
+#define __DEFAULT_FN_ATTRS_VL256                                               \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx512bw,avx512vl,gfni,no-evex512"),              \
+                 __min_vector_width__(256)))
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX256P */
