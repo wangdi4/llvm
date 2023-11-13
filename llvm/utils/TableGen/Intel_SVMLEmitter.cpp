@@ -98,13 +98,10 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   OS << "#ifdef GET_SVML_VARIANTS\n";
   OS << "#define FIXED(NL) ElementCount::getFixed(NL)\n";
 
-  // List of 2 argument functions.
-  StringSet<> TwoArgFns = {"pow",    "ldexp", "atan2pi",   "fdim",     "maxmag",
-                           "minmag", "powr",  "nextafter", "remainder"};
-
   for (auto SvmlVariant : SvmlVariants) {
     std::vector<Record*> VList = SvmlVariant->getValueAsListOfDefs("VList");
     std::string SvmlVariantNameStr = std::string(SvmlVariant->getName());
+    int64_t NumArgs = SvmlVariant->getValueAsInt("NumArgs");
     for (unsigned i = 0; i < VList.size(); i++) {
       bool isMasked = VList[i]->getValueAsBit("isMasked");
       bool hasSingle = VList[i]->getValueAsBit("hasSingle");
@@ -114,11 +111,12 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
       uint64_t extraAttrsInt = getValueFromBitsInit(extraAttrs);
       std::string VFABIPrefixInit = "\"_ZGV";
       VFABIPrefixInit += "_LLVM_"; // ISA is identified by VFABI::_LLVM_
-      // TODO: Assuming call always has only one arg with some exceptions.
-      // Encode number of args property into TableGen record.
-      std::string VFABIPrefixArgs = "v\"";
-      if (TwoArgFns.contains(StringRef(SvmlVariantNameStr)))
-        VFABIPrefixArgs = "vv\"";
+      // Encode number of args for the vector function into vector function ABI
+      // prefix.
+      std::string VFABIPrefixArgs = "";
+      for (unsigned I = 0; I < NumArgs; ++I)
+        VFABIPrefixArgs += "v";
+      VFABIPrefixArgs += "\"";
 
       if (hasSingle) {
         for (unsigned VL = MinSinglePrecVL; VL <= MaxSinglePrecVL; VL *= 2) {
