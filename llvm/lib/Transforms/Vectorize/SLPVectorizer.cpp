@@ -11700,6 +11700,21 @@ Instruction &BoUpSLP::getLastInstructionInBundle(const TreeEntry *E) {
     return FirstInst;
   };
 
+#if INTEL_CUSTOMIZATION
+  // MultiNode reordering can swap instruction operands across instructions,
+  // but that information is only kept at a tree node. We should not rely on
+  // doesNotNeedToSchedule predicate below as it only looks at instruction
+  // level without taking into account MN reordering. We only care about
+  // MN with size 2 or bigger as otherwise operands reordering cannot happen
+  // across instructions.
+  if (E->MultiNodeRoot != -1 && CurrMultiNode.numOfTrunks() >= 2 &&
+      CurrMultiNode.doneCodeGen()) {
+    Instruction *Last = FindLastInst();
+    assert(Last && "Failed to find last instruction in bundle");
+    return *Last;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Set the insert point to the beginning of the basic block if the entry
   // should not be scheduled.
   if (doesNotNeedToSchedule(E->Scalars) ||
