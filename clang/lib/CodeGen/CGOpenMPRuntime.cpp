@@ -1831,6 +1831,7 @@ llvm::Function *CGOpenMPRuntime::emitThreadPrivateVarDefinition(
   return nullptr;
 }
 
+<<<<<<< HEAD
 bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
                                                      llvm::GlobalVariable *Addr,
                                                      bool PerformInit) {
@@ -2006,6 +2007,8 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
   return CGM.getLangOpts().OpenMPIsTargetDevice;
 }
 
+=======
+>>>>>>> 237adfca4ef8d94b7d3d8817da615c5e5897c3da
 void CGOpenMPRuntime::emitDeclareTargetFunction(const FunctionDecl *FD,
                                                 llvm::GlobalValue *GV) {
   std::optional<OMPDeclareTargetDeclAttr *> ActiveAttr =
