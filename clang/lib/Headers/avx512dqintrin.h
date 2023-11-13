@@ -35,14 +35,6 @@
   __attribute__((__always_inline__, __nodebug__,                               \
                  __target__("avx512dq,no-evex512")))
 
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX256P */
-#if defined(__AVX256P__)
-#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
-#endif
-/* end INTEL_FEATURE_ISA_AVX256P */
-/* end INTEL_CUSTOMIZATION */
-
 static __inline __mmask8 __DEFAULT_FN_ATTRS
 _knot_mask8(__mmask8 __M)
 {

@@ -40,17 +40,6 @@
                  __target__("avx512vl,avx512vbmi2,no-evex512"),                \
                  __min_vector_width__(256)))
 
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX256P */
-#if defined(__AVX256P__)
-#define __DEFAULT_FN_ATTRS128                                                  \
-  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(128)))
-#define __DEFAULT_FN_ATTRS256                                                  \
-  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(256)))
-#endif
-/* end INTEL_FEATURE_ISA_AVX256P */
-/* end INTEL_CUSTOMIZATION */
-
 static __inline__ __m128i __DEFAULT_FN_ATTRS128
 _mm_mask_compress_epi16(__m128i __S, __mmask8 __U, __m128i __D)
 {

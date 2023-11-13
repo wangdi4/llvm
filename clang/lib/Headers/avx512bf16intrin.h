@@ -41,14 +41,6 @@ typedef __bf16 __bfloat16 __attribute__((deprecated("use __bf16 instead")));
   __attribute__((__always_inline__, __nodebug__,                               \
                  __target__("avx512bf16,no-evex512")))
 
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX256P */
-#if defined(__AVX256P__)
-#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
-#endif
-/* end INTEL_FEATURE_ISA_AVX256P */
-/* end INTEL_CUSTOMIZATION */
-
 /// Convert One BF16 Data to One Single Float Data.
 ///
 /// \headerfile <x86intrin.h>

@@ -43,17 +43,6 @@
                  __target__("avx512fp16,no-evex512"),                          \
                  __min_vector_width__(128)))
 
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX256P */
-#if defined(__AVX256P__)
-#define __DEFAULT_FN_ATTRS256                                                  \
-  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(256)))
-#define __DEFAULT_FN_ATTRS128                                                  \
-  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(128)))
-#endif
-/* end INTEL_FEATURE_ISA_AVX256P */
-/* end INTEL_CUSTOMIZATION */
-
 static __inline__ _Float16 __DEFAULT_FN_ATTRS512 _mm512_cvtsh_h(__m512h __a) {
   return __a[0];
 }

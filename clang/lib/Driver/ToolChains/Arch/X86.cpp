@@ -490,11 +490,9 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
       continue;
     }
 
-<<<<<<< HEAD
-    StringRef AVX512Name = Name;
-=======
+#if !INTEL_CUSTOMIZATION
     bool IsNegative = Name.startswith("no-");
->>>>>>> f229ba4e8d6bb24622b2d41b3c89585cb9005d8d
+#endif // !INTEL_CUSTOMIZATION
     if (IsNegative)
       Name = Name.substr(3);
     Features.push_back(Args.MakeArgString((IsNegative ? "-" : "+") + Name));
