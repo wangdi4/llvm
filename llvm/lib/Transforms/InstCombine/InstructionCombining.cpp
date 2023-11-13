@@ -846,6 +846,7 @@ static Value *tryFactorization(BinaryOperator &I, const SimplifyQuery &SQ,
 //   -> (arithmetic_shift Binop1((not X), Y), Amt)
 
 Instruction *InstCombinerImpl::foldBinOpShiftWithShift(BinaryOperator &I) {
+  const DataLayout &DL = I.getModule()->getDataLayout();
   auto IsValidBinOpc = [](unsigned Opc) {
     switch (Opc) {
     default:
@@ -894,9 +895,10 @@ Instruction *InstCombinerImpl::foldBinOpShiftWithShift(BinaryOperator &I) {
 
     // Otherwise, need mask that meets the below requirement.
     // (logic_shift (inv_logic_shift Mask, ShAmt), ShAmt) == Mask
-    return ConstantExpr::get(
-               ShOpc, ConstantExpr::get(GetInvShift(ShOpc), CMask, CShift),
-               CShift) == CMask;
+    Constant *MaskInvShift =
+        ConstantFoldBinaryOpOperands(GetInvShift(ShOpc), CMask, CShift, DL);
+    return ConstantFoldBinaryOpOperands(ShOpc, MaskInvShift, CShift, DL) ==
+           CMask;
   };
 
   auto MatchBinOp = [&](unsigned ShOpnum) -> Instruction * {
@@ -966,7 +968,8 @@ Instruction *InstCombinerImpl::foldBinOpShiftWithShift(BinaryOperator &I) {
     if (!CanDistributeBinops(I.getOpcode(), BinOpc, ShOpc, CMask, CShift))
       return nullptr;
 
-    Constant *NewCMask = ConstantExpr::get(GetInvShift(ShOpc), CMask, CShift);
+    Constant *NewCMask =
+        ConstantFoldBinaryOpOperands(GetInvShift(ShOpc), CMask, CShift, DL);
     Value *NewBinOp2 = Builder.CreateBinOp(
         static_cast<Instruction::BinaryOps>(BinOpc), X, NewCMask);
     Value *NewBinOp1 = Builder.CreateBinOp(I.getOpcode(), Y, NewBinOp2);
