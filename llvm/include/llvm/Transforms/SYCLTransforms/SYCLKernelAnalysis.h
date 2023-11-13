@@ -88,7 +88,8 @@ private:
 };
 
 enum SYCLKernelAnalysisDiagKind {
-  DKDK_Error_MatrixIntrinOnUnsupportedCPU,
+  SKDK_Error_MatrixIntrinOnUnsupportedCPU,
+  SKDK_Error_FPGA_UnsupportedMemoryScope
 };
 
 class SYCLKernelAnalysisDiagInfo : public DiagnosticInfoWithLocationBase {
