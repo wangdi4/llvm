@@ -42,8 +42,7 @@ for.end:                                          ; preds = %if.end
 }
 
 !0 = distinct !{!0, !1}
-!1 = distinct !{!"intel.optreport.rootnode", !2}
-!2 = distinct !{!"intel.optreport", !3}
+!1 = distinct !{!"intel.optreport", !3}
 !3 = !{!"intel.optreport.remarks", !4}
 !4 = !{!"intel.optreport.remark", !"dummy opt report"}
 

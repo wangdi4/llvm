@@ -25,14 +25,12 @@
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -intel-opt-report=low < %s -S | FileCheck %s
 
-; CHECK: [[M1:!.*]] = distinct !{!"intel.optreport.rootnode", [[M2:!.*]]}
-; CHECK: [[M2]] = distinct !{!"intel.optreport", [[M3:!.*]]}
+; CHECK: [[M1:!.*]] = distinct !{!"intel.optreport", [[M3:!.*]]}
 ; CHECK: [[M3]] = !{!"intel.optreport.remarks", [[M4:!.*]], [[M5:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.remark", i32 15300}
 ; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 15305, {{.*}}}
 ; CHECK: [[M6:!.*]] = distinct !{[[M6]]{{.*}}[[M7:!.*]]{{.*}}}
-; CHECK: [[M7]] = distinct !{!"intel.optreport.rootnode", [[M8:!.*]]}
-; CHECK: [[M8]] = distinct !{!"intel.optreport", [[M9:!.*]]}
+; CHECK: [[M7]] = distinct !{!"intel.optreport", [[M9:!.*]]}
 ; CHECK: [[M9]] = !{!"intel.optreport.origin", [[M10:!.*]]}
 ; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 25519}
 

@@ -28,19 +28,16 @@
 ; the opt report layout to mismatch slightly with the loop layout.
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -intel-opt-report=medium < %s -S | FileCheck %s --check-prefix=MERGED-CFG
 
-; MERGED-CFG: [[M1:!.*]] = distinct !{!"intel.optreport.rootnode", [[M2:!.*]]}
-; MERGED-CFG: [[M2]] = distinct !{!"intel.optreport", [[M3:!.*]]}
+; MERGED-CFG: [[M1:!.*]] = distinct !{!"intel.optreport", [[M3:!.*]]}
 ; MERGED-CFG: [[M3]] = !{!"intel.optreport.remarks", [[M4:!.*]], [[M5:!.*]]}
 ; MERGED-CFG: [[M4]] = !{!"intel.optreport.remark", i32 15300}
 ; MERGED-CFG: [[M5]] = !{!"intel.optreport.remark", i32 15305, {{.*}}}
 ; MERGED-CFG: [[OUTER_LOOP:!.*]] = distinct !{[[OUTER_LOOP]], [[OM1:!.*]]}
-; MERGED-CFG: [[OM1]] = distinct !{!"intel.optreport.rootnode", [[OM2:!.*]]}
-; MERGED-CFG: [[OM2]] = distinct !{!"intel.optreport", [[OM3:!.*]]}
+; MERGED-CFG: [[OM1]] = distinct !{!"intel.optreport", [[OM3:!.*]]}
 ; MERGED-CFG: [[OM3]] = !{!"intel.optreport.remarks", [[OM4:!.*]]}
 ; MERGED-CFG: [[OM4]] = !{!"intel.optreport.remark", i32 15553}
 ; MERGED-CFG: [[M6:!.*]] = distinct !{[[M6]]{{.*}}[[M7:!.*]]{{.*}}}
-; MERGED-CFG: [[M7]] = distinct !{!"intel.optreport.rootnode", [[M8:!.*]]}
-; MERGED-CFG: [[M8]] = distinct !{!"intel.optreport", [[M10:!.*]]}
+; MERGED-CFG: [[M7]] = distinct !{!"intel.optreport", [[M10:!.*]]}
 ; MERGED-CFG: [[M10]] = !{!"intel.optreport.origin", [[M11:!.*]]}
 ; MERGED-CFG: [[M11]] = !{!"intel.optreport.remark", i32 25519}
 

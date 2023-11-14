@@ -90,7 +90,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define dso_local void @vectorize(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #0 !dbg !6 !intel.optreport.rootnode !8 {
+define dso_local void @vectorize(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #0 !dbg !6 !intel.optreport !8 {
 DIR.OMP.SIMD.118:
   %0 = bitcast float* %b to <8 x float>*, !dbg !26
   %gepload = load <8 x float>, <8 x float>* %0, align 4, !dbg !26, !tbaa !27
@@ -247,7 +247,7 @@ declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
 declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
 
 ; Function Attrs: nofree noinline norecurse nounwind uwtable
-define dso_local void @complete_unroll(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #2 !dbg !37 !intel.optreport.rootnode !38 {
+define dso_local void @complete_unroll(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #2 !dbg !37 !intel.optreport !38 {
 entry:
   %gepload = load float, float* %c, align 4, !dbg !47, !tbaa !27
   %gepload26 = load float, float* %b, align 4, !dbg !48, !tbaa !27
@@ -306,7 +306,7 @@ entry:
 }
 
 ; Function Attrs: noinline nounwind uwtable
-define dso_local void @both(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #0 !dbg !53 !intel.optreport.rootnode !54 {
+define dso_local void @both(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #0 !dbg !53 !intel.optreport !54 {
 DIR.OMP.SIMD.139:
   %0 = bitcast float* %b to <8 x float>*, !dbg !69
   %gepload = load <8 x float>, <8 x float>* %0, align 4, !dbg !69, !tbaa !27
@@ -566,11 +566,9 @@ attributes #4 = { nounwind }
 !5 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.2.0 (YYYY.x.0.MMDD)"}
 !6 = distinct !DISubprogram(name: "vectorize", scope: !1, file: !1, line: 3, type: !7, scopeLine: 3, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
 !7 = !DISubroutineType(types: !2)
-!8 = distinct !{!"intel.optreport.rootnode", !9}
-!9 = distinct !{!"intel.optreport", !10}
+!8 = distinct !{!"intel.optreport", !10}
 !10 = !{!"intel.optreport.first_child", !11}
-!11 = distinct !{!"intel.optreport.rootnode", !12}
-!12 = distinct !{!"intel.optreport", !13, !15, !19}
+!11 = distinct !{!"intel.optreport", !13, !15, !19}
 !13 = !{!"intel.optreport.debug_location", !14}
 !14 = !DILocation(line: 4, column: 1, scope: !6)
 !15 = !{!"intel.optreport.remarks", !16, !17, !18}
@@ -578,8 +576,7 @@ attributes #4 = { nounwind }
 !17 = !{!"intel.optreport.remark", i32 15305, !"8"}
 !18 = !{!"intel.optreport.remark", i32 25603}
 !19 = !{!"intel.optreport.next_sibling", !20}
-!20 = distinct !{!"intel.optreport.rootnode", !21}
-!21 = distinct !{!"intel.optreport", !13, !22, !24}
+!20 = distinct !{!"intel.optreport", !13, !22, !24}
 !22 = !{!"intel.optreport.origin", !23}
 !23 = !{!"intel.optreport.remark", i32 25519}
 !24 = !{!"intel.optreport.remarks", !25, !18}
@@ -596,11 +593,9 @@ attributes #4 = { nounwind }
 !35 = distinct !{}
 !36 = !DILocation(line: 7, column: 1, scope: !6)
 !37 = distinct !DISubprogram(name: "complete_unroll", scope: !1, file: !1, line: 9, type: !7, scopeLine: 9, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
-!38 = distinct !{!"intel.optreport.rootnode", !39}
-!39 = distinct !{!"intel.optreport", !40}
+!38 = distinct !{!"intel.optreport", !40}
 !40 = !{!"intel.optreport.first_child", !41}
-!41 = distinct !{!"intel.optreport.rootnode", !42}
-!42 = distinct !{!"intel.optreport", !43, !45}
+!41 = distinct !{!"intel.optreport", !43, !45}
 !43 = !{!"intel.optreport.debug_location", !44}
 !44 = !DILocation(line: 11, column: 3, scope: !37)
 !45 = !{!"intel.optreport.remarks", !46}
@@ -612,21 +607,17 @@ attributes #4 = { nounwind }
 !51 = !DILocation(line: 12, column: 5, scope: !37)
 !52 = !DILocation(line: 13, column: 1, scope: !37)
 !53 = distinct !DISubprogram(name: "both", scope: !1, file: !1, line: 15, type: !7, scopeLine: 15, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
-!54 = distinct !{!"intel.optreport.rootnode", !55}
-!55 = distinct !{!"intel.optreport", !56}
+!54 = distinct !{!"intel.optreport", !56}
 !56 = !{!"intel.optreport.first_child", !57}
-!57 = distinct !{!"intel.optreport.rootnode", !58}
-!58 = distinct !{!"intel.optreport", !59, !45, !61}
+!57 = distinct !{!"intel.optreport", !59, !45, !61}
 !59 = !{!"intel.optreport.debug_location", !60}
 !60 = !DILocation(line: 21, column: 3, scope: !53)
 !61 = !{!"intel.optreport.next_sibling", !62}
-!62 = distinct !{!"intel.optreport.rootnode", !63}
-!63 = distinct !{!"intel.optreport", !64, !15, !66}
+!62 = distinct !{!"intel.optreport", !64, !15, !66}
 !64 = !{!"intel.optreport.debug_location", !65}
 !65 = !DILocation(line: 16, column: 1, scope: !53)
 !66 = !{!"intel.optreport.next_sibling", !67}
-!67 = distinct !{!"intel.optreport.rootnode", !68}
-!68 = distinct !{!"intel.optreport", !64, !22, !24}
+!67 = distinct !{!"intel.optreport", !64, !22, !24}
 !69 = !DILocation(line: 18, column: 12, scope: !53)
 !70 = !DILocation(line: 18, column: 19, scope: !53)
 !71 = !DILocation(line: 18, column: 17, scope: !53)

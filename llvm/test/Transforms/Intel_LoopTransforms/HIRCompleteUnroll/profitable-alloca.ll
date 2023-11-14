@@ -393,8 +393,7 @@ attributes #3 = { nofree nounwind uwtable "denormal-fp-math"="preserve_sign" "fr
 !123 = !{i64 381}
 !124 = !{!16, !19}
 !125 = distinct !{!125, !126, !130, !131}
-!126 = distinct !{!"intel.optreport.rootnode", !127}
-!127 = distinct !{!"intel.optreport", !128}
+!126 = distinct !{!"intel.optreport", !128}
 !128 = !{!"intel.optreport.remarks", !129}
 !129 = !{!"intel.optreport.remark", i32 0, !"OpenMP: Outlined parallel loop"}
 !130 = !{!"llvm.loop.vectorize.ivdep_loop", i32 0}

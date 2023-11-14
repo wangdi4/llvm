@@ -95,8 +95,7 @@ attributes #1 = { nounwind }
 !5 = !{!"omnipotent char", !6, i64 0}
 !6 = !{!"Simple C++ TBAA"}
 !7 = distinct !{!7, !8}
-!8 = distinct !{!"intel.optreport.rootnode", !9}
-!9 = distinct !{!"intel.optreport", !10}
+!8 = distinct !{!"intel.optreport", !10}
 !10 = !{!"intel.optreport.remarks", !11}
 !11 = !{!"intel.optreport.remark", !"OpenMP: Worksharing loop"}
 

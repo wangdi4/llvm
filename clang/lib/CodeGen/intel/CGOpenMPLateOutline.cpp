@@ -3448,7 +3448,7 @@ OpenMPLateOutliner::~OpenMPLateOutliner() {
     llvm::CallInst *MarkerCall = D.CallEntry;
     CGF.Builder.SetInsertPoint(MarkerCall);
     D.CallEntry = CGF.Builder.CreateCall(RegionEntryDirective, {}, D.OpBundles);
-    D.CallEntry->setMetadata(llvm::OptReportTag::Root,
+    D.CallEntry->setMetadata(llvm::OptReportTag::Report,
                              DirectiveOptReport.get());
     DirectiveOptReport = {};
     if (MarkerCall != MarkerInstruction)

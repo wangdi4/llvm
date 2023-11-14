@@ -559,8 +559,7 @@ special convention. Here is its format:
 
 ::
 
-  ROOT_NODE := <!"intel.optreport.rootnode">, <PROXY_OPTREPORT_NODE>
-  PROXY_OPTREPORT_NODE := <!"intel.optreport">, (DEBUG_LOC_NODE), (ORIGIN_NODE), (REMARKS_NODE), (FIRST_CHILD_NODE), (NEXT_SIBLING_NODE)
+  OPTREPORT_NODE := <!"intel.optreport">, (DEBUG_LOC_NODE), (ORIGIN_NODE), (REMARKS_NODE), (FIRST_CHILD_NODE), (NEXT_SIBLING_NODE)
   DEBUG_LOC_NODE := <!"intel.optreport.debug_location">, <*DILocation>
   TITLE_NODE := <!"intel.optreport.title">, <string>
   ORIGIN_NODE := <!"intel.optreport.origin">, <REMARK>, (REMARK), ..., (REMARK)
@@ -576,14 +575,7 @@ special convention. Here is its format:
 
 * All nodes are represented as MDTuple.
 
-* ``ROOT_NODE`` is always distinct, as we need that to be unique for
-  each node to allow safe replacement of the proxy node in it.
-
-* ``PROXY_OPTREPORT_NODE`` is needed so the root node is never
-  invalidated (`OptReport`_ class description contains more
-  details on that).
-
-* ``PROXY_OPTREPORT_NODE`` is distinct only if it has any optional operands.
+* ``OPTREPORT_NODE`` is always distinct, and all other nodes are uniqued.
 
 Here is the loop metadata for first inner loop from example in the intro:
 
@@ -596,12 +588,11 @@ Here is the loop metadata for first inner loop from example in the intro:
   !24 = !{!"llvm.loop.vectorize.width", i32 1}
   !25 = !{!"llvm.loop.interleave.count", i32 1}
   !26 = !{!"llvm.loop.unroll.disable"}
-  !27 = distinct !{!"intel.optreport.rootnode", !28}  <== ROOT_NODE
-  !28 = distinct !{!"intel.optreport", !29, !37}      <== PROXY_OPT_REPORT_NODE
-  !29 = !{!"intel.optreport.debug_location", !20}     <== DEBUG_LOC_NODE
-  !37 = !{!"intel.optreport.remarks", !38, !39}       <== REMARKS_NODE
-  !38 = !{!"intel.optreport.remark", i32 15300}       <== REMARK_NODE
-  !39 = !{!"intel.optreport.remark", i32 15305, !"8"} <== REMARK_NODE
+  !27 = distinct !{!"intel.optreport", !28, !35}      <== OPT_REPORT_NODE
+  !28 = !{!"intel.optreport.debug_location", !20}     <== DEBUG_LOC_NODE
+  !35 = !{!"intel.optreport.remarks", !36, !37}       <== REMARKS_NODE
+  !37 = !{!"intel.optreport.remark", i32 15300}       <== REMARK_NODE
+  !38 = !{!"intel.optreport.remark", i32 15305, !"8"} <== REMARK_NODE
 
 ``OptReportBuilder``
 ------------------------

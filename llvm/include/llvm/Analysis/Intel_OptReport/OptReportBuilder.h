@@ -323,16 +323,16 @@ template <> struct OptReportTraits<Function> {
   using ObjectHandleTy = Function &;
 
   static OptReport getOptReport(const Function &F) {
-    return cast_or_null<MDTuple>(F.getMetadata(OptReportTag::Root));
+    return cast_or_null<MDTuple>(F.getMetadata(OptReportTag::Report));
   }
 
   static void setOptReport(Function &F, OptReport OR) {
     assert(OR && "eraseOptReport method should be used to remove OptReport");
-    F.setMetadata(OptReportTag::Root, OR.get());
+    F.setMetadata(OptReportTag::Report, OR.get());
   }
 
   static void eraseOptReport(Function &F) {
-    F.setMetadata(OptReportTag::Root, nullptr);
+    F.setMetadata(OptReportTag::Report, nullptr);
   }
 
   static DebugLoc getDebugLoc(const Function &F) { return nullptr; }

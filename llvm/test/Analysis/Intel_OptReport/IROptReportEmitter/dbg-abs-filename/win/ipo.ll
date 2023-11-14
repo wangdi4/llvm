@@ -64,8 +64,7 @@ declare i32 @printf(ptr, ...)
 !20 = !{!"llvm.loop.mustprogress"}
 !21 = !{!"llvm.loop.vectorize.width", i32 1}
 !22 = !{!"llvm.loop.interleave.count", i32 1}
-!23 = distinct !{!"intel.optreport.rootnode", !24}
-!24 = distinct !{!"intel.optreport", !25}
+!23 = distinct !{!"intel.optreport", !25}
 !25 = !{!"intel.optreport.remarks", !26, !27}
 !26 = !{!"intel.optreport.remark", i32 15300}
 !27 = !{!"intel.optreport.remark", i32 15305, !"4"}

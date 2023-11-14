@@ -53,8 +53,7 @@
   !11 = !{!"llvm.loop.mustprogress"}
   !12 = !{!"llvm.loop.vectorize.width", i32 1}
   !13 = !{!"llvm.loop.interleave.count", i32 1}
-  !14 = distinct !{!"intel.optreport.rootnode", !15}
-  !15 = distinct !{!"intel.optreport", !16}
+  !14 = distinct !{!"intel.optreport", !16}
   !16 = !{!"intel.optreport.remarks", !17, !18}
   !17 = !{!"intel.optreport.remark", i32 15300}
   !18 = !{!"intel.optreport.remark", i32 15305, !"4"}

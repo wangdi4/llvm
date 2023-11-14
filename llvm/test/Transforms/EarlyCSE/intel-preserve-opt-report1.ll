@@ -117,13 +117,13 @@ DIR.OMP.END.TARGET.10:                            ; preds = %DIR.OMP.TARGET.7, %
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readnone uwtable willreturn
-define internal void @__omp_offloading_35_d6fc7351__Z3foo_l3(i64 %X.val.zext) #1 !dbg !19 !intel.optreport.rootnode !20 {
+define internal void @__omp_offloading_35_d6fc7351__Z3foo_l3(i64 %X.val.zext) #1 !dbg !19 !intel.optreport !20 {
 DIR.OMP.END.TARGET.5.exitStub:
   ret void
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readnone uwtable willreturn
-define internal void @__omp_offloading_35_d6fc7351__Z3foo_l5(i64 %Y.val.zext) #1 !dbg !30 !intel.optreport.rootnode !31 {
+define internal void @__omp_offloading_35_d6fc7351__Z3foo_l5(i64 %Y.val.zext) #1 !dbg !30 !intel.optreport !31 {
 DIR.OMP.END.TARGET.10.exitStub:
   ret void
 }
@@ -167,22 +167,18 @@ attributes #2 = { nounwind }
 !17 = !DILocation(line: 5, column: 1, scope: !8)
 !18 = !DILocation(line: 7, column: 1, scope: !8)
 !19 = distinct !DISubprogram(name: "foo.DIR.OMP.TARGET.2.split.split.split", scope: !1, file: !1, line: 3, type: !9, scopeLine: 3, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
-!20 = distinct !{!"intel.optreport.rootnode", !21}
-!21 = distinct !{!"intel.optreport", !22}
+!20 = distinct !{!"intel.optreport", !22}
 !22 = !{!"intel.optreport.first_child", !23}
-!23 = distinct !{!"intel.optreport.rootnode", !24}
-!24 = distinct !{!"intel.optreport", !25, !27, !28}
+!23 = distinct !{!"intel.optreport", !25, !27, !28}
 !25 = !{!"intel.optreport.debug_location", !26}
 !26 = !DILocation(line: 3, column: 1, scope: !19)
 !27 = !{!"intel.optreport.title", !"OMP TARGET"}
 !28 = !{!"intel.optreport.remarks", !29}
 !29 = !{!"intel.optreport.remark", i32 30003, !"FIRSTPRIVATE", !"X"}
 !30 = distinct !DISubprogram(name: "foo.DIR.OMP.TARGET.7.split.split.split", scope: !1, file: !1, line: 5, type: !9, scopeLine: 5, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
-!31 = distinct !{!"intel.optreport.rootnode", !32}
-!32 = distinct !{!"intel.optreport", !33}
+!31 = distinct !{!"intel.optreport", !33}
 !33 = !{!"intel.optreport.first_child", !34}
-!34 = distinct !{!"intel.optreport.rootnode", !35}
-!35 = distinct !{!"intel.optreport", !36, !27, !38}
+!34 = distinct !{!"intel.optreport", !36, !27, !38}
 !36 = !{!"intel.optreport.debug_location", !37}
 !37 = !DILocation(line: 5, column: 1, scope: !30)
 !38 = !{!"intel.optreport.remarks", !39}

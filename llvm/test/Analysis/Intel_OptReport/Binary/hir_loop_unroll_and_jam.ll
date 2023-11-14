@@ -190,18 +190,15 @@ declare i32 @llvm.ssa.copy.i32(i32 returned) #0
 attributes #0 = { nofree nosync nounwind readnone willreturn }
 
 !0 = distinct !{!0, !1}
-!1 = distinct !{!"intel.optreport.rootnode", !2}
-!2 = !{!"intel.optreport"}
+!1 = distinct !{!"intel.optreport"}
 !3 = distinct !{!3, !4, !5}
 !4 = !{!"llvm.loop.unroll_and_jam.disable"}
-!5 = distinct !{!"intel.optreport.rootnode", !6}
-!6 = distinct !{!"intel.optreport", !7}
+!5 = distinct !{!"intel.optreport", !7}
 !7 = !{!"intel.optreport.remarks", !8}
 !8 = !{!"intel.optreport.remark", i32 25540, i32 2}
 !9 = distinct !{!9, !4, !10, !11, !12}
 !10 = !{!"llvm.loop.intel.loopcount_maximum", i32 1}
 !11 = !{!"llvm.loop.unroll.disable"}
-!12 = distinct !{!"intel.optreport.rootnode", !13}
-!13 = distinct !{!"intel.optreport", !14}
+!12 = distinct !{!"intel.optreport", !14}
 !14 = !{!"intel.optreport.origin", !15}
 !15 = !{!"intel.optreport.remark", i32 25491}

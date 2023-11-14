@@ -1,7 +1,7 @@
 ; RUN: opt < %s -S -O2 -intel-opt-report=high | FileCheck %s
 
 ; Verify that Loop OptReport was attached from loop(s) to the function.
-; CHECK: define {{.*}} @doit() {{.*}} !intel.optreport.rootnode !{{[0-9]+}}
+; CHECK: define {{.*}} @doit() {{.*}} !intel.optreport !{{[0-9]+}}
 
 ; CMPLRLLVM-7153: doit() must have 'void' return type.
 

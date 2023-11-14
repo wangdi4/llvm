@@ -61,8 +61,7 @@ attributes #0 = { norecurse nounwind writeonly "correctly-rounded-divide-sqrt-fp
 !5 = !{!"omnipotent char", !6, i64 0}
 !6 = !{!"Simple C/C++ TBAA"}
 !7 = distinct !{!7, !8}
-!8 = distinct !{!"intel.optreport.rootnode", !9}
-!9 = distinct !{!"intel.optreport", !10}
+!8 = distinct !{!"intel.optreport", !10}
 !10 = !{!"intel.optreport.remarks", !11}
 ; There is currently no remark created for unswitching, so we simply use
 ; an arbitrary remark here.
