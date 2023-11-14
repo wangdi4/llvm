@@ -5586,11 +5586,6 @@ static void ProcessVSRuntimeLibrary(const ArgList &Args,
         break;
       }
     }
-    if (TC.getDriver().IsIntelMode())
-      // Add the clang_rt.builtins library to resolve cpu_indicator and
-      // cpu_model dependencies on Windows
-      CmdArgs.push_back(Args.MakeArgString(
-          "--dependent-lib=" + TC.getCompilerRTBasename(Args, "builtins")));
 #endif // INTEL_CUSTOMIZATION
   }
 }
