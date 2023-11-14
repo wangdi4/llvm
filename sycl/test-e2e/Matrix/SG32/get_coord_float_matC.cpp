@@ -10,7 +10,7 @@
 // INTEL_CUSTOMIZATION
 // get_coord() is implemented in xmain OCL CPU
 // TODO: enable the upstream test when OCL CPU 2024.0 is uplifted
-// RUN: %{build} -o %t.out -DSYCL_EXT_ONEAPI_MATRIX_VERSION=4
+// RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
 // end INTEL_CUSTOMIZATION
 

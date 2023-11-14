@@ -1581,11 +1581,9 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
         Address(&*AI, ConvertType(RetTy),
                 CurFnInfo->getReturnInfo().getIndirectAlign(), KnownNonNull);
     if (!CurFnInfo->getReturnInfo().getIndirectByVal()) {
-      ReturnValuePointer =
-          CreateDefaultAlignTempAlloca(Int8PtrTy, "result.ptr");
-      Builder.CreateStore(Builder.CreatePointerBitCastOrAddrSpaceCast(
-                              ReturnValue.getPointer(), Int8PtrTy),
-                          ReturnValuePointer);
+      ReturnValuePointer = CreateDefaultAlignTempAlloca(
+          ReturnValue.getPointer()->getType(), "result.ptr");
+      Builder.CreateStore(ReturnValue.getPointer(), ReturnValuePointer);
     }
   } else if (CurFnInfo->getReturnInfo().getKind() == ABIArgInfo::InAlloca &&
              !hasScalarEvaluationKind(CurFnInfo->getReturnType())) {
@@ -1722,11 +1720,6 @@ void CodeGenFunction::EmitFunctionBody(const Stmt *Body) {
     EmitCompoundStmtWithoutScope(*S);
   else
     EmitStmt(Body);
-
-  // This is checked after emitting the function body so we know if there
-  // are any permitted infinite loops.
-  if (checkIfFunctionMustProgress())
-    CurFn->addFnAttr(llvm::Attribute::MustProgress);
 }
 
 /// When instrumenting to collect profile data, the counts for some blocks
@@ -2081,6 +2074,11 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
       getLangOpts().SYCLIsDevice &&
       (FD->hasAttr<CUDADeviceAttr>() || FD->hasAttr<CUDAHostAttr>()))
     Fn->setLinkage(llvm::Function::WeakODRLinkage);
+
+  // Ensure that the function adheres to the forward progress guarantee, which
+  // is required by certain optimizations.
+  if (checkIfFunctionMustProgress())
+    CurFn->addFnAttr(llvm::Attribute::MustProgress);
 
   // Generate the body of the function.
   PGO.assignRegionCounters(GD, CurFn);

@@ -250,15 +250,11 @@ void BackendConsumer::HandleInterestingDecl(DeclGroupRef D) {
 
 // Links each entry in LinkModules into our module.  Returns true on error.
 bool BackendConsumer::LinkInModules(llvm::Module *M, bool ShouldLinkFiles) {
-
+#if INTEL_CUSTOMIZATION
   for (auto &LM : LinkModules) {
     assert(LM.Module && "LinkModule does not actually have a module");
-
-    // If ShouldLinkFiles is not set, skip files added via the
-    // -mlink-bitcode-files, only linking -mlink-builtin-bitcode
-    if (!LM.Internalize && !ShouldLinkFiles)
+    if (!ShouldLinkFiles)
       continue;
-
     if (LM.PropagateAttrs)
       for (Function &F : *LM.Module) {
         // Skip intrinsics. Keep consistent with how intrinsics are created
@@ -266,39 +262,30 @@ bool BackendConsumer::LinkInModules(llvm::Module *M, bool ShouldLinkFiles) {
         if (F.isIntrinsic())
           continue;
         CodeGen::mergeDefaultFunctionDefinitionAttributes(
-          F, CodeGenOpts, LangOpts, TargetOpts, LM.Internalize);
+            F, CodeGenOpts, LangOpts, TargetOpts, LM.Internalize);
       }
 
     CurLinkModule = LM.Module.get();
 
-    // TODO: If CloneModule() is updated to support cloning of unmaterialized
-    // modules, we can remove this
     bool Err;
-    if (Error E = CurLinkModule->materializeAll())
-      return false;
-
-    // Create a Clone to move to the linker, which preserves the original
-    // linking modules, allowing them to be linked again in the future
-    // TODO: Add a ShouldCleanup option to make Cloning optional. When
-    // set, we can pass the original modules to the linker for cleanup
-    std::unique_ptr<llvm::Module> Clone = llvm::CloneModule(*LM.Module);
-
     if (LM.Internalize) {
       Err = Linker::linkModules(
-          *M, std::move(Clone), LM.LinkFlags,
+          *M, std::move(LM.Module), LM.LinkFlags,
           [](llvm::Module &M, const llvm::StringSet<> &GVS) {
             internalizeModule(M, [&GVS](const llvm::GlobalValue &GV) {
               return !GV.hasName() || (GVS.count(GV.getName()) == 0);
             });
           });
-    } else
-      Err = Linker::linkModules(*M, std::move(Clone), LM.LinkFlags);
+    } else {
+      Err = Linker::linkModules(*M, std::move(LM.Module), LM.LinkFlags);
+    }
 
     if (Err)
       return true;
   }
-
+  LinkModules.clear();
   return false; // success
+#endif //INTEL_CUSTOMIZATION
 }
 
 void BackendConsumer::HandleTranslationUnit(ASTContext &C) {

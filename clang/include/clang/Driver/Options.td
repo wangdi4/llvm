@@ -1436,6 +1436,14 @@ defm gpu_rdc : BoolFOption<"gpu-rdc",
           "Generate relocatable device code, also known as separate compilation mode">,
   NegFlag<SetFalse, [], [ClangOption, CC1Option]>>;
 
+defm offload_implicit_host_device_templates :
+  BoolFOption<"offload-implicit-host-device-templates",
+  LangOpts<"OffloadImplicitHostDeviceTemplates">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption, CC1Option],
+          "Template functions or specializations without host, device and "
+          "global attributes have implicit host device attributes (CUDA/HIP only)">,
+  NegFlag<SetFalse>>;
+
 def fgpu_default_stream_EQ : Joined<["-"], "fgpu-default-stream=">,
   HelpText<"Specify default stream. The default value is 'legacy'. (CUDA/HIP only)">,
   Visibility<[ClangOption, CC1Option]>,
@@ -3336,7 +3344,7 @@ def fms_compatibility_version
                "version number to report in _MSC_VER (0 = don't define it "
                "(default))">;
 def fms_runtime_lib_EQ : Joined<["-"], "fms-runtime-lib=">, Group<f_Group>,
-  Flags<[]>, Visibility<[ClangOption, CLOption]>,
+  Flags<[]>, Visibility<[ClangOption, CLOption, FlangOption]>,
   Values<"static,static_dbg,dll,dll_dbg">,
   HelpText<"Select Windows run-time library">,
   DocBrief<[{
@@ -7653,6 +7661,10 @@ def fno_sycl_device_lib_jit_link : Flag<["-"], "fno-sycl-device-lib-jit-link">,
 def flang_experimental_hlfir : Flag<["-"], "flang-experimental-hlfir">,
   Flags<[HelpHidden]>, Visibility<[FlangOption, FC1Option]>,
   HelpText<"Use HLFIR lowering (experimental)">;
+
+def flang_deprecated_no_hlfir : Flag<["-"], "flang-deprecated-no-hlfir">,
+  Flags<[HelpHidden]>, Visibility<[FlangOption, FC1Option]>,
+  HelpText<"Do not use HLFIR lowering (deprecated)">;
 
 def flang_experimental_polymorphism : Flag<["-"], "flang-experimental-polymorphism">,
   Flags<[HelpHidden]>, Visibility<[FlangOption, FC1Option]>,
