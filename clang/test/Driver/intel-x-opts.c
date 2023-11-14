@@ -273,6 +273,18 @@
 // RUN:  | FileCheck -check-prefixes=XEMERALDRAPIDS,ADV_OPT %s
 // XEMERALDRAPIDS: "-target-cpu" "emeraldrapids"
 
+// RUN: %clang -### -c -xPANTHERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XPANTHERLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxPANTHERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XPANTHERLAKE,ADV_OPT %s
+// XPANTHERLAKE: "-target-cpu" "pantherlake"
+
+// RUN: %clang -### -c -xCLEARWATERFOREST %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XCLEARWATERFOREST,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxCLEARWATERFOREST %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XCLEARWATERFOREST,ADV_OPT %s
+// XCLEARWATERFOREST: "-target-cpu" "clearwaterforest"
+
 // RUN: %clang -### -c -xHOST %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XHOST,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxHOST %s 2>&1 \
