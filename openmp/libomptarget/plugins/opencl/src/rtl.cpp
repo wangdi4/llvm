@@ -132,6 +132,7 @@ std::map<uint64_t, std::vector<const char *>> DeviceArchStrMap {
   // Using XeHP on Windows seems to be a rare case.
 };
 #endif // _WIN32
+// clang-format off
 std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
   {
     DeviceArch_Gen9, {
@@ -147,6 +148,8 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       0x4900, // DG1
       0x4C00, // RKL
       0x4600, // ADLS
+      0xA700, // RTL
+      0x7D00, // MTL
     }
   },
 #if INTEL_CUSTOMIZATION
@@ -165,6 +168,7 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
   }
 #endif // INTEL_CUSTOMIZATION
 };
+// clang-format on
 
 #if INTEL_CUSTOMIZATION
 /// Interop support
@@ -1331,8 +1335,6 @@ public:
   /// Thread-private profile information for each devices
   std::vector<std::map<int32_t, ProfileDataTy>> Profiles;
 
-  std::vector<std::vector<char>> Names;
-
   /// Whether each devices are initialized
   std::vector<bool> Initialized;
 
@@ -1445,6 +1447,16 @@ public:
   /// Check if the device is discrete.
   bool isDiscreteDevice(int32_t DeviceId) const;
 #endif // INTEL_CUSTOMIZATION
+
+  /// Get device name from the properties.
+  const std::string &getDeviceName(int32_t DeviceId) const {
+    return DeviceProperties[DeviceId].Name;
+  }
+
+  /// Get device name C string from the properties
+  const char *getDeviceNameStr(int32_t DeviceId) const {
+    return DeviceProperties[DeviceId].Name.c_str();
+  }
 };
 
 #ifdef _WIN32
@@ -1563,7 +1575,7 @@ public:
       Status = TimerStatusTy::Disabled;
       WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
               "is disabled due to start/stop mismatch.\n",
-              Name.c_str(), DeviceId, DeviceInfo->Names[DeviceId].data());
+              Name.c_str(), DeviceId, DeviceInfo->getDeviceNameStr(DeviceId));
       return;
     }
 
@@ -1579,7 +1591,7 @@ public:
       Status = TimerStatusTy::Disabled;
       WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
               "is disabled due to start/stop mismatch.\n",
-              Name.c_str(), DeviceId, DeviceInfo->Names[DeviceId].data());
+              Name.c_str(), DeviceId, DeviceInfo->getDeviceNameStr(DeviceId));
       return;
     }
     cl_int rc;
@@ -1589,7 +1601,7 @@ public:
       Status = TimerStatusTy::Disabled;
       WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
               "is disabled due to invalid OpenCL timer.\n",
-              Name.c_str(), DeviceId, DeviceInfo->Names[DeviceId].data());
+              Name.c_str(), DeviceId, DeviceInfo->getDeviceNameStr(DeviceId));
       return;
     }
     Status = TimerStatusTy::Running;
@@ -1603,7 +1615,7 @@ public:
       Status = TimerStatusTy::Disabled;
       WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
               "is disabled due to start/stop mismatch.\n",
-              Name.c_str(), DeviceId, DeviceInfo->Names[DeviceId].data());
+              Name.c_str(), DeviceId, DeviceInfo->getDeviceNameStr(DeviceId));
       return;
     }
 
@@ -1614,7 +1626,7 @@ public:
       Status = TimerStatusTy::Disabled;
       WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
               "is disabled due to invalid OpenCL timer.\n",
-              Name.c_str(), DeviceId, DeviceInfo->Names[DeviceId].data());
+              Name.c_str(), DeviceId, DeviceInfo->getDeviceNameStr(DeviceId));
       return;
     }
 
@@ -1622,7 +1634,7 @@ public:
       Status = TimerStatusTy::Disabled;
       WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
               "is disabled due to timer overflow.\n",
-              Name.c_str(), DeviceId, DeviceInfo->Names[DeviceId].data());
+              Name.c_str(), DeviceId, DeviceInfo->getDeviceNameStr(DeviceId));
       return;
     }
 
@@ -1641,7 +1653,7 @@ static void closeRTL() {
       continue;
     if (DeviceInfo->Option.Flags.EnableProfile) {
       for (auto &Prof : DeviceInfo->Profiles[I])
-        Prof.second.printData(I, Prof.first, DeviceInfo->Names[I].data(),
+        Prof.second.printData(I, Prof.first, DeviceInfo->getDeviceNameStr(I),
                               DeviceInfo->Option.ProfileResolution);
     }
 #if INTEL_CUSTOMIZATION
@@ -2718,7 +2730,7 @@ uint32_t RTLDeviceInfoTy::getPCIDeviceId(int32_t DeviceId) const {
 #ifndef _WIN32
   // Linux: Device name contains "[0xABCD]" device identifier.
   if (Option.DeviceType == CL_DEVICE_TYPE_GPU) {
-    std::string DeviceName(Names[DeviceId].data());
+    auto &DeviceName = getDeviceName(DeviceId);
     auto P = DeviceName.rfind("[");
     if (P != std::string::npos && DeviceName.size() - P >= 8)
       Id = std::strtol(DeviceName.substr(P + 1, 6).c_str(), nullptr, 16);
@@ -2739,7 +2751,7 @@ uint64_t RTLDeviceInfoTy::getDeviceArch(int32_t DeviceId) {
           return Arch.first;  // Exact match or prefix match
   }
 
-  std::string DeviceName(Names[DeviceId].data());
+  auto &DeviceName = getDeviceName(DeviceId);
 #ifdef _WIN32
   // Windows: Device name contains published product name.
   for (auto &Arch : DeviceArchStrMap)
@@ -3927,7 +3939,6 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
   DeviceInfo->ImplicitArgs.resize(DeviceInfo->NumDevices);
   DeviceInfo->Profiles.resize(DeviceInfo->NumDevices);
-  DeviceInfo->Names.resize(DeviceInfo->NumDevices);
   DeviceInfo->DeviceArchs.resize(DeviceInfo->NumDevices);
   DeviceInfo->Initialized.resize(DeviceInfo->NumDevices, false);
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->NumDevices];
@@ -4007,7 +4018,7 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
 #if INTEL_CUSTOMIZATION
   OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
-                DeviceInfo->Names[DeviceId].data(),
+                DeviceInfo->getDeviceNameStr(DeviceId),
                 DeviceInfo->Devices[DeviceId],
                 omptLookupEntries, OmptDocument);
 #endif // INTEL_CUSTOMIZATION

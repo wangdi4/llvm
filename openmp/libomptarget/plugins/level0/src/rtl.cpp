@@ -157,6 +157,7 @@ enum DeviceArch : uint64_t {
   DeviceArch_x86_64 = 0x0100
 };
 
+// clang-format off
 /// Mapping from device arch to GPU runtime's device identifiers
 std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
   {
@@ -173,6 +174,8 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       0x4900, // DG1
       0x4C00, // RKL
       0x4600, // ADLS
+      0xA700, // RTL
+      0x7D00, // MTL
     }
   },
 #if INTEL_CUSTOMIZATION
@@ -191,6 +194,7 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
   }
 #endif // INTEL_CUSTOMIZATION
 };
+// clang-format on
 
 /// Tentative enumerators used with ompx_get_device_info() and the data type
 /// ompx_devinfo_name, char[N],
