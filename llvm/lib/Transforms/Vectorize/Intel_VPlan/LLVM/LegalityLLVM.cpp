@@ -491,14 +491,21 @@ void LegalityLLVM::parseMinMaxReduction(
     auto It = find_if(LoopHeaderPhiNode->users(), [this](auto *U) {
       return !TheLoop->isLoopInvariant(U) &&
              (isa<PHINode>(U) || isa<SelectInst>(U) ||
-              match(U, m_CombineOr(
-                           m_CombineOr(m_Intrinsic<Intrinsic::maxnum>(),
-                                       m_Intrinsic<Intrinsic::minnum>()),
-                           m_CombineOr(m_Intrinsic<Intrinsic::maximum>(),
-                                       m_Intrinsic<Intrinsic::minimum>()))));
+              match(
+                  U,
+                  m_CombineOr(
+                      m_CombineOr(m_CombineOr(m_Intrinsic<Intrinsic::smin>(),
+                                              m_Intrinsic<Intrinsic::smax>()),
+                                  m_CombineOr(m_Intrinsic<Intrinsic::umin>(),
+                                              m_Intrinsic<Intrinsic::umax>())),
+                      m_CombineOr(
+                          m_CombineOr(m_Intrinsic<Intrinsic::maxnum>(),
+                                      m_Intrinsic<Intrinsic::minnum>()),
+                          m_CombineOr(m_Intrinsic<Intrinsic::maximum>(),
+                                      m_Intrinsic<Intrinsic::minimum>())))));
     });
-    if (It != LoopHeaderPhiNode->user_end())
-      MinMaxResultInst = cast<Instruction>(*It);
+    assert(It != LoopHeaderPhiNode->user_end() && "Reduction op not found!");
+    MinMaxResultInst = cast<Instruction>(*It);
 
     if (match(MinMaxResultInst, m_Intrinsic<Intrinsic::maximum>()))
       Kind = RecurKind::FMaximum;
