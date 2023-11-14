@@ -101,10 +101,14 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
       }
 
       bool isStructReturn = CalledFunc && CalledFunc->getReturnType()->isStructTy();
+      bool hasStructReturnArg =
+          CalledFunc && llvm::any_of(CalledFunc->args(), [](auto &Arg) {
+            return Arg.hasStructRetAttr();
+          });
       if (!CalledFunc || CalledFunc->isIntrinsic() ||
           CalledFunc->isDeclaration() ||
           CalledFunc->getName().startswith("WG.boundaries.") ||
-          isStructReturn ||
+          isStructReturn || hasStructReturnArg ||
           // Workaround for Vectorizer not supporting byval/byref
           // parameters. We can ignore the children as they won't be called
           // in vector context.
