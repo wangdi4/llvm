@@ -1119,7 +1119,7 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   Prefix.setEVEX_b(TSFlags & X86II::EVEX_B);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  Prefix.setX2(static_cast<bool>(TSFlags & X86II::EVEX_P10));
+  Prefix.setX2(static_cast<bool>(TSFlags & X86II::EVEX_X2));
 #endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_APX_F
   Prefix.setNF(TSFlags & X86II::EVEX_NF);

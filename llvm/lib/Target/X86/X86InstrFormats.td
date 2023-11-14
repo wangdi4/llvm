@@ -458,7 +458,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   bits<2> XuCCOpPrefixBits = XuCCOpPrefix.Value;
 #endif // INTEL_FEATURE_XUCC
 #if INTEL_FEATURE_ISA_AVX256P
-  bit hasEVEX_P10 = 0;      // Does this inst set the EVEX_P10 field?
+  bit hasEVEX_X2 = 0;      // Does this inst set the EVEX_X2 field?
 #endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_APX_F
   bit hasEVEX_NF = 0;      // Does this inst set the EVEX_NF field?
@@ -500,7 +500,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   let TSFlags{53-52} = XuCCOpPrefixBits;
 #endif // INTEL_FEATURE_XUCC
 #if INTEL_FEATURE_ISA_AVX256P
-  let TSFlags{54}    = hasEVEX_P10;
+  let TSFlags{54}    = hasEVEX_X2;
 #endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_APX_F
   let TSFlags{55}    = hasEVEX_NF;

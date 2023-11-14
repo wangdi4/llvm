@@ -1154,12 +1154,12 @@ namespace X86II {
     XuCCXS = 2ULL << XuCCPrefixShift,  // F3
     XuCCXD = 3ULL << XuCCPrefixShift,  // F2
 
-    // EVEX_P10 - Set if this instruction has EVEX.P10 field set.
-    EVEX_P10Shift = XuCCPrefixShift + 2,
-    EVEX_P10      = 1ULL << EVEX_P10Shift,
+    // EVEX_X2 - Set if this instruction has EVEX.X2 field set.
+    EVEX_X2Shift = XuCCPrefixShift + 2,
+    EVEX_X2      = 1ULL << EVEX_X2Shift,
 
     // EVEX_NF - Set if this instruction has EVEX.NF field set.
-    EVEX_NFShift = EVEX_P10Shift + 1,
+    EVEX_NFShift = EVEX_X2Shift + 1,
     EVEX_NF      = 1ULL << EVEX_NFShift,
 
     // TwoConditionalOps - Set if this instruction has two conditional operands
