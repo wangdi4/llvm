@@ -2669,6 +2669,11 @@ public:
 
   static bool isAtomicFreeReductionLocalEnabled();
   static bool isAtomicFreeReductionGlobalEnabled();
+
+  /// Get the original loop lower bound of W.
+  /// W should have LoopInfo.
+  /// See more details in the function definition.
+  static LoadInst *getLoadFromLB(WRegionNode *W, unsigned LoopDepthIndex);
 };
 
 } // namespace vpo
