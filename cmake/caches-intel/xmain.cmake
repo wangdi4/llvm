@@ -14,12 +14,43 @@
 
 cmake_policy(VERSION 3.20)
 
-function(xarch out_variable project variant stamp type)
-  set(filename $ENV{ICS_ARCHIVE_ROOT}/${project}/${variant}/${stamp}/build/${type})
-  message(STATUS "Checking for file ${filename}")
-  if(NOT EXISTS ${filename})
-    message(STATUS "File not found, running xarch to retrieve it")
-    execute_process(COMMAND "xarch get -p ${project} -variant ${variant} -type ${type} -stamp ${stamp} -nocs")
+# Download a prebuilt compiler archive and store the path to the directory in
+# out_variable. If the build is on compiler infrastructure, this will instead
+# check the NFS archive mount for the location of the archive, and use xarch to
+# download it to the NFS mount if necessary.
+#
+# Parameters:
+# - out_variable: the name of the variable to save the file path to
+# - deploy_project: the branch of the compiler to use (with a "deploy_" prefix).
+# - variant: the variant of the compiler to use
+# - stamp: the build time of the compiler to use (in YYYYDDMM_HHMMSS form)
+# - type: the buildtype of the compiler to use (e.g., linux_qa_release)
+function(xarch out_variable deploy_project variant stamp type)
+  # Strip deploy_ from the project name
+  string(REGEX REPLACE "^deploy_" "" project "${deploy_project}")
+
+  set(ARTIFACTORY_URL "https://af01p-fm.devtools.intel.com/artifactory/compilers-archive-fm-local/")
+
+  # Try to use the archive on NFS if possible.
+  # TODO: Consider trying to infer this environment variable if not found?
+  if(DEFINED ENV{ICS_ARCHIVE_ROOT})
+    set(filename $ENV{ICS_ARCHIVE_ROOT}/${deploy_project}/${variant}/${stamp}/build/${type})
+    message(STATUS "Checking for file ${filename}")
+    # If it's not available, use xarch to save a copy to the NFS share.
+    if(NOT EXISTS ${filename})
+      message(STATUS "File not found, running xarch to retrieve it")
+      execute_process(COMMAND "xarch get -p ${project} -variant ${variant} -type ${type} -stamp ${stamp} -nocs")
+    endif()
+  else()
+    # Otherwise, pull directory from the artifactory server.
+    message(STATUS "ICS_ARCHIVE_ROOT not found, will use artifactory for deps.")
+    include(FetchContent)
+    FetchContent_Declare(
+      xarch_${out_variable}
+      URL "${ARTIFACTORY_URL}/${project}/${variant}/${stamp}/${type}.tgz")
+    FetchContent_MakeAvailable(xarch_${out_variable})
+    string(TOLOWER "xarch_${out_variable}-src" xarch_srcdir)
+    set(filename "${FETCHCONTENT_BASE_DIR}/${xarch_srcdir}")
   endif()
   set(${out_variable} "${filename}" CACHE PATH "")
 endfunction()
