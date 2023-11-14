@@ -135,6 +135,14 @@ if lit_config.params.get('matrix-xmx8', False):
 if lit_config.params.get('matrix-fp16', False):
     config.available_features.add('matrix-fp16')
 
+#if INTEL_CUSTOMIZATION
+# INTEL_FEATURE_ESIMD_EMBARGO
+# Support for Intel ESIMD Embargo parameter
+if lit_config.params.get('intel_feature_esimd_embargo', False):
+    config.available_features.add('intel_feature_esimd_embargo');
+# end INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
+
 #support for LIT parameter ze_debug<num>
 if lit_config.params.get('ze_debug'):
     config.ze_debug = lit_config.params.get('ze_debug')

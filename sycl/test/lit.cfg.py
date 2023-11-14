@@ -153,6 +153,14 @@ config.substitutions.append( ('%sycl_triple',  triple ) )
 if triple == 'nvptx64-nvidia-cuda-sycldevice':
     config.available_features.add('cuda')
 
+#if INTEL_CUSTOMIZATION
+# INTEL_FEATURE_ESIMD_EMBARGO
+# Support for Intel ESIMD Embargo parameter
+if lit_config.params.get('intel_feature_esimd_embargo', False):
+    config.available_features.add('intel_feature_esimd_embargo');
+# end INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
+
 # INTEL_CUSTOMIZATION
 additional_flags = getAdditionalFlags() + config.sycl_clang_extra_flags.split(' ')
 if 'ICS_GCCBIN' in os.environ:
