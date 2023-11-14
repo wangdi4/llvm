@@ -1,11 +1,12 @@
-// RUN: %clang_cc1 %s -fintel-compatibility -O2 -o - -emit-llvm -fprofile-ml-use 
 // RUN: %clang_cc1 %s -fintel-compatibility -O2 -o - -emit-llvm -mllvm -enable-tbaa-prop=false
 // CHECK: br i1 %tobool{{.*}}if.then
 // CHECK-NOT: select i1
 // CHECK-NOT: call{{.*}}fakeload
 
-// The pass pipeline was not removing "fakeload" intrinsics for the option
-// sets above. These were causing the null checks on "p" below to be removed.
+// The pass pipeline was not removing "fakeload" intrinsics when TBAA prop was
+// disabled. This was also failing with -fprofile-use and -fprofile-ml-use.
+// (these require profile data to compile)
+// These were causing the null checks on "p" below to be removed.
 // The fakeload attributes such as "nonnull" are control-flow-sensitive and
 // will cause problems if they are left in the IR, and get moved to other
 // blocks.

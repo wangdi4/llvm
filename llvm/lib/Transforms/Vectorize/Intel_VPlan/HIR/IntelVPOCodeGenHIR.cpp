@@ -1085,26 +1085,20 @@ void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
         Descr->getTC() == 1)
       StripCandidates.push_back(HLoop);
 
-    // Update loop TC and vector tags.
+    // Update vector tags.  Trip counts are updated in finalizeVectorLoop().
     switch (Descr->getLoopType()) {
     case VPlanLoopDescr::LoopType::LTPeel:
       PeelLoop = HLoop;
       PeelLoop->setVecTag(HLLoop::VecTagTy::PEEL);
-      if (Descr->isTCKnown())
-        setLoopTCEstimatesAndMarkers(HLoop, Descr->getTC());
       break;
     case VPlanLoopDescr::LoopType::LTRemainder:
       HLoop->setVecTag(HLLoop::VecTagTy::REMAINDER);
-      if (Descr->isTCKnown())
-        setLoopTCEstimatesAndMarkers(HLoop, Descr->getTC());
       break;
     case VPlanLoopDescr::LoopType::LTMain:
       if (IsOmpSIMD)
         HLoop->setVecTag(HLLoop::VecTagTy::SIMD);
       else
         HLoop->setVecTag(HLLoop::VecTagTy::AUTOVEC);
-      HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(
-          HLoop, Descr->getVFUF());
       break;
     }
   } else {
@@ -1514,6 +1508,25 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   for (auto &VPLpHLoop : VPLoopHLLoopMap) {
     HLLoop *HLoop = VPLpHLoop.second;
     HLoop->markDoNotVectorize();
+
+    const VPLoop *VPLp = VPLpHLoop.first;
+    auto Iter = VPLoopDescrs.find(VPLp);
+    if (Iter != VPLoopDescrs.end()) {
+      const VPlanLoopDescr *Descr = Iter->second;
+      auto LoopType = Descr->getLoopType();
+      if (LoopType == VPlanLoopDescr::LoopType::LTMain) {
+        if (getTripCount() && !HLoop->isConstTripLoop())
+          setLoopTCEstimatesAndMarkers(HLoop,
+                                       getTripCount() / Descr->getVFUF());
+        else
+          HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(
+              HLoop, Descr->getVFUF());
+      } else if ((LoopType == VPlanLoopDescr::LoopType::LTPeel ||
+                  LoopType == VPlanLoopDescr::LoopType::LTRemainder) &&
+                 Descr->isTCKnown()) {
+        setLoopTCEstimatesAndMarkers(HLoop, Descr->getTC());
+      }
+    }
 
     // Prevent LLVM from possibly unrolling vectorized loops with non-constant
     // trip counts. See loop in function fxpAutoCorrelation() that is part of

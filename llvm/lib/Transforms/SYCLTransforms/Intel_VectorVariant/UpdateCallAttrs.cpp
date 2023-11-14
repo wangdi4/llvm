@@ -14,6 +14,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/ModRef.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
 #define DEBUG_TYPE "sycl-kernel-update-call-attrs"
 
@@ -25,6 +27,45 @@ namespace llvm {
 
 PreservedAnalyses UpdateCallAttrs::run(Module &M, ModuleAnalysisManager &MAM) {
   return runImpl(M) ? PreservedAnalyses::none() : PreservedAnalyses::all();
+}
+
+// TID builtin does not access memory. The attribute may be proprogated to a
+// user function. Call to the function is then uniform in vectorizer divergence
+// analysis. However, the call should be divergent.
+// So we change the function attribute to read/write memory.
+static bool updateTIDBuiltinUserFuncAttrs(Module &M) {
+  bool Changed = false;
+  using namespace CompilationUtils;
+  FuncSet Kernels = getAllKernels(M);
+  std::string TIDNames[] = {mangledGetGID(), mangledGetLID(),
+                            mangledGetSubGroupLocalId()};
+  for (const auto &TIDName : TIDNames) {
+    Function *TIDFunc = M.getFunction(TIDName);
+    if (!TIDFunc)
+      continue;
+    SmallVector<Function *, 16> WorkList{TIDFunc};
+    SmallPtrSet<Function *, 16> Visited;
+    while (!WorkList.empty()) {
+      Function *Curr = WorkList.pop_back_val();
+      Visited.insert(Curr);
+      for (User *U : Curr->users()) {
+        auto *CI = dyn_cast<CallInst>(U);
+        if (!CI)
+          continue;
+        auto *F = CI->getFunction();
+        if (!F->hasFnAttribute(VectorUtils::VectorVariantsAttrName) ||
+            Kernels.contains(F))
+          continue;
+        F->addFnAttr(Attribute::getWithMemoryEffects(M.getContext(),
+                                                     MemoryEffects::unknown()));
+        if (!Visited.contains(F))
+          WorkList.push_back(F);
+      }
+    }
+    Changed |= Visited.size() > 1;
+  }
+
+  return Changed;
 }
 
 bool UpdateCallAttrs::runImpl(Module &M) {
@@ -57,6 +98,8 @@ bool UpdateCallAttrs::runImpl(Module &M) {
 
       Modified = true;
     }
+
+  Modified |= updateTIDBuiltinUserFuncAttrs(M);
 
   return Modified;
 }

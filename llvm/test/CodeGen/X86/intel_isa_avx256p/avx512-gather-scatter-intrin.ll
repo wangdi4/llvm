@@ -133,7 +133,7 @@ define <4 x i32> @test_int_x86_avx512_mask_gather3div8_si(<4 x i32> %x0, ptr %x1
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %esi, %k1 # encoding: [0xc5,0xfb,0x92,0xce]
 ; CHECK-NEXT:    vmovdqa %xmm0, %xmm2 # EVEX TO VEX Compression encoding: [0xc5,0xf9,0x6f,0xd0]
-; CHECK-NEXT:    kmovq %k1, %k2 # encoding: [0xc4,0xe1,0xf8,0x90,0xd1]
+; CHECK-NEXT:    kmovw %k1, %k2 # encoding: [0xc5,0xf8,0x90,0xd1]
 ; CHECK-NEXT:    vpgatherqd (%rdi,%ymm1,4), %xmm2 {%k2} # encoding: [0x62,0xf2,0x7d,0x2a,0x91,0x14,0x8f]
 ; CHECK-NEXT:    vpgatherqd (%rdi,%ymm1,2), %xmm0 {%k1} # encoding: [0x62,0xf2,0x7d,0x29,0x91,0x04,0x4f]
 ; CHECK-NEXT:    vpaddd %xmm0, %xmm2, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xe9,0xfe,0xc0]
@@ -277,7 +277,7 @@ define <8 x i32> @test_int_x86_avx512_mask_gather3siv8_si(<8 x i32> %x0, ptr %x1
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %esi, %k1 # encoding: [0xc5,0xfb,0x92,0xce]
 ; CHECK-NEXT:    vmovdqa %ymm0, %ymm2 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0x6f,0xd0]
-; CHECK-NEXT:    kmovq %k1, %k2 # encoding: [0xc4,0xe1,0xf8,0x90,0xd1]
+; CHECK-NEXT:    kmovw %k1, %k2 # encoding: [0xc5,0xf8,0x90,0xd1]
 ; CHECK-NEXT:    vpgatherdd (%rdi,%ymm1,4), %ymm2 {%k2} # encoding: [0x62,0xf2,0x7d,0x2a,0x90,0x14,0x8f]
 ; CHECK-NEXT:    vpgatherdd (%rdi,%ymm1,2), %ymm0 {%k1} # encoding: [0x62,0xf2,0x7d,0x29,0x90,0x04,0x4f]
 ; CHECK-NEXT:    vpaddd %ymm0, %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xed,0xfe,0xc0]

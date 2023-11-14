@@ -1,7 +1,6 @@
 ; This test verifies that SOAToAOSPrepare transformation doesn't
-; crash and no candidate is selected due to failed functionality
-; analysis when byte-flattened GEP is used to access an field
-; element of candidate structure.
+; crash and candidate is selected even when byte-flattened GEP is
+; used to access a field element of candidate structure.
 
 ; This is same as soatoaos_prepare_cand_01.ll except byte-flattened
 ; GEP instruction "%flag = getelementptr i8, ptr %this, i32 8" in
@@ -170,9 +169,10 @@
 ;
 
 ; CHECK:  SOAToAOSPrepare: Candidate selected for more analysis
-; CHECK:  Candidate struct: class.F    FieldOff: 3
-; CHECK:  Candidate failed after functionality analysis.
-; CHECK:  SOAToAOSPrepare Failed: No candidates found.
+; CHECK:    Candidate struct: class.F    FieldOff: 3
+; CHECK:    Candidate Passed Analysis.
+; CHECK:    Candidate: class.F
+
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

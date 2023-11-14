@@ -20,14 +20,14 @@
 ; CHECK:      Running pass: ExternalizeGlobalVariablesPass
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
-; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: LinearIdResolverPass
+; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK:      Running pass: SGRemapWICallPass
 ; CHECK:      Running pass: BuiltinCallToInstPass
 
 ; CHECK:      Running pass: DetectRecursionPass
-; CHECK-NEXT: Running pass: DuplicateCalledKernels
+; CHECK:      Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK:      Running pass: InstToFuncCallPass
@@ -76,8 +76,7 @@
 ; CHECK:      Running pass: BuiltinCallToInstPass
 ; CHECK:      Running pass: AlwaysInlinerPass
 ; CHECK-NEXT: Running pass: PatchCallbackArgsPass
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK:      Running pass: PrepareKernelArgsPass
+; CHECK-NEXT: Running pass: PrepareKernelArgsPass
 
 ; CHECK:      Running pass: CleanupWrappedKernelPass
 

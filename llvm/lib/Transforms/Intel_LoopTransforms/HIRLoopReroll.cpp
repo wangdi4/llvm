@@ -143,31 +143,6 @@ static cl::opt<float> VecRatioThreshold(
              "between [0, 1]. To enable rerolling regardless of vectorized "
              "code, give value larger than 1."));
 
-namespace {
-
-class HIRLoopRerollLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRLoopRerollLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRLoopRerollLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override{};
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-
-    AU.setPreservesAll();
-  }
-};
-
-} // namespace
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 std::string llvm::loopopt::reroll::getOpcodeString(unsigned Opcode) {
   if ((Opcode == Instruction::Add) || (Opcode == Instruction::FAdd)) {
@@ -2198,40 +2173,6 @@ unsigned doLoopReroll(HIRFramework &HIRF, HIRDDAnalysis &DDA,
 }
 
 } // namespace
-
-char HIRLoopRerollLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopRerollLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRLoopRerollLegacyPass, OPT_SWITCH, OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIRLoopRerollPass() {
-  return new HIRLoopRerollLegacyPass();
-}
-
-bool HIRLoopRerollLegacyPass::runOnFunction(Function &F) {
-  if (DisablePass || skipFunction(F)) {
-    return false;
-  }
-
-  LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
-
-  auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  auto &DDA = getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  auto &HLS = getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  auto &SRA = getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-
-  unsigned NumRerolled = doLoopReroll(HIRF, DDA, HLS, SRA);
-  LoopsRerolled += NumRerolled;
-  if (NumRerolled > 0) {
-    LLVM_DEBUG(dbgs() << "Reroll happend\n");
-  }
-
-  return NumRerolled > 0;
-}
 
 PreservedAnalyses HIRLoopRerollPass::runImpl(llvm::Function &F,
                                              llvm::FunctionAnalysisManager &AM,

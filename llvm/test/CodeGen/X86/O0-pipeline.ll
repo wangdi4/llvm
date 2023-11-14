@@ -88,6 +88,9 @@
 ; CHECK-NEXT:       Implement the 'patchable-function' attribute
 ; CHECK-NEXT:       X86 Indirect Branch Tracking
 ; CHECK-NEXT:       X86 vzeroupper inserter
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:       X86 Fixup memory instructions
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:       Compressing EVEX instrs to VEX encoding when possibl
 ; CHECK-NEXT:       X86 Discriminate Memory Operands
 ; CHECK-NEXT:       X86 Insert Cache Prefetches

@@ -2507,99 +2507,6 @@ bool HIRLoopBlocking::run(bool ForPragma) {
   return Changed;
 }
 
-class HIRLoopBlockingLegacyPass : public HIRTransformPass {
-  bool SinkForMultiCopy;
-
-public:
-  static char ID;
-
-  HIRLoopBlockingLegacyPass(bool SinkForMultiCopy = true)
-      : HIRTransformPass(ID), SinkForMultiCopy(SinkForMultiCopy) {
-    initializeHIRLoopBlockingLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override{};
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-
-    AU.setPreservesAll();
-  }
-};
-
-class HIRPragmaLoopBlockingLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRPragmaLoopBlockingLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRPragmaLoopBlockingLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override{};
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-
-    AU.setPreservesAll();
-  }
-};
-
-char HIRLoopBlockingLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(HIRLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIRLoopBlockingPass(bool SinkForMultiCopy) {
-  return new HIRLoopBlockingLegacyPass(SinkForMultiCopy);
-}
-
-char HIRPragmaLoopBlockingLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRPragmaLoopBlockingLegacyPass, OPT_SWITCH_PRAGMA,
-                      OPT_DESC_PRAGMA, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(HIRPragmaLoopBlockingLegacyPass, OPT_SWITCH_PRAGMA,
-                    OPT_DESC_PRAGMA, false, false)
-
-FunctionPass *llvm::createHIRPragmaLoopBlockingPass() {
-  return new HIRPragmaLoopBlockingLegacyPass();
-}
-
-bool HIRLoopBlockingLegacyPass::runOnFunction(Function &F) {
-  if (DisablePass || skipFunction(F)) {
-    return false;
-  }
-
-  LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
-
-  auto &DDA = getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  auto &SRA = getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-  auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  auto &HLS = getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  return HIRLoopBlocking(HIRF, DDA, SRA, HLS, TTI, SinkForMultiCopy).run(false);
-}
-
 PreservedAnalyses HIRLoopBlockingPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   if (DisablePass) {
@@ -2617,22 +2524,6 @@ PreservedAnalyses HIRLoopBlockingPass::runImpl(
           .run(false);
 
   return PreservedAnalyses::all();
-}
-
-bool HIRPragmaLoopBlockingLegacyPass::runOnFunction(Function &F) {
-  if (DisablePragmaPass || skipFunction(F)) {
-    return false;
-  }
-
-  LLVM_DEBUG(dbgs() << OPT_DESC_PRAGMA " for Function : " << F.getName()
-                    << "\n");
-
-  auto &DDA = getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  auto &SRA = getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-  auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  auto &HLS = getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  return HIRLoopBlocking(HIRF, DDA, SRA, HLS, TTI, true).run(true);
 }
 
 PreservedAnalyses HIRPragmaLoopBlockingPass::runImpl(

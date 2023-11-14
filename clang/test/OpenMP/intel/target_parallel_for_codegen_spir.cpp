@@ -542,3 +542,80 @@ void foo5(double *qq, int nq) {
   // ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
   // ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
 }
+
+// ALL-LABEL: foo6
+void foo6(int N1, int N2) {
+
+  // Checks hoisting with defaultmap(none)
+
+  // ALL: [[K:%k.*]] = alloca i32,
+  int k;
+  // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
+  // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
+  // ALL: [[OMP_IV:%.omp.iv.*]] = alloca i32,
+  // TARG: [[K_CAST:%[a-z.0-9]+]] = addrspacecast ptr [[K]] to ptr addrspace(4)
+  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast ptr [[OMP_LB]] to ptr addrspace(4)
+  // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast ptr [[OMP_UB]] to ptr addrspace(4)
+
+  // HOST: store i32 0, ptr [[OMP_LB]],
+  // HOST: store i32 {{.*}}, ptr [[OMP_UB]],
+
+  // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // ALL-SAME: "DIR.OMP.TARGET"()
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[K]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[K_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
+  // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // ALL-SAME: "DIR.OMP.TEAMS"()
+  // ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // ALL-SAME: "DIR.OMP.DISTRIBUTE.PARLOOP"()
+  #pragma omp target teams distribute parallel for defaultmap(none) firstprivate(N1,N2)
+  for(k=0; k<(N1+N2); k++)
+  {
+  }
+  // ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
+  // ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  // ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+}
+
+// ALL-LABEL: foo7
+void foo7(int N1, int N2) {
+
+  // Checks hoisting with defaultmap(firstprivate)
+
+  // ALL: [[K:%k.*]] = alloca i32,
+  int k;
+  // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
+  // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
+  // ALL: [[OMP_IV:%.omp.iv.*]] = alloca i32,
+  // TARG: [[K_CAST:%[a-z.0-9]+]] = addrspacecast ptr [[K]] to ptr addrspace(4)
+  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast ptr [[OMP_LB]] to ptr addrspace(4)
+  // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast ptr [[OMP_UB]] to ptr addrspace(4)
+
+  // HOST: store i32 0, ptr [[OMP_LB]],
+  // HOST: store i32 {{.*}}, ptr [[OMP_UB]],
+
+  // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // ALL-SAME: "DIR.OMP.TARGET"()
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[K]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[K_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
+  // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // ALL-SAME: "DIR.OMP.TEAMS"()
+  // ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // ALL-SAME: "DIR.OMP.DISTRIBUTE.PARLOOP"()
+  #pragma omp target teams distribute parallel for defaultmap(firstprivate)
+  for(k=0; k<(N1+N2); k++)
+  {
+  }
+  // ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
+  // ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  // ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+}
+

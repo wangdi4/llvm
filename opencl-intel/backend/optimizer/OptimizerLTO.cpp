@@ -195,6 +195,10 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         if (Level != OptimizationLevel::O0)
           MPM.addPass(InternalizeNonKernelFuncPass());
 
+        // Flatten get_{local, global}_linear_id()
+        if (m_HasOcl20)
+          MPM.addPass(LinearIdResolverPass());
+
         MPM.addPass(AddFunctionAttrsPass());
 
         if (Level != OptimizationLevel::O0) {
@@ -209,9 +213,6 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
           MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
         }
 
-        // Flatten get_{local, global}_linear_id()
-        if (m_HasOcl20)
-          MPM.addPass(LinearIdResolverPass());
         // Resolve variable argument of get_global_id, get_local_id and
         // get_group_id.
         MPM.addPass(ResolveVarTIDCallPass());

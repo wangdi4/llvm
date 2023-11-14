@@ -2760,8 +2760,13 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
     // For truly ABI indirect arguments -- those that are not `byval` -- store
     // the address of the argument on the stack to preserve debug information.
     ABIArgInfo ArgInfo = CurFnInfo->arguments()[ArgNo - 1].info;
-    if (ArgInfo.isIndirect())
+#if INTEL_CUSTOMIZATION
+    // Debug info needs to be preserved for `byval` arguments too.
+    if (CGM.getLangOpts().isIntelCompat(LangOptions::DebugAllocaByvalArgs))
+      UseIndirectDebugAddress = ArgInfo.isIndirect();
+    else if (ArgInfo.isIndirect())
       UseIndirectDebugAddress = !ArgInfo.getIndirectByVal();
+#endif // INTEL_CUSTOMIZATION
     if (UseIndirectDebugAddress) {
       auto PtrTy = getContext().getPointerType(Ty);
       AllocaPtr = CreateMemTemp(PtrTy, getContext().getTypeAlignInChars(PtrTy),

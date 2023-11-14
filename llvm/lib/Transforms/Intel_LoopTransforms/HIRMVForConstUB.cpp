@@ -555,37 +555,3 @@ PreservedAnalyses HIRMVForConstUBPass::runImpl(
   HIRMVForConstUB(HIRF).run();
   return PreservedAnalyses::all();
 }
-
-class HIRMVForConstUBLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRMVForConstUBLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRMVForConstUBLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRMVForConstUB(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
-        .run();
-  }
-};
-
-char HIRMVForConstUBLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRMVForConstUBLegacyPass, OPT_SWITCH, OPT_DESCR, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRMVForConstUBLegacyPass, OPT_SWITCH, OPT_DESCR, false,
-                    false)
-
-FunctionPass *llvm::createHIRMVForConstUBPass() {
-  return new HIRMVForConstUBLegacyPass();
-}

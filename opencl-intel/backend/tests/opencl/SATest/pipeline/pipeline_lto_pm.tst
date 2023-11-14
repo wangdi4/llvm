@@ -27,12 +27,12 @@
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: InternalizeNonKernelFuncPass
+; CHECK:      Running pass: LinearIdResolverPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: SROAPass
 ; CHECK:      Running pass: InstCombinePass
 ; CHECK:      Running pass: InstSimplifyPass
-; CHECK:      Running pass: LinearIdResolverPass
 ; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK:      Running pass: SGRemapWICallPass
 ; CHECK:      Running pass: PromotePass
@@ -203,12 +203,12 @@
 ; QUIET-NEXT: Running pass: CoerceTypesPass
 ; QUIET-NEXT: Running pass: SetPreferVectorWidthPass
 ; QUIET-NEXT: Running pass: InternalizeNonKernelFuncPass
+; QUIET-NEXT: Running pass: LinearIdResolverPass
 ; QUIET-NEXT: Running pass: AddFunctionAttrsPass
 ; QUIET-NEXT: Running pass: SimplifyCFGPass
 ; QUIET-NEXT: Running pass: SROAPass
 ; QUIET-NEXT: Running pass: InstCombinePass
 ; QUIET-NEXT: Running pass: InstSimplifyPass
-; QUIET-NEXT: Running pass: LinearIdResolverPass
 ; QUIET:      Running pass: PromotePass
 ; QUIET-NEXT: Running pass: InferAddressSpacesPass
 ; QUIET-NEXT: Running pass: BuiltinCallToInstPass

@@ -162,6 +162,18 @@ static unsigned getMOVriOpcode(bool Use64BitReg, int64_t Imm) {
   return X86::MOV32ri;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+static unsigned getPUSHOpcode(const X86Subtarget &ST) {
+  return ST.is64Bit() ? (ST.hasPPX() ? X86::PUSHP64r : X86::PUSH64r)
+                      : X86::PUSH32r;
+}
+static unsigned getPOPOpcode(const X86Subtarget &ST) {
+  return ST.is64Bit() ? (ST.hasPPX() ? X86::POPP64r : X86::POP64r)
+                      : X86::POP32r;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 static bool isEAXLiveIn(MachineBasicBlock &MBB) {
   for (MachineBasicBlock::RegisterMaskPair RegMask : MBB.liveins()) {
     unsigned Reg = RegMask.PhysReg;
@@ -1708,7 +1720,14 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
       NumBytes = alignTo(NumBytes, MaxAlign);
 
     // Save EBP/RBP into the appropriate stack slot.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    BuildMI(MBB, MBBI, DL,
+            TII.get(getPUSHOpcode(MF.getSubtarget<X86Subtarget>())))
+#else // INTEL_FEATURE_ISA_APX_F
     BuildMI(MBB, MBBI, DL, TII.get(Is64Bit ? X86::PUSH64r : X86::PUSH32r))
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       .addReg(MachineFramePtr, RegState::Kill)
       .setMIFlag(MachineInstr::FrameSetup);
 
@@ -1857,6 +1876,7 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
            (MBBI->getOpcode() == X86::PUSH32r ||
             MBBI->getOpcode() == X86::PUSH64r
 #if INTEL_FEATURE_ISA_APX_F
+            || MBBI->getOpcode() == X86::PUSHP64r
             || MBBI->getOpcode() == X86::PUSH2
 #endif // INTEL_FEATURE_ISA_APX_F
             );
@@ -2381,7 +2401,14 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
       emitSPUpdate(MBB, MBBI, DL, Offset, /*InEpilogue*/true);
     }
     // Pop EBP.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    BuildMI(MBB, MBBI, DL,
+            TII.get(getPOPOpcode(MF.getSubtarget<X86Subtarget>())),
+#else // INTEL_FEATURE_ISA_APX_F
     BuildMI(MBB, MBBI, DL, TII.get(Is64Bit ? X86::POP64r : X86::POP32r),
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
             MachineFramePtr)
         .setMIFlag(MachineInstr::FrameDestroy);
 
@@ -2428,6 +2455,7 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
 #if INTEL_CUSTOMIZATION
           (Opc != X86::ADD64ri32 || !PI->getFlag(MachineInstr::FrameDestroy))
 #if INTEL_FEATURE_ISA_APX_F
+          &&  (Opc != X86::POP64r || !PI->getFlag(MachineInstr::FrameDestroy))
           &&  (Opc != X86::POP2 || !PI->getFlag(MachineInstr::FrameDestroy))
           &&  (Opc != X86::LEA64r || !PI->getFlag(MachineInstr::FrameDestroy))
 #endif // INTEL_FEATURE_ISA_APX_F
@@ -2527,9 +2555,9 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
 #if INTEL_CUSTOMIZATION
       if (Opc == X86::POP32r || Opc == X86::POP64r
 #if INTEL_FEATURE_ISA_APX_F
-          || Opc == X86::POP2
+          || Opc == X86::POPP64r || Opc == X86::POP2
 #endif // INTEL_FEATURE_ISA_APX_F
-          ) {
+      ) {
 #endif // INTEL_CUSTOMIZATION
         Offset += SlotSize;
 #if INTEL_CUSTOMIZATION
@@ -2953,7 +2981,13 @@ bool X86FrameLowering::spillCalleeSavedRegisters(
 
   // Push GPRs. It increases frame size.
   const MachineFunction &MF = *MBB.getParent();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  unsigned Opc = getPUSHOpcode(STI);
+#else // INTEL_FEATURE_ISA_APX_F
   unsigned Opc = STI.is64Bit() ? X86::PUSH64r : X86::PUSH32r;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   const X86MachineFunctionInfo *X86FI = MF.getInfo<X86MachineFunctionInfo>();
@@ -3140,7 +3174,13 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(
   }
 
   // POP GPRs.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  unsigned Opc = getPOPOpcode(STI);
+#else // INTEL_FEATURE_ISA_APX_F
   unsigned Opc = STI.is64Bit() ? X86::POP64r : X86::POP32r;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   for (const CalleeSavedInfo &I : CSI) {
     Register Reg = I.getReg();
     if (!X86::GR64RegClass.contains(Reg) &&

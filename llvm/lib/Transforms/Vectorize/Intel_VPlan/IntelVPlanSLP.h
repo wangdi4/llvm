@@ -58,7 +58,8 @@ class VPlanSLP {
 
   public:
     VPlanSLPNodeElement(const VPValue *Value) : Value(Value) {
-      setOpsAndAltOpcode(nullptr, nullptr, 0);
+      setOpsAndAltOpcode(nullptr /* Op[0] */, nullptr /* Op[1] */,
+                         0 /* AltOpcode */);
     }
     ~VPlanSLPNodeElement() = default;
 
@@ -190,7 +191,7 @@ class VPlanSLP {
   // in Insts array. Every load/store in input array is expected to have
   // DDRef node associated.
   static void collectMemRefDistances(const VPLoadStoreInst *BaseMem,
-                                     ArrayRef<const VPValue *> Values,
+                                     ElemArrayRef Values,
                                      SmallVectorImpl<ssize_t> &Distances);
 
   // The utility sorts 'Distances' array and checks if it is indexes for
@@ -220,7 +221,7 @@ class VPlanSLP {
   // Values in input array,
   // vectorized_cost - the cost of vector instruction to represent the vector
   // value that is constructed from the scalar Values.
-  VPInstructionCost estimateSLPCostDifference(ArrayRef<const VPValue *> Values,
+  VPInstructionCost estimateSLPCostDifference(ElemArrayRef Values,
                                               VPlanSLPNodeTy NType) const;
 
   // The method tries to bundle 'similar' instructions in groups and see if

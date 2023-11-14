@@ -19,12 +19,12 @@
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: InternalizeNonKernelFuncPass
+; CHECK:      Running pass: LinearIdResolverPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: SROAPass
 ; CHECK:      Running pass: InstCombinePass
 ; CHECK:      Running pass: InstSimplifyPass
-; CHECK:      Running pass: LinearIdResolverPass
 ; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK:      Running pass: SGRemapWICallPass
 ; CHECK:      Running pass: PromotePass

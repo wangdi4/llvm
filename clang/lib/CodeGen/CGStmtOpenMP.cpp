@@ -8171,9 +8171,18 @@ namespace {
     /// hoisting illegal.
     bool okayToHoistLoop(CodeGenFunction &CGF,
                          const OMPExecutableDirective &S) {
-      // If there is a defaultmap, don't hoist.
-      if (S.hasClausesOfKind<OMPDefaultmapClause>())
-        return false;
+      // If a defaultmap applies to the variable (i.e. there is not explicit
+      // clause) it could generate a map clause making it not okay to hoist.
+      // For now, don't hoist if there is a defaultmap clause, except for some
+      // specific cases that should always be okay. To fix this properly we
+      // need to determine the treatment of every variable separately so
+      // defaultmaps that do not apply to a variable do not prevent hoisting.
+      // See CMPLRLLVM-46965.
+      for (const auto *C : S.getClausesOfKind<OMPDefaultmapClause>()) {
+        if (C->getDefaultmapModifier() != OMPC_DEFAULTMAP_MODIFIER_none &&
+            C->getDefaultmapModifier() != OMPC_DEFAULTMAP_MODIFIER_firstprivate)
+          return false;
+      }
       // If global variabe is used, don't hoist.
       if (UsesGlobalVariable &&
           !CGF.getLangOpts().OpenMPDeclareTargetGlobalDefaultMap &&

@@ -9,7 +9,8 @@
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
 
-; CHECK-NEXT: Running pass: AddFunctionAttrsPass
+; CHECK-NEXT: Running pass: LinearIdResolverPass
+; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: SimplifyCFGPass
 
 ; CHECK:      Running pass: SROAPass
@@ -19,8 +20,6 @@
 ; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK:      Running pass: InstSimplifyPass
-; CHECK-NEXT: Running pass: LinearIdResolverPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
 ; CHECK-NEXT: Running pass: SGRemapWICallPass
 ; CHECK-NEXT: Running pass: PromotePass
@@ -274,8 +273,6 @@
 ; CHECK:      Running pass: LocalBuffersPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
-; CHECK:      Invalidating analysis: LocalBufferAnalysis
 
 ; CHECK:      Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
@@ -290,7 +287,6 @@
 ; CHECK:      Running pass: InlinerPass
 
 ; CHECK:      Running pass: PatchCallbackArgsPass
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK-NEXT: Running pass: DeadArgumentEliminationPass
 ; CHECK-NEXT: Running pass: ArgumentPromotionPass
 ; CHECK-NEXT: Running pass: InstCombinePass

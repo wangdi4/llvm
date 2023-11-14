@@ -8,11 +8,23 @@
 ; bound of the vector loop is not a constant and this causes a crash in complete unroller.
 ; The fix checks for no peeling before we do complete unroll.
 ;
+
+; HIR before vectorization:
+; BEGIN REGION { }
+;       %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+;
+;       + DO i1 = 0, 2, 1   <DO_LOOP>
+;       |   (getelementptr inbounds ([40 x i8], ptr @arr, i64 0, i64 20))[i1] = 0;
+;       + END LOOP
+;
+;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
+; END REGION
+
 @arr = internal unnamed_addr global [40 x i8] zeroinitializer, align 32
 
 ;
 
-; CHECK:           + DO i1 = %ub.tmp, {{.*}}, 2   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:           + DO i1 = %ub.tmp, {{.*}}, 2   <DO_LOOP>  <MAX_TC_EST = 1> <LEGAL_MAX_TC = 1> <auto-vectorized> <nounroll> <novectorize> <max_trip_count = 1>
 ; CHECK-NEXT:      |   (<2 x i32>*)(getelementptr inbounds ([40 x i8], ptr @arr, i64 0, i64 20))[i1] = 0;
 ; CHECK-NEXT:      + END LOOP
 ;
