@@ -168,11 +168,6 @@ private:
   unsigned X2 : 1;
   unsigned B2 : 1;
   unsigned VEX_4V : 4;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-  unsigned EVEX_P10 : 1; // The bit after vvvv
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
   unsigned VEX_L : 1;
   unsigned VEX_PP : 2;
   unsigned VEX_5M : 5;
@@ -239,9 +234,6 @@ public:
     set4V(getRegEncoding(MI, OpNum));
   }
 #endif // INTEL_FEATURE_ISA_APX_F
-#if INTEL_FEATURE_ISA_AVX256P
-  void setP10(bool V) { EVEX_P10 = V; }
-#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
   void setL(bool V) { VEX_L = V; }
   void setPP(unsigned V) { VEX_PP = V; }
@@ -283,6 +275,9 @@ public:
     setV2(MRI.getEncodingValue(Reg));
   }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  void setX2(bool V) { X2 = V; }
+#endif // INTEL_FEATURE_ISA_AVX256P
   void setL2(bool V) {
     EVEX_L2 = V;
     (void)STI;
@@ -335,28 +330,10 @@ public:
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-  X86OpcodePrefixHelper(const MCRegisterInfo &MRI, const MCSubtargetInfo &STI)
-      : W(0), R(0), X(0), B(0),
-#if INTEL_FEATURE_ISA_APX_F
-        M(0),
-        B2(0),
-        R2(0),
-        X2(0),
-#endif // INTEL_FEATURE_ISA_APX_F
-        VEX_4V(0),
-#if INTEL_FEATURE_ISA_AVX256P
-        EVEX_P10(0),
-#endif // INTEL_FEATURE_ISA_AVX256P
-        VEX_L(0), VEX_PP(0), VEX_5M(0),
-        EVEX_z(0), EVEX_L2(0), EVEX_b(0), EVEX_V2(0), EVEX_aaa(0),
-        MRI(MRI), STI(STI) {}
-#else
-  X86OpcodePrefixHelper(const MCRegisterInfo &MRI)
+  X86OpcodePrefixHelper(const MCRegisterInfo &MRI, const MCSubtargetInfo &STI) // INTEL
       : W(0), R(0), X(0), B(0), M(0), R2(0), X2(0), B2(0), VEX_4V(0), VEX_L(0),
         VEX_PP(0), VEX_5M(0), EVEX_z(0), EVEX_L2(0), EVEX_b(0), EVEX_V2(0),
-        EVEX_aaa(0), MRI(MRI) {}
-#endif // INTEL_CUSTOMIZATION
+        EVEX_aaa(0), MRI(MRI), STI(STI) {} // INTEL
 
   void setLowerBound(PrefixKind K) { Kind = K; }
 
@@ -1070,12 +1047,8 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
       report_fatal_error(
           "Cannot encode high byte register in VEX/EVEX-prefixed instruction");
   }
-#if INTEL_CUSTOMIZATION
-  X86OpcodePrefixHelper Prefix(*Ctx.getRegisterInfo(), STI); // INTEL
-#else
-  X86OpcodePrefixHelper Prefix(*Ctx.getRegisterInfo());
-#endif // INTEL_CUSTOMIZATION
 #endif
+  X86OpcodePrefixHelper Prefix(*Ctx.getRegisterInfo(), STI); // INTEL
 
   switch (TSFlags & X86II::EncodingMask) {
   default:
@@ -1159,7 +1132,7 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   Prefix.setEVEX_b(TSFlags & X86II::EVEX_B);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  Prefix.setP10(TSFlags & X86II::EVEX_P10);
+  Prefix.setX2(static_cast<bool>(TSFlags & X86II::EVEX_P10));
 #endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_APX_F
   Prefix.setNF(TSFlags & X86II::EVEX_NF);
@@ -1184,13 +1157,8 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   case X86II::MRMDestMem4VOp3:
   case X86II::MRMDestMem4VOp2FSIB: {
     //  MemAddr, src1(ModR/M), src2(VEX_4V)
-#if INTEL_FEATURE_ISA_APX_F
     Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
-#endif // INTEL_FEATURE_ISA_APX_F
     CurOp += X86::AddrNumOperands;
     Prefix.setRR2(MI, CurOp++);
     Prefix.set4VV2(MI, CurOp++);
@@ -1198,15 +1166,8 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   }
   case X86II::MRMDestMemImm8: {
     // MemAddr, imm8
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
-#else // INTEL_FEATURE_ISA_APX_F
-    Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
-    Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
     break;
   }
 #endif // INTEL_CUSTOMIZATION
