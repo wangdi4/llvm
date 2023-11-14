@@ -376,6 +376,11 @@ public:
 
   void visit(HLLoop *Loop) {
     SkipNode = Loop;
+    if (!Loop->isDo()) {
+      LLVM_DEBUG(dbgs() << "Unknown/Multiexit inner loop found, skipping.\n");
+      return;
+    }
+
     IfLookup Lookup(Candidates, Level);
     HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
   }
