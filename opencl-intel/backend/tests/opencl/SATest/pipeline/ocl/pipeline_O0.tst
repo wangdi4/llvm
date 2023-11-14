@@ -82,9 +82,7 @@
 ; CHECK:      Running pass: LocalBuffersPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
-; CHECK:      Invalidating analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: VerifierPass
+; CHECK:      Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: BuiltinImportPass
 ; CHECK:      Running pass: BuiltinCallToInstPass
@@ -93,7 +91,6 @@
 ; CHECK-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-NEXT: Running pass: PatchCallbackArgsPass
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK-NEXT: Running pass: PrepareKernelArgsPass
 ; CHECK-NEXT: Running analysis: AssumptionAnalysis
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis

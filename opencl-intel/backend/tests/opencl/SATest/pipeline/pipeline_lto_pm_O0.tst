@@ -76,8 +76,7 @@
 ; CHECK:      Running pass: BuiltinCallToInstPass
 ; CHECK:      Running pass: AlwaysInlinerPass
 ; CHECK-NEXT: Running pass: PatchCallbackArgsPass
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK:      Running pass: PrepareKernelArgsPass
+; CHECK-NEXT: Running pass: PrepareKernelArgsPass
 
 ; CHECK:      Running pass: CleanupWrappedKernelPass
 

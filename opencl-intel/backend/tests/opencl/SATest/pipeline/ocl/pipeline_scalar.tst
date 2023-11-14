@@ -206,8 +206,6 @@
 ; CHECK:      Running pass: LocalBuffersPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
-; CHECK:      Invalidating analysis: LocalBufferAnalysis
 
 ; CHECK:      Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
@@ -221,7 +219,6 @@
 ; CHECK:      Running pass: InlinerPass
 
 ; CHECK:      Running pass: PatchCallbackArgsPass
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK-NEXT: Running pass: DeadArgumentEliminationPass
 ; CHECK-NEXT: Running pass: ArgumentPromotionPass
 ; CHECK-NEXT: Running pass: InstCombinePass

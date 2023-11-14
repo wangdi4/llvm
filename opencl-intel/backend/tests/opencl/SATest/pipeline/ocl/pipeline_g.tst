@@ -275,8 +275,6 @@
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK:      Running pass: LocalBuffersPass
-; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
-; CHECK:      Invalidating analysis: LocalBufferAnalysis
 ; CHECK:      Running pass: VerifierPass
 
 ; CHECK:      Running pass: BuiltinImportPass
@@ -291,7 +289,6 @@
 ; CHECK:      Running pass: InlinerPass
 
 ; CHECK:      Running pass: PatchCallbackArgsPass
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK:      Running pass: DeadArgumentEliminationPass
 ; CHECK:      Running pass: ArgumentPromotionPass
 ; CHECK:      Running pass: InstCombinePass

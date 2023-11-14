@@ -43,6 +43,8 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
   this->LBInfo = LBInfo;
   LBInfo->computeSize();
   const auto &LocalsMap = LBInfo->getDirectLocalsMap();
+  if (LocalsMap.empty())
+    return false;
 
   HasTLSGlobals = CompilationUtils::hasTLSGlobals(M);
   Context = &M.getContext();
