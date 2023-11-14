@@ -4257,14 +4257,7 @@ void X86InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     Opc = X86::VMOVAPSZrr;
   // All KMASK RegClasses hold the same k registers, can be tested against anyone.
   else if (X86::VK16RegClass.contains(DestReg, SrcReg))
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-    Opc = Subtarget.hasBWI() || Subtarget.hasAVX256P() ? X86::KMOVQkk
-                                                       : X86::KMOVWkk;
-#else  // INTEL_FEATURE_ISA_AVX256P
     Opc = Subtarget.hasBWI() ? X86::KMOVQkk : X86::KMOVWkk;
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
   if (!Opc)
     Opc = CopyToFromAsymmetricReg(DestReg, SrcReg, Subtarget);
 
