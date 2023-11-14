@@ -47,6 +47,7 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
       ${LIBOMPTARGET_INCLUDE_DIR}
       ${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS}
       ${LIBOMPTARGET_LLVM_INCLUDE_DIRS}
+      ${LIBOMP_INCLUDE_DIR}
     )
 
     add_library(omptarget.sycl.wrap SHARED src/omp_sycl.cpp)
