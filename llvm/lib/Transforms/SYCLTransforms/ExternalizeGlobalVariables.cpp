@@ -23,9 +23,9 @@ using namespace llvm;
 #define DEBUG_TYPE "sycl-kernel-externalize-global-variables"
 
 // The corresponding SPIR-V OpCode for the host_access property is documented
-// in the SPV_INTEL_global_variable_host_access design document:
-// https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/INTEL/SPV_INTEL_global_variable_host_access.asciidoc#decoration
-constexpr uint32_t SPIRV_HOST_ACCESS_DECOR = 6168;
+// in the SPV_INTEL_global_variable_decorations design document:
+// https://github.com/intel/llvm/blob/sycl/sycl/doc/design/spirv-extensions/SPV_INTEL_global_variable_decorations.asciidoc
+constexpr uint32_t SPIRV_HOST_ACCESS_DECOR = 6147;
 
 static bool externalizeDeviceGlobal(Module *M) {
   bool Changed = false;

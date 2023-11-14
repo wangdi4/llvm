@@ -25,7 +25,7 @@ struct device_image_scope_key {
   using value_t = property_value<device_image_scope_key>;
 };
 
-enum class host_access_enum : std::uint16_t { none, read, write, read_write };
+enum class host_access_enum : std::uint16_t { read, write, read_write, none };
 
 struct host_access_key {
   template <host_access_enum Access>

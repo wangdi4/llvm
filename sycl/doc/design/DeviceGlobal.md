@@ -398,7 +398,7 @@ device global's `sycl-unique-id`.
 
 The `sycl-post-link` tool also generates idiomatic LLVM IR for the
 **InitModeINTEL** decoration (if the device global has the `init_mode`
-property) and for the **ImplementInRegisterMapINTEL** decoration (if the device global
+property) and for the **ImplementInCSRINTEL** decoration (if the device global
 has the `implement_in_csr` property).  See the
 [SPV\_INTEL\_global\_variable\_decorations][6] SPIR-V extension for details
 about all of these decorations.

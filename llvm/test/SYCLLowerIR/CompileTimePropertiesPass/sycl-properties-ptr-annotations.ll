@@ -21,9 +21,9 @@ $_ZTSZ4mainEUlvE_ = comdat any
 @.args.10 = private unnamed_addr addrspace(1) constant { ptr addrspace(1), ptr addrspace(1), ptr addrspace(1), ptr addrspace(1) } { ptr addrspace(1) @.str.2, ptr addrspace(1) @.str.3, ptr addrspace(1) @.str.9, ptr addrspace(1) null }, section "llvm.metadata"
 @.args.11 = private unnamed_addr addrspace(1) constant { ptr addrspace(1), ptr addrspace(1) } { ptr addrspace(1) @.str.9, ptr addrspace(1) null }, section "llvm.metadata"
 
-;CHECK: @[[NewAnnotStr1:.*]] = private unnamed_addr addrspace(1) constant [24 x i8] c"{6147:\221\22}{6148:\22true\22}\00", section "llvm.metadata"
-;CHECK: @[[NewAnnotStr2:.*]] = private unnamed_addr addrspace(1) constant [11 x i8] c"{6147:\221\22}\00", section "llvm.metadata"
-;CHECK: @[[NewAnnotStr3:.*]] = private unnamed_addr addrspace(1) constant [14 x i8] c"{6148:\22true\22}\00", section "llvm.metadata"
+;CHECK: @[[NewAnnotStr1:.*]] = private unnamed_addr addrspace(1) constant [24 x i8] c"{6148:\221\22}{6149:\22true\22}\00", section "llvm.metadata"
+;CHECK: @[[NewAnnotStr2:.*]] = private unnamed_addr addrspace(1) constant [11 x i8] c"{6148:\221\22}\00", section "llvm.metadata"
+;CHECK: @[[NewAnnotStr3:.*]] = private unnamed_addr addrspace(1) constant [14 x i8] c"{6149:\22true\22}\00", section "llvm.metadata"
 
 ; Function Attrs: mustprogress norecurse
 define weak_odr dso_local spir_kernel void @_ZTSZ4mainEUlvE_() local_unnamed_addr #0 comdat !kernel_arg_buffer_location !7 !sycl_kernel_omit_args !7 {

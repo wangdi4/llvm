@@ -398,7 +398,7 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program *pProgram) const {
         // Get the host access mode
         HostAccessMode =
             mdconst::extract<ConstantInt>(Node->getOperand(1))->getZExtValue();
-        assert(HostAccessMode <= HOST_ACCESS_READ_WRITE &&
+        assert(HostAccessMode <= HOST_ACCESS_NONE &&
                "HostAccess mode is invalid");
         // Get the decoration name
         DecoName = cast<MDString>(Node->getOperand(2))->getString();
