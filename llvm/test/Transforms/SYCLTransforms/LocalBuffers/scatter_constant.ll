@@ -5,8 +5,8 @@
 
 ; CHECK-LABEL: void @foo
 ; CHECK: [[GEP:%.*]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
-; CHECK: [[INSERT_0:%.*]] = insertelement <2 x ptr addrspace(3)> undef, ptr addrspace(3) [[GEP]], i64 0
-; CHECK-NEXT: [[INSERT_1:%.*]] = insertelement <2 x ptr addrspace(3)> [[INSERT_0]], ptr addrspace(3) [[GEP]], i64 1
+; CHECK: [[INSERT_0:%.*]] = insertelement <2 x ptr addrspace(3)> poison, ptr addrspace(3) [[GEP]], i32 0
+; CHECK-NEXT: [[INSERT_1:%.*]] = insertelement <2 x ptr addrspace(3)> [[INSERT_0]], ptr addrspace(3) [[GEP]], i32 1
 ; CHECK-NEXT: call void @llvm.masked.scatter.v2p4.v2p3(<2 x ptr addrspace(4)> {{%.*}}, <2 x ptr addrspace(3)> [[INSERT_1]], i32 8, <2 x i1> <i1 true, i1 true>)
 
 
