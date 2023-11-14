@@ -42,9 +42,6 @@ constexpr uint32_t SPIRV_HOST_ACCESS_DEFAULT_VALUE = 3; // Read/Write
 constexpr uint32_t SPIRV_INITIATION_INTERVAL_DECOR = 5917;
 constexpr uint32_t SPIRV_PIPELINE_ENABLE_DECOR = 5919;
 
-constexpr uint32_t SPIRV_CACHE_CONTROL_READ_DECOR = 6442;
-constexpr uint32_t SPIRV_CACHE_CONTROL_WRITE_DECOR = 6443;
-
 enum class DecorValueTy {
   uint32,
   boolean,
