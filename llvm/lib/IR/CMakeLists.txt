@@ -50,6 +50,9 @@ add_llvm_component_library(LLVMCore
   IRPrintingPasses.cpp
   SSAContext.cpp
   InlineAsm.cpp
+# INTEL_CUSTOMIZATION
+  Intel_DopeVectorTypeInfo.cpp
+# end INTEL_CUSTOMIZATION
   Instruction.cpp
   Instructions.cpp
   IntrinsicInst.cpp
