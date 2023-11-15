@@ -145,7 +145,7 @@ public:
 
     // If true, the outlined function has aggregate argument in zero address
     // space.
-    bool ArgsInZeroAddressSpace;
+    bool ArgsInZeroAddressSpace = false; // INTEL
 #if INTEL_COLLAB
     // Start of Intel members. Please keep new llorg members above this line.
     //

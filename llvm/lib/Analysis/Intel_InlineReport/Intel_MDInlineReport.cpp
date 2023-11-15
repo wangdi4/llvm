@@ -352,6 +352,8 @@ void InlineReportBuilder::addCallSite(CallBase *CB) {
   SmallVector<Metadata *, 100> Ops;
   Ops.push_back(llvm::MDString::get(Ctx, CallSitesTag));
   Metadata *CallerMD = Caller->getMetadata(FunctionTag);
+  if (!CallerMD)
+    return;
   auto *CallerMDTuple = cast<MDTuple>(CallerMD);
   if (Metadata *MDCSs = CallerMDTuple->getOperand(FMDIR_CSs).get()) {
     auto CSs = cast<MDTuple>(MDCSs);
@@ -667,7 +669,10 @@ void InlineReportBuilder::setIsCompact(Function *F, bool Value) {
   std::string IsCompactStr = "isCompact: ";
   IsCompactStr.append(std::to_string(Value));
   auto IsCompactMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, IsCompactStr));
-  auto FIR = cast<MDTuple>(F->getMetadata(FunctionTag));
+  auto FMD = F->getMetadata(FunctionTag);
+  if (!FMD)
+    return;
+  auto FIR = cast<MDTuple>(FMD);
   FIR->replaceOperandWith(FMDIR_IsCompact, IsCompactMD);
 }
 
