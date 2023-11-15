@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-fuse-collapse)' -vpo-paropt-loop-fuse-collapse --debug-only=vpo-paropt-loop-fuse-collapse -S %s 2>&1  | FileCheck --check-prefix=CHECK_DBG %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-fuse-collapse)' -vpo-paropt-loop-fuse-collapse --debug-only=vpo-paropt-loop-fuse-collapse -S %s 2>&1  | FileCheck %s
 
 ; Original code:
 ; int main() {
@@ -13,7 +13,7 @@
 ;         for (int i = 0; i < B; i++) {
 ;                 int j;
 ; #pragma omp loop
-;                 for (j = 0; j < N0; j++)
+;                 for (j = 0; j < i; j++)
 ;                         a[i*N0+j] = j;
 ; #pragma omp loop
 ;                 for (j = 0; j < N0+1; j++)
@@ -23,15 +23,12 @@
 ;         return 0;
 ; }
 
-; The test checks that there're 2 fusion candidates picked
-; when these loops are guarded (i.e. have OMP lb<ub precondition
-; emitted by the frontend)
+; This test checks that the pass backs off because one of loops has an unhoistable UB (the 1st inner one),
+; and outputs correct debug message describing it
 
-; CHECK_DBG: OMP fusion candidate
-; CHECK_DBG: OMP fusion candidate
-; CHECK_DBG: Fusion safety checks passed
+; CHECK: UB hoisting check failed
 
-target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"
 target device_triples = "spir64"
 
@@ -175,7 +172,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.inc53
   %mul = mul nsw i32 %6, 1
   %add = add nsw i32 0, %mul
   store i32 %add, ptr addrspace(4) %i.ascast, align 4
-  %7 = load i32, ptr addrspace(4) %N0.ascast, align 4
+  %7 = load i32, ptr addrspace(4) %i.ascast, align 4
   store i32 %7, ptr addrspace(4) %.capture_expr.0.ascast, align 4
   %8 = load i32, ptr addrspace(4) %.capture_expr.0.ascast, align 4
   %sub = sub nsw i32 %8, 0
@@ -369,5 +366,4 @@ attributes #0 = { "contains-openmp-target"="true" }
 
 !omp_offload.info = !{!0}
 
-!0 = !{i32 0, i32 2050, i32 49129119, !"_Z4main", i32 14, i32 0, i32 0, i32 0}
-
+!0 = !{i32 0, i32 2050, i32 49129116, !"_Z4main", i32 14, i32 0, i32 0, i32 0}

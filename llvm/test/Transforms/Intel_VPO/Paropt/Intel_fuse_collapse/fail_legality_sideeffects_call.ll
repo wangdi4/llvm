@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-fuse-collapse)' -vpo-paropt-loop-fuse-collapse --debug-only=vpo-paropt-loop-fuse-collapse -S %s 2>&1  | FileCheck --check-prefix=CHECK_DBG %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-fuse-collapse)' -vpo-paropt-loop-fuse-collapse --debug-only=vpo-paropt-loop-fuse-collapse -S %s 2>&1  | FileCheck %s
 
 ; Original code:
 ; int main() {
@@ -14,7 +14,7 @@
 ;                 int j;
 ; #pragma omp loop
 ;                 for (j = 0; j < N0; j++)
-;                         a[i*N0+j] = j;
+;                         a[i*N0+j] = omp_get_thread_num();
 ; #pragma omp loop
 ;                 for (j = 0; j < N0+1; j++)
 ;                         b[i*(N0+1)+j] = j*2;
@@ -23,15 +23,12 @@
 ;         return 0;
 ; }
 
-; The test checks that there're 2 fusion candidates picked
-; when these loops are guarded (i.e. have OMP lb<ub precondition
-; emitted by the frontend)
+; This test checks that the pass backs off because of a side-effect instruction in one of the loops,
+; and outputs correct debug message describing it
 
-; CHECK_DBG: OMP fusion candidate
-; CHECK_DBG: OMP fusion candidate
-; CHECK_DBG: Fusion safety checks passed
+; CHECK: Per-candidate fusion check failed
 
-target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"
 target device_triples = "spir64"
 
@@ -217,27 +214,27 @@ omp.inner.for.body12:                             ; preds = %omp.inner.for.inc, 
   %mul13 = mul nsw i32 %15, 1
   %add14 = add nsw i32 0, %mul13
   store i32 %add14, ptr addrspace(4) %j.ascast, align 4
-  %16 = load i32, ptr addrspace(4) %j.ascast, align 4
-  %17 = load i32, ptr addrspace(4) %i.ascast, align 4
-  %18 = load i32, ptr addrspace(4) %N0.ascast, align 4
-  %mul15 = mul nsw i32 %17, %18
-  %19 = load i32, ptr addrspace(4) %j.ascast, align 4
-  %add16 = add nsw i32 %mul15, %19
+  %call = call spir_func i32 @omp_get_thread_num() #3
+  %16 = load i32, ptr addrspace(4) %i.ascast, align 4
+  %17 = load i32, ptr addrspace(4) %N0.ascast, align 4
+  %mul15 = mul nsw i32 %16, %17
+  %18 = load i32, ptr addrspace(4) %j.ascast, align 4
+  %add16 = add nsw i32 %mul15, %18
   %idxprom = sext i32 %add16 to i64
   %arrayidx17 = getelementptr inbounds [4096 x i32], ptr addrspace(4) %a.ascast, i64 0, i64 %idxprom
-  store i32 %16, ptr addrspace(4) %arrayidx17, align 4
+  store i32 %call, ptr addrspace(4) %arrayidx17, align 4
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body12
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %20 = load i32, ptr addrspace(4) %.omp.iv7.ascast, align 4
-  %add18 = add nsw i32 %20, 1
+  %19 = load i32, ptr addrspace(4) %.omp.iv7.ascast, align 4
+  %add18 = add nsw i32 %19, 1
   store i32 %add18, ptr addrspace(4) %.omp.iv7.ascast, align 4
-  %21 = load i32, ptr addrspace(4) %.omp.iv7.ascast, align 4
-  %22 = load i32, ptr addrspace(4) %.omp.ub9.ascast, align 4
-  %cmp19 = icmp sle i32 %21, %22
+  %20 = load i32, ptr addrspace(4) %.omp.iv7.ascast, align 4
+  %21 = load i32, ptr addrspace(4) %.omp.ub9.ascast, align 4
+  %cmp19 = icmp sle i32 %20, %21
   br i1 %cmp19, label %omp.inner.for.body12, label %omp.inner.for.end_crit_edge
 
 omp.inner.for.end_crit_edge:                      ; preds = %omp.inner.for.inc
@@ -252,26 +249,26 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %omp.loop.exit, %omp.inner.for.body
-  %23 = load i32, ptr addrspace(4) %N0.ascast, align 4
-  %add21 = add nsw i32 %23, 1
+  %22 = load i32, ptr addrspace(4) %N0.ascast, align 4
+  %add21 = add nsw i32 %22, 1
   store i32 %add21, ptr addrspace(4) %.capture_expr.2.ascast, align 4
-  %24 = load i32, ptr addrspace(4) %.capture_expr.2.ascast, align 4
-  %sub22 = sub nsw i32 %24, 0
+  %23 = load i32, ptr addrspace(4) %.capture_expr.2.ascast, align 4
+  %sub22 = sub nsw i32 %23, 0
   %sub23 = sub nsw i32 %sub22, 1
   %add24 = add nsw i32 %sub23, 1
   %div25 = sdiv i32 %add24, 1
   %sub26 = sub nsw i32 %div25, 1
   store i32 %sub26, ptr addrspace(4) %.capture_expr.3.ascast, align 4
-  %25 = load i32, ptr addrspace(4) %.capture_expr.2.ascast, align 4
-  %cmp27 = icmp slt i32 0, %25
+  %24 = load i32, ptr addrspace(4) %.capture_expr.2.ascast, align 4
+  %cmp27 = icmp slt i32 0, %24
   br i1 %cmp27, label %omp.precond.then28, label %omp.precond.end51
 
 omp.precond.then28:                               ; preds = %omp.precond.end
   store i32 0, ptr addrspace(4) %.omp.lb30.ascast, align 4
-  %26 = load i32, ptr addrspace(4) %.capture_expr.3.ascast, align 4
-  store i32 %26, ptr addrspace(4) %.omp.ub31.ascast, align 4
+  %25 = load i32, ptr addrspace(4) %.capture_expr.3.ascast, align 4
+  store i32 %25, ptr addrspace(4) %.omp.ub31.ascast, align 4
   %array.begin50 = getelementptr inbounds [4100 x i32], ptr addrspace(4) %b.ascast, i32 0, i32 0
-  %27 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(),
+  %26 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(),
     "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %b.ascast, i32 0, i64 4100),
     "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %N0.ascast, i32 0, i32 1),
     "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %i.ascast, i32 0, i32 1),
@@ -280,29 +277,29 @@ omp.precond.then28:                               ; preds = %omp.precond.end
     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %.omp.lb30.ascast, i32 0, i32 1),
     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr addrspace(4) %.omp.ub31.ascast, i32 0) ]
 
-  %28 = load i32, ptr addrspace(4) %.omp.lb30.ascast, align 4
-  store i32 %28, ptr addrspace(4) %.omp.iv29.ascast, align 4
-  %29 = load i32, ptr addrspace(4) %.omp.iv29.ascast, align 4
-  %30 = load i32, ptr addrspace(4) %.omp.ub31.ascast, align 4
-  %cmp32 = icmp sle i32 %29, %30
+  %27 = load i32, ptr addrspace(4) %.omp.lb30.ascast, align 4
+  store i32 %27, ptr addrspace(4) %.omp.iv29.ascast, align 4
+  %28 = load i32, ptr addrspace(4) %.omp.iv29.ascast, align 4
+  %29 = load i32, ptr addrspace(4) %.omp.ub31.ascast, align 4
+  %cmp32 = icmp sle i32 %28, %29
   br i1 %cmp32, label %omp.inner.for.body.lh33, label %omp.inner.for.end48
 
 omp.inner.for.body.lh33:                          ; preds = %omp.precond.then28
   br label %omp.inner.for.body34
 
 omp.inner.for.body34:                             ; preds = %omp.inner.for.inc44, %omp.inner.for.body.lh33
-  %31 = load i32, ptr addrspace(4) %.omp.iv29.ascast, align 4
-  %mul35 = mul nsw i32 %31, 1
+  %30 = load i32, ptr addrspace(4) %.omp.iv29.ascast, align 4
+  %mul35 = mul nsw i32 %30, 1
   %add36 = add nsw i32 0, %mul35
   store i32 %add36, ptr addrspace(4) %j.ascast, align 4
-  %32 = load i32, ptr addrspace(4) %j.ascast, align 4
-  %mul37 = mul nsw i32 %32, 2
-  %33 = load i32, ptr addrspace(4) %i.ascast, align 4
-  %34 = load i32, ptr addrspace(4) %N0.ascast, align 4
-  %add38 = add nsw i32 %34, 1
-  %mul39 = mul nsw i32 %33, %add38
-  %35 = load i32, ptr addrspace(4) %j.ascast, align 4
-  %add40 = add nsw i32 %mul39, %35
+  %31 = load i32, ptr addrspace(4) %j.ascast, align 4
+  %mul37 = mul nsw i32 %31, 2
+  %32 = load i32, ptr addrspace(4) %i.ascast, align 4
+  %33 = load i32, ptr addrspace(4) %N0.ascast, align 4
+  %add38 = add nsw i32 %33, 1
+  %mul39 = mul nsw i32 %32, %add38
+  %34 = load i32, ptr addrspace(4) %j.ascast, align 4
+  %add40 = add nsw i32 %mul39, %34
   %idxprom41 = sext i32 %add40 to i64
   %arrayidx42 = getelementptr inbounds [4100 x i32], ptr addrspace(4) %b.ascast, i64 0, i64 %idxprom41
   store i32 %mul37, ptr addrspace(4) %arrayidx42, align 4
@@ -312,12 +309,12 @@ omp.body.continue43:                              ; preds = %omp.inner.for.body3
   br label %omp.inner.for.inc44
 
 omp.inner.for.inc44:                              ; preds = %omp.body.continue43
-  %36 = load i32, ptr addrspace(4) %.omp.iv29.ascast, align 4
-  %add45 = add nsw i32 %36, 1
+  %35 = load i32, ptr addrspace(4) %.omp.iv29.ascast, align 4
+  %add45 = add nsw i32 %35, 1
   store i32 %add45, ptr addrspace(4) %.omp.iv29.ascast, align 4
-  %37 = load i32, ptr addrspace(4) %.omp.iv29.ascast, align 4
-  %38 = load i32, ptr addrspace(4) %.omp.ub31.ascast, align 4
-  %cmp46 = icmp sle i32 %37, %38
+  %36 = load i32, ptr addrspace(4) %.omp.iv29.ascast, align 4
+  %37 = load i32, ptr addrspace(4) %.omp.ub31.ascast, align 4
+  %cmp46 = icmp sle i32 %36, %37
   br i1 %cmp46, label %omp.inner.for.body34, label %omp.inner.for.end_crit_edge47
 
 omp.inner.for.end_crit_edge47:                    ; preds = %omp.inner.for.inc44
@@ -327,7 +324,7 @@ omp.inner.for.end48:                              ; preds = %omp.inner.for.end_c
   br label %omp.loop.exit49
 
 omp.loop.exit49:                                  ; preds = %omp.inner.for.end48
-  call void @llvm.directive.region.exit(token %27) [ "DIR.OMP.END.GENERICLOOP"() ]
+  call void @llvm.directive.region.exit(token %26) [ "DIR.OMP.END.GENERICLOOP"() ]
 
   br label %omp.precond.end51
 
@@ -338,12 +335,12 @@ omp.body.continue52:                              ; preds = %omp.precond.end51
   br label %omp.inner.for.inc53
 
 omp.inner.for.inc53:                              ; preds = %omp.body.continue52
-  %39 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4
-  %add54 = add nsw i32 %39, 1
+  %38 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4
+  %add54 = add nsw i32 %38, 1
   store i32 %add54, ptr addrspace(4) %.omp.iv.ascast, align 4
-  %40 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4
-  %41 = load i32, ptr addrspace(4) %.omp.ub.ascast, align 4
-  %cmp55 = icmp sle i32 %40, %41
+  %39 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4
+  %40 = load i32, ptr addrspace(4) %.omp.ub.ascast, align 4
+  %cmp55 = icmp sle i32 %39, %40
   br i1 %cmp55, label %omp.inner.for.body, label %omp.inner.for.end_crit_edge56
 
 omp.inner.for.end_crit_edge56:                    ; preds = %omp.inner.for.inc53
@@ -364,10 +361,11 @@ omp.loop.exit58:                                  ; preds = %omp.inner.for.end57
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
+declare spir_func i32 @omp_get_thread_num()
 
 attributes #0 = { "contains-openmp-target"="true" }
 
 !omp_offload.info = !{!0}
 
-!0 = !{i32 0, i32 2050, i32 49129119, !"_Z4main", i32 14, i32 0, i32 0, i32 0}
+!0 = !{i32 0, i32 2050, i32 49129119, !"_Z4main", i32 9, i32 0, i32 0, i32 0}
 

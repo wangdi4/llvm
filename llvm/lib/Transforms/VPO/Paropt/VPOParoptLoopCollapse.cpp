@@ -96,11 +96,13 @@ static bool collapseLoops(
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),
                         WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                        WI.getAliasAnalysis(), OmpNoFECollapse,
 #if INTEL_CUSTOMIZATION
-                        OptReportVerbosity::None,
+                        WI.getAliasAnalysis(),
+                        /*MemorySSA=*/nullptr, OmpNoFECollapse,
+                        OptReportVerbosity::None, ORE, 2, false);
+#else
+                        WI.getAliasAnalysis(), OmpNoFECollapse, ORE, 2, false);
 #endif // INTEL_CUSTOMIZATION
-                        ORE, 2, false);
 
   Changed |= VP.paroptTransforms();
 

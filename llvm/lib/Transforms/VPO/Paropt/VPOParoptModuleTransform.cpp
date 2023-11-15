@@ -560,14 +560,18 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass before ParoptTransformer{\n");
 
     // AUTOPAR | OPENMP | SIMD | OFFLOAD
-    VPOParoptTransform VP(
-        this, F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
-        WI.getTargetTransformInfo(), WI.getAssumptionCache(),
-        WI.getTargetLibraryInfo(), WI.getAliasAnalysis(), Mode,
+    VPOParoptTransform VP(this, F, &WI, WI.getDomTree(), WI.getLoopInfo(),
+                          WI.getSE(), WI.getTargetTransformInfo(),
+                          WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
 #if INTEL_CUSTOMIZATION
-        ORVerbosity,
+                          WI.getAliasAnalysis(),
+                          /*MemorySSA=*/nullptr, Mode, ORVerbosity, WI.getORE(),
+                          OptLevel, DisableOffload);
+#else
+                          WI.getAliasAnalysis(), Mode, WI.getORE(), OptLevel,
+                          DisableOffload);
 #endif // INTEL_CUSTOMIZATION
-        WI.getORE(), OptLevel, DisableOffload);
+
     Changed = Changed | VP.paroptTransforms();
 
     LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");

@@ -88,6 +88,8 @@
 
 namespace llvm {
 
+class MemorySSA;
+
 namespace vpo {
 
 extern cl::opt<bool> UseMapperAPI;
@@ -128,36 +130,40 @@ class VPOParoptTransform {
 
 public:
   /// ParoptTransform object constructor
-  VPOParoptTransform(VPOParoptModuleTransform *MT,
-                     Function *F, WRegionInfo *WI, DominatorTree *DT,
-                     LoopInfo *LI, ScalarEvolution *SE,
+  VPOParoptTransform(VPOParoptModuleTransform *MT, Function *F, WRegionInfo *WI,
+                     DominatorTree *DT, LoopInfo *LI, ScalarEvolution *SE,
                      const TargetTransformInfo *TTI, AssumptionCache *AC,
-                     const TargetLibraryInfo *TLI, AAResults *AA, int Mode,
 #if INTEL_CUSTOMIZATION
+                     const TargetLibraryInfo *TLI, AAResults *AA,
+                     MemorySSA *MSSA, int Mode,
                      OptReportVerbosity::Level ORVerbosity,
+#else
+                     const TargetLibraryInfo *TLI, AAResults *AA, int Mode,
 #endif // INTEL_CUSTOMIZATION
-                     OptimizationRemarkEmitter &ORE,
-                     unsigned OptLevel = 2,
+                     OptimizationRemarkEmitter &ORE, unsigned OptLevel = 2,
                      bool DisableOffload = false)
       : MT(MT), F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
-        TLI(TLI), AA(AA), Mode(Mode),
-        TargetTriple(F->getParent()->getTargetTriple()),
 #if INTEL_CUSTOMIZATION
-        ORVerbosity(ORVerbosity),
+        TLI(TLI), AA(AA), MSSA(MSSA), Mode(Mode),
+        TargetTriple(F->getParent()->getTargetTriple()),
+        ORVerbosity(ORVerbosity), ORE(ORE), OptLevel(OptLevel),
+        DisableOffload(DisableOffload), IdentTy(nullptr), TidPtrHolder(nullptr),
+        BidPtrHolder(nullptr), KmpcMicroTaskTy(nullptr),
+#else
+        TLI(TLI), AA(AA), Mode(Mode),
+        TargetTriple(F->getParent()->getTargetTriple()), ORE(ORE),
+        OptLevel(OptLevel), DisableOffload(DisableOffload), IdentTy(nullptr),
+        TidPtrHolder(nullptr), BidPtrHolder(nullptr), KmpcMicroTaskTy(nullptr),
 #endif // INTEL_CUSTOMIZATION
-        ORE(ORE), OptLevel(OptLevel),
-        DisableOffload(DisableOffload),
-        IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
-        KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
-        KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
-        KmpTaskDependInfoTy(nullptr) {
+        KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr),
+        KmpTaskTRedTy(nullptr), KmpTaskDependInfoTy(nullptr) {
 
 #if INTEL_CUSTOMIZATION
         // Set up Builder for generating remarks using Opt Report
         // framework (under -qopt-report).
         ORBuilder.setup(F->getContext(), ORVerbosity);
 #endif // INTEL_CUSTOMIZATION
-      }
+  }
 
   /// Add a temporary branch from \p W's EntryBB to ExitBB. This is to prevent
   /// optimizations from deleting the end region directive of a WRegion if it
@@ -250,6 +256,8 @@ private:
   const TargetLibraryInfo *TLI;
 
   AAResults *AA;
+
+  MemorySSA *MSSA;
 
   /// Paropt compilation mode
   int Mode;
