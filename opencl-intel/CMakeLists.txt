@@ -538,6 +538,10 @@ endif()
 set(CLANG_VERSION
     "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION_PATCHLEVEL}")
 
+# Used by code coverage tests to find clang profile lib
+set(CLANG_LIBRARY_DIR
+    "${LLVM_LIBRARY_DIR}/clang/${CLANG_VERSION_MAJOR}/lib/${LLVM_TARGET_TRIPLE}")
+
 # Let's help CMake to find llvm-lit
 if(NOT OPENCL_INTREE_BUILD)
   set(LLVM_EXTERNAL_LIT "${LLVM_PATH_BE}/bin/llvm-lit")

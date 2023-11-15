@@ -114,7 +114,8 @@ void OpenCLBackendRunner::BuildProgram(
                                           injectedObject->getBufferSize());
   }
 
-  if (runConfig->GetValue<bool>(RC_BR_STOP_BEFORE_JIT, false))
+  bool stopBeforeJIT = runConfig->GetValue<bool>(RC_BR_STOP_BEFORE_JIT, false);
+  if (stopBeforeJIT)
     buildProgramOptions.SetStopBeforeJIT();
 
   cl_int ret = pCompileService->BuildProgram(
@@ -127,6 +128,15 @@ void OpenCLBackendRunner::BuildProgram(
     throw Exception::TestRunnerException(
         std::string("Build program failed.\nBack-end build log:\n") +
         pProgram->GetBuildLog());
+  }
+
+  if (!stopBeforeJIT) {
+    ret = pCompileService->FinalizeProgram(pProgram);
+    LLVM_DEBUG(llvm::dbgs() << "Finalize program finished.\n");
+
+    if (CL_DEV_FAILED(ret))
+      throw Exception::TestRunnerException(
+          std::string("Finalize program failed.\n") + pProgram->GetBuildLog());
   }
 
   if (runConfig->GetValue<bool>(RC_BR_PRINT_BUILD_LOG, false)) {

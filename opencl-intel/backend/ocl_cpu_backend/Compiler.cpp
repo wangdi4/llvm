@@ -125,6 +125,8 @@ CompilerBuildOptions::CompilerBuildOptions(const char *pBuildOpts) {
       m_profiling = true;
     else if (opt.equals("-g"))
       m_debugInfo = true;
+    else if (opt.equals("-coverage"))
+      m_coverage = true;
     else if (opt.equals("-cl-fast-relaxed-math"))
       m_relaxedMath = true;
     else if (opt.equals("-cl-opt-disable"))
@@ -334,9 +336,9 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   intel::OptimizerConfig optimizerConfig(
       m_CpuId, m_transposeSize, targetMachine.get(),
       m_buildOptions.GetProfilingFlag(), m_buildOptions.GetDisableOpt(),
-      m_buildOptions.GetRelaxedMath(), m_bIsFPGAEmulator, m_dumpHeuristicIR,
-      m_rtLoopUnrollFactor, m_streamingAlways, m_expensiveMemOpts,
-      m_subGroupConstructionMode);
+      m_buildOptions.GetRelaxedMath(), m_buildOptions.GetCoverage(),
+      m_bIsFPGAEmulator, m_dumpHeuristicIR, m_rtLoopUnrollFactor,
+      m_streamingAlways, m_expensiveMemOpts, m_subGroupConstructionMode);
   auto &BIModules = GetBuiltinModuleList();
   std::unique_ptr<Optimizer> optimizer;
   switch (m_passManagerType) {

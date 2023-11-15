@@ -14,6 +14,7 @@ config.llvm_tools_dir = "@LLVM_TOOLS_DIR@"
 config.llvm_libs_dir = "@LLVM_LIBS_DIR@"
 config.host_arch = "@HOST_ARCH@"
 config.build_type = "@CMAKE_BUILD_TYPE@"
+config.clang_lib_dir = "@CLANG_LIBRARY_DIR@"
 
 if 4 == @CMAKE_SIZEOF_VOID_P@:
     config.available_features.add("32bit")
