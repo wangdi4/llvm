@@ -30,6 +30,7 @@ set(BACKEND_TEST_TYPE_LINK_LIBS
   LLVMDebugInfoBTF
   LLVMDebugInfoDWARF
   LLVMDebugInfoTraceBack
+  LLVMInstrumentation
   LLVMIntel_Debug
   LLVMMC
   LLVMMCDisassembler

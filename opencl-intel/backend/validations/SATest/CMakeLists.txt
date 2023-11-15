@@ -119,6 +119,7 @@ add_opencl_executable(
   LLVMDebugInfoBTF
   LLVMDebugInfoDWARF
   LLVMDebugInfoTraceBack
+  LLVMInstrumentation
   LLVMInterpreterPluggable
   LLVMIntel_Debug
   LLVMMC
