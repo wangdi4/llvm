@@ -29,13 +29,14 @@ public:
   OptimizerConfig(const Intel::OpenCL::Utils::CPUDetect *cpuId,
                   Intel::OpenCL::DeviceBackend::ETransposeSize tranposeSize,
                   llvm::TargetMachine *machine, bool profiling, bool disableOpt,
-                  bool relaxedMath, bool fpgaEmulator, bool heuristicIR,
-                  int rtLoopUnrollFactor, bool streamingAlways,
-                  unsigned expensiveMemOpts, int subGroupConstructionMode)
+                  bool relaxedMath, bool coverage, bool fpgaEmulator,
+                  bool heuristicIR, int rtLoopUnrollFactor,
+                  bool streamingAlways, unsigned expensiveMemOpts,
+                  int subGroupConstructionMode)
       : m_cpuId(cpuId), m_transposeSize(tranposeSize), m_targetMachine(machine),
         m_profiling(profiling), m_disableOpt(disableOpt),
-        m_relaxedMath(relaxedMath), m_fpgaEmulator(fpgaEmulator),
-        m_dumpHeuristicIR(heuristicIR),
+        m_relaxedMath(relaxedMath), m_coverage(coverage),
+        m_fpgaEmulator(fpgaEmulator), m_dumpHeuristicIR(heuristicIR),
         m_rtLoopUnrollFactor(rtLoopUnrollFactor),
         m_streamingAlways(streamingAlways),
         m_expensiveMemOpts(expensiveMemOpts),
@@ -51,6 +52,7 @@ public:
   bool GetDisableOpt() const { return m_disableOpt; }
   bool GetProfilingFlag() const { return m_profiling; }
   bool GetRelaxedMath() const { return m_relaxedMath; }
+  bool GetCoverage() const { return m_coverage; }
   bool isFpgaEmulator() const { return m_fpgaEmulator; }
   int GetRTLoopUnrollFactor() const { return m_rtLoopUnrollFactor; }
   bool GetDumpHeuristicIRFlag() const { return m_dumpHeuristicIR; }
@@ -69,6 +71,7 @@ private:
   bool m_profiling;
   bool m_disableOpt;
   bool m_relaxedMath;
+  bool m_coverage;
   // Sets whether we are working as fpga emulator
   bool m_fpgaEmulator;
   // Sets whether the vectorize should output heuristic LL IR inputs

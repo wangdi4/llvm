@@ -59,6 +59,7 @@ public:
   bool GetProfilingFlag() const { return m_profiling; }
   bool GetRelaxedMath() const { return m_relaxedMath; }
   bool GetDenormalsZero() const { return m_denormalsZero; }
+  bool GetCoverage() const { return m_coverage; }
 
 private:
   bool m_debugInfo = false;
@@ -66,6 +67,7 @@ private:
   bool m_disableOpt = false;
   bool m_relaxedMath = false;
   bool m_denormalsZero = false;
+  bool m_coverage = false;
 };
 
 //******************************************************************************

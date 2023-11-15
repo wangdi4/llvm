@@ -22,7 +22,7 @@ if(INTEL_CUSTOMIZATION)
 endif(INTEL_CUSTOMIZATION)
 
 # Download opencl-clang
-set(OPENCL_CLANG_TAG 3c7642019777e222089d68be0e7f11eac694e765)
+set(OPENCL_CLANG_TAG ad248f4104c1fa37684a87c6d8ff74cc4fac61d4)
 # Set target name
 set(OPENCL_CLANG_LIBRARY_NAME "common_clang" CACHE STRING "")
 # Override PCH extension map in opencl-clang/options_compile.cpp

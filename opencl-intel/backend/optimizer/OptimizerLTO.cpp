@@ -34,6 +34,7 @@
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/SCCP.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Instrumentation/GCOVProfiler.h"
 #include "llvm/Transforms/SYCLTransforms/Passes.h"
 #include "llvm/Transforms/SYCLTransforms/SGRemapWICall.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
@@ -175,6 +176,9 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
 
         MPM.addPass(SYCLEqualizerPass());
         MPM.addPass(ExternalizeGlobalVariablesPass());
+
+        if (Config.GetCoverage())
+          MPM.addPass(GCOVProfilerPass());
 
         Triple TargetTriple(m_M.getTargetTriple());
         if (TargetTriple.isArch64Bit()) {
