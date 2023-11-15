@@ -447,15 +447,10 @@ function(create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
     --emit-target-name=${TARGET_DIR})
   list(APPEND OCL_20_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
 
-  set(BUILTIN_COMPILE_FLAGS ${CLANG_CL_BUILTIN_COMPILER_FLAGS})
-  if(${PROC} MATCHES "skx")
-    set(BUILTIN_COMPILE_FLAGS ${BUILTIN_COMPILE_FLAGS} -target-feature -evex512)
-  endif(${PROC} MATCHES "skx")
-
   # build .rtl file out of OCL code (by clang) and copy it to install directory
   add_ocl_library(
     OUTPUT_OCL_LIB
-    "${BUILTIN_COMPILE_FLAGS}"
+    "${CLANG_CL_BUILTIN_COMPILER_FLAGS}"
     ${TARGET_NAME}
     ${TARGET_DIR}
     ${ARCH}
