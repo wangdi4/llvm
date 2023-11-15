@@ -150,4 +150,24 @@
 // RUN:  | FileCheck -check-prefixes=ARCH-EMERALDRAPIDS,ARCH-WARN %s
 // ARCH-EMERALDRAPIDS: "-target-cpu" "emeraldrapids"
 
+// RUN: %clang_cl -### -c /arch:ARROWLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-ARROWLAKE,ARCH-WARN %s
+// ARCH-ARROWLAKE: "-target-cpu" "arrowlake"
+
+// RUN: %clang_cl -### -c /arch:ARROWLAKE-S %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-ARROWLAKE-S,ARCH-WARN %s
+// ARCH-ARROWLAKE-S: "-target-cpu" "arrowlake-s"
+
+// RUN: %clang_cl -### -c /arch:LUNARLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-LUNARLAKE,ARCH-WARN %s
+// ARCH-LUNARLAKE: "-target-cpu" "lunarlake"
+
+// RUN: %clang_cl -### -c /arch:PANTHERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-PANTHERLAKE,ARCH-WARN %s
+// ARCH-PANTHERLAKE: "-target-cpu" "pantherlake"
+
+// RUN: %clang_cl -### -c /arch:CLEARWATERFOREST %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-CLEARWATERFOREST,ARCH-WARN %s
+// ARCH-CLEARWATERFOREST: "-target-cpu" "clearwaterforest"
+
 // ARCH-WARN-NOT: ignoring invalid /arch: argument
