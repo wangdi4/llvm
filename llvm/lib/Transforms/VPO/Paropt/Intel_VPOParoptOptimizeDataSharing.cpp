@@ -124,14 +124,11 @@ static bool optimizeDataSharing(
   LLVM_DEBUG(dbgs() << PASS_NAME << " for Function: ");
   LLVM_DEBUG(dbgs().write_escaped(F.getName()) << '\n');
 
-  VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
-                        WI.getSE(), WI.getTargetTransformInfo(),
-                        WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                        WI.getAliasAnalysis(), OmpNoFECollapse,
-#if INTEL_CUSTOMIZATION
-                        OptReportVerbosity::None,
-#endif // INTEL_CUSTOMIZATION
-                        ORE, 2, false);
+  VPOParoptTransform VP(
+      nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
+      WI.getTargetTransformInfo(), WI.getAssumptionCache(),
+      WI.getTargetLibraryInfo(), WI.getAliasAnalysis(), /*MemorySSA=*/nullptr,
+      OmpNoFECollapse, OptReportVerbosity::None, ORE, 2, false);
 
   BBToWRNMapTy BBToWRNMap;
   // Track the number of optimized items for DataSharingOptNumCase control.

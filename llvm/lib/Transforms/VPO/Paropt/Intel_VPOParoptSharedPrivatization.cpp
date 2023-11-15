@@ -67,8 +67,8 @@ static bool privatizeSharedItems(Function &F, WRegionInfo &WI,
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),
                         WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                        WI.getAliasAnalysis(), Mode & OmpOffload, ORVerbosity,
-                        ORE, 2, false);
+                        WI.getAliasAnalysis(), /*MemorySSA=*/nullptr,
+                        Mode & OmpOffload, ORVerbosity, ORE, 2, false);
 
   Changed |= VP.privatizeSharedItems();
 

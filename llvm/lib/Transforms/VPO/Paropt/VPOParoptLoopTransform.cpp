@@ -96,11 +96,13 @@ static bool transformLoops(Function &F, WRegionInfo &WI,
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),
                         WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                        WI.getAliasAnalysis(), LoopTransform,
 #if INTEL_CUSTOMIZATION
-                        OptReportVerbosity::None,
+                        WI.getAliasAnalysis(),
+                        /*MemorySSA=*/nullptr, LoopTransform,
+                        OptReportVerbosity::None, ORE, 2, false);
+#else
+                        WI.getAliasAnalysis(), LoopTransform, ORE, 2, false);
 #endif // INTEL_CUSTOMIZATION
-                        ORE, 2, false);
 
   Changed |= VP.paroptTransforms();
 
