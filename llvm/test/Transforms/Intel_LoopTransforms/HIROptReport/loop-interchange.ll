@@ -22,8 +22,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,hir-cg" -intel-opt-report=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]], [[M2:!.*]]}
-; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
-; CHECK: [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]]}
+; CHECK: [[M2]] = distinct !{!"intel.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]]}
 ; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 25444, !"( 1 2 ) --> ( 2 1 )"}
 

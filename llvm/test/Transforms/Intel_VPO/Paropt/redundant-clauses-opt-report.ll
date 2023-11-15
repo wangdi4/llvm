@@ -119,10 +119,10 @@
 ; CHECK-NEXT:     OMP TEAMS END
 ; CHECK-NEXT: OMP TARGET END
 
-; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test1_l3({{.+}} !intel.optreport.rootnode !{{[0-9]+}}
-; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test2_l17({{.+}} !intel.optreport.rootnode !{{[0-9]+}}
-; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test3_l30({{.+}} !intel.optreport.rootnode !{{[0-9]+}}
-; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test3_l37({{.+}} !intel.optreport.rootnode !{{[0-9]+}}
+; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test1_l3({{.+}} !intel.optreport !{{[0-9]+}}
+; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test2_l17({{.+}} !intel.optreport !{{[0-9]+}}
+; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test3_l30({{.+}} !intel.optreport !{{[0-9]+}}
+; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test3_l37({{.+}} !intel.optreport !{{[0-9]+}}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

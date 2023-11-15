@@ -24,16 +24,13 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,hir-cg,simplifycfg" -intel-opt-report=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]], [[M2:!.*]]}
-; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
-; CHECK: [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]]}
+; CHECK: [[M2]] = distinct !{!"intel.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.next_sibling", [[M5:!.*]]}
-; CHECK: [[M5]] = distinct !{!"intel.optreport.rootnode", [[M6:!.*]]}
-; CHECK: [[M6]] = distinct !{!"intel.optreport", [[M7:!.*]]}
+; CHECK: [[M5]] = distinct !{!"intel.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
 ; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, i32 6}
 ; CHECK: [[M9:!.*]] = distinct !{[[M9]], [[M10:!.*]]}
-; CHECK: [[M10]] = distinct !{!"intel.optreport.rootnode", [[M11:!.*]]}
-; CHECK: [[M11]] = distinct !{!"intel.optreport", [[M12:!.*]]}
+; CHECK: [[M10]] = distinct !{!"intel.optreport", [[M12:!.*]]}
 ; CHECK: [[M12]] = !{!"intel.optreport.remarks", [[M13:!.*]]}
 ; CHECK: [[M13]] = !{!"intel.optreport.remark", i32 25444, !"( 1 2 ) --> ( 2 1 )"}
 
@@ -87,10 +84,8 @@ define void @foo(ptr noalias nocapture readonly %A, i32 %N) local_unnamed_addr #
 !6 = !{!7, !7, i64 0}
 !7 = !{!"int", !4, i64 0}
 !8 = distinct !{!8, !9}
-!9 = distinct !{!"intel.optreport.rootnode", !10}
-!10 = distinct !{!"intel.optreport", !11}
+!9 = distinct !{!"intel.optreport", !11}
 !11 = !{!"intel.optreport.next_sibling", !12}
-!12 = distinct !{!"intel.optreport.rootnode", !13}
-!13 = distinct !{!"intel.optreport", !14}
+!12 = distinct !{!"intel.optreport", !14}
 !14 = !{!"intel.optreport.remarks", !15}
 !15 = !{!"intel.optreport.remark", i32 25436, i32 6}

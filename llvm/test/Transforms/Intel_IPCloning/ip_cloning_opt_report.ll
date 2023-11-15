@@ -3,7 +3,7 @@
 ; cloned functions. This test is based on ip_cloning_2.ll.
 
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-loop-heuristic -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(post-inline-ip-cloning),intel-ir-optreport-emitter' -ip-cloning-loop-heuristic -intel-opt-report-file=stdout -disable-output | FileCheck %s
 
 @F_1 = external local_unnamed_addr global [100 x i32], align 16
 
@@ -14,14 +14,23 @@ entry:
   ret void
 }
 
-; CHECK: define internal fastcc void @bar(i32 %ub) unnamed_addr
-; CHECK: br i1 %exitcond, label %for.end, label %for.body, !llvm.loop ![[LOOP:[0-9]+]]
+; CHECK: Global optimization report for : bar
 
-; CHECK: define internal fastcc void @bar.1(i32 %ub) unnamed_addr
-; CHECK: br i1 %exitcond, label %for.end, label %for.body, !llvm.loop ![[LOOP1:[0-9]+]]
+; CHECK: LOOP BEGIN
+; CHECK:     remark #99999: Dummy remark for testing
+; CHECK: LOOP END
 
-; CHECK: define internal fastcc void @bar.2(i32 %ub) unnamed_addr
-; CHECK: br i1 %exitcond, label %for.end, label %for.body, !llvm.loop ![[LOOP2:[0-9]+]]
+; CHECK: Global optimization report for : bar.1
+
+; CHECK: LOOP BEGIN
+; CHECK:     remark #99999: Dummy remark for testing
+; CHECK: LOOP END
+
+; CHECK: Global optimization report for : bar.2
+
+; CHECK: LOOP BEGIN
+; CHECK:     remark #99999: Dummy remark for testing
+; CHECK: LOOP END
 
 define internal fastcc void @bar(i32 %ub) unnamed_addr {
 entry:
@@ -46,23 +55,8 @@ for.end:                                          ; preds = %for.body, %entry
   ret void
 }
 
-; CHECK-DAG: ![[LOOP]] = distinct !{![[LOOP]], ![[ROOT:[0-9]+]]}
-; CHECK-DAG: ![[ROOT]] = distinct !{!"intel.optreport.rootnode", ![[REPORT:[0-9]+]]}
-; CHECK-DAG: ![[REPORT]] = distinct !{!"intel.optreport", ![[REMARKS:[0-9]+]]}
-; CHECK-DAG: ![[REMARKS]] = !{!"intel.optreport.remarks", ![[DUMMY:[0-9]+]]}
-; CHECK-DAG: ![[DUMMY]] = !{!"intel.optreport.remark", i32 0, !"Dummy remark"}
-
-; CHECK-DAG: ![[LOOP1]] = distinct !{![[LOOP1]], ![[ROOT1:[0-9]+]]}
-; CHECK-DAG: ![[ROOT1]] = distinct !{!"intel.optreport.rootnode", ![[REPORT1:[0-9]+]]}
-; CHECK-DAG: ![[REPORT1]] = distinct !{!"intel.optreport", ![[REMARKS]]}
-
-; CHECK-DAG: ![[LOOP2]] = distinct !{![[LOOP2]], ![[ROOT2:[0-9]+]]}
-; CHECK-DAG: ![[ROOT2]] = distinct !{!"intel.optreport.rootnode", ![[REPORT2:[0-9]+]]}
-; CHECK-DAG: ![[REPORT2]] = distinct !{!"intel.optreport", ![[REMARKS]]}
-
 !0 = distinct !{!0, !1}
-!1 = distinct !{!"intel.optreport.rootnode", !2}
-!2 = distinct !{!"intel.optreport", !3}
-!3 = !{!"intel.optreport.remarks", !4}
-!4 = !{!"intel.optreport.remark", i32 0, !"Dummy remark"}
+!1 = distinct !{!"intel.optreport", !2}
+!2 = !{!"intel.optreport.remarks", !3}
+!3 = !{!"intel.optreport.remark", i32 99999}
 ; end INTEL_FEATURE_SW_ADVANCED

@@ -449,8 +449,7 @@ attributes #2 = { nofree nounwind uwtable "denormal-fp-math"="preserve_sign" "fr
 !173 = !{!60}
 !174 = !{!76, !77, !20, !21, !78, !22, !79, !23, !80, !24, !25, !26, !27, !28, !29, !81, !30, !31, !32, !33, !34, !35, !36, !37, !38, !39, !82, !40, !41, !42, !43, !44, !45, !46, !47, !48, !83, !49, !50, !51, !52, !53, !84, !85, !17, !64, !67, !70, !54, !55, !86, !87, !88, !89, !90, !91, !56, !57, !92, !93, !94, !95, !96, !97, !58, !98, !99, !100, !101, !102, !103, !59, !104, !105, !106, !107, !108, !109, !110}
 !175 = distinct !{!175, !176, !180, !181}
-!176 = distinct !{!"intel.optreport.rootnode", !177}
-!177 = distinct !{!"intel.optreport", !178}
+!176 = distinct !{!"intel.optreport", !178}
 !178 = !{!"intel.optreport.remarks", !179}
 !179 = !{!"intel.optreport.remark", i32 0, !"OpenMP: Outlined parallel loop"}
 !180 = !{!"llvm.loop.vectorize.ivdep_loop", i32 0}

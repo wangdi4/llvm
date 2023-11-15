@@ -35,19 +35,16 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -intel-opt-report=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]]{{.*}}[[M2:!.*]]{{.*}}}
-; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
-; CHECK: [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]], [[M9:!.*]]}
+; CHECK: [[M2]] = distinct !{!"intel.optreport", [[M4:!.*]], [[M9:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.first_child", [[M5:!.*]]}
-; CHECK: [[M5]] = distinct !{!"intel.optreport.rootnode", [[M6:!.*]]}
-; CHECK: [[M6]] = distinct !{!"intel.optreport", [[M7:!.*]]}
+; CHECK: [[M5]] = distinct !{!"intel.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
 ; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, i32 10}
 ; CHECK: [[M9]] = !{!"intel.optreport.remarks", [[M10:!.*]], [[M11:!.*]]}
 ; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 15300}
 ; CHECK: [[M11]] = !{!"intel.optreport.remark", i32 15305, !"4"}
 ; CHECK: [[M12:!.*]] = distinct !{[[M12]]{{.*}}[[M13:!.*]]{{.*}}}
-; CHECK: [[M13]] = distinct !{!"intel.optreport.rootnode", [[M14:!.*]]}
-; CHECK: [[M14]] = distinct !{!"intel.optreport", [[M15:!.*]]}
+; CHECK: [[M13]] = distinct !{!"intel.optreport", [[M15:!.*]]}
 ; CHECK: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
 ; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 25519}
 

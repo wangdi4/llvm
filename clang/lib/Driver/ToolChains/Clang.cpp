@@ -5586,11 +5586,6 @@ static void ProcessVSRuntimeLibrary(const ArgList &Args,
         break;
       }
     }
-    if (TC.getDriver().IsIntelMode())
-      // Add the clang_rt.builtins library to resolve cpu_indicator and
-      // cpu_model dependencies on Windows
-      CmdArgs.push_back(Args.MakeArgString(
-          "--dependent-lib=" + TC.getCompilerRTBasename(Args, "builtins")));
 #endif // INTEL_CUSTOMIZATION
   }
 }
@@ -11408,8 +11403,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_variable_length_array,+SPV_INTEL_fp_fast_math_mode"
         ",+SPV_INTEL_long_constant_composite"
         ",+SPV_INTEL_arithmetic_fence"
-        ",+SPV_INTEL_global_variable_fpga_decorations"
-        ",+SPV_INTEL_global_variable_host_access"
+        ",+SPV_INTEL_global_variable_decorations" // INTEL
         ",+SPV_INTEL_cache_controls"
         ",+SPV_INTEL_fpga_buffer_location"
         ",+SPV_INTEL_fpga_argument_interfaces"

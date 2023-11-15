@@ -187,17 +187,17 @@ namespace {
 // as prescribed in tile pragma.
 class Stripminer {
 public:
-  Stripminer(unsigned LoopDepthIndex, Value *TileSize, WRegionNode *W)
+  Stripminer(unsigned LoopDepthIndex, Value *TileSize, WRegionNode *W,
+             bool IsSPIRVTarget)
       : LoopDepthIndex(LoopDepthIndex), TileSize(TileSize), W(W),
         IndVarTy(W->getWRNLoopInfo().getNormIVElemTy(LoopDepthIndex)),
         FloorLB(nullptr), FloorUB(nullptr), FloorIV(nullptr),
-        ClonedOrigUpperBound(nullptr) {
+        ClonedOrigUpperBound(nullptr), IsSPIRVTarget(IsSPIRVTarget) {
     assert(IndVarTy == W->getWRNLoopInfo().getNormUBElemTy(LoopDepthIndex) &&
            "IV and UB types are should be the same");
   }
 
-  std::tuple<Value *, Value *, Value *>
-  addFloorLoopIVBounds(Instruction *InsertPos);
+  void addFloorLoopIVBounds(Instruction *AllocaPos, Instruction *InitInsertPos);
 
   // Update original loop preheader by adding  computation of tile loops's lower
   // and upper bounds (tile.lb, tile.ub). Store for tile.lb to original.norm.iv
@@ -223,17 +223,22 @@ private:
   unsigned LoopDepthIndex;
   Value *TileSize;
   WRegionNode *W;
+
+public:
   Type *IndVarTy;
 
   // outputs
-  AllocaInst *FloorLB;
-  AllocaInst *FloorUB;
-  AllocaInst *FloorIV;
+  Value *FloorLB;
+  Value *FloorUB;
+  Value *FloorIV;
 
   // This is a copy of Orig UB, which will perserve the original value. Needed
-  // because the orig ub(e.g. %norm.pdo.norm.um) is reused as tile ub after
-  // tiling and doenn't continueto contain the original UB val.
-  AllocaInst *ClonedOrigUpperBound;
+  // because the orig ub(e.g. %norm.pdo.norm.ub) is reused as tile ub after
+  // tiling and doesn't continue to contain the original UB val.
+  Value *ClonedOrigUpperBound;
+
+private:
+  bool IsSPIRVTarget;
 };
 
 // Top-level handler of tiling per WRegionNode, i.e. per omp tile pragma.
@@ -262,7 +267,8 @@ private:
   // Not all related information, DT, all basic blocks, and so on, are
   // kept up to date.
   void updateParentRegionLoopInfo(ArrayRef<Value *> GenIVs,
-                                  ArrayRef<Value *> GenUBs, int NumToFill,
+                                  ArrayRef<Value *> GenUBs,
+                                  ArrayRef<Type *> GenIVTypes, int NumToFill,
                                   ArrayRef<BasicBlock *> FloorLoopPreHeaders,
                                   ArrayRef<BasicBlock *> FloorLoopHeaders,
                                   ArrayRef<BasicBlock *> FloorLoopLatches);
@@ -271,23 +277,30 @@ private:
   // Needed with outer omp do or tile pragma
   void updateParentRegionEntry(ArrayRef<Value *> GenIVs,
                                ArrayRef<Value *> GenLBs,
-                               ArrayRef<Value *> GenUBs, int NumToFill,
+                               ArrayRef<Value *> GenUBs,
+                               ArrayRef<Type *> GenIVTypes, int NumToFill,
                                int StartingOverapIVIndex);
 
   void updateParentRegion(ArrayRef<Value *> GenIVs, ArrayRef<Value *> GenLBs,
-                          ArrayRef<Value *> GenUBs,
+                          ArrayRef<Value *> GenUBs, ArrayRef<Type *> GenIVTypes,
                           ArrayRef<BasicBlock *> FloorLoopPreHeaders,
                           ArrayRef<BasicBlock *> FloorLoopHeaders,
                           ArrayRef<BasicBlock *> FloorLoopLatches);
+
+  void updateOuterRegions(DominatorTree *DT, BasicBlock *InitPtsBB,
+                          WRegionNode *ParOutermostWRN, Value *GenIV,
+                          Value *GenLB, Value *GenUB, Value *OrigIV,
+                          Value *OrigLB, Value *OrigUB, Value *ClonedOrigUB);
 
 private:
   WRegionNode *W;
 };
 
-// GenIVs, GenUBs are in inner to outer order.
-// FloorLoop info are in inner to outer order.
+// GenIVs, GenUBs are in outer to inner order (i.e. loop depth order).
+// FloorLoop info are in outer to inner order.
 void WRegionNodeTiler::updateParentRegionLoopInfo(
-    ArrayRef<Value *> GenIVs, ArrayRef<Value *> GenUBs, int NumToFill,
+    ArrayRef<Value *> GenIVs, ArrayRef<Value *> GenUBs,
+    ArrayRef<Type *> GenIVTypes, int NumToFill,
     ArrayRef<BasicBlock *> FloorLoopPreHeaders,
     ArrayRef<BasicBlock *> FloorLoopHeaders,
     ArrayRef<BasicBlock *> FloorLoopLatches) {
@@ -297,17 +310,12 @@ void WRegionNodeTiler::updateParentRegionLoopInfo(
   bool BackToBackWRegions = WParentLoopInfo.getNormIVSize() == 0;
 
   // GenIVs, GenUBs, GenLBs, contain information from inner to outer.
-  // Iterate them from back to front.
-  for (int I = NumToFill - 1; I >= 0; I--) {
-    auto *V = cast<AllocaInst>(GenIVs[I]);
-    auto *VTy = V->getAllocatedType();
-    WParentLoopInfo.addNormIV(V, VTy);
+  for (int I = 0; I < NumToFill; I++) {
+    WParentLoopInfo.addNormIV(GenIVs[I], GenIVTypes[I]);
   }
 
-  for (int I = NumToFill - 1; I >= 0; I--) {
-    auto *V = cast<AllocaInst>(GenUBs[I]);
-    auto *VTy = V->getAllocatedType();
-    WParentLoopInfo.addNormUB(V, VTy);
+  for (int I = 0; I < NumToFill; I++) {
+    WParentLoopInfo.addNormUB(GenUBs[I], GenIVTypes[I]);
   }
 
   // No need to worry for GenLBs
@@ -506,11 +514,24 @@ static WRegionNode *findOutermostWRNLoopNode(WRegionNode *TileLoopNode) {
       continue;
     }
 
-    const auto [NumOverlappingIVs, DummyIndex] =
-        getOverlapIVs(TileLoopNode, CandidateWOutermost);
+    if (!CandidateWOutermost->getIsOmpLoopTransform()) {
+      const auto [NumOverlappingIVs, DummyIndex] =
+          getOverlapIVs(TileLoopNode, CandidateWOutermost);
 
-    if (!NumOverlappingIVs)
-      break;
+      if (!NumOverlappingIVs)
+        break;
+    } else {
+
+      // getOverlapIVs WParent->getWRNLoopInfo().getNormIV(i)
+      // may not work for tile+tile environment as new floor_loops are added
+      // in-between the existing tile (before +) and tile (after +).
+      // Thus, stick to the current working logic, which uses LoopInfo.
+      auto ParentWLoopInfo = CandidateWOutermost->getWRNLoopInfo();
+      int NumToFill = CandidateWOutermost->getOmpLoopDepth() -
+                      ParentWLoopInfo.getNormIVSize();
+      if (!NumToFill)
+        break;
+    }
 
     CurrWOutermost = CandidateWOutermost;
     CandidateWOutermost = CandidateWOutermost->getParent();
@@ -521,35 +542,35 @@ static WRegionNode *findOutermostWRNLoopNode(WRegionNode *TileLoopNode) {
 
 // Copy existing type bundles or make it typed if they were not
 // originally typed.
-static int getTypedIVUBBundles(bool IsTyped, const OperandBundleDef &Bundle,
+static int getTypedIVUBBundles(const OperandBundleDef &Bundle,
                                SmallVectorImpl<Value *> &NewTypedBundles,
                                int NumToCopy) {
 
   NumToCopy = std::min(NumToCopy, (int)(Bundle.inputs().size()));
-  if (IsTyped) {
-    // The format has IV and its initial value as a pair
-    // "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %omp.pdo.norm.iv1, i32 0,
-    //                                ptr %omp.pdo.norm.iv, i32 0),
-    for (int I = 0, NumItems = NumToCopy * 2; I < NumItems; I++)
-      NewTypedBundles.push_back(Bundle.inputs()[I]);
-  } else {
-    // The format has only IV.
-    // "QUAL.OMP.NORMALIZED.IV"(i32 %omp.pdo.norm.iv1,
-    //                          i32 %omp.pdo.norm.iv)
-    for (int I = 0; I < NumToCopy; I++) {
-      Value *V = Bundle.inputs()[I];
-      NewTypedBundles.push_back(V);
-
-      assert(!V->getType()->isPointerTy() &&
-             "Need Typed IV/UB clauses for opaque pointers.");
-      Type *VTy = V->getType();
-
-      NewTypedBundles.push_back(Constant::getNullValue(VTy));
-    }
-  }
+  // The format has IV and its initial value as a pair
+  // "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %omp.pdo.norm.iv1, i32 0,
+  //                                ptr %omp.pdo.norm.iv, i32 0),
+  for (int I = 0, NumItems = NumToCopy * 2; I < NumItems; I++)
+    NewTypedBundles.push_back(Bundle.inputs()[I]);
 
   // Return the number of items(pairs) copied
   return NumToCopy;
+}
+
+// Recreate the directive call.
+static void
+replaceBundles(CallInst *EntryCI,
+               const SmallVectorImpl<OperandBundleDef> &NewBundles) {
+  SmallVector<Value *, 8> Args(EntryCI->arg_begin(), EntryCI->arg_end());
+  auto *NewEntryCI =
+      CallInst::Create(EntryCI->getFunctionType(), EntryCI->getCalledOperand(),
+                       Args, NewBundles, "", EntryCI);
+  NewEntryCI->takeName(EntryCI);
+  NewEntryCI->setCallingConv(EntryCI->getCallingConv());
+  NewEntryCI->setAttributes(EntryCI->getAttributes());
+  NewEntryCI->setDebugLoc(EntryCI->getDebugLoc());
+  EntryCI->replaceAllUsesWith(NewEntryCI);
+  EntryCI->eraseFromParent();
 }
 
 // Update Parent's WRNNode's intrinsic if NumToFill > 0
@@ -561,6 +582,7 @@ static int getTypedIVUBBundles(bool IsTyped, const OperandBundleDef &Bundle,
 void WRegionNodeTiler::updateParentRegionEntry(ArrayRef<Value *> GenIVs,
                                                ArrayRef<Value *> GenLBs,
                                                ArrayRef<Value *> GenUBs,
+                                               ArrayRef<Type *> GenIVTypes,
                                                int NumToFill,
                                                int StartingOverapIVIndex) {
 
@@ -597,8 +619,8 @@ void WRegionNodeTiler::updateParentRegionEntry(ArrayRef<Value *> GenIVs,
 
     if (ClauseId == QUAL_OMP_NORMALIZED_IV) {
       if (NumIVsToCopy > 0) {
-        auto NumCopied = getTypedIVUBBundles(ClauseInfo.getIsTyped(), Bundle,
-                                             IVBundleVals, NumIVsToCopy);
+        auto NumCopied =
+            getTypedIVUBBundles(Bundle, IVBundleVals, NumIVsToCopy);
         NumIVsToCopy -= NumCopied;
       }
       continue;
@@ -606,8 +628,8 @@ void WRegionNodeTiler::updateParentRegionEntry(ArrayRef<Value *> GenIVs,
 
     if (ClauseId == QUAL_OMP_NORMALIZED_UB) {
       if (NumUBsToCopy > 0) {
-        auto NumCopied = getTypedIVUBBundles(ClauseInfo.getIsTyped(), Bundle,
-                                             UBBundleVals, NumUBsToCopy);
+        auto NumCopied =
+            getTypedIVUBBundles(Bundle, UBBundleVals, NumUBsToCopy);
         NumUBsToCopy -= NumCopied;
       }
       continue;
@@ -617,22 +639,19 @@ void WRegionNodeTiler::updateParentRegionEntry(ArrayRef<Value *> GenIVs,
   }
 
   // Add NumToFill GenIVs to IVBundleVals
-  // GenIVs, GenUBs, GenLBs, contain information from inner to outer.
-  // Iterate them from back to front.
-  for (Value *GenIV : make_range(GenIVs.rbegin(), GenIVs.rend())) {
-    IVBundleVals.push_back(GenIV);
-    Value *TypeV =
-        Constant::getNullValue(cast<AllocaInst>(GenIV)->getAllocatedType());
+  // GenIVs, GenUBs, GenLBs, contain information from outer to inner.
+  for (unsigned I = 0, Size = GenIVs.size(); I < Size; I++) {
+    IVBundleVals.push_back(GenIVs[I]);
+    Value *TypeV = Constant::getNullValue(GenIVTypes[I]);
     IVBundleVals.push_back(TypeV);
   }
   NewBundles.emplace_back(
       VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_NORMALIZED_IV),
       IVBundleVals);
 
-  for (Value *GenUB : make_range(GenUBs.rbegin(), GenUBs.rend())) {
-    UBBundleVals.push_back(GenUB);
-    Value *TypeV =
-        Constant::getNullValue(cast<AllocaInst>(GenUB)->getAllocatedType());
+  for (unsigned I = 0, Size = GenUBs.size(); I < Size; I++) {
+    UBBundleVals.push_back(GenUBs[I]);
+    Value *TypeV = Constant::getNullValue(GenIVTypes[I]);
     UBBundleVals.push_back(TypeV);
   }
   NewBundles.emplace_back(
@@ -643,9 +662,8 @@ void WRegionNodeTiler::updateParentRegionEntry(ArrayRef<Value *> GenIVs,
   // Each LB is taken care of separately.
   Value *NumElemsOne =
       ConstantInt::get(Type::getInt32Ty(EntryCI->getContext()), 1);
-  for (int I = NumToFill - 1; I >= 0; I--) {
-    Value *TypeV =
-        Constant::getNullValue(cast<AllocaInst>(GenLBs[I])->getAllocatedType());
+  for (int I = 0; I < NumToFill; I++) {
+    Value *TypeV = Constant::getNullValue(GenIVTypes[I]);
 
     if (WParent->canHaveFirstprivate())
       NewBundles.emplace_back(
@@ -662,22 +680,13 @@ void WRegionNodeTiler::updateParentRegionEntry(ArrayRef<Value *> GenIVs,
       llvm_unreachable("Unexpected parent WRN");
   }
 
-  // Recreate the directive call.
-  SmallVector<Value *, 8> Args(EntryCI->arg_begin(), EntryCI->arg_end());
-  auto *NewEntryCI =
-      CallInst::Create(EntryCI->getFunctionType(), EntryCI->getCalledOperand(),
-                       Args, NewBundles, "", EntryCI);
-  NewEntryCI->takeName(EntryCI);
-  NewEntryCI->setCallingConv(EntryCI->getCallingConv());
-  NewEntryCI->setAttributes(EntryCI->getAttributes());
-  NewEntryCI->setDebugLoc(EntryCI->getDebugLoc());
-  EntryCI->replaceAllUsesWith(NewEntryCI);
-  EntryCI->eraseFromParent();
+  replaceBundles(EntryCI, NewBundles);
 }
 
 void WRegionNodeTiler::updateParentRegion(
     ArrayRef<Value *> GenIVs, ArrayRef<Value *> GenLBs,
-    ArrayRef<Value *> GenUBs, ArrayRef<BasicBlock *> FloorLoopPreHeaders,
+    ArrayRef<Value *> GenUBs, ArrayRef<Type *> GenIVTypes,
+    ArrayRef<BasicBlock *> FloorLoopPreHeaders,
     ArrayRef<BasicBlock *> FloorLoopHeaders,
     ArrayRef<BasicBlock *> FloorLoopLatches) {
 
@@ -694,7 +703,10 @@ void WRegionNodeTiler::updateParentRegion(
       LLVM_DEBUG(print(GenLBs, NumToFill, "GenLBs"));
       LLVM_DEBUG(print(GenUBs, NumToFill, "GenUBs"));
 
-      updateParentRegionEntry(GenIVs, GenLBs, GenUBs, NumToFill,
+      // Here the changes are for updating IR of the parent construct for
+      // preparing next pass other than loop transformation pass. Only the
+      // immediate parent WRN matters except for SIMD without norm IV.
+      updateParentRegionEntry(GenIVs, GenLBs, GenUBs, GenIVTypes, NumToFill,
                               OverlapStartingIVIndex);
     }
   } else if (WParent->getIsOmpLoopTransform()) { // omp tile
@@ -715,11 +727,145 @@ void WRegionNodeTiler::updateParentRegion(
       LLVM_DEBUG(print(GenLBs, NumToFill, "GenLBs"));
       LLVM_DEBUG(print(GenUBs, NumToFill, "GenUBs"));
 
-      updateParentRegionLoopInfo(GenIVs, GenUBs, NumToFill, FloorLoopPreHeaders,
-                                 FloorLoopHeaders, FloorLoopLatches);
+      // Here the changes are done one the LoopInfo data structure, and
+      // preparing for the next iteration of loop transformation pass.
+      // e.g. tile2+tile1.ll
+
+      // !$omp do collapse(2) -- i_reverse, Floor_j
+      // !$omp tile sizes(4,2) -- i_reverse, Floor_j -- new format
+      // !$omp loop reverse -- i_reverse
+      // do i = 1, 100
+      //  !$omp tile sizes(8) <-- current tile
+      //  do j = 1, 48
+      //    call bar(i,j)
+      //  end do
+      // end do
+      // It will probably only matters the immediate parent, as the
+      // parent of the parent can be handled when the parent is
+      // loop-transformed.
+      updateParentRegionLoopInfo(GenIVs, GenUBs, GenIVTypes, NumToFill,
+                                 FloorLoopPreHeaders, FloorLoopHeaders,
+                                 FloorLoopLatches);
     }
-  } else
+  } else {
     llvm_unreachable("omp tile: parent region should be either do or tile");
+  }
+}
+
+static BasicBlock *getInsertionBBAfterStore(Value *Alloca) {
+  StoreInst *StoreI = nullptr;
+  for (User *U : Alloca->users()) {
+    if (Instruction *I = dyn_cast<Instruction>(U)) {
+      if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+        assert(!StoreI && "Only one store inst should exists.");
+        StoreI = SI;
+      }
+    }
+  }
+
+  assert(StoreI && (StoreI->getPointerOperand() == Alloca) &&
+         "Operand mis-matching.");
+  return StoreI->getParent();
+}
+
+// Find a bundle in WRN's entry CI, containing \p ToFindVar, and make a copy
+// of that bundle but replacing  \p ToFindVar to the element of \p ToAddVars.
+static bool copyBundles(WRegionNode *ToUpdateWRN, Value *ToFindVar,
+                        ArrayRef<Value *> ToAddVars,
+                        SmallVectorImpl<OperandBundleDef> &NewBundles) {
+
+  CallInst *EntryCI = cast<CallInst>(ToUpdateWRN->getEntryDirective());
+  SmallVector<OperandBundleDef, 16> OrigBundles;
+  EntryCI->getOperandBundlesAsDefs(OrigBundles);
+
+  bool FoundBundle = false;
+  for (auto &Bundle : OrigBundles) {
+    StringRef ClauseString = Bundle.getTag();
+
+    if (!VPOAnalysisUtils::isOpenMPClause(ClauseString))
+      continue;
+
+    // For UB, LB, IVs in the outer regions, the first var
+    // should be the matching var.
+    if (Bundle.inputs().front() != ToFindVar)
+      continue;
+
+    FoundBundle = true;
+
+    // Copy this Bundle for each \p ToAddVars
+    for (auto *ToAddVar : ToAddVars) {
+      SmallVector<Value *, 16> Vals;
+      Vals.push_back(ToAddVar);
+      if (Bundle.inputs().size() > 1)
+        Vals.append(Bundle.inputs().begin() + 1, Bundle.inputs().end());
+      NewBundles.emplace_back(ClauseString.str(), Vals);
+    }
+
+    break;
+  }
+
+  return FoundBundle;
+}
+
+// AllocaBB --> StoreBB(or init BB) --> WRN_1 --> WRN_2-->.. WRN_m-1 --> WRN_m
+// --> .. --> WRN_tile. WRN_m is the outermost wrn associated with the same loop
+// with WRN_tile. In ohterwords, WRN_m and WRN_tile have overlapping IVs. WRN_m
+// is called outermost WRN. For all interim WRNs from SToreBB to WRN_m
+// (exclusively), [WRN_1, WRN_m-1], generated vars related to tiling have to be
+// replicated in the clauses. Original Vars from which tile vars are induced are
+// needed to find the type of Clause.
+void WRegionNodeTiler::updateOuterRegions(
+    DominatorTree *DT, BasicBlock *InitPtsBB, WRegionNode *ParOutermostWRN,
+    Value *GenIV, Value *GenLB, Value *GenUB, Value *OrigIV, Value *OrigLB,
+    Value *OrigUB, Value *ClonedOrigUB) {
+  // Add GenLB, GenUB, ClonedOrigUB to all enclosing wrn from ParOutermostWRN
+  // to upward until the WRN is strictly dominated by InitPtsBB.
+  // If we knew the WRNNode where InitPtsBB belongs to, we could just use
+  // WRN's parent chain using getParent().
+
+  BasicBlock *WOutsideEntryBlock = ParOutermostWRN->getEntryBBlock();
+  while (WOutsideEntryBlock && InitPtsBB != WOutsideEntryBlock &&
+         DT->dominates(InitPtsBB, WOutsideEntryBlock)) {
+
+    LLVM_DEBUG(dbgs() << "Updating one outer region:\n";
+               if (WOutsideEntryBlock->hasName()) dbgs()
+               << WOutsideEntryBlock->getName() << "\n";
+               else ParOutermostWRN->getEntryDirective()->dump(););
+
+    // OrigUB should be found from WOutsideEntryBlock's clauses
+    SmallVector<OperandBundleDef, 4> NewBundles;
+
+    LLVM_DEBUG(dbgs() << "OrigUB: "; OrigUB->dump(); dbgs() << "\n";);
+
+    bool Copied =
+        copyBundles(ParOutermostWRN, OrigUB, {GenUB, ClonedOrigUB}, NewBundles);
+    assert(Copied && "FloorUB should have been added to enclosing WRN.");
+    Copied = copyBundles(ParOutermostWRN, OrigLB, {GenLB}, NewBundles);
+    assert(Copied && "FloorLB should have been added to enclosing WRN.");
+
+    LLVM_DEBUG(dbgs() << "origIV -- " << *OrigIV << "\n");
+    Copied = copyBundles(ParOutermostWRN, OrigIV, {GenIV}, NewBundles);
+    assert(Copied && "FloorIV should have been added to enclosing WRN.");
+    (void)Copied;
+
+    // Actual addition to CI
+    CallInst *EntryCI = cast<CallInst>(ParOutermostWRN->getEntryDirective());
+    SmallVector<OperandBundleDef, 16> Bundles;
+    EntryCI->getOperandBundlesAsDefs(Bundles);
+    Bundles.append(NewBundles);
+    replaceBundles(EntryCI, Bundles);
+
+    ParOutermostWRN = ParOutermostWRN->getParent();
+    if (!ParOutermostWRN)
+      break;
+    WOutsideEntryBlock = ParOutermostWRN->getEntryBBlock();
+
+    LLVM_DEBUG(dbgs() << "Updating one outer region done\n";);
+  }
+}
+
+static Value *getOrigLB(WRegionNode *W, unsigned LoopDepthIndex) {
+  return VPOParoptUtils::getLoadFromLB(W, LoopDepthIndex)->getPointerOperand();
 }
 
 } // end of namespace
@@ -737,7 +883,10 @@ void WRegionNodeTiler::run() {
   LLVM_DEBUG(printWRNLoopInfo(WLoopInfo));
 
   auto *OutermostIV = WLoopInfo.getNormIV(0);
-  auto *AllocaPos = cast<AllocaInst>(OutermostIV)->getParent()->getTerminator();
+  //  This is under the assumption that all input normalized IVs associated
+  //  with one TILE WRN are allocated in the same basic block.
+  auto *AllocaPos =
+      cast<Instruction>(OutermostIV)->getParent()->getTerminator();
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Outermost Loop from LoopInfo:\n";
              auto *OL = WLoopInfo.getLoop(0); OL->dump();
@@ -759,20 +908,68 @@ void WRegionNodeTiler::run() {
   LLVM_DEBUG(dbgs() << "TileSizes.size: " << TileSizes.size() << "\n");
   assert(NumTileLoops == TileSizes.size() && "TileSize mismatch");
 
+  // Record OutermostWRN before starting transformation
+  WRegionNode *OutermostWRN = findOutermostWRNLoopNode(W);
+  WRegionNode *ParOutermostWRN = OutermostWRN->getParent();
+
+  LLVM_DEBUG(if (ParOutermostWRN) {
+    dbgs() << "OutermostWRN exists: \n";
+    auto *ED = OutermostWRN->getEntryDirective();
+    ED->dump();
+    dbgs() << "ParOutermostWRN exists: \n";
+    ED = ParOutermostWRN->getEntryDirective();
+    ED->dump();
+  });
+
+  SmallVector<Value *, 4> OrigLBs(NumTileLoops, nullptr);
+  SmallVector<Value *, 4> OrigUBs(NumTileLoops, nullptr);
+  SmallVector<Value *, 4> OrigIVs(NumTileLoops, nullptr);
+  SmallVector<Instruction *, 4> InitPts(NumTileLoops, nullptr);
+  SmallVector<bool, 4> AddToEnclosingWRNs(NumTileLoops, false);
+  auto *DT = W->getDT();
+  // Populate information for OutermostWRN before transformation
   // Loops are proccessed from the innermost to outermost direction.
+  for (int LoopDepthIndex = NumTileLoops - 1; LoopDepthIndex >= 0;
+       LoopDepthIndex--) {
+    OrigUBs[LoopDepthIndex] = WLoopInfo.getNormUB(LoopDepthIndex);
+    auto *InitPos = getInsertionBBAfterStore(OrigUBs.back())->getTerminator();
+    InitPts[LoopDepthIndex] = InitPos;
+
+    // The following util can be called before any loop tiling transformation
+    // happens. Once the transformation starts, CFG changes, and the basic block
+    // the util was assuming will be no longer valid.
+    OrigLBs[LoopDepthIndex] = getOrigLB(W, LoopDepthIndex);
+    LLVM_DEBUG(dbgs() << "Found origLB: " << *OrigLBs[LoopDepthIndex] << "\n");
+
+    OrigIVs[LoopDepthIndex] = WLoopInfo.getNormIV(LoopDepthIndex);
+    LLVM_DEBUG(dbgs() << "Found origIV: " << *OrigIVs[LoopDepthIndex] << "\n");
+
+    // See if InitPos is dominationg OutermostWRN's Parent WRN
+    if (ParOutermostWRN &&
+        InitPos->getParent() != ParOutermostWRN->getEntryBBlock() &&
+        DT->dominates(InitPos->getParent(), ParOutermostWRN->getEntryBBlock()))
+      AddToEnclosingWRNs[LoopDepthIndex] = true;
+  }
+
+  bool IsSPIRVTarget = VPOAnalysisUtils::isTargetSPIRV(
+      W->getEntryBBlock()->getParent()->getParent());
+
   // Notice that the smaller LoopDepthIndex is the outer the loop is.
   // In other words, the innermost loop has the largest LoopDepthIndex,
   // and the outermost loop has the smallest LoopDepthIndex.
   // CollectAllNormIVs and keep the outermost NumNormIVsToFill
   // for the paretn WRegionNode
   // Data Structure for Parent WRegionNode
-  SmallVector<Value *, 4> GenIVs;
-  SmallVector<Value *, 4> GenLBs;
-  SmallVector<Value *, 4> GenUBs;
+  SmallVector<Value *, 4> GenIVs(NumTileLoops, nullptr);
+  SmallVector<Value *, 4> GenLBs(NumTileLoops, nullptr);
+  SmallVector<Value *, 4> GenUBs(NumTileLoops, nullptr);
+  SmallVector<Value *, 4> ClonedOrigUBs(NumTileLoops, nullptr);
+  SmallVector<Type *, 4> GenIVTypes(NumTileLoops, nullptr);
   SmallVector<BasicBlock *, 4> FloorLoopPreHeaders;
   SmallVector<BasicBlock *, 4> FloorLoopHeaders;
   SmallVector<BasicBlock *, 4> FloorLoopLatches;
 
+  // Loops are proccessed from the innermost to outermost direction.
   for (int LoopDepthIndex = NumTileLoops - 1; LoopDepthIndex >= 0;
        LoopDepthIndex--) {
 
@@ -783,19 +980,19 @@ void WRegionNodeTiler::run() {
 
     LLVM_DEBUG(dbgs() << "Tilesize processed: "; TileSize->dump());
 
-    Stripminer SM(LoopDepthIndex, TileSize, W);
+    Stripminer SM(LoopDepthIndex, TileSize, W, IsSPIRVTarget);
 
-    Value *NormIV = nullptr;
-    Value *NormLB = nullptr;
-    Value *NormUB = nullptr;
+    // Gen and add Floor-loop vars
+    SM.addFloorLoopIVBounds(AllocaPos, InitPts[LoopDepthIndex]);
+    assert(SM.FloorIV && SM.FloorUB && SM.FloorLB && SM.ClonedOrigUpperBound &&
+           "Tile floor vars are not generated.");
 
-    std::tie(NormIV, NormLB, NormUB) = SM.addFloorLoopIVBounds(AllocaPos);
-
-    assert(NormIV && NormLB && NormUB &&
-           "Some normalized loop info is missing");
-    GenIVs.push_back(NormIV);
-    GenLBs.push_back(NormLB);
-    GenUBs.push_back(NormUB);
+    GenIVs[LoopDepthIndex] = SM.FloorIV;
+    GenLBs[LoopDepthIndex] = SM.FloorLB;
+    GenUBs[LoopDepthIndex] = SM.FloorUB;
+    ClonedOrigUBs[LoopDepthIndex] = SM.ClonedOrigUpperBound;
+    // TODO: Make sure if it is alright to use IndVarTy
+    GenIVTypes[LoopDepthIndex] = SM.IndVarTy;
 
     LLVM_DEBUG(
         dbgs()
@@ -805,77 +1002,113 @@ void WRegionNodeTiler::run() {
 
     auto TileBoundsPos =
         WLoopInfo.getLoop(LoopDepthIndex)->getLoopPreheader()->getTerminator();
+
+    // Add tile loop vars
     SM.addTileLoopBounds(TileBoundsPos);
 
     BasicBlock *Pred = OutermostPreheader->getUniquePredecessor();
     assert(Pred && "No predecessor block of preheader");
+
+    // Add floor loop around tile loop
     std::tie(OutermostPreheader, OutermostHeader, OutermostLatch) =
         SM.addFloorLoop(Pred, OutermostPreheader, OutermostHeader);
 
+    // By pushing at the back, innermost loop info added first.
+    // Easier to process later.
     FloorLoopPreHeaders.push_back(OutermostPreheader);
     FloorLoopHeaders.push_back(OutermostHeader);
     FloorLoopLatches.push_back(OutermostLatch);
   }
 
+  // This run() function is for one WRNNode.
+  // Insertion of {FloorUB, FloorUB, ClonedOrigUB} can be done after all
+  // TILE(size1, size2...) are done here outside the for-loop
+
   auto *WParent = W->getParent();
   if (WParent && WParent->getIsOmpLoopOrLoopTransform())
-    updateParentRegion(GenIVs, GenLBs, GenUBs, FloorLoopPreHeaders,
+    updateParentRegion(GenIVs, GenLBs, GenUBs, GenIVTypes, FloorLoopPreHeaders,
                        FloorLoopHeaders, FloorLoopLatches);
+
+  if (!ParOutermostWRN) {
+    return;
+  }
+
+  for (int LoopDepthIndex = NumTileLoops - 1; LoopDepthIndex >= 0;
+       LoopDepthIndex--) {
+    if (!AddToEnclosingWRNs[LoopDepthIndex])
+      continue;
+
+    updateOuterRegions(DT, InitPts[LoopDepthIndex]->getParent(),
+                       ParOutermostWRN, GenIVs[LoopDepthIndex],
+                       GenLBs[LoopDepthIndex], GenUBs[LoopDepthIndex],
+                       OrigIVs[LoopDepthIndex], OrigLBs[LoopDepthIndex],
+                       OrigUBs[LoopDepthIndex], ClonedOrigUBs[LoopDepthIndex]);
+  }
 }
 
-std::tuple<Value *, Value *, Value *>
-Stripminer::addFloorLoopIVBounds(Instruction *InsertPos) {
+static Value *allocaVar(Instruction *InsertPt, bool IsSpirV, Type *Ty,
+                        LLVMContext &Context, StringRef VarName) {
+
+  IRBuilder<> Builder(InsertPt);
+
+  if (!IsSpirV)
+    return Builder.CreateAlloca(Ty, nullptr, VarName);
+
+  Value *TempVal =
+      Builder.CreateAlloca(Ty, nullptr, VarName.str() + Twine(".tmp"));
+  Value *Val = Builder.CreateAddrSpaceCast(
+      TempVal, PointerType::get(Context, vpo::ADDRESS_SPACE_GENERIC), VarName);
+  return Val;
+}
+
+void Stripminer::addFloorLoopIVBounds(Instruction *AllocaInsertPos,
+                                      Instruction *InitInsertPos) {
 
   auto &WLoopInfo = W->getWRNLoopInfo();
 
-  IRBuilder<> AllocaBuilder(InsertPos);
-  FloorLB = AllocaBuilder.CreateAlloca(IndVarTy, nullptr, "floor_lb");
+  LLVMContext &Context = AllocaInsertPos->getContext();
+
+  FloorLB =
+      allocaVar(AllocaInsertPos, IsSPIRVTarget, IndVarTy, Context, "floor_lb");
+
+  IRBuilder<> InitializerBuilder(InitInsertPos);
+
   auto *Zero =
-      AllocaBuilder.getIntN(cast<IntegerType>(IndVarTy)->getBitWidth(), 0);
+      InitializerBuilder.getIntN(cast<IntegerType>(IndVarTy)->getBitWidth(), 0);
 
   LLVM_DEBUG(dbgs() << "Zero: "; Zero->dump());
   LLVM_DEBUG(dbgs() << "FloorLB: "; FloorLB->dump());
 
-  AllocaBuilder.CreateStore(Zero, FloorLB);
+  InitializerBuilder.CreateStore(Zero, FloorLB);
 
-  FloorUB = AllocaBuilder.CreateAlloca(IndVarTy, nullptr, "floor_ub");
+  FloorUB =
+      allocaVar(AllocaInsertPos, IsSPIRVTarget, IndVarTy, Context, "floor_ub");
 
-  // Get the Original UB
-  // Currently no-optimization, just load from memory
-  // Can be replaced with value stored to NormUB bar
   auto *OrigUB = WLoopInfo.getNormUB(LoopDepthIndex);
-
-  assert(OrigUB && "Missing Normalized upper bound!");
-  LLVM_DEBUG(dbgs() << "OrigUB: "; OrigUB->dump());
-
-  // TODO: new insertion point
   auto *OrigUBLoad =
-      AllocaBuilder.CreateLoad(IndVarTy, OrigUB, "norm.orig.ub.val");
+      InitializerBuilder.CreateLoad(IndVarTy, OrigUB, "norm.orig.ub.val");
 
   // floorUB  =  OrigUBLoad / TileSize
   // Notice possibility of type mismatch
   // e.g.) OrigUBLoad - 64bit, TileSize - 32 bit.
 
-  // TODO: new insertion point
-  TileSize = AllocaBuilder.CreateSExtOrTrunc(TileSize, IndVarTy, ".sext");
-  // TODO: new insertion point
+  TileSize = InitializerBuilder.CreateSExtOrTrunc(TileSize, IndVarTy, ".sext");
   auto *NormFloorUB =
-      AllocaBuilder.CreateSDiv(OrigUBLoad, TileSize, "norm.floor.ub.val");
+      InitializerBuilder.CreateSDiv(OrigUBLoad, TileSize, "norm.floor.ub.val");
 
   LLVM_DEBUG(dbgs() << "NormFloorUB: "; NormFloorUB->dump());
   LLVM_DEBUG(dbgs() << "FloorUB: "; FloorUB->dump());
 
-  // TODO: new insertion point
-  AllocaBuilder.CreateStore(NormFloorUB, FloorUB);
+  InitializerBuilder.CreateStore(NormFloorUB, FloorUB);
 
-  FloorIV = AllocaBuilder.CreateAlloca(IndVarTy, nullptr, "floor_iv");
+  FloorIV =
+      allocaVar(AllocaInsertPos, IsSPIRVTarget, IndVarTy, Context, "floor_iv");
 
-  ClonedOrigUpperBound =
-      AllocaBuilder.CreateAlloca(IndVarTy, nullptr, "cloned_orig_ub");
-  // TODO: new insertion point
-  AllocaBuilder.CreateStore(OrigUBLoad, ClonedOrigUpperBound);
-
-  return {FloorIV, FloorLB, FloorUB};
+  // This storage of OrigUB is needed because OrigUB value won't be
+  // preserved but reused as new upper bound of the tiled loop.
+  ClonedOrigUpperBound = allocaVar(AllocaInsertPos, IsSPIRVTarget, IndVarTy,
+                                   Context, "cloned_orig_ub");
+  InitializerBuilder.CreateStore(OrigUBLoad, ClonedOrigUpperBound);
 }
 
 void Stripminer::addTileLoopBounds(Instruction *InsertPos) {

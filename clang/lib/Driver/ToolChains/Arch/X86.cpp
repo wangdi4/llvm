@@ -32,6 +32,7 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/X86TargetParser.h" // INTEL
 
 using namespace clang::driver;
 using namespace clang::driver::tools;
@@ -42,7 +43,8 @@ using namespace llvm::opt;
 std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
                                 bool IsArchOpt) {
   StringRef CPU;
-  if (Triple.getArch() == llvm::Triple::x86 && !IsArchOpt) { // 32-bit-only
+  bool Only64Bit = Triple.getArch() != llvm::Triple::x86;
+  if (!Only64Bit && !IsArchOpt) { // 32-bit-only
     CPU = llvm::StringSwitch<StringRef>(Arch)
               .Case("A", "pentium")
               .CaseLower("sse", "pentium3")
@@ -110,6 +112,13 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
     CPU = llvm::StringSwitch<StringRef>(Arch)
               .CaseLower("avx", "corei7-avx")
               .Default("");
+  }
+  if (CPU.empty()) {
+    // Check if the lowercase is valid - if so, use that.  This is allows
+    // for a more generic use case for newly entered values that we don't
+    // explicity check above.
+    if (llvm::X86::parseArchX86(Arch.lower(), Only64Bit))
+      CPU = StringRef(Arch.lower());
   }
   if (CPU.empty()) {
     // No match found.  Instead of erroring out with a bad language type, we

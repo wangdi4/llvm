@@ -147,14 +147,14 @@ struct cl_prog_program {
  * Defines decoration HostAccess for the device globals
  */
 enum cl_prog_gv_host_access : unsigned int {
-  HOST_ACCESS_NONE = 0,  //!< The execution environment may neither read nor
-                         //!< write the variable from the host
-  HOST_ACCESS_READ = 1,  //!< The execution environment may read the variable
+  HOST_ACCESS_READ = 0,  //!< The execution environment may read the variable
                          //!< from the host but will never write it
-  HOST_ACCESS_WRITE = 2, //!< The execution environment may write the variable
+  HOST_ACCESS_WRITE = 1, //!< The execution environment may write the variable
                          //!< from the host but will never read it
-  HOST_ACCESS_READ_WRITE = 3, //!< The execution environment may read or write
+  HOST_ACCESS_READ_WRITE = 2, //!< The execution environment may read or write
                               //!< the variable from the host
+  HOST_ACCESS_NONE = 3, //!< The execution environment may neither read nor
+                        //!< write the variable from the host
 };
 
 /*! \struct cl_prog_gv

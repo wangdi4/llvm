@@ -24,12 +24,11 @@
 ; OPTREPORT:    LOOP END
 ; OPTREPORT: LOOP END
 
-; RUN : opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-blocking,hir-cg,simplifycfg" -intel-opt-report=low < %s -S | FileCheck %s
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-blocking,hir-cg,simplifycfg" -intel-opt-report=low < %s -S | FileCheck %s
 
-;CHECK:  {{![0-9]+}} = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
-;CHECK:  [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]]
-;CHECK:  {{![0-9]+}} = !{!"intel.optreport.remarks", [[M8:!.*]]}
-;CHECK:  [[M8]] = !{!"intel.optreport.remark", !"blocked by %d", {{[1-9][0-9]*}}}
+;CHECK:  {{![0-9]+}} = distinct !{!"intel.optreport", {{![0-9]+}}, [[M4:![0-9]+]]
+;CHECK:  [[M4]] = !{!"intel.optreport.remarks", [[M8:![0-9]+]]}
+;CHECK:  [[M8]] = !{!"intel.optreport.remark", i32 25566, i32 {{[1-9][0-9]*}}}
 
 ;Module Before HIR
 ; ModuleID = 'm.c'

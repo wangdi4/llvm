@@ -111,7 +111,6 @@ class VPlanSLP {
   unsigned BundleID;
   unsigned GraphID;
   // Formatted print of 'Values' into dbgs() stream.
-  static void printVector(ArrayRef<const VPValue *> Values);
   static void printVector(ElemArrayRef);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 

@@ -48,7 +48,7 @@ target device_triples = "spir64"
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo() local_unnamed_addr #0 !dbg !8 {
 ; CHECK-LABEL: define dso_local void @foo(
-; CHECK-SAME: !intel.optreport.rootnode !{{[0-9]+}}
+; CHECK-SAME: !intel.optreport !{{[0-9]+}}
 DIR.OMP.TARGET.DATA.26:
   %.offload_baseptrs = alloca [1 x ptr], align 8
   %.offload_ptrs = alloca [1 x ptr], align 8
@@ -96,7 +96,7 @@ declare void @__tgt_push_code_location(ptr, ptr)
 declare void @__kmpc_push_num_teams(ptr, i32, i32, i32)
 
 ; Function Attrs: alwaysinline nounwind uwtable
-define internal void @foo.DIR.OMP.TARGET.DATA.1.split(ptr noalias %X) #2 !dbg !19 !intel.optreport.rootnode !20 {
+define internal void @foo.DIR.OMP.TARGET.DATA.1.split(ptr noalias %X) #2 !dbg !19 !intel.optreport !20 {
 newFuncRoot:
   %.offload_baseptrs = alloca [1 x ptr], align 8, !dbg !26
   %.offload_ptrs = alloca [1 x ptr], align 8, !dbg !26
@@ -167,17 +167,14 @@ attributes #2 = { alwaysinline nounwind uwtable "denormal-fp-math"="preserve-sig
 !17 = distinct !DISubprogram(name: "foo.DIR.OMP.TARGET.4.split10.split.split", scope: !1, file: !1, line: 5, type: !9, scopeLine: 5, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
 !18 = !DILocation(line: 5, column: 1, scope: !17)
 !19 = distinct !DISubprogram(name: "foo.DIR.OMP.TARGET.DATA.1.split", scope: !1, file: !1, line: 3, type: !9, scopeLine: 3, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
-!20 = distinct !{!"intel.optreport.rootnode", !21}
-!21 = distinct !{!"intel.optreport", !22}
+!20 = distinct !{!"intel.optreport", !22}
 !22 = !{!"intel.optreport.first_child", !23}
-!23 = distinct !{!"intel.optreport.rootnode", !24}
-!24 = distinct !{!"intel.optreport", !25, !27, !28}
+!23 = distinct !{!"intel.optreport", !25, !27, !28}
 !25 = !{!"intel.optreport.debug_location", !26}
 !26 = !DILocation(line: 3, column: 1, scope: !19)
 !27 = !{!"intel.optreport.title", !"OMP TARGET DATA"}
 !28 = !{!"intel.optreport.first_child", !29}
-!29 = distinct !{!"intel.optreport.rootnode", !30}
-!30 = distinct !{!"intel.optreport", !31, !34, !35}
+!29 = distinct !{!"intel.optreport", !31, !34, !35}
 !31 = !{!"intel.optreport.debug_location", !32}
 !32 = !DILocation(line: 5, column: 1, scope: !33)
 !33 = distinct !DISubprogram(name: "foo.DIR.OMP.TARGET.4.split10.split.split", scope: !1, file: !1, line: 5, type: !9, scopeLine: 5, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)

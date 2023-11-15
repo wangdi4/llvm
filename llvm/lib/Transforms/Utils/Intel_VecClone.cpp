@@ -1953,6 +1953,10 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
         if (II->getIntrinsicID() == Intrinsic::intel_directive_elementsize) {
           Value *Arg = II->getOperand(0);
           Value *ElemSize = II->getOperand(1);
+          // CMPLRLLVM-52879: Device-side arguments may be hidden behind
+          // an address-space cast.
+          if (isa<AddrSpaceCastInst>(Arg))
+            Arg = cast<AddrSpaceCastInst>(Arg)->getOperand(0);
           PointeeTypeSize[cast<Argument>(Arg)->getArgNo()] = ElemSize;
           IntrinsicsToRemove.push_back(II);
         }

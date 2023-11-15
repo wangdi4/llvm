@@ -35,7 +35,7 @@ attributes #0 = { nounwind }
 
 !0 = !{!1, !2}
 !1 = !{i32 44, i32 8}
-!2 = !{i32 6168, i32 3, !"uida19ced7082b9fc5c____ZL15DeviceGlobalVar"}
+!2 = !{i32 6147, i32 2, !"uida19ced7082b9fc5c____ZL15DeviceGlobalVar"}
 !3 = !{i32 2, i32 2}
 !4 = !{i32 4, i32 100000}
 !5 = !{i32 1, i32 2}

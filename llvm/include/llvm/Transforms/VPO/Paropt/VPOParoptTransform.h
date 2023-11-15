@@ -2650,16 +2650,18 @@ template <> struct OptReportTraits<vpo::WRegionNode> {
 
   static OptReport getOptReport(const ObjectHandleTy &Handle) {
     return cast_or_null<MDTuple>(
-        Handle.first.getEntryDirective()->getMetadata(OptReportTag::Root));
+        Handle.first.getEntryDirective()->getMetadata(OptReportTag::Report));
   }
 
   static void setOptReport(const ObjectHandleTy &Handle, OptReport OR) {
     assert(OR && "eraseOptReport method should be used to remove OptReport");
-    Handle.first.getEntryDirective()->setMetadata(OptReportTag::Root, OR.get());
+    Handle.first.getEntryDirective()->setMetadata(OptReportTag::Report,
+                                                  OR.get());
   }
 
   static void eraseOptReport(const ObjectHandleTy &Handle) {
-    Handle.first.getEntryDirective()->setMetadata(OptReportTag::Root, nullptr);
+    Handle.first.getEntryDirective()->setMetadata(OptReportTag::Report,
+                                                  nullptr);
   }
 
   static DebugLoc getDebugLoc(const ObjectHandleTy &Handle) {

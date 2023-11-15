@@ -39,11 +39,7 @@
 #include <memory>
 #include <string>
 
-#if INTEL_CUSTOMIZATION
-#include "omp-tools-preview.h"
-#else // INTEL_CUSTOMIZATION
 #include "omp-tools.h"
-#endif // INTEL_CUSTOMIZATION
 
 #include "Debug.h"
 #include "omptarget.h"

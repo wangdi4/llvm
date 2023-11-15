@@ -518,7 +518,7 @@ void VPlanSLP::tryReorderOperands(ElemMutableArrayRef Op1,
                                   ElemMutableArrayRef Op2) const {
   const VPValue *BaseV = Op1[0].getValue();
   bool IsInst = isa<VPInstruction>(BaseV);
-  unsigned Opcode = IsInst ? cast<VPInstruction>(BaseV)->getOpcode() : 0;
+  unsigned Opcode = IsInst ? Op1[0].getOpcode() : 0;
 
   // 'Similar' VPValues are likely to form vectorizable vector, not
   // guaranteed though. 'Not similar' VPValues are guaranteed to be
@@ -534,14 +534,14 @@ void VPlanSLP::tryReorderOperands(ElemMutableArrayRef Op1,
   // code which is not detected otherwise.
   // TODO:
   // We might want to establish cost-wise operands swapping.
-  auto IsSimilar = [BaseV, IsInst, Opcode](const VPValue *V) {
-    return (V == BaseV) || (!IsInst && !isa<VPInstruction>(V)) ||
-           (isa<VPInstruction>(V) &&
-            cast<VPInstruction>(V)->getOpcode() == Opcode);
+  auto IsSimilar = [BaseV, IsInst, Opcode](const auto &E) {
+    return (E.getValue() == BaseV) ||
+           (!IsInst && !isa<VPInstruction>(E.getValue())) ||
+           (isa<VPInstruction>(E.getValue()) && E.getOpcode() == Opcode);
   };
 
   for (unsigned Idx = 1; Idx < Op1.size(); Idx++) {
-    if (!IsSimilar(Op1[Idx].getValue())) {
+    if (!IsSimilar(Op1[Idx])) {
       std::swap(Op1[Idx], Op2[Idx]);
       if (SLPReportDetailLevel >= 2) {
         LLVM_DEBUG(
@@ -646,8 +646,11 @@ VPInstructionCost VPlanSLP::buildGraph(ElemArrayRef Seed) {
     // to what we already selected we peek the second operand.
     // TODO:
     // Consider deeper look ahead check.
-    if (Instruction::isBinaryOp(Inst0->getOpcode()) &&
-        Instruction::isCommutative(Inst0->getOpcode())) {
+    // TODO:
+    // Support InstShuffleVector node type.
+    if (NType == InstVector &&
+        Instruction::isBinaryOp(VecValues[0].getOpcode()) &&
+        Instruction::isCommutative(VecValues[0].getOpcode())) {
       ElemVectorTy Op2Vec = WorkQueue.front();
       WorkQueue.pop();
       ElemVectorTy Op1Vec = WorkQueue.front();
@@ -824,18 +827,6 @@ VPInstructionCost VPlanSLP::estimateSLPCostDifference() {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// TODO: this function is scheduled to be deleted.
-void VPlanSLP::printVector(ArrayRef<const VPValue *> Values) {
-  for (const auto *V : Values) {
-    dbgs() << '\t';
-    if (const auto *I = dyn_cast<VPInstruction>(V))
-      I->printWithoutAnalyses(dbgs());
-    else
-      V->printAsOperand(dbgs());
-    dbgs() << '\n';
-  }
-}
-
 void VPlanSLP::VPlanSLPNodeElement::dump(raw_ostream &OS) const {
   if (const auto *I = dyn_cast<VPInstruction>(getValue())) {
     I->printWithoutAnalyses(OS);
