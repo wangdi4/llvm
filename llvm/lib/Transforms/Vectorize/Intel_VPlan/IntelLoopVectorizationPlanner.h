@@ -750,6 +750,10 @@ protected:
     }
   }
 
+  /// Set VPlan attributes inferred from function. E.g. restricting dumps
+  /// and detecting loop created for vector function body.
+  static void setVPlanFlagsFromFunction(VPlan *Plan, const Function *F);
+
   /// WRegion info of the loop we evaluate. It can be null.
   WRNVecLoopNode *WRLp;
 

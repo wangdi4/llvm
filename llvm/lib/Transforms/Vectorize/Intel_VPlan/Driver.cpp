@@ -916,6 +916,10 @@ void DriverImpl::generateMaskedModeVPlans(LoopVectorizationPlanner *LVP,
     if (Plan->isEarlyExitLoop())
       continue;
 
+    // Masked mode is not needed in vector functions.
+    if (Plan->isVecFuncVariant())
+      continue;
+
     auto It = OrigClonedVPlans.find(Plan.get());
     if (It != OrigClonedVPlans.end()) {
       // We have already cloned that main loop, add the same clone for

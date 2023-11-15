@@ -2357,6 +2357,12 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
   return {MinWidth, MaxWidth};
 }
 
+void LoopVectorizationPlanner::setVPlanFlagsFromFunction(VPlan *Plan,
+                                                         const Function *F) {
+  Plan->setPrintingEnabled(llvm::isFunctionInPrintList(F->getName()));
+  Plan->setIsVecFuncVariant(VFInfo::isVectorVariant(F->getName()));
+}
+
 std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
     VPExternalValues &Ext, VPUnlinkedInstructions &UnlinkedVPInsts,
     std::string VPlanName, AssumptionCache &AC, ScalarEvolution *SE) {
@@ -2368,7 +2374,7 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
   Plan->setName(VPlanName);
 
   const Function* F = TheLoop->getHeader()->getParent();
-  Plan->setPrintingEnabled(llvm::isFunctionInPrintList(F->getName()));
+  setVPlanFlagsFromFunction(Plan, F);
 
   if (EnableSOAAnalysis)
     // Enable SOA-analysis.
