@@ -258,7 +258,7 @@ public:
   const CCValAssign &getLoc(unsigned i) const {
     return Locs[i];
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   LLVMContext &getContext() const { return Context; }
   MachineFunction &getMachineFunction() const { return MF; }

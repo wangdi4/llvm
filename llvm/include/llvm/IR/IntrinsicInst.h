@@ -106,8 +106,7 @@ public:
   /// Checks if the intrinsic is an annotation.
   bool isAssumeLikeIntrinsic() const {
     switch (getIntrinsicID()) {
-    default:
-      break;
+    default: break;
     case Intrinsic::assume:
     case Intrinsic::sideeffect:
     case Intrinsic::pseudoprobe:
@@ -573,8 +572,8 @@ public:
                                            ArrayRef<Value *> Params);
 
   static std::optional<unsigned> getMaskParamPos(Intrinsic::ID IntrinsicID);
-  static std::optional<unsigned>
-  getVectorLengthParamPos(Intrinsic::ID IntrinsicID);
+  static std::optional<unsigned> getVectorLengthParamPos(
+      Intrinsic::ID IntrinsicID);
 
   /// The llvm.vp.* intrinsics for this instruction Opcode
   static Intrinsic::ID getForOpcode(unsigned OC);
@@ -738,7 +737,6 @@ public:
   }
   /// @}
 };
-
 
 /// This is the common base class for constrained floating point intrinsics.
 class ConstrainedFPIntrinsic : public IntrinsicInst {

@@ -97,7 +97,6 @@ public:
   };
 
   enum MIFlag {
-    
     NoFlags = 0,
     FrameSetup = 1 << 0,     // Instruction is used as a part of
                              // function frame setup code.

@@ -208,7 +208,6 @@ public:
   /// scheduler (though see below for an option to turn this off and use the
   /// TargetLowering preference). It does not yet disable the postRA scheduler.
   virtual bool enableMachineScheduler() const;
-
   virtual bool enableTargetSchedHeuristics() const; // INTEL
 
   /// True if the machine scheduler should disable the TLI preference

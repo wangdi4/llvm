@@ -106,7 +106,7 @@ public:
   #define ATTRIBUTE_STRING(SYMBOLIC_NAME, DISPLAY_NAME)                        \
   static constexpr StringRef SYMBOLIC_NAME##StrAttr = #DISPLAY_NAME;
   #include "llvm/IR/Attributes.inc"
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   enum AttrKind {
     // IR-Level Attributes
