@@ -3484,6 +3484,19 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
                                                   /*isStmtExpr=*/false));
       AssociatedStmt = Actions.ActOnOpenMPRegionEnd(AssociatedStmt, Clauses);
     }
+#if INTEL_CUSTOMIZATION
+    if (ReadDirectiveWithinMetadirective) {
+      // Create an attribute/clause to mark this directive so it will be
+      // possible to tell it came from a metadirective. When the statements
+      // in the AST don't match between host/device we may need to adjust the
+      // code generated.
+      OMPDirectiveFlagAttr *A = OMPDirectiveFlagAttr::CreateImplicit(
+          Actions.getASTContext(), "FromMetadirective");
+      auto *C = Actions.ActOnOpenMPXAttributeClause(
+          {A}, SourceLocation(), SourceLocation(), SourceLocation());
+      Clauses.push_back(C);
+    }
+#endif // INTEL_CUSTOMIZATION
     Directive = Actions.ActOnOpenMPExecutableDirective(
         DKind, DirName, CancelRegion, Clauses, AssociatedStmt.get(), Loc,
         EndLoc);
