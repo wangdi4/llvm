@@ -40,7 +40,7 @@
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanDriverPass.h"
 
-#define DEBUG_TYPE "vplan-vec"
+#define DEBUG_TYPE "VPlanDriver"
 
 using namespace llvm;
 using namespace llvm::vpo;

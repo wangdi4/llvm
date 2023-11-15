@@ -31,7 +31,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanDriverPass.h"
 
-#define DEBUG_TYPE "vplan-vec"
+#define DEBUG_TYPE "VPlanDriver"
 
 using namespace llvm;
 using namespace llvm::vpo;

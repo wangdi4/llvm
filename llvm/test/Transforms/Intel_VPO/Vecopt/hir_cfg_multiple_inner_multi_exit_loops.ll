@@ -42,7 +42,7 @@
 ; END REGION
 
 ; REQUIRES: asserts
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec -disable-output -debug-only=vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec -disable-output -debug-only=VPlanDriver < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
 
 ; CHECK: VD: Not vectorizing: Cannot support multiple multi-exit loops.

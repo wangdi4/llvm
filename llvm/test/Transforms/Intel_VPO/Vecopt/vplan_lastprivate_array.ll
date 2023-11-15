@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
-; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=VPlanDriver -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -debug-only=LoopVectorizationPlannerHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=VPlanDriver -debug-only=LoopVectorizationPlannerHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; CHECK:   ptr [[ALLPRIV:%.*]] = allocate-priv [12 x %struct.int_int], OrigAlign = 8
 ; CHECK:   private-last-value-nonpod-array ptr [[ALLPRIV]] ptr [[TMP1:%.*]]
