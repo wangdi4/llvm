@@ -1453,7 +1453,7 @@ static int getInstructionID(struct InternalInstruction *insn,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-      if (p10FromEVEX3of4(insn->vectorExtensionPrefix[2]) &&
+      if (x2FromEVEX3of4(insn->vectorExtensionPrefix[2]) &&
           (insn->opcodeType != MAP4))
         attrMask |= ATTR_EVEXP10;
 #endif // INTEL_FEATURE_ISA_AVX256P

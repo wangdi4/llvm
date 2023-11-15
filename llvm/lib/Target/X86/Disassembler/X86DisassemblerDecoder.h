@@ -37,88 +37,100 @@
 
 namespace llvm {
 namespace X86Disassembler {
-
-// Accessor functions for various fields of an Intel instruction
-#define modFromModRM(modRM)  (((modRM) & 0xc0) >> 6)
-#define regFromModRM(modRM)  (((modRM) & 0x38) >> 3)
-#define rmFromModRM(modRM)   ((modRM) & 0x7)
-#define scaleFromSIB(sib)    (((sib) & 0xc0) >> 6)
-#define indexFromSIB(sib)    (((sib) & 0x38) >> 3)
-#define baseFromSIB(sib)     ((sib) & 0x7)
-#define wFromREX(rex)        (((rex) & 0x8) >> 3)
-#define rFromREX(rex)        (((rex) & 0x4) >> 2)
-#define xFromREX(rex)        (((rex) & 0x2) >> 1)
-#define bFromREX(rex)        ((rex) & 0x1)
+// Helper macros
+#define bitFromOffset0(val) ((val) & 0x1)
+#define bitFromOffset1(val) (((val) >> 1) & 0x1)
+#define bitFromOffset2(val) (((val) >> 2) & 0x1)
+#define bitFromOffset3(val) (((val) >> 3) & 0x1)
+#define bitFromOffset4(val) (((val) >> 4) & 0x1)
+#define bitFromOffset5(val) (((val) >> 5) & 0x1)
+#define bitFromOffset6(val) (((val) >> 6) & 0x1)
+#define bitFromOffset7(val) (((val) >> 7) & 0x1)
+#define twoBitsFromOffset0(val) ((val) & 0x3)
+#define twoBitsFromOffset6(val) (((val) >> 6) & 0x3)
+#define threeBitsFromOffset0(val) ((val) & 0x7)
+#define threeBitsFromOffset3(val) (((val) >> 3) & 0x7)
+#if INTEL_CUSTOMIZATION
+#define fourBitsFromOffset0(val) ((val) & 0xf)
+#define fourBitsFromOffset3(val) (((val) >> 3) & 0xf)
+#endif // INTEL_CUSTOMIZATION
+#define fiveBitsFromOffset0(val) ((val) & 0x1f)
+#define invertedBitFromOffset2(val) (((~(val)) >> 2) & 0x1)
+#define invertedBitFromOffset3(val) (((~(val)) >> 3) & 0x1)
+#define invertedBitFromOffset4(val) (((~(val)) >> 4) & 0x1)
+#define invertedBitFromOffset5(val) (((~(val)) >> 5) & 0x1)
+#define invertedBitFromOffset6(val) (((~(val)) >> 6) & 0x1)
+#define invertedBitFromOffset7(val) (((~(val)) >> 7) & 0x1)
+#define invertedFourBitsFromOffset3(val) (((~(val)) >> 3) & 0xf)
+// MOD/RM
+#define modFromModRM(modRM) twoBitsFromOffset6(modRM)
+#define regFromModRM(modRM) threeBitsFromOffset3(modRM)
+#define rmFromModRM(modRM) threeBitsFromOffset0(modRM)
+// SIB
+#define scaleFromSIB(sib) twoBitsFromOffset6(sib)
+#define indexFromSIB(sib) threeBitsFromOffset3(sib)
+#define baseFromSIB(sib) threeBitsFromOffset0(sib)
+// REX
+#define wFromREX(rex) bitFromOffset3(rex)
+#define rFromREX(rex) bitFromOffset2(rex)
+#define xFromREX(rex) bitFromOffset1(rex)
+#define bFromREX(rex) bitFromOffset0(rex)
+// REX2
+#define mFromREX2(rex2) bitFromOffset7(rex2)
+#define r2FromREX2(rex2) bitFromOffset6(rex2)
+#define x2FromREX2(rex2) bitFromOffset5(rex2)
+#define b2FromREX2(rex2) bitFromOffset4(rex2)
+#define wFromREX2(rex2) bitFromOffset3(rex2)
+#define rFromREX2(rex2) bitFromOffset2(rex2)
+#define xFromREX2(rex2) bitFromOffset1(rex2)
+#define bFromREX2(rex2) bitFromOffset0(rex2)
+// XOP
+#define rFromXOP2of3(xop) invertedBitFromOffset7(xop)
+#define xFromXOP2of3(xop) invertedBitFromOffset6(xop)
+#define bFromXOP2of3(xop) invertedBitFromOffset5(xop)
+#define mmmmmFromXOP2of3(xop) fiveBitsFromOffset0(xop)
+#define wFromXOP3of3(xop) bitFromOffset7(xop)
+#define vvvvFromXOP3of3(xop) invertedFourBitsFromOffset3(xop)
+#define lFromXOP3of3(xop) bitFromOffset2(xop)
+#define ppFromXOP3of3(xop) twoBitsFromOffset0(xop)
+// VEX2
+#define rFromVEX2of2(vex) invertedBitFromOffset7(vex)
+#define vvvvFromVEX2of2(vex) invertedFourBitsFromOffset3(vex)
+#define lFromVEX2of2(vex) bitFromOffset2(vex)
+#define ppFromVEX2of2(vex) twoBitsFromOffset0(vex)
+// VEX3
+#define rFromVEX2of3(vex) invertedBitFromOffset7(vex)
+#define xFromVEX2of3(vex) invertedBitFromOffset6(vex)
+#define bFromVEX2of3(vex) invertedBitFromOffset5(vex)
+#define mmmmmFromVEX2of3(vex) fiveBitsFromOffset0(vex)
+#define wFromVEX3of3(vex) bitFromOffset7(vex)
+#define vvvvFromVEX3of3(vex) invertedFourBitsFromOffset3(vex)
+#define lFromVEX3of3(vex) bitFromOffset2(vex)
+#define ppFromVEX3of3(vex) twoBitsFromOffset0(vex)
+// EVEX
+#define rFromEVEX2of4(evex) invertedBitFromOffset7(evex)
+#define xFromEVEX2of4(evex) invertedBitFromOffset6(evex)
+#define bFromEVEX2of4(evex) invertedBitFromOffset5(evex)
+#define r2FromEVEX2of4(evex) invertedBitFromOffset4(evex)
+#define b2FromEVEX2of4(evex) bitFromOffset3(evex)
+#define mmmFromEVEX2of4(evex) threeBitsFromOffset0(evex)
+#define wFromEVEX3of4(evex) bitFromOffset7(evex)
+#define vvvvFromEVEX3of4(evex) invertedFourBitsFromOffset3(evex)
+#define x2FromEVEX3of4(evex) invertedBitFromOffset2(evex)
+#define ppFromEVEX3of4(evex) twoBitsFromOffset0(evex)
+#define zFromEVEX4of4(evex) bitFromOffset7(evex)
+#define l2FromEVEX4of4(evex) bitFromOffset6(evex)
+#define lFromEVEX4of4(evex) bitFromOffset5(evex)
+#define bFromEVEX4of4(evex) bitFromOffset4(evex)
+#define v2FromEVEX4of4(evex) invertedBitFromOffset3(evex)
+#define aaaFromEVEX4of4(evex) threeBitsFromOffset0(evex)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-#define mFromREX2(rex2)        (((rex2) >> 7) & 0x1)
-#define r2FromREX2(rex2)       (((rex2) >> 6) & 0x1)
-#define x2FromREX2(rex2)       (((rex2) >> 5) & 0x1)
-#define b2FromREX2(rex2)       (((rex2) >> 4) & 0x1)
-#define wFromREX2(rex2)        (((rex2) >> 3) & 0x1)
-#define rFromREX2(rex2)        (((rex2) >> 2) & 0x1)
-#define xFromREX2(rex2)        (((rex2) >> 1) & 0x1)
-#define bFromREX2(rex2)        ((rex2) & 0x1)
+#define oszcFromEVEX3of4(evex) fourBitsFromOffset3(evex)
+#define nfFromEVEX4of4(evex) bitFromOffset2(evex)
+#define scFromEVEX4of4(evex) fourBitsFromOffset0(evex)
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-
-#define rFromEVEX2of4(evex)     (((~(evex)) & 0x80) >> 7)
-#define xFromEVEX2of4(evex)     (((~(evex)) & 0x40) >> 6)
-#define bFromEVEX2of4(evex)     (((~(evex)) & 0x20) >> 5)
-#define r2FromEVEX2of4(evex)    (((~(evex)) & 0x10) >> 4)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-#define b2FromEVEX2of4(evex)    (((evex) & 0x8) >> 3)
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-#define mmmFromEVEX2of4(evex)   ((evex) & 0x7)
-#define wFromEVEX3of4(evex)     (((evex) & 0x80) >> 7)
-#define vvvvFromEVEX3of4(evex)  (((~(evex)) & 0x78) >> 3)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-#define p10FromEVEX3of4(evex)   (((~(evex)) & 0x4) >> 2)
-#endif // INTEL_FEATURE_ISA_AVX256P
-#if INTEL_FEATURE_ISA_APX_F
-#define x2FromEVEX3of4(evex)    (((~(evex)) & 0x4) >> 2)
-#define oszcFromEVEX3of4(evex)  (((evex) >> 3) & 0xf)
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-#define ppFromEVEX3of4(evex)    ((evex) & 0x3)
-#define zFromEVEX4of4(evex)     (((evex) & 0x80) >> 7)
-#define l2FromEVEX4of4(evex)    (((evex) & 0x40) >> 6)
-#define lFromEVEX4of4(evex)     (((evex) & 0x20) >> 5)
-#define bFromEVEX4of4(evex)     (((evex) & 0x10) >> 4)
-#define v2FromEVEX4of4(evex)    (((~evex) & 0x8) >> 3)
-#define aaaFromEVEX4of4(evex)   ((evex) & 0x7)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-#define nfFromEVEX4of4(evex)    (((evex) >> 2) & 0x1)
-#define scFromEVEX4of4(evex)    ((evex) & 0xf)
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-
-#define rFromVEX2of3(vex)       (((~(vex)) & 0x80) >> 7)
-#define xFromVEX2of3(vex)       (((~(vex)) & 0x40) >> 6)
-#define bFromVEX2of3(vex)       (((~(vex)) & 0x20) >> 5)
-#define mmmmmFromVEX2of3(vex)   ((vex) & 0x1f)
-#define wFromVEX3of3(vex)       (((vex) & 0x80) >> 7)
-#define vvvvFromVEX3of3(vex)    (((~(vex)) & 0x78) >> 3)
-#define lFromVEX3of3(vex)       (((vex) & 0x4) >> 2)
-#define ppFromVEX3of3(vex)      ((vex) & 0x3)
-
-#define rFromVEX2of2(vex)       (((~(vex)) & 0x80) >> 7)
-#define vvvvFromVEX2of2(vex)    (((~(vex)) & 0x78) >> 3)
-#define lFromVEX2of2(vex)       (((vex) & 0x4) >> 2)
-#define ppFromVEX2of2(vex)      ((vex) & 0x3)
-
-#define rFromXOP2of3(xop)       (((~(xop)) & 0x80) >> 7)
-#define xFromXOP2of3(xop)       (((~(xop)) & 0x40) >> 6)
-#define bFromXOP2of3(xop)       (((~(xop)) & 0x20) >> 5)
-#define mmmmmFromXOP2of3(xop)   ((xop) & 0x1f)
-#define wFromXOP3of3(xop)       (((xop) & 0x80) >> 7)
-#define vvvvFromXOP3of3(vex)    (((~(vex)) & 0x78) >> 3)
-#define lFromXOP3of3(xop)       (((xop) & 0x4) >> 2)
-#define ppFromXOP3of3(xop)      ((xop) & 0x3)
 
 // These enums represent Intel registers for use by the decoder.
 #if INTEL_CUSTOMIZATION
