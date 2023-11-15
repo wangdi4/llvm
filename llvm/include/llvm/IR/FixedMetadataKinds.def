@@ -1,6 +1,7 @@
 /*===-- FixedMetadataKinds.def - Fixed metadata kind IDs -------*- C++ -*-=== *\
- * INTEL_CUSTOMIZATION
- *
+#if INTEL_CUSTOMIZATION
+*/
+/*
  * INTEL CONFIDENTIAL
  *
  * Modifications, Copyright (C) 2021 Intel Corporation
@@ -14,10 +15,9 @@
  * This software and the related documents are provided as is, with no express
  * or implied warranties, other than those that are expressly stated in the
  * License.
- *
- * end INTEL_CUSTOMIZATION
  */
 /*
+#endif // INTEL_CUSTOMIZATION
 |*
 |* Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 |* See https://llvm.org/LICENSE.txt for license information.
@@ -75,4 +75,4 @@ LLVM_FIXED_MD_KIND(MD_std_container_ptr, "std.container.ptr", 40)
 LLVM_FIXED_MD_KIND(MD_std_container_ptr_iter, "std.container.ptr.iter", 41)
 LLVM_FIXED_MD_KIND(MD_intel_tbaa, "intel-tbaa", 42)
 LLVM_FIXED_MD_KIND(MD_intel_profx, "intel-profx", 43)
-#endif
+#endif // INTEL_CUSTOMIZATION

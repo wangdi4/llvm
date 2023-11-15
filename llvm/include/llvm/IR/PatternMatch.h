@@ -62,7 +62,6 @@
 #include <cstdint>
 
 namespace llvm {
-
 namespace PatternMatch {
 
 template <typename Val, typename Pattern> bool match(Val *V, const Pattern &P) {
@@ -1033,11 +1032,11 @@ struct BinaryOp_match {
   BinaryOp_match(const LHS_t &LHS, const RHS_t &RHS) : L(LHS), R(RHS) {}
 
   template <typename OpTy> inline bool match(unsigned Opc, OpTy *V) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Use unified for Value and VPValue way to check whether it is
     // (VP)Instruction of given Opcode.
     if (isa<Instruction>(V) && cast<Instruction>(V)->getOpcode() == Opc) {
-#else
+#else // INTEL_CUSTOMIZATION
     if (V->getValueID() == Value::InstructionVal + Opc) {
 #endif // INTEL_CUSTOMIZATION
       auto *I = cast<BinaryOperator>(V);
@@ -1525,11 +1524,11 @@ struct ThreeOps_match {
       : Op1(Op1), Op2(Op2), Op3(Op3) {}
 
   template <typename OpTy> bool match(OpTy *V) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Use unified for Value and VPValue way to check whether it is
     // (VP)Instruction of given Opcode.
     if (isa<Instruction>(V) && cast<Instruction>(V)->getOpcode() == Opcode) {
-#else
+#else // INTEL_CUSTOMIZATION
     if (V->getValueID() == Value::InstructionVal + Opcode) {
 #endif // INTEL_CUSTOMIZATION
       auto *I = cast<Instruction>(V);
@@ -2733,6 +2732,5 @@ inline auto m_c_LogicalOp(const LHS &L, const RHS &R) {
 
 } // end namespace PatternMatch
 } // end namespace llvm
-
 
 #endif // LLVM_IR_PATTERNMATCH_H

@@ -1401,16 +1401,16 @@ public:
 
 #if INTEL_CUSTOMIZATION
   using BaseT::getGatherScatterOpCost;
-#endif // INTEL_CUSTOMIZATION
   InstructionCost
   getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
                          bool VariableMask, Align Alignment,
                          TTI::TargetCostKind CostKind,
-                         const Instruction *I = nullptr, // INTEL
-                         bool UndefPassThru = false) {   // INTEL
+                         const Instruction *I = nullptr,
+                         bool UndefPassThru = false) {
     return getCommonMaskedMemoryOpCost(Opcode, DataTy, Alignment, VariableMask,
                                        true, CostKind);
   }
+#endif // INTEL_CUSTOMIZATION
 
   InstructionCost getInterleavedMemoryOpCost(
       unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,

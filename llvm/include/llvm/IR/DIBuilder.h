@@ -551,7 +551,7 @@ namespace llvm {
     DIDerivedType *createTemplateTypeParameterAsType(DIScope *Scope,
                                                      StringRef Name,
                                                      DIType *Ty);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
     /// Create debugging information for template
     /// type parameter.

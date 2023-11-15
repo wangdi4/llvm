@@ -300,7 +300,6 @@ namespace CallingConv {
     // the caller.
     SVML_AVX_AVX_Impl = 117,
 #endif  // INTEL_CUSTOMIZATION
-
     /// The highest possible ID. Must be some 2^k - 1.
     MaxID = 1023
   };

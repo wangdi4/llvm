@@ -41,10 +41,10 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/TypeSize.h"
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Required for VectorType::getNumElements()
 #include "llvm/Support/WithColor.h"
-#endif
+#endif // INTEL_CUSTOMIZATION
 #include <cassert>
 #include <cstdint>
 
