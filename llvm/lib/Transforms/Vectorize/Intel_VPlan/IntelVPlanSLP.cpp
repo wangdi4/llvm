@@ -16,8 +16,9 @@
 #include <queue>
 
 #include "IntelVPlan.h"
-#include "IntelVPlanSLP.h"
 #include "IntelVPlanCostModel.h"
+#include "IntelVPlanPatternMatch.h"
+#include "IntelVPlanSLP.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
 
 #define DEBUG_TYPE "intel-vplan-slp"
@@ -33,6 +34,8 @@ static cl::opt<unsigned> SLPReportDetailLevel(
 
 using namespace llvm::loopopt;
 
+using namespace llvm::PatternMatch;
+
 namespace llvm {
 
 namespace vpo {
@@ -45,6 +48,34 @@ const VPValue *VPlanSLP::VPlanSLPNodeElement::getOperand(unsigned N) const {
   assert(Op[N] && "Op[N] is not established yet");
 
   return Op[N];
+}
+
+void VPlanSLP::foldAddMulToSub(ElemMutableArrayRef Values) const {
+  llvm::for_each(Values, [](VPlanSLPNodeElement &E) {
+    const auto *I = dyn_cast<VPInstruction>(E.getValue());
+    const VPValue *AddOp1, *AddOp2;
+
+    if (!I || !match(I, m_Add(m_Bind(AddOp1), m_Bind(AddOp2))))
+      return;
+
+    // Checker that 'I' is a mul -1 instruction.
+    // Returns non constant operand of mul instructions or null otherwise.
+    auto IsMulIN1 = [](const VPInstruction *I) -> const VPValue * {
+      const VPValue *MulOp;
+      if (I &&
+          match(I, m_c_Mul(m_Bind(MulOp), m_ConstantInt<-1, VPConstantInt>())))
+        return MulOp;
+
+      return nullptr;
+    };
+
+    // Find operand, which is Mul VPInstruction - the only supported pattern so
+    // far.
+    if (const auto *MulOp = IsMulIN1(dyn_cast<VPInstruction>(AddOp1)))
+      E.setOpsAndAltOpcode(AddOp2, MulOp, Instruction::Sub);
+    else if (const auto *MulOp = IsMulIN1(dyn_cast<VPInstruction>(AddOp2)))
+      E.setOpsAndAltOpcode(AddOp1, MulOp, Instruction::Sub);
+  });
 }
 
 bool VPlanSLP::canMoveTo(const VPLoadStoreInst *FromInst,
@@ -574,6 +605,8 @@ VPInstructionCost VPlanSLP::buildGraph(ElemArrayRef Seed) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     BundleID++;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    foldAddMulToSub(Values);
 
     VPlanSLPNodeTy NType = getVectorizableValues(Values, VecValues);
     VPInstructionCost VCost = VPInstructionCost::getInvalid();
