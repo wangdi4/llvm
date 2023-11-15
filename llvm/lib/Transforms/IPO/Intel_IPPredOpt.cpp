@@ -226,8 +226,12 @@ private:
   SmallDenseMap<Value *, SmallVector<Instruction *, 2>, 2>
       SpecialNonNullCheckCondsMap;
 
-  // Selected targets of all indirect calls in callee.
+  // Selected possible targets without side-effects of all indirect calls
+  // in callee.
   SetVector<Function *> SelectedPossibleTargets;
+
+  // Possible targets with side effects.
+  SetVector<Function *> PossibleTargetsWithSE;
 
   // Instructions needed to compute trip count of a loop that has GetElem
   // function call.
@@ -315,8 +319,7 @@ bool IPPredOptImpl::getVirtualPossibleTargets(
   LLVM_DEBUG(dbgs() << "Collecting possible targets for: " << CB << "\n");
   const Instruction *PrevI = CB.getPrevNode();
   if (!PrevI || !isa<LoadInst>(PrevI)) {
-    LLVM_DEBUG(dbgs() << "    No LoadInst Found: "
-                      << "\n");
+    LLVM_DEBUG(dbgs() << "    No LoadInst Found: " << "\n");
     return false;
   }
   auto *LI = cast<LoadInst>(PrevI);
@@ -325,26 +328,22 @@ bool IPPredOptImpl::getVirtualPossibleTargets(
     PrevI = PrevI->getPrevNode();
 
   if (!PrevI || !isa<IntrinsicInst>(PrevI)) {
-    LLVM_DEBUG(dbgs() << "    No Assume call Found: "
-                      << "\n");
+    LLVM_DEBUG(dbgs() << "    No Assume call Found: " << "\n");
     return false;
   }
   auto *AI = cast<IntrinsicInst>(PrevI);
   if (AI->getIntrinsicID() != Intrinsic::assume) {
-    LLVM_DEBUG(dbgs() << "    No Assume intrinsic Found: "
-                      << "\n");
+    LLVM_DEBUG(dbgs() << "    No Assume intrinsic Found: " << "\n");
     return false;
   }
   PrevI = PrevI->getPrevNode();
   if (!PrevI || !isa<IntrinsicInst>(PrevI)) {
-    LLVM_DEBUG(dbgs() << "    No typetest call Found: "
-                      << "\n");
+    LLVM_DEBUG(dbgs() << "    No typetest call Found: " << "\n");
     return false;
   }
   auto *TI = cast<CallInst>(PrevI);
   if (TI->getIntrinsicID() != Intrinsic::type_test) {
-    LLVM_DEBUG(dbgs() << "    No typetest intrinsic Found: "
-                      << "\n");
+    LLVM_DEBUG(dbgs() << "    No typetest intrinsic Found: " << "\n");
     return false;
   }
 
@@ -367,8 +366,7 @@ bool IPPredOptImpl::getVirtualPossibleTargets(
         VTable->getInitializer(), VTableOffset + ObjectOffset.getZExtValue(),
         *Caller->getParent());
     if (!Ptr) {
-      LLVM_DEBUG(dbgs() << "    Can't find pointer in vtable: "
-                        << "\n");
+      LLVM_DEBUG(dbgs() << "    Can't find pointer in vtable: " << "\n");
       return false;
     }
 
@@ -1577,12 +1575,16 @@ bool PredCandidate::processIndirectCalls(
 
     bool FoundTarget = false;
     for (auto *TF : TargetFunctions) {
-      if (TF->isDeclaration())
+      if (TF->isDeclaration()) {
+        PossibleTargetsWithSE.insert(TF);
         continue;
+      }
 
       // Skip target that has side effects.
-      if (!funcHasNoSideEffects(TF))
+      if (!funcHasNoSideEffects(TF)) {
+        PossibleTargetsWithSE.insert(TF);
         continue;
+      }
 
       if (!IPPredSkipIndirectTargetHeuristic) {
         // Get DTrans's metadata for 1st argument of TF.
@@ -1600,6 +1602,13 @@ bool PredCandidate::processIndirectCalls(
       SelectedPossibleTargets.insert(TF);
       FoundTarget = true;
     }
+
+    // Don't generate runtime checks if number of possible targets with SE is
+    // more than or equal to number of possible targets with NSE.
+    if (IPPredSkipIndirectTargetHeuristic &&
+        SelectedPossibleTargets.size() <= PossibleTargetsWithSE.size())
+      return false;
+
     return FoundTarget;
   };
 
@@ -2072,15 +2081,15 @@ void PredCandidate::hoistConditions() {
 //            ---------------------|                 |
 //            |                    |                 |
 //            |                    |                 |
-//            |           -------------------        |
-//            |           |  if (contains()) |       |
-//            |           |    OriginalCFG   |       |
-//            |           |                  |       |
-//            |           --------------------       |
-//            |                    |                 |
-//            |                    |                 |
-//            -------------------->|                 |
-//                                 |<-----------------
+//            |                    |<-----------------
+//            |           -------------------
+//            |           |  if (contains()) |
+//            |           |    OriginalCFG   |
+//            |           |                  |
+//            |           --------------------
+//            |                    |
+//            |                    |
+//            -------------------->|
 //                              ExitBB
 //
 void PredCandidate::generateRuntimeChecks() {
