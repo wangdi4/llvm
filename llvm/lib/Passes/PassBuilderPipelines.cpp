@@ -1962,36 +1962,39 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(GlobalCleanupPM),
                                                 PTO.EagerlyInvalidateAnalyses));
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  if (PrepareForLTO && DTransEnabled)
+    MPM.addPass(dtransOP::DTransForceInlineOPPass());
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   // Invoke the pre-inliner passes for instrumentation PGO or MemProf.
   if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
       (PGOOpt->Action == PGOOptions::IRInstr ||
        PGOOpt->Action == PGOOptions::IRUse || !PGOOpt->MemoryProfile.empty()))
     addPreInlinerPasses(MPM, Level, Phase);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  if (PrepareForLTO && DTransEnabled)
-    MPM.addPass(dtransOP::DTransForceInlineOPPass());
-#endif // INTEL_FEATURE_SW_DTRANS
-
   // Add all the requested passes for instrumentation PGO, if requested.
+#if INTEL_CUSTOMIZATION
   if (PGOOpt && !PGOOpt->IsCGPGO &&
       Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
       (PGOOpt->Action == PGOOptions::IRInstr ||
        PGOOpt->Action == PGOOptions::IRUse ||
        PGOOpt->Action == PGOOptions::MLUse)) {
     addPGOInstrPasses(MPM, Level, PGOOpt->Action,
+#endif // INTEL_CUSTOMIZATION
                       /*IsCS=*/false, PGOOpt->AtomicCounterUpdate,
                       PGOOpt->ProfileFile, PGOOpt->ProfileRemappingFile,
                       PGOOpt->FS);
     MPM.addPass(PGOIndirectCallPromotion(false, false));
   }
-
+#if INTEL_CUSTOMIZATION
   if (PGOOpt && !PGOOpt->IsCGPGO &&
       Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
+#endif // INTEL_CUSTOMIZATION
       PGOOpt->CSAction == PGOOptions::CSIRInstr)
     MPM.addPass(PGOInstrumentationGenCreateVar(PGOOpt->CSProfileGenFile));
-#endif // INTEL_CUSTOMIZATION
 
   if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
       !PGOOpt->MemoryProfile.empty())
