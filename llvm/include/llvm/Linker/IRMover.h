@@ -35,7 +35,6 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/FunctionExtras.h"
 #include "llvm/ADT/StringRef.h" // INTEL
-#include "llvm/IR/Intel_DopeVectorTypeInfo.h" // INTEL
 #include <functional>
 
 namespace llvm {
@@ -47,32 +46,23 @@ class StructType;
 class TrackingMDRef;
 class Type;
 
-typedef std::pair<StructType *, DopeVectorTypeInfo *> StructDVType; // INTEL
-
 class IRMover {
-  struct StructDVTypeKeyInfo { // INTEL
+  struct StructTypeKeyInfo {
     struct KeyTy {
       ArrayRef<Type *> ETypes;
       bool IsPacked;
-#if INTEL_CUSTOMIZATION
-      StringRef Name;
-      const Type *DVET;
-      KeyTy(ArrayRef<Type *> E, bool P, StringRef N, const Type *DVET);
-      KeyTy(const StructDVType SDVTy);
-#endif // INTEL_CUSTOMIZATION
+      StringRef Name;                                 // INTEL
+      KeyTy(ArrayRef<Type *> E, bool P, StringRef N); // INTEL
+      KeyTy(const StructType *ST);
       bool operator==(const KeyTy &that) const;
       bool operator!=(const KeyTy &that) const;
     };
-#if INTEL_CUSTOMIZATION
-    static StructDVType getEmptyKey();
-    static StructDVType getTombstoneKey();
-#endif // INTEL_CUSTOMIZATION
+    static StructType *getEmptyKey();
+    static StructType *getTombstoneKey();
     static unsigned getHashValue(const KeyTy &Key);
-#if INTEL_CUSTOMIZATION
-    static unsigned getHashValue(const StructDVType SDVTy);
-    static bool isEqual(const KeyTy &LHS, const StructDVType RHS);
-    static bool isEqual(const StructDVType LHS, const StructDVType RHS);
-#endif // INTEL_CUSTOMIZATION
+    static unsigned getHashValue(const StructType *ST);
+    static bool isEqual(const KeyTy &LHS, const StructType *RHS);
+    static bool isEqual(const StructType *LHS, const StructType *RHS);
   };
 
   /// Type of the Metadata map in \a ValueToValueMapTy.
@@ -84,41 +74,19 @@ public:
     DenseSet<StructType *> OpaqueStructTypes;
 
     // The set of identified but non opaque structures in the composite module.
-#if INTEL_CUSTOMIZATION
-    DenseSet<StructDVType, StructDVTypeKeyInfo> NonOpaqueStructTypes;
-    // DopeVectorTypeInfo for accessing dope vector element type
-    DopeVectorTypeInfo *DVTI = nullptr;
-#endif // INTEL_CUSTOMIZATION
+    DenseSet<StructType *, StructTypeKeyInfo> NonOpaqueStructTypes;
+
   public:
     void addNonOpaque(StructType *Ty);
     void switchToNonOpaque(StructType *Ty);
     void addOpaque(StructType *Ty);
-#if INTEL_CUSTOMIZATION
-    StructDVType findNonOpaque(ArrayRef<Type *> ETypes, bool IsPacked,
-                               StringRef Name, StructType *STy);
-#endif // INTEL_CUSTOMIZATION
+    StructType *findNonOpaque(ArrayRef<Type *> ETypes, bool IsPacked, // INTEL
+                              StringRef Name);                        // INTEL
     bool hasType(StructType *Ty);
-#if INTEL_CUSTOMIZATION
-    DopeVectorTypeInfo *getDVTI() { return DVTI; }
-    void setDVTI(DopeVectorTypeInfo *DVTIX) {
-      if (DVTI)
-        delete DVTI;
-      DVTI = DVTIX;
-    };
-    void appendToDVTI(Module &M) {
-      if (!DVTI)
-        DVTI = new DopeVectorTypeInfo(M);
-      else
-        DVTI->appendToDopeVectorTypeMap(M);
-    };
-#endif // INTEL_CUSTOMIZATION
   };
+
   IRMover(Module &M);
-#if INTEL_CUSTOMIZATION
-  DopeVectorTypeInfo *getDVTI() { return IdentifiedStructTypes.getDVTI(); }
-  void setDVTI(DopeVectorTypeInfo *DX) { IdentifiedStructTypes.setDVTI(DX); }
-  void appendToDVTI(Module &M) { IdentifiedStructTypes.appendToDVTI(M); }
-#endif // INTEL_CUSTOMIZATION
+
   typedef std::function<void(GlobalValue &)> ValueAdder;
   using LazyCallback =
       llvm::unique_function<void(GlobalValue &GV, ValueAdder Add)>;
