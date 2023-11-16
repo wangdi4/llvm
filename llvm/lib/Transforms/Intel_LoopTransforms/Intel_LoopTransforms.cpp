@@ -17,22 +17,10 @@ using namespace llvm;
 void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRSSADeconstructionLegacyPassPass(Registry);
   initializeHIRTempCleanupLegacyPassPass(Registry);
-  initializeHIRPMSymbolicTripCountCompleteUnrollLegacyPassPass(Registry);
-  initializeHIROptPredicateLegacyPassPass(Registry);
   initializeHIRUnrollAndJamLegacyPassPass(Registry);
-  initializeHIRRuntimeDDLegacyPassPass(Registry);
-  initializeHIRScalarReplArrayLegacyPassPass(Registry);
-  initializeHIROptReportEmitterWrapperPassPass(Registry);
-  initializeHIRParDirInsertPass(Registry);
   initializeHIRVecDirInsertPass(Registry);
-  initializeHIROptVarPredicateLegacyPassPass(Registry);
-  initializeHIRPropagateCastedIVLegacyPassPass(Registry);
-  initializeHIRRecognizeParLoopPass(Registry);
-  initializeHIRPrefetchingLegacyPassPass(Registry);
   initializeHIRSinkingForPerfectLoopnestLegacyPassPass(Registry);
   initializeHIRUndoSinkingForPerfectLoopnestLegacyPassPass(Registry);
-  initializeHIRNontemporalMarkingLegacyPassPass(Registry);
   initializeHIRStoreResultIntoTempArrayLegacyPassPass(Registry);
   initializeHIRSumWindowReuseLegacyPassPass(Registry);
-  initializeHIRNonZeroSinkingForPerfectLoopnestLegacyPassPass(Registry);
 }

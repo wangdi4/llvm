@@ -19,7 +19,6 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         Intel_LoopTransforms.cpp
         HIRSSADeconstruction.cpp
         HIRTempCleanup.cpp
-        HIRPrinter.cpp
         HIRCodeGen.cpp
         HIROptPredicate.cpp
         HIRPreVecCompleteUnroll.cpp
@@ -45,7 +44,6 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRPMSymbolicTripCountCompleteUnroll.cpp
         HIRScalarReplArray.cpp
         ParVecDirectiveInsertion.cpp
-        HIRParDirInsert.cpp
         HIRVecDirInsert.cpp
         HIROptVarPredicate.cpp
         HIRIdiomRecognition.cpp

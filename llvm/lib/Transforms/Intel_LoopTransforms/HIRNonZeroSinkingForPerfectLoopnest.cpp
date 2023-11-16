@@ -417,39 +417,3 @@ PreservedAnalyses HIRNonZeroSinkingForPerfectLoopnestPass::runImpl(
   ModifiedHIR = HIRNonZeroSinkingForPerfectLoopnest(HIRF).run();
   return PreservedAnalyses::all();
 }
-
-class HIRNonZeroSinkingForPerfectLoopnestLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRNonZeroSinkingForPerfectLoopnestLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRNonZeroSinkingForPerfectLoopnestLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRNonZeroSinkingForPerfectLoopnest(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR())
-        .run();
-  }
-};
-
-char HIRNonZeroSinkingForPerfectLoopnestLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRNonZeroSinkingForPerfectLoopnestLegacyPass, OPT_SWITCH,
-                      OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRNonZeroSinkingForPerfectLoopnestLegacyPass, OPT_SWITCH,
-                    OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIRNonZeroSinkingForPerfectLoopnestPass() {
-  return new HIRNonZeroSinkingForPerfectLoopnestLegacyPass();
-}
