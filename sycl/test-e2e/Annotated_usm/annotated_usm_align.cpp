@@ -288,16 +288,23 @@ template <typename T> void testAlign(sycl::queue &q, size_t align) {
       // alignment
       // argument is not a power of 2, the result is nullptr
       ,
-      [&]() { return ATDevice(3, q); }, [&]() { return ATDevice(7, dev, Ctx); },
-      [&]() { return ATHost(7, q); }, [&]() { return ATHost(9, Ctx); },
-      [&]() { return ATAnnotated(15, q, alloc::device); },
-      [&]() { return ATAnnotated(17, dev, Ctx, alloc::host); }});
+      [&]() { return ATDevice(65, q); },
+      [&]() { return ATDevice(70, dev, Ctx); },
+      [&]() { return ATHost(174, q); },
+      [&]() { return ATHost(299, Ctx); },
+      [&]() { return ATAnnotated(550, q, alloc::device); },
+      [&]() { return ATAnnotated(1700, dev, Ctx, alloc::host); }});
 }
+
+struct alignas(64) MyStruct {
+  int x;
+};
 
 int main() {
   sycl::queue q;
   testAlign<char>(q, 4);
   testAlign<int>(q, 128);
   testAlign<std::complex<double>>(q, 4);
+  testAlign<MyStruct>(q, 4);
   return 0;
 }
