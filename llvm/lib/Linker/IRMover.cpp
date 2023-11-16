@@ -56,7 +56,6 @@
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "llvm/Demangle/Demangle.h"
 #endif // INTEL_FEATURE_SW_DTRANS
-#include "llvm/IR/Intel_DopeVectorTypeInfo.h"
 #include "llvm/Support/CommandLine.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -243,6 +242,7 @@ public:
   ~TypeMapTy() {
     if (DTransSrcStructsMap)
       delete DTransSrcStructsMap;
+
     if (DTransDstStructsMap)
       delete DTransDstStructsMap;
   }
@@ -1460,11 +1460,10 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
     if (!EnableDTransTypesMappingScheme || VisitedTypes.count(STy) == 0) {
 #endif // INTEL_FEATURE_SW_DTRANS
       // Provide name of a struct.
-      StructDVType OldT = DstStructTypesSet.findNonOpaque(
-          ElementTypes, IsPacked, getStructName(STy), STy);
-      if (OldT.first) {
+      if (StructType *OldT = DstStructTypesSet.findNonOpaque(
+              ElementTypes, IsPacked, getStructName(STy))) {
         STy->setName("");
-        return *Entry = OldT.first;
+        return *Entry = OldT;
       }
 #if INTEL_FEATURE_SW_DTRANS
     }
@@ -3333,66 +3332,52 @@ Error IRLinker::run() {
 
 #if INTEL_CUSTOMIZATION
 // Provide name of a struct.
-IRMover::StructDVTypeKeyInfo::KeyTy::KeyTy(ArrayRef<Type *> E, bool P,
-                                           StringRef Name, const Type *DVET)
-    : ETypes(E), IsPacked(P), Name(Name), DVET(DVET) {}
+IRMover::StructTypeKeyInfo::KeyTy::KeyTy(ArrayRef<Type *> E, bool P,
+                                         StringRef Name)
+    : ETypes(E), IsPacked(P), Name(Name) {}
 
 // Provide name of a struct.
-IRMover::StructDVTypeKeyInfo::KeyTy::KeyTy(const StructDVType SDVT) {
-  StructType *ST = SDVT.first;
-  DopeVectorTypeInfo *DVTI = SDVT.second;
-  ETypes = ST->elements();
-  IsPacked = ST->isPacked();
-  Name = getStructName(ST);
-  DVET = DVTI->getDopeVectorElementType(ST);
-}
+IRMover::StructTypeKeyInfo::KeyTy::KeyTy(const StructType *ST)
+    : ETypes(ST->elements()), IsPacked(ST->isPacked()),
+      Name(getStructName(ST)) {}
 
 // Account for name of a struct.
-bool IRMover::StructDVTypeKeyInfo::KeyTy::operator==(const KeyTy &That) const {
-#endif // INTEL_CUSTOMIZATION
+bool IRMover::StructTypeKeyInfo::KeyTy::operator==(const KeyTy &That) const {
   return IsPacked == That.IsPacked && ETypes == That.ETypes &&
-         Name == That.Name && DVET == That.DVET; // INTEL
+         Name == That.Name;
 }
-
-#if INTEL_CUSTOMIZATION
-bool IRMover::StructDVTypeKeyInfo::KeyTy::operator!=(const KeyTy &That) const {
 #endif // INTEL_CUSTOMIZATION
+
+bool IRMover::StructTypeKeyInfo::KeyTy::operator!=(const KeyTy &That) const {
   return !this->operator==(That);
 }
 
-#if INTEL_CUSTOMIZATION
-StructDVType IRMover::StructDVTypeKeyInfo::getEmptyKey() {
-  return DenseMapInfo<StructDVType>::getEmptyKey();
+StructType *IRMover::StructTypeKeyInfo::getEmptyKey() {
+  return DenseMapInfo<StructType *>::getEmptyKey();
 }
 
-StructDVType IRMover::StructDVTypeKeyInfo::getTombstoneKey() {
-  return DenseMapInfo<StructDVType>::getTombstoneKey();
+StructType *IRMover::StructTypeKeyInfo::getTombstoneKey() {
+  return DenseMapInfo<StructType *>::getTombstoneKey();
 }
 
-unsigned IRMover::StructDVTypeKeyInfo::getHashValue(const KeyTy &Key) {
-#endif // INTEL_CUSTOMIZATION
+unsigned IRMover::StructTypeKeyInfo::getHashValue(const KeyTy &Key) {
   return hash_combine(hash_combine_range(Key.ETypes.begin(), Key.ETypes.end()),
-                      Key.IsPacked, Key.Name, Key.DVET); // INTEL
+                      Key.IsPacked, Key.Name); // INTEL
 }
 
-unsigned
-IRMover::StructDVTypeKeyInfo::getHashValue(const StructDVType ST) { // INTEL
+unsigned IRMover::StructTypeKeyInfo::getHashValue(const StructType *ST) {
   return getHashValue(KeyTy(ST));
 }
 
-#if INTEL_CUSTOMIZATION
-bool IRMover::StructDVTypeKeyInfo::isEqual(const KeyTy &LHS,
-                                           const StructDVType RHS) {
-#endif // INTEL_CUSTOMIZATION
+bool IRMover::StructTypeKeyInfo::isEqual(const KeyTy &LHS,
+                                         const StructType *RHS) {
   if (RHS == getEmptyKey() || RHS == getTombstoneKey())
     return false;
   return LHS == KeyTy(RHS);
 }
 
-#if INTEL_CUSTOMIZATION
-bool IRMover::StructDVTypeKeyInfo::isEqual(const StructDVType LHS,
-                                           const StructDVType RHS) {
-#endif // INTEL_CUSTOMIZATION
+bool IRMover::StructTypeKeyInfo::isEqual(const StructType *LHS,
+                                         const StructType *RHS) {
   if (RHS == getEmptyKey() || RHS == getTombstoneKey())
     return LHS == RHS;
   return KeyTy(LHS) == KeyTy(RHS);
@@ -3400,12 +3385,12 @@ bool IRMover::StructDVTypeKeyInfo::isEqual(const StructDVType LHS,
 
 void IRMover::IdentifiedStructTypeSet::addNonOpaque(StructType *Ty) {
   assert(!Ty->isOpaque());
-  NonOpaqueStructTypes.insert({Ty, getDVTI()}); // INTEL
+  NonOpaqueStructTypes.insert(Ty);
 }
 
 void IRMover::IdentifiedStructTypeSet::switchToNonOpaque(StructType *Ty) {
   assert(!Ty->isOpaque());
-  NonOpaqueStructTypes.insert({Ty, getDVTI()}); // INTEL
+  NonOpaqueStructTypes.insert(Ty);
   bool Removed = OpaqueStructTypes.erase(Ty);
   (void)Removed;
   assert(Removed);
@@ -3416,28 +3401,18 @@ void IRMover::IdentifiedStructTypeSet::addOpaque(StructType *Ty) {
   OpaqueStructTypes.insert(Ty);
 }
 
-#if INTEL_CUSTOMIZATION
-StructDVType IRMover::IdentifiedStructTypeSet::findNonOpaque(
-    ArrayRef<Type *> ETypes, bool IsPacked, StringRef Name, StructType *STy) {
-  const Type *DVET = getDVTI()->getDopeVectorElementType(STy);
-  IRMover::StructDVTypeKeyInfo::KeyTy Key(ETypes, IsPacked, Name, DVET);
-#endif // INTEL_CUSTOMIZATION
+StructType *IRMover::IdentifiedStructTypeSet::findNonOpaque(     // INTEL
+    ArrayRef<Type *> ETypes, bool IsPacked, StringRef Name) {    // INTEL
+  IRMover::StructTypeKeyInfo::KeyTy Key(ETypes, IsPacked, Name); // INTEL
   auto I = NonOpaqueStructTypes.find_as(Key);
-#if INTEL_CUSTOMIZATION
-  return I == NonOpaqueStructTypes.end() ? std::make_pair(nullptr, nullptr)
-                                         : *I;
-#endif // INTEL_CUSTOMIZATION
+  return I == NonOpaqueStructTypes.end() ? nullptr : *I;
 }
 
 bool IRMover::IdentifiedStructTypeSet::hasType(StructType *Ty) {
   if (Ty->isOpaque())
     return OpaqueStructTypes.count(Ty);
-#if INTEL_CUSTOMIZATION
-  auto I = NonOpaqueStructTypes.find({Ty, getDVTI()});
-  return I == NonOpaqueStructTypes.end()
-             ? false
-             : I->first == Ty && I->second == getDVTI();
-#endif // INTEL_CUSTOMIZATION
+  auto I = NonOpaqueStructTypes.find(Ty);
+  return I == NonOpaqueStructTypes.end() ? false : *I == Ty;
 }
 
 #if INTEL_CUSTOMIZATION
@@ -3445,14 +3420,12 @@ bool IRMover::IdentifiedStructTypeSet::hasType(StructType *Ty) {
 IRMover::IRMover(Module &M) : Composite(M), TM(M.getContext()) {
   TypeFinder StructTypes;
   StructTypes.run(M, /* OnlyNamed */ false);
-  setDVTI(new DopeVectorTypeInfo(M));
   for (StructType *Ty : StructTypes) {
     if (Ty->isOpaque())
       IdentifiedStructTypes.addOpaque(Ty);
     else
       IdentifiedStructTypes.addNonOpaque(Ty);
   }
-  setDVTI(nullptr);
   // Self-map metadata in the destination module. This is needed when
   // DebugTypeODRUniquing is enabled on the LLVMContext, since metadata in the
   // destination module may be reached from the source module.
@@ -3464,14 +3437,12 @@ IRMover::IRMover(Module &M) : Composite(M), TM(M.getContext()) {
 IRMover::IRMover(Module &M) : Composite(M) {
   TypeFinder StructTypes;
   StructTypes.run(M, /* OnlyNamed */ false);
-  setDVTI(new DopeVectorTypeInfo(M));
   for (StructType *Ty : StructTypes) {
     if (Ty->isOpaque())
       IdentifiedStructTypes.addOpaque(Ty);
     else
       IdentifiedStructTypes.addNonOpaque(Ty);
   }
-  setDVTI(nullptr);
   // Self-map metadatas in the destination module. This is needed when
   // DebugTypeODRUniquing is enabled on the LLVMContext, since metadata in the
   // destination module may be reached from the source module.
@@ -3486,7 +3457,6 @@ Error IRMover::move(std::unique_ptr<Module> Src,
                     ArrayRef<GlobalValue *> ValuesToLink,
                     LazyCallback AddLazyFor, bool IsPerformingImport) {
 #if INTEL_CUSTOMIZATION
-  appendToDVTI(*Src);
 #if INTEL_FEATURE_SW_DTRANS
   IRLinker TheIRLinker(Composite, SharedMDs, IdentifiedStructTypes,
                        std::move(Src), ValuesToLink, std::move(AddLazyFor),

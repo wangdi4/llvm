@@ -1,4 +1,5 @@
 ; RUN: llvm-link -S %s %S/Inputs/dvtype08.ll 2>&1 | FileCheck %s
+; XFAIL: *
 
 ; Check that after merging two bitcode files an identical type gets merged.
 ; Note that a type metadata may appear multiple times in !ifx.types.dv, 
