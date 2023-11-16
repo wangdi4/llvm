@@ -376,6 +376,7 @@ def "QUAL.OMP.OFFLOAD.ENTRY.IDX" : Clause;
 def "QUAL.OMP.OFFLOAD.NDRANGE" : Clause;
 def "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE" : Clause;
 def "QUAL.OMP.OFFLOAD.HAS.TEAMS.REDUCTION" : Clause;
+def "QUAL.OMP.PERFECTLY.NESTED" : Clause;
 
 // =====================================================================
 // * Begin Non-OpenMP Clauses

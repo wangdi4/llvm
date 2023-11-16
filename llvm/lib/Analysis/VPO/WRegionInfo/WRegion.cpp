@@ -1458,6 +1458,8 @@ void WRNGenericLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printStr("LOOPORDER", WRNLoopOrderName[getLoopOrder()], OS, Indent,
                 Verbosity);
   vpo::printInt("COLLAPSE", getCollapse(), OS, Indent, Verbosity);
+  vpo::printBool("PEFECTLY_NESTED", getIsPerfectlyNested(), OS, Indent,
+                 Verbosity);
 #if INTEL_CUSTOMIZATION
   vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent,
                  Verbosity);
