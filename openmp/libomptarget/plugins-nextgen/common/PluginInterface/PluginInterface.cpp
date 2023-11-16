@@ -717,9 +717,6 @@ Error GenericDeviceTy::init(GenericPluginTy &Plugin) {
 }
 
 Error GenericDeviceTy::deinit(GenericPluginTy &Plugin) {
-  for (DeviceImageTy *Image : LoadedImages)
-    if (auto Err = callGlobalDestructors(Plugin, *Image))
-      return std::move(Err);
 
   if (OMPX_DebugKind.get() & uint32_t(DeviceDebugKind::AllocationTracker)) {
     GenericGlobalHandlerTy &GHandler = Plugin.getGlobalHandler();
@@ -841,10 +838,6 @@ GenericDeviceTy::loadBinary(GenericPluginTy &Plugin,
                         /* FIXME: ModuleId */ 0);
   }
 #endif
-
-  // Call any global constructors present on the device.
-  if (auto Err = callGlobalConstructors(Plugin, *Image))
-    return std::move(Err);
 
   // Return the pointer to the table of entries.
   return Image->getOffloadEntryTable();
