@@ -534,6 +534,8 @@ public:
   virtual bool getHasSeqCstClause()       const {WRNERROR("SEQ_CST");         }
   virtual void setIf(EXPR E)                    {WRNERROR(QUAL_OMP_IF);       }
   virtual EXPR getIf()                    const {WRNERROR(QUAL_OMP_IF);       }
+  virtual void setIsPerfectlyNested(bool F)     {WRNERROR("PERECTLY_NESTED"); }
+  virtual bool getIsPerfectlyNested()     const {WRNERROR("PERECTLY_NESTED"); }
   virtual void setIsStrict(bool F)                      { WRNERROR("STRICT"); }
   virtual bool getIsStrict()                      const { WRNERROR("STRICT"); }
   virtual void setIsDoacross(bool F)     { WRNERROR("DOACROSS(SOURCE|SINK)"); }

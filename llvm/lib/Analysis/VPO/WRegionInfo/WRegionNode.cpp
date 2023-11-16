@@ -903,6 +903,9 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
     setHasTeamsReduction();
     break;
+  case QUAL_OMP_PERFECTLY_NESTED:
+    setIsPerfectlyNested(true);
+    break;
 #if INTEL_CUSTOMIZATION
   case QUAL_EXT_DO_CONCURRENT:
     setIsDoConcurrent(true);
