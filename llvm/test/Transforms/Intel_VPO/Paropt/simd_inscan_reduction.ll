@@ -15,19 +15,9 @@
 
 ; CHECK-LABEL: entry:
 
-; CHECK:         [[X_RED:%.*.red]] = alloca float, align
-; CHECK:         [[X:%.*]] = alloca float, align
-
-; CHECK:         [[X_LOAD:%.*]] = load float, ptr [[X]]
-; CHECK-NEXT:    store float [[X_LOAD]], ptr [[X_RED]]
-
-; CHECK-LABEL: call void @llvm.directive.region.exit(token {{%[0-9]+}}) [ "DIR.OMP.END.SIMD"() ]
-
-; CHECK:         [[X_RED_LOAD:%.*]] = load float, ptr [[X_RED]]
-; CHECK-NEXT:    store float [[X_RED_LOAD]], ptr [[X_FAST_RED:%.*]]
-
-; CHECK:         [[X_FAST_RED_LOAD:%.*]] = load float, ptr [[X_FAST_RED]]
-; CHECK-NEXT:    store float [[X_FAST_RED_LOAD]], ptr [[X]]
+; CHECK-NOT:         %.*.red = alloca float, align
+; CHECK:             [[X:%.*]] = alloca float, align
+; CHECK:             "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr [[X]], float 0.000000e+00, i32 1, i64 1)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -7134,6 +7134,10 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
              "genReductionCode: Unexpected reduction variable");
 */
 
+      // For simd inscan reductions, vectorizer will handle privatizations
+      if (isa<WRNVecLoopNode>(W) && RedI->getIsInscan())
+        continue;
+
       // For SPIRV target, if an alloca is created with non-constant size, the
       // insertion point returned from getInsertionPtForAllocas() may appear
       // above the size's defintion point. getInsertPtForAllocas cannot handle
@@ -9408,9 +9412,13 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
 
   // Destructors for reduction
   if (W->canHaveReduction())
-    for (ReductionItem *RI : W->getRed().items())
+    for (ReductionItem *RI : W->getRed().items()) {
+      // SIMD inscan reductions are not handled by Paropt
+      if (isa<WRNVecLoopNode>(W) && RI->getIsInscan())
+        continue;
       genPrivatizationInitOrFini(RI, RI->getDestructor(), FK_Dtor, RI->getNew(),
                                  nullptr, InsertBeforePt, DT);
+    }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDestructorCode\n");
   W->resetBBSet(); // CFG changed; clear BBSet

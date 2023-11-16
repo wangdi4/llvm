@@ -55,6 +55,7 @@ define float @_Z3udsPfS_S_i(ptr %m_scan_vec, ptr %m_out_vec, ptr %m_in, i32 %c_s
 ; CHECK: "DIR.VPO.END.GUARD.MEM.MOTION"
 ; CHECK: "DIR.OMP.END.SIMD"
 
+; PAROPT: %ref.tmp.priv = alloca %struct.Dummy
 ; PAROPT: [[RED:%.*]] = alloca %struct.Dummy
 ; PAROPT: "DIR.OMP.SIMD"{{.*}}"QUAL.OMP.REDUCTION.UDR:INSCAN.TYPED"(ptr [[RED]], %struct.Dummy {{.*}} ]
 ; PAROPT: "DIR.VPO.GUARD.MEM.MOTION"(){{.*}}"QUAL.OMP.LIVEIN"(ptr [[RED]]) ]
@@ -65,6 +66,7 @@ define float @_Z3udsPfS_S_i(ptr %m_scan_vec, ptr %m_out_vec, ptr %m_in, i32 %c_s
 ; PAROPT: "DIR.VPO.END.GUARD.MEM.MOTION"
 ; PAROPT: "DIR.OMP.END.SIMD"
 
+; RENAME: %ref.tmp.priv = alloca %struct.Dummy
 ; RENAME: [[RED:%.*]] = alloca %struct.Dummy
 ; RENAME: "DIR.OMP.SIMD"{{.*}}"QUAL.OMP.REDUCTION.UDR:INSCAN.TYPED"(ptr [[RED]], %struct.Dummy {{.*}})
 ; RENAME: store ptr [[RED]], ptr [[RED_ADDR1:%.*]],
@@ -78,6 +80,7 @@ define float @_Z3udsPfS_S_i(ptr %m_scan_vec, ptr %m_out_vec, ptr %m_in, i32 %c_s
 ; RENAME: "DIR.VPO.END.GUARD.MEM.MOTION"
 ; RENAME: "DIR.OMP.END.SIMD"
 
+; RESTORE: %ref.tmp.priv = alloca %struct.Dummy
 ; RESTORE: [[RED:%.*]] = alloca %struct.Dummy
 ; RESTORE: "DIR.OMP.SIMD"{{.*}}"QUAL.OMP.REDUCTION.UDR:INSCAN.TYPED"(ptr [[RED]], %struct.Dummy {{.*}})
 ; RESTORE: "DIR.VPO.GUARD.MEM.MOTION"(){{.*}}"QUAL.OMP.LIVEIN"(ptr [[RED]]) ]
