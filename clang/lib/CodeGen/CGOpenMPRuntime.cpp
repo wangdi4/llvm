@@ -1870,12 +1870,23 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       // the threadprivate copy of the variable VD
       CodeGenFunction CtorCGF(CGM);
 
+#if INTEL_COLLAB
+      CodeGenModule::InTargetRegionRAII ITR(
+          CGM, CGM.getLangOpts().OpenMPLateOutline);
+#endif // INTEL_COLLAB
+
       const CGFunctionInfo &FI = CGM.getTypes().arrangeNullaryFunction();
       llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FI);
       llvm::Function *Fn = CGM.CreateGlobalInitOrCleanUpFunction(
           FTy, Twine(Buffer, "_ctor"), FI, Loc, false,
           llvm::GlobalValue::WeakODRLinkage);
       Fn->setVisibility(llvm::GlobalValue::ProtectedVisibility);
+
+#if INTEL_COLLAB
+      if (CGM.getLangOpts().OpenMPLateOutline)
+        Fn->setLinkage(llvm::Function::ExternalLinkage);
+#endif // INTEL_COLLAB
+
       if (CGM.getTriple().isAMDGCN())
         Fn->setCallingConv(llvm::CallingConv::AMDGPU_KERNEL);
       auto NL = ApplyDebugLocation::CreateEmpty(CtorCGF);
@@ -1884,8 +1895,17 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       auto AL = ApplyDebugLocation::CreateArtificial(CtorCGF);
       llvm::Constant *AddrInAS0 = Addr;
       if (Addr->getAddressSpace() != 0)
+#if INTEL_COLLAB
+        AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
+            Addr, llvm::PointerType::get(
+                      CGM.getLLVMContext(),
+                      CGM.getLangOpts().OpenMPLateOutline
+                          ? CGM.getTypes().getTargetAddressSpace(VD->getType())
+                          : 0));
+#else // INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
             Addr, llvm::PointerType::get(CGM.getLLVMContext(), 0));
+#endif // INTEL_COLLAB
       CtorCGF.EmitAnyExprToMem(Init,
                                Address(AddrInAS0, Addr->getValueType(),
                                        CGM.getContext().getDeclAlign(VD)),
@@ -1900,6 +1920,9 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
           llvm::GlobalValue::PrivateLinkage,
           llvm::Constant::getNullValue(CGM.Int8Ty), Twine(Buffer, "_ctor"));
       ID = Ctor;
+#if INTEL_COLLAB
+      CGM.addUsedGlobal(cast<llvm::GlobalValue>(Ctor));
+#endif // INTEL_COLLAB
     }
 
     // Register the information for the entry associated with the constructor.
@@ -1918,12 +1941,23 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       // copy of the variable VD
       CodeGenFunction DtorCGF(CGM);
 
+#if INTEL_COLLAB
+      CodeGenModule::InTargetRegionRAII ITR(
+          CGM, CGM.getLangOpts().OpenMPLateOutline);
+#endif // INTEL_COLLAB
+
       const CGFunctionInfo &FI = CGM.getTypes().arrangeNullaryFunction();
       llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FI);
       llvm::Function *Fn = CGM.CreateGlobalInitOrCleanUpFunction(
           FTy, Twine(Buffer, "_dtor"), FI, Loc, false,
           llvm::GlobalValue::WeakODRLinkage);
       Fn->setVisibility(llvm::GlobalValue::ProtectedVisibility);
+
+#if INTEL_COLLAB
+      if (CGM.getLangOpts().OpenMPLateOutline)
+        Fn->setLinkage(llvm::Function::ExternalLinkage);
+#endif // INTEL_COLLAB
+
       if (CGM.getTriple().isAMDGCN())
         Fn->setCallingConv(llvm::CallingConv::AMDGPU_KERNEL);
       auto NL = ApplyDebugLocation::CreateEmpty(DtorCGF);
@@ -1935,7 +1969,15 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       llvm::Constant *AddrInAS0 = Addr;
       if (Addr->getAddressSpace() != 0)
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
+#if INTEL_COLLAB
+            Addr, llvm::PointerType::get(
+                      CGM.getLLVMContext(),
+                      CGM.getLangOpts().OpenMPLateOutline
+                          ? CGM.getTypes().getTargetAddressSpace(VD->getType())
+                          : 0));
+#else  // INTEL_COLLAB
             Addr, llvm::PointerType::get(CGM.getLLVMContext(), 0));
+#endif // INTEL_COLLAB
       DtorCGF.emitDestroy(Address(AddrInAS0, Addr->getValueType(),
                                   CGM.getContext().getDeclAlign(VD)),
                           ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),
@@ -1949,6 +1991,9 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
           llvm::GlobalValue::PrivateLinkage,
           llvm::Constant::getNullValue(CGM.Int8Ty), Twine(Buffer, "_dtor"));
       ID = Dtor;
+#if INTEL_COLLAB
+      CGM.addUsedGlobal(cast<llvm::GlobalValue>(Dtor));
+#endif // INTEL_COLLAB
     }
     // Register the information for the entry associated with the destructor.
     Out.clear();
