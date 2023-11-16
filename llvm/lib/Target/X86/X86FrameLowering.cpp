@@ -171,6 +171,12 @@ static unsigned getPOPOpcode(const X86Subtarget &ST) {
   return ST.is64Bit() ? (ST.hasPPX() ? X86::POPP64r : X86::POP64r)
                       : X86::POP32r;
 }
+static unsigned getPUSH2Opcode(const X86Subtarget &ST) {
+  return ST.hasPPX() ? X86::PUSH2P : X86::PUSH2;
+}
+static unsigned getPOP2Opcode(const X86Subtarget &ST) {
+  return ST.hasPPX() ? X86::POP2P : X86::POP2;
+}
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 static bool isEAXLiveIn(MachineBasicBlock &MBB) {
@@ -1875,10 +1881,10 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
            (MBBI->getOpcode() == X86::PUSH32r ||
             MBBI->getOpcode() == X86::PUSH64r
 #if INTEL_FEATURE_ISA_APX_F
-            || MBBI->getOpcode() == X86::PUSHP64r
-            || MBBI->getOpcode() == X86::PUSH2
+            || MBBI->getOpcode() == X86::PUSHP64r ||
+            MBBI->getOpcode() == X86::PUSH2 || MBBI->getOpcode() == X86::PUSH2P
 #endif // INTEL_FEATURE_ISA_APX_F
-            );
+           );
   };
 #endif // INTEL_CUSTOMIZATION
 
@@ -1900,7 +1906,8 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
       // Compared to push, push2 introduces more stack offset (one more register).
-      if (LastCSPush->getOpcode() == X86::PUSH2)
+      if (LastCSPush->getOpcode() == X86::PUSH2 ||
+          LastCSPush->getOpcode() == X86::PUSH2P)
         StackOffset += stackGrowth;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
@@ -1917,7 +1924,8 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
           .setMIFlag(MachineInstr::FrameSetup);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-      if (LastCSPush->getOpcode() == X86::PUSH2)
+      if (LastCSPush->getOpcode() == X86::PUSH2 ||
+          LastCSPush->getOpcode() == X86::PUSH2P)
         BuildMI(MBB, MBBI, DL, TII.get(X86::SEH_PushReg))
             .addImm(LastCSPush->getOperand(1).getReg())
             .setMIFlag(MachineInstr::FrameSetup);
@@ -2454,11 +2462,12 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
 #if INTEL_CUSTOMIZATION
           (Opc != X86::ADD64ri32 || !PI->getFlag(MachineInstr::FrameDestroy))
 #if INTEL_FEATURE_ISA_APX_F
-          &&  (Opc != X86::POP64r || !PI->getFlag(MachineInstr::FrameDestroy))
-          &&  (Opc != X86::POP2 || !PI->getFlag(MachineInstr::FrameDestroy))
-          &&  (Opc != X86::LEA64r || !PI->getFlag(MachineInstr::FrameDestroy))
+          && (Opc != X86::POP64r || !PI->getFlag(MachineInstr::FrameDestroy)) &&
+          (Opc != X86::POP2 || !PI->getFlag(MachineInstr::FrameDestroy)) &&
+          (Opc != X86::POP2P || !PI->getFlag(MachineInstr::FrameDestroy)) &&
+          (Opc != X86::LEA64r || !PI->getFlag(MachineInstr::FrameDestroy))
 #endif // INTEL_FEATURE_ISA_APX_F
-        )
+      )
 #endif // INTEL_CUSTOMIZATION
         break;
       FirstCSPop = PI;
@@ -2554,7 +2563,7 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
 #if INTEL_CUSTOMIZATION
       if (Opc == X86::POP32r || Opc == X86::POP64r
 #if INTEL_FEATURE_ISA_APX_F
-          || Opc == X86::POPP64r || Opc == X86::POP2
+          || Opc == X86::POPP64r || Opc == X86::POP2 || Opc == X86::POP2P
 #endif // INTEL_FEATURE_ISA_APX_F
       ) {
 #endif // INTEL_CUSTOMIZATION
@@ -2562,7 +2571,7 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
         // Compared to pop, pop2 introduces more stack offset (one more register).
-        if (Opc == X86::POP2)
+        if (Opc == X86::POP2 || Opc == X86::POP2P)
           Offset += SlotSize;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
@@ -3028,7 +3037,7 @@ bool X86FrameLowering::spillCalleeSavedRegisters(
         MIB.addReg(Reg, getKillRegState(CanKill));
         IncompletePush2 = false;
       } else {
-        MIB = BuildMI(MBB, MI, DL, TII.get(X86::PUSH2))
+        MIB = BuildMI(MBB, MI, DL, TII.get(getPUSH2Opcode(STI)))
                   .addReg(Reg, getKillRegState(CanKill))
                   .setMIFlag(MachineInstr::FrameSetup);
         IncompletePush2 = true;
@@ -3206,7 +3215,7 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(
         MIB.addReg(Reg, RegState::Define);
         IncompletePop2 = false;
       } else {
-        MIB = BuildMI(MBB, MI, DL, TII.get(X86::POP2), Reg)
+        MIB = BuildMI(MBB, MI, DL, TII.get(getPOP2Opcode(STI)), Reg)
                   .setMIFlag(MachineInstr::FrameDestroy);
         IncompletePop2 = true;
       }
