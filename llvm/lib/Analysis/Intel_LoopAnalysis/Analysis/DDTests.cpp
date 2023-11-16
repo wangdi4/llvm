@@ -5516,13 +5516,26 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
         //  For fusion case, we pass in the Loop with the higher TC to handle
         //  checking for peeled iterations
-        if (SrcLevels == DstLevels && SrcUBCE && DstUBCE &&
-            (CanonExprUtils::getConstDistance(SrcUBCE, DstUBCE, &UBDist))) {
+        if (SrcLevels == DstLevels && SrcUBCE && DstUBCE) {
+          if (CanonExprUtils::getConstDistance(SrcUBCE, DstUBCE, &UBDist)) {
 
-          if (UBDist > 0)
-            MIVDstLoop = SrcLoop;
-          else if (UBDist < 0)
-            MIVSrcLoop = DstLoop;
+            if (UBDist > 0)
+              MIVDstLoop = SrcLoop;
+            else if (UBDist < 0)
+              MIVSrcLoop = DstLoop;
+          } else {
+            // Fusion candidate loops should have UBs diff by a constant
+            // e.g. N & N+2. We need to bail out for other cases like this:
+            // do i=1,n
+            //    do j=1,2*m
+            //    enddo
+            // enddo
+            // do i=1,n
+            //    do j=1,m
+            //    enddo
+            // enddo
+            return std::make_unique<Dependences>(Result);
+          }
         }
 
         if (testMIV(Pair[SI].Src, Pair[SI].Dst, InputDV, Pair[SI].Loops, Result,

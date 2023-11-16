@@ -1,7 +1,7 @@
 ;    for (j=0; j <  n; j++) {
 ;        B[2*j] +=  1;
 ;    }
-;    for (j=0; j <  2*n; j++) {
+;    for (j=0; j <  n; j++) {
 ;       B[2*j+1] +=  1;
 ;    }
 ;
@@ -33,8 +33,7 @@ for.cond1.preheader:                              ; preds = %for.body
   br i1 %cmp321, label %for.body4.preheader, label %for.end12
 
 for.body4.preheader:                              ; preds = %for.cond1.preheader
-  %mul2 = shl nsw i32 %n, 1
-  %1 = sext i32 %mul2 to i64
+  %1 = sext i32 %n to i64
   br label %for.body4
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
