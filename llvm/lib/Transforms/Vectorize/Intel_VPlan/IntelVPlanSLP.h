@@ -241,6 +241,12 @@ class VPlanSLP {
                          Compare,
                      ElemVectorImplTy *OutSeed = nullptr);
 
+  /// Scans \p Values vector for 'add' instructions with 'mul' by (-1) in one of
+  /// the operands. If found, change that element opcode to Instruction::Sub
+  /// indicating that this node represents 'sub' instruction rather than 'add'.
+  /// Node operands are updated as well.
+  void foldAddMulToSub(ElemMutableArrayRef Values) const;
+
 public:
   VPlanSLP(VPlanTTICostModel *CM, const VPBasicBlock *BB)
     : CM(CM), BB(BB)

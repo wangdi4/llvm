@@ -1,8 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=VPlanDriver -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 
 ; FIXME: Updated checks once HIR support for private array type is added
-; COM: RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -debug-only=LoopVectorizationPlannerHIR -print-after=hir-vplan-vec -disable-output < %s 2>&1
+; COM: RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=VPlanDriver -debug-only=LoopVectorizationPlannerHIR -print-after=hir-vplan-vec -disable-output < %s 2>&1
 
 ; CHECK:   ptr [[ALLPRIV:%.*]] = allocate-priv [12 x %struct.int_int], OrigAlign = 8
 ; CHECK:   private-nonpod-array-dtor ptr [[ALLPRIV]]

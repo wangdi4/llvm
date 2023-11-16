@@ -322,39 +322,3 @@ PreservedAnalyses HIRPropagateCastedIVPass::runImpl(
           .run();
   return PreservedAnalyses::all();
 }
-
-class HIRPropagateCastedIVLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRPropagateCastedIVLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRPropagateCastedIVLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRPropagateCastedIV(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                                nullptr)
-        .run();
-  }
-};
-
-char HIRPropagateCastedIVLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRPropagateCastedIVLegacyPass, OPT_SWITCH, OPT_DESC,
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRPropagateCastedIVLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIRPropagateCastedIVPass() {
-  return new HIRPropagateCastedIVLegacyPass();
-}

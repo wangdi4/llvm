@@ -1,4 +1,4 @@
-; RUN: opt -disable-output -passes="vplan-vec" -debug-only=VPlanLegality -debug-only=vplan-vec -vplan-force-uds-reduction-vectorization=false < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="vplan-vec" -debug-only=VPlanLegality -debug-only=VPlanDriver -vplan-force-uds-reduction-vectorization=false < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ;; Original source for reference:

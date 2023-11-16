@@ -264,8 +264,7 @@ namespace {
       // HIR passes
       (void) llvm::createHIRRegionIdentificationWrapperPass();
       (void) llvm::createHIRSCCFormationWrapperPass();
-      (void) llvm::createHIRFrameworkWrapperPass();
-      (void) llvm::createHIROptReportEmitterWrapperPass();
+      (void)llvm::createHIRFrameworkWrapperPass();
       (void) llvm::createHIRDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
       (void) llvm::createHIRLoopResourceWrapperPass();
@@ -275,21 +274,12 @@ namespace {
       (void) llvm::createHIRSparseArrayReductionAnalysisPass();
       (void) llvm::createHIRSSADeconstructionLegacyPass();
       (void)llvm::createHIRTempCleanupPass();
-      (void) llvm::createHIROptPredicatePass();
-      (void) llvm::createHIROptVarPredicatePass();
-      (void) llvm::createHIRUnrollAndJamPass();
-      (void) llvm::createHIRParDirInsertPass();
+      (void)llvm::createHIRUnrollAndJamPass();
       (void)llvm::createHIRVecDirInsertPass();
-      (void) llvm::createHIRPMSymbolicTripCountCompleteUnrollLegacyPass();
-      (void)llvm::createHIRScalarReplArrayPass();
-      (void)llvm::createHIRPropagateCastedIVPass();
-      (void) llvm::createHIRPrefetchingPass();
       (void) llvm::createHIRSinkingForPerfectLoopnestPass();
       (void)llvm::createHIRUndoSinkingForPerfectLoopnestPass();
-      (void) llvm::createHIRNontemporalMarkingPass();
       (void) llvm::createHIRStoreResultIntoTempArrayPass();
-      (void) llvm::createHIRSumWindowReusePass();
-      (void) llvm::createHIRNonZeroSinkingForPerfectLoopnestPass();
+      (void)llvm::createHIRSumWindowReusePass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

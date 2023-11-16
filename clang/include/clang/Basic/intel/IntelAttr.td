@@ -15,6 +15,12 @@ class SourceLocArgument<string name, bit opt = 0> : Argument<name, opt>;
 class CheckedExprArgument<string name> : Argument<name, 1>;
 class VariadicIntArgument<string name> : Argument<name, 1>;
 
+def OMPDirectiveFlag : StmtAttr {
+  let Spellings = []; // No spellings, implicit only.
+  let Args = [StringArgument<"Value">];
+  let Documentation = [InternalOnly];
+}
+
 def AvoidFalseShare : InheritableAttr {
   let Spellings = [Declspec<"avoid_false_share">];
   let Args = [StringArgument<"ExceptionId">];

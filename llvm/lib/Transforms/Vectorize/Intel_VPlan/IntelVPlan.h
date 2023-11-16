@@ -5634,6 +5634,10 @@ public:
   void setPrintingEnabled(bool V) { PrintingEnabled = V;}
   bool isPrintingEnabled() const { return PrintingEnabled;}
 
+  /// True if the VPlan represents a vector function variant
+  void setIsVecFuncVariant(bool V) { IsVecFuncVariant = V;}
+  bool isVecFuncVariant() const { return IsVecFuncVariant;}
+
 private:
   void addLiveInValue(VPLiveInValue *V) {
     assert(V->getMergeId() == LiveInValues.size() &&
@@ -5692,6 +5696,9 @@ private:
 
   /// Set to false when printing is not enabled, e.g. by -filter-print-funcs.
   bool PrintingEnabled = true;
+
+  /// True if the VPlan represents a vector function variant
+  bool IsVecFuncVariant = false;
 
   /// Nesting level of outermost loop being vectorized. VPlan transformations
   /// may generated additional loops and we cannot exceed the maximum

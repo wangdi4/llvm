@@ -20,7 +20,7 @@
 ; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -vplan-entities-dump -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,SOA
 ; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-enable-soa=false -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,NONSOA
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=VPlanLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRVEC
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=VPlanLegality -debug-only=VPlanDriver -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRVEC
 
 ; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
 

@@ -120,7 +120,7 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
     // for a more generic use case for newly entered values that we don't
     // explicity check above.
     if (llvm::X86::parseArchX86(Arch.lower(), Only64Bit))
-      CPU = StringRef(Arch.lower());
+      return Arch.lower();
   }
   if (CPU.empty()) {
     // No match found.  Instead of erroring out with a bad language type, we

@@ -13,9 +13,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; However, this may not be critical so leaving it for now.
 ; See FIXME below
 
-define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef readonly %A, <32 x ptr> noalias nocapture noundef readonly %B, <32 x ptr> noalias nocapture noundef writeonly %C, <32 x i32> noundef %N) local_unnamed_addr #1 {
+define dso_local void @foo(<32 x ptr> noalias nocapture noundef readonly %A, <32 x ptr> noalias nocapture noundef readonly %B, <32 x ptr> noalias nocapture noundef writeonly %C, <32 x i32> noundef %N) local_unnamed_addr #1 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
-; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}
+; CHECK-NEXT:  VPlan IR for: foo:simd.loop.header.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:  {freq: 0}
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -74,7 +74,7 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef rea
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after loop massaging:
-; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}
+; CHECK-NEXT:  VPlan IR for: foo:simd.loop.header.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0]]: # preds:  {freq: 0}
 ; CHECK-NEXT:     br [[BB1]]
 ; CHECK-EMPTY:
@@ -149,7 +149,7 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef rea
 ; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP_INDEX_IND_FINAL]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after LoopCFU transformation:
-; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}
+; CHECK-NEXT:  VPlan IR for: foo:simd.loop.header.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0]]: # preds:  {freq: 0}
 ; CHECK-NEXT:     [DA: Uni] br [[BB1]]
 ; CHECK-EMPTY:
@@ -234,7 +234,7 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef rea
 ; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP_INDEX_IND_FINAL]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after predicator:
-; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}
+; CHECK-NEXT:  VPlan IR for: foo:simd.loop.header.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0]]: # preds:  {freq: 0}
 ; CHECK-NEXT:     [DA: Uni] br [[BB1]]
 ; CHECK-EMPTY:
@@ -336,7 +336,7 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef rea
 ; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP_INDEX_IND_FINAL]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after LoopCFU transformation:
-; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}.cloned.masked
+; CHECK-NEXT:  VPlan IR for: foo:simd.loop.header.#{{[0-9]+}}.cloned.masked
 ; CHECK-NEXT:    [[BB15:BB[0-9]+]]: # preds:  {freq: 0}
 ; CHECK-NEXT:     [DA: Uni] br [[BB16:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -430,7 +430,7 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x ptr> noalias nocapture noundef rea
 ; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP22]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after predicator:
-; CHECK-NEXT:  VPlan IR for: _ZGVbN32vvvv_foo:simd.loop.header.#{{[0-9]+}}.cloned.masked
+; CHECK-NEXT:  VPlan IR for: foo:simd.loop.header.#{{[0-9]+}}.cloned.masked
 ; CHECK-NEXT:    [[BB15]]: # preds:  {freq: 0}
 ; CHECK-NEXT:     [DA: Uni] br [[BB16]]
 ; CHECK-EMPTY:

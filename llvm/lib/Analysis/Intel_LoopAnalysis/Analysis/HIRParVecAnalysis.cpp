@@ -759,26 +759,6 @@ public:
 
     GotoSeen = true;
 
-    bool HasUniqueExit = false;
-    if (Goto->isExternal()) {
-      // When goto is external, check that the loop is last child of the region
-      // and target of goto is the region's successor block.
-      auto *LoopParent = Loop->getParentRegion();
-      HasUniqueExit = (LoopParent->getLastChild() == Loop) &&
-                      (Goto->getTargetBBlock() == LoopParent->getSuccBBlock());
-    } else {
-      // When goto is not external check that target label immediately succeeds
-      // the loop.
-      HasUniqueExit = Goto->getTargetLabel() == Loop->getNextNode();
-    }
-    if (!HasUniqueExit) {
-      LLVM_DEBUG(
-          dbgs()
-          << "EarlyExitVecSafety: Non-unique exit blocks are not supported.\n");
-      IsSafe = false;
-      return;
-    }
-
     auto *EarlyExitCond = dyn_cast<HLIf>(Goto->getParent());
     if (!EarlyExitCond) {
       LLVM_DEBUG(

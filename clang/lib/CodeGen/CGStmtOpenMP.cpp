@@ -8242,6 +8242,25 @@ CodeGenFunction::GetLoopForHoisting(const OMPExecutableDirective &S,
       LoopDirToCheck = dyn_cast<OMPLoopDirective>(CS);
     }
   }
+
+  auto FromMetadirective = [](const OMPLoopDirective *D) {
+    if (!D)
+      return false;
+    if (llvm::any_of(D->getClausesOfKind<OMPXAttributeClause>(),
+                     [](const OMPXAttributeClause *C) {
+                       for (auto *A : C->getAttrs()) {
+                         if (auto *Attr = dyn_cast<OMPDirectiveFlagAttr>(A))
+                           if (Attr->getValue() == "FromMetadirective")
+                             return true;
+                       }
+                       return false;
+                     })) {
+      return true;
+    }
+    return false;
+  };
+  if (FromMetadirective(LoopDirToCheck))
+    return nullptr;
   if (LoopDirToCheck) {
     LoopBoundsExprChecker Checker(*this, LoopDirToCheck);
     if (Checker.okayToHoistLoop(*this, S))

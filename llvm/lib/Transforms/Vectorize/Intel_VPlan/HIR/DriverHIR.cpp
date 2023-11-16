@@ -35,7 +35,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanDriverPass.h"
 
-#define DEBUG_TYPE "vplan-vec"
+#define DEBUG_TYPE "VPlanDriver"
 
 using namespace llvm;
 using namespace llvm::vpo;

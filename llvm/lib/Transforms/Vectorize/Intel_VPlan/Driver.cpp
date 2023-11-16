@@ -31,7 +31,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanDriverPass.h"
 
-#define DEBUG_TYPE "vplan-vec"
+#define DEBUG_TYPE "VPlanDriver"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -914,6 +914,10 @@ void DriverImpl::generateMaskedModeVPlans(LoopVectorizationPlanner *LVP,
       continue;
     // Masked mode is not supported for early-exit loops.
     if (Plan->isEarlyExitLoop())
+      continue;
+
+    // Masked mode is not needed in vector functions.
+    if (Plan->isVecFuncVariant())
       continue;
 
     auto It = OrigClonedVPlans.find(Plan.get());

@@ -1515,41 +1515,6 @@ PreservedAnalyses HIROptVarPredicatePass::runImpl(
   return PreservedAnalyses::all();
 }
 
-class HIROptVarPredicateLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIROptVarPredicateLegacyPass() : HIRTransformPass(ID) {
-    initializeHIROptVarPredicateLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIROptVarPredicate(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
-        .run();
-  }
-};
-
-char HIROptVarPredicateLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIROptVarPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIROptVarPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIROptVarPredicatePass() {
-  return new HIROptVarPredicateLegacyPass();
-}
-
 std::unique_ptr<HIROptVarPredicateInterface>
 HIROptVarPredicateInterface::create(HIRFramework &HIRF) {
   return std::make_unique<HIROptVarPredicate>(HIRF);

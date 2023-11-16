@@ -5,7 +5,7 @@
 ; RUN: opt %s -S -passes="mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-vec" \
 ; RUN: -vplan-force-vf=4 -disable-vplan-codegen \
 ; RUN: -vplan-entities-dump -disable-output \
-; RUN: -debug-only=vplan-vec 2>&1 | FileCheck %s
+; RUN: -debug-only=VPlanDriver 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 
