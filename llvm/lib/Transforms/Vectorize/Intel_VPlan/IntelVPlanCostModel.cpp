@@ -1510,22 +1510,31 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
         Cost += getIntMinMaxInstCost(VPRedFinal->getBinOpcode(), IDVecTy);
       else if (CmpReduction)
         Cost += TTI.getCmpSelInstrCost(
-          Instruction::Select, VPRedFinal->getOperand(1)->getType(),
-          IntegerType::getInt1Ty(*Plan->getLLVMContext()) /* i1 */,
-          CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
+            Instruction::Select, VPRedFinal->getOperand(1)->getType(),
+            IntegerType::getInt1Ty(*Plan->getLLVMContext()) /* i1 */,
+            CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
       else
         Cost += TTI.getArithmeticInstrCost(
-          VPRedFinal->getBinOpcode(), VPInst->getType(),
-          TargetTransformInfo::TCK_RecipThroughput);
+            VPRedFinal->getBinOpcode(), VPInst->getType(),
+            TargetTransformInfo::TCK_RecipThroughput);
     }
 #if INTEL_FEATURE_SW_ADVANCED
     // For partial sum candidate reductions, we add an additional
     // cost for the UF-1 reduction operations required to combine
     // the parallel accumulators before this reduction-final.
     if (UF > 1 && getOrCreatePartialSumAnalysis().isCandidate(VPRedFinal)) {
-      Cost += (UF - 1) * TTI.getArithmeticInstrCost(
-                             VPRedFinal->getBinOpcode(), IDVecTy,
-                             TargetTransformInfo::TCK_RecipThroughput);
+      VPInstructionCost OpCost = 0;
+      if (isMinMaxOpcode(VPRedFinal->getBinOpcode())) {
+        Intrinsic::ID Intrin =
+            getIntrinsicForMinMaxOpcode(VPRedFinal->getBinOpcode());
+        OpCost = TTI.getIntrinsicInstrCost(
+            IntrinsicCostAttributes(Intrin, IDVecTy, {IDVecTy, IDVecTy}),
+            TTI::TCK_RecipThroughput);
+      } else
+        OpCost = TTI.getArithmeticInstrCost(
+            VPRedFinal->getBinOpcode(), IDVecTy,
+            TargetTransformInfo::TCK_RecipThroughput);
+      Cost += (UF - 1) * OpCost;
     }
 #endif // INTEL_FEATURE_SW_ADVANCED
     return Cost;
