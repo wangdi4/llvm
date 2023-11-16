@@ -12,6 +12,7 @@
 #include "IntelVPlanLoopUnroller.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanClone.h"
+#include "IntelVPlanUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -309,9 +310,15 @@ void VPlanLoopUnroller::run() {
       unsigned CurSize = 0, Index;
 
       for (Index = 0; Index < NumAccums - 1; Index += 2) {
-        VPInstruction *VPI =
-            VPBldr.createNaryOp(PS.Opcode, PS.ReductionType,
-                                {PS.Accum[Index], PS.Accum[Index + 1]});
+        VPInstruction *VPI;
+        if (isMinMaxOpcode(PS.Opcode)) {
+          Function *Fn = Intrinsic::getDeclaration(
+              Header->getParent()->getModule(),
+              getIntrinsicForMinMaxOpcode(PS.Opcode), {PS.ReductionType});
+          VPI = VPBldr.createCall(Fn, {PS.Accum[Index], PS.Accum[Index + 1]});
+        } else
+          VPI = VPBldr.createNaryOp(PS.Opcode, PS.ReductionType,
+                                    {PS.Accum[Index], PS.Accum[Index + 1]});
         if (VPI->hasFastMathFlags())
           VPI->setFastMathFlags(PS.FMF);
         PS.Accum[CurSize++] = VPI;
@@ -367,6 +374,7 @@ VPlanLoopUnroller::getPartialSumReducFinal(const VPLoop &VPL,
   // flags permit reassociation.
   case Instruction::FAdd:
   case Instruction::FSub:
+  case Instruction::FMul:
     if (LoopVal->hasFastMathFlags() &&
         LoopVal->getFastMathFlags().allowReassoc())
       return RedFinal;
@@ -374,10 +382,26 @@ VPlanLoopUnroller::getPartialSumReducFinal(const VPLoop &VPL,
   // Integer reduction operators are only limited to single-instruction cases.
   case Instruction::Add:
   case Instruction::Sub:
+  case Instruction::Mul:
   case Instruction::Or:
   case Instruction::Xor:
   case Instruction::And:
     return RedFinal;
+  // Min/max reductions are only supported when not part of a
+  // min/max + index idiom.
+  // TODO: remove this restriction by adding support for
+  // parallelizing the min/max + index idiom in the unroller.
+  case VPInstruction::SMax:
+  case VPInstruction::UMax:
+  case VPInstruction::FMax:
+  case VPInstruction::SMin:
+  case VPInstruction::UMin:
+  case VPInstruction::FMin:
+    if (all_of(RedFinal->users(),
+               [](const VPUser *U) { return !isa<VPInstruction>(U); }) &&
+        !RedFinal->isMinMaxIndex())
+      return RedFinal;
+    break;
   default:
     break;
   }
