@@ -263,3 +263,4 @@ test_atomic_update(AccType &acc, float *ptrf, int byte_offset32,
         atomic_update<atomic_op::inc, int, VL>(ptr, offsets, pred);
   }
 }
+
