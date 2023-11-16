@@ -219,7 +219,7 @@ void test3(struct annotated *p, size_t index) {
 // SANITIZE-WITH-ATTR-NEXT:    [[TMP4:%.*]] = zext i32 [[INDEX]] to i64, !nosanitize !6
 // SANITIZE-WITH-ATTR-NEXT:    tail call void @__ubsan_handle_out_of_bounds_abort(ptr nonnull @[[GLOB6:[0-9]+]], i64 [[TMP4]]) #[[ATTR4]], !nosanitize !6
 // SANITIZE-WITH-ATTR-NEXT:    unreachable, !nosanitize !6
-// SANITIZE-WITH-ATTR:       cont13:
+// INTEL SANITIZE-WITH-ATTR:       cont28:
 // SANITIZE-WITH-ATTR-NEXT:    [[TMP5:%.*]] = shl i32 [[TMP0]], 2
 // SANITIZE-WITH-ATTR-NEXT:    [[TMP6:%.*]] = add i32 [[TMP5]], -12
 // SANITIZE-WITH-ATTR-NEXT:    [[NARROW:%.*]] = tail call i32 @llvm.smax.i32(i32 [[TMP6]], i32 -1)
@@ -236,7 +236,7 @@ void test3(struct annotated *p, size_t index) {
 // SANITIZE-WITH-ATTR-NEXT:    [[TMP11:%.*]] = zext i32 [[ADD]] to i64, !nosanitize !6
 // SANITIZE-WITH-ATTR-NEXT:    tail call void @__ubsan_handle_out_of_bounds_abort(ptr nonnull @[[GLOB7:[0-9]+]], i64 [[TMP11]]) #[[ATTR4]], !nosanitize !6
 // SANITIZE-WITH-ATTR-NEXT:    unreachable, !nosanitize !6
-// SANITIZE-WITH-ATTR:       cont34:
+// INTEL SANITIZE-WITH-ATTR:       cont50:
 // SANITIZE-WITH-ATTR-NEXT:    [[TMP12:%.*]] = shl i32 [[TMP7]], 2
 // SANITIZE-WITH-ATTR-NEXT:    [[TMP13:%.*]] = add i32 [[TMP12]], -16
 // SANITIZE-WITH-ATTR-NEXT:    [[NARROW69:%.*]] = tail call i32 @llvm.smax.i32(i32 [[TMP13]], i32 -1)
