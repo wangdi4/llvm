@@ -145,14 +145,16 @@ static bool hasAtomicBuiltinCall(CallGraph &CG, const RuntimeService &RTS,
           // clang/lib/Headers/opencl-c-base.h
           static const uint64_t memory_scope_work_item = 0;
           static const uint64_t memory_scope_work_group = 1;
+          static const uint64_t memory_scope_device = 2;
           static const uint64_t memory_scope_sub_group = 4;
           if (MemoryScopeAttr != memory_scope_work_item &&
               MemoryScopeAttr != memory_scope_work_group &&
-              MemoryScopeAttr != memory_scope_sub_group) {
+              MemoryScopeAttr != memory_scope_sub_group &&
+              MemoryScopeAttr != memory_scope_device) {
             F->getContext().diagnose(SYCLKernelAnalysisDiagInfo(
                 *F,
-                "memory_scope::system and memory_scope::device "
-                "are not supported on FPGA emulator platform!",
+                "memory_scope::system are not supported on FPGA emulator "
+                "platform!",
                 SKDK_Error_FPGA_UnsupportedMemoryScope, DS_Note));
           }
         }

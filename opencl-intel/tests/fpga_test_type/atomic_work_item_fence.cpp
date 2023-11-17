@@ -8,7 +8,7 @@
 //
 // ===--------------------------------------------------------------------=== //
 //
-// Internal tests for unsupported memory scope on FPGA-emu
+// Internal tests for memory scope on FPGA-emu
 //
 // ===--------------------------------------------------------------------=== //
 #include "CL/cl.h"
@@ -20,16 +20,8 @@
 
 class TestAtomicWorkItemFence : public OCLFPGASimpleFixture {};
 
-static const std::vector<std::string> program_sources = {
-    "__kernel void saxpy_kernel(__global float *A,                                              \n\
-                                __global float *B,                                              \n\
-                                __global float *C){                                             \n\
-        int index = get_global_id(0);                                                           \n\
-        C[index] = A[index] + B[index];                                                         \n\
-        atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_release                       \n\
-        , memory_scope_device);                                                                 \n\
-    }                                                                                           \n\
-    ",
+// kernel which use unsupported memory scope on FPGA-emu
+static const std::vector<std::string> program_sources01 = {
     "__kernel void saxpy_kernel(__global float *A,                                              \n\
                                 __global float *B,                                              \n\
                                 __global float *C){                                             \n\
@@ -40,14 +32,45 @@ static const std::vector<std::string> program_sources = {
     }                                                                                           \n\
     "};
 
-static const char *error_msg = "memory_scope::system and memory_scope::device "
-                               "are not supported on FPGA emulator platform!";
+// kernels which use supported memory scope on FPGA-emu
+// memory_scope_sub_group is missing before version 3.0.
+static const std::vector<std::string> program_sources02 = {
+    "__kernel void saxpy_kernel(__global float *A,                                              \n\
+                                __global float *B,                                              \n\
+                                __global float *C){                                             \n\
+        int index = get_global_id(0);                                                           \n\
+        C[index] = A[index] + B[index];                                                         \n\
+        atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_release                       \n\
+        , memory_scope_work_item);                                                              \n\
+    }                                                                                           \n\
+    ",
+    "__kernel void saxpy_kernel(__global float *A,                                              \n\
+                                __global float *B,                                              \n\
+                                __global float *C){                                             \n\
+        int index = get_global_id(0);                                                           \n\
+        C[index] = A[index] + B[index];                                                         \n\
+        atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_release                       \n\
+        , memory_scope_work_group);                                                             \n\
+    }                                                                                           \n\
+    ",
+    "__kernel void saxpy_kernel(__global float *A,                                              \n\
+                                __global float *B,                                              \n\
+                                __global float *C){                                             \n\
+        int index = get_global_id(0);                                                           \n\
+        C[index] = A[index] + B[index];                                                         \n\
+        atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_release                       \n\
+        , memory_scope_device);                                                                 \n\
+    }                                                                                           \n\
+    "};
+
+static const char *error_msg =
+    "memory_scope::system are not supported on FPGA emulator platform!";
 
 TEST_F(TestAtomicWorkItemFence, UnsupportedFPGAMemoryScope) {
-  for (size_t idx = 0; idx < program_sources.size(); ++idx) {
+  for (size_t idx = 0; idx < program_sources01.size(); ++idx) {
     cl_int error = CL_SUCCESS;
 
-    const char *sources_str = program_sources[idx].c_str();
+    const char *sources_str = program_sources01[idx].c_str();
     cl_program program_with_source = clCreateProgramWithSource(
         getContext(), 1, &sources_str, nullptr, &error);
     ASSERT_EQ(CL_SUCCESS, error)
@@ -63,6 +86,29 @@ TEST_F(TestAtomicWorkItemFence, UnsupportedFPGAMemoryScope) {
     GetBuildLog(getDevice(), program_with_source, build_log);
 
     ASSERT_NE(std::string::npos, build_log.find(error_msg));
+
+    // Release the program
+    clReleaseProgram(program_with_source);
+  }
+}
+
+TEST_F(TestAtomicWorkItemFence, SupportedFPGAMemoryScope) {
+  for (size_t idx = 0; idx < program_sources02.size(); ++idx) {
+    cl_int error = CL_SUCCESS;
+
+    const char *sources_str = program_sources02[idx].c_str();
+    cl_program program_with_source = clCreateProgramWithSource(
+        getContext(), 1, &sources_str, nullptr, &error);
+    ASSERT_EQ(CL_SUCCESS, error)
+        << "clCreateProgramWithSource failed with error " << ErrToStr(error);
+
+    // Build the program which use supported memory scope on FPGA-emu
+    error = clBuildProgram(program_with_source, 0, nullptr, "-cl-std=CL2.0",
+                           nullptr, nullptr);
+
+    // Expect compilation to be successful
+    ASSERT_EQ(CL_SUCCESS, error)
+        << "clBuildProgram failed with error " << ErrToStr(error);
 
     // Release the program
     clReleaseProgram(program_with_source);
