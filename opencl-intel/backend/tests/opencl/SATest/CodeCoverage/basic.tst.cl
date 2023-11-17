@@ -1,1 +1,3 @@
-__kernel void test_kernel(__global int *ptr) { *ptr = 10; }
+__kernel void test_kernel(__global int *ptr) {
+  *ptr = 10;
+}
