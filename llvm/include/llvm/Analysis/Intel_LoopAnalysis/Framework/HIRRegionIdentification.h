@@ -224,6 +224,13 @@ public:
                           const Loop *Lp = nullptr,
                           bool IsLastIndexedType = false);
 
+  /// Returns true if \p GEPOrSubs represents one-past-end array access.
+  static bool isOnePastEndConstGEP(const GEPOperator *GEPOrSubsOp);
+
+  /// Returns true if \p GEPOpSubs contains out-of-range access.
+  static bool containsUnsupportedIdx(const GEPOrSubsOperator *GEPOrSubsOp,
+                                     const Loop *Lp);
+
   /// Returns true if \p GEPOp contains a type not supported by HIR.
   static bool containsUnsupportedTy(const GEPOrSubsOperator *GEPOp,
                                     const Loop *Lp = nullptr);

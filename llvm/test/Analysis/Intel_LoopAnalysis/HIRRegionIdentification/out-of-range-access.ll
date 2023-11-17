@@ -1,6 +1,8 @@
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output < %s 2>&1 | FileCheck %s
+; REQUIRED: asserts
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir-region-identification>" -disable-output -debug-only=hir-region-identification < %s 2>&1 | FileCheck %s
 
-; Test checks that tryDelinearize() function can correctly handle MemRef @c[2][0] when it represents out-of-bound global array access.
+; Test checks that region is not created because @c[2][0] goes out if bounds.
+; Particulary check that we bail out during HIRRegionRecognition, not HIRParser.
 
 ; <0>          BEGIN REGION { }
 ; <25>               + DO i1 = 0, -1 * undef + 3, 1   <DO_LOOP>
@@ -13,7 +15,8 @@
 ; <25>               + END LOOP
 ; <0>          END REGION
 
-; CHECK: (@c)[2][0] --> (@c)[2][0] OUTPUT (* *) (? ?)
+; CHECK: LOOPOPT_OPTREPORT: Loop %for.body6: Constant array access goes out of range. 
+; CHECK-NOT: |   |      (getelementptr inbounds ([1 x i32], ptr @c, i64 2, i64 0))[0] = undef;
 
 target triple = "x86_64-unknown-linux-gnu"
 
