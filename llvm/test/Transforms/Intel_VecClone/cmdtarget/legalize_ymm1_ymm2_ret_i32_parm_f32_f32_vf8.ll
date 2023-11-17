@@ -9,7 +9,7 @@
 ; YMM2: legalization not required since all the logical arguments fit nicely physical registers.
 
 define dso_local i32 @func(float noundef nofpclass(nan inf) %x, float noundef nofpclass(nan inf) %y) local_unnamed_addr #0 {
-; CHECK:  define dso_local x86_regcallcc { <4 x i32>, <4 x i32> } @_ZGVyM8vv_func(<8 x float> noundef nofpclass(nan inf) [[X0:%.*]], <8 x float> noundef nofpclass(nan inf) [[Y0:%.*]], <4 x i32> [[MASK_00:%.*]], <4 x i32> [[MASK_10:%.*]]) local_unnamed_addr #1 {
+; CHECK:  define dso_local x86_regcallcc { <4 x i32>, <4 x i32> } @_ZGVyM8vv_func(<8 x float> noundef nofpclass(nan inf) [[X0:%.*]], <8 x float> noundef nofpclass(nan inf) [[Y0:%.*]], <4 x i32> [[MASK_00:%.*]], <4 x i32> [[MASK_10:%.*]]) local_unnamed_addr #{{.*}} {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VEC_X0:%.*]] = alloca <8 x float>, align 32
 ; CHECK-NEXT:    [[VEC_Y0:%.*]] = alloca <8 x float>, align 32
@@ -33,7 +33,7 @@ define dso_local i32 @func(float noundef nofpclass(nan inf) %x, float noundef no
 ; CHECK-NEXT:    ret { <4 x i32>, <4 x i32> } [[VEC_RETVAL_INS_10]]
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define dso_local x86_regcallcc <8 x i32> @_ZGVYM8vv_func(<8 x float> noundef nofpclass(nan inf) [[X:%.*]], <8 x float> noundef nofpclass(nan inf) [[Y:%.*]], <8 x i32> [[MASK:%.*]]) local_unnamed_addr #1 {
+; CHECK:  define dso_local x86_regcallcc <8 x i32> @_ZGVYM8vv_func(<8 x float> noundef nofpclass(nan inf) [[X:%.*]], <8 x float> noundef nofpclass(nan inf) [[Y:%.*]], <8 x i32> [[MASK:%.*]]) local_unnamed_addr #{{.*}} {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VEC_X:%.*]] = alloca <8 x float>, align 32
 ; CHECK-NEXT:    [[VEC_Y:%.*]] = alloca <8 x float>, align 32
