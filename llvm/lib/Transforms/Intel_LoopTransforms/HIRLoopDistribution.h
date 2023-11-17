@@ -277,6 +277,13 @@ private:
   // Find the instruction that defines \p RVal.
   bool findDepInst(const RegDDRef *RVal, const HLInst *&DepInst);
 
+  // Sort Candidates by TS num if we successfully removed redundant
+  // dependencies.
+  void sortCandidatesByTopSortNum();
+
+  // Remove redundant dependencies that do not require scalar expansion.
+  void removeDependencies();
+
   // Check if \p TmpDef is safe to recompute in loop with \p ChunkIdx rather
   // than use a temp. \p AllowLoads is used to disable recomputing loads
   // in presence of unsafe calls.
@@ -287,7 +294,7 @@ private:
 
   void analyze(ArrayRef<HLDDNodeList> Chunks);
 
-  bool shouldLoadUnconditionally(Candidate &Cand, DDRef *TmpUse);
+  bool shouldLoadUnconditionally(Candidate &Cand, DDRef *TmpUse) const;
 
   template <bool IsDef> void getInsertNodeForTmpDefsUses(Candidate &Cand);
 
