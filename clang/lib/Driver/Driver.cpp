@@ -109,6 +109,7 @@
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/StringSaver.h"
+#include "llvm/Support/Threading.h" // INTEL
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Host.h"
@@ -117,8 +118,8 @@
 #include <memory>
 #include <optional>
 #include <regex>
-#include <sstream>
 #include <set>
+#include <sstream>
 #include <utility>
 #if LLVM_ON_UNIX
 #include <unistd.h> // getpid
@@ -1505,6 +1506,12 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
   } else if (C.getInputArgs().hasArg(options::OPT_fopenmp_targets_EQ)) {
     Diag(clang::diag::err_drv_expecting_fopenmp_with_fopenmp_targets);
     return;
+#if INTEL_CUSTOMIZATION
+  } else if (Arg *A = C.getInputArgs().getLastArg(
+                 options::OPT_fopenmp_concurrent_host_device_compile)) {
+    Diag(clang::diag::warn_drv_opt_requires_opt)
+        << A->getSpelling() << "-fopenmp-targets";
+#endif // INTEL_CUSTOMIZATION
   }
 
   //
@@ -8034,6 +8041,13 @@ void Driver::handleArguments(Compilation &C, DerivedArgList &Args,
     YcArg = YuArg = nullptr;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (FinalPhase != phases::Preprocess) {
+    if (Args.hasArg(options::OPT_fopenmp_concurrent_host_device_compile))
+      C.CoresToUse = llvm::optimal_concurrency().compute_thread_count();
+  }
+#endif // INTEL_CUSTOMIZATION
+
   unsigned LastPLSize = 0;
   llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PL;
   for (auto &I : Inputs) {
@@ -8159,6 +8173,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   Args.ClaimAllArgs(options::OPT_i_no_use_libirc);
   Args.ClaimAllArgs(options::OPT_i_allow_all_opts);
   Args.ClaimAllArgs(options::OPT__icx);
+  Args.ClaimAllArgs(options::OPT_fopenmp_concurrent_host_device_compile);
 #endif // INTEL_CUSTOMIZATION
 
   handleArguments(C, Args, Inputs, Actions);
