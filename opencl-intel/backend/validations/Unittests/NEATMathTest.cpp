@@ -4389,6 +4389,7 @@ TYPED_TEST(NEATMathTestOneArg, pown) {
       PownIntervalTest<sT>(refMin, refMax, x[i], testVec[i], yVec[i]);
     }
   }
+  free(Arg2);
 }
 
 template <typename T>

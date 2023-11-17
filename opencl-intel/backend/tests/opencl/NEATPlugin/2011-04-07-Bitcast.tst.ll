@@ -4,7 +4,7 @@ target triple = "i686-pc-win32"
 define void @BitcastPointer(ptr addrspace(1) %input, ptr addrspace(1) %output, i32 %buffer_size) nounwind {
 entry:
   %f_vec = alloca <3 x float>, align 4
-  %1 = bitcast ptr %f_vec to ptr
+  %0 = bitcast ptr %f_vec to ptr
 
   ret void
 }
