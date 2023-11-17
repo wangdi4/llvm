@@ -491,9 +491,11 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   let TSFlags{52}    = hasEVEX_NF;
   let TSFlags{53}    = hasTwoConditionalOps;
   let TSFlags{54}    = explicitREX2Prefix;
-#if INTEL_FEATURE_XISA_COMMON
+#if INTEL_FEATURE_XUCC
   // XuCCPrefix - These prefix bytes are used for some XuCC instructions.
   let TSFlags{56-55} = XuCCOpPrefixBits;
+#endif // INTEL_FEATURE_XUCC
+#if INTEL_FEATURE_XISA_COMMON
   let TSFlags{57}    = hasEVEX_X2;
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
