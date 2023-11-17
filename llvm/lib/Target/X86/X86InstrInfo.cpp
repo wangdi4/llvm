@@ -212,14 +212,7 @@ X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
   if (!RC || !Subtarget.hasEGPR())
     return RC;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  if (X86II::canUseApxExtendedReg(MCID) &&
-      !X86II::isUnImplementedForEGPR(MCID.Opcode))
-#else  // INTEL_FEATURE_ISA_APX_F
   if (X86II::canUseApxExtendedReg(MCID))
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
     return RC;
 
   switch (RC->getID()) {
@@ -239,10 +232,6 @@ X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
     return &X86::GR64_NOREX2_NOSPRegClass;
   }
 }
-<<<<<<< HEAD
-=======
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 
 bool
 X86InstrInfo::isCoalescableExtInstr(const MachineInstr &MI,

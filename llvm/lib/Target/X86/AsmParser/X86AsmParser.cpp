@@ -126,12 +126,6 @@ class X86AsmParser : public MCTargetAsmParser {
 #if INTEL_CUSTOMIZATION
   // Is this instruction explicitly required not to update flags?
   bool ForcedNoFlag = false;
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_APX_F
-=======
-  // Does this instruction use apx extended register?
-  bool UseApxExtendedReg = false;
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 #endif // INTEL_CUSTOMIZATION
 
   // Does this instruction use apx extended register?
@@ -1444,15 +1438,8 @@ bool X86AsmParser::MatchRegisterByName(MCRegister &RegNo, StringRef RegName,
     }
   }
 
-<<<<<<< HEAD
   if (X86II::isApxExtendedReg(RegNo))
     UseApxExtendedReg = true;
-=======
-#if INTEL_CUSTOMIZATION
-  if (X86II::isApxExtendedReg(RegNo))
-    UseApxExtendedReg = true;
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 
   // If this is "db[0-15]", match it as an alias
   // for dr[0-15].
@@ -3184,13 +3171,7 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
   ForcedDispEncoding = DispEncoding_Default;
 #if INTEL_CUSTOMIZATION
   ForcedNoFlag = false;
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_APX_F
-=======
-  UseApxExtendedReg = false;
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 #endif // INTEL_CUSTOMIZATION
-
   UseApxExtendedReg = false;
 
   // Parse pseudo prefixes.
@@ -4147,12 +4128,6 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
 #if INTEL_CUSTOMIZATION
   if (ForcedNoFlag && !(MCID.TSFlags & X86II::EVEX_NF))
     return Match_Unsupported;
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_APX_F
-=======
-  if (UseApxExtendedReg && !X86II::canUseApxExtendedReg(MCID))
-    return Match_Unsupported;
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 #endif // INTEL_CUSTOMIZATION
 
   if (UseApxExtendedReg && !X86II::canUseApxExtendedReg(MCID))

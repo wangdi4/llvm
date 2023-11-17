@@ -105,11 +105,7 @@ h:                                      # @h
 i:
 	.seh_proc i
 	pushq %rbp
-<<<<<<< HEAD
 	.seh_pushreg 32
-=======
-	.seh_pushreg 32 # INTEL
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 # CHECK: :[[@LINE-1]]:{{[0-9]+}}: error: incorrect register number for use with this directive
 	pushq %rbx
 	.seh_pushreg %xmm0

@@ -1133,27 +1133,9 @@ namespace X86II {
     // Force output with prefix
     EmitVEXOrEVEXPrefixShift = ExplicitVEXShift + 1,
     EmitVEXOrEVEXPrefix = 1ULL << EmitVEXOrEVEXPrefixShift,
-<<<<<<< HEAD
-#if INTEL_FEATURE_XISA_COMMON
-    // XuCCPrefix - These prefix bytes are used for some XuCC instructions.
-    // Their encoding is actually the same as OpPrefix.
-    XuCCPrefixShift = EmitVEXOrEVEXPrefixShift + 1,
-    XuCCOpPrefixMask = 3ULL << XuCCPrefixShift,
-    XuCCPD = 1ULL << XuCCPrefixShift,  // 66
-    XuCCXS = 2ULL << XuCCPrefixShift,  // F3
-    XuCCXD = 3ULL << XuCCPrefixShift,  // F2
-
-    // EVEX_X2 - Set if this instruction has EVEX.X2 field set.
-    EVEX_X2Shift = XuCCPrefixShift + 2,
-    EVEX_X2      = 1ULL << EVEX_X2Shift,
-
-    // EVEX_NF - Set if this instruction has EVEX.NF field set.
-    EVEX_NFShift = EVEX_X2Shift + 1,
-=======
 
     // EVEX_NF - Set if this instruction has EVEX.NF field set.
     EVEX_NFShift = EmitVEXOrEVEXPrefixShift + 1,
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
     EVEX_NF      = 1ULL << EVEX_NFShift,
 
     // TwoConditionalOps - Set if this instruction has two conditional operands
@@ -1416,84 +1398,6 @@ namespace X86II {
     }
   }
 
-#if INTEL_CUSTOMIZATION
-<<<<<<< HEAD
-#if INTEL_FEATURE_ISA_APX_F
-=======
-  /// \returns true if \p RegNo is an apx extended register.
-  inline bool isApxExtendedReg(unsigned RegNo) {
-    switch (RegNo) {
-    default: return false;
-    case X86::R16B: case X86::R16W: case X86::R16D: case X86::R16:
-    case X86::R17B: case X86::R17W: case X86::R17D: case X86::R17:
-    case X86::R18B: case X86::R18W: case X86::R18D: case X86::R18:
-    case X86::R19B: case X86::R19W: case X86::R19D: case X86::R19:
-    case X86::R20B: case X86::R20W: case X86::R20D: case X86::R20:
-    case X86::R21B: case X86::R21W: case X86::R21D: case X86::R21:
-    case X86::R22B: case X86::R22W: case X86::R22D: case X86::R22:
-    case X86::R23B: case X86::R23W: case X86::R23D: case X86::R23:
-    case X86::R24B: case X86::R24W: case X86::R24D: case X86::R24:
-    case X86::R25B: case X86::R25W: case X86::R25D: case X86::R25:
-    case X86::R26B: case X86::R26W: case X86::R26D: case X86::R26:
-    case X86::R27B: case X86::R27W: case X86::R27D: case X86::R27:
-    case X86::R28B: case X86::R28W: case X86::R28D: case X86::R28:
-    case X86::R29B: case X86::R29W: case X86::R29D: case X86::R29:
-    case X86::R30B: case X86::R30W: case X86::R30D: case X86::R30:
-    case X86::R31B: case X86::R31W: case X86::R31D: case X86::R31:
-      return true;
-    }
-  }
-
-  inline bool canUseApxExtendedReg(const MCInstrDesc &Desc) {
-    uint64_t TSFlags = Desc.TSFlags;
-    uint64_t Encoding = TSFlags & EncodingMask;
-    // EVEX can always use egpr.
-    if (Encoding == X86II::EVEX)
-      return true;
-
-    // MAP OB/TB in legacy encoding space can always use egpr except
-    // XSAVE*/XRSTOR*.
-    unsigned Opcode = Desc.Opcode;
-    bool IsSpecial = false;
-    switch (Opcode) {
-    default:
-      // To be conservative, egpr is not used for all pseudo instructions
-      // because we are not sure what instruction it will become.
-      // FIXME: Could we improve it in X86ExpandPseudo?
-      IsSpecial = isPseudo(TSFlags);
-      break;
-    case X86::XSAVE:
-    case X86::XSAVE64:
-    case X86::XSAVEOPT:
-    case X86::XSAVEOPT64:
-    case X86::XSAVEC:
-    case X86::XSAVEC64:
-    case X86::XSAVES:
-    case X86::XSAVES64:
-    case X86::XRSTOR:
-    case X86::XRSTOR64:
-    case X86::XRSTORS:
-    case X86::XRSTORS64:
-      IsSpecial = true;
-      break;
-    }
-    uint64_t OpMap = TSFlags & X86II::OpMapMask;
-    return !Encoding && (OpMap == X86II::OB || OpMap == X86II::TB) &&
-           !IsSpecial;
-  }
-
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
-  inline bool isUnImplementedForEGPR(unsigned Opcode) {
-    switch (Opcode) {
-    default:
-      return false;
-#define BLACK_INSN(NAME)                                                     \
-    case X86::NAME:                                                            \
-      return true;
-#include "Intel_EGPR_Workaround_For_SDE.def"
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
   /// \returns true if the register is a XMM.
   inline bool isXMMReg(unsigned RegNo) {
     assert(X86::XMM15 - X86::XMM0 == 15 &&
@@ -1549,15 +1453,8 @@ namespace X86II {
         (RegNo >= X86::ZMM8 && RegNo <= X86::ZMM31))
       return true;
 
-<<<<<<< HEAD
     if (isApxExtendedReg(RegNo))
       return true;
-=======
-#if INTEL_CUSTOMIZATION
-    if (isApxExtendedReg(RegNo))
-      return true;
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 
     switch (RegNo) {
     default: break;

@@ -181,7 +181,6 @@ public:
   // precision tolerance.
   bool shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
                                bool DisableGFMAForPrecision) const override;
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
   /// Given a machine instruction descriptor, returns the register
   /// class constraint for OpNum, or NULL. Returned register class
@@ -189,16 +188,10 @@ public:
   /// GR*RegClass (definition in TD file)
   /// ->
   /// GR*_NOREX2RegClass (Returned register class)
-=======
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
   const TargetRegisterClass *
   getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
               const TargetRegisterInfo *TRI,
               const MachineFunction &MF) const override;
-<<<<<<< HEAD
-=======
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 
   /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
   /// such, whenever a client has an instance of instruction info, it should

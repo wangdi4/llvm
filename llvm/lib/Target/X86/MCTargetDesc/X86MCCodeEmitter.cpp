@@ -228,14 +228,6 @@ public:
     else
       set4V(getRegEncoding(MI, OpNum));
   }
-<<<<<<< HEAD
-#else // INTEL_FEATURE_ISA_APX_F
-  void set4V(const MCInst &MI, unsigned OpNum) {
-    set4V(getRegEncoding(MI, OpNum));
-  }
-#endif // INTEL_FEATURE_ISA_APX_F
-=======
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 #endif // INTEL_CUSTOMIZATION
   void setL(bool V) { VEX_L = V; }
   void setPP(unsigned V) { VEX_PP = V; }
@@ -305,10 +297,6 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
-<<<<<<< HEAD
-#if INTEL_FEATURE_ISA_APX_F
-=======
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
   void setAAA(unsigned Encoding) {
     assert((Encoding < 8) && "Invalid EVEX.aaa");
     EVEX_aaa = Encoding;
@@ -1187,10 +1175,6 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
 #if INTEL_CUSTOMIZATION
     if (IsND)
       Prefix.set4VV2(MI, CurOp++);
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_APX_F
-=======
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 #endif // INTEL_CUSTOMIZATION
     CurOp += X86::AddrNumOperands;
 
@@ -1227,10 +1211,6 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
 #if INTEL_CUSTOMIZATION
     if (IsND)
       Prefix.set4VV2(MI, CurOp++);
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_APX_F
-=======
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 #endif // INTEL_CUSTOMIZATION
     Prefix.setRR2(MI, CurOp++);
 
@@ -1317,10 +1297,6 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
 #if INTEL_CUSTOMIZATION
     if (IsND)
       Prefix.set4VV2(MI, CurOp++);
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_APX_F
-=======
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 #endif // INTEL_CUSTOMIZATION
     Prefix.setRR2(MI, CurOp++);
 
@@ -1399,10 +1375,6 @@ X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
 #if INTEL_CUSTOMIZATION
     if (IsND)
       Prefix.set4VV2(MI, CurOp++);
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_APX_F
-=======
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 #endif // INTEL_CUSTOMIZATION
     Prefix.setBB2(MI, CurOp);
     Prefix.setX(MI, CurOp, 4);
@@ -1728,19 +1700,6 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
   unsigned CurOp = X86II::getOperandBias(Desc);
 
   uint64_t StartByte = CB.size();
-
-#if INTEL_CUSTOMIZATION
-  if (X86II::isUnImplementedForEGPR(Opcode)) {
-    for (unsigned I = CurOp; I != NumOps; ++I) {
-      const MCOperand &MO = MI.getOperand(I);
-      if (MO.isReg() && X86II::isApxExtendedReg(MO.getReg()))
-        report_fatal_error(Twine("Instruction with opcode ") +
-                           std::to_string(Opcode) +
-                           " is not supported for EGPR in SDE yet");
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
-
   PrefixKind Kind = emitPrefixImpl(CurOp, MI, STI, CB);
 
   // It uses the VEX.VVVV field?

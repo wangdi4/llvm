@@ -216,18 +216,10 @@ X86RegisterInfo::getLargestLegalSuperClass(const TargetRegisterClass *RC,
     case X86::GR16RegClassID:
     case X86::GR32RegClassID:
     case X86::GR64RegClassID:
-<<<<<<< HEAD
-=======
-#if INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
     case X86::GR8_NOREX2RegClassID:
     case X86::GR16_NOREX2RegClassID:
     case X86::GR32_NOREX2RegClassID:
     case X86::GR64_NOREX2RegClassID:
-<<<<<<< HEAD
-=======
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
     case X86::RFP32RegClassID:
     case X86::RFP64RegClassID:
     case X86::RFP80RegClassID:
@@ -801,25 +793,10 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
         Reserved.set(*AI);
     }
   }
-<<<<<<< HEAD
 
   // Reserve the extended general purpose registers.
   if (!Is64Bit || !MF.getSubtarget<X86Subtarget>().hasEGPR())
     Reserved.set(X86::R16, X86::R31WH + 1);
-=======
-#if INTEL_CUSTOMIZATION
-  // Reserve the extended general purpose registers.
-  // NOTE: `Is64Bit` is added here to allow passsing EGPR flags to 32-bit tests
-  // (for convenience)
-  // TODO: Remove it when upstreaming
-  if (!Is64Bit || !MF.getSubtarget<X86Subtarget>().hasEGPR()) {
-    for (unsigned n = 0; n != 16; ++n) {
-      for (MCRegAliasIterator AI(X86::R16 + n, this, true); AI.isValid(); ++AI)
-        Reserved.set(*AI);
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 
   assert(checkAllSuperRegsMarked(Reserved,
                                  {X86::SIL, X86::DIL, X86::BPL, X86::SPL,
@@ -841,11 +818,7 @@ unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
   // and try to return the minimum number of registers supported by the target.
 
 #if INTEL_CUSTOMIZATION
-<<<<<<< HEAD
 #if INTEL_FEATURE_XISA_COMMON
-=======
-#if INTEL_FEATURE_ISA_AVX256P
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
   assert(
       (X86::XMM14_XMM15 + 1 == X86 ::YMM0) && (X86::YMM14_YMM15 + 1 == X86::K0) &&
       (X86::ZMM16_ZMM17_ZMM18_ZMM19_ZMM20_ZMM21_ZMM22_ZMM23_ZMM24_ZMM25_ZMM26_ZMM27_ZMM28_ZMM29_ZMM30_ZMM31 +
@@ -867,11 +840,7 @@ unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
   if (ST.hasAVX())
     return X86::YMM14_YMM15 + 1;
   return X86::YMM0;
-<<<<<<< HEAD
 #else // INTEL_FEATURE_XISA_COMMON
-=======
-#else // INTEL_FEATURE_ISA_AVX256P
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
   assert((X86::R15WH + 1 == X86 ::YMM0) && (X86::YMM15 + 1 == X86::K0) &&
          (X86::K6_K7 + 1 == X86::TMMCFG) && (X86::TMM7 + 1 == X86::R16) &&
          (X86::R31WH + 1 == X86::NUM_TARGET_REGS) &&
@@ -887,12 +856,7 @@ unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
   if (ST.hasAVX())
     return X86::YMM15 + 1;
   return X86::R15WH + 1;
-<<<<<<< HEAD
-
 #endif // INTEL_FEATURE_XISA_COMMON
-=======
-#endif // INTEL_FEATURE_ISA_AVX256P
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 #endif // INTEL_CUSTOMIZATION
 }
 

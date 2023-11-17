@@ -252,15 +252,6 @@ template <typename T> static bool consume(InternalInstruction *insn, T &ptr) {
   return false;
 }
 
-<<<<<<< HEAD
-=======
-#if INTEL_CUSTOMIZATION
-static bool isREX2(struct InternalInstruction *insn, uint8_t prefix) {
-  return insn->mode == MODE_64BIT && prefix == 0xd5;
-}
-#endif // INTEL_CUSTOMIZATION
-
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 static bool isREX(struct InternalInstruction *insn, uint8_t prefix) {
   return insn->mode == MODE_64BIT && prefix >= 0x40 && prefix <= 0x4f;
 }
@@ -459,13 +450,7 @@ static int readPrefixes(struct InternalInstruction *insn) {
       return -1;
     }
 
-<<<<<<< HEAD
     if ((insn->mode == MODE_64BIT || (byte1 & 0xc0) == 0xc0)) {
-=======
-#if INTEL_CUSTOMIZATION
-    if ((insn->mode == MODE_64BIT || (byte1 & 0xc0) == 0xc0)) {
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
       insn->vectorExtensionType = TYPE_EVEX;
     } else {
       --insn->readerCursor; // unconsume byte1
@@ -491,21 +476,12 @@ static int readPrefixes(struct InternalInstruction *insn) {
                           (rFromEVEX2of4(insn->vectorExtensionPrefix[1]) << 2) |
                           (xFromEVEX2of4(insn->vectorExtensionPrefix[1]) << 1) |
                           (bFromEVEX2of4(insn->vectorExtensionPrefix[1]) << 0);
-<<<<<<< HEAD
 
         // We simulate the REX2 prefix for simplicity's sake
-=======
-#if INTEL_CUSTOMIZATION
-      // We simulate the REX2 prefix for simplicity's sake
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
         insn->rex2ExtensionPrefix[1] =
             (r2FromEVEX2of4(insn->vectorExtensionPrefix[1]) << 6) |
             (x2FromEVEX3of4(insn->vectorExtensionPrefix[2]) << 5) |
             (b2FromEVEX2of4(insn->vectorExtensionPrefix[1]) << 4);
-<<<<<<< HEAD
-=======
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
       }
 
       LLVM_DEBUG(
@@ -616,10 +592,6 @@ static int readPrefixes(struct InternalInstruction *insn) {
                                   insn->vectorExtensionPrefix[1],
                                   insn->vectorExtensionPrefix[2]));
     }
-<<<<<<< HEAD
-=======
-#if INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
   } else if (isREX2(insn, byte)) {
     uint8_t byte1;
     if (peek(insn, byte1)) {
@@ -637,11 +609,6 @@ static int readPrefixes(struct InternalInstruction *insn) {
     LLVM_DEBUG(dbgs() << format("Found REX2 prefix 0x%hhx 0x%hhx",
                                 insn->rex2ExtensionPrefix[0],
                                 insn->rex2ExtensionPrefix[1]));
-<<<<<<< HEAD
-=======
-
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
   } else if (isREX(insn, byte)) {
     if (peek(insn, nextByte))
       return -1;
@@ -700,15 +667,8 @@ static int readSIB(struct InternalInstruction *insn) {
   if (consume(insn, insn->sib))
     return -1;
 
-<<<<<<< HEAD
   index = indexFromSIB(insn->sib) | (xFromREX(insn->rexPrefix) << 3) |
           (x2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
-=======
-#if INTEL_CUSTOMIZATION
-  index = indexFromSIB(insn->sib) | (xFromREX(insn->rexPrefix) << 3) |
-          (x2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 
   if (index == 0x4) {
     insn->sibIndex = SIB_INDEX_NONE;
@@ -718,15 +678,8 @@ static int readSIB(struct InternalInstruction *insn) {
 
   insn->sibScale = 1 << scaleFromSIB(insn->sib);
 
-<<<<<<< HEAD
   base = baseFromSIB(insn->sib) | (bFromREX(insn->rexPrefix) << 3) |
          (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
-=======
-#if INTEL_CUSTOMIZATION
-  base = baseFromSIB(insn->sib) | (bFromREX(insn->rexPrefix) << 3) |
-         (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 
   switch (base) {
   case 0x5:
@@ -820,18 +773,10 @@ static int readModRM(struct InternalInstruction *insn) {
     break;
   }
 
-<<<<<<< HEAD
-=======
-#if INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
   reg |= (rFromREX(insn->rexPrefix) << 3) |
          (r2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
   rm |= (bFromREX(insn->rexPrefix) << 3) |
         (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
-<<<<<<< HEAD
-=======
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 
   if (insn->vectorExtensionType == TYPE_EVEX && insn->mode == MODE_64BIT)
     reg |= r2FromEVEX2of4(insn->vectorExtensionPrefix[1]) << 4;
@@ -980,13 +925,6 @@ static int readModRM(struct InternalInstruction *insn) {
 #define TMM_TYPE_QUAD(prefix)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
-
-<<<<<<< HEAD
-=======
-#if INTEL_CUSTOMIZATION
-#define MAX_GPR_NUM (0x1f)
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 
 #if INTEL_CUSTOMIZATION
 #define GENERIC_FIXUP_FUNC(name, base, prefix)                                 \
@@ -1759,16 +1697,7 @@ static int readOpcodeRegister(struct InternalInstruction *insn, uint8_t size) {
 
   switch (size) {
   case 1:
-<<<<<<< HEAD
     setOpcodeRegister(MODRM_REG_AL);
-=======
-#if INTEL_CUSTOMIZATION
-    insn->opcodeRegister =
-        (Reg)(MODRM_REG_AL + ((bFromREX(insn->rexPrefix) << 3) |
-                              (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4) |
-                              (insn->opcode & 7)));
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
     if (insn->rexPrefix && insn->opcodeRegister >= MODRM_REG_AL + 0x4 &&
         insn->opcodeRegister < MODRM_REG_AL + 0x8) {
       insn->opcodeRegister =
@@ -1777,7 +1706,6 @@ static int readOpcodeRegister(struct InternalInstruction *insn, uint8_t size) {
 
     break;
   case 2:
-<<<<<<< HEAD
     setOpcodeRegister(MODRM_REG_AX);
     break;
   case 4:
@@ -1785,30 +1713,6 @@ static int readOpcodeRegister(struct InternalInstruction *insn, uint8_t size) {
     break;
   case 8:
     setOpcodeRegister(MODRM_REG_RAX);
-=======
-#if INTEL_CUSTOMIZATION
-    insn->opcodeRegister =
-        (Reg)(MODRM_REG_AX + ((bFromREX(insn->rexPrefix) << 3) |
-                              (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4) |
-                              (insn->opcode & 7)));
-#endif // INTEL_CUSTOMIZATION
-    break;
-  case 4:
-#if INTEL_CUSTOMIZATION
-    insn->opcodeRegister =
-        (Reg)(MODRM_REG_EAX + ((bFromREX(insn->rexPrefix) << 3) |
-                               (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4) |
-                               (insn->opcode & 7)));
-#endif // INTEL_CUSTOMIZATION
-    break;
-  case 8:
-#if INTEL_CUSTOMIZATION
-    insn->opcodeRegister =
-        (Reg)(MODRM_REG_RAX + ((bFromREX(insn->rexPrefix) << 3) |
-                               (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4) |
-                               (insn->opcode & 7)));
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
     break;
   }
 
