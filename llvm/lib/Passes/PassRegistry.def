@@ -177,6 +177,7 @@ MODULE_PASS("sycl-kernel-convert-vplan-mask", HandleVPlanMask())
 #endif // INTEL_CUSTOMIZATION
 MODULE_PASS("sycl-kernel-wg-loop-bound", WGLoopBoundariesPass())
 MODULE_PASS("sycl-kernel-remove-atexit", RemoveAtExitPass())
+MODULE_PASS("sycl-kernel-remove-devicelib-assert-fallback", RemoveDeviceLibAssertFallbackPass())
 MODULE_PASS("sycl-kernel-set-prefer-vector-width", SetPreferVectorWidthPass())
 
 MODULE_PASS("print<sycl-kernel-builtin-info-analysis>", BuiltinLibInfoAnalysisPrinter(dbgs()))

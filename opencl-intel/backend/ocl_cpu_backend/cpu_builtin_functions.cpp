@@ -125,6 +125,14 @@ __opencl_printf(const char *format, char *args,
 extern "C" LLVM_BACKEND_API int
 __opencl_snprintf(char *outstr, size_t size, const char *format, char *args,
                   ICLDevBackendDeviceAgentCallback *pCallback, void *pHandle);
+
+extern "C" LLVM_BACKEND_API int
+__devicelib_assert_fail(const char *expr, const char *file, int32_t line,
+                        const char *func, uint64_t gid0, uint64_t gid1,
+                        uint64_t gid2, uint64_t lid0, uint64_t lid1,
+                        uint64_t lid2);
+extern "C" LLVM_BACKEND_API void __devicelib_assert_read(void *);
+
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void
 __opencl_dbg_declare_local(void *addr, uint64_t var_metadata_addr,
                            uint64_t expr_metadata_addr, uint64_t gid0,
@@ -321,6 +329,8 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT) {
   REGISTER_BI_FUNCTION("__get_time_counter", __cpu_get_time_counter)
   REGISTER_BI_FUNCTION("__opencl_printf", __opencl_printf)
   REGISTER_BI_FUNCTION("__opencl_snprintf", __opencl_snprintf)
+  REGISTER_BI_FUNCTION("__devicelib_assert_fail", __devicelib_assert_fail)
+  REGISTER_BI_FUNCTION("__devicelib_assert_read", __devicelib_assert_read)
   REGISTER_BI_FUNCTION("__opencl_dbg_declare_local", __opencl_dbg_declare_local)
   REGISTER_BI_FUNCTION("__opencl_dbg_enter_function",
                        __opencl_dbg_enter_function)
