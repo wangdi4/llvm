@@ -7062,14 +7062,12 @@ def mno_avxraoint : Flag<["-"], "mno-avxraoint">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_RAO_INT
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 def mapx_features_EQ : CommaJoined<["-"], "mapx-features=">, Group<m_x86_Features_Group>,
     HelpText<"Enable features of APX">, Values<"egpr,push2pop2,ndd,ccmp,cf">;
 def mno_apx_features_EQ : CommaJoined<["-"], "mno-apx-features=">, Group<m_x86_Features_Group>,
     HelpText<"Disable features of APX">, Values<"egpr,push2pop2,ndd,ccmp,cf">;
 def mapxf : Flag<["-"], "mapxf">, Alias<mapx_features_EQ>, AliasArgs<["egpr","push2pop2","ndd","ccmp","cf"]>;
 def mno_apxf : Flag<["-"], "mno-apxf">, Alias<mno_apx_features_EQ>, AliasArgs<["egpr","push2pop2","ndd","ccmp","cf"]>;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 def mavxifma : Flag<["-"], "mavxifma">, Group<m_x86_Features_Group>;

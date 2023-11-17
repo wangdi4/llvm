@@ -740,16 +740,10 @@ bool X86AsmBackend::mayNeedRelaxation(const MCInst &MI,
                                       const MCSubtargetInfo &STI) const {
   unsigned Opcode = MI.getOpcode();
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   unsigned SkipOperands = X86::isCCMPCC(Opcode) ? 2 : 0;
   return isRelaxableBranch(Opcode) ||
          (X86::getOpcodeForLongImmediateForm(Opcode) != Opcode &&
           MI.getOperand(MI.getNumOperands() - 1 - SkipOperands).isExpr());
-#else  // INTEL_FEATURE_ISA_APX_F
-  return isRelaxableBranch(Opcode) ||
-         (X86::getOpcodeForLongImmediateForm(Opcode) != Opcode &&
-          MI.getOperand(MI.getNumOperands() - 1).isExpr());
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }
 

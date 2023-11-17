@@ -1728,12 +1728,10 @@ public:
   virtual bool optimizeCondBranch(MachineInstr &MI) const { return false; }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   virtual MachineInstr *optimizeCCMPInstr(MachineRegisterInfo &MRI,
                                           MachineInstr &MI) const {
     return nullptr;
   }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   /// Try to remove the load by folding it to a register operand at the use.
   /// We fold the load instructions if and only if the

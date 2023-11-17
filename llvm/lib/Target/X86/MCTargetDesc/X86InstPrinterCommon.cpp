@@ -49,10 +49,8 @@ void X86InstPrinterCommon::printCondCode(const MCInst *MI, unsigned Op,
   bool Flavor = MI->getOpcode() == X86::CMPCCXADDmr32 ||
                 MI->getOpcode() == X86::CMPCCXADDmr64;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   bool IsCCMPOrCTEST =
       X86::isCCMPCC(MI->getOpcode()) || X86::isCTESTCC(MI->getOpcode());
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   switch (Imm) {
   default: llvm_unreachable("Invalid condcode argument!");
@@ -67,13 +65,8 @@ void X86InstPrinterCommon::printCondCode(const MCInst *MI, unsigned Op,
   case    8: O << "s";  break;
   case    9: O << "ns"; break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   case  0xa: O << (IsCCMPOrCTEST ? "t" : "p");  break;
   case  0xb: O << (IsCCMPOrCTEST ? "f" : "np"); break;
-#else  // INTEL_FEATURE_ISA_APX_F
-  case  0xa: O << "p";  break;
-  case  0xb: O << "np"; break;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   case  0xc: O << "l";  break;
   case  0xd: O << (Flavor ? "nl" : "ge"); break;
@@ -83,7 +76,6 @@ void X86InstPrinterCommon::printCondCode(const MCInst *MI, unsigned Op,
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 void X86InstPrinterCommon::printCondFlags(const MCInst *MI, unsigned Op,
                                           raw_ostream &O) {
   // +----+----+----+----+
@@ -104,7 +96,6 @@ void X86InstPrinterCommon::printCondFlags(const MCInst *MI, unsigned Op,
   StringRef SimplifiedFlags = StringRef(Flags).rtrim(",");
   O << SimplifiedFlags << "}";
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 void X86InstPrinterCommon::printSSEAVXCC(const MCInst *MI, unsigned Op,
@@ -439,10 +430,8 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O,
   else if (Flags & X86::IP_HAS_REPEAT)
     O << "\trep\t";
 
-#if INTEL_FEATURE_ISA_APX_F
   if (TSFlags & X86II::EVEX_NF && !X86::isCFCMOVCC(MI->getOpcode()))
     O << "\t{nf}";
-#endif // INTEL_FEATURE_ISA_APX_F
 
 #if INTEL_CUSTOMIZATION
   if (TSFlags & X86II::EmitVEXOrEVEXPrefix) {

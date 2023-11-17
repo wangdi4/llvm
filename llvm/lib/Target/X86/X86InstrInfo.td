@@ -787,13 +787,11 @@ def u4imm : Operand<i8> {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 def cflags : Operand<i8> {
   let PrintMethod = "printCondFlags";
   let ParserMatchClass = ImmUnsignedi4AsmOperand;
   let OperandType = "OPERAND_IMMEDIATE";
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 // Unsigned 8-bit immediate used by SSE/AVX instructions.
@@ -974,13 +972,11 @@ def relocImm : ComplexPattern<iAny, 1, "selectRelocImm",
 def TruePredicate : Predicate<"true">;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 def HasNDD : Predicate<"Subtarget->hasNDD()">;
 def NoNDD : Predicate<"!Subtarget->hasNDD()">;
 def HasEGPR : Predicate<"Subtarget->hasEGPR()">;
 def NoEGPR : Predicate<"!Subtarget->hasEGPR()">;
 def HasCF : Predicate<"Subtarget->hasCF()">;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 def HasCMOV      : Predicate<"Subtarget->canUseCMOV()">;
@@ -1814,19 +1810,11 @@ def Xi64 : X86TypeInfo<i64, "q", GR64, loadi64, i64mem, Imm32S, i64i32imm,
 ///    or 1 (for i16,i32,i64 operations).
 class ITy<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
           string mnemonic, string args, list<dag> pattern, bit InferBit0=1>
-#else // INTEL_FEATURE_ISA_APX_F
-          string mnemonic, string args, list<dag> pattern>
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   : I<{opcode{7}, opcode{6}, opcode{5}, opcode{4},
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
        opcode{3}, opcode{2}, opcode{1}, !if(!eq(InferBit0,1), typeinfo.HasOddOpcode, opcode{0}) },
-#else // INTEL_FEATURE_ISA_APX_F
-       opcode{3}, opcode{2}, opcode{1}, typeinfo.HasOddOpcode },
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       f, outs, ins,
       !strconcat(mnemonic, "{", typeinfo.InstrSuffix, "}\t", args), pattern> {
@@ -1837,7 +1825,6 @@ class ITy<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 // EVEX version for ITy, OpSize prefix is encoded in EVEX.pp
 class ITy_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
           string mnemonic, string args, list<dag> pattern, bit InferBit0=1>
@@ -1850,7 +1837,6 @@ class ITy_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins
   let OpMap = T_MAP4;
 }
 
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // Subsystems.
@@ -1916,9 +1902,7 @@ include "Intel_X86XuCC.td"
 #if INTEL_FEATURE_ISA_AVX256P
 include "Intel_X86InstrAVX256P.td"
 #endif // INTEL_FEATURE_ISA_AVX256P
-#if INTEL_FEATURE_ISA_APX_F
 include "Intel_X86InstrAPXCondition.td"
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 // RAO-INT instructions

@@ -126,10 +126,8 @@ namespace X86Local {
     AddCCFrm      = 9,
     PrefixByte    = 10,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     MRMDestRegCC = 11,
     MRMDestMemCC = 12,
-#endif // INTEL_FEATURE_ISA_APX_F
     MRMDestMemImm8      = 15,
     MRMDestReg4VOp3     = 16,
     MRMDestMem4VOp3     = 17,
@@ -262,14 +260,12 @@ struct RecognizableInstrBase {
   /// The hasEVEX_X2 field from the record
   bool HasEVEX_X2;
 #endif // INTEL_FEATURE_ISA_AVX256P
-#if INTEL_FEATURE_ISA_APX_F
   /// The hasEVEX_NF field from the record
   bool HasEVEX_NF;
   /// The hasTwoConditionalOps field from the record
   bool HasTwoConditionalOps;
   /// The explicitREX2Prefix field from the record
   bool ExplicitREX2Prefix;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   /// \param insn The CodeGenInstruction to extract information from.

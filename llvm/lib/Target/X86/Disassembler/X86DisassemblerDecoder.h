@@ -125,6 +125,7 @@ namespace X86Disassembler {
 #define v2FromEVEX4of4(evex) invertedBitFromOffset3(evex)
 #define aaaFromEVEX4of4(evex) threeBitsFromOffset0(evex)
 #if INTEL_CUSTOMIZATION
+<<<<<<< HEAD
 #if INTEL_FEATURE_ISA_APX_F
 #define oszcFromEVEX3of4(evex) fourBitsFromOffset3(evex)
 #define nfFromEVEX4of4(evex) bitFromOffset2(evex)
@@ -374,6 +375,326 @@ namespace X86Disassembler {
   ENTRY(R29)                                                                   \
   ENTRY(R30)                                                                   \
   ENTRY(R31)
+=======
+#define mFromREX2(rex2)        (((rex2) >> 7) & 0x1)
+#define r2FromREX2(rex2)       (((rex2) >> 6) & 0x1)
+#define x2FromREX2(rex2)       (((rex2) >> 5) & 0x1)
+#define b2FromREX2(rex2)       (((rex2) >> 4) & 0x1)
+#define wFromREX2(rex2)        (((rex2) >> 3) & 0x1)
+#define rFromREX2(rex2)        (((rex2) >> 2) & 0x1)
+#define xFromREX2(rex2)        (((rex2) >> 1) & 0x1)
+#define bFromREX2(rex2)        ((rex2) & 0x1)
+#endif // INTEL_CUSTOMIZATION
+
+#define rFromEVEX2of4(evex)     (((~(evex)) & 0x80) >> 7)
+#define xFromEVEX2of4(evex)     (((~(evex)) & 0x40) >> 6)
+#define bFromEVEX2of4(evex)     (((~(evex)) & 0x20) >> 5)
+#define r2FromEVEX2of4(evex)    (((~(evex)) & 0x10) >> 4)
+#if INTEL_CUSTOMIZATION
+#define b2FromEVEX2of4(evex)    (((evex) & 0x8) >> 3)
+#endif // INTEL_CUSTOMIZATION
+#define mmmFromEVEX2of4(evex)   ((evex) & 0x7)
+#define wFromEVEX3of4(evex)     (((evex) & 0x80) >> 7)
+#define vvvvFromEVEX3of4(evex)  (((~(evex)) & 0x78) >> 3)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+#define p10FromEVEX3of4(evex)   (((~(evex)) & 0x4) >> 2)
+#endif // INTEL_FEATURE_ISA_AVX256P
+#define x2FromEVEX3of4(evex)    (((~(evex)) & 0x4) >> 2)
+#define oszcFromEVEX3of4(evex)  (((evex) >> 3) & 0xf)
+#endif // INTEL_CUSTOMIZATION
+#define ppFromEVEX3of4(evex)    ((evex) & 0x3)
+#define zFromEVEX4of4(evex)     (((evex) & 0x80) >> 7)
+#define l2FromEVEX4of4(evex)    (((evex) & 0x40) >> 6)
+#define lFromEVEX4of4(evex)     (((evex) & 0x20) >> 5)
+#define bFromEVEX4of4(evex)     (((evex) & 0x10) >> 4)
+#define v2FromEVEX4of4(evex)    (((~evex) & 0x8) >> 3)
+#define aaaFromEVEX4of4(evex)   ((evex) & 0x7)
+#if INTEL_CUSTOMIZATION
+#define nfFromEVEX4of4(evex)    (((evex) >> 2) & 0x1)
+#define scFromEVEX4of4(evex)    ((evex) & 0xf)
+#endif // INTEL_CUSTOMIZATION
+
+#define rFromVEX2of3(vex)       (((~(vex)) & 0x80) >> 7)
+#define xFromVEX2of3(vex)       (((~(vex)) & 0x40) >> 6)
+#define bFromVEX2of3(vex)       (((~(vex)) & 0x20) >> 5)
+#define mmmmmFromVEX2of3(vex)   ((vex) & 0x1f)
+#define wFromVEX3of3(vex)       (((vex) & 0x80) >> 7)
+#define vvvvFromVEX3of3(vex)    (((~(vex)) & 0x78) >> 3)
+#define lFromVEX3of3(vex)       (((vex) & 0x4) >> 2)
+#define ppFromVEX3of3(vex)      ((vex) & 0x3)
+
+#define rFromVEX2of2(vex)       (((~(vex)) & 0x80) >> 7)
+#define vvvvFromVEX2of2(vex)    (((~(vex)) & 0x78) >> 3)
+#define lFromVEX2of2(vex)       (((vex) & 0x4) >> 2)
+#define ppFromVEX2of2(vex)      ((vex) & 0x3)
+
+#define rFromXOP2of3(xop)       (((~(xop)) & 0x80) >> 7)
+#define xFromXOP2of3(xop)       (((~(xop)) & 0x40) >> 6)
+#define bFromXOP2of3(xop)       (((~(xop)) & 0x20) >> 5)
+#define mmmmmFromXOP2of3(xop)   ((xop) & 0x1f)
+#define wFromXOP3of3(xop)       (((xop) & 0x80) >> 7)
+#define vvvvFromXOP3of3(vex)    (((~(vex)) & 0x78) >> 3)
+#define lFromXOP3of3(xop)       (((xop) & 0x4) >> 2)
+#define ppFromXOP3of3(xop)      ((xop) & 0x3)
+
+// These enums represent Intel registers for use by the decoder.
+#if INTEL_CUSTOMIZATION
+#define REGS_8BIT     \
+  ENTRY(AL)           \
+  ENTRY(CL)           \
+  ENTRY(DL)           \
+  ENTRY(BL)           \
+  ENTRY(AH)           \
+  ENTRY(CH)           \
+  ENTRY(DH)           \
+  ENTRY(BH)           \
+  ENTRY(R8B)          \
+  ENTRY(R9B)          \
+  ENTRY(R10B)         \
+  ENTRY(R11B)         \
+  ENTRY(R12B)         \
+  ENTRY(R13B)         \
+  ENTRY(R14B)         \
+  ENTRY(R15B)         \
+  ENTRY(R16B)         \
+  ENTRY(R17B)         \
+  ENTRY(R18B)         \
+  ENTRY(R19B)         \
+  ENTRY(R20B)         \
+  ENTRY(R21B)         \
+  ENTRY(R22B)         \
+  ENTRY(R23B)         \
+  ENTRY(R24B)         \
+  ENTRY(R25B)         \
+  ENTRY(R26B)         \
+  ENTRY(R27B)         \
+  ENTRY(R28B)         \
+  ENTRY(R29B)         \
+  ENTRY(R30B)         \
+  ENTRY(R31B)         \
+  ENTRY(SPL)          \
+  ENTRY(BPL)          \
+  ENTRY(SIL)          \
+  ENTRY(DIL)
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#define EA_BASES_16BIT  \
+  ENTRY(BX_SI)          \
+  ENTRY(BX_DI)          \
+  ENTRY(BP_SI)          \
+  ENTRY(BP_DI)          \
+  ENTRY(SI)             \
+  ENTRY(DI)             \
+  ENTRY(BP)             \
+  ENTRY(BX)             \
+  ENTRY(R8W)            \
+  ENTRY(R9W)            \
+  ENTRY(R10W)           \
+  ENTRY(R11W)           \
+  ENTRY(R12W)           \
+  ENTRY(R13W)           \
+  ENTRY(R14W)           \
+  ENTRY(R15W)           \
+  ENTRY(R16W)           \
+  ENTRY(R17W)           \
+  ENTRY(R18W)           \
+  ENTRY(R19W)           \
+  ENTRY(R20W)           \
+  ENTRY(R21W)           \
+  ENTRY(R22W)           \
+  ENTRY(R23W)           \
+  ENTRY(R24W)           \
+  ENTRY(R25W)           \
+  ENTRY(R26W)           \
+  ENTRY(R27W)           \
+  ENTRY(R28W)           \
+  ENTRY(R29W)           \
+  ENTRY(R30W)           \
+  ENTRY(R31W)
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#define REGS_16BIT    \
+  ENTRY(AX)           \
+  ENTRY(CX)           \
+  ENTRY(DX)           \
+  ENTRY(BX)           \
+  ENTRY(SP)           \
+  ENTRY(BP)           \
+  ENTRY(SI)           \
+  ENTRY(DI)           \
+  ENTRY(R8W)          \
+  ENTRY(R9W)          \
+  ENTRY(R10W)         \
+  ENTRY(R11W)         \
+  ENTRY(R12W)         \
+  ENTRY(R13W)         \
+  ENTRY(R14W)         \
+  ENTRY(R15W)         \
+  ENTRY(R16W)         \
+  ENTRY(R17W)         \
+  ENTRY(R18W)         \
+  ENTRY(R19W)         \
+  ENTRY(R20W)         \
+  ENTRY(R21W)         \
+  ENTRY(R22W)         \
+  ENTRY(R23W)         \
+  ENTRY(R24W)         \
+  ENTRY(R25W)         \
+  ENTRY(R26W)         \
+  ENTRY(R27W)         \
+  ENTRY(R28W)         \
+  ENTRY(R29W)         \
+  ENTRY(R30W)         \
+  ENTRY(R31W)
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#define EA_BASES_32BIT  \
+  ENTRY(EAX)            \
+  ENTRY(ECX)            \
+  ENTRY(EDX)            \
+  ENTRY(EBX)            \
+  ENTRY(sib)            \
+  ENTRY(EBP)            \
+  ENTRY(ESI)            \
+  ENTRY(EDI)            \
+  ENTRY(R8D)            \
+  ENTRY(R9D)            \
+  ENTRY(R10D)           \
+  ENTRY(R11D)           \
+  ENTRY(R12D)           \
+  ENTRY(R13D)           \
+  ENTRY(R14D)           \
+  ENTRY(R15D)           \
+  ENTRY(R16D)           \
+  ENTRY(R17D)           \
+  ENTRY(R18D)           \
+  ENTRY(R19D)           \
+  ENTRY(R20D)           \
+  ENTRY(R21D)           \
+  ENTRY(R22D)           \
+  ENTRY(R23D)           \
+  ENTRY(R24D)           \
+  ENTRY(R25D)           \
+  ENTRY(R26D)           \
+  ENTRY(R27D)           \
+  ENTRY(R28D)           \
+  ENTRY(R29D)           \
+  ENTRY(R30D)           \
+  ENTRY(R31D)
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#define REGS_32BIT  \
+  ENTRY(EAX)        \
+  ENTRY(ECX)        \
+  ENTRY(EDX)        \
+  ENTRY(EBX)        \
+  ENTRY(ESP)        \
+  ENTRY(EBP)        \
+  ENTRY(ESI)        \
+  ENTRY(EDI)        \
+  ENTRY(R8D)        \
+  ENTRY(R9D)        \
+  ENTRY(R10D)       \
+  ENTRY(R11D)       \
+  ENTRY(R12D)       \
+  ENTRY(R13D)       \
+  ENTRY(R14D)       \
+  ENTRY(R15D)       \
+  ENTRY(R16D)       \
+  ENTRY(R17D)       \
+  ENTRY(R18D)       \
+  ENTRY(R19D)       \
+  ENTRY(R20D)       \
+  ENTRY(R21D)       \
+  ENTRY(R22D)       \
+  ENTRY(R23D)       \
+  ENTRY(R24D)       \
+  ENTRY(R25D)       \
+  ENTRY(R26D)       \
+  ENTRY(R27D)       \
+  ENTRY(R28D)       \
+  ENTRY(R29D)       \
+  ENTRY(R30D)       \
+  ENTRY(R31D)
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#define EA_BASES_64BIT  \
+  ENTRY(RAX)            \
+  ENTRY(RCX)            \
+  ENTRY(RDX)            \
+  ENTRY(RBX)            \
+  ENTRY(sib64)          \
+  ENTRY(RBP)            \
+  ENTRY(RSI)            \
+  ENTRY(RDI)            \
+  ENTRY(R8)             \
+  ENTRY(R9)             \
+  ENTRY(R10)            \
+  ENTRY(R11)            \
+  ENTRY(R12)            \
+  ENTRY(R13)            \
+  ENTRY(R14)            \
+  ENTRY(R15)            \
+  ENTRY(R16)            \
+  ENTRY(R17)            \
+  ENTRY(R18)            \
+  ENTRY(R19)            \
+  ENTRY(R20)            \
+  ENTRY(R21)            \
+  ENTRY(R22)            \
+  ENTRY(R23)            \
+  ENTRY(R24)            \
+  ENTRY(R25)            \
+  ENTRY(R26)            \
+  ENTRY(R27)            \
+  ENTRY(R28)            \
+  ENTRY(R29)            \
+  ENTRY(R30)            \
+  ENTRY(R31)
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#define REGS_64BIT  \
+  ENTRY(RAX)        \
+  ENTRY(RCX)        \
+  ENTRY(RDX)        \
+  ENTRY(RBX)        \
+  ENTRY(RSP)        \
+  ENTRY(RBP)        \
+  ENTRY(RSI)        \
+  ENTRY(RDI)        \
+  ENTRY(R8)         \
+  ENTRY(R9)         \
+  ENTRY(R10)        \
+  ENTRY(R11)        \
+  ENTRY(R12)        \
+  ENTRY(R13)        \
+  ENTRY(R14)        \
+  ENTRY(R15)        \
+  ENTRY(R16)        \
+  ENTRY(R17)        \
+  ENTRY(R18)        \
+  ENTRY(R19)        \
+  ENTRY(R20)        \
+  ENTRY(R21)        \
+  ENTRY(R22)        \
+  ENTRY(R23)        \
+  ENTRY(R24)        \
+  ENTRY(R25)        \
+  ENTRY(R26)        \
+  ENTRY(R27)        \
+  ENTRY(R28)        \
+  ENTRY(R29)        \
+  ENTRY(R30)        \
+  ENTRY(R31)
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 
 #define REGS_MMX  \
   ENTRY(MM0)      \
@@ -874,8 +1195,15 @@ struct InternalInstruction {
   uint8_t vectorExtensionPrefix[4];
   // The type of the vector extension prefix
   VectorExtensionType vectorExtensionType;
+<<<<<<< HEAD
   // The value of the REX2 prefix, if present
   uint8_t rex2ExtensionPrefix[2];
+=======
+#if INTEL_CUSTOMIZATION
+  // The value of the REX2 prefix, if present
+  uint8_t rex2ExtensionPrefix[2];
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
   // The value of the REX prefix, if present
   uint8_t rexPrefix;
 #if INTEL_CUSTOMIZATION

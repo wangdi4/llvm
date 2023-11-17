@@ -1,5 +1,4 @@
 # RUN: llc -run-pass x86-flags-copy-lowering -mattr=+ndd -verify-machineinstrs -o - %s | FileCheck %s
-# REQUIRES: intel_feature_isa_apx_f
 # Lower various interesting copy patterns of EFLAGS without using LAHF/SAHF.
 
 --- |

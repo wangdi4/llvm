@@ -75,7 +75,6 @@ multiclass CMPCCXADD_Aliases<string Cond, int CC> {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 // CCMP Instructions Alias
 multiclass CCMP_Aliases<string Cond, int CC> {
 let Predicates = [In64BitMode] in {
@@ -203,7 +202,6 @@ defm : CTEST_Aliases<"l" , 12>;
 defm : CTEST_Aliases<"ge", 13>;
 defm : CTEST_Aliases<"le", 14>;
 defm : CTEST_Aliases<"g" , 15>;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // Assembler Mnemonic Aliases
@@ -417,18 +415,15 @@ defm : IntegerCondCodeMnemonicAlias<"cmov", "q", "att">;
 // No size suffix for intel-style asm.
 defm : IntegerCondCodeMnemonicAlias<"cmov", "", "intel">;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 // Aliases for cfcmov<CC>{w,l,q}
 defm : IntegerCondCodeMnemonicAlias<"cfcmov", "w", "att">;
 defm : IntegerCondCodeMnemonicAlias<"cfcmov", "l", "att">;
 defm : IntegerCondCodeMnemonicAlias<"cfcmov", "q", "att">;
 // No size suffix for intel-style asm.
 defm : IntegerCondCodeMnemonicAlias<"cfcmov", "", "intel">;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 // Aliases for ccmp<CC>{b,w,l,q}
 defm : IntegerCondCodeMnemonicAlias<"ccmp", "b", "att">;
 defm : IntegerCondCodeMnemonicAlias<"ccmp", "w", "att">;
@@ -443,7 +438,6 @@ defm : IntegerCondCodeMnemonicAlias<"ctest", "l", "att">;
 defm : IntegerCondCodeMnemonicAlias<"ctest", "q", "att">;
 // No size suffix for intel-style asm.
 defm : IntegerCondCodeMnemonicAlias<"ctest", "", "intel">;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // Assembler Instruction Aliases
@@ -812,7 +806,6 @@ multiclass CMOV_SETCC_Aliases<string Cond, int CC> {
   def : InstAlias<"cmov"#Cond#"{q}\t{$src, $dst|$dst, $src}",
                   (CMOV64rm GR64:$dst, i64mem:$src, CC), 0>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 let Predicates = [In64BitMode] in {
   def : InstAlias<"cmov"#Cond#"{w}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                   (CMOV16rr_ND GR16:$dst, GR16:$src1, GR16:$src2, CC), 0>;
@@ -827,7 +820,6 @@ let Predicates = [In64BitMode] in {
   def : InstAlias<"cmov"#Cond#"{q}\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                   (CMOV64rm_ND GR64:$dst, GR64:$src1, i64mem:$src2, CC), 0>;
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   def : InstAlias<"set"#Cond#"\t$dst", (SETCCr GR8:$dst, CC), 0>;
@@ -852,7 +844,6 @@ defm : CMOV_SETCC_Aliases<"le", 14>;
 defm : CMOV_SETCC_Aliases<"g" , 15>;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 // CFCMOV Instructions Alias
 multiclass CFCMOV_Aliases<string Cond, int CC> {
 let Predicates = [In64BitMode] in {
@@ -905,7 +896,6 @@ defm : CFCMOV_Aliases<"ge", 13>;
 defm : CFCMOV_Aliases<"le", 14>;
 defm : CFCMOV_Aliases<"g" , 15>;
 
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 // Condition dump instructions Alias
 def : InstAlias<"jo\t$dst",  (JCC_1 brtarget8:$dst,  0), 0>;

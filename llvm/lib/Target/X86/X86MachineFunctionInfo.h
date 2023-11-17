@@ -136,13 +136,11 @@ class X86MachineFunctionInfo : public MachineFunctionInfo {
   bool HasVirtualTileReg = false;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   /// Ajust stack for push2/pop2
   bool PadForPush2Pop2 = false;
 
   /// Candidate registers for push2/pop2
   std::set<Register> CandidatesForPush2Pop2;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   /// True if this function has CFI directives that adjust the CFA.
   /// This is used to determine if we should direct the debugger to use
@@ -193,11 +191,7 @@ public:
     return WinEHXMMSlotInfo; }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   unsigned getCalleeSavedFrameSize() const { return CalleeSavedFrameSize + 8 * padForPush2Pop2(); }
-#else // INTEL_FEATURE_ISA_APX_F
-  unsigned getCalleeSavedFrameSize() const { return CalleeSavedFrameSize; }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   void setCalleeSavedFrameSize(unsigned bytes) { CalleeSavedFrameSize = bytes; }
 
@@ -266,7 +260,6 @@ public:
   void setHasVirtualTileReg(bool v) { HasVirtualTileReg = v; }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   bool padForPush2Pop2() const { return PadForPush2Pop2; }
   void setPadForPush2Pop2(bool V) { PadForPush2Pop2 = V; }
 
@@ -279,7 +272,6 @@ public:
   size_t getNumCandidatesForPush2Pop2() const {
     return CandidatesForPush2Pop2.size();
   }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   bool hasCFIAdjustCfa() const { return HasCFIAdjustCfa; }
   void setHasCFIAdjustCfa(bool v) { HasCFIAdjustCfa = v; }

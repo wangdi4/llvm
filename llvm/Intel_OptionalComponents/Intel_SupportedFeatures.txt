@@ -276,10 +276,6 @@
 @ISA_BF16_BASE:SECRET@
 # end INTEL_FEATURE_ISA_BF16_BASE
 
-# INTEL_FEATURE_ISA_APX_F
-@ISA_APX_F:SECRET@
-# end INTEL_FEATURE_ISA_APX_F
-
 # INTEL_FEATURE_XISA_COMMON
 # Special guard represents the code is shared by more than one XISA features.
 # Please be careful to use the guard in a fine granularity, so that unrelated

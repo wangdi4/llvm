@@ -1,4 +1,3 @@
-; REQUIRES: intel_feature_isa_apx_f
 ; Check ah is not allocatable for register class gr8_norex2
 ; RUN: not llc < %s -mtriple=x86_64-unknown-unknown 2>&1 | FileCheck %s
 

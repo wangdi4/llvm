@@ -44,11 +44,7 @@ def X86rao_and  : SDNode<"X86ISD::AAND", SDTRAOBinaryArith,
 
 multiclass RAOINT_BASE<string OpcodeStr> {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   let Predicates = [HasRAOINT, NoEGPR] in
-#else // INTEL_FEATURE_ISA_APX_F
-  let Predicates = [HasRAOINT] in
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     def 32mr : I<0xfc, MRMDestMem, (outs), (ins i32mem:$dst, GR32:$src),
                  !strconcat("a", OpcodeStr, "{l}\t{$src, $dst|$dst, $src}"),
@@ -56,11 +52,7 @@ multiclass RAOINT_BASE<string OpcodeStr> {
                Sched<[WriteALURMW]>;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   let Predicates = [HasRAOINT, NoEGPR, In64BitMode] in
-#else // INTEL_FEATURE_ISA_APX_F
-  let Predicates = [HasRAOINT, In64BitMode] in
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     def 64mr : I<0xfc, MRMDestMem, (outs), (ins i64mem:$dst, GR64:$src),
                  !strconcat("a", OpcodeStr, "{q}\t{$src, $dst|$dst, $src}"),
@@ -69,7 +61,6 @@ multiclass RAOINT_BASE<string OpcodeStr> {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 multiclass RAOINT_BASE_EVEX<string OpcodeStr> {
 let Predicates = [HasRAOINT, HasEGPR, In64BitMode] in {
   def 32mr_EVEX : ITy_EVEX<0xfc, MRMDestMem, Xi32, (outs), (ins i32mem:$dst, GR32:$src),
@@ -82,7 +73,6 @@ let Predicates = [HasRAOINT, HasEGPR, In64BitMode] in {
                   Sched<[WriteALURMW]>;
 }
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 defm AADD : RAOINT_BASE<"add">, T8PS;
@@ -90,10 +80,8 @@ defm AAND : RAOINT_BASE<"and">, T8PD;
 defm AOR  : RAOINT_BASE<"or" >, T8XD;
 defm AXOR : RAOINT_BASE<"xor">, T8XS;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 defm AADD : RAOINT_BASE_EVEX<"add">, T_MAP4PS;
 defm AAND : RAOINT_BASE_EVEX<"and">, T_MAP4PD;
 defm AOR  : RAOINT_BASE_EVEX<"or" >, T_MAP4XD;
 defm AXOR : RAOINT_BASE_EVEX<"xor">, T_MAP4XS;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION

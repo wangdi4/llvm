@@ -1,4 +1,3 @@
-; REQUIRES: intel_feature_isa_apx_f
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512vl,+egpr -o %t1
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512vl -x86-apx-features=egpr -o %t2
 ; RUN:  cmp %t1 %t2

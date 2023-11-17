@@ -1,4 +1,3 @@
-# REQUIRES: intel_feature_isa_apx_f
 # RUN: not llvm-mc -triple x86_64 -show-encoding -x86-asm-syntax=intel -output-asm-variant=1 %s 2>&1 | FileCheck --strict-whitespace %s
 
 # CHECK: error: Expected { at this point

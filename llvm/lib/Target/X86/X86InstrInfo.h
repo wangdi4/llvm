@@ -49,12 +49,10 @@ enum AsmComments {
   // For instr that was compressed from EVEX to VEX.
   AC_EVEX_2_VEX = MachineInstr::TAsmComments
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   , // For instrs that was compressed from ND to non-ND.
   AC_ND_2_NONND = AC_EVEX_2_VEX << 1
   , // For instrs that was compressed from EVEX to Legacy.
   AC_EVEX_2_LEGACY = AC_ND_2_NONND << 1
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -64,12 +62,8 @@ std::pair<CondCode, bool> getX86ConditionCode(CmpInst::Predicate Predicate);
 
 /// Return a cmov opcode for the given register size in bytes, and operand type.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 unsigned getCMovOpcode(unsigned RegBytes, bool HasNDD = false,
                        bool HasMemoryOperand = false);
-#else  // INTEL_FEATURE_ISA_APX_F
-unsigned getCMovOpcode(unsigned RegBytes, bool HasMemoryOperand = false);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 /// Return the source operand # for condition code by \p MCID. If the
@@ -187,6 +181,7 @@ public:
   // precision tolerance.
   bool shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
                                bool DisableGFMAForPrecision) const override;
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
   /// Given a machine instruction descriptor, returns the register
   /// class constraint for OpNum, or NULL. Returned register class
@@ -194,10 +189,16 @@ public:
   /// GR*RegClass (definition in TD file)
   /// ->
   /// GR*_NOREX2RegClass (Returned register class)
+=======
+>>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
   const TargetRegisterClass *
   getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
               const TargetRegisterInfo *TRI,
               const MachineFunction &MF) const override;
+<<<<<<< HEAD
+=======
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> 7e8fd885e82aea8f4986fcec287e52bb48e404be
 
   /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
   /// such, whenever a client has an instance of instruction info, it should
@@ -691,10 +692,8 @@ public:
 
   bool isVecSpillInst(const MachineInstr &MI) const; // INTEL
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   MachineInstr *optimizeCCMPInstr(MachineRegisterInfo &MRI,
                                   MachineInstr &MI) const override;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   void buildClearRegister(Register Reg, MachineBasicBlock &MBB,
                           MachineBasicBlock::iterator Iter, DebugLoc &DL,
