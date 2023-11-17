@@ -30,7 +30,7 @@
 ;
 ; CHECK:    BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
-; CHECK:        |   if (-1 * i1 + -1 != 0)
+; CHECK:        |   if (-1 * i1 + 1 != 0)
 ; CHECK:        |   {
 ; CHECK:        |      + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
 ; CHECK:        |      |   + DO i3 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
@@ -46,7 +46,7 @@
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
-; CHECK:        |   if (-1 * i1 + -1 != 0)
+; CHECK:        |   if (-1 * i1 + 1 != 0)
 ; CHECK:        |   {
 ; CHECK:        |      + DO i2 = 0, (sext.i32.i64(%N) * sext.i32.i64(%N)) + -1, 1   <DO_LOOP>
 ; CHECK:        |      |   (%A)[i1 + i2] = i2;

@@ -9,7 +9,7 @@
 ; CHECK: + DO i1 = 0, 1, 1   <DO_MULTI_EXIT_LOOP>
 ; CHECK: |   %storemerge12.out = 5 * i1 + 1;
 ; CHECK: |   %indvars.iv.out = 5 * i1 + 10;
-; CHECK: |   if (-1 * i1 + -1 == 0)
+; CHECK: |   if (-1 * i1 + 1 == 0)
 ; CHECK: |   {
 ; CHECK: |      goto for.end7;
 ; CHECK: |   }

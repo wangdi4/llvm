@@ -1563,7 +1563,10 @@ int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV,
 
 void HIRParser::parseConstOrDenom(const SCEVConstant *ConstSCEV, CanonExpr *CE,
                                   bool IsDenom) {
-  int64_t Const = getSCEVConstantValue(ConstSCEV, !IsDenom);
+  // Int1 const values should be considered unsigned to avoid incorrect
+  // sign propagation.
+  bool IsSigned = !IsDenom && !ConstSCEV->getType()->isIntegerTy(1);
+  int64_t Const = getSCEVConstantValue(ConstSCEV, IsSigned);
 
   if (IsDenom) {
     assert((CE->getDenominator() == 1) &&

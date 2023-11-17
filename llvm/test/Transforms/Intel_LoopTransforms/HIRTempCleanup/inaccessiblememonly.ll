@@ -8,7 +8,7 @@
 ; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   %0 = (%B)[i1];
 ; CHECK: |   %1 = (%A)[i1];
-; CHECK: |   @llvm.assume(-1);
+; CHECK: |   @llvm.assume(1);
 ; CHECK: |   %add = %0  +  %1;
 ; CHECK: |   (%A)[i1] = %add;
 ; CHECK: + END LOOP
@@ -16,7 +16,7 @@
 ; CHECK: Dump After
 
 ; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
-; CHECK: |   @llvm.assume(-1);
+; CHECK: |   @llvm.assume(1);
 ; CHECK: |   %add = (%B)[i1]  +  (%A)[i1];
 ; CHECK: |   (%A)[i1] = %add;
 ; CHECK: + END LOOP
