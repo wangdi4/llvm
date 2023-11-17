@@ -181,7 +181,7 @@ static cl::opt<bool> DisableLoopDepthCheck(
     cl::desc("Disable loop depth check in " OPT_DESC " pass"));
 
 static cl::opt<bool> DisableLoopDepthCheckForAdvanced(
-    "disable-" OPT_SWITCH "-loop-depth-check-advanced", cl::init(false),
+    "disable-" OPT_SWITCH "-loop-depth-check-advanced", cl::init(true),
     cl::Hidden, cl::desc("Disable loop depth check in " OPT_DESC " pass"));
 
 static cl::opt<bool> DisableStrideProfitablity(
@@ -1372,8 +1372,7 @@ private:
     }
 
     for (const RegDDRef *Ref : Refs) {
-      for (auto Level :
-           make_range(AllLoopLevelRange::begin(), AllLoopLevelRange::end())) {
+      for (auto Level = OutermostLevel; Level <= InnermostLevel; Level++) {
 
         // TODO: Consider using isInvariantAt..
         // Do we want to check Ref->isInvariantAtLevel() instead?
@@ -1391,6 +1390,65 @@ private:
           NumRefsMissingAtLevel[Level]++;
         }
       } // all level
+    }
+
+    LLVM_DEBUG(
+        dbgs() << "@@ Ref statistics before adjustment for Region: "
+               << OutermostLoop->getParentRegion()->getNumber() << "\n";
+        dbgs() << "  # total refs: " << Refs.size() << "\n";
+        for (auto Level = OutermostLevel; Level <= InnermostLevel; Level++) {
+          dbgs() << "Level " << Level << ": ";
+          dbgs() << "# NumRefsMissingAtLevel: " << NumRefsMissingAtLevel[Level]
+                 << ", ";
+          dbgs() << "# NumRefsWithSmallStrides: "
+                 << NumRefsWithSmallStrides[Level] << "\n";
+        });
+
+    decreaseNumProBlockingRefs(Refs, OutermostLevel, InnermostLevel);
+
+    LLVM_DEBUG(
+        dbgs() << "@@ Ref statistics after adjustment for Region: "
+               << OutermostLoop->getParentRegion()->getNumber() << "\n";
+        dbgs() << "  # total refs: " << Refs.size() << "\n";
+        for (auto Level = OutermostLevel; Level <= InnermostLevel; Level++) {
+          dbgs() << "Level " << Level << ": ";
+          dbgs() << "# NumRefsMissingAtLevel: " << NumRefsMissingAtLevel[Level]
+                 << ", ";
+          dbgs() << "# NumRefsWithSmallStrides: "
+                 << NumRefsWithSmallStrides[Level] << "\n";
+        });
+  }
+
+  // Adjust the number of references that are counted for "pro"-loop blocking in
+  // classing KandR algorithm. In general, the higher
+  // NumRefsMissingAtLevel[Level] and NumRefsWithSmallStrides[Level] are, the
+  // higher the change of loop at Level is blocked. This function decreases
+  // NumRefsMissingAtLevel[.] and NumRefsWithSmallStrides[.] by applying a
+  // piecewise linear function, which returns zero if the input value is less
+  // than a certain threshold. The input value is the ratio of
+  // NumRefsMissingAtLevel(or NumRefsWithSmallStrides) to the total number of
+  // refs. The idea is to avoid loop blocking if only a few memrefs are
+  // pro-blocking at that level and majorities of memrefs aren't.
+  void decreaseNumProBlockingRefs(ArrayRef<RegDDRef *> Refs,
+                                  unsigned OutermostLevel,
+                                  unsigned InnermostLevel) {
+    // Test post-processing
+    unsigned NumTotalRefs = Refs.size() + 1;
+    auto AdjustNumRefs = [NumTotalRefs](unsigned NumRefs) -> unsigned {
+      const float RefRatioThreshold = 0.20;
+
+      float Ratio = NumRefs / (float)NumTotalRefs;
+      if (Ratio >= RefRatioThreshold)
+        return NumRefs;
+      else
+        return 0;
+    };
+
+    for (auto Level = OutermostLevel; Level <= InnermostLevel; Level++) {
+      NumRefsMissingAtLevel[Level] =
+          AdjustNumRefs(NumRefsMissingAtLevel[Level]);
+      NumRefsWithSmallStrides[Level] =
+          AdjustNumRefs(NumRefsWithSmallStrides[Level]);
     }
   }
 
@@ -2012,6 +2070,8 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
       !ForceStopDelinearization && (!Is32Bit || IsLikelySmall);
 
   RefAnalysisResult RefKind = analyzeRefs(Refs, InnermostLoop, DelinearizeRefs);
+
+  LLVM_DEBUG(dbgs() << "RefKind: " << RefKind << "\n");
 
   // If any lval Ref is a non-linear, give up here.
   if (RefKind == RefAnalysisResult::NON_LINEAR) {
