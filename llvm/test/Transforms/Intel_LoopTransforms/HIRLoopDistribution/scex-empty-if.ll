@@ -77,29 +77,29 @@ cond.true:                                        ; preds = %if.end
   br i1 %tobool3, label %cond.false25, label %cond.true6
 
 cond.true6:                                       ; preds = %cond.true
-  %6 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @g, i64 3, i64 0), align 4
+  %6 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @g, i64 0, i64 3), align 4
   %tobool7 = icmp eq i32 %6, 0
   br i1 %tobool7, label %cond.false, label %cond.end31
 
 cond.false:                                       ; preds = %cond.true6
-  %7 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @h, i64 3, i64 0), align 4
-  %8 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @f, i64 2, i64 0), align 4
+  %7 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @h, i64 0, i64 3), align 4
+  %8 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @f, i64 0, i64 2), align 4
   %mul = mul nsw i32 %8, %7
-  %9 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @h, i64 2, i64 0), align 4
+  %9 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @h, i64 0, i64 2), align 4
   %mul12 = mul nsw i32 %9, %4
   %add13 = add nsw i32 %mul12, %mul
-  %10 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @f, i64 5, i64 0), align 4
+  %10 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @f, i64 0, i64 5), align 4
   %cmp = icmp sgt i32 %add13, %10
   br i1 %cmp, label %cond.end31, label %cond.false16
 
 cond.false16:                                     ; preds = %cond.false
-  %11 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @g, i64 5, i64 0), align 4
+  %11 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @g, i64 0, i64 5), align 4
   br label %cond.end31
 
 cond.false25:                                     ; preds = %cond.true
-  %12 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @f, i64 5, i64 0), align 4
+  %12 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @f, i64 0, i64 5), align 4
   %13 = load i32, ptr getelementptr inbounds ([20 x i32], ptr @d, i64 0, i64 5), align 4
-  %14 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @g, i64 5, i64 0), align 4
+  %14 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @g, i64 0, i64 5), align 4
   %mul26 = mul nsw i32 %14, %13
   %add27 = add nsw i32 %mul26, %12
   br label %cond.end31

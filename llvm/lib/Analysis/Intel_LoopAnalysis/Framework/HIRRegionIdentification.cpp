@@ -609,6 +609,59 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
   return true;
 }
 
+bool HIRRegionIdentification::isOnePastEndConstGEP(const GEPOperator *GEPOp) {
+  if (!GEPOp || GEPOp->getNumIndices() != 2) {
+    return false;
+  }
+
+  auto *FirstIndex = dyn_cast<ConstantInt>(*GEPOp->idx_begin());
+
+  if (!FirstIndex || !FirstIndex->isOne()) {
+    return false;
+  }
+
+  auto *SecondIndex = dyn_cast<ConstantInt>(*(GEPOp->idx_begin() + 1));
+
+  if (!SecondIndex || !SecondIndex->isZero()) {
+    return false;
+  }
+
+  return isa<ArrayType>(GEPOp->getSourceElementType());
+}
+
+bool HIRRegionIdentification::containsUnsupportedIdx(
+    const GEPOrSubsOperator *GEPOrSubs, const Loop *Lp) {
+  auto *GEPInst = dyn_cast<GetElementPtrInst>(GEPOrSubs);
+  if (isa<SubscriptInst>(GEPOrSubs)) {
+    return false;
+  }
+  // We should bail out for cases like @c[-1][i1], where base opreand is
+  // global and first index is not 0 or 1. It is out of range array access.
+  auto *InnermostGEP = dyn_cast<GEPOperator>(GEPOrSubs);
+  auto *BasePtrOp = InnermostGEP->getPointerOperand();
+  while (auto *CurrGEPOp = dyn_cast<GEPOperator>(BasePtrOp)) {
+    BasePtrOp = CurrGEPOp->getPointerOperand();
+    InnermostGEP = CurrGEPOp;
+  }
+
+  bool IsGlobalBasePtr = isa<GlobalVariable>(BasePtrOp);
+  unsigned NumOpsInInnermostGEP = InnermostGEP->getNumOperands();
+  if (!IsGlobalBasePtr || (NumOpsInInnermostGEP <= 2))
+    return false;
+
+  // If the first index of a GEP with global base pointer is not 0 or GEP is a
+  // constant one-past-end access, then bail out for out-of-range access.
+  auto *OutermostIntIdxOp = dyn_cast<ConstantInt>(InnermostGEP->getOperand(1));
+  if (OutermostIntIdxOp && !OutermostIntIdxOp->isZero() &&
+      !isOnePastEndConstGEP(InnermostGEP)) {
+    printOptReportRemark(Lp, GEPInst,
+                         "Constant array access goes out of range.");
+    return true;
+  }
+
+  return false;
+}
+
 bool HIRRegionIdentification::containsUnsupportedTy(
     const GEPOrSubsOperator *GEPOrSubs, const Loop *Lp) {
 
@@ -627,6 +680,10 @@ bool HIRRegionIdentification::containsUnsupportedTy(
     if (!isSupported(GEPOp->getOperand(I)->getType(), true, GEPInst, Lp)) {
       return true;
     }
+  }
+
+  if (containsUnsupportedIdx(GEPOrSubs, Lp)) {
+    return true;
   }
 
   // We need to check 'indexed' types as well as they can contain vector types
@@ -691,7 +748,13 @@ bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst,
 
   // Check instruction operands
   for (unsigned I = 0; I < NumOp; ++I) {
-    if (!isSupported(Inst->getOperand(I)->getType(), false, Inst, Lp)) {
+    auto *Op = Inst->getOperand(I);
+    if (auto GEPOp = dyn_cast<GEPOrSubsOperator>(Op)) {
+      if (containsUnsupportedIdx(GEPOp, Lp))
+        return true;
+    }
+
+    if (!isSupported(Op->getType(), false, Inst, Lp)) {
       return true;
     }
   }
