@@ -41,7 +41,7 @@
 // CHK-PHASES: 26: clang-offload-wrapper, {25}, ir, (host-openmp-sycl)
 // CHK-PHASES: 27: backend, {26}, assembler, (host-openmp-sycl)
 // CHK-PHASES: 28: assembler, {27}, object, (host-openmp-sycl)
-// CHK-PHASES: 29: linker, {8, 28, 25}, image, (host-openmp-sycl)
+// CHK-PHASES: 29: linker, {8, 28}, image, (host-openmp-sycl)
 // CHK-PHASES: 30: linker, {4}, ir, (device-sycl)
 // CHK-PHASES: 31: input, "{{.*libsycl-itt-user-wrappers.o.*}}", object
 // CHK-PHASES: 32: clang-offload-unbundler, {31}, object
@@ -143,7 +143,7 @@
 // CHK-UBACTIONS: 15: clang-offload-wrapper, {14}, ir, (host-openmp-sycl)
 // CHK-UBACTIONS: 16: backend, {15}, assembler, (host-openmp-sycl)
 // CHK-UBACTIONS: 17: assembler, {16}, object, (host-openmp-sycl)
-// CHK-UBACTIONS: 18: linker, {1, 17, 14}, image, (host-openmp-sycl)
+// CHK-UBACTIONS: 18: linker, {1, 17}, image, (host-openmp-sycl)
 // CHK-UBACTIONS: 19: spirv-to-ir-wrapper, {1}, ir, (device-sycl)
 // CHK-UBACTIONS: 20: linker, {19}, ir, (device-sycl)
 // CHK-UBACTIONS: 21: input, "{{.*libsycl-itt-user-wrappers.o.*}}", object
@@ -288,7 +288,7 @@
 // FOFFLOAD_STATIC_LIB_SRC: 32: clang-offload-wrapper, {31}, ir, (host-openmp-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 33: backend, {32}, assembler, (host-openmp-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 34: assembler, {33}, object, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 35: linker, {0, 9, 34, 31}, image, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 35: linker, {0, 9, 34}, image, (host-openmp-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 36: spirv-to-ir-wrapper, {18}, tempfilelist, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 37: linker, {5, 16, 36}, ir, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 38: input, "{{.*libsycl-itt-user-wrappers.o.*}}", object
