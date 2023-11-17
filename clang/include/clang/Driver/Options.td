@@ -3921,6 +3921,11 @@ def fopenmp_target_loopopt : Flag<["-"], "fopenmp-target-loopopt">,
   Flags<[HelpHidden]>, Group<f_Group>,
   HelpText<"Enable loop optimizer and auto-vectorization for OpenMP offloading "
            "device compilation with -O2 and above">;
+def fopenmp_concurrent_host_device_compile
+  : Joined<["-"], "fopenmp-concurrent-host-device-compile">,
+    Group<f_Group>, HelpText<"Enable parallel compilation of host and device "
+    "compilation steps when performing OpenMP offload compiles using "
+    "-fopenmp-targets. (experimental)">;
 #endif // INTEL_CUSTOMIZATION
 // INTEL_COLLAB
 def fiopenmp : Flag<["-"], "fiopenmp">, Group<f_Group>,
@@ -10461,6 +10466,12 @@ def _SLASH_Qiopenmp_vec_at_O0 : CLFlag<"Qiopenmp-vec-at-O0">, Alias<fiopenmp_vec
 def _SLASH_Qno_iopenmp_vec_at_O0 : CLFlag<"Qno-iopenmp-vec-at-O0">, Alias<fno_iopenmp_vec_at_O0>;
 def _SLASH_Qopenmp_target_intel_proprietary_opts : CLFlag<"Qopenmp-target-intel-proprietary-opts">,
         Alias<fopenmp_target_intel_proprietary_opts>;
+def _SLASH_Qopenmp_concurrent_host_device_compile
+  : CLFlag<"Qopenmp-concurrent-host-device-compile">,
+    Alias<fopenmp_concurrent_host_device_compile>,
+    HelpText<"Enable parallel compilation of host and device compilation steps "
+             "when performing OpenMP offload compiles using -Qopenmp-targets. "
+             "(experimental)">;
 def : CLJoined<"Qparallel-source-info=">,
   Values<"0,1,2">, Alias<parallel_source_info_EQ>, HelpText<"Emit source "
   "location information for parallel code generation with OpenMP and "

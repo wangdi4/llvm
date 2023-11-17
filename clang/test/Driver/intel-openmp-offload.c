@@ -395,3 +395,19 @@
 // RUN:    -target i386-unknown-linux-gnu -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=NO_SVML_ERROR %s
 // NO_SVML_ERROR-NOT: unsupported option 'SVML' for target
+
+/// Use of -fopenmp-concurrent-host-device-compile requires -fopenmp-targets
+// RUN: %clangxx -### -fiopenmp -fopenmp-concurrent-host-device-compile \
+// RUN:          --target=x86_64-unknown-linux-gnu %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CONCURRENT_WARN %s
+// CONCURRENT_WARN: -fopenmp-concurrent-host-device-compile' should be used only in conjunction with '-fopenmp-targets'
+
+/// Option acceptance
+// RUN: %clangxx -### -fiopenmp -fopenmp-concurrent-host-device-compile \
+// RUN:          -fopenmp-targets=spir64 --target=x86_64-unknown-linux-gnu %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CONCURRENT_NO_WARN %s
+// RUN: %clang_cl -### -Qiopenmp -Qopenmp-concurrent-host-device-compile \
+// RUN:          -Qopenmp-targets=spir64 %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CONCURRENT_NO_WARN %s
+// CONCURRENT_NO_WARN-NOT: unknown argument
+// CONCURRENT_NO_WARN-NOT: should be used only in conjunction
