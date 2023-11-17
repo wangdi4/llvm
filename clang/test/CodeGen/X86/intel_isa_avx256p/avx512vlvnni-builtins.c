@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_avx256p
+// REQUIRES: intel_feature_isa_avx256p_unsupported
 // RUN: %clang_cc1 -flax-vector-conversions=none -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avx256p -emit-llvm -o - -Wall -Werror | FileCheck %S/../avx512vlvnni-builtins.c
 
 #include "../avx512vlvnni-builtins.c"
