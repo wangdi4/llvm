@@ -11329,6 +11329,14 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
 
   TranslatorArgs.push_back("-o");
   TranslatorArgs.push_back(Output.getFilename());
+  bool IsCPU = false;
+  if (JA.isDeviceOffloading(Action::OFK_SYCL)) {
+    const toolchains::SYCLToolChain &TC =
+        static_cast<const toolchains::SYCLToolChain &>(getToolChain());
+    llvm::Triple Triple = TC.getTriple();
+    IsCPU = Triple.isSPIR() &&
+            Triple.getSubArch() == llvm::Triple::SPIRSubArch_x86_64;
+  }
 #if INTEL_CUSTOMIZATION
   if (JA.isDeviceOffloading(Action::OFK_SYCL) ||
       (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
@@ -11352,8 +11360,13 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
     if (JA.isDeviceOffloading(Action::OFK_OpenMP))
       TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics");
-    else
-      TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics=llvm.genx.");
+    else {
+      std::string UnknownIntrinsics(
+          "-spirv-allow-unknown-intrinsics=llvm.genx.");
+      if (IsCPU)
+        UnknownIntrinsics += ",llvm.fpbuiltin";
+      TranslatorArgs.push_back(TCArgs.MakeArgString(UnknownIntrinsics));
+    }
 #endif // INTEL_CUSTOMIZATION
     bool CreatingSyclSPIRVFatObj =
         C.getDriver().getFinalPhase(C.getArgs()) != phases::Link &&
@@ -11431,6 +11444,8 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
                 ",+SPV_INTEL_optnone";
     if (ShouldPreserveMetadata)
       ExtArg += ",+SPV_KHR_non_semantic_info";
+    if (IsCPU)
+      ExtArg += ",+SPV_INTEL_fp_max_error";
 
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
 
