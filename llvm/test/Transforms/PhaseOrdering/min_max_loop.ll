@@ -1,4 +1,4 @@
-; RUN: opt < %s -O3 -S | FileCheck %s
+; RUN: opt < %s -O3 -enable-lv -S | FileCheck %s ;INTEL
 ; See issue #55013 and PR #70845 for more details.
 ; This test comes from the following C program, compiled with clang
 ;
