@@ -2147,15 +2147,11 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
   // are compressed from EVEX encoding to VEX encoding.
   if (TM.Options.MCOptions.ShowMCEncoding) {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (MI->getAsmPrinterFlags() & X86::AC_ND_2_NONND)
       OutStreamer->AddComment("ND TO non-ND Compression ", false);
     else if (MI->getAsmPrinterFlags() & X86::AC_EVEX_2_LEGACY)
       OutStreamer->AddComment("EVEX TO LEGACY Compression ", false);
     else if (MI->getAsmPrinterFlags() & X86::AC_EVEX_2_VEX)
-#else  // INTEL_FEATURE_ISA_APX_F
-    if (MI->getAsmPrinterFlags() & X86::AC_EVEX_2_VEX)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       OutStreamer->AddComment("EVEX TO VEX Compression ", false);
   }

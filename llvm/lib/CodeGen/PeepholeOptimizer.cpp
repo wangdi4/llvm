@@ -213,9 +213,7 @@ namespace {
                         SmallPtrSetImpl<MachineInstr *> &LocalMIs);
     bool optimizeCondBranch(MachineInstr &MI);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     MachineInstr *optimizeCCMPInstr(MachineInstr &MI);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     bool optimizeCoalescableCopy(MachineInstr &MI);
     bool optimizeUncoalescableCopy(MachineInstr &MI,
@@ -732,11 +730,9 @@ bool PeepholeOptimizer::optimizeCondBranch(MachineInstr &MI) {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 MachineInstr *PeepholeOptimizer::optimizeCCMPInstr(MachineInstr &MI) {
   return TII->optimizeCCMPInstr(*MRI, MI);
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 /// Try to find the next source that share the same register file
 /// for the value defined by \p Reg and \p SubReg.
@@ -1844,13 +1840,11 @@ bool PeepholeOptimizer::runOnMachineFunction(MachineFunction &MF) {
       }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       MachineInstr *NewMI = optimizeCCMPInstr(*MI);
       if (NewMI) {
         MI = NewMI;
         Changed = true;
       }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       // Check whether MI is a load candidate for folding into a later
       // instruction. If MI is not a candidate, check whether we can fold an

@@ -1,4 +1,3 @@
-#if INTEL_FEATURE_ISA_APX_F
 //==-- Intel_X86InstrAPXCondition.td - APX conditional Instrs --*- tablegen -*-==//
 //
 // INTEL CONFIDENTIAL
@@ -109,4 +108,3 @@ def CTEST32mr: ITy_EVEX_C<0x84, MRMDestMem, Xi32, i32mem, GR32, "ctest">;
 def CTEST64mr: ITy_EVEX_C<0x84, MRMDestMem, Xi64, i64mem, GR64, "ctest">;
 } // SchedRW, mayLoad
 } // Predicates
-#endif // INTEL_FEATURE_ISA_APX_F

@@ -33,13 +33,8 @@
 // Key Locker instructions
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 let SchedRW = [WriteSystem] in {
   let Uses = [XMM0, EAX], Defs = [EFLAGS], Predicates = [HasKL] in {
-#else  // INTEL_FEATURE_ISA_APX_F
-let SchedRW = [WriteSystem], Predicates = [HasKL] in {
-  let Uses = [XMM0, EAX], Defs = [EFLAGS] in {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     def LOADIWKEY : I<0xDC, MRMSrcReg, (outs), (ins VR128:$src1, VR128:$src2),
                       "loadiwkey\t{$src2, $src1|$src1, $src2}",
@@ -47,9 +42,7 @@ let SchedRW = [WriteSystem], Predicates = [HasKL] in {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   let Predicates = [HasKL, NoEGPR] in {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   let Uses = [XMM0], Defs = [XMM0, XMM1, XMM2, XMM4, XMM5, XMM6, EFLAGS] in {
     def ENCODEKEY128 : I<0xFA, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
@@ -84,19 +77,13 @@ let SchedRW = [WriteSystem], Predicates = [HasKL] in {
                          (X86aesdec256kl VR128:$src1, addr:$src2))]>, T8XS;
   }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 } // SchedRW, Predicates
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 let SchedRW = [WriteSystem], Predicates = [HasWIDEKL, NoEGPR] in {
-#else  // INTEL_FEATURE_ISA_APX_F
-let SchedRW = [WriteSystem], Predicates = [HasWIDEKL] in {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   let Uses = [XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7],
       Defs = [EFLAGS, XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7],
@@ -113,7 +100,6 @@ let SchedRW = [WriteSystem], Predicates = [HasWIDEKL] in {
 
 } // SchedRW, Predicates
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 
 let SchedRW = [WriteSystem], Predicates = [HasKL, HasEGPR, In64BitMode] in {
   let Uses = [XMM0], Defs = [XMM0, XMM1, XMM2, XMM4, XMM5, XMM6, EFLAGS] in {
@@ -176,5 +162,4 @@ let SchedRW = [WriteSystem], Predicates = [HasWIDEKL, HasEGPR, In64BitMode] in {
   }
 
 } // SchedRW, Predicates
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION

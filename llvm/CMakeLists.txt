@@ -1457,10 +1457,6 @@ ${LLVM_INTELFEATURE_PREFIX}_ISA_SM4_EVEX)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_BF16_BASE)
 # end INTEL_FEATURE_ISA_BF16_BASE
-# INTEL_FEATURE_ISA_APX_F
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_APX_F)
-# end INTEL_FEATURE_ISA_APX_F
 # INTEL_FEATURE_ISA_AVX512_MINMAX
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_MINMAX)

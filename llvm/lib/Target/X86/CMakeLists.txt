@@ -60,9 +60,7 @@ set(sources
   Intel_X86HeteroArchOpt.cpp
   Intel_X86TransformToLibmSinCosCall.cpp
   Intel_X86FixupMemInsts.cpp
-# INTEL_FEATURE_ISA_APX_F
   Intel_X86ConditionalCompares.cpp
-# end INTEL_FEATURE_ISA_APX_F
 # end INTEL_CUSTOMIZATION
   X86ArgumentStackSlotRebase.cpp
   X86AsmPrinter.cpp

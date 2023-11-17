@@ -1686,9 +1686,7 @@ def : Pat<(X86add_flag_nocf GR64:$src1, 0x0000000080000000),
 
 // AddedComplexity is needed to give priority over i64immSExt8 and i64immSExt32.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 let Predicates = [NoNDD] in {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 let AddedComplexity = 1 in {
 def : Pat<(and GR64:$src, i64immZExt32:$imm),
@@ -1700,7 +1698,6 @@ def : Pat<(and GR64:$src, i64immZExt32:$imm),
             sub_32bit)>;
 } // AddedComplexity = 1
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 }
 let Predicates = [HasNDD], AddedComplexity = 1 in {
 def : Pat<(and GR64:$src, i64immZExt32:$imm),
@@ -1711,7 +1708,6 @@ def : Pat<(and GR64:$src, i64immZExt32:$imm),
               (i32 (GetLo32XForm imm:$imm))),
             sub_32bit)>;
 } // Predicates, AddedComplexity = 1
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 
@@ -1918,7 +1914,6 @@ def : Pat<(X86xor_flag (i8 (trunc GR32:$src)),
 // happening is considered low enough that this is officially not a
 // "real problem".
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 let Predicates = [HasNDD] in {
 def : Pat<(shl GR8 :$src1, (i8 1)), (ADD8rr_ND  GR8 :$src1, GR8 :$src1)>;
 def : Pat<(shl GR16:$src1, (i8 1)), (ADD16rr_ND GR16:$src1, GR16:$src1)>;
@@ -1926,16 +1921,13 @@ def : Pat<(shl GR32:$src1, (i8 1)), (ADD32rr_ND GR32:$src1, GR32:$src1)>;
 def : Pat<(shl GR64:$src1, (i8 1)), (ADD64rr_ND GR64:$src1, GR64:$src1)>;
 }
 let Predicates = [NoNDD] in {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 def : Pat<(shl GR8 :$src1, (i8 1)), (ADD8rr  GR8 :$src1, GR8 :$src1)>;
 def : Pat<(shl GR16:$src1, (i8 1)), (ADD16rr GR16:$src1, GR16:$src1)>;
 def : Pat<(shl GR32:$src1, (i8 1)), (ADD32rr GR32:$src1, GR32:$src1)>;
 def : Pat<(shl GR64:$src1, (i8 1)), (ADD64rr GR64:$src1, GR64:$src1)>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 def shiftMask8 : PatFrag<(ops node:$lhs), (and node:$lhs, imm), [{
@@ -2125,9 +2117,7 @@ defm : one_bit_patterns<GR64, i64, BTR64rr, BTS64rr, BTC64rr, shiftMask64>;
 // EFLAGS-defining Patterns
 //===----------------------------------------------------------------------===//
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 let Predicates = [NoNDD] in {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 // add reg, reg
 def : Pat<(add GR8 :$src1, GR8 :$src2), (ADD8rr  GR8 :$src1, GR8 :$src2)>;
@@ -2199,7 +2189,6 @@ def : Pat<(mul GR32:$src1, (loadi32 addr:$src2)),
 def : Pat<(mul GR64:$src1, (loadi64 addr:$src2)),
           (IMUL64rm GR64:$src1, addr:$src2)>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 }
 
 let Predicates = [HasNDD] in {
@@ -2273,7 +2262,6 @@ def : Pat<(mul GR32:$src1, (loadi32 addr:$src2)),
 def : Pat<(mul GR64:$src1, (loadi64 addr:$src2)),
           (IMUL64rm_ND GR64:$src1, addr:$src2)>;
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 // mul reg, imm
@@ -2295,11 +2283,7 @@ def : Pat<(mul (loadi64 addr:$src1), i64immSExt32:$src2),
 // Increment/Decrement reg.
 // Do not make INC/DEC if it is slow
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 let Predicates = [UseIncDec, NoNDD] in {
-#else  // INTEL_FEATURE_ISA_APX_F
-let Predicates = [UseIncDec] in {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   def : Pat<(add GR8:$src, 1),   (INC8r GR8:$src)>;
   def : Pat<(add GR16:$src, 1),  (INC16r GR16:$src)>;
@@ -2320,8 +2304,6 @@ let Predicates = [UseIncDec] in {
   def : Pat<(X86sub_flag_nocf GR64:$src, -1), (INC64r GR64:$src)>;
 }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-
 let Predicates = [UseIncDec, HasNDD] in {
   def : Pat<(add GR8:$src, 1),   (INC8r_ND GR8:$src)>;
   def : Pat<(add GR16:$src, 1),  (INC16r_ND GR16:$src)>;
@@ -2341,13 +2323,10 @@ let Predicates = [UseIncDec, HasNDD] in {
   def : Pat<(X86sub_flag_nocf GR32:$src, -1), (INC32r_ND GR32:$src)>;
   def : Pat<(X86sub_flag_nocf GR64:$src, -1), (INC64r_ND GR64:$src)>;
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 let Predicates = [NoNDD] in {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 // or reg/reg.
 def : Pat<(or GR8 :$src1, GR8 :$src2), (OR8rr  GR8 :$src1, GR8 :$src2)>;
@@ -2424,7 +2403,6 @@ def : Pat<(and GR32:$src1, imm:$src2),
 def : Pat<(and GR64:$src1, i64immSExt32:$src2),
           (AND64ri32 GR64:$src1, i64immSExt32:$src2)>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 }
 
 let Predicates = [HasNDD] in {
@@ -2503,7 +2481,6 @@ def : Pat<(and GR32:$src1, imm:$src2),
 def : Pat<(and GR64:$src1, i64immSExt32:$src2),
           (AND64ri32_ND GR64:$src1, i64immSExt32:$src2)>;
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 // Bit scan instruction patterns to match explicit zero-undef behavior.

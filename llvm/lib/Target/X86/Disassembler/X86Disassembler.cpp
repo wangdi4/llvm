@@ -253,11 +253,9 @@ template <typename T> static bool consume(InternalInstruction *insn, T &ptr) {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 static bool isREX2(struct InternalInstruction *insn, uint8_t prefix) {
   return insn->mode == MODE_64BIT && prefix == 0xd5;
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 static bool isREX(struct InternalInstruction *insn, uint8_t prefix) {
@@ -454,17 +452,8 @@ static int readPrefixes(struct InternalInstruction *insn) {
       return -1;
     }
 
-    if ((insn->mode == MODE_64BIT || (byte1 & 0xc0) == 0xc0) &&
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-        // APX does not have limitation on the 1st payload
-        (true ||
-#endif // INTEL_FEATURE_ISA_APX_F
-#if INTEL_FEATURE_ISA_AVX256P
-         ((~byte1 & 0x8) == 0x8))) {
-#else // INTEL_FEATURE_ISA_AVX256P
-        ((~byte1 & 0x8) == 0x8) && ((byte2 & 0x4) == 0x4)) {
-#endif // INTEL_FEATURE_ISA_AVX256P
+    if ((insn->mode == MODE_64BIT || (byte1 & 0xc0) == 0xc0)) {
 #endif // INTEL_CUSTOMIZATION
       insn->vectorExtensionType = TYPE_EVEX;
     } else {
@@ -492,13 +481,11 @@ static int readPrefixes(struct InternalInstruction *insn) {
                           (xFromEVEX2of4(insn->vectorExtensionPrefix[1]) << 1) |
                           (bFromEVEX2of4(insn->vectorExtensionPrefix[1]) << 0);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       // We simulate the REX2 prefix for simplicity's sake
         insn->rex2ExtensionPrefix[1] =
             (r2FromEVEX2of4(insn->vectorExtensionPrefix[1]) << 6) |
             (x2FromEVEX3of4(insn->vectorExtensionPrefix[2]) << 5) |
             (b2FromEVEX2of4(insn->vectorExtensionPrefix[1]) << 4);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       }
 
@@ -611,7 +598,6 @@ static int readPrefixes(struct InternalInstruction *insn) {
                                   insn->vectorExtensionPrefix[2]));
     }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   } else if (isREX2(insn, byte)) {
     uint8_t byte1;
     if (peek(insn, byte1)) {
@@ -630,7 +616,6 @@ static int readPrefixes(struct InternalInstruction *insn) {
                                 insn->rex2ExtensionPrefix[0],
                                 insn->rex2ExtensionPrefix[1]));
 
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   } else if (isREX(insn, byte)) {
     if (peek(insn, nextByte))
@@ -691,12 +676,8 @@ static int readSIB(struct InternalInstruction *insn) {
     return -1;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   index = indexFromSIB(insn->sib) | (xFromREX(insn->rexPrefix) << 3) |
           (x2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
-#else // INTEL_FEATURE_ISA_APX_F
-  index = indexFromSIB(insn->sib) | (xFromREX(insn->rexPrefix) << 3);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   if (index == 0x4) {
@@ -708,12 +689,8 @@ static int readSIB(struct InternalInstruction *insn) {
   insn->sibScale = 1 << scaleFromSIB(insn->sib);
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   base = baseFromSIB(insn->sib) | (bFromREX(insn->rexPrefix) << 3) |
          (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
-#else // INTEL_FEATURE_ISA_APX_F
-  base = baseFromSIB(insn->sib) | (bFromREX(insn->rexPrefix) << 3);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   switch (base) {
@@ -809,15 +786,10 @@ static int readModRM(struct InternalInstruction *insn) {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   reg |= (rFromREX(insn->rexPrefix) << 3) |
          (r2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
   rm |= (bFromREX(insn->rexPrefix) << 3) |
         (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
-#else // INTEL_FEATURE_ISA_APX_F
-  reg |= rFromREX(insn->rexPrefix) << 3;
-  rm |= bFromREX(insn->rexPrefix) << 3;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   evexrm = 0;
@@ -984,11 +956,7 @@ static int readModRM(struct InternalInstruction *insn) {
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 #define MAX_GPR_NUM (0x1f)
-#else // INTEL_FEATURE_ISA_APX_F
-#define MAX_GPR_NUM 0xf
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1240,13 +1208,11 @@ static bool readOpcode(struct InternalInstruction *insn) {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   if (mFromREX2(insn->rex2ExtensionPrefix[1])) {
     // m bit indicates opcode map 1
     insn->opcodeType = TWOBYTE;
     return consume(insn, insn->opcode);
   }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   if (consume(insn, current))
@@ -1401,7 +1367,6 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 static bool isPush2Pop2(InternalInstruction *insn) {
   unsigned Opcode = insn->opcode;
   return !readModRM(insn) &&
@@ -1417,7 +1382,6 @@ static bool isCCMPOrCTEST(InternalInstruction *insn) {
           ((insn->opcode & 0xfe) == 0xf6 &&
            regFromModRM(insn->modRM) == 0));
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 // Determine the ID of an instruction, consuming the ModR/M byte as appropriate
@@ -1463,12 +1427,10 @@ static int getInstructionID(struct InternalInstruction *insn,
       if (bFromEVEX4of4(insn->vectorExtensionPrefix[3]))
         attrMask |= ATTR_EVEXB;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       if (nfFromEVEX4of4(insn->vectorExtensionPrefix[3]) &&
           (insn->opcodeType == MAP4) && !isPush2Pop2(insn) &&
           !isCCMPOrCTEST(insn))
         attrMask |= ATTR_EVEXNF;
-#endif // INTEL_FEATURE_ISA_APX_F
       // aaa is not used a opmask in MAP4
       if (aaaFromEVEX4of4(insn->vectorExtensionPrefix[3]) &&
           (insn->opcodeType != MAP4))
@@ -1592,12 +1554,10 @@ static int getInstructionID(struct InternalInstruction *insn,
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   // Absolute jump and pushp/popp need special handling
   if (insn->rex2ExtensionPrefix[0] == 0xd5 && insn->opcodeType == ONEBYTE &&
       (insn->opcode == 0xA1 || insn->opcode == 0x50 || insn->opcode == 0x58))
     attrMask |= ATTR_REX2;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   if (insn->mode == MODE_16BIT) {
@@ -1775,15 +1735,10 @@ static int readOpcodeRegister(struct InternalInstruction *insn, uint8_t size) {
   switch (size) {
   case 1:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     insn->opcodeRegister =
         (Reg)(MODRM_REG_AL + ((bFromREX(insn->rexPrefix) << 3) |
                               (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4) |
                               (insn->opcode & 7)));
-#else // INTEL_FEATURE_ISA_APX_F
-    insn->opcodeRegister = (Reg)(
-        MODRM_REG_AL + ((bFromREX(insn->rexPrefix) << 3) | (insn->opcode & 7)));
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     if (insn->rexPrefix && insn->opcodeRegister >= MODRM_REG_AL + 0x4 &&
         insn->opcodeRegister < MODRM_REG_AL + 0x8) {
@@ -1794,43 +1749,26 @@ static int readOpcodeRegister(struct InternalInstruction *insn, uint8_t size) {
     break;
   case 2:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     insn->opcodeRegister =
         (Reg)(MODRM_REG_AX + ((bFromREX(insn->rexPrefix) << 3) |
                               (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4) |
                               (insn->opcode & 7)));
-#else // INTEL_FEATURE_ISA_APX_F
-    insn->opcodeRegister = (Reg)(
-        MODRM_REG_AX + ((bFromREX(insn->rexPrefix) << 3) | (insn->opcode & 7)));
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     break;
   case 4:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     insn->opcodeRegister =
         (Reg)(MODRM_REG_EAX + ((bFromREX(insn->rexPrefix) << 3) |
                                (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4) |
                                (insn->opcode & 7)));
-#else // INTEL_FEATURE_ISA_APX_F
-    insn->opcodeRegister =
-        (Reg)(MODRM_REG_EAX +
-              ((bFromREX(insn->rexPrefix) << 3) | (insn->opcode & 7)));
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     break;
   case 8:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     insn->opcodeRegister =
         (Reg)(MODRM_REG_RAX + ((bFromREX(insn->rexPrefix) << 3) |
                                (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4) |
                                (insn->opcode & 7)));
-#else // INTEL_FEATURE_ISA_APX_F
-    insn->opcodeRegister =
-        (Reg)(MODRM_REG_RAX +
-              ((bFromREX(insn->rexPrefix) << 3) | (insn->opcode & 7)));
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     break;
   }
@@ -2066,20 +2004,16 @@ static int readOperands(struct InternalInstruction *insn) {
         return -1;
       break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case ENCODING_CF:
       insn->immediates[1] = oszcFromEVEX3of4(insn->vectorExtensionPrefix[2]);
       needVVVV = false; // oszc shares the same bits with VVVV
       break;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     case ENCODING_CC:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       if (isCCMPOrCTEST(insn))
         insn->immediates[2] = scFromEVEX4of4(insn->vectorExtensionPrefix[3]);
       else
-#endif // INTEL_FEATURE_ISA_APX_F
         insn->immediates[1] = insn->opcode & 0xf;
 #endif // INTEL_CUSTOMIZATION
       break;
@@ -2749,19 +2683,15 @@ static bool translateOperand(MCInst &mcInst, const OperandSpecifier &operand,
     translateRegister(mcInst, insn.opcodeRegister);
     return false;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   case ENCODING_CF:
     mcInst.addOperand(MCOperand::createImm(insn.immediates[1]));
     return false;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   case ENCODING_CC:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (isCCMPOrCTEST(&insn))
       mcInst.addOperand(MCOperand::createImm(insn.immediates[2]));
     else
-#endif // INTEL_FEATURE_ISA_APX_F
       mcInst.addOperand(MCOperand::createImm(insn.immediates[1]));
 #endif // INTEL_CUSTOMIZATION
     return false;

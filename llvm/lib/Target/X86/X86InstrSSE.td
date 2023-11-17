@@ -6305,7 +6305,6 @@ defm VTESTPDY : avx_bittest<0x0F, "vtestpd", VR256, f256mem, loadv4f64, v4f64,
 //===----------------------------------------------------------------------===//
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 multiclass popcntrr_base<bits<8> opcode, bits<8> opcode2, X86TypeInfo info> {
 let Defs = [EFLAGS], Predicates = [HasPOPCNT], Opcode = opcode in
   def NAME : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst), 
@@ -6354,40 +6353,6 @@ defm POPCNT32rr : popcntrr_base<0xB8, 0x88, Xi32>;
 defm POPCNT32rm : popcntrm_base<0xB8, 0x88, Xi32>;
 defm POPCNT64rr : popcntrr_base<0xB8, 0x88, Xi64>;
 defm POPCNT64rm : popcntrm_base<0xB8, 0x88, Xi64>;
-#else // INTEL_FEATURE_ISA_APX_F
-let Defs = [EFLAGS], Predicates = [HasPOPCNT] in {
-  def POPCNT16rr : I<0xB8, MRMSrcReg, (outs GR16:$dst), (ins GR16:$src),
-                     "popcnt{w}\t{$src, $dst|$dst, $src}",
-                     [(set GR16:$dst, (ctpop GR16:$src)), (implicit EFLAGS)]>,
-                     Sched<[WritePOPCNT]>, OpSize16, XS;
-  def POPCNT16rm : I<0xB8, MRMSrcMem, (outs GR16:$dst), (ins i16mem:$src),
-                     "popcnt{w}\t{$src, $dst|$dst, $src}",
-                     [(set GR16:$dst, (ctpop (loadi16 addr:$src))),
-                      (implicit EFLAGS)]>,
-                      Sched<[WritePOPCNT.Folded]>, OpSize16, XS;
-
-  def POPCNT32rr : I<0xB8, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                     "popcnt{l}\t{$src, $dst|$dst, $src}",
-                     [(set GR32:$dst, (ctpop GR32:$src)), (implicit EFLAGS)]>,
-                     Sched<[WritePOPCNT]>, OpSize32, XS;
-
-  def POPCNT32rm : I<0xB8, MRMSrcMem, (outs GR32:$dst), (ins i32mem:$src),
-                     "popcnt{l}\t{$src, $dst|$dst, $src}",
-                     [(set GR32:$dst, (ctpop (loadi32 addr:$src))),
-                      (implicit EFLAGS)]>,
-                      Sched<[WritePOPCNT.Folded]>, OpSize32, XS;
-
-  def POPCNT64rr : RI<0xB8, MRMSrcReg, (outs GR64:$dst), (ins GR64:$src),
-                      "popcnt{q}\t{$src, $dst|$dst, $src}",
-                      [(set GR64:$dst, (ctpop GR64:$src)), (implicit EFLAGS)]>,
-                      Sched<[WritePOPCNT]>, XS;
-  def POPCNT64rm : RI<0xB8, MRMSrcMem, (outs GR64:$dst), (ins i64mem:$src),
-                      "popcnt{q}\t{$src, $dst|$dst, $src}",
-                      [(set GR64:$dst, (ctpop (loadi64 addr:$src))),
-                       (implicit EFLAGS)]>,
-                       Sched<[WritePOPCNT.Folded]>, XS;
-}
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 // SS41I_unop_rm_int_v16 - SSE 4.1 unary operator whose type is v8i16.

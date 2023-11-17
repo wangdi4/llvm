@@ -1,4 +1,3 @@
-# REQUIRES: intel_feature_isa_apx_f
 # RUN: llvm-mc -triple x86_64 -show-encoding %s | FileCheck %s
 
 # CHECK: {evex}	rcrb	%al

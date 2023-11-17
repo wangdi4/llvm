@@ -263,13 +263,11 @@ X86_FEATURE       (HRESET,          "hreset")
 X86_FEATURE       (RAOINT,          "raoint")
 X86_FEATURE       (AVX512FP16,      "avx512fp16")
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 X86_FEATURE       (EGPR,            "egpr")
 X86_FEATURE       (Push2Pop2,       "push2pop2")
 X86_FEATURE       (NDD,             "ndd")
 X86_FEATURE       (CCMP,            "ccmp")
 X86_FEATURE       (CF,              "cf")
-#endif // INTEL_FEATURE_ISA_APX_F
 #if INTEL_FEATURE_ISA_AVX512_BF16_NE
 X86_FEATURE       (AVX512BF16NE,    "avx512bf16ne")
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE

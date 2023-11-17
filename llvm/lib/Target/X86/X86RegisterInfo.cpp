@@ -62,11 +62,9 @@ static cl::opt<bool>
 EnableBasePointer("x86-use-base-pointer", cl::Hidden, cl::init(true),
           cl::desc("Enable use of a base pointer for complex stack frames"));
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 static cl::opt<bool> AggressiveEGPR(
     "x86-aggressive-egpr", cl::Hidden, cl::init(false),
     cl::desc("Prefer EGPR than legacy GPR (for stress testing)"));
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 X86RegisterInfo::X86RegisterInfo(const Triple &TT)
@@ -219,12 +217,10 @@ X86RegisterInfo::getLargestLegalSuperClass(const TargetRegisterClass *RC,
     case X86::GR32RegClassID:
     case X86::GR64RegClassID:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case X86::GR8_NOREX2RegClassID:
     case X86::GR16_NOREX2RegClassID:
     case X86::GR32_NOREX2RegClassID:
     case X86::GR64_NOREX2RegClassID:
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     case X86::RFP32RegClassID:
     case X86::RFP64RegClassID:
@@ -800,7 +796,6 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
     }
   }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   // Reserve the extended general purpose registers.
   // NOTE: `Is64Bit` is added here to allow passsing EGPR flags to 32-bit tests
   // (for convenience)
@@ -811,7 +806,6 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
         Reserved.set(*AI);
     }
   }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   assert(checkAllSuperRegsMarked(Reserved,
@@ -834,7 +828,7 @@ unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
   // and try to return the minimum number of registers supported by the target.
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
+#if INTEL_FEATURE_ISA_AVX256P
   assert(
       (X86::XMM14_XMM15 + 1 == X86 ::YMM0) && (X86::YMM14_YMM15 + 1 == X86::K0) &&
       (X86::ZMM16_ZMM17_ZMM18_ZMM19_ZMM20_ZMM21_ZMM22_ZMM23_ZMM24_ZMM25_ZMM26_ZMM27_ZMM28_ZMM29_ZMM30_ZMM31 +
@@ -845,28 +839,34 @@ unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
       "Register number may be incorrect");
 
   const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
-  bool HasAVX = ST.hasAVX();
-  bool HasAVX3 = ST.hasAVX3();
-  bool HasAMX = ST.hasAMXTILE();
-  bool HasEGPR = ST.hasEGPR();
-  if (HasEGPR)
+  if (ST.hasEGPR())
     return X86::NUM_TARGET_REGS;
-  if (HasAMX)
+  if (ST.hasAMXTILE())
     return X86::TMM4_TMM5_TMM6_TMM7 + 1;
-  if (HasAVX3)
+  if (ST.hasAVX3())
     return X86::
                ZMM16_ZMM17_ZMM18_ZMM19_ZMM20_ZMM21_ZMM22_ZMM23_ZMM24_ZMM25_ZMM26_ZMM27_ZMM28_ZMM29_ZMM30_ZMM31 +
            1;
-  if (HasAVX)
+  if (ST.hasAVX())
     return X86::YMM14_YMM15 + 1;
   return X86::YMM0;
-#else // INTEL_FEATURE_ISA_APX_F
+#else // INTEL_FEATURE_ISA_AVX256P
   assert((X86::R15WH + 1 == X86 ::YMM0) && (X86::YMM15 + 1 == X86::K0) &&
-         (X86::K6_K7 + 1 == X86::TMMCFG) &&
-         (X86::TMM7 + 1 == X86::NUM_TARGET_REGS) &&
+         (X86::K6_K7 + 1 == X86::TMMCFG) && (X86::TMM7 + 1 == X86::R16) &&
+         (X86::R31WH + 1 == X86::NUM_TARGET_REGS) &&
          "Register number may be incorrect");
-  return X86::NUM_TARGET_REGS;
-#endif // INTEL_FEATURE_ISA_APX_F
+
+  const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
+  if (ST.hasEGPR())
+    return X86::NUM_TARGET_REGS;
+  if (ST.hasAMXTILE())
+    return X86::TMM7 + 1;
+  if (ST.hasAVX512())
+    return X86::K6_K7 + 1;
+  if (ST.hasAVX())
+    return X86::YMM15 + 1;
+  return X86::R15WH + 1;
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1373,7 +1373,6 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
         "64-bit mask registers are not supported without EVEX512");
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   if (AggressiveEGPR &&
       (ID == X86::GR8RegClassID || ID == X86::GR16RegClassID ||
        ID == X86::GR32RegClassID || ID == X86::GR64RegClassID)) {
@@ -1381,7 +1380,6 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
       if (X86II::isApxExtendedReg(Reg))
         Hints.push_back(Reg);
   }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

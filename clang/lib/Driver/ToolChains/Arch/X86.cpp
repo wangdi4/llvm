@@ -478,7 +478,6 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
     assert(Name.startswith("m") && "Invalid feature name.");
     Name = Name.substr(1);
     bool IsNegative = Name.startswith("no-");
-#if INTEL_FEATURE_ISA_APX_F
     if (A->getOption().matches(options::OPT_mapx_features_EQ) ||
         A->getOption().matches(options::OPT_mno_apx_features_EQ)) {
 
@@ -494,7 +493,6 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
       }
       continue;
     }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
     // Replace -mgeneral-regs-only with -x87, -mmx, -sse

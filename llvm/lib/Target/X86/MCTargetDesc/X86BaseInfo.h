@@ -198,7 +198,6 @@ namespace X86 {
     case X86::TEST8rr:
       return FirstMacroFusionInstKind::Test;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case X86::AND16ri_ND:
     case X86::AND16ri8_ND:
     case X86::AND16rm_ND:
@@ -218,7 +217,6 @@ namespace X86 {
     case X86::AND8rm_ND:
     case X86::AND8rr_ND:
     case X86::AND8rr_ND_REV:
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     case X86::AND16i16:
     case X86::AND16ri:
@@ -278,7 +276,6 @@ namespace X86 {
       return FirstMacroFusionInstKind::Cmp;
     // ADD
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case X86::ADD16ri_ND:
     case X86::ADD16ri8_ND:
     case X86::ADD16rm_ND:
@@ -298,7 +295,6 @@ namespace X86 {
     case X86::ADD8rm_ND:
     case X86::ADD8rr_ND:
     case X86::ADD8rr_ND_REV:
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     case X86::ADD16i16:
     case X86::ADD16ri:
@@ -326,7 +322,6 @@ namespace X86 {
     case X86::ADD8rr_REV:
     // SUB
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case X86::SUB16ri_ND:
     case X86::SUB16ri8_ND:
     case X86::SUB16rm_ND:
@@ -346,7 +341,6 @@ namespace X86 {
     case X86::SUB8rm_ND:
     case X86::SUB8rr_ND:
     case X86::SUB8rr_ND_REV:
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     case X86::SUB16i16:
     case X86::SUB16ri:
@@ -375,12 +369,10 @@ namespace X86 {
       return FirstMacroFusionInstKind::AddSub;
     // INC
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case X86::INC16r_ND:
     case X86::INC32r_ND:
     case X86::INC64r_ND:
     case X86::INC8r_ND:
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     case X86::INC16r:
     case X86::INC16r_alt:
@@ -390,12 +382,10 @@ namespace X86 {
     case X86::INC8r:
     // DEC
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case X86::DEC16r_ND:
     case X86::DEC32r_ND:
     case X86::DEC64r_ND:
     case X86::DEC8r_ND:
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     case X86::DEC16r:
     case X86::DEC16r_alt:
@@ -761,7 +751,6 @@ namespace X86II {
     ///
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     /// MRMDestRegCC - This form is used for the cfcmov instructions, which use
     /// the Mod/RM byte to specify the operands reg(r/m) and reg(reg) and also
     /// encodes a condition code.
@@ -771,7 +760,6 @@ namespace X86II {
     /// the Mod/RM byte to specify the operands mem(r/m) and reg(reg) and also
     /// encodes a condition code.
     MRMDestMemCC = 12,
-#endif // INTEL_FEATURE_ISA_APX_F
     /// MRMDestMemImm8 - This form is used for instructions that use the Mod/RM
     /// byte to specify a destination which in this case is memory and operand 2
     /// is a 8-bit immediate.
@@ -1145,21 +1133,9 @@ namespace X86II {
     // Force output with prefix
     EmitVEXOrEVEXPrefixShift = ExplicitVEXShift + 1,
     EmitVEXOrEVEXPrefix = 1ULL << EmitVEXOrEVEXPrefixShift,
-#if INTEL_FEATURE_XISA_COMMON
-    // XuCCPrefix - These prefix bytes are used for some XuCC instructions.
-    // Their encoding is actually the same as OpPrefix.
-    XuCCPrefixShift = EmitVEXOrEVEXPrefixShift + 1,
-    XuCCOpPrefixMask = 3ULL << XuCCPrefixShift,
-    XuCCPD = 1ULL << XuCCPrefixShift,  // 66
-    XuCCXS = 2ULL << XuCCPrefixShift,  // F3
-    XuCCXD = 3ULL << XuCCPrefixShift,  // F2
-
-    // EVEX_P10 - Set if this instruction has EVEX.P10 field set.
-    EVEX_P10Shift = XuCCPrefixShift + 2,
-    EVEX_P10      = 1ULL << EVEX_P10Shift,
 
     // EVEX_NF - Set if this instruction has EVEX.NF field set.
-    EVEX_NFShift = EVEX_P10Shift + 1,
+    EVEX_NFShift = EmitVEXOrEVEXPrefixShift + 1,
     EVEX_NF      = 1ULL << EVEX_NFShift,
 
     // TwoConditionalOps - Set if this instruction has two conditional operands
@@ -1169,6 +1145,19 @@ namespace X86II {
     // ExplicitREX2Prefix - Force REX2 encoding
     ExplicitREX2Prefix_Shift = TwoConditionalOps_Shift + 1,
     ExplicitREX2Prefix       = 1ULL << ExplicitREX2Prefix_Shift,
+#if INTEL_FEATURE_XISA_COMMON
+    // XuCCPrefix - These prefix bytes are used for some XuCC instructions.
+    // Their encoding is actually the same as OpPrefix.
+    XuCCPrefixShift = ExplicitREX2Prefix_Shift + 1,
+    XuCCOpPrefixMask = 3ULL << XuCCPrefixShift,
+    XuCCPD = 1ULL << XuCCPrefixShift,  // 66
+    XuCCXS = 2ULL << XuCCPrefixShift,  // F3
+    XuCCXD = 3ULL << XuCCPrefixShift,  // F2
+
+    // EVEX_X2 - Set if this instruction has EVEX.X2 field set.
+    EVEX_X2Shift = XuCCPrefixShift + 2,
+    EVEX_X2      = 1ULL << EVEX_X2Shift,
+
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   };
@@ -1315,16 +1304,12 @@ namespace X86II {
       return -1;
     case X86II::MRMDestMem:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case X86II::MRMDestMemCC:
       return (TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
                      (TSFlags & X86II::EVEX_B) &&
                      !(TSFlags & X86II::TwoConditionalOps)
                  ? 1
                  : 0;
-#else // INTEL_FEATURE_ISA_APX_F
-      return 0;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     case X86II::MRMDestMemFSIB:
 #if INTEL_CUSTOMIZATION
@@ -1349,9 +1334,7 @@ namespace X86II {
       return 3;
     case X86II::MRMSrcMemCC:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       return 1 + HasVEX_4V; // CMOV has NDD version.
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     case X86II::MRMDestMem4VOp3CC:
       // Start from 1, skip any registers encoded in VEX_VVVV or I8IMM, or a
@@ -1359,9 +1342,7 @@ namespace X86II {
       return 1;
     case X86II::MRMDestReg:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case X86II::MRMDestRegCC:
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     case X86II::MRMSrcReg:
     case X86II::MRMSrcReg4VOp3:
@@ -1418,7 +1399,6 @@ namespace X86II {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   /// \returns true if \p RegNo is an apx extended register.
   inline bool isApxExtendedReg(unsigned RegNo) {
     switch (RegNo) {
@@ -1491,7 +1471,6 @@ namespace X86II {
 #include "Intel_EGPR_Workaround_For_SDE.def"
     }
   }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   /// \returns true if the register is a XMM.
   inline bool isXMMReg(unsigned RegNo) {
@@ -1543,10 +1522,8 @@ namespace X86II {
       return true;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (isApxExtendedReg(RegNo))
       return true;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
     switch (RegNo) {

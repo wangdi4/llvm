@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_apx_f
 // RUN: not llvm-mc -triple i386-unknown-unknown %s 2> %t.err
 // RUN: FileCheck --check-prefix=32 < %t.err %s
 

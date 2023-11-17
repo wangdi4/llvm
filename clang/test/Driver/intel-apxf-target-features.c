@@ -1,6 +1,3 @@
-// INTEL_FEATURE_ISA_APX_F
-// REQUIRES: intel_feature_isa_apx_f
-
 // RUN: %clang -target x86_64-unknown-linux-gnu -mapxf %s -### -o %t.o 2>&1 | FileCheck -check-prefix=APXF %s
 // RUN: %clang -target x86_64-unknown-linux-gnu -mno-apxf %s -### -o %t.o 2>&1 | FileCheck -check-prefix=NO-APXF %s
 // RUN: %clang -target x86_64-unknown-linux-gnu -mno-apxf -mapxf %s -### -o %t.o 2>&1 | FileCheck -check-prefix=APXF %s
@@ -26,4 +23,3 @@
 //
 // ERROR: unsupported argument 'foo' to option '-mapx-features='
 // ERROR: unsupported argument 'bar' to option '-mapx-features='
-// end INTEL_FEATURE_ISA_APX_F

@@ -119,7 +119,7 @@ bool EvexToVexInstPass::runOnMachineFunction(MachineFunction &MF) {
 #if INTEL_FEATURE_ISA_AVX256P
   if (!ST->hasAVX3() && !ST->hasNDD() && !ST->hasEGPR())
 #else // INTEL_FEATURE_ISA_AVX256P
-  if (!ST->hasAVX512())
+  if (!ST->hasAVX512() && !ST->hasNDD() && !ST->hasEGPR())
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
     return false;
@@ -149,11 +149,9 @@ static bool usesExtendedRegister(const MachineInstr &MI) {
       return true;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     // Check for GPR with indexes between 16 - 31.
     if (X86II::isApxExtendedReg(Reg))
       return true;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
     return false;
@@ -258,9 +256,7 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
     return false;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   if ((Desc.TSFlags & X86II::OpMapMask) != X86II::T_MAP4) {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   // Check for EVEX instructions with mask or broadcast as in these cases
   // the EVEX prefix is needed in order to carry this information
@@ -273,9 +269,7 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
   if (Desc.TSFlags & X86II::EVEX_L2)
     return false;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 #ifndef NDEBUG
@@ -287,19 +281,16 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
     assert(llvm::is_sorted(X86EvexToVex256CompressTable) &&
            "X86EvexToVex256CompressTable is not sorted!");
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     assert(llvm::is_sorted(ND2NonNDCompressTable) &&
            "ND2NonNDCompressTable is not sorted!");
     assert(llvm::is_sorted(EVEX2LegacyCompressTable) &&
            "EVEX2LegacyCompressTable is not sorted!");
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     TableChecked.store(true, std::memory_order_relaxed);
   }
 #endif
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   // TODO: Update the name of the class when upstream
   ArrayRef<X86EvexToVexCompressTableEntry> Table;
   if ((Desc.TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
@@ -313,12 +304,6 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
                 ? ArrayRef(X86EvexToVex256CompressTable)
                 : ArrayRef(X86EvexToVex128CompressTable);
   }
-#else  // INTEL_FEATURE_ISA_APX_F
-  // Use the VEX.L bit to select the 128 or 256-bit table.
-  ArrayRef<X86EvexToVexCompressTableEntry> Table =
-      (Desc.TSFlags & X86II::VEX_L) ? ArrayRef(X86EvexToVex256CompressTable)
-                                    : ArrayRef(X86EvexToVex128CompressTable);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   const auto *I = llvm::lower_bound(Table, MI.getOpcode());
@@ -328,7 +313,6 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
   unsigned NewOpc = I->VexOpcode;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   if ((Desc.TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
       (Desc.TSFlags & X86II::EVEX_B)) {
     const MachineOperand &Dst = MI.getOperand(0);
@@ -371,7 +355,6 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
     MI.setAsmPrinterFlag(X86::AC_EVEX_2_LEGACY);
     return true;
   }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   if (usesExtendedRegister(MI))
     return false;

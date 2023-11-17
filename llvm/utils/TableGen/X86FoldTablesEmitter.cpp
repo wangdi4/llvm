@@ -346,12 +346,8 @@ public:
                         RegRec->getValueAsBit("hasLockPrefix"),
                         RegRec->getValueAsBit("hasNoTrackPrefix"),
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
                         RegRec->getValueAsBit("EVEX_W1_VEX_W0"),
                         RegRI.HasEVEX_NF) !=
-#else  // INTEL_FEATURE_ISA_APX_F
-                        RegRec->getValueAsBit("EVEX_W1_VEX_W0")) !=
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
         std::make_tuple(MemRI.Encoding, MemRI.Opcode, MemRI.OpPrefix,
                         MemRI.OpMap, MemRI.OpSize, MemRI.AdSize, MemRI.HasREX_W,
@@ -361,12 +357,8 @@ public:
                         MemRec->getValueAsBit("hasLockPrefix"),
                         MemRec->getValueAsBit("hasNoTrackPrefix"),
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
                         MemRec->getValueAsBit("EVEX_W1_VEX_W0"),
                         MemRI.HasEVEX_NF))
-#else  // INTEL_FEATURE_ISA_APX_F
-                        MemRec->getValueAsBit("EVEX_W1_VEX_W0")))
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       return false;
 

@@ -217,7 +217,6 @@ static FlagArithMnemonic getMnemonicFromOpcode(unsigned Opcode) {
   case X86::MNEMONIC##64i32:
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 #define LLVM_EXPAND_ADC_SBB_ND_INSTR(MNEMONIC)                                 \
   LLVM_EXPAND_INSTR_SIZES(MNEMONIC, rr_ND)                                     \
   LLVM_EXPAND_INSTR_SIZES(MNEMONIC, rr_ND_REV)                                 \
@@ -238,15 +237,12 @@ static FlagArithMnemonic getMnemonicFromOpcode(unsigned Opcode) {
   case X86::MNEMONIC##32mi_ND:                                                 \
   case X86::MNEMONIC##64mi32_ND:
     LLVM_EXPAND_ADC_SBB_ND_INSTR(ADC)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     LLVM_EXPAND_ADC_SBB_INSTR(ADC)
     return FlagArithMnemonic::ADC;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     LLVM_EXPAND_ADC_SBB_ND_INSTR(SBB)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     LLVM_EXPAND_ADC_SBB_INSTR(SBB)
     return FlagArithMnemonic::SBB;
@@ -257,20 +253,16 @@ static FlagArithMnemonic getMnemonicFromOpcode(unsigned Opcode) {
     LLVM_EXPAND_INSTR_SIZES(RCL, r1)
     LLVM_EXPAND_INSTR_SIZES(RCL, ri)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     LLVM_EXPAND_INSTR_SIZES(RCL, rCL_ND)
     LLVM_EXPAND_INSTR_SIZES(RCL, r1_ND)
     LLVM_EXPAND_INSTR_SIZES(RCL, ri_ND)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     return FlagArithMnemonic::RCL;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     LLVM_EXPAND_INSTR_SIZES(RCR, rCL_ND)
     LLVM_EXPAND_INSTR_SIZES(RCR, r1_ND)
     LLVM_EXPAND_INSTR_SIZES(RCR, ri_ND)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     LLVM_EXPAND_INSTR_SIZES(RCR, rCL)
     LLVM_EXPAND_INSTR_SIZES(RCR, r1)
@@ -871,20 +863,12 @@ void X86FlagsCopyLoweringPass::rewriteArithmetic(
   // Insert an instruction that will set the flag back to the desired value.
   Register TmpReg = MRI->createVirtualRegister(PromoteRC);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   auto AddI =
       BuildMI(MBB, MI.getIterator(), MI.getDebugLoc(),
               TII->get(Subtarget->hasNDD() ? X86::ADD8ri_ND : X86::ADD8ri))
           .addDef(TmpReg, RegState::Dead)
           .addReg(CondReg)
           .addImm(Addend);
-#else  // INTEL_FEATURE_ISA_APX_F
-  auto AddI =
-      BuildMI(MBB, MI.getIterator(), MI.getDebugLoc(), TII->get(X86::ADD8ri))
-          .addDef(TmpReg, RegState::Dead)
-          .addReg(CondReg)
-          .addImm(Addend);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   (void)AddI;
   LLVM_DEBUG(dbgs() << "    add cond: "; AddI->dump());

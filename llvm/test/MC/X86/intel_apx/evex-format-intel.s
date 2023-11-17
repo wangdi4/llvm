@@ -1,4 +1,3 @@
-# REQUIRES: intel_feature_isa_apx_f
 ## NOTE: This file needs to be updated after promoted instruction is supported
 # RUN: llvm-mc -triple x86_64 -show-encoding -x86-asm-syntax=intel -output-asm-variant=1 %s | FileCheck %s
 
