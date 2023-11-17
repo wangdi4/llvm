@@ -62,11 +62,9 @@ static cl::opt<bool>
 EnableBasePointer("x86-use-base-pointer", cl::Hidden, cl::init(true),
           cl::desc("Enable use of a base pointer for complex stack frames"));
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 static cl::opt<bool> AggressiveEGPR(
     "x86-aggressive-egpr", cl::Hidden, cl::init(false),
     cl::desc("Prefer EGPR than legacy GPR (for stress testing)"));
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 X86RegisterInfo::X86RegisterInfo(const Triple &TT)
@@ -831,19 +829,15 @@ unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
       "Register number may be incorrect");
 
   const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
-  bool HasAVX = ST.hasAVX();
-  bool HasAVX3 = ST.hasAVX3();
-  bool HasAMX = ST.hasAMXTILE();
-  bool HasEGPR = ST.hasEGPR();
-  if (HasEGPR)
+  if (ST.hasEGPR())
     return X86::NUM_TARGET_REGS;
-  if (HasAMX)
+  if (ST.hasAMXTILE())
     return X86::TMM4_TMM5_TMM6_TMM7 + 1;
-  if (HasAVX3)
+  if (ST.hasAVX3())
     return X86::
                ZMM16_ZMM17_ZMM18_ZMM19_ZMM20_ZMM21_ZMM22_ZMM23_ZMM24_ZMM25_ZMM26_ZMM27_ZMM28_ZMM29_ZMM30_ZMM31 +
            1;
-  if (HasAVX)
+  if (ST.hasAVX())
     return X86::YMM14_YMM15 + 1;
   return X86::YMM0;
 #else // INTEL_FEATURE_XISA_COMMON
@@ -862,7 +856,6 @@ unsigned X86RegisterInfo::getNumSupportedRegs(const MachineFunction &MF) const {
   if (ST.hasAVX())
     return X86::YMM15 + 1;
   return X86::R15WH + 1;
-
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
 }
@@ -1370,7 +1363,6 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
         "64-bit mask registers are not supported without EVEX512");
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   if (AggressiveEGPR &&
       (ID == X86::GR8RegClassID || ID == X86::GR16RegClassID ||
        ID == X86::GR32RegClassID || ID == X86::GR64RegClassID)) {
@@ -1378,7 +1370,6 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
       if (X86II::isApxExtendedReg(Reg))
         Hints.push_back(Reg);
   }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

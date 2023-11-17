@@ -305,7 +305,6 @@ def FeatureVPMM    : SubtargetFeature<"avx512vpmm", "HasAVX512VPMM", "true",
                      [FeatureAVX512, FeatureNEBF16]>;
 #endif // INTEL_FEATURE_ISA_AVX512_VPMM
 
-#if INTEL_FEATURE_ISA_APX_F
 def FeaturePush2Pop2 : SubtargetFeature<"push2pop2", "HasPush2Pop2", "true",
                                    "Support PUSH2/POP2 instructions">;
 def FeatureNDD : SubtargetFeature<"ndd", "HasNDD", "true",
@@ -316,7 +315,6 @@ def FeatureCF : SubtargetFeature<"cf", "HasCF", "true",
                                    "Support conditional faulting">;
 def FeaturePPX : SubtargetFeature<"ppx", "HasPPX", "true",
                                    "Support Push-Pop Acceleration">;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 def FeatureAVXVNNIINT16 : SubtargetFeature<"avxvnniint16",

@@ -356,13 +356,11 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_AVX512_MOVZXC
   bool HasAVX512MOVZXC = false;
 #endif // INTEL_FEATURE_ISA_AVX512_MOVZXC
-#if INTEL_FEATURE_ISA_APX_F
   bool HasEGPR = false;
   bool HasPush2Pop2 = false;
   bool HasNDD = false;
   bool HasCCMP = false;
   bool HasCF = false;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   bool HasAVXVNNIINT16 = false;
   bool HasAMXFP16 = false;

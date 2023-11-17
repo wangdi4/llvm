@@ -926,7 +926,6 @@ static int readModRM(struct InternalInstruction *insn) {
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
 
-
 #if INTEL_CUSTOMIZATION
 #define GENERIC_FIXUP_FUNC(name, base, prefix)                                 \
   static uint16_t name(struct InternalInstruction *insn, OperandType type,     \
@@ -1165,13 +1164,11 @@ static bool readOpcode(struct InternalInstruction *insn) {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   if (mFromREX2(insn->rex2ExtensionPrefix[1])) {
     // m bit indicates opcode map 1
     insn->opcodeType = TWOBYTE;
     return consume(insn, insn->opcode);
   }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   if (consume(insn, current))
@@ -1326,7 +1323,6 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 static bool isPush2Pop2(InternalInstruction *insn) {
   unsigned Opcode = insn->opcode;
   return !readModRM(insn) &&
@@ -1342,7 +1338,6 @@ static bool isCCMPOrCTEST(InternalInstruction *insn) {
           ((insn->opcode & 0xfe) == 0xf6 &&
            regFromModRM(insn->modRM) == 0));
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 // Determine the ID of an instruction, consuming the ModR/M byte as appropriate
@@ -1388,12 +1383,10 @@ static int getInstructionID(struct InternalInstruction *insn,
       if (bFromEVEX4of4(insn->vectorExtensionPrefix[3]))
         attrMask |= ATTR_EVEXB;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       if (nfFromEVEX4of4(insn->vectorExtensionPrefix[3]) &&
           (insn->opcodeType == MAP4) && !isPush2Pop2(insn) &&
           !isCCMPOrCTEST(insn))
         attrMask |= ATTR_EVEXNF;
-#endif // INTEL_FEATURE_ISA_APX_F
       // aaa is not used a opmask in MAP4
       if (aaaFromEVEX4of4(insn->vectorExtensionPrefix[3]) &&
           (insn->opcodeType != MAP4))
@@ -1517,12 +1510,10 @@ static int getInstructionID(struct InternalInstruction *insn,
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   // Absolute jump and pushp/popp need special handling
   if (insn->rex2ExtensionPrefix[0] == 0xd5 && insn->opcodeType == ONEBYTE &&
       (insn->opcode == 0xA1 || insn->opcode == 0x50 || insn->opcode == 0x58))
     attrMask |= ATTR_REX2;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   if (insn->mode == MODE_16BIT) {
@@ -1956,20 +1947,16 @@ static int readOperands(struct InternalInstruction *insn) {
         return -1;
       break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case ENCODING_CF:
       insn->immediates[1] = oszcFromEVEX3of4(insn->vectorExtensionPrefix[2]);
       needVVVV = false; // oszc shares the same bits with VVVV
       break;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     case ENCODING_CC:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       if (isCCMPOrCTEST(insn))
         insn->immediates[2] = scFromEVEX4of4(insn->vectorExtensionPrefix[3]);
       else
-#endif // INTEL_FEATURE_ISA_APX_F
         insn->immediates[1] = insn->opcode & 0xf;
 #endif // INTEL_CUSTOMIZATION
       break;
@@ -2639,19 +2626,15 @@ static bool translateOperand(MCInst &mcInst, const OperandSpecifier &operand,
     translateRegister(mcInst, insn.opcodeRegister);
     return false;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   case ENCODING_CF:
     mcInst.addOperand(MCOperand::createImm(insn.immediates[1]));
     return false;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   case ENCODING_CC:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (isCCMPOrCTEST(&insn))
       mcInst.addOperand(MCOperand::createImm(insn.immediates[2]));
     else
-#endif // INTEL_FEATURE_ISA_APX_F
       mcInst.addOperand(MCOperand::createImm(insn.immediates[1]));
 #endif // INTEL_CUSTOMIZATION
     return false;

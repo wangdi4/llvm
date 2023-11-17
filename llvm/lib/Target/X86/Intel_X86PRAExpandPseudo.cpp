@@ -121,14 +121,10 @@ bool X86PRAExpandPseudoPass::ExpandMI(MachineBasicBlock &MBB,
         .addReg(Sub, RegState::Kill)
         .addImm(IsKMOVB ? X86::sub_8bit : X86::sub_16bit);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     bool HasEGPR = STI->hasEGPR();
     BuildMI(MBB, MI, DL,
             TII->get(IsKMOVB ? (HasEGPR ? X86::KMOVBkr_EVEX : X86::KMOVBkr)
                              : (HasEGPR ? X86::KMOVWkr_EVEX : X86::KMOVWkr)),
-#else // INTEL_FEATURE_ISA_APX_F
-    BuildMI(MBB, MI, DL, TII->get(IsKMOVB ? X86::KMOVBkr : X86::KMOVWkr),
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
             MI.getOperand(0).getReg())
         .addReg(GR32, RegState::Kill);

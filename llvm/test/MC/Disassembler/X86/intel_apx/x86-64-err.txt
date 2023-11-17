@@ -1,4 +1,3 @@
-# REQUIRES: intel_feature_isa_apx_f
 ## APX relaxes the limitation of first payload of EVEX prefix, so the error message changes
 # RUN: llvm-mc --disassemble %s -triple=x86_64 2>&1 | FileCheck --check-prefix=64 %s
 # RUN: llvm-mc --disassemble %s -triple=i386 | FileCheck --check-prefix=32 %s

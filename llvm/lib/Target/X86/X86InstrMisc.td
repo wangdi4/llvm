@@ -179,7 +179,6 @@ def POP64rmr: I<0x8F, MRM0r, (outs GR64:$reg), (ins), "pop{q}\t$reg", []>,
                 OpSize32, Requires<[In64BitMode]>;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 def POPP64r  : I<0x58, AddRegFrm, (outs GR64:$reg), (ins), "popp\t$reg", []>,
                  REX_W, ExplicitREX2Prefix, Requires<[In64BitMode]>;
 def POP2: I<0x8F, MRM0r, (outs GR64:$reg1, GR64:$reg2), (ins),
@@ -188,7 +187,6 @@ def POP2: I<0x8F, MRM0r, (outs GR64:$reg1, GR64:$reg2), (ins),
 def POP2P: I<0x8F, MRM0r, (outs GR64:$reg1, GR64:$reg2), (ins),
              "pop2p\t{$reg1, $reg2|$reg2, $reg1}",
 	     []>, EVEX_4V, EVEX_B, T_MAP4PS, REX_W;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 } // mayLoad, SchedRW
 let mayLoad = 1, mayStore = 1, SchedRW = [WriteCopy] in
@@ -203,7 +201,6 @@ def PUSH64rmr: I<0xFF, MRM6r, (outs), (ins GR64:$reg), "push{q}\t$reg", []>,
                  OpSize32, Requires<[In64BitMode]>;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 def PUSHP64r  : I<0x50, AddRegFrm, (outs), (ins GR64:$reg), "pushp\t$reg", []>,
                   REX_W, ExplicitREX2Prefix, Requires<[In64BitMode]>;
 def PUSH2: I<0xFF, MRM6r, (outs), (ins GR64:$reg1, GR64:$reg2),
@@ -212,7 +209,6 @@ def PUSH2: I<0xFF, MRM6r, (outs), (ins GR64:$reg1, GR64:$reg2),
 def PUSH2P: I<0xFF, MRM6r, (outs), (ins GR64:$reg1, GR64:$reg2),
              "push2p\t{$reg1, $reg2 |$reg2, $reg1}",
 	     []>, EVEX_4V, EVEX_B, T_MAP4PS, REX_W;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 } // mayStore, SchedRW
 let mayLoad = 1, mayStore = 1, SchedRW = [WriteCopy] in {
@@ -1127,11 +1123,7 @@ def ARPL16mr : I<0x63, MRMDestMem, (outs), (ins i16mem:$dst, GR16:$src),
 // MOVBE Instructions
 //
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 let Predicates = [HasMOVBE, NoEGPR] in {
-#else // INTEL_FEATURE_ISA_APX_F
-let Predicates = [HasMOVBE] in {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   let SchedRW = [WriteALULd] in {
   def MOVBE16rm : I<0xF0, MRMSrcMem, (outs GR16:$dst), (ins i16mem:$src),
@@ -1163,7 +1155,6 @@ let Predicates = [HasMOVBE] in {
   }
 }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 let Predicates = [HasMOVBE, HasEGPR] in {
   let SchedRW = [WriteALULd] in {
   def MOVBE16rm_EVEX : ITy_EVEX<0x60, MRMSrcMem, Xi16, (outs GR16:$dst), (ins i16mem:$src),
@@ -1197,7 +1188,6 @@ let Predicates = [HasMOVBE, HasEGPR] in {
                                     "movbe", "{$src, $dst|$dst, $src}", [], 0>;
   }
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -1231,7 +1221,6 @@ let Predicates = [HasRDSEED], Defs = [EFLAGS], SchedRW = [WriteSystem] in {
 // LZCNT Instruction
 //
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 class lzcntrr<bits<8> opcode, string mnemonic, SDNode node, X86TypeInfo info,
               SchedWrite sched>
   : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
@@ -1293,43 +1282,12 @@ let Defs = [EFLAGS] in {
 defm LZCNT16 : lzcnt_base<0xBD, 0xF5, Xi16>;
 defm LZCNT32 : lzcnt_base<0xBD, 0xF5, Xi32>;
 defm LZCNT64 : lzcnt_base<0xBD, 0xF5, Xi64>;
-#else // INTEL_FEATURE_ISA_APX_F
-let Predicates = [HasLZCNT], Defs = [EFLAGS] in {
-  def LZCNT16rr : I<0xBD, MRMSrcReg, (outs GR16:$dst), (ins GR16:$src),
-                    "lzcnt{w}\t{$src, $dst|$dst, $src}",
-                    [(set GR16:$dst, (ctlz GR16:$src)), (implicit EFLAGS)]>,
-                    XS, OpSize16, Sched<[WriteLZCNT]>;
-  def LZCNT16rm : I<0xBD, MRMSrcMem, (outs GR16:$dst), (ins i16mem:$src),
-                    "lzcnt{w}\t{$src, $dst|$dst, $src}",
-                    [(set GR16:$dst, (ctlz (loadi16 addr:$src))),
-                     (implicit EFLAGS)]>, XS, OpSize16, Sched<[WriteLZCNTLd]>;
-
-  def LZCNT32rr : I<0xBD, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                    "lzcnt{l}\t{$src, $dst|$dst, $src}",
-                    [(set GR32:$dst, (ctlz GR32:$src)), (implicit EFLAGS)]>,
-                    XS, OpSize32, Sched<[WriteLZCNT]>;
-  def LZCNT32rm : I<0xBD, MRMSrcMem, (outs GR32:$dst), (ins i32mem:$src),
-                    "lzcnt{l}\t{$src, $dst|$dst, $src}",
-                    [(set GR32:$dst, (ctlz (loadi32 addr:$src))),
-                     (implicit EFLAGS)]>, XS, OpSize32, Sched<[WriteLZCNTLd]>;
-
-  def LZCNT64rr : RI<0xBD, MRMSrcReg, (outs GR64:$dst), (ins GR64:$src),
-                     "lzcnt{q}\t{$src, $dst|$dst, $src}",
-                     [(set GR64:$dst, (ctlz GR64:$src)), (implicit EFLAGS)]>,
-                     XS, Sched<[WriteLZCNT]>;
-  def LZCNT64rm : RI<0xBD, MRMSrcMem, (outs GR64:$dst), (ins i64mem:$src),
-                     "lzcnt{q}\t{$src, $dst|$dst, $src}",
-                     [(set GR64:$dst, (ctlz (loadi64 addr:$src))),
-                      (implicit EFLAGS)]>, XS, Sched<[WriteLZCNTLd]>;
-}
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // BMI Instructions
 //
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 multiclass tzcnt_base<bits<8> opcode, bits<8> opcode2, X86TypeInfo info> {
 let Predicates = [HasBMI], Defs = [EFLAGS] in {
   def rr : lzcntrr<opcode, "tzcnt", cttz, info, WriteTZCNT>, XS;
@@ -1352,36 +1310,6 @@ let Defs = [EFLAGS] in {
 defm TZCNT16 : tzcnt_base<0xBC, 0xF4, Xi16>;
 defm TZCNT32 : tzcnt_base<0xBC, 0xF4, Xi32>;
 defm TZCNT64 : tzcnt_base<0xBC, 0xF4, Xi64>;
-#else // INTEL_FEATURE_ISA_APX_F
-let Predicates = [HasBMI], Defs = [EFLAGS] in {
-  def TZCNT16rr : I<0xBC, MRMSrcReg, (outs GR16:$dst), (ins GR16:$src),
-                    "tzcnt{w}\t{$src, $dst|$dst, $src}",
-                    [(set GR16:$dst, (cttz GR16:$src)), (implicit EFLAGS)]>,
-                    XS, OpSize16, Sched<[WriteTZCNT]>;
-  def TZCNT16rm : I<0xBC, MRMSrcMem, (outs GR16:$dst), (ins i16mem:$src),
-                    "tzcnt{w}\t{$src, $dst|$dst, $src}",
-                    [(set GR16:$dst, (cttz (loadi16 addr:$src))),
-                     (implicit EFLAGS)]>, XS, OpSize16, Sched<[WriteTZCNTLd]>;
-
-  def TZCNT32rr : I<0xBC, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                    "tzcnt{l}\t{$src, $dst|$dst, $src}",
-                    [(set GR32:$dst, (cttz GR32:$src)), (implicit EFLAGS)]>,
-                    XS, OpSize32, Sched<[WriteTZCNT]>;
-  def TZCNT32rm : I<0xBC, MRMSrcMem, (outs GR32:$dst), (ins i32mem:$src),
-                    "tzcnt{l}\t{$src, $dst|$dst, $src}",
-                    [(set GR32:$dst, (cttz (loadi32 addr:$src))),
-                     (implicit EFLAGS)]>, XS, OpSize32, Sched<[WriteTZCNTLd]>;
-
-  def TZCNT64rr : RI<0xBC, MRMSrcReg, (outs GR64:$dst), (ins GR64:$src),
-                     "tzcnt{q}\t{$src, $dst|$dst, $src}",
-                     [(set GR64:$dst, (cttz GR64:$src)), (implicit EFLAGS)]>,
-                     XS, Sched<[WriteTZCNT]>;
-  def TZCNT64rm : RI<0xBC, MRMSrcMem, (outs GR64:$dst), (ins i64mem:$src),
-                     "tzcnt{q}\t{$src, $dst|$dst, $src}",
-                     [(set GR64:$dst, (cttz (loadi64 addr:$src))),
-                      (implicit EFLAGS)]>, XS, Sched<[WriteTZCNTLd]>;
-}
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 multiclass bmi_bls<string mnemonic, Format RegMRM, Format MemMRM,

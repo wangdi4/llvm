@@ -869,7 +869,6 @@ MCRegister llvm::getX86SubSuperRegister(MCRegister Reg, unsigned Size,
       case X86::R15B: case X86::R15W: case X86::R15D: case X86::R15:
         return X86::R15B;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
        case X86::R16B: case X86::R16W: case X86::R16D: case X86::R16:
          return X86::R16B;
        case X86::R17B: case X86::R17W: case X86::R17D: case X86::R17:
@@ -902,7 +901,6 @@ MCRegister llvm::getX86SubSuperRegister(MCRegister Reg, unsigned Size,
          return X86::R30B;
        case X86::R31B: case X86::R31W: case X86::R31D: case X86::R31:
          return X86::R31B;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       }
     }
@@ -942,7 +940,6 @@ MCRegister llvm::getX86SubSuperRegister(MCRegister Reg, unsigned Size,
     case X86::R15B: case X86::R15W: case X86::R15D: case X86::R15:
       return X86::R15W;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case X86::R16B: case X86::R16W: case X86::R16D: case X86::R16:
       return X86::R16W;
     case X86::R17B: case X86::R17W: case X86::R17D: case X86::R17:
@@ -975,7 +972,6 @@ MCRegister llvm::getX86SubSuperRegister(MCRegister Reg, unsigned Size,
       return X86::R30W;
     case X86::R31B: case X86::R31W: case X86::R31D: case X86::R31:
       return X86::R31W;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     }
   case 32:
@@ -1014,7 +1010,6 @@ MCRegister llvm::getX86SubSuperRegister(MCRegister Reg, unsigned Size,
     case X86::R15B: case X86::R15W: case X86::R15D: case X86::R15:
       return X86::R15D;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case X86::R16B: case X86::R16W: case X86::R16D: case X86::R16:
       return X86::R16D;
     case X86::R17B: case X86::R17W: case X86::R17D: case X86::R17:
@@ -1047,7 +1042,6 @@ MCRegister llvm::getX86SubSuperRegister(MCRegister Reg, unsigned Size,
       return X86::R30D;
     case X86::R31B: case X86::R31W: case X86::R31D: case X86::R31:
       return X86::R31D;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     }
   case 64:
@@ -1086,7 +1080,6 @@ MCRegister llvm::getX86SubSuperRegister(MCRegister Reg, unsigned Size,
     case X86::R15B: case X86::R15W: case X86::R15D: case X86::R15:
       return X86::R15;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     case X86::R16B: case X86::R16W: case X86::R16D: case X86::R16:
       return X86::R16;
     case X86::R17B: case X86::R17W: case X86::R17D: case X86::R17:
@@ -1119,7 +1112,6 @@ MCRegister llvm::getX86SubSuperRegister(MCRegister Reg, unsigned Size,
       return X86::R30;
     case X86::R31B: case X86::R31W: case X86::R31D: case X86::R31:
       return X86::R31;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     }
   }

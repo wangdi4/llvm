@@ -303,14 +303,10 @@ namespace {
       // Negate the index if needed.
       if (AM.NegateIndex) {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
         unsigned NegOpc =
             VT == MVT::i64
                 ? (Subtarget->hasNDD() ? X86::NEG64r_ND : X86::NEG64r)
                 : (Subtarget->hasNDD() ? X86::NEG32r_ND : X86::NEG32r);
-#else  // INTEL_FEATURE_ISA_APX_F
-        unsigned NegOpc = VT == MVT::i64 ? X86::NEG64r : X86::NEG32r;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
         SDValue Neg = SDValue(CurDAG->getMachineNode(NegOpc, DL, VT, MVT::i32,
                                                      AM.IndexReg), 0);
@@ -1578,17 +1574,11 @@ void X86DAGToDAGISel::PostprocessISelDAG() {
       SDValue And = N->getOperand(0);
       unsigned N0Opc = And.getMachineOpcode();
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       if ((N0Opc == X86::AND8rr || N0Opc == X86::AND16rr ||
            N0Opc == X86::AND32rr || N0Opc == X86::AND64rr ||
            N0Opc == X86::AND8rr_ND || N0Opc == X86::AND16rr_ND ||
            N0Opc == X86::AND32rr_ND || N0Opc == X86::AND64rr_ND) &&
           !And->hasAnyUseOfValue(1)) {
-#else  // INTEL_FEATURE_ISA_APX_F
-      if ((N0Opc == X86::AND8rr || N0Opc == X86::AND16rr ||
-           N0Opc == X86::AND32rr || N0Opc == X86::AND64rr) &&
-          !And->hasAnyUseOfValue(1)) {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
         MachineSDNode *Test = CurDAG->getMachineNode(Opc, SDLoc(N),
                                                      MVT::i32,
@@ -1599,17 +1589,11 @@ void X86DAGToDAGISel::PostprocessISelDAG() {
         continue;
       }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       if ((N0Opc == X86::AND8rm || N0Opc == X86::AND16rm ||
            N0Opc == X86::AND32rm || N0Opc == X86::AND64rm ||
            N0Opc == X86::AND8rm_ND || N0Opc == X86::AND16rm_ND ||
            N0Opc == X86::AND32rm_ND || N0Opc == X86::AND64rm_ND) &&
           !And->hasAnyUseOfValue(1)) {
-#else  // INTEL_FEATURE_ISA_APX_F
-      if ((N0Opc == X86::AND8rm || N0Opc == X86::AND16rm ||
-           N0Opc == X86::AND32rm || N0Opc == X86::AND64rm) &&
-          !And->hasAnyUseOfValue(1)) {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
         unsigned NewOpc;
         switch (N0Opc) {
@@ -1618,12 +1602,10 @@ void X86DAGToDAGISel::PostprocessISelDAG() {
         case X86::AND32rm: NewOpc = X86::TEST32mr; break;
         case X86::AND64rm: NewOpc = X86::TEST64mr; break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
         case X86::AND8rm_ND:  NewOpc = X86::TEST8mr; break;
         case X86::AND16rm_ND: NewOpc = X86::TEST16mr; break;
         case X86::AND32rm_ND: NewOpc = X86::TEST32mr; break;
         case X86::AND64rm_ND: NewOpc = X86::TEST64mr; break;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
         }
 
@@ -4203,14 +4185,10 @@ MachineSDNode *X86DAGToDAGISel::matchBEXTRFromAndImm(SDNode *Node) {
     // We still need to apply the shift.
     SDValue ShAmt = CurDAG->getTargetConstant(Shift, dl, NVT);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     unsigned NewOpc =
         NVT == MVT::i64
             ? (Subtarget->hasNDD() ? X86::SHR64ri_ND : X86::SHR64ri)
             : (Subtarget->hasNDD() ? X86::SHR32ri_ND : X86::SHR32ri);
-#else  // INTEL_FEATURE_ISA_APX_F
-    unsigned NewOpc = NVT == MVT::i64 ? X86::SHR64ri : X86::SHR32ri;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     NewNode =
         CurDAG->getMachineNode(NewOpc, dl, NVT, SDValue(NewNode, 0), ShAmt);
@@ -5940,7 +5918,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       switch (Opcode) {
       default: llvm_unreachable("Unexpected opcode!");
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       case ISD::ADD:
         ROpc = Subtarget->hasNDD() ? X86::ADD8rr_ND : X86::ADD8rr;
         MOpc = Subtarget->hasNDD() ? X86::ADD8rm_ND : X86::ADD8rm;
@@ -5961,13 +5938,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
         ROpc = Subtarget->hasNDD() ? X86::XOR8rr_ND : X86::XOR8rr;
         MOpc = Subtarget->hasNDD() ? X86::XOR8rm_ND : X86::XOR8rm;
         break;
-#else  // INTEL_FEATURE_ISA_APX_F
-      case ISD::ADD: ROpc = X86::ADD8rr; MOpc = X86::ADD8rm; break;
-      case ISD::SUB: ROpc = X86::SUB8rr; MOpc = X86::SUB8rm; break;
-      case ISD::AND: ROpc = X86::AND8rr; MOpc = X86::AND8rm; break;
-      case ISD::OR:  ROpc = X86::OR8rr;  MOpc = X86::OR8rm;  break;
-      case ISD::XOR: ROpc = X86::XOR8rr; MOpc = X86::XOR8rm; break;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       }
       break;
@@ -5975,7 +5945,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       switch (Opcode) {
       default: llvm_unreachable("Unexpected opcode!");
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       case ISD::ADD:
         ROpc = Subtarget->hasNDD() ? X86::ADD16rr_ND : X86::ADD16rr;
         MOpc = Subtarget->hasNDD() ? X86::ADD16rm_ND : X86::ADD16rm;
@@ -5996,13 +5965,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
         ROpc = Subtarget->hasNDD() ? X86::XOR16rr_ND : X86::XOR16rr;
         MOpc = Subtarget->hasNDD() ? X86::XOR16rm_ND : X86::XOR16rm;
         break;
-#else  // INTEL_FEATURE_ISA_APX_F
-      case ISD::ADD: ROpc = X86::ADD16rr; MOpc = X86::ADD16rm; break;
-      case ISD::SUB: ROpc = X86::SUB16rr; MOpc = X86::SUB16rm; break;
-      case ISD::AND: ROpc = X86::AND16rr; MOpc = X86::AND16rm; break;
-      case ISD::OR:  ROpc = X86::OR16rr;  MOpc = X86::OR16rm;  break;
-      case ISD::XOR: ROpc = X86::XOR16rr; MOpc = X86::XOR16rm; break;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       }
       break;
@@ -6010,7 +5972,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       switch (Opcode) {
       default: llvm_unreachable("Unexpected opcode!");
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       case ISD::ADD:
         ROpc = Subtarget->hasNDD() ? X86::ADD32rr_ND : X86::ADD32rr;
         MOpc = Subtarget->hasNDD() ? X86::ADD32rm_ND : X86::ADD32rm;
@@ -6031,13 +5992,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
         ROpc = Subtarget->hasNDD() ? X86::XOR32rr_ND : X86::XOR32rr;
         MOpc = Subtarget->hasNDD() ? X86::XOR32rm_ND : X86::XOR32rm;
         break;
-#else  // INTEL_FEATURE_ISA_APX_F
-      case ISD::ADD: ROpc = X86::ADD32rr; MOpc = X86::ADD32rm; break;
-      case ISD::SUB: ROpc = X86::SUB32rr; MOpc = X86::SUB32rm; break;
-      case ISD::AND: ROpc = X86::AND32rr; MOpc = X86::AND32rm; break;
-      case ISD::OR:  ROpc = X86::OR32rr;  MOpc = X86::OR32rm;  break;
-      case ISD::XOR: ROpc = X86::XOR32rr; MOpc = X86::XOR32rm; break;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       }
       break;
@@ -6045,7 +5999,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       switch (Opcode) {
       default: llvm_unreachable("Unexpected opcode!");
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       case ISD::ADD:
         ROpc = Subtarget->hasNDD() ? X86::ADD64rr_ND : X86::ADD64rr;
         MOpc = Subtarget->hasNDD() ? X86::ADD64rm_ND : X86::ADD64rm;
@@ -6066,13 +6019,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
         ROpc = Subtarget->hasNDD() ? X86::XOR64rr_ND : X86::XOR64rr;
         MOpc = Subtarget->hasNDD() ? X86::XOR64rm_ND : X86::XOR64rm;
         break;
-#else  // INTEL_FEATURE_ISA_APX_F
-      case ISD::ADD: ROpc = X86::ADD64rr; MOpc = X86::ADD64rm; break;
-      case ISD::SUB: ROpc = X86::SUB64rr; MOpc = X86::SUB64rm; break;
-      case ISD::AND: ROpc = X86::AND64rr; MOpc = X86::AND64rm; break;
-      case ISD::OR:  ROpc = X86::OR64rr;  MOpc = X86::OR64rm;  break;
-      case ISD::XOR: ROpc = X86::XOR64rr; MOpc = X86::XOR64rm; break;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       }
       break;
@@ -6616,11 +6562,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
           // TEST+AND with a SHR and check eflags.
           // This emits a redundant TEST which is subsequently eliminated.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
           ShiftOpcode = Subtarget->hasNDD() ? X86::SHR64ri_ND : X86::SHR64ri;
-#else  // INTEL_FEATURE_ISA_APX_F
-          ShiftOpcode = X86::SHR64ri;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
           ShiftAmt = TrailingZeros;
           SubRegIdx = 0;
@@ -6630,11 +6572,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
           // TEST+AND with a SHL and check eflags.
           // This emits a redundant TEST which is subsequently eliminated.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
           ShiftOpcode = Subtarget->hasNDD() ? X86::SHL64ri_ND : X86::SHL64ri;
-#else  // INTEL_FEATURE_ISA_APX_F
-          ShiftOpcode = X86::SHL64ri;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
           ShiftAmt = LeadingZeros;
           SubRegIdx = 0;
@@ -6645,11 +6583,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
           unsigned PopCount = 64 - LeadingZeros - TrailingZeros;
           if (PopCount == 8) {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
             ShiftOpcode = Subtarget->hasNDD() ? X86::SHR64ri_ND : X86::SHR64ri;
-#else  // INTEL_FEATURE_ISA_APX_F
-            ShiftOpcode = X86::SHR64ri;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
             ShiftAmt = TrailingZeros;
             SubRegIdx = X86::sub_8bit;
@@ -6657,11 +6591,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
             TestOpcode = X86::TEST8rr;
           } else if (PopCount == 16) {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
             ShiftOpcode = Subtarget->hasNDD() ? X86::SHR64ri_ND : X86::SHR64ri;
-#else  // INTEL_FEATURE_ISA_APX_F
-            ShiftOpcode = X86::SHR64ri;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
             ShiftAmt = TrailingZeros;
             SubRegIdx = X86::sub_16bit;
@@ -6669,11 +6599,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
             TestOpcode = X86::TEST16rr;
           } else if (PopCount == 32) {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
             ShiftOpcode = Subtarget->hasNDD() ? X86::SHR64ri_ND : X86::SHR64ri;
-#else  // INTEL_FEATURE_ISA_APX_F
-            ShiftOpcode = X86::SHR64ri;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
             ShiftAmt = TrailingZeros;
             SubRegIdx = X86::sub_32bit;

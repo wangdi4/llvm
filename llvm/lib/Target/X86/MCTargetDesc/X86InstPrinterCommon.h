@@ -42,9 +42,7 @@ public:
   virtual void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O) = 0;
   void printCondCode(const MCInst *MI, unsigned Op, raw_ostream &OS);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   void printCondFlags(const MCInst *MI, unsigned Op, raw_ostream &OS);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   void printSSEAVXCC(const MCInst *MI, unsigned Op, raw_ostream &OS);
   void printVPCOMMnemonic(const MCInst *MI, raw_ostream &OS);

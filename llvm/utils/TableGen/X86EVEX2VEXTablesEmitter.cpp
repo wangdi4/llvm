@@ -40,7 +40,6 @@ using namespace X86Disassembler;
 
 namespace {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 struct ManualMapEntry {
   const char *EVEXInstStr;
   const char *LegacyInstStr;
@@ -49,7 +48,6 @@ const std::map<StringRef, ManualMapEntry> EVEXInstsMap = {
 #define EVEXENTRY(EVEX, LEGACY) {#EVEX, {#EVEX, #LEGACY}},
 #include "Intel_X86ManualEVEXCompressTables.def"
 };
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 class X86EVEX2VEXTablesEmitter {
@@ -72,7 +70,6 @@ class X86EVEX2VEXTablesEmitter {
   std::vector<Predicate> EVEX2VEXPredicates;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   // Hold all possibly compressed APX instructions, including only ND and EGPR
   // instruction so far
   std::vector<const CodeGenInstruction *> APXInsts;
@@ -83,7 +80,6 @@ class X86EVEX2VEXTablesEmitter {
   std::vector<Entry> ND2NonNDTable;
   // Represent EVEX to Legacy compress tables.
   std::vector<Entry> EVEX2LegacyTable;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -100,14 +96,12 @@ private:
   void printCheckPredicate(const std::vector<Predicate> &Predicates,
                            raw_ostream &OS);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   // X86EVEXToLegacyCompressTableEntry
   void printND2NonNDTable(const std::vector<Entry> &Table, raw_ostream &OS);
   void printEVEX2LegacyTable(const std::vector<Entry> &Table, raw_ostream &OS);
   void addManualEntry(const CodeGenInstruction *EVEXInstr,
                       const CodeGenInstruction *LegacyInstr,
                       const char *TableName);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -132,7 +126,6 @@ void X86EVEX2VEXTablesEmitter::printTable(const std::vector<Entry> &Table,
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 void X86EVEX2VEXTablesEmitter::printND2NonNDTable(
     const std::vector<Entry> &Table, raw_ostream &OS) {
   OS << "// ND encoded instructions that have a non-ND encoding\n"
@@ -166,7 +159,6 @@ void X86EVEX2VEXTablesEmitter::printEVEX2LegacyTable(
 
   OS << "};\n\n";
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 void X86EVEX2VEXTablesEmitter::printCheckPredicate(
     const std::vector<Predicate> &Predicates, raw_ostream &OS) {
@@ -262,7 +254,6 @@ public:
   }
 };
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 // TODO: This function could be reused by IsMatch above when upstream.
 static bool checkMatchable(const CodeGenInstruction *EVEXInst,
                            const CodeGenInstruction *LegacyInst) {
@@ -320,7 +311,6 @@ public:
     return checkMatchable(EVEXInst, LegacyInst);
   }
 };
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 void X86EVEX2VEXTablesEmitter::run(raw_ostream &OS) {
@@ -360,7 +350,6 @@ void X86EVEX2VEXTablesEmitter::run(raw_ostream &OS) {
              !RI.HasEVEX_L2 && !Def->getValueAsBit("notEVEX2VEXConvertible"))
       EVEXInsts.push_back(Inst);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (RI.Encoding == X86Local::EVEX && RI.OpMap == X86Local::T_MAP4 &&
         !RI.HasEVEX_NF && !Def->getValueAsBit("EmitVEXOrEVEXPrefix")) {
       APXInsts.push_back(Inst);
@@ -371,7 +360,6 @@ void X86EVEX2VEXTablesEmitter::run(raw_ostream &OS) {
           getValueFromBitsInit(Inst->TheDef->getValueAsBitsInit("Opcode"));
       LegacyInsts[Opcode].push_back(Inst);
     }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -415,7 +403,6 @@ void X86EVEX2VEXTablesEmitter::run(raw_ostream &OS) {
   // Print CheckVEXInstPredicate function.
   printCheckPredicate(EVEX2VEXPredicates, OS);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   for (const CodeGenInstruction *EVEXInst : APXInsts) {
     // REV instrs should not appear before encoding optimization.
     if (EVEXInst->TheDef->getName().endswith("_REV"))
@@ -441,7 +428,6 @@ void X86EVEX2VEXTablesEmitter::run(raw_ostream &OS) {
   }
   printND2NonNDTable(ND2NonNDTable, OS);
   printEVEX2LegacyTable(EVEX2LegacyTable, OS);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }
 } // namespace

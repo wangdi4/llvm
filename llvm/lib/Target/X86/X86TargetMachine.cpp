@@ -81,7 +81,6 @@ static cl::opt<bool>
                      cl::init(true), cl::Hidden);
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 class APXFeatureString {
 private:
   std::string APXFeature;
@@ -123,7 +122,6 @@ static cl::opt<APXFeatureString, true, cl::parser<std::string>> X86APXFeatures(
              "\nccmp         conditional compare"),
     cl::location(APXFeatureStr));
 
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
@@ -186,9 +184,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86StackRealignPass(PR);
   initializeX86HeteroArchOptPass(PR);
   initializeX86FixupMemInstsPassPass(PR);
-#if INTEL_FEATURE_ISA_APX_F
   initializeX86ConditionalComparesPass(PR);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   initializeX86ArgumentStackSlotPassPass(PR);
 }
@@ -431,19 +427,13 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
   // subtarget feature.
   if (SoftFloat)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     Key += (FS.empty() && !APXFeatureStr) ? "+soft-float" : "+soft-float,";
-#else // INTEL_FEATURE_ISA_APX_F
-    Key += FS.empty() ? "+soft-float" : "+soft-float,";
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   Key += static_cast<std::string>(APXFeatureStr);
   if (!FS.empty())
     Key += ",";
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   Key += FS;
@@ -651,9 +641,7 @@ bool X86PassConfig::addGlobalInstructionSelect() {
 
 bool X86PassConfig::addILPOpts() {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   addPass(createX86ConditionalCompares());
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   addPass(&EarlyIfConverterID);
   if (EnableMachineCombinerPass)

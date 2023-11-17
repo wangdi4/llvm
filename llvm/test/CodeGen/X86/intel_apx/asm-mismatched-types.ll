@@ -1,4 +1,3 @@
-; REQUIRES: intel_feature_isa_apx_f
 ; RUN: llc -o - %s -no-integrated-as | FileCheck %s
 target triple = "x86_64--"
 

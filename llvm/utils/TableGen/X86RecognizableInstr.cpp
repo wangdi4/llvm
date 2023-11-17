@@ -152,11 +152,9 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
 #if INTEL_FEATURE_ISA_AVX256P
   HasEVEX_X2 = Rec->getValueAsBit("hasEVEX_X2");
 #endif // INTEL_FEATURE_ISA_AVX256P
-#if INTEL_FEATURE_ISA_APX_F
   HasEVEX_NF = Rec->getValueAsBit("hasEVEX_NF");
   HasTwoConditionalOps = Rec->getValueAsBit("hasTwoConditionalOps");
   ExplicitREX2Prefix = Rec->getValueAsBit("explicitREX2Prefix");
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   IsCodeGenOnly = Rec->getValueAsBit("isCodeGenOnly");
   IsAsmParserOnly = Rec->getValueAsBit("isAsmParserOnly");
@@ -232,10 +230,8 @@ void RecognizableInstr::processInstr(DisassemblerTables &tables,
 #define EVEX_KB_P10(n) (HasEVEX_KZ ? n##_KZ_B_P10 : \
                         (HasEVEX_K ? n##_K_B_P10 : n##_B_P10))
 #endif // INTEL_FEATURE_ISA_AVX256P
-#if INTEL_FEATURE_ISA_APX_F
 #define EVEX_NF(n) (HasEVEX_NF ? n##_NF: n)
 #define EVEX_B_NF(n) (HasEVEX_B ? EVEX_NF(n##_B): EVEX_NF(n))
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 InstructionContext RecognizableInstr::insnContext() const {
@@ -271,7 +267,6 @@ InstructionContext RecognizableInstr::insnContext() const {
       }
     }
 #endif // INTEL_FEATURE_ISA_AVX256P
-#if INTEL_FEATURE_ISA_APX_F
     else if (HasEVEX_NF) {
       if (OpPrefix == X86Local::PD)
         insnContext = EVEX_B_NF(IC_EVEX_OPSIZE);
@@ -280,7 +275,6 @@ InstructionContext RecognizableInstr::insnContext() const {
       else
         insnContext = EVEX_B_NF(IC_EVEX);
     } else
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     // VEX_L & VEX_W
     if (!EncodeRC && HasVEX_L && HasREX_W) {
@@ -458,10 +452,8 @@ InstructionContext RecognizableInstr::insnContext() const {
     else if (OpPrefix == X86Local::XS)
       insnContext = IC_64BIT_XS;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     else if (ExplicitREX2Prefix)
       insnContext = IC_64BIT_REX2;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     else if (HasREX_W)
       insnContext = IC_64BIT_REXW;
@@ -606,17 +598,13 @@ void RecognizableInstr::emitInstructionSpecifier() {
   if (HasEVEX_K)
     ++additionalOperands;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   if (HasTwoConditionalOps)
     additionalOperands += 2;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 #endif
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   bool IsND = OpMap == X86Local::T_MAP4 && HasEVEX_B && HasVEX_4V;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   switch (Form) {
   default: llvm_unreachable("Unhandled form");
@@ -658,7 +646,6 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(opcodeModifier)
     break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   case X86Local::MRMDestRegCC:
     assert(numPhysicalOperands == 3 &&
            "Unexpected number of operands for MRMDestRegCC");
@@ -666,7 +653,6 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(roRegister)
     HANDLE_OPERAND(opcodeModifier)
     break;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   case X86Local::MRMDestReg:
     // Operand 1 is a register operand in the R/M field.
@@ -679,21 +665,15 @@ void RecognizableInstr::emitInstructionSpecifier() {
            "Unexpected number of operands for MRMDestReg");
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (IsND)
       HANDLE_OPERAND(vvvvRegister)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     HANDLE_OPERAND(rmRegister)
     if (HasEVEX_K)
       HANDLE_OPERAND(writemaskRegister)
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (!IsND && HasVEX_4V)
-#else  // INTEL_FEATURE_ISA_APX_F
-    if (HasVEX_4V)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       // FIXME: In AVX, the register below becomes the one encoded
       // in ModRMVEX and the one above the one in the VEX.VVVV field
@@ -702,9 +682,7 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(roRegister)
     HANDLE_OPTIONAL(immediate)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     HANDLE_OPTIONAL(immediate)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     break;
 #if INTEL_CUSTOMIZATION
@@ -751,7 +729,6 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(opcodeModifier)
     break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   case X86Local::MRMDestMemCC:
     assert(numPhysicalOperands == 3 &&
            "Unexpected number of operands for MRMDestMemCC");
@@ -759,7 +736,6 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(roRegister)
     HANDLE_OPERAND(opcodeModifier)
     break;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMemFSIB:
@@ -768,22 +744,14 @@ void RecognizableInstr::emitInstructionSpecifier() {
     // - In AVX, there is a register operand in the VEX.vvvv field here -
     // Operand 3 (optional) is an immediate.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     assert(numPhysicalOperands >= 2 + additionalOperands &&
            numPhysicalOperands <= 4 + additionalOperands &&
            "Unexpected number of operands for MRMDestMemFrm with VEX_4V");
-#else  // INTEL_FEATURE_ISA_APX_F
-    assert(numPhysicalOperands >= 2 + additionalOperands &&
-           numPhysicalOperands <= 3 + additionalOperands &&
-           "Unexpected number of operands for MRMDestMemFrm with VEX_4V");
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (IsND)
       HANDLE_OPERAND(vvvvRegister)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     HANDLE_OPERAND(memory)
 
@@ -791,11 +759,7 @@ void RecognizableInstr::emitInstructionSpecifier() {
       HANDLE_OPERAND(writemaskRegister)
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (!IsND && HasVEX_4V)
-#else  // INTEL_FEATURE_ISA_APX_F
-    if (HasVEX_4V)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       // FIXME: In AVX, the register below becomes the one encoded
       // in ModRMVEX and the one above the one in the VEX.VVVV field
@@ -804,9 +768,7 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(roRegister)
     HANDLE_OPTIONAL(immediate)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     HANDLE_OPTIONAL(immediate)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     break;
   case X86Local::MRMSrcReg:
@@ -821,10 +783,8 @@ void RecognizableInstr::emitInstructionSpecifier() {
            "Unexpected number of operands for MRMSrcRegFrm");
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (IsND)
       HANDLE_OPERAND(vvvvRegister)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     HANDLE_OPERAND(roRegister)
 
@@ -832,11 +792,7 @@ void RecognizableInstr::emitInstructionSpecifier() {
       HANDLE_OPERAND(writemaskRegister)
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (!IsND && HasVEX_4V)
-#else  // INTEL_FEATURE_ISA_APX_F
-    if (HasVEX_4V)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       // FIXME: In AVX, the register below becomes the one encoded
       // in ModRMVEX and the one above the one in the VEX.VVVV field
@@ -865,15 +821,10 @@ void RecognizableInstr::emitInstructionSpecifier() {
     break;
   case X86Local::MRMSrcRegCC:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     assert(numPhysicalOperands >= 3 && numPhysicalOperands <= 4 &&
            "Unexpected number of operands for MRMSrcRegCC");
     if (IsND)
       HANDLE_OPERAND(vvvvRegister)
-#else  // INTEL_FEATURE_ISA_APX_F
-    assert(numPhysicalOperands == 3 &&
-           "Unexpected number of operands for MRMSrcRegCC");
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     HANDLE_OPERAND(roRegister)
     HANDLE_OPERAND(rmRegister)
@@ -890,10 +841,8 @@ void RecognizableInstr::emitInstructionSpecifier() {
            numPhysicalOperands <= 4 + additionalOperands &&
            "Unexpected number of operands for MRMSrcMemFrm");
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (IsND)
       HANDLE_OPERAND(vvvvRegister)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
     HANDLE_OPERAND(roRegister)
@@ -902,11 +851,7 @@ void RecognizableInstr::emitInstructionSpecifier() {
       HANDLE_OPERAND(writemaskRegister)
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (!IsND && HasVEX_4V)
-#else  // INTEL_FEATURE_ISA_APX_F
-    if (HasVEX_4V)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       // FIXME: In AVX, the register below becomes the one encoded
       // in ModRMVEX and the one above the one in the VEX.VVVV field
@@ -935,15 +880,10 @@ void RecognizableInstr::emitInstructionSpecifier() {
     break;
   case X86Local::MRMSrcMemCC:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     assert(numPhysicalOperands >= 3 && numPhysicalOperands <= 4 &&
            "Unexpected number of operands for MRMSrcMemCC");
     if (IsND)
       HANDLE_OPERAND(vvvvRegister)
-#else  // INTEL_FEATURE_ISA_APX_F
-    assert(numPhysicalOperands == 3 &&
-           "Unexpected number of operands for MRMSrcMemCC");
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     HANDLE_OPERAND(roRegister)
     HANDLE_OPERAND(memory)
@@ -972,15 +912,9 @@ void RecognizableInstr::emitInstructionSpecifier() {
     // Operand 2 (optional) is an immediate or relocation.
     // Operand 3 (optional) is an immediate.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     assert(numPhysicalOperands >= 0 + additionalOperands &&
            numPhysicalOperands <= 4 + additionalOperands &&
            "Unexpected number of operands for MRMnr");
-#else  // INTEL_FEATURE_ISA_APX_F
-    assert(numPhysicalOperands >= 0 + additionalOperands &&
-           numPhysicalOperands <= 3 + additionalOperands &&
-           "Unexpected number of operands for MRMnr");
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
     if (HasVEX_4V)
@@ -992,9 +926,7 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(relocation)
     HANDLE_OPTIONAL(immediate)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     HANDLE_OPTIONAL(immediate)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     break;
   case X86Local::MRMXmCC:
@@ -1015,15 +947,9 @@ void RecognizableInstr::emitInstructionSpecifier() {
     // Operand 1 is a memory operand (possibly SIB-extended)
     // Operand 2 (optional) is an immediate or relocation.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     assert(numPhysicalOperands >= 1 + additionalOperands &&
            numPhysicalOperands <= 4 + additionalOperands &&
            "Unexpected number of operands for MRMnm");
-#else  // INTEL_FEATURE_ISA_APX_F
-    assert(numPhysicalOperands >= 1 + additionalOperands &&
-           numPhysicalOperands <= 2 + additionalOperands &&
-           "Unexpected number of operands for MRMnm");
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
     if (HasVEX_4V)
@@ -1033,10 +959,8 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(memory)
     HANDLE_OPTIONAL(relocation)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     HANDLE_OPTIONAL(immediate)
     HANDLE_OPTIONAL(immediate)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     break;
   case X86Local::RawFrmImm8:
@@ -1118,9 +1042,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     break;
   case X86Local::MRMDestReg:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   case X86Local::MRMDestRegCC:
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   case X86Local::MRMDestReg4VOp3:  // INTEL
   case X86Local::MRMSrcReg:
@@ -1133,9 +1055,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     break;
   case X86Local::MRMDestMem4VOp2FSIB: // INTEL
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   case X86Local::MRMDestMemCC:
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMem4VOp3: // INTEL
@@ -1194,12 +1114,8 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
       Form == X86Local::MRMSrcMemCC || Form == X86Local::MRMXrCC ||
       Form == X86Local::MRMXmCC || Form == X86Local::AddCCFrm ||
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       Form == X86Local::MRMDestMem4VOp3CC || Form == X86Local::MRMDestRegCC ||
       Form == X86Local::MRMDestMemCC) {
-#else  // INTEL_FEATURE_ISA_APX_F
-      Form == X86Local::MRMDestMem4VOp3CC) {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     uint8_t Count = Form == X86Local::AddRegFrm ? 8 : 16;
     assert(((opcodeToSet % Count) == 0) && "ADDREG_FRM opcode not aligned");
@@ -1301,9 +1217,7 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("i32imm_brtarget",     TYPE_REL)
   TYPE("ccode",               TYPE_IMM)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   TYPE("cflags",              TYPE_IMM)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   TYPE("AVX512RC",            TYPE_IMM)
   TYPE("brtarget32",          TYPE_REL)
@@ -1417,10 +1331,8 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
   ENCODING("i64i8imm",        ENCODING_IB)
   ENCODING("i8imm",           ENCODING_IB)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   ENCODING("ccode",           ENCODING_CC)
   ENCODING("cflags",          ENCODING_CF)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   ENCODING("u4imm",           ENCODING_IB)
   ENCODING("u8imm",           ENCODING_IB)
@@ -1589,10 +1501,8 @@ OperandEncoding
 RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
                                                   uint8_t OpSize) {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   ENCODING("GR8",             ENCODING_VVVV)
   ENCODING("GR16",            ENCODING_VVVV)
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   ENCODING("GR32",            ENCODING_VVVV)
   ENCODING("GR64",            ENCODING_VVVV)

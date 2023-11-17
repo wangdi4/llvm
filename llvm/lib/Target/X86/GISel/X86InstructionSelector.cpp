@@ -881,35 +881,19 @@ bool X86InstructionSelector::selectZext(MachineInstr &I,
   unsigned AndOpc;
   if (DstTy == LLT::scalar(8))
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     AndOpc = STI.hasNDD() ? X86::AND8ri_ND : X86::AND8ri;
-#else  // INTEL_FEATURE_ISA_APX_F
-    AndOpc = X86::AND8ri;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   else if (DstTy == LLT::scalar(16))
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     AndOpc = STI.hasNDD() ? X86::AND16ri_ND : X86::AND16ri;
-#else  // INTEL_FEATURE_ISA_APX_F
-    AndOpc = X86::AND16ri;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   else if (DstTy == LLT::scalar(32))
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     AndOpc = STI.hasNDD() ? X86::AND32ri_ND : X86::AND32ri;
-#else  // INTEL_FEATURE_ISA_APX_F
-    AndOpc = X86::AND32ri;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   else if (DstTy == LLT::scalar(64))
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     AndOpc = STI.hasNDD() ? X86::AND64ri32_ND : X86::AND64ri32;
-#else  // INTEL_FEATURE_ISA_APX_F
-    AndOpc = X86::AND64ri32;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   else
     return false;
@@ -1058,16 +1042,10 @@ bool X86InstructionSelector::selectFCmp(MachineInstr &I,
 
   // FCMP_OEQ and FCMP_UNE cannot be checked with a single instruction.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   uint16_t AndOpc = STI.hasNDD() ? X86::AND8rr_ND : X86::AND8rr;
   uint16_t OrOpc = STI.hasNDD() ? X86::AND8rr_ND : X86::OR8rr;
   static const uint16_t SETFOpcTable[2][3] = {
       {X86::COND_E, X86::COND_NP, AndOpc}, {X86::COND_NE, X86::COND_P, OrOpc}};
-#else  // INTEL_FEATURE_ISA_APX_F
-  static const uint16_t SETFOpcTable[2][3] = {
-      {X86::COND_E, X86::COND_NP, X86::AND8rr},
-      {X86::COND_NE, X86::COND_P, X86::OR8rr}};
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   const uint16_t *SETFOpc = nullptr;
   switch (Predicate) {
@@ -1172,12 +1150,10 @@ bool X86InstructionSelector::selectUAddSub(MachineInstr &I,
   switch (DstTy.getSizeInBits()) {
   case 8:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     OpADC = STI.hasNDD()? X86::ADC8rr_ND : X86::ADC8rr;
     OpADD = STI.hasNDD()? X86::ADD8rr_ND : X86::ADD8rr;
     OpSBB = STI.hasNDD()? X86::SBB8rr_ND : X86::SBB8rr;
     OpSUB = STI.hasNDD()? X86::SUB8rr_ND : X86::SUB8rr;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     OpADC = X86::ADC8rr;
     OpADD = X86::ADD8rr;
@@ -1186,12 +1162,10 @@ bool X86InstructionSelector::selectUAddSub(MachineInstr &I,
     break;
   case 16:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     OpADC = STI.hasNDD()? X86::ADC16rr_ND : X86::ADC16rr;
     OpADD = STI.hasNDD()? X86::ADD16rr_ND : X86::ADD16rr;
     OpSBB = STI.hasNDD()? X86::SBB16rr_ND : X86::SBB16rr;
     OpSUB = STI.hasNDD()? X86::SUB16rr_ND : X86::SUB16rr;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     OpADC = X86::ADC16rr;
     OpADD = X86::ADD16rr;
@@ -1200,12 +1174,10 @@ bool X86InstructionSelector::selectUAddSub(MachineInstr &I,
     break;
   case 32:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     OpADC = STI.hasNDD()? X86::ADC32rr_ND : X86::ADC32rr;
     OpADD = STI.hasNDD()? X86::ADD32rr_ND : X86::ADD32rr;
     OpSBB = STI.hasNDD()? X86::SBB32rr_ND : X86::SBB32rr;
     OpSUB = STI.hasNDD()? X86::SUB32rr_ND : X86::SUB32rr;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     OpADC = X86::ADC32rr;
     OpADD = X86::ADD32rr;
@@ -1214,12 +1186,10 @@ bool X86InstructionSelector::selectUAddSub(MachineInstr &I,
     break;
   case 64:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     OpADC = STI.hasNDD()? X86::ADC64rr_ND : X86::ADC64rr;
     OpADD = STI.hasNDD()? X86::ADD64rr_ND : X86::ADD64rr;
     OpSBB = STI.hasNDD()? X86::SBB64rr_ND : X86::SBB64rr;
     OpSUB = STI.hasNDD()? X86::SUB64rr_ND : X86::SUB64rr;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     OpADC = X86::ADC64rr;
     OpADD = X86::ADD64rr;
@@ -1871,18 +1841,11 @@ bool X86InstructionSelector::selectMulDivRem(MachineInstr &I,
 
     // Shift AX right by 8 bits instead of using AH.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     BuildMI(*I.getParent(), I, I.getDebugLoc(),
             TII.get(STI.hasNDD() ? X86::SHR16ri_ND : X86::SHR16ri),
             ResultSuperReg)
         .addReg(SourceSuperReg)
         .addImm(8);
-#else  // INTEL_FEATURE_ISA_APX_F
-    BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(X86::SHR16ri),
-            ResultSuperReg)
-        .addReg(SourceSuperReg)
-        .addImm(8);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
     // Now reference the 8-bit subreg of the result.

@@ -30,7 +30,6 @@
 
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 class cmovcc_rr<bits<8> opcode, X86TypeInfo info>
   : ITy<opcode, MRMSrcRegCC, info, (outs info.RegClass:$dst),
         (ins info.RegClass:$src1, info.RegClass:$src2, ccode:$cond),
@@ -164,50 +163,6 @@ let Uses = [EFLAGS], isCodeGenOnly = 1, ForceDisassemble = 1 in {
   defm CFCMOV32 : cfcmovcc_base<0x40, Xi32>;
   defm CFCMOV64 : cfcmovcc_base<0x40, Xi64>;
 }
-#else // INTEL_FEATURE_ISA_APX_F
-// CMOV instructions.
-let isCodeGenOnly = 1, ForceDisassemble = 1 in {
-let Uses = [EFLAGS], Predicates = [HasCMOV], Constraints = "$src1 = $dst",
-    isCommutable = 1, SchedRW = [WriteCMOV] in {
-  def CMOV16rr
-    : I<0x40, MRMSrcRegCC, (outs GR16:$dst), (ins GR16:$src1, GR16:$src2, ccode:$cond),
-        "cmov${cond}{w}\t{$src2, $dst|$dst, $src2}",
-        [(set GR16:$dst,
-              (X86cmov GR16:$src1, GR16:$src2, timm:$cond, EFLAGS))]>,
-              TB, OpSize16;
-  def CMOV32rr
-    : I<0x40, MRMSrcRegCC, (outs GR32:$dst), (ins GR32:$src1, GR32:$src2, ccode:$cond),
-        "cmov${cond}{l}\t{$src2, $dst|$dst, $src2}",
-        [(set GR32:$dst,
-              (X86cmov GR32:$src1, GR32:$src2, timm:$cond, EFLAGS))]>,
-              TB, OpSize32;
-  def CMOV64rr
-    :RI<0x40, MRMSrcRegCC, (outs GR64:$dst), (ins GR64:$src1, GR64:$src2, ccode:$cond),
-        "cmov${cond}{q}\t{$src2, $dst|$dst, $src2}",
-        [(set GR64:$dst,
-              (X86cmov GR64:$src1, GR64:$src2, timm:$cond, EFLAGS))]>, TB;
-}
-
-let Uses = [EFLAGS], Predicates = [HasCMOV], Constraints = "$src1 = $dst",
-    SchedRW = [WriteCMOV.Folded, WriteCMOV.ReadAfterFold] in {
-  def CMOV16rm
-    : I<0x40, MRMSrcMemCC, (outs GR16:$dst), (ins GR16:$src1, i16mem:$src2, ccode:$cond),
-        "cmov${cond}{w}\t{$src2, $dst|$dst, $src2}",
-        [(set GR16:$dst, (X86cmov GR16:$src1, (loadi16 addr:$src2),
-                                  timm:$cond, EFLAGS))]>, TB, OpSize16;
-  def CMOV32rm
-    : I<0x40, MRMSrcMemCC, (outs GR32:$dst), (ins GR32:$src1, i32mem:$src2, ccode:$cond),
-        "cmov${cond}{l}\t{$src2, $dst|$dst, $src2}",
-        [(set GR32:$dst, (X86cmov GR32:$src1, (loadi32 addr:$src2),
-                                  timm:$cond, EFLAGS))]>, TB, OpSize32;
-  def CMOV64rm
-    :RI<0x40, MRMSrcMemCC, (outs GR64:$dst), (ins GR64:$src1, i64mem:$src2, ccode:$cond),
-        "cmov${cond}{q}\t{$src2, $dst|$dst, $src2}",
-        [(set GR64:$dst, (X86cmov GR64:$src1, (loadi64 addr:$src2),
-                                  timm:$cond, EFLAGS))]>, TB;
-} // Uses = [EFLAGS], Predicates = [HasCMOV], Constraints = "$src1 = $dst"
-} // isCodeGenOnly = 1, ForceDisassemble = 1
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 def inv_cond_XFORM : SDNodeXForm<imm, [{
@@ -219,11 +174,7 @@ def inv_cond_XFORM : SDNodeXForm<imm, [{
 // Conditional moves with folded loads with operands swapped and conditions
 // inverted.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 let Predicates = [HasCMOV, NoNDD] in {
-#else // INTEL_FEATURE_ISA_APX_F
-let Predicates = [HasCMOV] in {
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   def : Pat<(X86cmov (loadi16 addr:$src1), GR16:$src2, timm:$cond, EFLAGS),
             (CMOV16rm GR16:$src2, addr:$src1, (inv_cond_XFORM timm:$cond))>;
@@ -234,7 +185,6 @@ let Predicates = [HasCMOV] in {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 let Predicates = [HasCMOV, HasNDD] in {
   def : Pat<(X86cmov (loadi16 addr:$src1), GR16:$src2, timm:$cond, EFLAGS),
             (CMOV16rm_ND GR16:$src2, addr:$src1, (inv_cond_XFORM timm:$cond))>;
@@ -251,7 +201,6 @@ let Predicates = [HasCMOV, HasCF] in {
   def : Pat<(X86cmov GR64:$src1, 0, timm:$cond, EFLAGS),
             (CFCMOV64rr GR64:$src1, (inv_cond_XFORM timm:$cond))>;
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 // SetCC instructions.
 let Uses = [EFLAGS], isCodeGenOnly = 1, ForceDisassemble = 1 in {

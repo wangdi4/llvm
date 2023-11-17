@@ -46,10 +46,8 @@ def RawFrmImm16   : Format<8>;
 def AddCCFrm      : Format<9>;
 def PrefixByte    : Format<10>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 def MRMDestRegCC     : Format<11>;
 def MRMDestMemCC     : Format<12>;
-#endif // INTEL_FEATURE_ISA_APX_F
 def MRMDestMemImm8      : Format<15>;
 def MRMDestReg4VOp3     : Format<16>;
 def MRMDestMem4VOp3     : Format<17>;
@@ -320,10 +318,8 @@ class EVEX_KZ : EVEX_K { bit hasEVEX_Z = 1; }
 class EVEX_B { bit hasEVEX_B = 1; }
 class EVEX_RC { bit hasEVEX_RC = 1; }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 class EVEX_NF { bit hasEVEX_NF = 1; }
 class EVEX_B4V : EVEX_B { bit hasVEX_4V = 1; }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 class EVEX_V512 { bit hasEVEX_L2 = 1; bit hasVEX_L = 0; }
 class EVEX_V256 { bit hasEVEX_L2 = 0; bit hasVEX_L = 1; }
@@ -359,10 +355,8 @@ class NotEVEX2VEXConvertible { bit notEVEX2VEXConvertible = 1; }
 // Force the instruction to use VEX encoding.
 class ExplicitVEXPrefix { bit ExplicitVEXPrefix = 1; }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 // Force the instruction to use REX2 encoding.
 class ExplicitREX2Prefix { bit explicitREX2Prefix = 1; }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -460,11 +454,9 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
 #if INTEL_FEATURE_ISA_AVX256P
   bit hasEVEX_X2 = 0;      // Does this inst set the EVEX_X2 field?
 #endif // INTEL_FEATURE_ISA_AVX256P
-#if INTEL_FEATURE_ISA_APX_F
   bit hasEVEX_NF = 0;      // Does this inst set the EVEX_NF field?
   bit hasTwoConditionalOps = 0;   // Does this inst have two conditional operands?
   bit explicitREX2Prefix = 0; // Force the instruction to use REX2 prefix.
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   // Force to check predicate before compress EVEX to VEX encoding.
   bit checkVEXPredicate = 0;
@@ -496,17 +488,14 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
 #if INTEL_CUSTOMIZATION
   // Force the instruction to use VEX encoding.
   let TSFlags{51}    = EmitVEXOrEVEXPrefix;
-#if INTEL_FEATURE_XUCC
-  let TSFlags{53-52} = XuCCOpPrefixBits;
-#endif // INTEL_FEATURE_XUCC
-#if INTEL_FEATURE_ISA_AVX256P
-  let TSFlags{54}    = hasEVEX_X2;
-#endif // INTEL_FEATURE_ISA_AVX256P
-#if INTEL_FEATURE_ISA_APX_F
-  let TSFlags{55}    = hasEVEX_NF;
-  let TSFlags{56}    = hasTwoConditionalOps;
-  let TSFlags{57}    = explicitREX2Prefix;
-#endif // INTEL_FEATURE_ISA_APX_F
+  let TSFlags{52}    = hasEVEX_NF;
+  let TSFlags{53}    = hasTwoConditionalOps;
+  let TSFlags{54}    = explicitREX2Prefix;
+#if INTEL_FEATURE_XISA_COMMON
+  // XuCCPrefix - These prefix bytes are used for some XuCC instructions.
+  let TSFlags{56-55} = XuCCOpPrefixBits;
+  let TSFlags{57}    = hasEVEX_X2;
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
 }
 
