@@ -261,17 +261,6 @@ static void getVariantsCPUDispatchData(
   }
 }
 
-#ifndef NDEBUG
-// Check that the name is valid for X86 target parser.
-static bool isValidCPUName(StringRef Name, const Module *M) {
-  if (Name.empty())
-    return false;
-  const Triple TT{M->getTargetTriple()};
-  return X86::parseTuneCPU(Name, TT.getArch() != llvm::Triple::x86) !=
-         llvm::X86::CK_None;
-}
-#endif // NDEBUG
-
 // This routine does actually apply CPU-specific settings for a new clone
 // according to "target-dispatch" attribute data of the scalar function.
 static void applyTargetCPUData(
