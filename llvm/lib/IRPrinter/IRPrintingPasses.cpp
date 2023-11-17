@@ -68,7 +68,8 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
 
   if (ShouldConvert)
     M.convertToNewDbgValues();
-
+#else  // INTEL
+  (void)EmitSummaryIndex; // INTEL
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return PreservedAnalyses::all();
 }
