@@ -144,7 +144,8 @@ public:
   bool checkNoSideEffectsCallWithConstTC(CallBase *CB, LoopInfo &LoopI);
   Value *getTripCountCallBaseInLoop(Instruction *, Value *, LoopInfo &);
   bool getNeededInstsToCompute(Value *V,
-                               SmallVectorImpl<Instruction *> &HoistingInst);
+                               SmallVectorImpl<Instruction *> &HoistingInst,
+                               bool NotForHoisting);
   bool getBBControlConditions(BasicBlock *BB,
                               SmallVectorImpl<ControlCond> &Conditions);
   bool isDTransVectorAccessElemCall(CallBase *CB);
@@ -817,15 +818,36 @@ bool PredCandidate::funcHasNoSideEffects(Function *F) {
   return true;
 }
 
-// Check if "CB" is in a proper loop and loop index is passed as second
-// argument to CB. Return loop trip count if all checks are passed.
+// If 'RHS' is PHINode like below, skip incoming zero value and return
+// other incoming value (%28). Otherwise, just return RHS.
 //
-// Ex:
-//     for (%i = 0; i% < %size; %i++) {
-//       elementAt(%i23, %i)
-//     }
-Value *PredCandidate::getTripCountCallBaseInLoop(Instruction *II, Value *LIndex,
-                                                 LoopInfo &LoopI) {
+//   %i30 = phi i32 [ %i28, %bb26 ], [ 0, %bb19 ]
+//
+static Value *skipZeroFromTripCount(Value *RHS) {
+  auto *PHI = dyn_cast<PHINode>(RHS);
+  Value *TripC = nullptr;
+  // Skip all incoming zero values and get actual non-zero trip count.
+  if (PHI) {
+    for (unsigned I = 0, E = PHI->getNumIncomingValues(); I != E; I++) {
+      Value *In = PHI->getIncomingValue(I);
+      auto *C = dyn_cast<Constant>(In);
+      if (C && C->isZeroValue())
+        continue;
+      if (TripC)
+        return nullptr;
+      TripC = In;
+    }
+  } else {
+    TripC = RHS;
+  }
+  return TripC;
+}
+
+// Check if "II" is in a proper loop and loop index is passed as
+// argument to II. Return loop trip count that is actually used in
+// loop-condition without skipping zero value if all checks are passed.
+static Value *getActualTripCountCallBaseInLoop(Instruction *II, Value *LIndex,
+                                               LoopInfo &LoopI) {
   Loop *L = LoopI.getLoopFor(II->getParent());
   if (!L)
     return nullptr;
@@ -864,25 +886,23 @@ Value *PredCandidate::getTripCountCallBaseInLoop(Instruction *II, Value *LIndex,
   auto CInc = dyn_cast<ConstantInt>(Increment->getOperand(1));
   if (!CInc || CInc->getSExtValue() != 1)
     return nullptr;
+  return Compare->getOperand(1);
+}
 
-  Value *RHS = Compare->getOperand(1);
-  auto *PHI = dyn_cast<PHINode>(RHS);
-  Value *TripC = nullptr;
-  // Skip all incoming zero values and get actual non-zero trip count.
-  if (PHI) {
-    for (unsigned I = 0, E = PHI->getNumIncomingValues(); I != E; I++) {
-      Value *In = PHI->getIncomingValue(I);
-      auto *C = dyn_cast<Constant>(In);
-      if (C && C->isZeroValue())
-        continue;
-      if (TripC)
-        return nullptr;
-      TripC = In;
-    }
-  } else {
-    TripC = RHS;
-  }
-  return TripC;
+// Check if "II" is in a proper loop and loop index is passed as
+// argument to II. Return loop trip count if all checks are passed.
+// Skip constant zero value if there is any.
+//
+// Ex:
+//     for (%i = 0; i% < %size; %i++) {
+//       elementAt(%i23, %i)
+//     }
+Value *PredCandidate::getTripCountCallBaseInLoop(Instruction *II, Value *LIndex,
+                                                 LoopInfo &LoopI) {
+  Value *ActualTripC = getActualTripCountCallBaseInLoop(II, LIndex, LoopI);
+  if (!ActualTripC)
+    return nullptr;
+  return skipZeroFromTripCount(ActualTripC);
 }
 
 // Returns true if Terminator is EH related instructions.
@@ -1063,7 +1083,7 @@ bool PredCandidate::checkSpecialNoSideEffectsCall(CallBase *CB,
   // Otherwise, just returns V.
   auto GetSourceOperand = [](Value *V, CallBase *CB) -> Value * {
     auto *A = dyn_cast<Argument>(V);
-    if (!A)
+    if (!A || A->getParent() != CB->getCalledFunction())
       return V;
     return CB->getArgOperand(A->getArgNo());
   };
@@ -1134,44 +1154,60 @@ bool PredCandidate::checkSpecialNoSideEffectsCall(CallBase *CB,
         return true;
       };
 
-  if (CB->arg_size() != 2)
-    return false;
   Function *SpecialDirectCallee = CB->getCalledFunction();
-
-  ReturnInst *RI = getSingleRetInst(SpecialDirectCallee);
-  if (!RI)
-    return false;
-  BasicBlock *RetBB = RI->getParent();
-  if (!basicBlockHasNoSideEffects(RetBB))
-    return false;
-  BasicBlock *Pred = RetBB->getSinglePredecessor();
-  if (!Pred || Pred != &SpecialDirectCallee->getEntryBlock())
+  if (CB->arg_size() < 2 || CB->arg_size() != SpecialDirectCallee->arg_size())
     return false;
 
+  BasicBlock *EBB = nullptr;
+  SmallPtrSet<BasicBlock *, 4> EHBBs;
+  // Try to find first basic block that has EH related code.
+  // Currently checking for EH-safety only if EH related blocks
+  // are controlled under one condition. If there are more EH blocks,
+  // this function returns false when remaining EH related blocks
+  // are processed by basicBlockHasNoSideEffects.
+  for (BasicBlock &BB : *SpecialDirectCallee) {
+    if (auto *II = dyn_cast<InvokeInst>(BB.getTerminator())) {
+      EBB = &BB;
+      auto *ND = II->getNormalDest();
+      auto *UD = II->getUnwindDest();
+      // Check no successors for ND and UD.
+      if (!isNoSuccTerminator(ND->getTerminator()) ||
+          !isNoSuccTerminator(UD->getTerminator()))
+        return false;
+      ;
+      EHBBs.insert(&BB);
+      EHBBs.insert(ND);
+      EHBBs.insert(UD);
+      break;
+    } else if (isa<UnreachableInst>(BB.getTerminator())) {
+      if (EBB)
+        return false;
+      EBB = &BB;
+      EHBBs.insert(&BB);
+      break;
+    }
+  }
+  if (!EBB)
+    return false;
+
+  for (BasicBlock &BB : *SpecialDirectCallee) {
+    // Ignore already processed EH blocks.
+    if (EHBBs.count(&BB))
+      continue;
+    if (!basicBlockHasNoSideEffects(&BB))
+      return false;
+  }
+  BasicBlock *Pred = EBB->getSinglePredecessor();
+  if (!Pred)
+    return false;
   auto *BI = dyn_cast<BranchInst>(Pred->getTerminator());
   if (!BI || !BI->isConditional())
     return false;
   Value *BrCond = BI->getCondition();
   ICmpInst *IC = dyn_cast<ICmpInst>(BrCond);
-  if (!IC || BI->getSuccessor(0) != RetBB ||
+  if (!IC || BI->getSuccessor(1) != EBB ||
       IC->getPredicate() != ICmpInst::ICMP_UGT)
     return false;
-  if (!basicBlockHasNoSideEffects(Pred))
-    return false;
-
-  BasicBlock *FalseBB = BI->getSuccessor(1);
-  if (auto *II = dyn_cast<InvokeInst>(FalseBB->getTerminator())) {
-    auto *ND = II->getNormalDest();
-    auto *UD = II->getUnwindDest();
-    // Check no successors for ND and UD.
-    if (!isNoSuccTerminator(ND->getTerminator()) ||
-        !isNoSuccTerminator(UD->getTerminator()))
-      return false;
-  } else {
-    // Handle Windows's EH case here.
-    if (!isa<UnreachableInst>(FalseBB->getTerminator()))
-      return false;
-  }
 
   SmallVector<Instruction *, 4> CmpLHSInsts;
   SmallVector<Instruction *, 4> CmpRHSInsts;
@@ -1182,7 +1218,7 @@ bool PredCandidate::checkSpecialNoSideEffectsCall(CallBase *CB,
     return false;
   if (!isa<LoadInst>(LHS))
     return false;
-  if (!getNeededInstsToCompute(LHS, CmpLHSInsts))
+  if (!getNeededInstsToCompute(LHS, CmpLHSInsts, true))
     return false;
   Instruction *FirstInst = *CmpLHSInsts.rbegin();
   auto *GEP0 = dyn_cast<GetElementPtrInst>(FirstInst);
@@ -1192,18 +1228,75 @@ bool PredCandidate::checkSpecialNoSideEffectsCall(CallBase *CB,
   if (!Arg0)
     return false;
   Value *LHSArg = CB->getArgOperand(Arg0->getArgNo());
-  if (!getNeededInstsToCompute(LHSArg, CmpLHSInsts))
+  if (!getNeededInstsToCompute(LHSArg, CmpLHSInsts, true))
     return false;
 
   // Check Call is in a Loop and loop induction variable is passed
   // as second argument to the call.
-  Value *RHSArgTripC =
-      getTripCountCallBaseInLoop(CB, CB->getArgOperand(1), LoopI);
+  Value *RHSActualTripC =
+      getActualTripCountCallBaseInLoop(CB, CB->getArgOperand(1), LoopI);
+  if (!RHSActualTripC)
+    return false;
+  Value *RHSArgTripC = skipZeroFromTripCount(RHSActualTripC);
   if (!RHSArgTripC)
     return false;
 
   // Get all instructions needed to compute loop trip count.
-  if (!getNeededInstsToCompute(RHSArgTripC, CmpRHSInsts))
+  if (!getNeededInstsToCompute(RHSArgTripC, CmpRHSInsts, true))
+    return false;
+
+  // Prove that ICmp instruction always returns true.
+  if (ComputeSameResults(CmpLHSInsts, CmpRHSInsts, CB))
+    return true;
+
+  // Ex:
+  // unsigned int otherSize = other->size();
+  // ...
+  // for (...) {
+  //   S1* Obj = fValueTuples->elementAt(i);
+  //   if (otherSize == Obj->size()) {
+  //     for (unsigned int j=0; j<otherSize; j++) {
+  //       if (!Obj->foo(j)
+  //       ...
+  //     }
+  //   }
+  //
+  // foo(S1* Obj, int pos) {
+  //   if (pos >= Obj->size())
+  //     throw;
+  // }
+  //
+  // To prove that foo is EH-safe at compile time, otherSize as trip
+  // count doesn't help. But, the loop is controlled under
+  // "if (otherSize == Obj->size())". So, Obj->size() can be used
+  // as trip count to prove foo is EH-safe.
+  CmpRHSInsts.clear();
+  Loop *L = LoopI.getLoopFor(CB->getParent());
+  BasicBlock *PHead = L->getLoopPredecessor();
+  if (!PHead)
+    return false;
+  auto *BII = dyn_cast<BranchInst>(PHead->getTerminator());
+  if (!BII || !BII->isConditional())
+    return false;
+  ICmpInst *Cond = dyn_cast<ICmpInst>(BII->getCondition());
+  if (!Cond)
+    return false;
+  if (Cond->getPredicate() != ICmpInst::ICMP_EQ ||
+      BII->getSuccessor(0) != CB->getParent())
+    return false;
+  Value *CmpOp0 = Cond->getOperand(0);
+  Value *CmpOp1 = Cond->getOperand(1);
+  Value *NewTripC = nullptr;
+  if (CmpOp0 == RHSActualTripC)
+    NewTripC = CmpOp1;
+  else if (CmpOp1 == RHSActualTripC)
+    NewTripC = CmpOp0;
+  if (!NewTripC)
+    return false;
+  NewTripC = skipZeroFromTripCount(NewTripC);
+  if (!NewTripC)
+    return false;
+  if (!getNeededInstsToCompute(NewTripC, CmpRHSInsts, true))
     return false;
 
   // Prove that ICmp instruction always returns true.
@@ -1215,12 +1308,16 @@ bool PredCandidate::checkSpecialNoSideEffectsCall(CallBase *CB,
 
 // Collect all needed instructions to compute "V". Only GetElementPtrInst,
 // LoadInsts and ZExt/SExt are allowed. Stops when it reaches Argument.
-//
+// When NotForHoisting is true, allow CallBase instructions as terminals
+// in addition to arguments.
 bool PredCandidate::getNeededInstsToCompute(
-    Value *V, SmallVectorImpl<Instruction *> &HoistingInsts) {
+    Value *V, SmallVectorImpl<Instruction *> &HoistingInsts,
+    bool NotForHoisting = false) {
   int NumInsts = 0;
 
   if (isa<Argument>(V))
+    return true;
+  if (NotForHoisting && isa<CallBase>(V))
     return true;
 
   // Limit up to 5 instructions at most.
@@ -1230,6 +1327,8 @@ bool PredCandidate::getNeededInstsToCompute(
       V = LI->getPointerOperand();
       if (isa<Argument>(V))
         return true;
+      if (NotForHoisting && isa<CallBase>(V))
+        return true;
     } else if (auto *GEP = dyn_cast<GetElementPtrInst>(V)) {
       // Non-constant indexes are not allowed.
       if (!GEP->hasAllConstantIndices())
@@ -1237,6 +1336,8 @@ bool PredCandidate::getNeededInstsToCompute(
       HoistingInsts.push_back(GEP);
       V = GEP->getPointerOperand();
       if (isa<Argument>(V))
+        return true;
+      if (NotForHoisting && isa<CallBase>(V))
         return true;
     } else if (auto *ZExt = dyn_cast<ZExtInst>(V)) {
       HoistingInsts.push_back(ZExt);
@@ -1313,11 +1414,6 @@ bool PredCandidate::processDirectCalls(IPPredOptImpl &IPPredObj,
   for (auto *CB : DirectCalls) {
     LLVM_DEBUG(dbgs() << "      Checking direct call for no side effects:"
                       << *CB << "\n";);
-    if (isDTransVectorAccessElemCall(CB)) {
-      // TODO: Better to add more safety checks here at callsite also to be
-      // on the safe side.
-      continue;
-    }
 
     Function *Callee = CB->getCalledFunction();
     if (funcHasNoSideEffects(Callee))
