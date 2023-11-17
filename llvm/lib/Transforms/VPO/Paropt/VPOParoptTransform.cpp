@@ -14765,7 +14765,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     CollapsedCompletely =
         static_cast<int>(Nest.getNestDepth()) == W->getCollapse();
     SetNDRange = isDefaultNDRangeLoopTripcountNeeded(W, CollapsedCompletely);
-    HoistCombinedUBBeforeTarget = SetNDRange;
+    HoistCombinedUBBeforeTarget = HoistCombinedUBBeforeTarget && SetNDRange;
   }
 
   if (SkipCollapsing) {
