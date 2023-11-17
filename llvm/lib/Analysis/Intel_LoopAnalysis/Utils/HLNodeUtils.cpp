@@ -5212,6 +5212,9 @@ public:
         (Loop->hasSignedIV() && !Loop->isUnknown() &&
          Loop->getUpperCanonExpr()->isIntConstant(&UpperVal) && (UpperVal < 0));
 
+    // TODO: extract preheader/postexit if we are removing loop due to
+    // non-sensical bounds as those instructions lie outside the loop body and
+    // are therefore not redundant.
     if (HasNonSensicalBounds || (IsTrivialZtt && !ZttIsTrue)) {
       RedundantLoops++;
       notifyWillRemoveNode(Loop);
@@ -5540,6 +5543,22 @@ public:
   }
 
   void visit(HLInst *Inst) {
+    // The following check skips detached postexit instructions. Even if the
+    // parent loop has been removed along with the preheader/postexit
+    // instructions, the visitor still visits the postexit instructions due to
+    // the nature of the algorithm. Visitor was not built for arbitrary removal
+    // of nodes during visit. The parent loop could have been removed because
+    // the ZTT was false. The loop body is skipped by setting SkipNode but
+    // postexit is still visited.
+    //
+    // The parent loop checks below are for compile time savings so we don't try
+    // to traverse the parent chain of every instruction up to the region by
+    // calling isAttached() on every instruction.
+    auto *ParLoop = dyn_cast_or_null<HLLoop>(Inst->getParent());
+
+    if (ParLoop && ParLoop->hasPostexit() && !ParLoop->isAttached())
+      return;
+
     recordSideEffectForNode(Inst);
     visit(static_cast<HLDDNode *>(Inst));
   }
