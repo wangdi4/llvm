@@ -7845,7 +7845,14 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       }
 
       RegDDRef *PointerRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+
+      // We cannot simply try to offset index by the constant value if the
+      // GEP's result element type and the PointerRef's lowest dimension
+      // element type do not match. We fall back to computing the address
+      // using a temp for this case.
       if (PointerRef->hasGEPInfo() && PointerRef->getNumDimensions() > 0 &&
+          GEP->getResultElementType() ==
+              PointerRef->getDimensionElementType(1) &&
           !PointerRef->hasTrailingStructOffsets()) {
         if (auto *Const = dyn_cast<VPConstant>(VPInst->getOperand(1))) {
           // Consider VPInst being

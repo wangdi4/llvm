@@ -27,12 +27,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; by trying to offset the index with -1.
 ;
 ; CHECK:         + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized>
-;
-; FIXME: Trying to offset the index with -1 causes the wide load to
-; be done from the wrong address (%s1p)[16 * i1 + 7] as this address
-; is being computed using i8 type.
-;
-; CHECK-NEXT:    |   %.vls.load = (<8 x i64>*)(%s1p)[0:16 * i1 + 7:1(i8:0)];
+; CHECK-NEXT:    |   %gep.base = &((i8*)(%s1p)[0:16 * i1 + 8:1(i8:0)]);
+; CHECK-NEXT:    |   %.vls.load = (<8 x i64>*)(%gep.base)[0:-1:8(i64:0)];
 ; CHECK-NEXT:    |   %vls.extract = shufflevector %.vls.load,  %.vls.load,  <i32 0, i32 2, i32 4, i32 6>;
 ; CHECK-NEXT:    |   %vls.extract1 = shufflevector %.vls.load,  %.vls.load,  <i32 1, i32 3, i32 5, i32 7>;
 ; CHECK-NEXT:    + END LOOP
