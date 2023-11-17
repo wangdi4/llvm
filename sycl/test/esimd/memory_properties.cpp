@@ -403,8 +403,6 @@ test_atomic_update(AccType &acc, float *ptrf, int byte_offset32,
   }
 }
 
-<<<<<<< HEAD
-=======
 // CHECK-LABEL: define {{.*}} @_Z16test_block_store{{.*}}
 SYCL_ESIMD_FUNCTION SYCL_EXTERNAL void test_block_store(AccType &acc,
                                                         float *ptrf,
@@ -478,4 +476,3 @@ SYCL_ESIMD_FUNCTION SYCL_EXTERNAL void test_block_store(AccType &acc,
   // CHECK: call void @llvm.genx.oword.st.v4i32(i32 {{[^)]+}}, i32 {{[^)]+}}, <4 x i32> {{[^)]+}})
   block_store(acc, byte_offset32, valsi, store_props_b);
 }
->>>>>>> 735b5210f0771b9860e68b5d4cd5ccda36f701a9
