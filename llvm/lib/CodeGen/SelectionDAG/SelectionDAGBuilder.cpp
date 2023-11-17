@@ -4771,6 +4771,7 @@ static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
               continue;
           }
           LastLegalScale = TriedScale;
+          break;
         }
       }
 
