@@ -14,7 +14,7 @@
 
 ; CHECK: + DO i1 = 0, 1, 1   <DO_LOOP>
 ; CHECK: |   %inc.lcssa12 = 3;
-; CHECK: |   if (-1 * i1 + -1 == 0)
+; CHECK: |   if (-1 * i1 + 1 == 0)
 ; CHECK: |   {
 ; CHECK: |      (@h)[0][5 * i1] = 0;
 ; CHECK: |

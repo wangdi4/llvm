@@ -29,7 +29,7 @@
 
 ; CHECK-NOT: + DO i1
 
-; CHECK:      @llvm.assume(-1);
+; CHECK:      @llvm.assume(1);
 
 ; CHECK: END REGION
 

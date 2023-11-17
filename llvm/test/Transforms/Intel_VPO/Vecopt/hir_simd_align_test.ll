@@ -17,8 +17,8 @@
 ; }
 ;
 ; CHECK:               BEGIN REGION { modified }
-; CHECK-NEXT:                @llvm.assume(-1); [ align(&((%lp2)[0]), 32) ]
-; CHECK-NEXT:                @llvm.assume(-1); [ align(&((%lp1)[0]), 16) ]
+; CHECK-NEXT:                @llvm.assume(1); [ align(&((%lp2)[0]), 32) ]
+; CHECK-NEXT:                @llvm.assume(1); [ align(&((%lp1)[0]), 16) ]
 ;
 ; CHECK:                    + DO i1 = 0, 1023, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:               |   %.vec = (<4 x i64>*)(%lp2)[i1];

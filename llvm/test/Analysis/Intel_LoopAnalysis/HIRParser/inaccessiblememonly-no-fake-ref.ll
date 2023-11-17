@@ -4,7 +4,7 @@
 ; 'inaccessiblememonly' attribute as the call does not 
 ; access memory through its operands.
 
-; CHECK: @llvm.assume(-1); [ align(&((%ptr)[0]), 64) ]
+; CHECK: @llvm.assume(1); [ align(&((%ptr)[0]), 64) ]
 ; CHECK: <RVAL-REG> &((LINEAR ptr %ptr)[i64 0])
 ; CHECK-NOT: FAKE-LVAL-REG
 

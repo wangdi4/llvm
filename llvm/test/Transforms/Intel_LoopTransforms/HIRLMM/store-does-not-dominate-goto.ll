@@ -15,7 +15,7 @@
 ;       |      %tobool1 = i1 + %g != 0;
 ;       |      %0 = %tobool1;
 ;       |   }
-;       |   if (%0 + -1 != -1 * i1 + -1 * trunc.i32.i16(%g))
+;       |   if (%0 + 1 != -1 * i1 + -1 * trunc.i32.i16(%g))
 ;       |   {
 ;       |      goto for.end.loopexit;
 ;       |   }
@@ -42,7 +42,7 @@
 ; CHECK:       |      %tobool1 = i1 + %g != 0;
 ; CHECK:       |      %0 = %tobool1;
 ; CHECK:       |   }
-; CHECK:       |   if (%0 + -1 != -1 * i1 + -1 * trunc.i32.i16(%g))
+; CHECK:       |   if (%0 + 1 != -1 * i1 + -1 * trunc.i32.i16(%g))
 ; CHECK:       |   {
 ; CHECK:       |      goto for.end.loopexit;
 ; CHECK:       |   }
