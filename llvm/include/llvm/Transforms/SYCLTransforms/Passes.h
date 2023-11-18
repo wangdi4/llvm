@@ -58,7 +58,6 @@
 #include "llvm/Transforms/SYCLTransforms/RedundantPhiNodePass.h"
 #include "llvm/Transforms/SYCLTransforms/RelaxedMath.h"
 #include "llvm/Transforms/SYCLTransforms/RemoveAtexit.h"
-#include "llvm/Transforms/SYCLTransforms/RemoveDeviceLibAssertFallback.h"
 #include "llvm/Transforms/SYCLTransforms/RemoveDuplicatedBarrier.h"
 #include "llvm/Transforms/SYCLTransforms/ReplaceScalarWithMask.h"
 #include "llvm/Transforms/SYCLTransforms/ReqdSubGroupSize.h"

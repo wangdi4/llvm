@@ -161,13 +161,8 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
 
 void OptimizerOCL::materializerPM(ModulePassManager &MPM) const {
   MPM.addPass(KernelTargetExtTypeLowerPass());
-  if (m_IsSYCL) {
+  if (m_IsSYCL)
     MPM.addPass(SPIRVToOCL20Pass());
-    // OCL CPU backend support SYCL assert now. We need to remove the
-    // duplicated function definitions from assert fallback.
-    if (!m_IsFpgaEmulator)
-      MPM.addPass(RemoveDeviceLibAssertFallbackPass());
-  }
 
   MPM.addPass(NameAnonGlobalPass());
   MPM.addPass(SYCLEqualizerPass());
