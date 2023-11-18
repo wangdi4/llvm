@@ -24,10 +24,11 @@
 ; %conv22 and %mul23.
 
 ; Verify that %mul16 and %mul23 which are defined in terms of %conv15 and %conv22
-; respectively, are scalar-expanded. If we recompute %mul16 and %mul23 using the
-; temps instead, we will get incorrect results because %conv15 and %conv22 are
-; defined twice in the first chunk and their second definitions override the first
-; definition make it inaccessible in the second chunk.
+; respectively, are scalar-expanded and not recomputed. If we recompute %mul16 and
+; %mul23 using the temps instead, we will get incorrect results because %conv15 and
+; %conv22 are defined twice in the first chunk and their second definitions override
+; the first definition make it inaccessible in the second chunk. Note that the first
+; definitions of %conv15 and %conv22 do not require scalar expansion.
 
 ; CHECK Dump Before
 
@@ -58,25 +59,21 @@
 ; CHECK: + DO i1 = 0, 124, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, 63, 1   <DO_LOOP>
 ; CHECK: |   |   %conv15 = sitofp.i32.double(0);
-; CHECK: |   |   (%.TempArray)[0][i2] = %conv15;
 ; CHECK: |   |   %mul16 = %conv15  *  5.000000e-02;
-; CHECK: |   |   (%.TempArray2)[0][i2] = %mul16;
+; CHECK: |   |   (%.TempArray)[0][i2] = %mul16;
 ; CHECK: |   |   %conv22 = sitofp.i32.double(20);
-; CHECK: |   |   (%.TempArray4)[0][i2] = %conv22;
 ; CHECK: |   |   %mul23 = %conv22  *  1.000000e-01;
-; CHECK: |   |   (%.TempArray6)[0][i2] = %mul23;
+; CHECK: |   |   (%.TempArray2)[0][i2] = %mul23;
 ; CHECK: |   |   %conv15 = sitofp.i32.double(1);
-; CHECK: |   |   (%.TempArray)[0][i2] = %conv15;
 ; CHECK: |   |   %conv22 = sitofp.i32.double(19);
-; CHECK: |   |   (%.TempArray4)[0][i2] = %conv22;
 ; CHECK: |   + END LOOP
 ; CHECK: |
 ; CHECK: |
 ; CHECK: |   + DO i2 = 0, 63, 1   <DO_LOOP>
-; CHECK: |   |   %conv15 = (%.TempArray)[0][i2];
-; CHECK: |   |   %mul16 = (%.TempArray2)[0][i2];
-; CHECK: |   |   %conv22 = (%.TempArray4)[0][i2];
-; CHECK: |   |   %mul23 = (%.TempArray6)[0][i2];
+; CHECK: |   |   %mul16 = (%.TempArray)[0][i2];
+; CHECK: |   |   %mul23 = (%.TempArray2)[0][i2];
+; CHECK: |   |   %conv15 = sitofp.i32.double(1);
+; CHECK: |   |   %conv22 = sitofp.i32.double(19);
 ; CHECK: |   |   %call = @malloc(160);
 ; CHECK: |   |   (@rp)[0][64 * i1 + i2].0 = &((%call)[0]);
 ; CHECK: |   |   %call3 = @malloc(160);

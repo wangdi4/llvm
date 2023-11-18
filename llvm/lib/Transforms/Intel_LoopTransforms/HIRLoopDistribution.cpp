@@ -608,6 +608,92 @@ ScalarExpansion::ScalarExpansion(HLLoop *Loop, bool HasDistributePoint,
   analyze(Chunks);
 }
 
+void ScalarExpansion::sortCandidatesByTopSortNum() {
+  std::sort(Candidates.begin(), Candidates.end(),
+            [&](Candidate A, Candidate B) {
+              return A.TmpDefs.front()->getHLDDNode()->getTopSortNum() <
+                     B.TmpDefs.front()->getHLDDNode()->getTopSortNum();
+            });
+}
+
+void ScalarExpansion::removeDependencies() {
+  bool Modified = false;
+
+  for (auto &Cand : Candidates) {
+
+    if (Cand.TmpDefs.size() == 1)
+      continue;
+
+    SmallSet<DDRef *, 8> DominatedDefs;
+
+    // Try to find Candidates with multiple defs in the DefChunk, where the
+    // later def postdominates a previous def. This means there is actually no
+    // dependence from the previous def because the 2nd def overrides it
+    // (similar to dead store). E.g.
+    //
+    //  DefChunk:
+    //  %tmp1 = 0;
+    //  %tmp2 = %tmp1  *  5;
+    //  %tmp1 = 1;
+    //
+    //  UseChunk:
+    //  ... = tmp2
+    //  ... = tmp1
+    //
+    // If we do not remove the dependence, t2 will be recomputable, yet the t1
+    // that will be available will be from wrong definition. In this case,
+    // because the 0 def has no dependence to the UseChunk, tmp2 should not be
+    // recomputable. Scalar Expansion candidates have 3 primary information
+    // pieces that we must remove per candidate, those being 1) the DefRef, 2)
+    // the UseRef, and 3) the Def/Use dependency.
+    for (auto DefIt = Cand.TmpDefs.begin(), End = std::prev(Cand.TmpDefs.end());
+         DefIt != End; ++DefIt) {
+
+      for (auto Next = std::next(DefIt); Next != Cand.TmpDefs.end(); ++Next) {
+        auto Node = (*DefIt)->getHLDDNode();
+        auto NextNode = (*Next)->getHLDDNode();
+        assert(Node->isAttached() && "Expect node to be attached to HIR!\n");
+
+        if (HLNodeUtils::strictlyPostDominates(NextNode, Node)) {
+          DominatedDefs.insert(*DefIt);
+          LLVM_DEBUG(dbgs() << "[SCEX] Found Dominated Def ["
+                            << NextNode->getNumber() << " >>> "
+                            << Node->getNumber() << "]\n";);
+          break;
+        }
+      }
+    }
+
+    Modified |= !DominatedDefs.empty();
+
+    if (DominatedDefs.empty())
+      break;
+
+    for (auto DefIt = Cand.TmpDefs.begin();
+         DefIt != std::prev(Cand.TmpDefs.end());) {
+      if (DominatedDefs.count(*DefIt)) {
+        DefIt = Cand.TmpDefs.erase(DefIt);
+      } else {
+        ++DefIt;
+      }
+    }
+
+    // Erase the dependencies connecting the uses to the dominated defs
+    for (auto Use : Cand.TmpUses) {
+      DDRefList &DefVec = Cand.SCEXDefsForUse[Use.Ref];
+      llvm::erase_if(DefVec,
+                     [&](DDRef *Def) { return DominatedDefs.count(Def); });
+
+      if (DefVec.empty()) {
+        Cand.SCEXDefsForUse.erase(Use.Ref);
+      }
+    }
+  }
+
+  if (Modified)
+    sortCandidatesByTopSortNum();
+}
+
 bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
                                   const HLInst *&DepInst) {
   const HLInst *BlobNode = dyn_cast<HLInst>(RVal->getHLDDNode());
@@ -783,7 +869,7 @@ static HLNode *getFirstSafeInsertionNode(HLNode *Node1, HLNode *Node2) {
 // in earlier DefLoop. For performance we can load temp use inside if
 // when not liveout
 bool ScalarExpansion::shouldLoadUnconditionally(Candidate &Cand,
-                                                DDRef *TmpUse) {
+                                                DDRef *TmpUse) const {
   if (Cand.IsLiveOut) {
     return false;
   }
@@ -854,6 +940,9 @@ void ScalarExpansion::computeInsertNodes() {
   // Contains the set of SBs that can be used by dependent temps to make the
   // dependent temps recomputable.
   SymbaseLoopSetTy ReusableSBs;
+
+  removeDependencies();
+
   for (auto &Cand : Candidates) {
     getInsertNodeForTmpDefsUses<true>(Cand);  // For Defs
     getInsertNodeForTmpDefsUses<false>(Cand); // For Uses
@@ -997,17 +1086,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
     // dependent temps recomputable.
     SymbaseLoopSetTy ReusableSBs;
 
-    // Collects the number of definitions of each temps in chunk 'I' mainly to
-    // distinguish whether the temp has multiple definitions.
-    SmallDenseMap<unsigned, unsigned> SymbaseDefCount;
-
     auto &DefChunkRefs = RefGroups[I];
-    for (DDRef *TmpRef : DefChunkRefs) {
-      if (TmpRef->isLval()) {
-        ++SymbaseDefCount[TmpRef->getSymbase()];
-      }
-    }
-
     for (DDRef *TmpDefDDRef : DefChunkRefs) {
       if (TmpDefDDRef->isRval()) {
         continue;
@@ -1072,13 +1151,7 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
           const HLInst *DepInst = nullptr;
           Cand.SafeToRecompute &= isSafeToRecompute(TmpDef, DefChunkUnsafe, J,
                                                     ReusableSBs, DepInst);
-
-          // If SB has multiple definitions in def chunk, it cannot be reused by
-          // dependent temps as the subsequent definitions of the temp in the
-          // def chunk may override previous definitions. This will result in
-          // incorrect value for the dependent temp.
-          if (SymbaseDefCount[SB] == 1)
-            ReusableSBs.insert({SB, J});
+          ReusableSBs.insert({SB, J});
 
           // Save TmpUse in chunk J, We will need to load or recompute this ref
           // from scalar expanded array, once per loop.
