@@ -640,7 +640,7 @@ if config.new_pm_default:
     config.available_features.add('new_pm_default')
 
 import lit.llvm.util
-config.opt_options_to_mimic_llorg = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false" , "-instcombine-disable-fpclass-folding=false", "-indvars-zext2sext=false"]
+config.opt_options_to_mimic_llorg = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false" , "-instcombine-disable-fpclass-folding=false", "-indvars-zext2sext=false", "-indvars-widen-nneg"]
 config.llc_options_to_mimic_llorg = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false", "-cgp-split-switch-critical-edge=false", "-intel-adjust-is-stmt=false"]
 lit.llvm.util.add_default_options_to_tool(config, 'opt', config.opt_options_to_mimic_llorg)
 lit.llvm.util.add_default_options_to_tool(config, 'llc', config.llc_options_to_mimic_llorg)

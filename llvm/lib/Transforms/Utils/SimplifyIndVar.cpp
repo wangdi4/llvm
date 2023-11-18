@@ -47,6 +47,12 @@ using namespace llvm;
 
 #define DEBUG_TYPE "indvars"
 
+#if INTEL_CUSTOMIZATION
+static
+cl::opt<bool> WidenNonNeg("indvars-widen-nneg", cl::Hidden, cl::init(false),
+                                cl::desc("Widen based on nnneg flag"));
+#endif // INTEL_CUSTOMIZATION
+
 STATISTIC(NumElimIdentity, "Number of IV identities eliminated");
 STATISTIC(NumElimOperand,  "Number of IV operands folded into a use");
 STATISTIC(NumFoldedUser, "Number of IV users folded into a constant");
@@ -1419,7 +1425,12 @@ WidenIV::getExtendedOperandRecurrence(WidenIV::NarrowIVDefUse DU) {
     // extension.  We want to use the current extend kind if legal
     // (see above), and we only hit this code if we need to check
     // the opposite case.
-    if (DU.NeverNegative) {
+#if INTEL_CUSTOMIZATION
+    // Widening in general may cause loss of wrap-flags when interacting with
+    // InstCombine. See test Intel/noext-reduce.ll for an example.
+    // We don't need to increase the number of cases where we widen.
+    if (DU.NeverNegative && WidenNonNeg) {
+#endif // INTEL_CUSTOMIZATION
       if (OBO->hasNoSignedWrap()) {
         ExtKind = ExtendKind::Sign;
       } else if (OBO->hasNoUnsignedWrap()) {
