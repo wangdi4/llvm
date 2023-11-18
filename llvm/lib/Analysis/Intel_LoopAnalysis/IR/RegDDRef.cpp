@@ -745,7 +745,7 @@ MemoryLocation RegDDRef::getMemoryLocation() const {
 
   Loc.Ptr = getLocationPtr(IsPrecise);
 
-  Loc.Size = IsPrecise ? LocationSize::precise(getDestTypeSizeInBytes())
+  Loc.Size = IsPrecise ? LocationSize::precise(getDestTypeStoreSizeInBytes())
                        : MemoryLocation::UnknownSize;
 
   getAAMetadata(Loc.AATags);
