@@ -293,6 +293,10 @@ private:
   void constructNaiveEdges(GraphNodeMapTy &GraphNodeMap,
                            FusibleCacheTy &FusibleCache);
 
+  // Find the collapse range for merging fusenodes by traversing fusegraph
+  void collectGoodPathsFrom(unsigned NodeV, unsigned NodeW, BitVector &Visited,
+                            CollapseRangeTy &CollapseRange);
+
   // Run weighted fusion algorithm.
   void weightedFusion();
 

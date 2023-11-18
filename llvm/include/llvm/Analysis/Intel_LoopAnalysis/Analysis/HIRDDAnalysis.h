@@ -87,6 +87,11 @@ public:
   LLVM_DUMP_METHOD
   void print(raw_ostream &OS) const {
     if (!isIndependent()) {
+      // Refined Dependence must be either independent or refined. Do nothing
+      // here.
+      if (!isRefined())
+        return;
+
       DV.print(OS, false);
       OS << " ";
       DistV.print(OS);
