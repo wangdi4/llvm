@@ -146,6 +146,9 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.loopcount_averag
   unsigned LoopCountAvg;
 
+  // Value for 'llvm.loop.align' metadata.
+  unsigned CodeAlign;
+
 #endif // INTEL_CUSTOMIZATION
 
   /// Value for llvm.loop.unroll.* metadata (enable, disable, or full).
@@ -529,6 +532,10 @@ public:
   void setLoopCountAvg(unsigned C) {
     StagedAttrs.LoopCountAvg = C;
   }
+
+  /// Set value of code align for the next loop pushed.
+  void setCodeAlign(unsigned C) { StagedAttrs.CodeAlign = C; }
+
 #endif // INTEL_CUSTOMIZATION
 
   /// Set the next pushed loop 'vectorize.enable'
