@@ -163,7 +163,7 @@ namespace X86Local {
 
   enum {
     OB = 0, TB = 1, T8 = 2, TA = 3, XOP8 = 4, XOP9 = 5, XOPA = 6, ThreeDNow = 7,
-    T_MAP5 = 8, T_MAP6 = 9,
+    T_MAP5 = 8, T_MAP6 = 9, // INTEL
 #if INTEL_CUSTOMIZATION
     T_MAP8 = 10, T_MAP4 = 11,
     T_MAP7 = 12

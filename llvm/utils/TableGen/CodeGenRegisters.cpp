@@ -1937,7 +1937,7 @@ static bool isX86MaskRegisterMerge(StringRef SupersetName,
           SubsetName == "VK16WM" || SubsetName == "VK32WM" ||
           SubsetName == "VK64WM");
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 /// Iteratively prune unit sets. Prune subsets that are close to the superset,
 /// but with one or two registers removed. We occasionally have registers like

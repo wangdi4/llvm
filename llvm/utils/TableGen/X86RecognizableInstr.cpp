@@ -1,4 +1,3 @@
-
 //===- X86RecognizableInstr.cpp - Disassembler instruction spec --*- C++ -*-===//
 // INTEL_CUSTOMIZATION
 //
@@ -715,7 +714,7 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(memory);
     HANDLE_OPTIONAL(immediate);
     break;
-#endif
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRMDestMem4VOp3CC:
     // Operand 1 is a register operand in the Reg/Opcode field.
     // Operand 2 is a register operand in the R/M field.
