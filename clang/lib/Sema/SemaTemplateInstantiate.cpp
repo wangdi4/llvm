@@ -1420,6 +1420,7 @@ namespace {
     TransformIntelBlockLoopAttr(const IntelBlockLoopAttr *BL);
     const IntelPrefetchAttr *
     TransformIntelPrefetchAttr(const IntelPrefetchAttr *IPA);
+    const CodeAlignAttr *TransformCodeAlignAttr(const CodeAlignAttr *CA);
 #endif // INTEL_CUSTOMIZATION
 
     ExprResult TransformPredefinedExpr(PredefinedExpr *E);
@@ -2129,6 +2130,14 @@ TemplateInstantiator::TransformSYCLIntelMaxReinvocationDelayAttr(
   return getSema().BuildSYCLIntelMaxReinvocationDelayAttr(*MRD,
                                                               TransformedExpr);
 }
+
+#if INTEL_CUSTOMIZATION
+const CodeAlignAttr *
+TemplateInstantiator::TransformCodeAlignAttr(const CodeAlignAttr *CA) {
+  Expr *TransformedExpr = getDerived().TransformExpr(CA->getAlignment()).get();
+  return getSema().BuildCodeAlignAttr(*CA, TransformedExpr);
+}
+#endif // INTEL_CUSTOMIZATION
 
 ExprResult TemplateInstantiator::transformNonTypeTemplateParmRef(
     Decl *AssociatedDecl, const NonTypeTemplateParmDecl *parm,

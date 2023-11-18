@@ -165,12 +165,6 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
           MPM.addPass(SYCLPreprocessSPIRVFriendlyIRPass());
           MPM.addPass(SPIRVLowerConstExprPass());
         }
-
-        if (m_IsSYCL && !m_IsFpgaEmulator)
-          // OCL CPU backend support SYCL assert now. We need to remove the
-          // duplicated functions definition from assert fallback.
-          MPM.addPass(RemoveDeviceLibAssertFallbackPass());
-
         MPM.addPass(KernelTargetExtTypeLowerPass());
         MPM.addPass(SPIRVToOCL20Pass());
         MPM.addPass(NameAnonGlobalPass());

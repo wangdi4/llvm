@@ -1,7 +1,6 @@
 ; RUN: SATest -BUILD -pass-manager-type=ocl -llvm-option=-debug-pass-manager -config=%s.cfg 2>&1 | FileCheck %s
 
 ; CHECK: Running pass: SPIRV::SPIRVToOCL20Pass
-; CHECK-NEXT: Running pass: RemoveDeviceLibAssertFallbackPass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis

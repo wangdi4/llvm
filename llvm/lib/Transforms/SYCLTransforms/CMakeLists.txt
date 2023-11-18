@@ -86,7 +86,6 @@ add_llvm_component_library(LLVMSYCLTransforms
   RedundantPhiNodePass.cpp
   RelaxedMath.cpp
   RemoveAtexit.cpp
-  RemoveDeviceLibAssertFallback.cpp
   RemoveDuplicatedBarrier.cpp
   ReplaceScalarWithMask.cpp
   ReqdSubGroupSize.cpp

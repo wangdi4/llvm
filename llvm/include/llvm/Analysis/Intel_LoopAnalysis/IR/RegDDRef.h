@@ -467,6 +467,9 @@ public:
   uint64_t getDestTypeSizeInBytes() const {
     return getCanonExprUtils().getTypeSizeInBytes(getDestType());
   }
+  uint64_t getDestTypeStoreSizeInBytes() const {
+    return getCanonExprUtils().getTypeStoreSizeInBytes(getDestType());
+  }
 
   // Returns source type size. User is responsible for checking that the type is
   // sized.

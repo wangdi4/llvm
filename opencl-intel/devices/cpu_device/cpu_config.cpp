@@ -201,7 +201,6 @@ CPUDeviceConfig::GetExtensionsWithVersion() {
   // required builtins.
   // GetExtVer(OCL_EXT_KHR_SUBGROUP_BALLOT, 1, 0, 0);
 
-  GetExtVer(OCL_EXT_INTEL_DEVICELIB_ASSERT, 1, 0, 0);
   GetExtVer(OCL_EXT_KHR_SUBGROUP_SHUFFLE, 1, 0, 0);
   GetExtVer(OCL_EXT_KHR_SUBGROUP_SHUFFLE_RELATIVE, 1, 0, 0);
   GetExtVer(OCL_EXT_KHR_SUBGROUP_EXTENDED_TYPES, 1, 0, 0);
