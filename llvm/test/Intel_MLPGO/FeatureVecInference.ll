@@ -1,9 +1,6 @@
-; RUN: env MLPGO_DUMP_PLAIN_FORMAT=1 env MLPGO_OUTPUT=%t.profile.mlpgo opt -passes=pgo-instr-use -pgo-test-profile-file=%S/code.profdata %s -S -o %t.out.ll
-; The output file will have PID postfix
-; RUN: cat %t.profile.mlpgo* | FileCheck %s --check-prefixes=FEATURE_DUMP
-; Remove the output to avoid collision with subsequent runs of the test
-; RUN: rm %t.profile.mlpgo*
+; RUN: opt -profile-ml-use -debug-only=mlpgo -passes=mlpgo %s -S 2>&1 | FileCheck %s --check-prefixes=PROB_DUMP,PROB_METADATA
 ; UNSUPPORTED: intel_use_sanitizers
+
 
 ; The IR is generated from
 ; int TripCount = 64;
@@ -23,12 +20,19 @@
 ;   return Res;
 ; }
 
-; FEATURE_DUMP: 40|53|53|9|55|55|12|32|77|12|1|0|1|10|1|3|1|1|1|0|0|0|29|12|14|2|0|0|0|0|2|0|2|0|1|0|0|1|3|6|3|0|2080374784|2114445438|0|65|0
-; FEATURE_DUMP: 40|53|53|9|55|55|12|32|77|12|1|0|1|10|1|3|1|1|1|0|0|0|29|12|14|2|1|0|0|0|1|0|8|0|1|1|0|0|3|6|1|0|67108864|33038210|0|65|0
-; FEATURE_DUMP: 38|53|53|9|17|17|12|69|71|12|0|0|1|10|1|3|1|1|1|0|1|0|29|12|14|2|0|0|0|0|0|0|5|0|1|0|0|0|3|6|2|0|1073741824|0|0|64|0
-; FEATURE_DUMP: 38|53|53|9|17|17|12|69|71|12|0|0|1|10|1|3|1|1|1|0|1|0|29|12|14|2|1|0|0|0|0|0|1|0|1|0|0|0|3|6|2|0|1073741824|2147483648|0|64|0
-; FEATURE_DUMP: 40|53|53|9|55|55|12|55|55|12|1|0|2|3|0|0|1|1|1|0|0|0|29|12|14|2|0|0|0|0|2|0|1|1|1|0|0|1|3|6|4|0|2080374784|2081407228|0|2080|0
-; FEATURE_DUMP: 40|53|53|9|55|55|12|55|55|12|1|0|2|3|0|0|1|1|1|0|0|0|29|12|14|2|1|0|0|0|1|0|1|0|1|1|0|0|3|6|1|0|67108864|66076420|0|2080|0
+
+; PROB_DUMP: Input vector is:
+; PROB_DUMP: 40 53 53 9 55 55 12 32 77 12 1 0 1 10 1 3 1 1 1 0 0 0 29 12 14 2 0 0 0 0 2 0 2 0 1 0 0 1 3 6 3 0 1 0 0 0 1 0 8 0 1 1 0 0 3 6 1 0
+; PROB_DUMP: Model result 0 : 0.887914
+; PROB_DUMP: Branch Prediction Model result is: 0.887914
+; PROB_DUMP: Input vector is:
+; PROB_DUMP: 38 53 53 9 17 17 12 69 71 12 0 0 1 10 1 3 1 1 1 0 1 0 29 12 14 2 0 0 0 0 0 0 5 0 1 0 0 0 3 6 2 0 1 0 0 0 0 0 1 0 1 0 0 0 3 6 2 0
+; PROB_DUMP: Model result 0 : 0.728185
+; PROB_DUMP: Branch Prediction Model result is: 0.728185
+; PROB_DUMP: Input vector is:
+; PROB_DUMP: 40 53 53 9 55 55 12 55 55 12 1 0 2 3 0 0 1 1 1 0 0 0 29 12 14 2 0 0 0 0 2 0 1 1 1 0 0 1 3 6 4 0 1 0 0 0 1 0 1 0 1 1 0 0 3 6 1 0
+; PROB_DUMP: Model result 0 : 0.644790
+; PROB_DUMP: Branch Prediction Model result is: 0.644790
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -46,11 +50,13 @@ for.cond:                                         ; preds = %for.inc6, %entry
   %0 = load i32, ptr @TripCount, align 4
   %cmp = icmp slt i32 %I.0, %0
   br i1 %cmp, label %for.body, label %for.end8
+; PROB_METADATA: br i1 %cmp, label %for.body, label %for.end8, !prof ![[PROF1:[0-9]+]]
 
 for.body:                                         ; preds = %for.cond
   %mul = mul nsw i32 %ARGC, %Res.0
   %cmp1 = icmp sgt i32 %mul, 2
   br i1 %cmp1, label %if.then, label %if.else
+; PROB_METADATA: br i1 %cmp1, label %if.then, label %if.else, !prof ![[PROF2:[0-9]+]]
 
 if.then:                                          ; preds = %for.body
   %add = add nsw i32 %Res.0, %ARGC
@@ -69,6 +75,8 @@ for.cond2:                                        ; preds = %for.inc, %if.end
   %J.0 = phi i32 [ 0, %if.end ], [ %inc, %for.inc ]
   %cmp3 = icmp slt i32 %J.0, %I.0
   br i1 %cmp3, label %for.body4, label %for.end
+
+; PROB_METADATA: br i1 %cmp3, label %for.body4, label %for.end, !prof ![[PROF3:[0-9]+]]
 
 for.body4:                                        ; preds = %for.cond2
   %1 = load i32, ptr @TripCount, align 4
@@ -95,6 +103,11 @@ attributes #0 = { mustprogress noinline norecurse nounwind uwtable "approx-func-
 
 !llvm.module.flags = !{!0, !1, !2}
 !llvm.ident = !{!3}
+
+
+; PROB_METADATA: ![[PROF1]] = !{!"branch_weights", i32 1906781440, i32 240702208}
+; PROB_METADATA: ![[PROF2]] = !{!"branch_weights", i32 1563764480, i32 583719168}
+; PROB_METADATA: ![[PROF3]] = !{!"branch_weights", i32 1384674944, i32 762808704}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 7, !"uwtable", i32 2}
