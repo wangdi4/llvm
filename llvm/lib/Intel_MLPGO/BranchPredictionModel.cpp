@@ -39,82 +39,46 @@ BranchPredictionModel::predict(double *prediction,
     const llvm::mlpgo::BrSrcBBFeturesT &SrcBBFeatures =
         FeatureVec.getSrcBBFeatures();
 
-    const llvm::mlpgo::BrSuccFeaturesT &LeftSuccFeatures =
-        FeatureVec.getSuccFeatures(0);
-    const llvm::mlpgo::BrSuccFeaturesT &RightSuccFeatures =
-        FeatureVec.getSuccFeatures(1);
-
     // Note: it is crucial that the features will be placed in the vector in the
     // exact order expected by the model
-    std::vector<float> input{
-        (float)SrcBBFeatures.srcBranchPredicate,
-        (float)SrcBBFeatures.srcBranchOperandOpcode,
-        (float)SrcBBFeatures.srcBranchOperandFunc,
-        (float)SrcBBFeatures.srcBranchOperandType,
-        (float)SrcBBFeatures.srcRAOpCode,
-        (float)SrcBBFeatures.srcRAFunc,
-        (float)SrcBBFeatures.srcRAType,
-        (float)SrcBBFeatures.srcRBOpCode,
-        (float)SrcBBFeatures.srcRBFunc,
-        (float)SrcBBFeatures.srcRBType,
-        (float)SrcBBFeatures.srcLoopHeader,
-        (float)SrcBBFeatures.srcProcedureType,
-        (float)SrcBBFeatures.srcLoopDepth,
-        (float)SrcBBFeatures.srcLoopBlockSize,
-        (float)SrcBBFeatures.srcTotalSubLoopSize,
-        (float)SrcBBFeatures.srcTotalSubLoopBlockSize,
-        (float)SrcBBFeatures.srcLoopExitingSize,
-        (float)SrcBBFeatures.srcLoopExitSize,
-        (float)SrcBBFeatures.srcLoopExitEdgesSize,
-        (float)SrcBBFeatures.srcTriangle,
-        (float)SrcBBFeatures.srcDiamond,
-        (float)SrcBBFeatures.srcFunctionStartWithRet,
-        (float)SrcBBFeatures.srcFunctionInstructionSize,
-        (float)SrcBBFeatures.srcFunctionBlockSize,
-        (float)SrcBBFeatures.srcFunctionEdgesSize,
-        (float)SrcBBFeatures.srcNumberOfSuccessors,
+    std::vector<float> input;
 
-        (float)LeftSuccFeatures.SuccessorsRank,
-        (float)LeftSuccFeatures.SuccessorBranchDirection,
-        (float)LeftSuccFeatures.SuccessorLoopHeader,
-        (float)LeftSuccFeatures.SuccesorLoopBack,
-        (float)LeftSuccFeatures.SuccessorExitEdge,
-        (float)LeftSuccFeatures.SuccessorsCall,
-        (float)LeftSuccFeatures.SuccessorsEnd,
-        (float)LeftSuccFeatures.SuccessorsUseDef,
-        (float)LeftSuccFeatures.SuccessorBranchDominate,
-        (float)LeftSuccFeatures.SuccessorsBranchPostDominate,
-        (float)LeftSuccFeatures.SuccessorUnlikely,
-        (float)LeftSuccFeatures.SuccessorNumberOfSiblingExitSuccessors,
-        (float)LeftSuccFeatures.SuccessorEstimatedWeight,
-        (float)LeftSuccFeatures.SuccessorTotalWeight,
-        (float)LeftSuccFeatures.SuccessorInstructionSize,
-        (float)LeftSuccFeatures.SuccessorStore,
+    input.insert(input.end(), {
+#define BR_SRC_BB_FEATURE(Type, Name) (float)SrcBBFeatures.Name,
+#include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDesc.def"
+#undef BR_SRC_BB_FEATURE
+                              });
+    LLVM_DEBUG(llvm::dbgs() << "Input vector is:\n");
+#define BR_SRC_BB_FEATURE(Type, Name)                                          \
+  LLVM_DEBUG(llvm::dbgs() << SrcBBFeatures.Name << " ");
+#include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDesc.def"
+#undef BR_SRC_BB_FEATURE
 
-        (float)RightSuccFeatures.SuccessorsRank,
-        (float)RightSuccFeatures.SuccessorBranchDirection,
-        (float)RightSuccFeatures.SuccessorLoopHeader,
-        (float)RightSuccFeatures.SuccesorLoopBack,
-        (float)RightSuccFeatures.SuccessorExitEdge,
-        (float)RightSuccFeatures.SuccessorsCall,
-        (float)RightSuccFeatures.SuccessorsEnd,
-        (float)RightSuccFeatures.SuccessorsUseDef,
-        (float)RightSuccFeatures.SuccessorBranchDominate,
-        (float)RightSuccFeatures.SuccessorsBranchPostDominate,
-        (float)RightSuccFeatures.SuccessorUnlikely,
-        (float)RightSuccFeatures.SuccessorNumberOfSiblingExitSuccessors,
-        (float)RightSuccFeatures.SuccessorEstimatedWeight,
-        (float)RightSuccFeatures.SuccessorTotalWeight,
-        (float)RightSuccFeatures.SuccessorInstructionSize,
-        (float)RightSuccFeatures.SuccessorStore,
-    };
+    for (size_t SuccIdx = 0; SuccIdx < FeatureVec.getNumOfSucc(); ++SuccIdx) {
+      const llvm::mlpgo::BrSuccFeaturesT &SuccFeatures =
+          FeatureVec.getSuccFeatures(SuccIdx);
+
+      input.insert(input.end(), {
+#define BR_SUCC_BB_FEATURE(Type, Name) (float)SuccFeatures.Name,
+#include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDesc.def"
+#undef BR_SUCC_BB_FEATURE
+                                });
+#define BR_SUCC_BB_FEATURE(Type, Name)                                         \
+  LLVM_DEBUG(llvm::dbgs() << SuccFeatures.Name << " ");
+#include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDesc.def"
+#undef BR_SUCC_BB_FEATURE
+    }
+
+    LLVM_DEBUG(llvm::dbgs() << "\n");
 
     std::vector<float> output;
 
     // TODO: validate output size is as expected. probably initialize() should
     // keep output size read from onnx as member of this class
 
-    this->runModel(input, output);
+    MlModelStatus MLStatus = this->runModel(input, output);
+    if (MLStatus != MlModelStatus::OK)
+      return MLStatus;
 
     LLVM_DEBUG(llvm::dbgs() << "Branch Prediction Model result is: "
                             << std::to_string(output[0]) << "\n");

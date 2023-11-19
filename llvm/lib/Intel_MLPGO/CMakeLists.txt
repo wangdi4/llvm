@@ -80,6 +80,10 @@ if(NOT DEFINED ONNX_MODEL_PATH)
     message(FATAL_ERROR "The ONNX_MODEL_PATH var should point to the directory containing ONNX model")
 endif()
 
+if(MLPGO_BR_FEATURE_VERSION)
+    add_compile_options(-DMLPGO_BR_FEATURE_VERSION=${MLPGO_BR_FEATURE_VERSION})
+endif()
+
 cmake_path(SET ONNX_MODEL_PATH "${ONNX_MODEL_PATH}/mlpgo_branch_probability_0.1.3.onnx")
 message("MLPGO. Using model: ${ONNX_MODEL_PATH}")
 

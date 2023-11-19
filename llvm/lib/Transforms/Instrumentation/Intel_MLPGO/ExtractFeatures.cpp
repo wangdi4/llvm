@@ -46,6 +46,7 @@ namespace mlpgo {
 
 Parameters::Parameters(const Module &M) {
 
+#ifndef INTEL_PRODUCT_RELEASE
   std::optional<std::string> OutputFile = sys::Process::GetEnv("MLPGO_OUTPUT");
   std::optional<std::string> NeedRemoveNonRun =
       sys::Process::GetEnv("MLPGO_REMOVE_NON_RUN");
@@ -53,7 +54,7 @@ Parameters::Parameters(const Module &M) {
       sys::Process::GetEnv("MLPGO_DUMP_WITH_INF");
   std::optional<std::string> NeedDumpWithDebugInfo =
       sys::Process::GetEnv("MLPGO_DUMP_WITH_DEBUG_INFO");
-  DumpJSON = sys::Process::GetEnv("MLPGO_DUMP_JSON").has_value();
+  DumpJSON = !sys::Process::GetEnv("MLPGO_DUMP_PLAIN_FORMAT").has_value();
   std::optional<std::string> UnknownFeaturesOutput =
       sys::Process::GetEnv("MLPGO_DUMP_UNKNOWN_FEATURES");
 
@@ -100,6 +101,39 @@ Parameters::Parameters(const Module &M) {
   if (NeedDumpWithDebugInfo) {
     DumpFeaturesWithDebugInfo = true;
   }
+#endif // INTEL_PRODUCT_RELEASE
+}
+
+// Maps the name to a number provided by a file in JSON format
+static uint64_t mapName2NumHelper(const StringRef &Name,
+                                  const StringRef &JSONEntryName) {
+
+  std::optional<std::string> FileName;
+#ifndef INTEL_PRODUCT_RELEASE
+  FileName = sys::Process::GetEnv("MLPGO_NAME_MAPPING_FILE");
+#endif // INTEL_PRODUCT_RELEASE
+
+  if (!FileName)
+    return 0;
+
+  ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> Buffer =
+      llvm::MemoryBuffer::getFile(FileName.value(), true);
+
+  if (!Buffer)
+    report_fatal_error(Twine("Error opening JSON file"),
+                       /*no crash dump*/ false);
+
+  Expected<json::Value> Value = json::parse(Buffer.get()->getBuffer());
+
+  if (!Value)
+    report_fatal_error(Twine("Cannot parse JSON"), /*no crash dump*/ false);
+
+  if (json::Object *Obj = Value->getAsObject())
+    if (json::Object *NameArray = Obj->getObject(JSONEntryName))
+      if (std::optional<int64_t> Num = NameArray->getInteger(Name))
+        return Num.value();
+
+  return 1;
 }
 
 ProcedureType GetProcedureType(const Function &F, CallGraph &CG) {
@@ -532,7 +566,8 @@ void ExtractSuccessorFeatures(
 }
 
 // mainly refer to calcZeroHeuristics in BranchProbabilityInfo.cpp
-void GenConstantFuncFeatureValue(const Instruction *Terminator, int &FuncIdx) {
+void GenConstantFuncFeatureValue(const Instruction *Terminator,
+                                 unsigned &FuncIdx) {
   /// to check whether it satisfy the condition of triggering Zero Heuristics in
   /// LLVM
   bool ZeroHeuristicSatisfy = true;
@@ -615,6 +650,9 @@ std::optional<mlpgo::MLBrFeatureVec> ExtractInstFeatures(
   SrcBBFeatures.srcNumberOfSuccessors = NumOfSuccessors;
   SrcBBFeatures.srcFunctionInstructionSize = F.getInstructionCount();
 
+  SrcBBFeatures.srcFunctionNameHash =
+      mapName2NumHelper(BB->getParent()->getName(), "function_name");
+
   const auto *Cond = BRI.getCondition();
   if (const auto *Cmp = dyn_cast<CmpInst>(Cond))
     SrcBBFeatures.srcBranchPredicate = Cmp->getPredicate();
@@ -635,10 +673,12 @@ std::optional<mlpgo::MLBrFeatureVec> ExtractInstFeatures(
     NumOfOperands = NumOfOperands > 2 ? 2 : NumOfOperands;
     for (int i = 0; i < NumOfOperands; ++i) {
       const auto *Operand = Inst->getOperand(i);
-      int &OpCodeIdx =
+      unsigned &OpCodeIdx =
           i != 0 ? SrcBBFeatures.srcRBOpCode : SrcBBFeatures.srcRAOpCode;
-      int &FuncIdx = i != 0 ? SrcBBFeatures.srcRBFunc : SrcBBFeatures.srcRAFunc;
-      int &TypeIdx = i != 0 ? SrcBBFeatures.srcRBType : SrcBBFeatures.srcRAType;
+      unsigned &FuncIdx =
+          i != 0 ? SrcBBFeatures.srcRBFunc : SrcBBFeatures.srcRAFunc;
+      unsigned &TypeIdx =
+          i != 0 ? SrcBBFeatures.srcRBType : SrcBBFeatures.srcRAType;
       if (const auto *InstOperand = dyn_cast<Instruction>(Operand)) {
         OpCodeIdx = InstOperand->getOpcode();
         FuncIdx = GetOperandFunctionAsInt(InstOperand);
@@ -718,16 +758,22 @@ std::optional<mlpgo::MLBrFeatureVec> ExtractInstFeatures(
     ExtractSuccessorFeatures(BPI, OldBPI, BB, Dst, LI, DT, PostDT, Scc,
                              UnlikelyBlocks, SuccFeatures);
 
+    SuccFeatures.SuccessorNameHash = mapName2NumHelper(
+        Dst->getName(), Succ ? "successor_right_name" : "successor_left_name");
+
+#if MLPGO_FEATURE_DEBUG_LEVEL > 0
+    FeaturesVec.getSuccDebugFeatures(Succ).BBName = Dst->getName();
+#endif // MLPGO_FEATURE_DEBUG_LEVEL
+
     // information like branch probability and dominate relationship, conducted
     // by Dominator tree or etc.
     auto BP = BPI.getEdgeProbability(BB, Dst);
 
-    FeaturesVec.getSuccExtraFeatures(Succ).SuccBP = BP.getNumerator();
+    SuccFeatures.SuccessorPGOProb = BP.getNumerator();
 
     auto EdgeProb = OldBPI.getEdgeProbability(BB, Dst);
 
-    FeaturesVec.getSuccExtraFeatures(Succ).SuccessorPredicateBB =
-        EdgeProb.getNumerator();
+    SuccFeatures.SuccessorLLVMHeuristicProb = EdgeProb.getNumerator();
 
     if (BackEdgesSet.find(std::pair<const BasicBlock *, const BasicBlock *>(
             BB, Dst)) != BackEdgesSet.end()) {
@@ -889,8 +935,8 @@ void ExtractFeatures(Function &F, mlpgo::Parameters &Parameter,
                             BackEdgesSet, Parameter, OldBPI, BPI);
     if (IF) {
       IF->getSrcBBFeatures().srcFunctionEdgesSize = EdgesCountInCFG;
-      IF->setBBCount(BBCountValueMap[&BB]);
-      Inst2FeaturesMap[Terminator] = IF.value();
+      IF->getSrcBBFeatures().srcBBCount = BBCountValueMap[&BB];
+      Inst2FeaturesMap.insert({Terminator, IF.value()});
     }
   }
 }
@@ -1236,9 +1282,7 @@ static void DumpFeatureVec(
   OS << SrcBBFeatures.srcFunctionBlockSize << "|";
   OS << SrcBBFeatures.srcFunctionEdgesSize << "|";
   OS << BRI.getNumSuccessors() << "|";
-  /* OS << Idx << "|"; // Succ Rank */
-  OS << FeatureVec.getBBCount() << "|";
-  /* OS << BranchProbability::getRaw(Vec[MLPredProb]) << "|"; */
+  OS << FeatureVec.getSrcBBFeatures().srcBBCount << "|";
   const auto *Func = Terminator->getFunction();
   if (const auto &DebugLoc = Terminator->getDebugLoc()) {
     OS << DebugLoc->getDirectory() << "|" << DebugLoc->getFilename() << ":"
@@ -1264,8 +1308,8 @@ static void DumpFeatureVec(
     const BrSuccFeaturesT &SuccFeatures = FeatureVec.getSuccFeatures(Idx);
     PrintSuccessorFeatures(SuccFeatures, OS);
 
-    OS << FeatureVec.getSuccExtraFeatures(Idx).SuccessorPredicateBB << "|";
-    OS << FeatureVec.getSuccExtraFeatures(Idx).SuccBP << "|";
+    OS << SuccFeatures.SuccessorLLVMHeuristicProb << "|";
+    OS << SuccFeatures.SuccessorPGOProb << "|";
 
     const auto *SuccBB = BRI.getSuccessor(Idx);
     OS << "Function size: " << F->size() << " | "
