@@ -10972,6 +10972,10 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
 
   // If this is an 'extern' declaration we defer to the canonical definition and
   // do not emit an offloading entry.
+#if INTEL_COLLAB
+  // Temporay disable D156368 untill GSD-7071 fixed.
+  if (!CGM.getLangOpts().OpenMPLateOutline)
+#endif // INTEL_COLLAB
   if (Res && *Res != OMPDeclareTargetDeclAttr::MT_Link &&
       VD->hasExternalStorage())
     return;
