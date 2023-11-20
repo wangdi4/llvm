@@ -72,12 +72,8 @@ are number of instructions in this basic block and whether the basic block is
 a loop header, the successors features are if the basic block is assumed to be
 unlikely by LLVM heuristic and if the block has a store instruction.
 
-The feature vector which is passed for inference is versioned, the version can
-be controlled by passing `-DMLPGO_BR_FEATURE_VERSION` option to cmake during
-configuration.
-
 The full list of collected features can be found in
-llvm/include/llvm/Transforms/Instrumentation/MLPGO_Intel/FeatureDescAll.def
+llvm/include/llvm/Transforms/Instrumentation/MLPGO_Intel/FeatureDesc.def
 
 
 Model integration
@@ -113,8 +109,7 @@ Environment variables
 5. `MLPGO_REMOVE_NON_RUN` - do not dump features for not executed branches
 6. `MLPGO_DUMP_WITH_INF` - dump feature with inference results
 7. `MLPGO_DUMP_WITH_DEBUG_INFO` - dump features with additional debug info
-8. `MLPGO_DUMP_PLAIN_FORMAT` - dump features in plain format (default format is
-   json)
+8. `MLPGO_DUMP_JSON` - dump features in JSON format
 9. `MLPGO_DUMP_UNKNOWN_FEATURES=<filename>` - dump unknown features to
     `<filename>`
 10. `INTEL_MLPGO_PARTIAL_USE` - do not update function entry count

@@ -14,10 +14,51 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if MLPGO_BR_FEATURE_VERSION == -1
-#include "FeatureDesc_Debug.def"
-#elif MLPGO_BR_FEATURE_VERSION == 1
-#include "FeatureDescV1.def"
-#else
-#include "FeatureDescV0.def"
-#endif // MLPGO_BR_FEATURE_VERSION
+#ifdef BR_SRC_BB_FEATURE
+BR_SRC_BB_FEATURE(srcBranchPredicate)     // The Opcode of Branch Instruction
+BR_SRC_BB_FEATURE(srcBranchOperandOpcode) // The Opcode of the instruction that defines the register used in the branch instruction
+BR_SRC_BB_FEATURE(srcBranchOperandFunc)   // The function of the Branch Operand
+BR_SRC_BB_FEATURE(srcBranchOperandType)   // The operation data type
+BR_SRC_BB_FEATURE(srcRAOpCode)            // The Opcode of the instruction that defines register A
+BR_SRC_BB_FEATURE(srcRAFunc)              // Function of register A
+BR_SRC_BB_FEATURE(srcRAType)              // Data type of register A
+BR_SRC_BB_FEATURE(srcRBOpCode)            // The Opcode of the instruction that defines register B
+BR_SRC_BB_FEATURE(srcRBFunc)              // Function of register B
+BR_SRC_BB_FEATURE(srcRBType)              // Data type of register B
+BR_SRC_BB_FEATURE(srcLoopHeader)          // If the Basic Block is a loop header (LH, NLH)
+BR_SRC_BB_FEATURE(srcProcedureType)       // Type of the function including the Basic Block (Leaf, NonLeaf, CallSelf)
+BR_SRC_BB_FEATURE(srcLoopDepth)        // Depth of the most inner loop including the basic block
+BR_SRC_BB_FEATURE(srcLoopBlockSize)    // Block count of the most inner loop, including the basic block
+BR_SRC_BB_FEATURE(srcTotalSubLoopSize) // Number of sub loops in the current loop
+BR_SRC_BB_FEATURE(srcTotalSubLoopBlockSize) // Sum of the block counts of the sub loops in the current loop
+BR_SRC_BB_FEATURE(srcLoopExitingSize)       // Number of basic blocks in current block
+BR_SRC_BB_FEATURE(srcLoopExitSize)      // Number of the successors basic blocks of the current block
+BR_SRC_BB_FEATURE(srcLoopExitEdgesSize) // The number of pairs (inside/outside block)
+BR_SRC_BB_FEATURE(srcTriangle)          // Whether the current basic block and its successors form a triangle shape
+BR_SRC_BB_FEATURE(srcDiamond) // Whether the current basic block and its successors form a diamond shape
+BR_SRC_BB_FEATURE(srcFunctionStartWithRet)    // Whether function has an entry block or its successor blocks has a ret instruction
+BR_SRC_BB_FEATURE(srcFunctionInstructionSize) // Number of instructions in the function which contrains the basic block
+BR_SRC_BB_FEATURE(srcFunctionBlockSize)       // Number of blocks in the function which contains the basic block
+BR_SRC_BB_FEATURE(srcFunctionEdgesSize)       // The number of edges in the function which contains the basic block
+BR_SRC_BB_FEATURE(srcNumberOfSuccessors)      // The number of Successor Blocks
+#endif // BR_SRC_BB_FEATURE
+
+#ifdef BR_SUCC_BB_FEATURE
+BR_SUCC_BB_FEATURE(SuccessorsRank)           // The index of a specific successors block
+BR_SUCC_BB_FEATURE(SuccessorBranchDirection) // The direction of the edge (current block, successor block)
+BR_SUCC_BB_FEATURE(SuccessorLoopHeader)      // Whether Successor Block or its unconditional successor is a loop header
+BR_SUCC_BB_FEATURE(SuccesorLoopBack)  // If edge from Basic Block to Successor Block is a loop back edge
+BR_SUCC_BB_FEATURE(SuccessorExitEdge) // If edge from Basic Block to Successor Block is a loop exit edge
+BR_SUCC_BB_FEATURE(SuccessorsCall)    // The successor block or unconditionally branch to a block contain a procedure call
+BR_SUCC_BB_FEATURE(SuccessorsEnd)     // Type of end of Successor Block
+BR_SUCC_BB_FEATURE(SuccessorsUseDef)  // The successor has a use of register which was used to determine the destination of the current conditional branch
+BR_SUCC_BB_FEATURE(SuccessorBranchDominate) // If the Basic Block domaintes this Successor Block
+BR_SUCC_BB_FEATURE(SuccessorsBranchPostDominate) // If this Successor Block post-dominates the Basic Block
+BR_SUCC_BB_FEATURE(SuccessorUnlikely) // If the Successor Block is assumed to be unlikely by LLVM heuristic
+BR_SUCC_BB_FEATURE(SuccessorNumberOfSiblingExitSuccessors) // The number of the sibling exit successors
+BR_SUCC_BB_FEATURE(SuccessorEstimatedWeight) // The LLVM estimated weight of the Successor Block
+BR_SUCC_BB_FEATURE(SuccessorTotalWeight)     // The sum of LLVM estimated weight of all the successor blocks
+BR_SUCC_BB_FEATURE(SuccessorInstructionSize) // The numbero f instruction in the Successor Block
+BR_SUCC_BB_FEATURE(SuccessorStore) // If the Successor Block has a store instruction
+
+#endif // BR_SUCC_BB_FEATURE
