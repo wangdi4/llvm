@@ -16,12 +16,9 @@
 
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/JSON.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Process.h"
 
 #include <cstddef>
 #include <sstream>
-#include <thread>
 #include <vector>
 
 #ifndef __LLVM_TRANSFORMS_INSTRUMENTATION_INTEL_MLPGO_FEATURE_DESC_H__
@@ -32,28 +29,41 @@ namespace mlpgo {
 
 /* source features */
 struct BrSrcBBFeturesT {
-#define BR_SRC_BB_FEATURE(Type, Name) Type Name;
-#include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDescAll.def"
+#define BR_SRC_BB_FEATURE(Name) int Name;
+#include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDesc.def"
 #undef BR_SRC_BB_FEATURE
 };
 
 /* successor features */
 struct BrSuccFeaturesT {
-#define BR_SUCC_BB_FEATURE(Type, Name) Type Name;
-#include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDescAll.def"
+#define BR_SUCC_BB_FEATURE(Name) int Name;
+#include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDesc.def"
 #undef BR_SUCC_BB_FEATURE
+};
+
+// Additional features that are not used during inference
+struct BrSuccExtraFeaturesT {
+  int SuccessorPredicateBB = 0;
+  int SuccBP = 0;
 };
 
 class MLBrFeatureVec {
   size_t NumOfSucc = 0;
   // A storage for src BB features and all successors
   std::vector<unsigned char> FeaturesBlob;
+  // A storage for additional successors features that are not used during
+  // inference
+  std::vector<BrSuccExtraFeaturesT> SuccExtraFeatures;
+
+  // Number of times src BB has been executed
+  size_t BBCount = 0;
 
 public:
-  MLBrFeatureVec(size_t NumOfSuccessors)
+  MLBrFeatureVec(size_t NumOfSuccessors = 0)
       : NumOfSucc(NumOfSuccessors),
         FeaturesBlob(
-            NumOfSucc * sizeof(BrSuccFeaturesT) + sizeof(BrSrcBBFeturesT), 0) {}
+            NumOfSucc * sizeof(BrSuccFeaturesT) + sizeof(BrSrcBBFeturesT), 0),
+        SuccExtraFeatures(NumOfSucc) {}
 
   BrSrcBBFeturesT &getSrcBBFeatures() {
     return *reinterpret_cast<BrSrcBBFeturesT *>(FeaturesBlob.data());
@@ -78,12 +88,24 @@ public:
     return FirstSucc[Idx];
   }
 
+  const BrSuccExtraFeaturesT &getSuccExtraFeatures(size_t Idx) const {
+    return SuccExtraFeatures[Idx];
+  }
+
+  BrSuccExtraFeaturesT &getSuccExtraFeatures(size_t Idx) {
+    return SuccExtraFeatures[Idx];
+  }
+
+  void setBBCount(size_t NewBBCount) { BBCount = NewBBCount; }
+
+  size_t getBBCount() const { return BBCount; }
+
   std::string getSrcAsString() const {
     std::stringstream FeaturesStr;
 
     const BrSrcBBFeturesT &Src = getSrcBBFeatures();
 
-#define BR_SRC_BB_FEATURE(Type, Name) FeaturesStr << Src.Name << "|";
+#define BR_SRC_BB_FEATURE(Name) FeaturesStr << Src.Name << "|";
 #include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDesc.def"
 #undef BR_SRC_BB_FEATURE
 
@@ -95,17 +117,15 @@ public:
     std::stringstream FeaturesStr;
     const BrSuccFeaturesT &Succ = getSuccFeatures(Idx);
 
-#define BR_SUCC_BB_FEATURE(Type, Name) FeaturesStr << Succ.Name << "|";
+#define BR_SUCC_BB_FEATURE(Name) FeaturesStr << Succ.Name << "|";
 #include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDesc.def"
 #undef BR_SUCC_BB_FEATURE
 
-    FeaturesStr << Succ.SuccessorLLVMHeuristicProb << "|";
-    FeaturesStr << Succ.SuccessorPGOProb << "|";
-    FeaturesStr << (unsigned)((getSrcBBFeatures().srcBBCount >> 32) &
-                              0xFFFFFFFF)
-                << "|";
-    FeaturesStr << (unsigned)((getSrcBBFeatures().srcBBCount) & 0xFFFFFFFF)
-                << "|";
+    FeaturesStr << (unsigned)SuccExtraFeatures[Idx].SuccessorPredicateBB << "|";
+    FeaturesStr << (unsigned)SuccExtraFeatures[Idx].SuccBP << "|";
+
+    FeaturesStr << (unsigned)((BBCount >> 32) & 0xFFFFFFFF) << "|";
+    FeaturesStr << (unsigned)((BBCount)&0xFFFFFFFF) << "|";
     // Print dummy 0 for compatiblity
     FeaturesStr << 0;
 
@@ -120,26 +140,15 @@ public:
   }
 
   void dumpJSON(json::OStream &JOS) const {
-
-    static unsigned long BRIterator = 0;
-    static std::thread::id tid = std::this_thread::get_id();
-
-    std::stringstream FeatureName;
-    FeatureName << "BR_" << tid << "_" << BRIterator;
-    ++BRIterator;
-
-    JOS.attributeBegin(FeatureName.str());
+    JOS.attributeBegin("BR");
     JOS.objectBegin();
     {
       {
         JOS.attributeBegin("SrcBBFeatures");
         JOS.objectBegin();
 
-        // We can dump everything in JSON, parser will later take only necessary
-        // features
-#define BR_SRC_BB_FEATURE(Type, Name)                                          \
-  JOS.attribute(#Name, getSrcBBFeatures().Name);
-#include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDescAll.def"
+#define BR_SRC_BB_FEATURE(Name) JOS.attribute(#Name, getSrcBBFeatures().Name);
+#include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDesc.def"
 #undef BR_SRC_BB_FEATURE
 
         JOS.objectEnd();
@@ -147,17 +156,12 @@ public:
       }
 
       for (size_t SuccIdx = 0; SuccIdx < getNumOfSucc(); ++SuccIdx) {
-
-        std::stringstream SuccName;
-        SuccName << "SuccBBFeatures_" << SuccIdx;
-
-        JOS.attributeBegin(SuccName.str());
+        JOS.attributeBegin("SuccBBFeatures");
         JOS.objectBegin();
-#define BR_SUCC_BB_FEATURE(Type, Name)                                         \
+#define BR_SUCC_BB_FEATURE(Name)                                               \
   JOS.attribute(#Name, getSuccFeatures(SuccIdx).Name);
-#include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDescAll.def"
+#include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDesc.def"
 #undef BR_SUCC_BB_FEATURE
-
         JOS.objectEnd();
         JOS.attributeEnd();
       }
