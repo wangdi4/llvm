@@ -72,3 +72,5 @@
 #define OCL_EXT_KHR_SPIRV_LINKONCE_ODR "cl_khr_spirv_linkonce_odr"
 
 #define OCL_EXT_INTEL_DEVICE_ATTRIBUTE_QUERY "cl_intel_device_attribute_query"
+
+#define OCL_EXT_INTEL_CONCURRENT_DISPATCH "cl_intel_concurrent_dispatch"

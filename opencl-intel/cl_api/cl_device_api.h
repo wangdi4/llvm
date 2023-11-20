@@ -15,7 +15,7 @@
 #pragma once
 
 #include "CL/cl.h"
-#include "CL/cl_gvp_ext.h"
+#include "CL/cl_internal_ext.h"
 #include "common_dev_limits.h"
 #include "llvm/Transforms/SYCLTransforms/KernelArgType.h"
 #include <cassert>

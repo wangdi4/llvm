@@ -688,6 +688,46 @@ cl_err_code Kernel::GetWorkGroupInfo(const SharedPtr<FissionableDevice> &device,
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// Kernel::GetKernelMaxConcurrentWorkGroupCount
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Kernel::GetKernelMaxConcurrentWorkGroupCount(
+    cl_command_queue command_queue, cl_uint work_dim,
+    const size_t *global_work_offset, const size_t *local_work_size,
+    size_t *max_work_group_count) {
+  LOG_DEBUG(TEXT("Enter Kernel::GetKernelMaxConcurrentWorkGroupCount "
+                 "(command_queue=%p, "
+                 "work_dim=%zu, global_work_offset=%p, local_work_size=%p,"
+                 "max_work_group_count=%p)"),
+            command_queue, work_dim, global_work_offset, local_work_size,
+            max_work_group_count);
+  // Check input parameters
+  ExecutionModule &pExecutionModule =
+      *FrameworkProxy::Instance()->GetExecutionModule();
+  const SharedPtr<OclCommandQueue> pQueue =
+      pExecutionModule.GetCommandQueue(command_queue);
+  if (NULL == pQueue.GetPtr())
+    return CL_INVALID_COMMAND_QUEUE;
+
+  if (work_dim < 1 || work_dim > 3)
+    return CL_INVALID_WORK_DIMENSION;
+
+  if (local_work_size == NULL)
+    return CL_INVALID_WORK_GROUP_SIZE;
+
+  for (unsigned int ui = 0; ui < work_dim; ui++)
+    if (local_work_size[ui] == 0)
+      return CL_INVALID_WORK_GROUP_SIZE;
+
+  if (max_work_group_count == NULL)
+    return CL_INVALID_VALUE;
+
+  // FIXME : A fixed value in the initial implementation.
+  // Should be update if TBB team can give some info about how to calculate it.
+  *max_work_group_count = 1024;
+  return CL_SUCCESS;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::CreateDeviceKernels
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Kernel::CreateDeviceKernels(

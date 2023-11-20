@@ -232,8 +232,10 @@ CPUDeviceConfig::GetExtensionsWithVersion() {
     GetExtVer(OCL_EXT_KHR_SPIR, 1, 0, 0);
 
   // OpenCL 2.0 extensions
-  if (OPENCL_VERSION_2_0 <= GetOpenCLVersion())
+  if (OPENCL_VERSION_2_0 <= GetOpenCLVersion()) {
     GetExtVer(OCL_EXT_KHR_IMAGE2D_FROM_BUFFER, 1, 0, 0);
+    GetExtVer(OCL_EXT_INTEL_CONCURRENT_DISPATCH, 1, 0, 0);
+  }
 
   return m_extensions;
 }

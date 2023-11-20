@@ -431,7 +431,26 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
     DummyBarrierCall->insertAfter(WGSimpleCallInst);
   }
 
-  // Handle work-group sort built-ins.
+  // Handle device barrier built-ins.
+  InstVec CallRGSimpleFunc = Utils.getDeviceBarrierCallInsts();
+  for (auto *I : CallRGSimpleFunc) {
+    CallInst *DeviceBarrierCall = cast<CallInst>(I);
+    // 1. Add work group barrier before async function call instruction.
+    Utils.createBarrier(DeviceBarrierCall);
+    // 2. Get the number of work-groups, create a new device barrier with it.
+    // And repleace the old one.
+    IRBuilder<> Builder(DeviceBarrierCall);
+    Value *NumsGroup = createGetNumsGroupLinearResult(Builder, &M);
+    CallInst *NewDeviceBarrierCall =
+        Utils.createDeviceBarrierWithWGCount(NumsGroup, Builder);
+    DeviceBarrierCall->replaceAllUsesWith(NewDeviceBarrierCall);
+    DeviceBarrierCall->eraseFromParent();
+    // 3. Add dummyBarrier after async function call instruction.
+    Instruction *DummyBarrierCall = Utils.createDummyBarrier();
+    DummyBarrierCall->insertAfter(NewDeviceBarrierCall);
+  }
+
+  //  Handle work-group sort built-ins.
   InstVec CallWGSortFunc = Utils.getWGCallInstructions(CALL_BI_TYPE_WG_SORT);
   for (auto *I : CallWGSortFunc) {
     CallInst *WGCallInst = cast<CallInst>(I);

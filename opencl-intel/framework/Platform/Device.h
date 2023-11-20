@@ -171,6 +171,10 @@ public:
     return m_default_command_queue.test_and_set(nullptr, command_queue);
   }
 
+  // Assume all devices support concurrent dispatch in the initial
+  // implementation.
+  bool supportConcurrentDispatch() { return true; }
+
 protected:
   FissionableDevice(_cl_platform_id_int *platform)
       : OCLObject<_cl_device_id_int, _cl_platform_id_int>(platform,

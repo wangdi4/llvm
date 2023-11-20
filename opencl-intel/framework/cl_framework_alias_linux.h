@@ -173,6 +173,7 @@ DECLARE_ALIAS(clEnqueueMemAdviseINTEL);
 DECLARE_ALIAS(clCreateBufferWithPropertiesINTEL);
 DECLARE_ALIAS(clSetContextDestructorCallback);
 DECLARE_ALIAS(clSetProgramReleaseCallback);
+DECLARE_ALIAS(clGetKernelMaxConcurrentWorkGroupCountINTEL);
 } // namespace Framework
 } // namespace OpenCL
 } // namespace Intel

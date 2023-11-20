@@ -289,6 +289,9 @@ SORT_BI_DECLARATION(half)
 SORT_BI_DECLARATION(float)
 SORT_BI_DECLARATION(double)
 
+extern "C" LLVM_BACKEND_API void intel_device_barrier(unsigned int);
+extern "C" LLVM_BACKEND_API bool intel_is_device_barrier_valid();
+
 // Register BI functions defined above to JIT.
 //   MCJIT: use llvm::sys::DynamicLibrary::AddSymbol for each function.
 //   LLJIT: use defineAbsolute for each function.
@@ -390,6 +393,9 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT) {
   REGISTER_BI_FUNCTION("_ihc_pthread_create", _ihc_pthread_create)
   REGISTER_BI_FUNCTION("_ihc_pthread_join", _ihc_pthread_join)
   REGISTER_BI_FUNCTION("_ihc_pthread_detach", _ihc_pthread_detach)
+  REGISTER_BI_FUNCTION("_Z20intel_device_barrierj", intel_device_barrier)
+  REGISTER_BI_FUNCTION("_Z29intel_is_device_barrier_validv",
+                       intel_is_device_barrier_valid)
 #ifdef _WIN32
   if (isFPGAEmuDev) {
     REGISTER_BI_FUNCTION("_Znwy", _Znwy)

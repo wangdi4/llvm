@@ -14,7 +14,7 @@
 
 #include "cl_framework.h"
 #include "CL/cl_fpga_ext.h"
-#include "CL/cl_gvp_ext.h"
+#include "CL/cl_internal_ext.h"
 #include "UserLoggerOutputParams.h"
 #include "cl_cpu_detect.h"
 #include "cl_objects_map.h"
@@ -1809,6 +1809,36 @@ cl_int CL_API_CALL clGetKernelWorkGroupInfo(
   }
 }
 SET_ALIAS(clGetKernelWorkGroupInfo);
+
+cl_int CL_API_CALL clGetKernelMaxConcurrentWorkGroupCountINTEL(
+    cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim,
+    const size_t *global_work_offset, const size_t *local_work_size,
+    size_t *max_work_group_count) {
+  if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()) {
+    START_LOG_API(clGetKernelMaxConcurrentWorkGroupCountINTEL);
+    apiLogger << "cl_command_queue command_queue: " << command_queue
+              << ", cl_kernel kernel: " << kernel
+              << ", cl_uint work_dim: " << work_dim
+              << ", const size_t *global_work_offset: " << global_work_offset
+              << ", const size_t *local_work_size: " << local_work_size
+              << ", size_t *max_work_group_count: " << max_work_group_count;
+    CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+                                 GetKernelMaxConcurrentWorkGroupCount(
+                                     command_queue, kernel, work_dim,
+                                     global_work_offset, local_work_size,
+                                     max_work_group_count));
+  } else {
+    CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+                          GetKernelMaxConcurrentWorkGroupCount(
+                              command_queue, kernel, work_dim,
+                              global_work_offset, local_work_size,
+                              max_work_group_count));
+  }
+}
+SET_ALIAS(clGetKernelMaxConcurrentWorkGroupCountINTEL);
+REGISTER_EXTENSION_FUNCTION(clGetKernelMaxConcurrentWorkGroupCountINTEL,
+                            clGetKernelMaxConcurrentWorkGroupCountINTEL);
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Event Object APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1659,6 +1659,18 @@ cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel> &pKernel,
     pKernel->SetUsmIndirectShared(CL_TRUE == *(const cl_bool *)pParamValue);
     break;
   }
+  case CL_KERNEL_EXEC_INFO_DISPATCH_TYPE_INTEL: {
+    if (szParamValueSize < sizeof(cl_kernel_exec_info_dispatch_type_intel))
+      return CL_INVALID_VALUE;
+    if (*(const cl_kernel_exec_info_dispatch_type_intel *)pParamValue !=
+            CL_KERNEL_EXEC_INFO_DISPATCH_TYPE_DEFAULT_INTEL &&
+        *(const cl_kernel_exec_info_dispatch_type_intel *)pParamValue !=
+            CL_KERNEL_EXEC_INFO_DISPATCH_TYPE_CONCURRENT_INTEL)
+      return CL_INVALID_OPERATION;
+    pKernel->SetDispatchType(
+        *(const cl_kernel_exec_info_dispatch_type_intel *)pParamValue);
+    break;
+  }
   default:
     return CL_INVALID_VALUE;
   }
