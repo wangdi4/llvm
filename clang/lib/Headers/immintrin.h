@@ -382,8 +382,7 @@ typedef struct __tile1024i_str {
 
 /* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512BF16__) || defined(__AVX256P__) ||                         \
-    defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AVX512BF16__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512bf16intrin.h>
 #endif
@@ -391,7 +390,7 @@ typedef struct __tile1024i_str {
 /* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__AVX512VL__) && defined(__AVX512BF16__)) ||                      \
-    defined(__AVX256P__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vlbf16intrin.h>
 #endif
@@ -665,7 +664,7 @@ typedef struct __tile1024i_str {
 #endif
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__AVX512NECONVERT__) && defined(__AVX512VL__)) ||                 \
-    defined(__AVX256P__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512neconvert/avx512vlneconvertintrin.h>
 #endif
 #endif /* __AVX512NECONVERT_SUPPORTED__ */
@@ -1296,14 +1295,13 @@ _storebe_i64(void * __P, long long __D) {
 /* INTEL_FEATURE_ISA_AVX512_BF16_NE */
 #if defined(__AVX512BF16NE_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512BF16NE__) || defined(__AVX256P__) ||                       \
-    defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AVX512BF16NE__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512bf16ne/avx512bf16neintrin.h>
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     (defined(__AVX512BF16NE__) && defined(__AVX512VL__)) ||                    \
-    defined(__AVX256P__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512bf16ne/avx512vlbf16neintrin.h>
 #endif
 #endif
