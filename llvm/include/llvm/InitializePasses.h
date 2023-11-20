@@ -86,7 +86,6 @@ void initializeVPOAnalysis(PassRegistry&);
 void initializeVPOTransforms(PassRegistry&);
 #endif // INTEL_COLLAB
 
-void initializeAAEvalLegacyPassPass(PassRegistry&);
 void initializeAAResultsWrapperPassPass(PassRegistry&);
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAssignmentTrackingAnalysisPass(PassRegistry &);

@@ -1447,6 +1447,9 @@ static bool isConstExprSupported(const BitcodeConstant *BC) {
   if (Instruction::isBinaryOp(Opcode))
     return ConstantExpr::isSupportedBinOp(Opcode);
 
+  if (Instruction::isCast(Opcode))
+    return ConstantExpr::isSupportedCastOp(Opcode);
+
   if (Opcode == Instruction::GetElementPtr)
     return ConstantExpr::isSupportedGetElementPtr(BC->SrcElemTy);
 
@@ -2119,6 +2122,8 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::PresplitCoroutine;
   case bitc::ATTR_KIND_WRITABLE:
     return Attribute::Writable;
+  case bitc::ATTR_KIND_CORO_ONLY_DESTROY_WHEN_COMPLETE:
+    return Attribute::CoroDestroyOnlyWhenComplete;
   }
 }
 

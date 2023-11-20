@@ -1147,6 +1147,18 @@ def CFConsumed : InheritableParamAttr {
   let Documentation = [RetainBehaviorDocs];
 }
 
+
+// coro_only_destroy_when_complete indicates the coroutines whose return type
+// is marked by coro_only_destroy_when_complete can only be destroyed when the
+// coroutine completes. Then the space for the destroy functions can be saved.
+def CoroOnlyDestroyWhenComplete : InheritableAttr {
+  let Spellings = [Clang<"coro_only_destroy_when_complete">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let LangOpts = [CPlusPlus];
+  let Documentation = [CoroOnlyDestroyWhenCompleteDocs];
+  let SimpleHandler = 1;
+}
+
 // OSObject-based attributes.
 def OSConsumed : InheritableParamAttr {
   let Spellings = [Clang<"os_consumed">];
@@ -1645,6 +1657,22 @@ def SYCLIntelMaxWorkGroupSize : InheritableAttr {
   }];
   let Documentation = [SYCLIntelMaxWorkGroupSizeAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
+}
+
+def SYCLIntelMinWorkGroupsPerComputeUnit : InheritableAttr {
+  let Spellings = [CXX11<"intel", "min_work_groups_per_cu">];
+  let Args = [ExprArgument<"Value">];
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [SYCLIntelMinWorkGroupsPerComputeUnitAttrDocs];
+}
+
+def SYCLIntelMaxWorkGroupsPerMultiprocessor : InheritableAttr {
+  let Spellings = [CXX11<"intel", "max_work_groups_per_mp">];
+  let Args = [ExprArgument<"Value">];
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [SYCLIntelMaxWorkGroupsPerMultiprocessorDocs];
 }
 
 def SYCLIntelMaxGlobalWorkDim : InheritableAttr {

@@ -488,7 +488,7 @@ bool checkIV(const RegDDRef *RRef) {
 // Create the dope vector structure type with required fields
 void HIRGenerateMKLCall::createDopeVectorType(LLVMContext &Context,
                                               Type *IntType) {
-  Type *AddrType = Type::getInt8PtrTy(Context);
+  Type *AddrType = PointerType::getUnqual(Context);
   constexpr unsigned int max_dope_vector_fields = 12;
   SmallVector<Type *, max_dope_vector_fields> DopeVectorFields = {
       AddrType, // ".addr_a0"

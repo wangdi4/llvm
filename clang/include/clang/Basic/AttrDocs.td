@@ -3064,6 +3064,65 @@ In SYCL 2020 mode, the attribute is not propagated to the kernel.
   }];
 }
 
+def SYCLIntelMinWorkGroupsPerComputeUnitAttrDocs: Documentation {
+  let Category = DocCatFunction;
+  let Heading = "intel::min_work_groups_per_cu";
+  let Content = [{
+Applies to a device function/lambda function. Indicates the desired minimum
+number of resident work_groups per multiprocessor. It complies to the
+.minnctapersm PTX directive.
+
+.. code-block:: c++
+
+  [[intel::min_work_groups_per_cu(2)]] void foo() {}
+
+  class Foo {
+  public:
+    [[intel::min_work_groups_per_cu(2)]] void operator()() const {}
+  };
+
+  template <int N>
+  class Functor {
+  public:
+    [[intel::min_work_groups_per_cu(N)]] void operator()() const {}
+  };
+
+  template <int N>
+  [[intel::min_work_groups_per_cu(N)]] void func() {}
+
+  }];
+}
+
+def SYCLIntelMaxWorkGroupsPerMultiprocessorDocs: Documentation {
+  let Category = DocCatFunction;
+  let Heading = "intel::max_work_groups_per_mp";
+  let Content = [{
+Applies to a device function/lambda function. Indicates the desired maximum
+number work_groups per cluster with which the application will ever launch. It
+complies to the .maxclusterrank PTX directive. Note, that the feature requires
+SM_90 or higher.
+
+.. code-block:: c++
+
+  [[intel::max_work_groups_per_mp(2)]] void foo() {}
+
+  class Foo {
+  public:
+    [[intel::max_work_groups_per_mp(2)]] void operator()() const {}
+  };
+
+  template <int N>
+  class Functor {
+  public:
+    [[intel::max_work_groups_per_mp(N)]] void operator()() const {}
+  };
+
+  template <int N>
+  [[intel::max_work_groups_per_mp(N)]] void func() {}
+
+  }];
+}
+
 def SYCLIntelMaxGlobalWorkDimAttrDocs : Documentation {
   let Category = DocCatFunction;
 // INTEL_CUSTOMIZATION
@@ -9237,6 +9296,72 @@ that ``p->array`` must have at least ``p->count`` number of elements available:
   void use_foo(int index) {
     p->count += SIZE_INCR + 1; /* 'count' is now larger than the number of elements of 'array'. */
     p->array[index] = 0;       /* the sanitizer can't properly check if this is an out-of-bounds access. */
+  }
+
+  }];
+}
+
+def CoroOnlyDestroyWhenCompleteDocs : Documentation {
+  let Category = DocCatDecl;
+  let Content = [{
+The `coro_only_destroy_when_complete` attribute should be marked on a C++ class. The coroutines
+whose return type is marked with the attribute are assumed to be destroyed only after the coroutine has
+reached the final suspend point.
+
+This is helpful for the optimizers to reduce the size of the destroy function for the coroutines.
+
+For example,
+
+.. code-block:: c++
+
+  A foo() {
+    dtor d;
+    co_await something();
+    dtor d1;
+    co_await something();
+    dtor d2;
+    co_return 43;
+  }
+
+The compiler may generate the following pseudocode:
+
+.. code-block:: c++
+
+  void foo.destroy(foo.Frame *frame) {
+    switch(frame->suspend_index()) {
+      case 1:
+        frame->d.~dtor();
+        break;
+      case 2:
+        frame->d.~dtor();
+        frame->d1.~dtor();
+        break;
+      case 3:
+        frame->d.~dtor();
+        frame->d1.~dtor();
+        frame->d2.~dtor();
+        break;
+      default: // coroutine completed or haven't started
+        break;
+    }
+
+    frame->promise.~promise_type();
+    delete frame;
+  }
+
+The `foo.destroy()` function's purpose is to release all of the resources
+initialized for the coroutine when it is destroyed in a suspended state.
+However, if the coroutine is only ever destroyed at the final suspend state,
+the rest of the conditions are superfluous.
+
+The user can use the `coro_only_destroy_when_complete` attributo suppress
+generation of the other destruction cases, optimizing the above `foo.destroy` to:
+
+.. code-block:: c++
+
+  void foo.destroy(foo.Frame *frame) {
+    frame->promise.~promise_type();
+    delete frame;
   }
 
   }];

@@ -1980,7 +1980,7 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   auto &CEU = HNU.getCanonExprUtils();
   auto &LLVMContext = HNU.getContext();
 
-  Type *I8PtrType = Type::getInt8PtrTy(LLVMContext, 0);
+  Type *I8PtrType = PointerType::getUnqual(LLVMContext);
   Type *PtrElementType =
       getMinimalElementSizeType(HNU.getDataLayout(), Context.SegmentList);
 

@@ -501,7 +501,12 @@ bool AsmPrinter::doInitialization(Module &M) {
   const_cast<TargetLoweringObjectFile &>(getObjFileLowering())
       .getModuleMetadata(M);
 
-  OutStreamer->initSections(false, *TM.getMCSubtargetInfo());
+  // On AIX, we delay emitting any section information until
+  // after emitting the .file pseudo-op.  This allows additional
+  // information (such as the embedded command line) to be associated
+  // with all sections in the object file rather than a single section.
+  if (!TM.getTargetTriple().isOSBinFormatXCOFF())
+    OutStreamer->initSections(false, *TM.getMCSubtargetInfo());
 
   // Emit the version-min deployment target directive if needed.
   //
@@ -547,8 +552,11 @@ bool AsmPrinter::doInitialization(Module &M) {
 
   // On AIX, emit bytes for llvm.commandline metadata after .file so that the
   // C_INFO symbol is preserved if any csect is kept by the linker.
-  if (TM.getTargetTriple().isOSBinFormatXCOFF())
+  if (TM.getTargetTriple().isOSBinFormatXCOFF()) {
     emitModuleCommandLines(M);
+    // Now we can generate section information
+    OutStreamer->initSections(false, *TM.getMCSubtargetInfo());
+  }
 
   GCModuleInfo *MI = getAnalysisIfAvailable<GCModuleInfo>();
   assert(MI && "AsmPrinter didn't require GCModuleInfo?");
@@ -2545,7 +2553,7 @@ bool AsmPrinter::doFinalization(Module &M) {
       auto SymbolName = "swift_async_extendedFramePointerFlags";
       auto Global = M.getGlobalVariable(SymbolName);
       if (!Global) {
-        auto Int8PtrTy = Type::getInt8PtrTy(M.getContext());
+        auto Int8PtrTy = PointerType::getUnqual(M.getContext());
         Global = new GlobalVariable(M, Int8PtrTy, false,
                                     GlobalValue::ExternalWeakLinkage, nullptr,
                                     SymbolName);
@@ -2612,7 +2620,8 @@ bool AsmPrinter::doFinalization(Module &M) {
     OutStreamer->emitAddrsig();
     for (const GlobalValue &GV : M.global_values()) {
       if (!GV.use_empty() && !GV.isThreadLocal() &&
-          !GV.hasDLLImportStorageClass() && !GV.getName().startswith("llvm.") &&
+          !GV.hasDLLImportStorageClass() &&
+          !GV.getName().starts_with("llvm.") &&
           !GV.hasAtLeastLocalUnnamedAddr())
         OutStreamer->emitAddrsigSym(getSymbol(&GV));
     }

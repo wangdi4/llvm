@@ -855,6 +855,8 @@ static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
     return bitc::ATTR_KIND_PRESPLIT_COROUTINE;
   case Attribute::Writable:
     return bitc::ATTR_KIND_WRITABLE;
+  case Attribute::CoroDestroyOnlyWhenComplete:
+    return bitc::ATTR_KIND_CORO_ONLY_DESTROY_WHEN_COMPLETE;
   case Attribute::EndAttrKinds:
     llvm_unreachable("Can not encode end-attribute kinds marker.");
   case Attribute::None:
@@ -5256,7 +5258,7 @@ void llvm::embedBitcodeInModule(llvm::Module &M, llvm::MemoryBufferRef Buf,
   // Save llvm.compiler.used and remove it.
   SmallVector<Constant *, 2> UsedArray;
   SmallVector<GlobalValue *, 4> UsedGlobals;
-  Type *UsedElementType = Type::getInt8PtrTy(M.getContext());
+  Type *UsedElementType = PointerType::getUnqual(M.getContext());
   GlobalVariable *Used = collectUsedGlobalVariables(M, UsedGlobals, true);
   for (auto *GV : UsedGlobals) {
     if (GV->getName() != "llvm.embedded.module" &&

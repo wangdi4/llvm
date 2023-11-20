@@ -540,8 +540,13 @@ Value *rootInputArgument(Value *Arg, Type *RootTy, CallInst *CI) {
       // The type sizes mismatch. BitCast to int and resize.
       ConstVal =
           ConstantExpr::getBitCast(ConstVal, IntegerType::get(Ctx, SourceSize));
-      ConstVal = ConstantExpr::getIntegerCast(
-          ConstVal, IntegerType::get(Ctx, TargetSize), false);
+      if (SourceSize > TargetSize) {
+        ConstVal = ConstantExpr::getTrunc(ConstVal, IntegerType::get(Ctx, TargetSize));
+      }
+      else {
+        ConstVal = ConstantInt::get(Ctx,
+          cast<ConstantInt>(ConstVal)->getValue().zext(TargetSize));
+      }
     }
     // Now the sizes match. Bitcast to the desired type.
     CurrVal = ConstantExpr::getBitCast(ConstVal, RootTy);

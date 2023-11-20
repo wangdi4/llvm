@@ -349,6 +349,8 @@ def err_opt_not_valid_on_target : Error<
   "option '%0' cannot be specified on this target">;
 def err_invalid_feature_combination : Error<
   "invalid feature combination: %0">;
+def warn_invalid_feature_combination : Warning<
+  "invalid feature combination: %0">, InGroup<DiagGroup<"invalid-feature-combination">>;
 def warn_target_unrecognized_env : Warning<
   "mismatch between architecture and environment in target triple '%0'; did you mean '%1'?">,
   InGroup<InvalidCommandLineArgument>;
@@ -442,4 +444,10 @@ def warn_try_not_valid_on_target : Warning<
   "target '%0' does not support exception handling;"
   " 'catch' block is ignored">,
   InGroup<OpenMPTargetException>;
+
+// Launch bound
+def warn_launch_bounds_missing_attr: Warning<
+  "%0 attribute ignored, as it requires: maximum work group size"
+  "%select{| and minimum work groups per compute unit}1 to be also specified">,
+  InGroup<IgnoredAttributes>;
 }

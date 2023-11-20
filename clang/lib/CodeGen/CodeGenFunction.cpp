@@ -925,6 +925,24 @@ void CodeGenFunction::EmitKernelMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, AttrMDArgs));
   }
 
+  auto attrAsMDArg = [&](Expr *E) {
+    const auto *CE = cast<ConstantExpr>(E);
+    std::optional<llvm::APSInt> ArgVal = CE->getResultAsAPSInt();
+    return llvm::ConstantAsMetadata::get(
+        Builder.getInt32(ArgVal->getSExtValue()));
+  };
+
+  if (const auto *A = FD->getAttr<SYCLIntelMinWorkGroupsPerComputeUnitAttr>()) {
+    Fn->setMetadata("min_work_groups_per_cu",
+                    llvm::MDNode::get(Context, {attrAsMDArg(A->getValue())}));
+  }
+
+  if (const auto *A =
+          FD->getAttr<SYCLIntelMaxWorkGroupsPerMultiprocessorAttr>()) {
+    Fn->setMetadata("max_work_groups_per_mp",
+                    llvm::MDNode::get(Context, {attrAsMDArg(A->getValue())}));
+  }
+
   if (const SYCLIntelMaxWorkGroupSizeAttr *A =
           FD->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
 
@@ -1563,11 +1581,9 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
         Address(&*AI, ConvertType(RetTy),
                 CurFnInfo->getReturnInfo().getIndirectAlign(), KnownNonNull);
     if (!CurFnInfo->getReturnInfo().getIndirectByVal()) {
-      ReturnValuePointer =
-          CreateDefaultAlignTempAlloca(Int8PtrTy, "result.ptr");
-      Builder.CreateStore(Builder.CreatePointerBitCastOrAddrSpaceCast(
-                              ReturnValue.getPointer(), Int8PtrTy),
-                          ReturnValuePointer);
+      ReturnValuePointer = CreateDefaultAlignTempAlloca(
+          ReturnValue.getPointer()->getType(), "result.ptr");
+      Builder.CreateStore(ReturnValue.getPointer(), ReturnValuePointer);
     }
   } else if (CurFnInfo->getReturnInfo().getKind() == ABIArgInfo::InAlloca &&
              !hasScalarEvaluationKind(CurFnInfo->getReturnType())) {
@@ -1704,11 +1720,6 @@ void CodeGenFunction::EmitFunctionBody(const Stmt *Body) {
     EmitCompoundStmtWithoutScope(*S);
   else
     EmitStmt(Body);
-
-  // This is checked after emitting the function body so we know if there
-  // are any permitted infinite loops.
-  if (checkIfFunctionMustProgress())
-    CurFn->addFnAttr(llvm::Attribute::MustProgress);
 }
 
 /// When instrumenting to collect profile data, the counts for some blocks
@@ -1780,7 +1791,7 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
 
       auto *Implicit = ImplicitParamDecl::Create(
           getContext(), Param->getDeclContext(), Param->getLocation(),
-          /*Id=*/nullptr, getContext().getSizeType(), ImplicitParamDecl::Other);
+          /*Id=*/nullptr, getContext().getSizeType(), ImplicitParamKind::Other);
       SizeArguments[Param] = Implicit;
       Args.push_back(Implicit);
     }
@@ -2063,6 +2074,11 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
       getLangOpts().SYCLIsDevice &&
       (FD->hasAttr<CUDADeviceAttr>() || FD->hasAttr<CUDAHostAttr>()))
     Fn->setLinkage(llvm::Function::WeakODRLinkage);
+
+  // Ensure that the function adheres to the forward progress guarantee, which
+  // is required by certain optimizations.
+  if (checkIfFunctionMustProgress())
+    CurFn->addFnAttr(llvm::Attribute::MustProgress);
 
   // Generate the body of the function.
   PGO.assignRegionCounters(GD, CurFn);
@@ -3264,7 +3280,7 @@ Address CodeGenFunction::EmitIntelFPGAFieldAnnotations(SourceLocation Location,
   }
 
   unsigned AS = VTy->getPointerAddressSpace();
-  llvm::Type *Int8VPtrTy = llvm::Type::getInt8PtrTy(CGM.getLLVMContext(), AS);
+  llvm::Type *Int8VPtrTy = llvm::PointerType::get(CGM.getLLVMContext(), AS);
   llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation,
                                        {Int8VPtrTy, CGM.ConstGlobalsPtrTy});
   V = Builder.CreateBitCast(V, Int8VPtrTy);

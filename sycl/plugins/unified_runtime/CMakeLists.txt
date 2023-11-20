@@ -70,13 +70,13 @@ if(SYCL_PI_UR_USE_FETCH_CONTENT)
   include(FetchContent)
 
   set(UNIFIED_RUNTIME_REPO "https://github.com/oneapi-src/unified-runtime.git")
-
-  # commit be53fb3ba5bf1ac33051456d72c61b6a01d94a72
+  # commit ec7982bac6cb3a6b9ed610cd6b7cb41fcbc780dc
+  # Merge: 62e6d2f9 5fb82924
   # Author: Kenneth Benzie (Benie) <k.benzie@codeplay.com>
-  # Date:   Tue Oct 31 13:22:52 2023 +0000
-  # - Merge pull request #932 from Bensuo/cuda-cmd-buffers
-  # - [CUDA][EXP] CUDA adapter support for command buffers
-  set(UNIFIED_RUNTIME_TAG be53fb3ba5bf1ac33051456d72c61b6a01d94a72)
+  # Date:   Wed Nov 8 13:32:46 2023 +0000
+  #     Merge pull request #1022 from 0x12CC/l0_usm_error_checking_2
+  #     [UR][L0] Propagate OOM errors from `USMAllocationMakeResident`
+  set(UNIFIED_RUNTIME_TAG ec7982bac6cb3a6b9ed610cd6b7cb41fcbc780dc)
 
   if(INTEL_CUSTOMIZATION)
     # 1Source policy is to use internal mirrors as much as possible.

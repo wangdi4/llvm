@@ -492,10 +492,6 @@ if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
     config.available_features.add("intel_opencl")
 # end INTEL_CUSTOMIZATION
 
-# Allow checking for specific details in the host triple
-if config.host_triple:
-    config.available_features.add('host=%s' % config.host_triple)
-
 if config.have_llvm_driver:
     config.available_features.add("llvm-driver")
 
@@ -644,7 +640,7 @@ if config.new_pm_default:
     config.available_features.add('new_pm_default')
 
 import lit.llvm.util
-config.opt_options_to_mimic_llorg = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false" , "-instcombine-disable-fpclass-folding=false", "-indvars-zext2sext=false"]
+config.opt_options_to_mimic_llorg = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false" , "-instcombine-disable-fpclass-folding=false", "-indvars-zext2sext=false", "-indvars-widen-nneg"]
 config.llc_options_to_mimic_llorg = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false", "-cgp-split-switch-critical-edge=false", "-intel-adjust-is-stmt=false"]
 lit.llvm.util.add_default_options_to_tool(config, 'opt', config.opt_options_to_mimic_llorg)
 lit.llvm.util.add_default_options_to_tool(config, 'llc', config.llc_options_to_mimic_llorg)
@@ -656,34 +652,6 @@ if config.expensive_checks:
 if "MemoryWithOrigins" in config.llvm_use_sanitizer:
     config.available_features.add("use_msan_with_origins")
 
-
-def exclude_unsupported_files_for_aix(dirname):
-    for filename in os.listdir(dirname):
-        source_path = os.path.join(dirname, filename)
-        if os.path.isdir(source_path):
-            continue
-        f = open(source_path, "r")
-        try:
-            data = f.read()
-            # 64-bit object files are not supported on AIX, so exclude the tests.
-            if (
-                "-emit-obj" in data or "-filetype=obj" in data
-            ) and "64" in config.target_triple:
-                config.excludes += [filename]
-        finally:
-            f.close()
-
-
-if "aix" in config.target_triple:
-    for directory in (
-        "/CodeGen/X86",
-        "/DebugInfo",
-        "/DebugInfo/X86",
-        "/DebugInfo/Generic",
-        "/LTO/X86",
-        "/Linker",
-    ):
-        exclude_unsupported_files_for_aix(config.test_source_root + directory)
 
 # Some tools support an environment variable "OBJECT_MODE" on AIX OS, which
 # controls the kind of objects they will support. If there is no "OBJECT_MODE"

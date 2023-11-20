@@ -126,9 +126,10 @@ class X86AsmParser : public MCTargetAsmParser {
 #if INTEL_CUSTOMIZATION
   // Is this instruction explicitly required not to update flags?
   bool ForcedNoFlag = false;
+#endif // INTEL_CUSTOMIZATION
+
   // Does this instruction use apx extended register?
   bool UseApxExtendedReg = false;
-#endif // INTEL_CUSTOMIZATION
 
 private:
   SMLoc consumeToken() {
@@ -1437,10 +1438,8 @@ bool X86AsmParser::MatchRegisterByName(MCRegister &RegNo, StringRef RegName,
     }
   }
 
-#if INTEL_CUSTOMIZATION
   if (X86II::isApxExtendedReg(RegNo))
     UseApxExtendedReg = true;
-#endif // INTEL_CUSTOMIZATION
 
   // If this is "db[0-15]", match it as an alias
   // for dr[0-15].
@@ -3172,8 +3171,8 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
   ForcedDispEncoding = DispEncoding_Default;
 #if INTEL_CUSTOMIZATION
   ForcedNoFlag = false;
-  UseApxExtendedReg = false;
 #endif // INTEL_CUSTOMIZATION
+  UseApxExtendedReg = false;
 
   // Parse pseudo prefixes.
   while (true) {
@@ -4129,9 +4128,10 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
 #if INTEL_CUSTOMIZATION
   if (ForcedNoFlag && !(MCID.TSFlags & X86II::EVEX_NF))
     return Match_Unsupported;
+#endif // INTEL_CUSTOMIZATION
+
   if (UseApxExtendedReg && !X86II::canUseApxExtendedReg(MCID))
     return Match_Unsupported;
-#endif // INTEL_CUSTOMIZATION
 
   if (ForcedVEXEncoding == VEXEncoding_EVEX &&
       (MCID.TSFlags & X86II::EncodingMask) != X86II::EVEX)

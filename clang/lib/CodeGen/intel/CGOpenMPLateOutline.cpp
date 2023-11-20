@@ -77,7 +77,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
 
   FunctionArgList Args;
   ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
-                        /*Id=*/nullptr, PtrTy, ImplicitParamDecl::Other);
+                        /*Id=*/nullptr, PtrTy, ImplicitParamKind::Other);
   Args.push_back(&Dst);
 
   auto &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(PtrTy, Args);
@@ -143,7 +143,7 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty, bool IsUDR) {
 
   FunctionArgList Args;
   ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
-                        /*Id=*/nullptr, PtrTy, ImplicitParamDecl::Other);
+                        /*Id=*/nullptr, PtrTy, ImplicitParamKind::Other);
   Args.push_back(&Dst);
 
   auto &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(
@@ -223,10 +223,10 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
 
   FunctionArgList Args;
   ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
-                            ImplicitParamDecl::Other);
+                            ImplicitParamKind::Other);
   Args.push_back(&DstDecl);
   ImplicitParamDecl SrcDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
-                            ImplicitParamDecl::Other);
+                            ImplicitParamKind::Other);
   Args.push_back(&SrcDecl);
 
   const CGFunctionInfo &FI =
@@ -327,10 +327,10 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
 
   FunctionArgList Args;
   ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
-                            ImplicitParamDecl::Other);
+                            ImplicitParamKind::Other);
   Args.push_back(&DstDecl);
   ImplicitParamDecl SrcDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
-                            ImplicitParamDecl::Other);
+                            ImplicitParamKind::Other);
   Args.push_back(&SrcDecl);
 
   const CGFunctionInfo &FI =

@@ -452,7 +452,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   bits<2> XuCCOpPrefixBits = XuCCOpPrefix.Value;
 #endif // INTEL_FEATURE_XUCC
 #if INTEL_FEATURE_ISA_AVX256P
-  bit hasEVEX_P10 = 0;      // Does this inst set the EVEX_P10 field?
+  bit hasEVEX_X2 = 0;      // Does this inst set the EVEX_X2 field?
 #endif // INTEL_FEATURE_ISA_AVX256P
   bit hasEVEX_NF = 0;      // Does this inst set the EVEX_NF field?
   bit hasTwoConditionalOps = 0;   // Does this inst have two conditional operands?
@@ -492,11 +492,12 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   let TSFlags{53}    = hasTwoConditionalOps;
   let TSFlags{54}    = explicitREX2Prefix;
 #if INTEL_FEATURE_XUCC
+  // XuCCPrefix - These prefix bytes are used for some XuCC instructions.
   let TSFlags{56-55} = XuCCOpPrefixBits;
 #endif // INTEL_FEATURE_XUCC
-#if INTEL_FEATURE_ISA_AVX256P
-  let TSFlags{57}    = hasEVEX_P10;
-#endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_XISA_COMMON
+  let TSFlags{57}    = hasEVEX_X2;
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
 }
 

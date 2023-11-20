@@ -200,6 +200,7 @@ bool X86InstrInfo::shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
   }
   return true;
 }
+#endif // INTEL_CUSTOMIZATION
 
 const TargetRegisterClass *
 X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
@@ -211,8 +212,7 @@ X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
   if (!RC || !Subtarget.hasEGPR())
     return RC;
 
-  if (X86II::canUseApxExtendedReg(MCID) &&
-      !X86II::isUnImplementedForEGPR(MCID.Opcode))
+  if (X86II::canUseApxExtendedReg(MCID))
     return RC;
 
   switch (RC->getID()) {
@@ -232,7 +232,6 @@ X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
     return &X86::GR64_NOREX2_NOSPRegClass;
   }
 }
-#endif // INTEL_CUSTOMIZATION
 
 bool
 X86InstrInfo::isCoalescableExtInstr(const MachineInstr &MI,

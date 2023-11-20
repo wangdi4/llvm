@@ -72,17 +72,23 @@ entry:
 for.body:                                       ; preds = %for.body.preheader, %cond.end45
   %i.1206 = phi i64 [ %inc50, %cond.end45 ], [ 0, %entry ]
   %j.0205 = phi i64 [ %j.1, %cond.end45 ], [ 0, %entry ]
-  %cmp30 = icmp eq i64 %i.1206, add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 304)
+  %zext = zext i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64
+  %add = add i64 %zext, 304
+  %cmp30 = icmp eq i64 %i.1206, %add
   br i1 %cmp30, label %cond.end45, label %cond.false33
 
 cond.false33:                                     ; preds = %for.body
-  %cmp34.not = icmp ult i64 %i.1206, add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 176)
+  %zext2 = zext i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64
+  %add2 = add i64 %zext2, 176
+  %cmp34.not = icmp ult i64 %i.1206, %add2
   br i1 %cmp34.not, label %cond.end45, label %cond.true36
 
 cond.true36:                                      ; preds = %cond.false33
   %inc37 = add i64 %j.0205, 1
   %rem38 = and i64 %j.0205, 63
-  %add39 = add nuw nsw i64 %rem38, add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s2 to i6)) to i64), i64 112)
+  %zext3 = zext i6 sub (i6 16, i6 ptrtoint (ptr @s2 to i6)) to i64
+  %add3 = add i64 %zext3, 112
+  %add39 = add nuw nsw i64 %rem38, %add3
   %arrayidx40 = getelementptr inbounds [512 x i8], ptr @s2, i64 0, i64 %add39, !intel-tbaa !3
   %t1 = load i8, ptr %arrayidx40, align 1, !tbaa !3
   br label %cond.end45
@@ -97,16 +103,34 @@ cond.end45:                                       ; preds = %cond.true36, %cond.
   br i1 %exitcond210.not, label %for.end51, label %for.body, !llvm.loop !9
 
 for.end51:                                        ; preds = %cond.end45
-  %call = tail call ptr @strstr(ptr noundef nonnull getelementptr ([512 x i8], ptr @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 112)), ptr noundef nonnull getelementptr ([512 x i8], ptr @s2, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s2 to i6)) to i64), i64 112))) #3
-  %cmp55.not = icmp eq ptr %call, getelementptr inbounds ([512 x i8], ptr @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 176))
+  %zext4 = zext i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64
+  %add4 = add i64 %zext4, 112
+  %gep1 = getelementptr [512 x i8], ptr @s1, i64 0, i64 %add4
+  %zext5 = zext i6 sub (i6 16, i6 ptrtoint (ptr @s2 to i6)) to i64
+  %add5 = add i64 %zext5, 112
+  %gep2 = getelementptr [512 x i8], ptr @s2, i64 0, i64 %add5
+  %call = tail call ptr @strstr(ptr noundef nonnull %gep1, ptr noundef nonnull %gep2) #3
+  %zext6 = zext i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64
+  %add6 = add i64 %zext6, 176
+  %gep3 = getelementptr inbounds [512 x i8], ptr @s1, i64 0, i64 %add6
+  %cmp55.not = icmp eq ptr %call, %gep3
   br i1 %cmp55.not, label %if.end66, label %if.then57
 
 if.then57:                                        ; preds = %for.end51
   %call58 = tail call i32 @puts(ptr nonnull dereferenceable(1) @.str)
   %call59 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str.1, ptr %call)
-  %call61 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str.2, ptr nonnull getelementptr ([512 x i8], ptr @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 112)))
-  %call63 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str.3, ptr nonnull getelementptr ([512 x i8], ptr @s2, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s2 to i6)) to i64), i64 112)))
-  %call65 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str.4, ptr nonnull getelementptr inbounds ([512 x i8], ptr @s1, i64 0, i64 add (i64 zext (i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64), i64 176)))
+  %zext7 = zext i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64
+  %add7 = add i64 %zext7, 112
+  %gep4 = getelementptr [512 x i8], ptr @s1, i64 0, i64 %add7
+  %call61 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str.2, ptr nonnull %gep3)
+  %zext8 = zext i6 sub (i6 16, i6 ptrtoint (ptr @s2 to i6)) to i64
+  %add8 = add i64 %zext8, 112
+  %gep5 = getelementptr [512 x i8], ptr @s2, i64 0, i64 %add8
+  %call63 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str.3, ptr nonnull %gep4)
+  %zext9 = zext i6 sub (i6 16, i6 ptrtoint (ptr @s1 to i6)) to i64
+  %add9 = add i64 %zext9, 176
+  %gep6 = getelementptr inbounds [512 x i8], ptr @s1, i64 0, i64 %add9
+  %call65 = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str.4, ptr nonnull %gep5)
   br label %if.end66
 
 if.end66:                                         ; preds = %if.then57, %for.end51

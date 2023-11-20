@@ -52,9 +52,8 @@ namespace NS2 {
 //CHECK: define {{.*}}NS14funcEv{{.*}}#[[TARGET_DECLARE1:[0-9]+]]
 //CHECK: define {{.*}}NS13FooC2Ev{{.*}}#[[TARGET_DECLARE2:[0-9]+]]
 //CHECK: define {{.*}}NS24funcEv{{.*}}#[[TARGET_DECLARE1]]
-//CHECK: define {{.*}}NS23FooD2Ev{{.*}}#[[TARGET_DECLARE2]]
+//CHECK: define {{.*}}NS23FooD2Ev{{.*}}#[[TARGET_DECLARE1]]
 
 //CHECK: attributes #[[TARGET_DECLARE1]] = {{.*}}"openmp-target-declare"="true"
-//CHECK: attributes #[[TARGET_DECLARE2]] = {{.*}}"openmp-target-declare"="true"
 
 // end INTEL_COLLAB

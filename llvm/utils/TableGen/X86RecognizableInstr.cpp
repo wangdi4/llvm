@@ -149,7 +149,7 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
   HasEVEX_B = Rec->getValueAsBit("hasEVEX_B");
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  HasEVEX_P10 = Rec->getValueAsBit("hasEVEX_P10");
+  HasEVEX_X2 = Rec->getValueAsBit("hasEVEX_X2");
 #endif // INTEL_FEATURE_ISA_AVX256P
   HasEVEX_NF = Rec->getValueAsBit("hasEVEX_NF");
   HasTwoConditionalOps = Rec->getValueAsBit("hasTwoConditionalOps");
@@ -244,7 +244,7 @@ InstructionContext RecognizableInstr::insnContext() const {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
     // AVX256P RC
-    if (EncodeRC && HasEVEX_P10) {
+    if (EncodeRC && HasEVEX_X2) {
       if (HasREX_W) {
         if (OpPrefix == X86Local::PD)
           insnContext = EVEX_KB_P10(IC_EVEX_W_OPSIZE);

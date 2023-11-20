@@ -287,10 +287,10 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
   Value *Ptr = II->getOperand(0)->getType()->getPointerAddressSpace() == 0
                    ? Builder.CreateBitCast(
                          II->getOperand(0),
-                         llvm::Type::getInt8PtrTy(Builder.getContext()))
+                         llvm::PointerType::getUnqual(Builder.getContext()))
                    : Builder.CreateAddrSpaceCast(
                          II->getOperand(0),
-                         llvm::Type::getInt8PtrTy(Builder.getContext()));
+                         llvm::PointerType::getUnqual(Builder.getContext()));
   // Create the argument list
   std::array<Value *, 4> Args{
       Rows, Cols, Ptr,
@@ -390,10 +390,10 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
   Value *Ptr = II->getOperand(1)->getType()->getPointerAddressSpace() == 0
                    ? Builder.CreateBitCast(
                          II->getOperand(1),
-                         llvm::Type::getInt8PtrTy(Builder.getContext()))
+                         llvm::PointerType::getUnqual(Builder.getContext()))
                    : Builder.CreateAddrSpaceCast(
                          II->getOperand(1),
-                         llvm::Type::getInt8PtrTy(Builder.getContext()));
+                         llvm::PointerType::getUnqual(Builder.getContext()));
   // Create the argument list
   std::array<Value *, 5> Args{
       Rows, Cols, Ptr,

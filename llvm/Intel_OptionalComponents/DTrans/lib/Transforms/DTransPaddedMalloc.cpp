@@ -923,7 +923,7 @@ bool dtrans::PaddedMallocGlobals<InfoClass>::buildFuncBadCastValidation(
   Value *GEP = Builder.CreateGEP(STy, Arg,
       {ConstantInt::get(OffsetType, 0), Builder.getInt32(StructIndex)});
   
-  Value *Load = Builder.CreateLoad(Type::getInt8PtrTy(Func->getContext()), GEP);
+  Value *Load = Builder.CreateLoad(PointerType::getUnqual(Func->getContext()), GEP);
   Value *IsNotNull = Builder.CreateIsNotNull(Load);
   Builder.CreateCondBr(IsNotNull, SetBB, EntryBB);
 

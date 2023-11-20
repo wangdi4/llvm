@@ -34,6 +34,7 @@ add_llvm_component_library(LLVMCore
   DataLayout.cpp
   DebugInfo.cpp
   DebugInfoMetadata.cpp
+  DebugProgramInstruction.cpp
   DebugLoc.cpp
   DiagnosticHandler.cpp
   DiagnosticInfo.cpp

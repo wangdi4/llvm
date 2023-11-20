@@ -164,7 +164,7 @@ private:
 
   FunctionType *getBlockInvokeType() {
     auto *RetTy = Type::getVoidTy(Ctx);
-    auto *PtrTy = Type::getInt8PtrTy(Ctx);
+    auto *PtrTy = PointerType::getUnqual(Ctx);
     auto *FTy = FunctionType::get(RetTy, {PtrTy}, false);
     return FTy;
   }
@@ -554,7 +554,7 @@ void Impl::collectTaskFuncs() {
 
 void Impl::generateInvokeMappers() {
   for (Function *F : Asyncs) {
-    auto *VoidPtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+    auto *VoidPtrTy = PointerType::get(Ctx, ADDRESS_SPACE_GENERIC);
     auto *MapperType = FunctionType::get(VoidPtrTy, {VoidPtrTy}, false);
     auto MapperName = getBlockInvokeMapperName(F);
     auto MapperCallee = M.getOrInsertFunction(MapperName, MapperType);
@@ -620,7 +620,7 @@ void Impl::createBlockLiteralTypes() {
     FunctionType *TaskFuncType = findTaskFuncType(F);
     assert(TaskFuncType && "task func type not found");
     auto *UnsignedTy = Type::getIntNTy(Ctx, sizeof(unsigned) * 8);
-    auto *PtrTy = Type::getInt8PtrTy(Ctx);
+    auto *PtrTy = PointerType::getUnqual(Ctx);
     SmallVector<Type *> EltTypes;
     EltTypes.reserve(TaskFuncType->getNumParams() + 4);
     EltTypes.append({UnsignedTy, UnsignedTy, PtrTy});
@@ -647,14 +647,14 @@ size_t getRetTypeSizeOfTaskFunction(Function *F) {
 FunctionCallee Impl::getBackendCreateTaskSeq() {
   // void *__create_task_sequence(size_t return_type_size)
   auto *SizeTTy = Type::getIntNTy(Ctx, sizeof(size_t) * 8);
-  auto *RetTy = Type::getInt8PtrTy(Ctx);
+  auto *RetTy = PointerType::getUnqual(Ctx);
   auto *FTy = FunctionType::get(RetTy, {SizeTTy}, false);
   return M.getOrInsertFunction(BackendCreateTaskSeqName, FTy);
 }
 
 FunctionCallee Impl::getBackendReleaseTaskSeq() {
   // void __release_task_sequence(void *task_seq)
-  auto *PtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+  auto *PtrTy = PointerType::get(Ctx, ADDRESS_SPACE_GENERIC);
   auto *RetTy = Type::getVoidTy(Ctx);
   auto *FTy = FunctionType::get(RetTy, {PtrTy}, false);
   return M.getOrInsertFunction(BackendReleaseTaskSeqName, FTy);
@@ -662,7 +662,7 @@ FunctionCallee Impl::getBackendReleaseTaskSeq() {
 
 FunctionCallee Impl::getBackendGet() {
   // void *__get(void *task_seq, unsigned capacity)
-  auto *PtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+  auto *PtrTy = PointerType::get(Ctx, ADDRESS_SPACE_GENERIC);
   auto *I32Ty = Type::getInt32Ty(Ctx);
   auto *RetTy = PtrTy;
   auto *FTy = FunctionType::get(RetTy, {PtrTy, I32Ty}, false);
@@ -672,7 +672,7 @@ FunctionCallee Impl::getBackendGet() {
 FunctionCallee Impl::getBackendAsync() {
   // void __async(void *task_seq, unsigned capacity,
   //              void *block_invoke, void *block_literal)
-  auto *PtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+  auto *PtrTy = PointerType::get(Ctx, ADDRESS_SPACE_GENERIC);
   auto *I32Ty = Type::getInt32Ty(Ctx);
   auto *RetTy = Type::getVoidTy(Ctx);
   auto *FTy = FunctionType::get(RetTy, {PtrTy, I32Ty, PtrTy, PtrTy}, false);
@@ -773,7 +773,7 @@ void Impl::generateAsyncBodies() {
   // }
   auto *Int32Ty = Type::getInt32Ty(Ctx);
   auto *Zero = ConstantInt::get(Int32Ty, 0);
-  auto *VoidPtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+  auto *VoidPtrTy = PointerType::get(Ctx, ADDRESS_SPACE_GENERIC);
   FunctionCallee BackendAsync = getBackendAsync();
   for (Function *F : Asyncs) {
     LLVM_DEBUG(dbgs() << "Generate async body: " << F->getName() << "\n");

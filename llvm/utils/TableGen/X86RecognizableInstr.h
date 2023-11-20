@@ -257,8 +257,8 @@ struct RecognizableInstrBase {
   bool IsXuCCMode;
 #endif // INTEL_FEATURE_XUCC
 #if INTEL_FEATURE_ISA_AVX256P
-  /// The HasEVEX_P10 field from the record
-  bool HasEVEX_P10;
+  /// The hasEVEX_X2 field from the record
+  bool HasEVEX_X2;
 #endif // INTEL_FEATURE_ISA_AVX256P
   /// The hasEVEX_NF field from the record
   bool HasEVEX_NF;

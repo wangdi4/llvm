@@ -4475,7 +4475,7 @@ extern "C" void dump_nodeset(const std::set<const DCGNode *> &NodeSet) {
     dbgs() << X->toString() << " ";
   dbgs() << "\n";
 }
-extern "C" void dump_nodev(SmallVectorImpl<const DCGNode *> NodeV) {
+extern "C" void dump_nodev(SmallVectorImpl<const DCGNode *> &NodeV) {
 
   for (const auto X : NodeV)
     dbgs() << X->toString() << " ";

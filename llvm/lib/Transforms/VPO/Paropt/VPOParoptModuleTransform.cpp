@@ -318,7 +318,7 @@ void VPOParoptModuleTransform::createOCLPrintfDecl(Function *F) {
 
   // Create FunctionType for OCLPrintfDecl
   Type *ReturnTy = Type::getInt32Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C, ADDRESS_SPACE_CONSTANT /*=2*/);
+  Type *Int8PtrTy = PointerType::get(C, ADDRESS_SPACE_CONSTANT /*=2*/);
   FunctionType *FnTy = FunctionType::get(ReturnTy, {Int8PtrTy},
                                          /* varargs= */ true);
 
@@ -962,8 +962,8 @@ StructType *VPOParoptModuleTransform::getTgtOffloadEntryTy() {
   bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
 
   SmallVector<Type *, 6> TyArgs = {
-    Type::getInt8PtrTy(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_GENERIC : 0),
-    Type::getInt8PtrTy(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_CONSTANT : 0),
+    PointerType::get(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_GENERIC : 0),
+    PointerType::get(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_CONSTANT : 0),
     GeneralUtils::getSizeTTy(&M),
     Type::getInt32Ty(C),
     Type::getInt32Ty(C)

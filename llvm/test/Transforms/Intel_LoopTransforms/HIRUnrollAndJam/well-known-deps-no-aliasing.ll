@@ -12,7 +12,7 @@
 
 ; CHECK: + DO i1 = 0, %II + -5, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, %JJ + -5, 1   <DO_LOOP>
-; CHECK: |   |   + DO i3 = 0, %KK + -1 * umin(3, (-2 + %KK)) + -2, 1   <DO_LOOP>
+; CHECK: |   |   + DO i3 = 0, %KK + -5, 1   <DO_LOOP>
 ; CHECK: |   |   |   %"sipiter2_$RES[][][]_fetch.18" = (%RES)[-1 * i1 + %II + -3][-1 * i2 + %JJ + -3][-1 * i3 + %KK + -3];
 ; CHECK: |   |   |   %"sipiter2_$UN[][][]_fetch.30" = (%UN)[-1 * i1 + %II + -3][-1 * i2 + %JJ + -3][-1 * i3 + %KK + -3];
 ; CHECK: |   |   |   %"sipiter2_$RES[][][]_fetch.37" = (%RES)[-1 * i1 + %II + -3][-1 * i2 + %JJ + -2][-1 * i3 + %KK + -3];

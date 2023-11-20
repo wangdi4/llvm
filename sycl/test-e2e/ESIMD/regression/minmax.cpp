@@ -13,7 +13,7 @@
 // and 'max' and 'min' are defined there as macros, and even more if those files
 // are included without predefinition of NOMINMAX macro).
 
-#if defined(_WIN64)
+#if defined(_WIN32)
 // NOMINMAX is intentionally NOT defined to cause potential problems with
 // min/max functions.
 // #define NOMINMAX

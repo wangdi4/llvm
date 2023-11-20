@@ -1398,80 +1398,6 @@ namespace X86II {
     }
   }
 
-#if INTEL_CUSTOMIZATION
-  /// \returns true if \p RegNo is an apx extended register.
-  inline bool isApxExtendedReg(unsigned RegNo) {
-    switch (RegNo) {
-    default: return false;
-    case X86::R16B: case X86::R16W: case X86::R16D: case X86::R16:
-    case X86::R17B: case X86::R17W: case X86::R17D: case X86::R17:
-    case X86::R18B: case X86::R18W: case X86::R18D: case X86::R18:
-    case X86::R19B: case X86::R19W: case X86::R19D: case X86::R19:
-    case X86::R20B: case X86::R20W: case X86::R20D: case X86::R20:
-    case X86::R21B: case X86::R21W: case X86::R21D: case X86::R21:
-    case X86::R22B: case X86::R22W: case X86::R22D: case X86::R22:
-    case X86::R23B: case X86::R23W: case X86::R23D: case X86::R23:
-    case X86::R24B: case X86::R24W: case X86::R24D: case X86::R24:
-    case X86::R25B: case X86::R25W: case X86::R25D: case X86::R25:
-    case X86::R26B: case X86::R26W: case X86::R26D: case X86::R26:
-    case X86::R27B: case X86::R27W: case X86::R27D: case X86::R27:
-    case X86::R28B: case X86::R28W: case X86::R28D: case X86::R28:
-    case X86::R29B: case X86::R29W: case X86::R29D: case X86::R29:
-    case X86::R30B: case X86::R30W: case X86::R30D: case X86::R30:
-    case X86::R31B: case X86::R31W: case X86::R31D: case X86::R31:
-      return true;
-    }
-  }
-
-  inline bool canUseApxExtendedReg(const MCInstrDesc &Desc) {
-    uint64_t TSFlags = Desc.TSFlags;
-    uint64_t Encoding = TSFlags & EncodingMask;
-    // EVEX can always use egpr.
-    if (Encoding == X86II::EVEX)
-      return true;
-
-    // MAP OB/TB in legacy encoding space can always use egpr except
-    // XSAVE*/XRSTOR*.
-    unsigned Opcode = Desc.Opcode;
-    bool IsSpecial = false;
-    switch (Opcode) {
-    default:
-      // To be conservative, egpr is not used for all pseudo instructions
-      // because we are not sure what instruction it will become.
-      // FIXME: Could we improve it in X86ExpandPseudo?
-      IsSpecial = isPseudo(TSFlags);
-      break;
-    case X86::XSAVE:
-    case X86::XSAVE64:
-    case X86::XSAVEOPT:
-    case X86::XSAVEOPT64:
-    case X86::XSAVEC:
-    case X86::XSAVEC64:
-    case X86::XSAVES:
-    case X86::XSAVES64:
-    case X86::XRSTOR:
-    case X86::XRSTOR64:
-    case X86::XRSTORS:
-    case X86::XRSTORS64:
-      IsSpecial = true;
-      break;
-    }
-    uint64_t OpMap = TSFlags & X86II::OpMapMask;
-    return !Encoding && (OpMap == X86II::OB || OpMap == X86II::TB) &&
-           !IsSpecial;
-  }
-
-  inline bool isUnImplementedForEGPR(unsigned Opcode) {
-    switch (Opcode) {
-    default:
-      return false;
-#define BLACK_INSN(NAME)                                                     \
-    case X86::NAME:                                                            \
-      return true;
-#include "Intel_EGPR_Workaround_For_SDE.def"
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
   /// \returns true if the register is a XMM.
   inline bool isXMMReg(unsigned RegNo) {
     assert(X86::XMM15 - X86::XMM0 == 15 &&
@@ -1511,6 +1437,12 @@ namespace X86II {
   }
 #endif // INTEL_CUSTOMIZATION
 
+  /// \returns true if \p RegNo is an apx extended register.
+  inline bool isApxExtendedReg(unsigned RegNo) {
+    assert(X86::R31WH - X86::R16 == 95 && "EGPRs are not continuous");
+    return RegNo >= X86::R16 && RegNo <= X86::R31WH;
+  }
+
   /// \returns true if the MachineOperand is a x86-64 extended (r8 or
   /// higher) register,  e.g. r8, xmm8, xmm13, etc.
   inline bool isX86_64ExtendedReg(unsigned RegNo) {
@@ -1521,10 +1453,8 @@ namespace X86II {
         (RegNo >= X86::ZMM8 && RegNo <= X86::ZMM31))
       return true;
 
-#if INTEL_CUSTOMIZATION
     if (isApxExtendedReg(RegNo))
       return true;
-#endif // INTEL_CUSTOMIZATION
 
     switch (RegNo) {
     default: break;
@@ -1543,6 +1473,43 @@ namespace X86II {
       return true;
     }
     return false;
+  }
+
+  inline bool canUseApxExtendedReg(const MCInstrDesc &Desc) {
+    uint64_t TSFlags = Desc.TSFlags;
+    uint64_t Encoding = TSFlags & EncodingMask;
+    // EVEX can always use egpr.
+    if (Encoding == X86II::EVEX)
+      return true;
+
+    // To be conservative, egpr is not used for all pseudo instructions
+    // because we are not sure what instruction it will become.
+    // FIXME: Could we improve it in X86ExpandPseudo?
+    if (isPseudo(TSFlags))
+      return false;
+
+    // MAP OB/TB in legacy encoding space can always use egpr except
+    // XSAVE*/XRSTOR*.
+    unsigned Opcode = Desc.Opcode;
+    switch (Opcode) {
+    default:
+      break;
+    case X86::XSAVE:
+    case X86::XSAVE64:
+    case X86::XSAVEOPT:
+    case X86::XSAVEOPT64:
+    case X86::XSAVEC:
+    case X86::XSAVEC64:
+    case X86::XSAVES:
+    case X86::XSAVES64:
+    case X86::XRSTOR:
+    case X86::XRSTOR64:
+    case X86::XRSTORS:
+    case X86::XRSTORS64:
+      return false;
+    }
+    uint64_t OpMap = TSFlags & X86II::OpMapMask;
+    return !Encoding && (OpMap == X86II::OB || OpMap == X86II::TB);
   }
 
   /// \returns true if the MemoryOperand is a 32 extended (zmm16 or higher)

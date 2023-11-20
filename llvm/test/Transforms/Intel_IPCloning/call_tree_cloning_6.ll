@@ -24,10 +24,13 @@ define internal fastcc void @mc_chroma(i32 %0, i32 %1) unnamed_addr #0 {
 4:                                                ; preds = %2
   %5 = icmp sgt i32 %0, 0
   %6 = sext i32 %0 to i64
+  %ashr = ashr i32 ptrtoint (ptr @src2 to i32), 3
+  %sext = sext i32 %ashr to i64 
+  %gep = getelementptr i8, ptr getelementptr inbounds ([1000 x i8], ptr @src1, i64 0, i64 0), i64 %sext
   br label %7
 
 7:                                                ; preds = %13, %4
-  %8 = phi ptr [ getelementptr (i8, ptr getelementptr inbounds ([1000 x i8], ptr @src1, i64 0, i64 0), i64 sext (i32 ashr (i32 ptrtoint (ptr @src2 to i32), i32 3) to i64)), %4 ], [ %11, %13 ]
+  %8 = phi ptr [ %gep, %4 ], [ %11, %13 ]
   %9 = phi i32 [ 0, %4 ], [ %15, %13 ]
   %10 = phi ptr [ getelementptr inbounds ([1000 x i8], ptr @dst, i64 0, i64 0), %4 ], [ %14, %13 ]
   %11 = getelementptr inbounds i8, ptr %8, i64 2

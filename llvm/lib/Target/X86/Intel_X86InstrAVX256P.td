@@ -25,7 +25,7 @@
 //===----------------------------------------------------------------------===//
 // AVX256P RC/SAE instructions
 
-let Predicates = [HasAVX256P], hasEVEX_P10 = 1, OpEnc = EncEVEX in {
+let Predicates = [HasAVX256P], hasEVEX_X2 = 1, OpEnc = EncEVEX in {
 multiclass avx256_fp_binop_p_round<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd,
                                    X86SchedWriteSizes sched> {
   defm PHZ256 : avx512_fp_round_packed<opc, OpcodeStr, OpNodeRnd, sched.PH.YMM,

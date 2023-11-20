@@ -6340,7 +6340,7 @@ RDECL VPOParoptTransform::genFastRedCallback(WRegionNode *W,
   LLVMContext &C = F->getContext();
   Module *M = F->getParent();
 
-  Type *FastRedParams[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C)};
+  Type *FastRedParams[] = {PointerType::getUnqual(C), PointerType::getUnqual(C)};
   FunctionType *FastRedFnTy =
       FunctionType::get(Type::getVoidTy(C), FastRedParams, false);
   // Create callback function for tree reduce
@@ -13377,7 +13377,7 @@ bool VPOParoptTransform::clearCancellationPointAllocasFromIR(WRegionNode *W) {
     // Remove the cancellation point alloca from the `region.entry` directive.
     //    region.entry(..., null, ...)                                  ; (2)
     RegionEntry->replaceUsesOfWith(
-        CPAlloca, ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+        CPAlloca, ConstantPointerNull::get(PointerType::getUnqual(C)));
 
     // Next, we delete (1), (3), and any other users of CPAlloca. Now, CPStore
     // may have been removed by some dead-code elimination optimization. e.g.
@@ -13878,7 +13878,8 @@ void VPOParoptTransform::resetValueInOmpClauseGeneric(WRegionNode *W,
     Instruction *UI = IfUses.pop_back_val();
     if (VPOAnalysisUtils::isOpenMPDirective(UI)) {
       LLVMContext &C = F->getContext();
-      UI->replaceUsesOfWith(V, ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+      UI->replaceUsesOfWith(
+          V, ConstantPointerNull::get(PointerType::getUnqual(C)));
       break;
     }
   }
