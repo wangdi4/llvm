@@ -622,9 +622,18 @@ struct get_device_info_impl<range<Dimensions>,
 // This macro is only for Intel CPU architectures
 // TODO: extend the macro with other CPU architectures when they will be added
 // to ext_oneapi_device_architecture
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+#define INTEL_CPU_ARCHES(X)                                                    \
+  X(8, oneapi_exp_arch::intel_cpu_spr)                                         \
+  X(9, oneapi_exp_arch::intel_cpu_gnr)                                         \
+  X(10, oneapi_exp_arch::intel_cpu_dmr)
+#else
 #define INTEL_CPU_ARCHES(X)                                                    \
   X(8, oneapi_exp_arch::intel_cpu_spr)                                         \
   X(9, oneapi_exp_arch::intel_cpu_gnr)
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
 
 #define CMP_NVIDIA_AMD(s, i)                                                   \
   if (strcmp(s, arch) == 0)                                                    \
@@ -749,6 +758,27 @@ struct get_device_info_impl<
           {16, 16, 32, 0, 0, 0, matrix_type::fp16, matrix_type::fp16,
            matrix_type::fp32, matrix_type::fp32},
       };
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+    else if (architecture::intel_cpu_dmr == DeviceArch)
+      return {
+          {16, 16, 64, 0, 0, 0, matrix_type::uint8, matrix_type::uint8,
+           matrix_type::sint32, matrix_type::sint32},
+          {16, 16, 64, 0, 0, 0, matrix_type::uint8, matrix_type::sint8,
+           matrix_type::sint32, matrix_type::sint32},
+          {16, 16, 64, 0, 0, 0, matrix_type::sint8, matrix_type::uint8,
+           matrix_type::sint32, matrix_type::sint32},
+          {16, 16, 64, 0, 0, 0, matrix_type::sint8, matrix_type::sint8,
+           matrix_type::sint32, matrix_type::sint32},
+          {16, 16, 32, 0, 0, 0, matrix_type::bf16, matrix_type::bf16,
+           matrix_type::fp32, matrix_type::fp32},
+          {16, 16, 32, 0, 0, 0, matrix_type::fp16, matrix_type::fp16,
+           matrix_type::fp32, matrix_type::fp32},
+          {16, 16, 16, 0, 0, 0, matrix_type::tf32, matrix_type::tf32,
+           matrix_type::fp32, matrix_type::fp32},
+      };
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
     else if (architecture::intel_gpu_pvc == DeviceArch)
       return {
           {8, 0, 0, 0, 16, 32, matrix_type::uint8, matrix_type::uint8,
