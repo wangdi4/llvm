@@ -37,6 +37,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <mutex>
 #include <string>
 #include <vector>
 #ifdef _WIN32
@@ -566,6 +567,31 @@ SharedPtr<IThreadLibTaskGroup>
 TBBTaskExecutor::CreateTaskGroup(const SharedPtr<ITEDevice> & /*device*/) {
   return TbbTaskGroup::Allocate();
 }
+
+void launchResumableTask(unsigned int ThreadNum) {
+  static unsigned int barrier{ThreadNum};
+  static std::mutex mutex;
+  static std::vector<oneapi::tbb::task::suspend_point> coroutine_ctx;
+  std::unique_lock<std::mutex> lock(mutex);
+  int ticket = --barrier;
+  if (ticket > 0) {
+    //  Suspend TBB thread. After this it will participate in other oneTBB
+    //  parallel work (in same arena).
+    oneapi::tbb::task::suspend([&](oneapi::tbb::task::suspend_point sp) {
+      coroutine_ctx.push_back(sp);
+      lock.unlock();
+    });
+  } else if (ticket == 0) {
+    barrier = ThreadNum;
+    // All workgroups are reached the barrier we can submit a tasks to resume
+    // suspended threads.
+    for (auto &&sp : coroutine_ctx) {
+      oneapi::tbb::task::resume(sp);
+    }
+    coroutine_ctx.clear();
+  }
+}
+
 } // namespace TaskExecutor
 } // namespace OpenCL
 } // namespace Intel

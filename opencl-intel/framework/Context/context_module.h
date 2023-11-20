@@ -238,6 +238,11 @@ public:
                                         void *pParamValue,
                                         size_t *pszParamValueSizeRet);
 
+  virtual cl_int GetKernelMaxConcurrentWorkGroupCount(
+      cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim,
+      const size_t *global_work_offset, const size_t *local_work_size,
+      size_t *max_work_group_count);
+
   // memory object methods
   virtual cl_mem CreateBuffer(cl_context clContext, cl_mem_flags clFlags,
                               size_t szSize, void *pHostPtr,

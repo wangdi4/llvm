@@ -75,6 +75,7 @@ const StringRef NAME_GET_ENQUEUED_LOCAL_SIZE = "get_enqueued_local_size";
 const StringRef NAME_BARRIER = "barrier";
 const StringRef NAME_WG_BARRIER = "work_group_barrier";
 const StringRef NAME_SG_BARRIER = "sub_group_barrier";
+const StringRef NAME_RG_BARRIER = "intel_device_barrier";
 const StringRef NAME_TLS_LOCAL_IDS = "__LocalIds";
 const StringRef NAME_PREFETCH = "prefetch";
 const StringRef NAME_WAIT_GROUP_EVENTS = "wait_group_events";
@@ -912,6 +913,10 @@ bool isWorkGroupBarrier(StringRef S) {
          S == mangledWGBarrier(BarrierType::WithScope);
 }
 
+bool isDeviceBarrier(StringRef S) {
+  return S == mangledDeviceBarrier() || S == mangledDeviceBarrierWithScope();
+}
+
 /// Subgroup builtin functions
 
 bool isGetSubGroupSize(StringRef S) {
@@ -1232,6 +1237,16 @@ std::string mangledBarrier() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_BARRIER);
 }
 
+std::string mangledDeviceBarrier() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_RG_BARRIER);
+}
+
+std::string mangledDeviceBarrierWithScope() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT,
+                                 reflection::PRIMITIVE_MEMORY_SCOPE>(
+      NAME_RG_BARRIER);
+}
+
 std::string mangledWGBarrier(BarrierType BT) {
   switch (BT) {
   case BarrierType::NoScope:
@@ -1448,7 +1463,7 @@ FuncSet getAllSyncBuiltinsDecls(Module &M, bool IsWG) {
       continue;
     StringRef FName = F.getName();
     if (IsWG) {
-      if (isWorkGroupBarrier(FName) ||
+      if (isWorkGroupBarrier(FName) || isDeviceBarrier(FName) ||
           /* work group built-ins */
           isWorkGroupBuiltin(FName) ||
           /* built-ins synced as if were called by a single work item */
@@ -1486,7 +1501,7 @@ FuncSet getAllSyncBuiltinsDeclsForKernelUniformCallAttr(Module &M) {
       continue;
     llvm::StringRef FName = F.getName();
     if (isWorkGroupBarrier(FName) || isSubGroupBarrier(FName) ||
-        isKMPAcquireReleaseLock(FName) ||
+        isDeviceBarrier(FName) || isKMPAcquireReleaseLock(FName) ||
         isWorkGroupAsyncOrPipeBuiltin(FName, M)) {
       FSet.insert(&F);
     }
@@ -1790,6 +1805,67 @@ Value *createGetPtrToLocalId(Value *LocalIdValues, Type *LIdsTy, Value *Dim,
   return Builder.CreateInBoundsGEP(
       LIdsTy, LocalIdValues, Indices,
       CompilationUtils::AppendWithDimension("pLocalId_", Dim));
+}
+
+Function *createFunctionDeclaration(StringRef Name, Type *Result,
+                                    ArrayRef<Type *> FuncArgTys, Module *M) {
+  FunctionType *FuncTy = FunctionType::get(
+      /*Result=*/Result,
+      /*Params=*/FuncArgTys,
+      /*isVarArg=*/false);
+
+  assert(FuncTy && "Failed to create new function type");
+
+  Function *NewFunc = Function::Create(
+      /*Type=*/FuncTy,
+      /*Linkage=*/GlobalValue::ExternalLinkage,
+      /*Name=*/Name, M); //(external, no body)
+  assert(NewFunc && "Failed to create new function declaration");
+  NewFunc->setCallingConv(CallingConv::C);
+  return NewFunc;
+}
+
+void SetFunctionAttributeReadNone(Function *Func) {
+  AttrBuilder attBuilder(Func->getContext());
+  attBuilder.addAttribute(
+      Attribute::NoUnwind); /* .addAttribute(Attribute::UWTable) */
+  attBuilder.addMemoryAttr(llvm::MemoryEffects::none());
+  auto FuncFactorialPAL = AttributeList::get(
+      Func->getContext(), AttributeList::FunctionIndex, attBuilder);
+  Func->setAttributes(FuncFactorialPAL);
+}
+
+Instruction *createGetNumsGroup(unsigned Dim, IRBuilderBase &B, Module *M) {
+  const std::string StrNG = CompilationUtils::mangledGetNumGroups();
+  Function *GetNGFunc = M->getFunction(StrNG);
+  if (!GetNGFunc) {
+    // Create a new one
+    Type *Result = IntegerType::get(M->getContext(),
+                                    M->getDataLayout().getPointerSizeInBits(0));
+    Type *FuncArgTys[] = {IntegerType::get(M->getContext(), 32)};
+    GetNGFunc = createFunctionDeclaration(StrNG, Result, FuncArgTys, M);
+    SetFunctionAttributeReadNone(GetNGFunc);
+  }
+  Type *UintType = IntegerType::get(M->getContext(), 32);
+  Value *ConstDim = ConstantInt::get(UintType, Dim, false);
+  return B.CreateCall(
+      GetNGFunc, ConstDim,
+      CompilationUtils::AppendWithDimension("NumsGroups_", Dim));
+}
+
+Value *createGetNumsGroupLinearResult(IRBuilderBase &B, Module *M) {
+  // result = get_nums_group(2) * get_nums_group(1) * get_nums_group(0)
+  Value *NumsGroup2 = createGetNumsGroup(2, B, M);
+  Value *NumsGroup1 = createGetNumsGroup(1, B, M);
+  Value *NumsGroup0 = createGetNumsGroup(0, B, M);
+
+  // get_nums_group(2) * get_nums_group(1)
+  Value *Op0 =
+      B.CreateMul(NumsGroup2, NumsGroup1, "NumsGroup.p0", /*HasNUW=*/true,
+                  /*HasNSW=*/true);
+  // * get_nums_group(0)
+  return B.CreateMul(Op0, NumsGroup0, "NumsGroup.p1", /*HasNUW=*/true,
+                     /*HasNSW=*/true);
 }
 
 void parseKernelArguments(Module *M, Function *F, bool HasTLSGlobals,

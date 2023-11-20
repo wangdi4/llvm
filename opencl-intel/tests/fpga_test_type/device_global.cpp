@@ -1,4 +1,4 @@
-#include "CL/cl_gvp_ext.h"
+#include "CL/cl_internal_ext.h"
 #include "TestsHelpClasses.h"
 #include "base_fixture.h"
 #include "common_utils.h"

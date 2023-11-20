@@ -666,6 +666,10 @@ protected:
 
 // Function which retrieves TaskExecutor singleton object
 ITaskExecutor *GetTaskExecutor();
+
+// Suspend task execution and signal to resume it later.
+extern void launchResumableTask(unsigned int ThreadNum);
+
 } // namespace TaskExecutor
 } // namespace OpenCL
 } // namespace Intel

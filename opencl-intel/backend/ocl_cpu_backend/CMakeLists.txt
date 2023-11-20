@@ -114,6 +114,7 @@ set(OCL_CPU_BACKEND_SOURCE_FILES
     ServiceFactory.cpp
     cpu_builtin_functions.cpp
     opencl_sort_impl.cpp
+    device_barrier_impl.cpp
     debuggingservicewrapper.cpp
     dllmain.cpp
     ocl_debug_builtins.cpp
@@ -169,6 +170,7 @@ add_opencl_library(
   cl_sys_utils
   emutls
   soft_math
+  task_executor
   LINK_LIBS
   ${LLVM_MODULE_LIBS})
 
@@ -190,3 +192,5 @@ endif(ENABLE_SDE)
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
 set_target_properties(${TARGET_NAME_EMU} PROPERTIES FOLDER
                                                     ${BACKEND_FOLDER_NAME})
+
+link_target_with_tbb_library(${TARGET_NAME})

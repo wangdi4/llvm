@@ -382,6 +382,7 @@ bool isWorkGroupMul(StringRef S);
 bool isAsyncWorkGroupCopy(StringRef S);
 bool isAsyncWorkGroupStridedCopy(StringRef S);
 bool isWorkGroupBarrier(StringRef S);
+bool isDeviceBarrier(StringRef S);
 bool isWorkGroupSort(StringRef S);
 bool isWorkGroupKeyOnlySort(StringRef S);
 bool isWorkGroupJointSort(StringRef S);
@@ -466,6 +467,12 @@ std::string mangledGetEnqueuedLocalSize();
 
 /// Returns the mangled name of the function barrier.
 std::string mangledBarrier();
+
+/// Returns the mangled name of the function intel_device_barrier.
+std::string mangledDeviceBarrier();
+
+/// Returns the mangled name of the function intel_device_barrier with scope.
+std::string mangledDeviceBarrierWithScope();
 
 /// Returns the mangled name of the function work_group_barrier.
 std::string mangledWGBarrier(BarrierType BT);
@@ -684,6 +691,30 @@ StringRef getTLSLocalIdsName();
 /// Create GEP of TLS LocalIds.
 Value *createGetPtrToLocalId(Value *LocalIdValues, Type *LIdsTy, Value *Dim,
                              IRBuilderBase &Builder);
+
+/// \brief Add ReadNone attribute to given function.
+/// \param Func the given function.
+void SetFunctionAttributeReadNone(Function *Func);
+
+/// \brief Create function declaration with given name and type specification
+/// \param name the given function name
+/// \param pResult type of return value of the function
+/// \param funcTyArgs types vector of all arguments values of the function
+/// \returns Function new declared function
+Function *createFunctionDeclaration(StringRef name, Type *pResult,
+                                    ArrayRef<Type *> funcTyArgs, Module *M);
+
+/// \brief Create new call instruction to get_nums_group
+/// \param Dim argument of get_nums_group call
+/// \param Builder IRBuilder used to create new instructions.
+/// \returns new created call instruction
+Instruction *createGetNumsGroup(unsigned Dim, IRBuilderBase &Builder,
+                                Module *M);
+
+/// \brief Get nums group linear result
+/// \param Builder IRBuilder used to create new instructions.
+/// \returns The Value of get_nums_group's linear result.
+Value *createGetNumsGroupLinearResult(IRBuilderBase &Builder, Module *M);
 
 /// Collect dependent instructions to move.
 /// \param I The instruction which need to be moved.

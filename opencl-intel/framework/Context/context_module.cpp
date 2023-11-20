@@ -1640,6 +1640,30 @@ cl_int ContextModule::GetKernelWorkGroupInfo(
 }
 
 //////////////////////////////////////////////////////////////////////////
+// ContextModule::GetKernelMaxConcurrentWorkGroupCount
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::GetKernelMaxConcurrentWorkGroupCount(
+    cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim,
+    const size_t *global_work_offset, const size_t *local_work_size,
+    size_t *max_work_group_count) {
+  LOG_INFO(
+      TEXT("Enter GetKernelMaxConcurrentWorkGroupCount (command_queue=%p, "
+           "kernel=%p, "
+           "work_dim=%u, global_work_offset=%zu, max_work_group_count=%p)"),
+      command_queue, kernel, work_dim, global_work_offset, local_work_size,
+      max_work_group_count);
+  SharedPtr<Kernel> pKernel =
+      m_mapKernels.GetOCLObject((_cl_kernel_int *)kernel).DynamicCast<Kernel>();
+  if (NULL == pKernel.GetPtr()) {
+    LOG_ERROR(TEXT("GetOCLObject(%p) returned NULL"), kernel);
+    return CL_INVALID_KERNEL;
+  }
+  return pKernel->GetKernelMaxConcurrentWorkGroupCount(
+      command_queue, work_dim, global_work_offset, local_work_size,
+      max_work_group_count);
+}
+
+//////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateBuffer
 //////////////////////////////////////////////////////////////////////////
 cl_mem ContextModule::CreateBuffer(cl_context clContext, cl_mem_flags clFlags,

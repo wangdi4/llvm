@@ -156,6 +156,7 @@
         clEnqueueMemAdviseINTEL;
 
         clCreateBufferWithPropertiesINTEL;
+        clGetKernelMaxConcurrentWorkGroupCountINTEL;
     local:
         *;
 };

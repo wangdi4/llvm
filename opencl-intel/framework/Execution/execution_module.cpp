@@ -2025,6 +2025,36 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     }
   }
 
+  if (pKernel->getDispatchType() ==
+      CL_KERNEL_EXEC_INFO_DISPATCH_TYPE_CONCURRENT_INTEL) {
+    if (isFPGAEmulator)
+      return CL_INVALID_OPERATION;
+
+    if (cpszLocalWorkSize == NULL)
+      return CL_INVALID_WORK_GROUP_SIZE;
+    for (unsigned int Ui = 0; Ui < uiWorkDim; Ui++) {
+      if (cpszLocalWorkSize[Ui] != 0 &&
+          (0 != (cpszGlobalWorkSize[Ui] % cpszLocalWorkSize[Ui])))
+        return CL_INVALID_WORK_GROUP_SIZE;
+    }
+
+    // Calculate number of work groups and WG size
+    size_t WGCounts = 1;
+    for (unsigned int Ui = 0; Ui < uiWorkDim; Ui++) {
+      size_t GlbSize = cpszGlobalWorkSize[Ui];
+      size_t LclSize = cpszLocalWorkSize[Ui];
+      WGCounts *= GlbSize / LclSize;
+    }
+    size_t MaxWGCounts;
+    pKernel->GetKernelMaxConcurrentWorkGroupCount(
+        clCommandQueue, uiWorkDim, cpszGlobalWorkOffset, cpszLocalWorkSize,
+        &MaxWGCounts);
+    if (MaxWGCounts < WGCounts)
+      return CL_INVALID_VALUE;
+    if (!pDevice->supportConcurrentDispatch())
+      return CL_INVALID_VALUE;
+  }
+
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
   if ((NULL != m_pGPAData) && m_pGPAData->bUseGPA) {
     __itt_task_end(
