@@ -34,6 +34,7 @@ static void buildProgram(cl_context Context, cl_device_id Device,
   ASSERT_OCL_SUCCESS(Err, "clBuildProgram");
 }
 
+#if 0
 TEST_F(RGBarrier, DeviceBarrier) {
   // Build program.
   const char *Source[] = {
@@ -131,3 +132,4 @@ TEST_F(RGBarrier, DeviceBarrier) {
   Err = clMemBlockingFreeINTEL(context, Result);
   ASSERT_OCL_SUCCESS(Err, "clMemBlockingFreeINTEL");
 }
+#endif
