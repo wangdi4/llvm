@@ -4629,6 +4629,10 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
 
           // If this variable has external storage and doesn't require special
           // link handling we defer to its canonical definition.
+#if INTEL_COLLAB
+           // Temporay disable D156368 untill GSD-7071 fixed.
+           if (!LangOpts.OpenMPLateOutline)
+#endif // INTEL_COLLAB
           if (VD->hasExternalStorage() &&
               Res != OMPDeclareTargetDeclAttr::MT_Link)
             return;
