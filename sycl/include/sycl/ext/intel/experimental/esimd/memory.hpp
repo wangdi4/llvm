@@ -2452,7 +2452,7 @@ namespace detail {
 #define __ESIMD_BLOCK_2D_WIDTH_CHECK(OP, BLOCK_WIDTH, NBLOCKS, SIZE)           \
   if constexpr ((OP) == block_2d_op::prefetch) {                               \
     static_assert((BLOCK_WIDTH) * (NBLOCKS) * (SIZE) <= 64 ||                  \
-                      (BLOCK_WIDTH) * (NBLOCKS) * (SIZE) <= 64 == 256,         \
+                      (BLOCK_WIDTH) * (NBLOCKS) * (SIZE) == 256,               \
                   "Unsupported block width for 2D prefetch");                  \
   } else {                                                                     \
     static_assert((BLOCK_WIDTH) * (NBLOCKS) * (SIZE) <= 64,                    \
