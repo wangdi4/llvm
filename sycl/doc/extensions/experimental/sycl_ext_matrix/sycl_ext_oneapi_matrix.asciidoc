@@ -10,8 +10,6 @@
 :encoding: utf-8
 :lang: en
 :dpcpp: pass:[DPC++]
-:INTEL_CUSTOMIZATION:
-:INTEL_FEATURE_CPU_DMR:
 
 // Set the default source code type in this document to C++,
 // for syntax highlighting purposes.  This is needed because
@@ -856,96 +854,33 @@ XMX hardware. Note that these can be returned using
 `ext::oneapi::experimental::info::device::matrix_combinations`.
 
 ==== Intel AMX Supported Combinations
-ifdef::INTEL_CUSTOMIZATION[]
-ifdef::INTEL_FEATURE_CPU_DMR[]
 This is currently available in devices with the architecture
-`architecture::intel_cpu_spr`, `architecture::intel_cpu_gnr` and
-`architecture::intel_cpu_dmr`.
-endif::[]
-ifndef::INTEL_FEATURE_CPU_DMR[]
-This is currently available in devices with the architecture
-`architecture::intel_cpu_spr`, and `architecture::intel_cpu_gnr`.
-endif::[]
-endif::[]
-In this architecture's implementation, the type of the C matrix must
-be the same as the type of the D matrix. Therefore, that common type
-is shown in a single column in the table below.
+`architecture::intel_cpu_spr`, and `architecture::intel_cpu_gnr`. In
+this architecture's implementation, the type of the C matrix must be
+the same as the type of the D matrix. Therefore, that common type is
+shown in a single column in the table below. 
 
 [frame="none",options="header"]
 |======================
 | A type | B type | C and D type | M | N | K | device
 | `matrix_type::uint8`  | `matrix_type::uint8` |
 `matrix_type::sint32`  |  +<=+ 16 |  +<=+ 16 |  +<=+ 64
-ifdef::INTEL_CUSTOMIZATION[]
-ifdef::INTEL_FEATURE_CPU_DMR[]
-|`architecture::intel_cpu_spr`, `architecture::intel_cpu_gnr`,
-`architecture::intel_cpu_dmr`
-endif::[]
-ifndef::INTEL_FEATURE_CPU_DMR[]
-|`architecture::intel_cpu_spr`, `architecture::intel_cpu_gnr`
-endif::[]
-endif::[]
+|`architecture::intel_gpu_spr`, `architecture::intel_gpu_gnr`
 | `matrix_type::uint8`  | `matrix_type::sint8` |
 `matrix_type::sint32`  |  +<=+ 16 |  +<=+ 16 |  +<=+ 64
-ifdef::INTEL_CUSTOMIZATION[]
-ifdef::INTEL_FEATURE_CPU_DMR[]
-|`architecture::intel_cpu_spr`, `architecture::intel_cpu_gnr`,
-`architecture::intel_cpu_dmr`
-endif::[]
-ifndef::INTEL_FEATURE_CPU_DMR[]
-|`architecture::intel_cpu_spr`, `architecture::intel_cpu_gnr`
-endif::[]
-endif::[]
+|`architecture::intel_gpu_spr`, `architecture::intel_gpu_gnr`
 | `matrix_type::sint8`  | `matrix_type::uint8` |
 `matrix_type::sint32`  |  +<=+ 16 |  +<=+ 16 |  +<=+ 64
-ifdef::INTEL_CUSTOMIZATION[]
-ifdef::INTEL_FEATURE_CPU_DMR[]
-|`architecture::intel_cpu_spr`, `architecture::intel_cpu_gnr`,
-`architecture::intel_cpu_dmr`
-endif::[]
-ifndef::INTEL_FEATURE_CPU_DMR[]
-|`architecture::intel_cpu_spr`, `architecture::intel_cpu_gnr`
-endif::[]
-endif::[]
+|`architecture::intel_gpu_spr`, `architecture::intel_gpu_gnr`
 | `matrix_type::sint8`  | `matrix_type::sint8` |
 `matrix_type::sint32`  |  +<=+ 16 |  +<=+ 16 |  +<=+ 64
-ifdef::INTEL_CUSTOMIZATION[]
-ifdef::INTEL_FEATURE_CPU_DMR[]
-|`architecture::intel_cpu_spr`, `architecture::intel_cpu_gnr`,
-`architecture::intel_cpu_dmr`
-endif::[]
-ifndef::INTEL_FEATURE_CPU_DMR[]
-|`architecture::intel_cpu_spr`, `architecture::intel_cpu_gnr`
-endif::[]
-endif::[]
+|`architecture::intel_gpu_spr`, `architecture::intel_gpu_gnr`
 |  `matrix_type::bf16`       |  `matrix_type::bf16`   |
 `matrix_type::fp32`   |  +<=+ 16 |  +<=+ 16   |  +<=+ 32
-ifdef::INTEL_CUSTOMIZATION[]
-ifdef::INTEL_FEATURE_CPU_DMR[]
-|`architecture::intel_cpu_spr`, `architecture::intel_cpu_gnr`,
-`architecture::intel_cpu_dmr`
-endif::[]
-ifndef::INTEL_FEATURE_CPU_DMR[]
-|`architecture::intel_cpu_spr`, `architecture::intel_cpu_gnr`
-endif::[]
-endif::[]
+|`architecture::intel_gpu_spr`, `architecture::intel_gpu_gnr`
 |  `matrix_type::fp16`       |  `matrix_type::fp16`   |
 `matrix_type::fp32`   |  +<=+ 16 |  +<=+ 16   |  +<=+ 32
-ifdef::INTEL_CUSTOMIZATION[]
-ifdef::INTEL_FEATURE_CPU_DMR[]
-|`architecture::intel_cpu_gnr`, `architecture::intel_cpu_dmr`
-endif::[]
-ifndef::INTEL_FEATURE_CPU_DMR[]
-|`architecture::intel_cpu_gnr`
-endif::[]
-endif::[]
-ifdef::INTEL_CUSTOMIZATION[]
-ifdef::INTEL_FEATURE_CPU_DMR[]
-|  `matrix_type::tf32`       |  `matrix_type::tf32`   |
-`matrix_type::fp32`   |  +<=+ 16 |  +<=+ 16   |  +<=+ 16
-|`architecture::intel_cpu_dmr`
-endif::[]
-endif::[]
+|`architecture::intel_gpu_gnr`
 |======================
 
 ==== Intel XMX Supported Combinations

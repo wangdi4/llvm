@@ -10,8 +10,6 @@
 :encoding: utf-8
 :lang: en
 :dpcpp: pass:[DPC++]
-:INTEL_CUSTOMIZATION:
-:INTEL_FEATURE_CPU_DMR:
 
 // Set the default source code type in this document to C++,
 // for syntax highlighting purposes.  This is needed because
@@ -103,11 +101,6 @@ enum class architecture : /* unspecified */ {
   x86_64,
   intel_cpu_spr,
   intel_cpu_gnr,
-ifdef::INTEL_CUSTOMIZATION[]
-ifdef::INTEL_FEATURE_CPU_DMR[]
-  intel_cpu_dmr,
-endif::[]
-endif::[]
   intel_gpu_bdw,
   intel_gpu_skl,
   intel_gpu_kbl,
@@ -215,16 +208,6 @@ the experimental version" for details.
 |Intel Xeon processor codenamed Granite Rapids. The utility of this
 enumeration is currently limited. See the section "Limitations with
 the experimental version" for details.
-
-ifdef::INTEL_CUSTOMIZATION[]
-ifdef::INTEL_FEATURE_CPU_DMR[]
-|`intel_cpu_dmr`
-|-
-|Intel Xeon processor codenamed Diamond Rapids. The utility of this
-enumeration is currently limited. See the section "Limitations with
-the experimental version" for details.
-endif::[]
-endif::[]
 
 |`intel_gpu_bdw`
 |-
@@ -620,18 +603,9 @@ feature, the application must be compiled in ahead-of-time (AOT) mode using
 description of the `-fsycl-targets` option.  These are the target names of the
 form "intel_gpu_*", "nvidia_gpu_*", or "amd_gpu_*".
 
-ifdef::INTEL_CUSTOMIZATION[]
-ifdef::INTEL_FEATURE_CPU_DMR[]
-The architecture enumerations `intel_cpu_spr`, `intel_cpu_gnr` and
-`intel_cpu_dmr` do not currently work with any of the APIs described
-in this extension.
-endif::[]
-ifndef::INTEL_FEATURE_CPU_DMR[]
 The architecture enumerations `intel_cpu_spr` and `intel_cpu_gnr` do
-not currently work with any of the APIs described in this extension.
-endif::[]
-endif::[]
-They cannot be used with the `if_architecture_is` function,
+not currently work with any of the APIs described in this
+extension. They cannot be used with the `if_architecture_is` function,
 the `device::ext_oneapi_architecture_is` function, or the
 `info::device::architecture` query descriptor. They currently exist
 only for use with the

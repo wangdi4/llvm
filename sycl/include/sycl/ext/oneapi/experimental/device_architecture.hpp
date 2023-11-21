@@ -16,11 +16,6 @@ enum class architecture {
   x86_64,
   intel_cpu_spr,
   intel_cpu_gnr,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_DMR
-  intel_cpu_dmr,
-#endif // INTEL_FEATURE_CPU_DMR
-#endif // INTEL_CUSTOMIZATION
   intel_gpu_bdw,
   intel_gpu_skl,
   intel_gpu_kbl,
