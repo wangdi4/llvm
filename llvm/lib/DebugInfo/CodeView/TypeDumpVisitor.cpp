@@ -34,6 +34,9 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/raw_ostream.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/DebugInfo/CodeView/EnumTables.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::codeview;
@@ -636,6 +639,87 @@ Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
   for (uint16_t i = 0; i < Rank; i++) {
     W->printNumber("LowerBound", Bounds[2 * i]);
     W->printNumber("UpperBound", Bounds[2 * i + 1]);
+  }
+  return Error::success();
+}
+
+static Error printRefSymRecordBytes(ScopedPrinter *W, RefSymRecord &Ref,
+                                    bool unindent = true) {
+  W->startLine() << "<Unable to decode referenced symbol data>\n";
+  if (unindent) {
+    W->unindent();
+    W->startLine() << "}\n";
+  }
+  W->printBinaryBlock("Sym Bytes", getBytesAsCharacters(Ref.getSym()));
+  return Error::success();
+}
+
+Error TypeDumpVisitor::visitKnownRecord(CVType &CVR, RefSymRecord &RefSym) {
+  size_t SymSize = RefSym.Sym.size();
+  if (SymSize < 4)
+    return printRefSymRecordBytes(W, RefSym, false);
+
+  uint8_t *SymData = RefSym.Sym.data();
+  uint8_t *DataEnd = SymData + (SymSize - 1);
+  W->startLine() << "Decoded Sym {\n";
+  W->indent();
+  uint8_t *dptr = SymData;
+  auto Length = *(reinterpret_cast<uint16_t *>(dptr));
+  W->printNumber("Length", Length);
+  dptr += 2;
+  auto SymKind = *(reinterpret_cast<uint16_t *>(dptr));
+  W->printEnum("Kind", SymKind, getSymbolTypeNames());
+  dptr += 2;
+
+  // Make a best effort to decode cases known to be used.
+  if (SymKind == SymbolKind::S_CONSTANT) {
+    if (DataEnd - dptr < 4)
+      return printRefSymRecordBytes(W, RefSym);
+    auto Idx = *(reinterpret_cast<uint32_t *>(dptr));
+    TypeIndex TI(Idx);
+    dptr += 4;
+
+    if (DataEnd - dptr < 2)
+      return printRefSymRecordBytes(W, RefSym);
+    const char *cptr = reinterpret_cast<const char *>(dptr);
+    StringRef SRef(cptr, DataEnd - dptr);
+    APSInt N;
+    if (llvm::codeview::consume(SRef, N))
+      return printRefSymRecordBytes(W, RefSym);
+
+    printTypeIndex("Type", TI);
+    W->printNumber("Value", N);
+    if (SRef.empty()) {
+      W->printNumber("Name", 0);
+    } else {
+      W->printString("Name", SRef);
+    }
+  }
+  W->unindent();
+  W->startLine() << "}\n";
+
+  return Error::success();
+}
+
+Error TypeDumpVisitor::visitKnownRecord(CVType &CVR, DimVarURecord &DVU) {
+  auto Rank = DVU.getRank();
+  printTypeIndex("IndexType", DVU.getIndexType());
+  W->printNumber("Rank", Rank);
+  auto Bounds = DVU.getBounds();
+  for (uint16_t i = 0; i < Rank; i++) {
+    printTypeIndex("UpperBound", Bounds[i]);
+  }
+  return Error::success();
+}
+
+Error TypeDumpVisitor::visitKnownRecord(CVType &CVR, DimVarLURecord &DVLU) {
+  auto Rank = DVLU.getRank();
+  printTypeIndex("IndexType", DVLU.getIndexType());
+  W->printNumber("Rank", Rank);
+  auto Bounds = DVLU.getBounds();
+  for (uint16_t i = 0; i < Rank; i++) {
+    printTypeIndex("LowerBound", Bounds[2 * i]);
+    printTypeIndex("UpperBound", Bounds[2 * i + 1]);
   }
   return Error::success();
 }

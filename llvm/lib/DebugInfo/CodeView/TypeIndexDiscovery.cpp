@@ -381,6 +381,14 @@ static void discoverTypeIndices(ArrayRef<uint8_t> Content, TypeLeafKind Kind,
   case TypeLeafKind::LF_DIMCONLU:
     Refs.push_back({TiRefKind::TypeRef, 0, 1});
     break;
+  case TypeLeafKind::LF_DIMVARU:
+    Count = support::endian::read32le(Content.data());
+    Refs.push_back({TiRefKind::TypeRef, 4, Count + 1});
+    break;
+  case TypeLeafKind::LF_DIMVARLU:
+    Count = support::endian::read32le(Content.data());
+    Refs.push_back({TiRefKind::TypeRef, 4, (Count * 2) + 1});
+    break;
 #endif //INTEL_CUSTOMIZATION
   default:
     break;

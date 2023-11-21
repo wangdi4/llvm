@@ -283,6 +283,19 @@ Error TypeNameComputer::visitKnownRecord(CVType &CVR,
                                          DimConLURecord &DimConLU) {
   return Error::success();
 }
+
+Error TypeNameComputer::visitKnownRecord(CVType &CVR, RefSymRecord &RefSym) {
+  return Error::success();
+}
+
+Error TypeNameComputer::visitKnownRecord(CVType &CVR, DimVarURecord &DimVarU) {
+  return Error::success();
+}
+
+Error TypeNameComputer::visitKnownRecord(CVType &CVR,
+                                         DimVarLURecord &DimVarLU) {
+  return Error::success();
+}
 #endif //INTEL_CUSTOMIZATION
 
 std::string llvm::codeview::computeTypeName(TypeCollection &Types,

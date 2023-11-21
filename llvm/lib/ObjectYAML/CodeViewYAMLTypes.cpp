@@ -649,6 +649,22 @@ template <> void LeafRecordImpl<DimConLURecord>::map(IO &IO) {
   IO.mapRequired("Rank", Record.Rank);
   IO.mapRequired("Bounds", Record.Bounds);
 }
+
+template <> void LeafRecordImpl<RefSymRecord>::map(IO &IO) {
+  IO.mapRequired("Sym", Record.Sym);
+}
+
+template <> void LeafRecordImpl<DimVarURecord>::map(IO &IO) {
+  IO.mapRequired("IndexType", Record.IndexType);
+  IO.mapRequired("Rank", Record.Rank);
+  IO.mapRequired("Bounds", Record.Bounds);
+}
+
+template <> void LeafRecordImpl<DimVarLURecord>::map(IO &IO) {
+  IO.mapRequired("IndexType", Record.IndexType);
+  IO.mapRequired("Rank", Record.Rank);
+  IO.mapRequired("Bounds", Record.Bounds);
+}
 #endif //INTEL_CUSTOMIZATION
 
 template <> void MemberRecordImpl<OneMethodRecord>::map(IO &IO) {

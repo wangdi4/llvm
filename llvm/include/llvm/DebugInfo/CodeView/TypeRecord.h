@@ -1089,6 +1089,96 @@ public:
   uint16_t Rank;
   SmallVector<int64_t, 5> Bounds;
 };
+
+// LF_REFSYM
+// This is used to describe a symbol that is referenced by a type record.
+// Type records cannot directly reference a symbol, so a copy of the
+// referenced symbol is contained within.
+//    2 bytes        *
+//   +--------------+--------+
+//   | LF_REFSYM    | sym    |
+//   +--------------+--------+
+//
+//    sym:  A copy of the referenced symbol including the length field
+//
+class RefSymRecord : public TypeRecord {
+public:
+  RefSymRecord() = default;
+  explicit RefSymRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
+  RefSymRecord(ArrayRef<uint8_t> sym, size_t Size)
+      : TypeRecord(TypeRecordKind::RefSym), Sym(sym) {
+    Sym.resize(Size);
+  }
+
+  ArrayRef<uint8_t> getSym() const { return Sym; }
+
+  std::vector<uint8_t> Sym;
+};
+
+// LF_DIMVARU
+// This is used to encode the dimension info of a Fortran dimensioned array
+// with default lower bound and variable upper bound.
+//    2 bytes          4 bytes     4 bytes    rank
+//   +----------------+-----------+----------+-------------+
+//   | LF_DIMVARU     |   rank    | @index   | @var        |
+//   +----------------+-----------+----------+-------------+
+//
+//   rank:   The number of dimensions.
+//   @index: The type of the array index.
+//   @var:   An array of type indices of LF_REFSYM records describing
+//           the upper bound of each dimension of the array. If any one
+//           upper bound of an array is variable then all upper bounds
+//           of the array must be described using LF_REFSYM records.
+//
+class DimVarURecord : public TypeRecord {
+public:
+  DimVarURecord() = default;
+  explicit DimVarURecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
+  DimVarURecord(uint32_t Rank, TypeIndex IndexType, ArrayRef<TypeIndex> Bounds)
+      : TypeRecord(TypeRecordKind::DimVarU), Rank(Rank), IndexType(IndexType),
+        Bounds(Bounds.begin(), Bounds.end()) {}
+
+  TypeIndex getIndexType() const { return IndexType; }
+  uint32_t getRank() const { return Rank; }
+  ArrayRef<TypeIndex> getBounds() const { return Bounds; }
+
+  uint32_t Rank;
+  TypeIndex IndexType;
+  SmallVector<TypeIndex, 3> Bounds;
+};
+
+// LF_DIMVARLU
+// This is used to encode the dimension info of a Fortran dimensioned array
+// with variable lower and variable upper bounds.
+//    2 bytes          4 bytes     4 bytes    2*rank
+//   +----------------+-----------+----------+-------------+
+//   | LF_DIMVARLU    |   rank    | @index   | @var        |
+//   +----------------+-----------+----------+-------------+
+//
+//   rank:   The number of dimensions.
+//   @index: The type of the array index.
+//   @var:   An array of type indices of LF_REFSYM records describing
+//           the variable bounds of each dimension of the array. If any one
+//           dimension of an array is variable then all bounds of the array
+//           must be described using LF_REFSYM records.  The ordering
+//           is lower bound followed by upper bound for each dimension.
+//
+class DimVarLURecord : public TypeRecord {
+public:
+  DimVarLURecord() = default;
+  explicit DimVarLURecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
+  DimVarLURecord(uint32_t Rank, TypeIndex IndexType, ArrayRef<TypeIndex> Bounds)
+      : TypeRecord(TypeRecordKind::DimVarLU), Rank(Rank), IndexType(IndexType),
+        Bounds(Bounds.begin(), Bounds.end()) {}
+
+  TypeIndex getIndexType() const { return IndexType; }
+  uint32_t getRank() const { return Rank; }
+  ArrayRef<TypeIndex> getBounds() const { return Bounds; }
+
+  uint32_t Rank;
+  TypeIndex IndexType;
+  SmallVector<TypeIndex, 5> Bounds;
+};
 #endif //INTEL_CUSTOMIZATION
 
 } // end namespace codeview

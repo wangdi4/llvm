@@ -591,6 +591,75 @@ Error MinimalTypeDumpVisitor::visitKnownRecord(CVType &CVR,
 
   return Error::success();
 }
+
+static Error dumpRefSymRecordBytes(LinePrinter &P, RefSymRecord &Ref) {
+  P.formatLine("<Unable to decode referenced symbol data>");
+  P.formatBinary("symbol data: ", Ref.Sym, 0);
+  return Error::success();
+}
+
+Error MinimalTypeDumpVisitor::visitKnownRecord(CVType &CVR, RefSymRecord &Ref) {
+  size_t SymSize = Ref.Sym.size();
+  if (SymSize < 4)
+    return dumpRefSymRecordBytes(P, Ref);
+
+  uint8_t *SymData = Ref.Sym.data();
+  uint8_t *DataEnd = SymData + (SymSize - 1);
+  uint8_t *dptr = SymData;
+  auto Length = *(reinterpret_cast<uint16_t *>(dptr));
+  dptr += 2;
+
+  auto SymKind = *(reinterpret_cast<uint16_t *>(dptr));
+  dptr += 2;
+  P.formatLine("symbol = {0} [size = {1}]",
+               formatSymbolKind(SymbolKind(SymKind)), Length);
+
+  // Make a best effort to decode cases known to be used.
+  if (SymKind == SymbolKind::S_CONSTANT) {
+    if (DataEnd - dptr < 4)
+      return dumpRefSymRecordBytes(P, Ref);
+    auto Idx = *(reinterpret_cast<uint32_t *>(dptr));
+    TypeIndex TI(Idx);
+    dptr += 4;
+
+    if (DataEnd - dptr < 2)
+      return dumpRefSymRecordBytes(P, Ref);
+    const char *cptr = reinterpret_cast<const char *>(dptr);
+    StringRef SRef(cptr, DataEnd - dptr);
+    APSInt N;
+    if (llvm::codeview::consume(SRef, N))
+      return dumpRefSymRecordBytes(P, Ref);
+    AutoIndent Indent(P, 9);
+    if (!SRef.empty())
+      P.format(" `{0}`", SRef);
+    P.formatLine("type = {0}, value = {1}", TI, toString(N, 10));
+  } else {
+    return dumpRefSymRecordBytes(P, Ref);
+  }
+
+  return Error::success();
+}
+
+Error MinimalTypeDumpVisitor::visitKnownRecord(CVType &CVR,
+                                               DimVarURecord &DVU) {
+  uint16_t Rank = DVU.Rank;
+  P.formatLine("index type: {0}, rank: {1}", DVU.IndexType, Rank);
+  for (uint16_t i = 0; i < Rank; i++)
+    P.formatLine("Rank {0} bounds: ({1})", i + 1, DVU.Bounds[i]);
+
+  return Error::success();
+}
+
+Error MinimalTypeDumpVisitor::visitKnownRecord(CVType &CVR,
+                                               DimVarLURecord &DVLU) {
+  uint16_t Rank = DVLU.Rank;
+  P.formatLine("index type: {0}, rank: {1}", DVLU.IndexType, Rank);
+  for (uint16_t i = 0; i < Rank; i++)
+    P.formatLine("Rank {0} bounds: ({1}, {2})", i + 1, DVLU.Bounds[2 * i],
+                 DVLU.Bounds[2 * i + 1]);
+
+  return Error::success();
+}
 #endif //INTEL_CUSTOMIZATION
 
 Error MinimalTypeDumpVisitor::visitKnownMember(CVMemberRecord &CVR,

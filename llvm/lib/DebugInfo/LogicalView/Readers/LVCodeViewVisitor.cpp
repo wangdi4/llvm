@@ -1,4 +1,21 @@
 //===-- LVCodeViewVisitor.cpp ---------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -2686,6 +2703,53 @@ Error LVLogicalVisitor::visitKnownRecord(CVType &Record,
       for (uint32_t I = 0; I < DSize; ++I)
         W.printNumber("Data", Data[I]);
     }
+    printTypeEnd(Record);
+  });
+  return Error::success();
+}
+
+// LF_REFSYM (TPI)/(IPI)
+Error LVLogicalVisitor::visitKnownRecord(CVType &Record, RefSymRecord &Ref,
+                                         TypeIndex TI, LVElement *Element) {
+  LLVM_DEBUG({
+    printTypeBegin(Record, TI, Element, StreamTPI);
+    ArrayRef<uint8_t> SymData = Ref.getSym();
+    W.getOStream() << "SymData:" << SymData.data() << "\n";
+    printTypeEnd(Record);
+  });
+  return Error::success();
+}
+
+// LF_DIMVARU (TPI)/(IPI)
+Error LVLogicalVisitor::visitKnownRecord(CVType &Record, DimVarURecord &DVU,
+                                         TypeIndex TI, LVElement *Element) {
+  LLVM_DEBUG({
+    printTypeBegin(Record, TI, Element, StreamTPI);
+    printTypeIndex("IndexType", DVU.getIndexType(), StreamIPI);
+    W.printNumber("Rank", DVU.getRank());
+
+    ArrayRef<TypeIndex> BoundsArr = DVU.getBounds();
+    uint32_t Size = BoundsArr.size();
+    ListScope Bounds(W, "Bounds");
+    for (uint32_t I = 0; I < Size; ++I)
+      printTypeIndex("Bound", BoundsArr[I], StreamIPI);
+    printTypeEnd(Record);
+  });
+  return Error::success();
+}
+
+// LF_DIMVARLU (TPI)/(IPI)
+Error LVLogicalVisitor::visitKnownRecord(CVType &Record, DimVarLURecord &DVLU,
+                                         TypeIndex TI, LVElement *Element) {
+  LLVM_DEBUG({
+    printTypeBegin(Record, TI, Element, StreamTPI);
+    printTypeIndex("IndexType", DVLU.getIndexType(), StreamIPI);
+    W.printNumber("Rank", DVLU.getRank());
+    ArrayRef<TypeIndex> BoundsArr = DVLU.getBounds();
+    uint32_t Size = BoundsArr.size();
+    ListScope Bounds(W, "Bounds");
+    for (uint32_t I = 0; I < Size; ++I)
+      printTypeIndex("Bound", BoundsArr[I], StreamIPI);
     printTypeEnd(Record);
   });
   return Error::success();

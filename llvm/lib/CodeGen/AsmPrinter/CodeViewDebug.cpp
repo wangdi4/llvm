@@ -1872,6 +1872,32 @@ static bool isOneDimensionalWithDefaultLowerBound(const DICompositeType *Ty) {
   return LowerBound == 1;
 }
 
+static bool hasVariableBounds(const DINodeArray Subranges) {
+  uint16_t Rank = Subranges.size();
+  for (int i = 0; i < Rank; i++) {
+    const DISubrange *Subrange = cast<DISubrange>(Subranges[i]);
+    auto *LB = Subrange->getLowerBound().dyn_cast<DIVariable *>();
+    auto *UB = Subrange->getLowerBound().dyn_cast<DIVariable *>();
+    if (LB || UB)
+      return true;
+  }
+  return false;
+}
+
+static DIType* getVariableBoundType(const DINodeArray Subranges) {
+  uint16_t Rank = Subranges.size();
+  for (int i = 0; i < Rank; i++) {
+    const DISubrange *Subrange = cast<DISubrange>(Subranges[i]);
+    auto *LB = Subrange->getLowerBound().dyn_cast<DIVariable *>();
+    auto *UB = Subrange->getLowerBound().dyn_cast<DIVariable *>();
+    if (LB)
+      return LB->getType();
+    if (UB)
+      return UB->getType();
+  }
+  return nullptr;
+}
+
 // Construct a Host Reference OEM Record, which has the following layout:
 //   LF_OEM (2)    0x100F
 //   OEM    (2)    LF_OEM_IDENT_MSF90
@@ -1969,46 +1995,78 @@ codeview::TypeIndex CodeViewDebug::getDimInfo(const DINodeArray Subranges) {
   if (I != DimInfoIndices.end())
     return I->second;
 
-  // Collect bounds.
-  SmallVector<int64_t, 5> Bounds;
+  TypeIndex DimInfo;
   uint16_t Rank = Subranges.size();
-  for (int i = 0; i < Rank; i++) {
-    const DISubrange *Subrange = cast<DISubrange>(Subranges[i]);
-
-    // FIXME: Once we support LF_REFSYM/LF_DIMVARLU, we should
-    // check for variable lowerbound and encode it using those
-    // records. For now, we use the constant lowerbound 1 in
-    // place of the variable lowerbound.
-    int64_t LowerBound = getConstantLowerBound(Subrange);
-    Bounds.push_back(LowerBound);
-
-    if (auto *UI = Subrange->getUpperBound().dyn_cast<ConstantInt *>()) {
-      int64_t UpperBound = UI->getSExtValue();
-      Bounds.push_back(UpperBound);
-    } else if (auto *CI = Subrange->getCount().dyn_cast<ConstantInt *>()) {
-      int64_t Count = CI->getSExtValue();
-      Bounds.push_back(Count - LowerBound + 1);
-    } else if (auto *UI = Subrange->getUpperBound().dyn_cast<DIVariable *>()) {
-      // FIXME: In this case, we should use LF_REFSYM/LF_DIMVARLU to encode
-      // the bounds. Until the handling of those LF records are in place,
-      // let's make upperbound the same as lowerbound.
-      Bounds.push_back(LowerBound);
-    } else {
-      // When we reach here, the array is assumed size (e.g. A(5,*)).
-      // Emulating what ifort does in this case, we make upperbound
-      // the same as lowerbound.
-      Bounds.push_back(LowerBound);
-    }
-  }
-
   TypeIndex IndexType = getPointerSizeInBytes() == 8
                             // Should be
                             //   ? TypeIndex(SimpleTypeKind::Int64Quad)
                             // but FEE can only handle int32 bounds.
                             ? TypeIndex(SimpleTypeKind::Int32Long)
                             : TypeIndex(SimpleTypeKind::Int32Long);
-  DimConLURecord DCR(IndexType, Rank, Bounds);
-  TypeIndex DimInfo = TypeTable.writeLeafType(DCR);
+
+  if (hasVariableBounds(Subranges)) {
+    SmallVector<TypeIndex, 5> Bounds;
+    TypeIndex LowerBound, UpperBound;
+    DIType *BoundType = getVariableBoundType(Subranges);
+    assert(BoundType && "Subranges variable bound type not found.");
+    for (int i = 0; i < Rank; i++) {
+      const DISubrange *Subrange = cast<DISubrange>(Subranges[i]);
+      std::string BoundName("");
+      if (auto *LI = Subrange->getLowerBound().dyn_cast<DIVariable *>()) {
+        LowerBound = lowerTypeRefSymToVariable(LI);
+      } else {
+        APSInt Val(getConstantLowerBound(Subrange));
+        LowerBound = lowerTypeRefSymToConstant(BoundType, Val, BoundName);
+      }
+      Bounds.push_back(LowerBound);
+
+      if (auto *UI = Subrange->getUpperBound().dyn_cast<DIVariable *>()) {
+        UpperBound = lowerTypeRefSymToVariable(UI);
+        Bounds.push_back(UpperBound);
+      } else if (auto *UI =
+                     Subrange->getUpperBound().dyn_cast<ConstantInt *>()) {
+        APSInt UVal(UI->getSExtValue());
+        UpperBound = lowerTypeRefSymToConstant(BoundType, UVal, BoundName);
+        Bounds.push_back(UpperBound);
+      } else if (auto *CI = Subrange->getCount().dyn_cast<ConstantInt *>()) {
+        int64_t LowerBound = getConstantLowerBound(Subrange);
+        APSInt CVal(CI->getSExtValue() - LowerBound + 1);
+        UpperBound = lowerTypeRefSymToConstant(BoundType, CVal, BoundName);
+        Bounds.push_back(UpperBound);
+      } else {
+        // When we reach here, the array is assumed size (e.g. A(5,*)).
+        // Emulating what ifort does in this case, we make upperbound
+        // the same as lowerbound.
+        Bounds.push_back(LowerBound);
+      }
+    }
+    DimVarLURecord DVLUR(Rank, IndexType, Bounds);
+    DimInfo = TypeTable.writeLeafType(DVLUR);
+  } else {
+    // Collect bounds.
+    SmallVector<int64_t, 5> Bounds;
+    uint16_t Rank = Subranges.size();
+    for (int i = 0; i < Rank; i++) {
+      const DISubrange *Subrange = cast<DISubrange>(Subranges[i]);
+      int64_t LowerBound = getConstantLowerBound(Subrange);
+      Bounds.push_back(LowerBound);
+
+      if (auto *UI = Subrange->getUpperBound().dyn_cast<ConstantInt *>()) {
+        int64_t UpperBound = UI->getSExtValue();
+        Bounds.push_back(UpperBound);
+      } else if (auto *CI = Subrange->getCount().dyn_cast<ConstantInt *>()) {
+        int64_t Count = CI->getSExtValue();
+        Bounds.push_back(Count - LowerBound + 1);
+      } else {
+        // When we reach here, the array is assumed size (e.g. A(5,*)).
+        // Emulating what ifort does in this case, we make upperbound
+        // the same as lowerbound.
+        Bounds.push_back(LowerBound);
+      }
+    }
+    DimConLURecord DCR(IndexType, Rank, Bounds);
+    DimInfo = TypeTable.writeLeafType(DCR);
+  }
   auto InsertResult = DimInfoIndices.insert({Tuple, DimInfo});
   (void)InsertResult;
   assert(InsertResult.second && "Subranges was already assigned a type index");
@@ -2026,6 +2084,49 @@ TypeIndex CodeViewDebug::lowerTypeFortranExplicitArray(const DICompositeType *Ty
   TypeIndex ResultTypeIndex = TypeTable.writeLeafType(DAR);
 
   return ResultTypeIndex;
+}
+
+TypeIndex CodeViewDebug::lowerTypeRefSymToConstant(const DIType *DTy,
+                                                   APSInt &Value,
+                                                   StringRef Name) {
+  uint8_t SymRecord[MaxRecordLength];
+  uint16_t SymRecordSize = 0;
+  uint16_t Kind = unsigned(SymbolKind::S_CONSTANT);
+  TypeIndex TI = getTypeIndex(DTy);
+
+  BinaryStreamWriter Writer(SymRecord, llvm::endianness::little);
+  CodeViewRecordIO IO(Writer);
+  cantFail(IO.beginRecord(MaxRecordLength));
+  cantFail(IO.mapInteger(SymRecordSize));
+  cantFail(IO.mapInteger(Kind));
+  cantFail(IO.mapInteger(TI));
+  cantFail(IO.mapEncodedInteger(Value));
+
+  // Truncate the name string so that the overall record size is less than the
+  // maximum allowed.
+  StringRef Str(Name.take_front(MaxRecordLength - Writer.getOffset() - 1));
+  cantFail(IO.mapStringZ(Str));
+
+  // backpatch the record size
+  SymRecordSize = static_cast<uint16_t>(Writer.getOffset()) - 2;
+  Writer.setOffset(0);
+  cantFail(IO.mapInteger(SymRecordSize));
+  cantFail(IO.endRecord());
+
+  RefSymRecord RSR(SymRecord, SymRecordSize + 2);
+  TypeIndex ResultTypeIndex = TypeTable.writeLeafType(RSR);
+
+  return ResultTypeIndex;
+}
+
+TypeIndex CodeViewDebug::lowerTypeRefSymToVariable(const DIVariable *DVar) {
+  // LF_REFSYM is used to describe variables that represent array bounds.
+  // The LF_REFSYM record contains a "copy" of the symbol being referenced
+  // so it can only accommodate simplistic records (no relocs, etc.).
+  // FIXME: Add handling for S_LOCAL, etc. here.  For now use a constant.
+  APSInt Val(APInt(DVar->getType()->getSizeInBits(), 1));
+  return lowerTypeRefSymToConstant(DVar->getType(), Val,
+                                   std::string(DVar->getName()));
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2110,10 +2211,8 @@ TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
 }
 
 // This function lowers a Fortran character type (DIStringType).
-// Note that it handles only the character*n variant (using SizeInBits
-// field in DIString to describe the type size) at the moment.
-// Other variants (leveraging the StringLength and StringLengthExp
-// fields in DIStringType) remain TBD.
+// Variants leveraging the StringLengthExp fields in DIStringType
+// remain TBD.
 TypeIndex CodeViewDebug::lowerTypeString(const DIStringType *Ty) {
   TypeIndex CharType = TypeIndex(SimpleTypeKind::NarrowCharacter);
   uint64_t ArraySize = Ty->getSizeInBits() >> 3;
@@ -2128,9 +2227,19 @@ TypeIndex CodeViewDebug::lowerTypeString(const DIStringType *Ty) {
 
   TypeIndex ArrayIndex = TypeTable.writeLeafType(AR);
 #if INTEL_CUSTOMIZATION
-  if (!DisableIntelCodeViewExtensions && moduleIsInFortran() &&
-      ArraySize == 0) {
-    ArrayIndex = lowerTypeOemMSF90Descriptor(Ty, ArrayIndex);
+  if (!DisableIntelCodeViewExtensions && moduleIsInFortran()) {
+    DIVariable *LenVar = Ty->getStringLength();
+    if (LenVar) {
+      SmallVector<TypeIndex, 3> Bounds;
+      TypeIndex LenRef = lowerTypeRefSymToVariable(LenVar);
+      Bounds.push_back(LenRef);
+      DimVarURecord DVUR(1, IndexType, Bounds);
+      TypeIndex DimInfo = TypeTable.writeLeafType(DVUR);
+
+      DimArrayRecord DAR(CharType, DimInfo, Name);
+      ArrayIndex = TypeTable.writeLeafType(DAR);
+    } else if (ArraySize == 0)
+      ArrayIndex = lowerTypeOemMSF90Descriptor(Ty, ArrayIndex);
   }
 #endif // INTEL_CUSTOMIZATION
   return ArrayIndex;

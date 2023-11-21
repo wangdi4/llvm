@@ -472,6 +472,9 @@ private:
   DenseMap<const MDTuple *, codeview::TypeIndex> DimInfoIndices;
   codeview::TypeIndex getDimInfo(const DINodeArray Subranges);
   codeview::TypeIndex lowerTypeFortranExplicitArray(const DICompositeType *Ty);
+  codeview::TypeIndex lowerTypeRefSymToConstant(const DIType *DTy,
+                                                APSInt &Value, StringRef Name);
+  codeview::TypeIndex lowerTypeRefSymToVariable(const DIVariable *DVar);
 #endif // INTEL_CUSTOMIZATION
   codeview::TypeIndex lowerTypeArray(const DICompositeType *Ty);
   codeview::TypeIndex lowerTypeString(const DIStringType *Ty);
