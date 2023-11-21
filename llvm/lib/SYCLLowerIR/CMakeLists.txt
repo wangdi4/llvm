@@ -45,10 +45,11 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME vc-intrinsics.git)
-      # Author: Igor Gorban <igor.gorban@intel.com>
-      # Date:   Wed Aug 2 21:22:15 2023 +0000
-      # Fixed warning from statical code analizer
-      set(LLVMGenXIntrinsics_GIT_TAG bccb1ae99ca821983bd0c16e642590da3935652e)
+      # Author: Artur Gainullin <artur.gainullin@intel.com>
+      # Date:   Thu Nov 9 00:37:24 2023 +0000
+
+      # Replace old kernel with rewritten kernel in metadata only since LLVM 17
+      set(LLVMGenXIntrinsics_GIT_TAG a8403355ada112b72d1fc7db29fd04325eecee60)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -58,10 +59,12 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-	# Author: Maksim Shelegov <maksim.shelegov@intel.com>
-	# Date: Tue, 24 Oct 2023 15:27:10 -0700
-	# Prevent creation of scalable vectors
-        set(LLVMGenXIntrinsics_GIT_TAG e3b70a7de1d827f19633bb008920e72908e70475)
+        # commit 4c07e57cf57e8a62bef8571a5f185b64d55abdd6
+        # Author: Artur Gainullin <artur.gainullin@intel.com>
+        # Date:   Thu Nov 9 07:19:45 2023 -0800
+        #
+        #    Replace old kernel with rewritten kernel in metadata only since LLVM 17 (#286)
+        set(LLVMGenXIntrinsics_GIT_TAG 4c07e57cf57e8a62bef8571a5f185b64d55abdd6)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
