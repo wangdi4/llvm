@@ -928,6 +928,8 @@ static ReturnInst *getSingleRetInst(Function *F) {
 // Returns true if BB doesn't have any side effects.
 static bool basicBlockHasNoSideEffects(BasicBlock *BB) {
   for (auto &Inst : *BB) {
+    if (Inst.isLifetimeStartOrEnd())
+      continue;
     if (isa<DbgInfoIntrinsic>(Inst))
       continue;
     if (Inst.mayHaveSideEffects())

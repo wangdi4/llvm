@@ -4389,11 +4389,13 @@ bb13:                                             ; preds = %bb8
   resume { ptr, i32 } %i14
 
 bb15:                                             ; preds = %bb4
+  call void @llvm.lifetime.start.p0(i64 8, ptr %i2)
   %i16 = getelementptr inbounds %"__SOADT_AR_class._ZTSN11xercesc_2_713ValueVectorOfIPNS_8IC_FieldEEE.xercesc_2_7::ValueVectorOf", ptr %i2, i64 0, i32 3, !intel-tbaa !1546
   %i17 = load ptr, ptr %i16, align 8, !tbaa !1546
   %i18 = zext i32 %arg1 to i64
   %i19 = getelementptr inbounds %"__SOADT_EL__DPRE_class._ZTSN11xercesc_2_713FieldValueMapE.xercesc_2_7::FieldValueMap", ptr %i17, i64 %i18, i32 2
   %i20 = load ptr, ptr %i19, align 8, !tbaa !1547
+  call void @llvm.lifetime.end.p0(i64 8, ptr %i2)
   br label %bb21
 
 bb21:                                             ; preds = %bb15, %bb
