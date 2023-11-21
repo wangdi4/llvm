@@ -349,9 +349,9 @@ private:
   const char *CountersEnd = nullptr;                           // INTEL
   const char *NamesStart = nullptr;                            // INTEL
   const char *NamesEnd = nullptr;                              // INTEL
-  uint64_t BitmapDelta;
-  const char *BitmapStart;
-  const char *BitmapEnd;
+  uint64_t BitmapDelta = 0;                                    // INTEL
+  const char *BitmapStart = nullptr;                           // INTEL
+  const char *BitmapEnd = nullptr;                             // INTEL
   // After value profile is all read, this pointer points to
   // the header of next profile data (if exists)
   const uint8_t *ValueDataStart = nullptr; // INTEL
