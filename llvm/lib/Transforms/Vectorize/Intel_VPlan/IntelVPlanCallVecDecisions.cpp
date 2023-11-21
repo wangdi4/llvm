@@ -459,18 +459,28 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   VPBasicBlock *VPBB = VPCall->getParent();
   bool IsMasked = VPBB->getPredicate() != nullptr;
 
-  // Function calls with available vector variants.
-  if (auto VecVariant = matchVectorVariant(VPCall, IsMasked, VF, TTI)) {
-    VPCall->setVectorizeWithVectorVariant(std::move(VecVariant->first),
-                                          VecVariant->second);
-    return;
+  // Track if this call has a match via vector-library based vectorization.
+  bool HasVecLibMatch =
+      UnderlyingCI &&
+      TLI->isFunctionVectorizable(*UnderlyingCI, ElementCount::getFixed(VF),
+                                  IsMasked, TTI);
+
+  // Function calls with available vector variants. This is not preferred if
+  // call already has a vector-library match.
+  if (!HasVecLibMatch) {
+    if (auto VecVariant = matchVectorVariant(VPCall, IsMasked, VF, TTI)) {
+      VPCall->setVectorizeWithVectorVariant(std::move(VecVariant->first),
+                                            VecVariant->second);
+      return;
+    }
   }
 
   // Use masked vector variant with all-zero mask for unmasked calls without
-  // matching vector variant.
+  // matching vector variant. This is not preferred if call already has a
+  // vector-library match.
   // TODO: Same optimization can be done for calls with vectorizable library
   // function.
-  if (!IsMasked) {
+  if (!IsMasked && !HasVecLibMatch) {
     if (auto MaskedVecVariant = matchVectorVariant(VPCall, true, VF, TTI)) {
       VPCall->setVectorizeWithVectorVariant(std::move(MaskedVecVariant->first),
                                             MaskedVecVariant->second,
@@ -521,8 +531,7 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
 
   // Vectorizable library function like SVML calls. Set vector function name in
   // CallVecProperties.
-  if (TLI->isFunctionVectorizable(*UnderlyingCI, ElementCount::getFixed(VF),
-                                  IsMasked, TTI)) {
+  if (HasVecLibMatch) {
     VPCall->setVectorizeWithLibraryFn(TLI->getVectorizedFunction(
         CalledFuncName, ElementCount::getFixed(VF), IsMasked, TTI));
     return;
