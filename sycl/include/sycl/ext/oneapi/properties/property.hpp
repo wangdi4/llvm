@@ -219,8 +219,10 @@ enum PropKind : uint32_t {
   CacheControlReadAssertion = 49,
   CacheControlWrite = 50,
   FloatingPointControls = 51,
+  BuildOptions = 52,
+  BuildLog = 53,
   // PropKindSize must always be the last value.
-  PropKindSize = 52,
+  PropKindSize = 54,
 };
 
 // This trait must be specialized for all properties and must have a unique
