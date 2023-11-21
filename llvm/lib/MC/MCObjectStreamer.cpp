@@ -243,7 +243,6 @@ static bool canReuseDataFragment(const MCDataFragment &F,
   // already has instructions (see MCELFStreamer::emitInstToData for details)
   if (Assembler.isBundlingEnabled())
     return Assembler.getRelaxAll();
-
   // If the subtarget is changed mid fragment we start a new fragment to record
   // the new STI.
   return !STI || F.getSubtargetInfo() == STI;

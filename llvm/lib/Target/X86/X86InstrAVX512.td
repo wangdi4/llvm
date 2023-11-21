@@ -1244,13 +1244,13 @@ def : Pat<(v8bf16 (extract_subvector (v32bf16 VR512:$src), (iPTR 8))),
                   (v16bf16 (EXTRACT_SUBREG (v32bf16 VR512:$src), sub_ymm)),
                   (iPTR 1)))>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
 
 let Predicates = [HasFP16, HasVLX] in
 def : Pat<(v8f16 (extract_subvector (v32f16 VR512:$src), (iPTR 8))),
           (v8f16 (VEXTRACTF32x4Z256rr
                   (v16f16 (EXTRACT_SUBREG (v32f16 VR512:$src), sub_ymm)),
                   (iPTR 1)))>;
+#endif // INTEL_CUSTOMIZATION
 
 // Additional patterns for handling a bitcast between the vselect and the
 // extract_subvector.
@@ -1900,11 +1900,13 @@ let Predicates = [HasBWI] in {
   def : Pat<(v32f16 (X86VBroadcast (f16 FR16X:$src))),
             (VPBROADCASTWZrr (COPY_TO_REGCLASS FR16X:$src, VR128X))>;
 }
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX256P_Or_HasBWI] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasVLX, HasBWI] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8f16 (X86VBroadcastld16 addr:$src)),
             (VPBROADCASTWZ128rm addr:$src)>;
   def : Pat<(v16f16 (X86VBroadcastld16 addr:$src)),
@@ -1949,8 +1951,7 @@ let Predicates = [HasVLX, HasBWI] in {
             (VPBROADCASTWZ256rr (COPY_TO_REGCLASS BFR16X:$src, VR128X))>;
 }
 #endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
+
 #if INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX256P_Or_HasBWI] in {
   def : Pat<(v8bf16 (X86VBroadcastld16 addr:$src)),
@@ -5329,6 +5330,7 @@ defm VMOVSHZ : avx512_move_scalar<"vmovsh", X86Movsh, X86vzload16, f16x_info,
                                   HasFP16>,
                                   VEX_LIG, T_MAP5XS, EVEX_CD8<16, CD8VT1>;
 
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX256P_Or_HasFP16_NoVL] in {
 def : Pat<(store BFR16X:$src, addr:$dst),(VMOVSHZmr bf16mem:$dst, (COPY_TO_REGCLASS BFR16X:$src, FR16X))>;
@@ -5336,7 +5338,6 @@ def : Pat<(store BFR16X:$src, addr:$dst),(VMOVSHZmr bf16mem:$dst, (COPY_TO_REGCL
 }
 #endif // INTEL_FEATURE_ISA_AVX256P
 
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
 // Defined some patterns to do bf16's scalar move lowering.
 let Predicates = [HasFP16, HasVLX] in {
@@ -5973,7 +5974,7 @@ let Predicates = [HasAVX256P_Or_HasFP16_NoVL] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasFP16] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
+
   def : Pat<(v8f16 (X86vzmovl (v8f16 VR128X:$src))),
             (VMOVSHZrr (v8f16 (AVX512_128_SET0)), VR128X:$src)>;
 
@@ -5982,7 +5983,7 @@ let Predicates = [HasFP16] in {
             (SUBREG_TO_REG (i32 0),
              (v8f16 (VMOVSHZrr (v8f16 (AVX512_128_SET0)),
               (v8f16 (EXTRACT_SUBREG (v16f16 VR256X:$src), sub_xmm)))), sub_xmm)>;
-#if INTEL_CUSTOMIZATION
+
 #if INTEL_FEATURE_ISA_AVX256P
   def : Pat<(v8f16 (X86vzload16 addr:$src)),
             (VMOVSHZrm addr:$src)>;
@@ -6015,9 +6016,7 @@ let Predicates = [HasFP16] in {
             (SUBREG_TO_REG (i32 0), (VMOVSHZrm addr:$src), sub_xmm)>;
 }
 #endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
 let Predicates = [HasFP16] in {
   def : Pat<(v8bf16 (X86vzmovl (v8bf16 VR128X:$src))),
@@ -6043,9 +6042,7 @@ let Predicates = [HasFP16] in {
             (SUBREG_TO_REG (i32 0), (VMOVSHZrm addr:$src), sub_xmm)>;
 }
 #endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX256P_Or_HasFP16_NoVL] in {
   def : Pat<(v8bf16 (X86vzmovl (v8bf16 VR128X:$src))),
@@ -6064,9 +6061,7 @@ let Predicates = [HasAVX256P_Or_HasFP16_NoVL] in {
             (SUBREG_TO_REG (i32 0), (VMOVSHZrm addr:$src), sub_xmm)>;
 }
 #endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX256P_Or_HasFP16_NoVL] in {
 #else // INTEL_FEATURE_ISA_AVX256P

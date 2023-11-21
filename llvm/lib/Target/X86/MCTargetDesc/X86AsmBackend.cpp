@@ -779,7 +779,6 @@ bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
                                             unsigned &RemainingSize) const {
   if (!RF.getAllowAutoPadding())
     return false;
-
   // If the instruction isn't fully relaxed, shifting it around might require a
   // larger value for one of the fixups then can be encoded.  The outer loop
   // will also catch this before moving to the next instruction, but we need to

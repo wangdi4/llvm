@@ -5783,8 +5783,6 @@ let Predicates = [HasAVX, NoAVX256P_And_NoBWI] in
   def : Pat<(store bf16:$src, addr:$dst), (VPEXTRWmr addr:$dst, (v8i16 (COPY_TO_REGCLASS BFR16:$src, VR128)), 0)>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
-
-
 /// SS41I_extract32 - SSE 4.1 extract 32 bits to int reg or memory destination
 multiclass SS41I_extract32<bits<8> opc, string OpcodeStr> {
   def rr : SS4AIi8<opc, MRMDestReg, (outs GR32:$dst),
@@ -7726,7 +7724,7 @@ def : Pat<(nontemporalstore FR64:$src, addr:$dst),
 // VBROADCAST - Load from memory and broadcast to all elements of the
 //              destination operand
 //
-let isReMaterializable = 1, canFoldAsLoad = 1 in
+let isReMaterializable = 1, canFoldAsLoad = 1 in // INTEL
 class avx_broadcast_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
                            X86MemOperand x86memop, ValueType VT,
                            PatFrag bcast_frag, SchedWrite Sched> :

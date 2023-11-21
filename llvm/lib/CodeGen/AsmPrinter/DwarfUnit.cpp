@@ -814,8 +814,8 @@ void DwarfUnit::constructTypeDIE(DIE &Buffer, const DIDerivedType *DTy) {
     if (auto TypeDIE =
             getOrCreateTypeDIE(cast<DIDerivedType>(DTy)->getClassType()))
       addDIEEntry(Buffer, dwarf::DW_AT_containing_type, *TypeDIE);
-#endif
   }
+#endif // INTEL_CUSTOMIZATION
 
   addAccess(Buffer, DTy->getFlags());
 

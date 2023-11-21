@@ -492,7 +492,7 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
       if (!LoopIsOuterMostWithPredecessor(CurLoop) && !IAOpt)
         continue;
     }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
     if (!PreRegAlloc)
       HoistRegionPostRA(CurLoop, CurPreheader);
@@ -616,7 +616,7 @@ void MachineLICMBase::ProcessMI(MachineInstr *MI, BitVector &PhysRegDefs,
   if (Def && !RuledOut) {
     int FI = std::numeric_limits<int>::min();
     if ((!HasNonInvariantUse && IsLICMCandidate(*MI, CurLoop)) ||
-        (TII->isLoadFromStackSlot(*MI, FI) &&
+        (TII->isLoadFromStackSlot(*MI, FI) && // INTEL
          MFI->isSpillSlotObjectIndex(FI))) { // INTEL
       Candidates.push_back(CandidateInfo(MI, Def, FI));
       return; // INTEL
@@ -661,7 +661,7 @@ void MachineLICMBase::ProcessMI(MachineInstr *MI, BitVector &PhysRegDefs,
          "Unfolded a load into multiple instructions!");
   MachineBasicBlock *MBB = MI->getParent();
   HoistableLoadCandidates.push_back(HoistableLoadInfo(MBB, MI, RC, Reg, NewMIs[0], NewMIs[1], FI));
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Walk the specified region of the CFG and hoist loop invariants out to the
@@ -828,7 +828,7 @@ void MachineLICMBase::HoistRegionPostRA(MachineLoop *CurLoop,
     HoistPostRA(HoistableLoad.NewMIs[0], AllocReg, CurLoop, CurPreheader);
   }
   MRI->clearVirtRegs();
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Add register 'Reg' to the livein sets of BBs in the current loop, and make
@@ -1536,7 +1536,7 @@ MachineInstr *MachineLICMBase::ExtractHoistableLoad(MachineInstr *MI,
 #if INTEL_CUSTOMIZATION
   if (!Success)
     return nullptr;
-#endif
+#endif // INTEL_CUSTOMIZATION
   assert(NewMIs.size() == 2 &&
          "Unfolded a load into multiple instructions!");
   MachineBasicBlock *MBB = MI->getParent();
@@ -1737,6 +1737,9 @@ unsigned MachineLICMBase::Hoist(MachineInstr *MI, MachineBasicBlock *Preheader,
     // Otherwise, splice the instruction to the preheader.
     Preheader->splice(Preheader->getFirstTerminator(),MI->getParent(),MI);
 
+    // Since we are moving the instruction out of its basic block, we do not
+    // retain its debug location. Doing so would degrade the debugging
+    // experience and adversely affect the accuracy of profiling information.
     assert(!MI->isDebugInstr() && "Should not hoist debug inst");
 
 #if INTEL_CUSTOMIZATION
@@ -1768,9 +1771,6 @@ unsigned MachineLICMBase::Hoist(MachineInstr *MI, MachineBasicBlock *Preheader,
         MI->setDebugLoc(NewDIL);
       }
     }
-    // Since we are moving the instruction out of its basic block, we do not
-    // retain its debug location. Doing so would degrade the debugging
-    // experience and adversely affect the accuracy of profiling information.
     // MI->setDebugLoc(DebugLoc());
 #endif // INTEL_CUSTOMIZATION
 

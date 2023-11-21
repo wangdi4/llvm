@@ -2053,9 +2053,8 @@ bool HexagonLoopIdiomRecognize::processCopyingStore(Loop *CurLoop,
   // read or write the memory region we're storing to.  For memcpy, this
   // includes the load that feeds the stores.  Check for an alias by generating
   // the base address and checking everything.
-  Value *StoreBasePtr = Expander.expandCodeFor(
-      StoreEv->getStart(), Builder.getPtrTy(SI->getPointerAddressSpace()),
-      ExpPt);
+  Value *StoreBasePtr = Expander.expandCodeFor(StoreEv->getStart(),
+       Builder.getPtrTy(SI->getPointerAddressSpace()), ExpPt);
   Value *LoadBasePtr = nullptr;
 
   bool Overlap = false;
@@ -2125,9 +2124,8 @@ CleanupAndExit:
 
   // For a memcpy, we have to make sure that the input array is not being
   // mutated by the loop.
-  LoadBasePtr = Expander.expandCodeFor(
-      LoadEv->getStart(), Builder.getPtrTy(LI->getPointerAddressSpace()),
-      ExpPt);
+  LoadBasePtr = Expander.expandCodeFor(LoadEv->getStart(),
+      Builder.getPtrTy(LI->getPointerAddressSpace()), ExpPt);
 
   SmallPtrSet<Instruction*, 2> Ignore2;
   Ignore2.insert(SI);
@@ -2268,8 +2266,8 @@ CleanupAndExit:
       Type *PtrTy = PointerType::get(Ctx, 0);
       Type *VoidTy = Type::getVoidTy(Ctx);
       Module *M = Func->getParent();
-      FunctionCallee Fn = M->getOrInsertFunction(HexagonVolatileMemcpyName,
-                                                 VoidTy, PtrTy, PtrTy, Int32Ty);
+      FunctionCallee Fn = M->getOrInsertFunction(
+	 HexagonVolatileMemcpyName, VoidTy, PtrTy, PtrTy, Int32Ty);
 
       const SCEV *OneS = SE->getConstant(Int32Ty, 1);
       const SCEV *BECount32 = SE->getTruncateOrZeroExtend(BECount, Int32Ty);
@@ -2280,8 +2278,8 @@ CleanupAndExit:
         if (Value *Simp = simplifyInstruction(In, {*DL, TLI, DT}))
           NumWords = Simp;
 
-      NewCall =
-          CondBuilder.CreateCall(Fn, {StoreBasePtr, LoadBasePtr, NumWords});
+      NewCall = CondBuilder.CreateCall(Fn,
+					{StoreBasePtr, LoadBasePtr, NumWords});
     } else {
       NewCall = CondBuilder.CreateMemMove(
           StoreBasePtr, SI->getAlign(), LoadBasePtr, LI->getAlign(), NumBytes);

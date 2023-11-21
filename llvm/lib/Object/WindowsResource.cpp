@@ -736,7 +736,7 @@ WindowsResourceCOFFWriter::write(uint32_t TimeDateStamp) {
 // it's okay to *not* copy the trailing zero.
 static void coffnamecpy(char (&Dest)[COFF::NameSize], StringRef Src) {
   assert(Src.size() <= COFF::NameSize &&
-         "Src is not larger than COFF::NameSize");
+         "Src is not larger than COFF::NameSize"); // INTEL
   assert((Src.size() == COFF::NameSize || Dest[Src.size()] == '\0') &&
          "Dest not zeroed upon initialization");
 #if INTEL_CUSTOMIZATION

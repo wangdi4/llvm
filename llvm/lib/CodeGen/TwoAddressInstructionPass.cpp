@@ -178,7 +178,7 @@ class TwoAddressInstructionPass : public MachineFunctionPass {
   bool isDefTooClose(Register Reg, unsigned Dist, MachineInstr *MI);
 
   bool rescheduleMIBelowKill(MachineBasicBlock::iterator &mi,
-                             MachineBasicBlock::iterator &nmi,
+                             MachineBasicBlock::iterator &nmi, // INTEL
                              Register Reg, bool Sink3AddrInstr = false); // INTEL
   bool rescheduleKillAboveMI(MachineBasicBlock::iterator &mi,
                              MachineBasicBlock::iterator &nmi, Register Reg);
@@ -862,10 +862,9 @@ void TwoAddressInstructionPass::processCopy(MachineInstr *MI) {
 /// If there is one more local instruction that reads 'Reg' and it kills 'Reg,
 /// consider moving the instruction below the kill instruction in order to
 /// eliminate the need for the copy.
-bool TwoAddressInstructionPass::
-rescheduleMIBelowKill(MachineBasicBlock::iterator &mi,
-                      MachineBasicBlock::iterator &nmi,
-                      Register Reg, bool Sink3AddrInstr) { // INTEL
+bool TwoAddressInstructionPass::rescheduleMIBelowKill(
+    MachineBasicBlock::iterator &mi, MachineBasicBlock::iterator &nmi,
+    Register Reg, bool Sink3AddrInstr) { // INTEL
   // Bail immediately if we don't have LV or LIS available. We use them to find
   // kills efficiently.
   if (!LV && !LIS)

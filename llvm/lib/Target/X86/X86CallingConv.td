@@ -566,7 +566,7 @@ def RetCC_X86_64 : CallingConv<[
   CCDelegateTo<RetCC_X86_64_C>
 ]>;
 
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def RetCC_SVML : CallingConv<[
 
 #if INTEL_FEATURE_ISA_BF16_BASE
@@ -591,14 +591,14 @@ def RetCC_SVML : CallingConv<[
            CCAssignToReg<[ZMM0, ZMM1]>>
 ]>;
 
-// endif INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 // This is the return-value convention used for the entire X86 backend.
 let Entry = 1 in
 def RetCC_X86 : CallingConv<[
 
   // Check if this is the Intel OpenCL built-ins calling convention
   CCIfCC<"CallingConv::Intel_OCL_BI", CCDelegateTo<RetCC_Intel_OCL_BI>>,
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   CCIfCC<"CallingConv::Intel_OCL_BI_AVX", CCDelegateTo<RetCC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::Intel_OCL_BI_AVX512", CCDelegateTo<RetCC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::SVML", CCDelegateTo<RetCC_SVML>>,
@@ -608,7 +608,7 @@ def RetCC_X86 : CallingConv<[
   CCIfCC<"CallingConv::SVML_Unified", CCDelegateTo<RetCC_SVML>>,
   CCIfCC<"CallingConv::SVML_Unified_256", CCDelegateTo<RetCC_SVML>>,
   CCIfCC<"CallingConv::SVML_Unified_512", CCDelegateTo<RetCC_SVML>>,
-// endif INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   CCIfSubtarget<"is64Bit()", CCDelegateTo<RetCC_X86_64>>,
   CCDelegateTo<RetCC_X86_32>
 ]>;
@@ -1267,34 +1267,28 @@ def CC_X86_32_HiPE : CallingConv<[
   CCIfType<[i32, f32], CCAssignToStack<4, 4>>
 ]>;
 
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def CC_SVML : CallingConv<[
 
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[bf16, f16, f32, f64, v16i8, v8i16, v4i32, v2i64, v8bf16, v8f16, v4f32, v2f64],
 #else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[f16, f32, f64, v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
 #endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
            CCAssignToReg<[XMM0, XMM1, XMM2, XMM3, XMM4, XMM5]>>,
   
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v16bf16, v16f16, v8f32, v4f64, v32i8, v16i16, v8i32, v4i64],
 #else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v16f16, v8f32, v4f64, v32i8, v16i16, v8i32, v4i64],
 #endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
            CCAssignToReg<[YMM0, YMM1, YMM2, YMM3, YMM4, YMM5]>>,
 
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v32bf16, v32f16, v16f32, v8f64, v64i8, v32i16, v16i32, v8i64],
 #else // INTEL_FEATURE_ISA_BF16_BASE
   CCIfType<[v32f16, v16f32, v8f64, v64i8, v32i16, v16i32, v8i64],
 #endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
            CCAssignToReg<[ZMM0, ZMM1, ZMM2, ZMM3, ZMM4, ZMM5]>>,
 
   CCIfType<[v2i1, v4i1, v8i1, v16i1, v32i1],
@@ -1305,7 +1299,7 @@ def CC_Intel_Features_Init : CallingConv<[
   CCIfType<[i32], CCAssignToReg<[EAX, ECX]>>,
   CCIfType<[i64], CCAssignToReg<[RAX, RCX]>>
 ]>;
-// endif INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 // X86-64 Intel OpenCL built-ins calling convention.
 def CC_Intel_OCL_BI : CallingConv<[
@@ -1396,7 +1390,7 @@ def CC_X86_64 : CallingConv<[
 let Entry = 1 in
 def CC_X86 : CallingConv<[
   CCIfCC<"CallingConv::Intel_OCL_BI", CCDelegateTo<CC_Intel_OCL_BI>>,
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   CCIfCC<"CallingConv::Intel_OCL_BI_AVX", CCDelegateTo<CC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::Intel_OCL_BI_AVX512", CCDelegateTo<CC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::SVML", CCDelegateTo<CC_SVML>>,
@@ -1408,7 +1402,7 @@ def CC_X86 : CallingConv<[
   CCIfCC<"CallingConv::SVML_Unified_512", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::Intel_Features_Init",
     CCDelegateTo<CC_Intel_Features_Init>>,
-// endif INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   CCIfSubtarget<"is64Bit()", CCDelegateTo<CC_X86_64>>,
   CCDelegateTo<CC_X86_32>
 ]>;
@@ -1494,7 +1488,7 @@ def CSR_Win64_Intel_OCL_BI_AVX : CalleeSavedRegs<(add RBX, RBP, RDI, RSI, R12,
                                                   R13, R14, R15,
                                                   (sequence "YMM%u", 6, 15))>;
 
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // TODO: For now, as a workaround for CMPLRLLVM-28381, We remove K4~K7 from CSRs
 // since callee assumes lower 16-bits are preserved while K regs are 64-bits if
 // they are listed in CSRs. In the future, we will put lower-16-bits of K4~K7 in
@@ -1601,7 +1595,7 @@ def CSR_32_Intel_Features_Init : CalleeSavedRegs<(add CSR_32, ECX, EDX,
 def CSR_64_Intel_Features_Init : CalleeSavedRegs<(add CSR_Win64_NoSSE, RCX, RDX,
                                                   R8, R9, R10, R11,
                                                   (sequence "XMM%u", 0, 15))>;
-// endif INTEL_CUSTOMIZATION
+#endif //  INTEL_CUSTOMIZATION
 // Register calling convention preserves few GPR and XMM8-15
 def CSR_32_RegCall_NoSSE : CalleeSavedRegs<(add ESI, EDI, EBX, EBP)>;
 def CSR_32_RegCall       : CalleeSavedRegs<(add CSR_32_RegCall_NoSSE,

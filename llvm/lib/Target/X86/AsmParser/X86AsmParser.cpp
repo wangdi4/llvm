@@ -3855,8 +3855,8 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     }
   }
 
-  switch (Inst.getOpcode()) {
 #if INTEL_CUSTOMIZATION
+  switch (Inst.getOpcode()) {
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   //E11x
   case X86::TPERMBrr:
@@ -3901,9 +3901,8 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     break;
   }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#endif // INTEL_CUSTOMIZATION
   }
-
+#endif // INTEL_CUSTOMIZATION
   // Check that we aren't mixing AH/BH/CH/DH with REX prefix. We only need to
   // check this with the legacy encoding, VEX/EVEX/XOP don't use REX.
   if ((TSFlags & X86II::EncodingMask) == 0) {

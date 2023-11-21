@@ -325,7 +325,7 @@ public:
         SL(std::make_unique<SDAGSwitchLowering>(this, funcinfo)),
         FuncInfo(funcinfo), SwiftError(swifterror) {}
 
-  void init(GCFunctionInfo *gfi, AAResults *AA,
+  void init(GCFunctionInfo *gfi, AAResults *AA,                     // INTEL
             const TargetLibraryInfo *li,                            // INTEL
             const TargetTransformInfo *tti,                         // INTEL
             AssumptionCache *ac,                                    // INTEL

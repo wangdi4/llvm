@@ -1,4 +1,21 @@
 //===- llvm/lib/Target/X86/X86ISelCallLowering.cpp - Call lowering --------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -128,7 +145,7 @@ MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
   if (isSVMLCallingConv(CC) && VT.isSimple() && VT.isVector() &&
       VT.getVectorElementType() == MVT::i1)
     return VT.getSimpleVT();
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   if (VT.isVector()) {
     if (VT.getVectorElementType() == MVT::i1 && Subtarget.hasAVX512()) {
@@ -167,7 +184,7 @@ unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
   if (isSVMLCallingConv(CC) && VT.isSimple() && VT.isVector() &&
       VT.getVectorElementType() == MVT::i1)
     return 1;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   if (VT.isVector()) {
     if (VT.getVectorElementType() == MVT::i1 && Subtarget.hasAVX512()) {
@@ -2068,8 +2085,8 @@ SDValue X86TargetLowering::LowerFormalArguments(
 
 #if INTEL_CUSTOMIZATION
    if(shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
-#endif // INTEL_CUSTOMIZATION
       shouldDisableArgRegFromCSR(CallConv) ||
+#endif // INTEL_CUSTOMIZATION
       F.hasFnAttribute("no_caller_saved_registers")) {
     MachineRegisterInfo &MRI = MF.getRegInfo();
     for (std::pair<Register, Register> Pair : MRI.liveins())

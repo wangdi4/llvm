@@ -861,7 +861,7 @@ static const X86MemoryFoldTableEntry BroadcastFoldTable4[] = {
   { X86::VSUBPSZ256rrk,        X86::VSUBPSZ256rmbk,        TB_BCAST_SS },
   { X86::VSUBPSZrrk,           X86::VSUBPSZrmbk,           TB_BCAST_SS },
 };
-#endif
+#endif // INTEL_CUSTOMIZATION
 // Table to map instructions safe to broadcast using a different width from the
 // element width.
 static const X86MemoryFoldTableEntry BroadcastSizeFoldTable2[] = {
@@ -1038,7 +1038,7 @@ const X86MemoryFoldTableEntry *llvm::lookupBroadcastFoldTableByOpNum(unsigned Re
 
   return lookupFoldTableImpl(FoldTable, RegOp);
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
 

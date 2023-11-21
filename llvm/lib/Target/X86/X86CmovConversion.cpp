@@ -619,7 +619,7 @@ bool X86CmovConverterPass::checkForProfitableCmovCandidates(
         }
       }
     }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
     if (WorthOpGroup)
       CmovInstGroups.push_back(Group);

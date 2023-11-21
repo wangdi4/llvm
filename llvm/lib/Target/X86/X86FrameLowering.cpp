@@ -2540,9 +2540,7 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
       if (Opc == X86::POP32r || Opc == X86::POP64r
           || Opc == X86::POPP64r || Opc == X86::POP2 || Opc == X86::POP2P
       ) {
-#endif // INTEL_CUSTOMIZATION
         Offset += SlotSize;
-#if INTEL_CUSTOMIZATION
         // Compared to pop, pop2 introduces more stack offset (one more register).
         if (Opc == X86::POP2 || Opc == X86::POP2P)
           Offset += SlotSize;

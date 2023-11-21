@@ -111,7 +111,7 @@ namespace X86 {
     // SNaN
     FPCLASS_SNAN = 0x80,
   };
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // X86 specific condition code. These correspond to X86_*_COND in
   // X86InstrInfo.td. They must be kept in synch.
@@ -745,11 +745,6 @@ namespace X86II {
     /// byte like data16 or rep.
     PrefixByte = 10,
 
-    /// MRM[0-7][rm] - These forms are used to represent instructions that use
-    /// a Mod/RM byte, and use the middle field to hold extended opcode
-    /// information.  In the intel manual these are represented as /0, /1, ...
-    ///
-
 #if INTEL_CUSTOMIZATION
     /// MRMDestRegCC - This form is used for the cfcmov instructions, which use
     /// the Mod/RM byte to specify the operands reg(r/m) and reg(reg) and also
@@ -789,6 +784,11 @@ namespace X86II {
     /// byte to specify a destination which in this case is memory and operand 3
     /// with VEX.VVVV, and also encodes a condition code.
     MRMDestMem4VOp3CC = 20,
+
+    /// MRM[0-7][rm] - These forms are used to represent instructions that use
+    /// a Mod/RM byte, and use the middle field to hold extended opcode
+    /// information.  In the intel manual these are represented as /0, /1, ...
+    ///
 
     // Instructions operate on a register Reg/Opcode operand not the r/m field.
     MRMr0 = 21,
@@ -1127,8 +1127,8 @@ namespace X86II {
 
     // Force VEX encoding
     ExplicitVEXShift = NoTrackShift + 1,
-    ExplicitVEXPrefix = 1ULL << ExplicitVEXShift,
 #if INTEL_CUSTOMIZATION
+    ExplicitVEXPrefix = 1ULL << ExplicitVEXShift,
 
     // Force output with prefix
     EmitVEXOrEVEXPrefixShift = ExplicitVEXShift + 1,

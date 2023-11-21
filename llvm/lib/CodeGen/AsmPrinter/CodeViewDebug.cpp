@@ -2131,9 +2131,9 @@ TypeIndex CodeViewDebug::lowerTypeRefSymToVariable(const DIVariable *DVar) {
 #endif // INTEL_CUSTOMIZATION
 
 TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
+#if INTEL_CUSTOMIZATION
   DINodeArray Elements = Ty->getElements();
 
-#if INTEL_CUSTOMIZATION
   if (!DisableIntelCodeViewExtensions && moduleIsInFortran() &&
        Elements.size() > 0) {
     if (auto *GenSubrange = dyn_cast<DIGenericSubrange>(Elements[0])) {
@@ -2225,8 +2225,8 @@ TypeIndex CodeViewDebug::lowerTypeString(const DIStringType *Ty) {
   // Create a type of character array of ArraySize.
   ArrayRecord AR(CharType, IndexType, ArraySize, Name);
 
-  TypeIndex ArrayIndex = TypeTable.writeLeafType(AR);
 #if INTEL_CUSTOMIZATION
+  TypeIndex ArrayIndex = TypeTable.writeLeafType(AR);
   if (!DisableIntelCodeViewExtensions && moduleIsInFortran()) {
     DIVariable *LenVar = Ty->getStringLength();
     if (LenVar) {
@@ -2241,8 +2241,8 @@ TypeIndex CodeViewDebug::lowerTypeString(const DIStringType *Ty) {
     } else if (ArraySize == 0)
       ArrayIndex = lowerTypeOemMSF90Descriptor(Ty, ArrayIndex);
   }
-#endif // INTEL_CUSTOMIZATION
   return ArrayIndex;
+#endif // INTEL_CUSTOMIZATION
 }
 
 TypeIndex CodeViewDebug::lowerTypeBasic(const DIBasicType *Ty) {

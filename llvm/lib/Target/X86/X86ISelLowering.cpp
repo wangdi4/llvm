@@ -1,3 +1,5 @@
+//===-- X86ISelLowering.cpp - X86 DAG Lowering Implementation -------------===//
+// INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
 //
@@ -13,7 +15,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 //
-//===-- X86ISelLowering.cpp - X86 DAG Lowering Implementation -------------===//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -80,7 +82,6 @@
 #include <bitset>
 #include <cctype>
 #include <numeric>
-
 using namespace llvm;
 
 #define DEBUG_TYPE "x86-isel"
@@ -571,8 +572,8 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 #else // INTEL_FEATURE_ISA_PREFETCHST2
   if (Subtarget.hasSSEPrefetch() || Subtarget.hasThreeDNow())
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
-#endif // INTEL_CUSTOMIZATION
     setOperationAction(ISD::PREFETCH      , MVT::Other, Legal);
+#endif // INTEL_CUSTOMIZATION
   if (Subtarget.hasSSEPrefetch() || Subtarget.hasThreeDNow())
     setOperationAction(ISD::PREFETCH      , MVT::Other, Custom);
 
@@ -684,8 +685,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     addRegisterClass(MVT::bf16, Subtarget.hasAVX3() ? &X86::BFR16XRegClass
                                                       : &X86::BFR16RegClass);
 #endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
+
 #if INTEL_FEATURE_ISA_AVX256P
     addRegisterClass(MVT::f32, Subtarget.hasAVX3() ? &X86::FR32XRegClass
 #else // INTEL_FEATURE_ISA_AVX256P
@@ -19662,7 +19662,7 @@ SDValue X86TargetLowering::LowerGlobalOrExternal(SDValue Op, SelectionDAG &DAG,
   } else {
     OpFlags = Subtarget.classifyGlobalReference(GV, Mod);
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
   bool HasPICReg = isGlobalRelativeToPICBase(OpFlags);
   bool NeedsLoad = isGlobalStubReference(OpFlags);
 
@@ -21824,6 +21824,7 @@ SDValue X86TargetLowering::LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const {
               LowerTruncateVecPackWithSignBits(VT, In, DL, Subtarget, DAG))
         return SignPack;
 
+    // Pre-AVX512 see if we can make use of PACKSS/PACKUS.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
     if (!Subtarget.hasAVX3())
@@ -21831,7 +21832,6 @@ SDValue X86TargetLowering::LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const {
     if (!Subtarget.hasAVX512())
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-    // Pre-AVX512 see if we can make use of PACKSS/PACKUS.
       return LowerTruncateVecPack(VT, In, DL, Subtarget, DAG);
 
     // Otherwise let default legalization handle it.
@@ -25123,7 +25123,7 @@ static SDValue EmitAVX512Test(SDValue Op0, SDValue Op1, ISD::CondCode CC,
     X86CC = DAG.getTargetConstant(X86Cond, dl, MVT::i8);
     return DAG.getNode(X86ISD::KORTEST, dl, MVT::i32, Res, Res);
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Must be a bitcast from vXi1.
   if (Op0.getOpcode() != ISD::BITCAST)
@@ -32102,34 +32102,31 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
 #else // INTEL_FEATURE_ISA_AVX_COMPRESS
     if (Subtarget.hasVBMI2() && EltSizeInBits > 8) {
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#endif // INTEL_CUSTOMIZATION
       if (IsFSHR)
         std::swap(Op0, Op1);
 
       if (IsCstSplat) {
         uint64_t ShiftAmt = APIntShiftAmt.urem(EltSizeInBits);
         SDValue Imm = DAG.getTargetConstant(ShiftAmt, DL, MVT::i8);
-#if INTEL_CUSTOMIZATION
+
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
         if (Subtarget.hasAVXCOMPRESS())
           return DAG.getNode(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL,
                              Op0.getSimpleValueType(), Op0, Op1, Imm);
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#endif // INTEL_CUSTOMIZATION
         return getAVX512Node(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL, VT,
                              {Op0, Op1, Imm}, DAG, Subtarget);
       }
-#if INTEL_CUSTOMIZATION
+
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
       if (Subtarget.hasAVXCOMPRESS())
         return DAG.getNode(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL,
                            Op0.getSimpleValueType(), Op0, Op1, Amt);
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#endif // INTEL_CUSTOMIZATION
       return getAVX512Node(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL, VT,
                            {Op0, Op1, Amt}, DAG, Subtarget);
     }
-#if INTEL_CUSTOMIZATION
+
 #if INTEL_FEATURE_ISA_AVX256P
     if (Subtarget.hasAVX256P() && EltSizeInBits > 8) {
       if (IsFSHR)
@@ -46402,7 +46399,7 @@ bool isBitcastUsedBySetcc(SDNode *BitCast) {
   // Not used by a setcc so kmov is probably ok.
   return false;
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 bool X86TargetLowering::isGuaranteedNotToBeUndefOrPoisonForTargetNode(
     SDValue Op, const APInt &DemandedElts, const SelectionDAG &DAG,
@@ -51294,7 +51291,7 @@ static SDValue combineMulToPCMPGTW(SDNode *N, SelectionDAG &DAG,
                                ISD::SETGT);
   return DAG.getBitcast(VT, DAG.getNode(ISD::SIGN_EXTEND, dl, HalfVT, Setcc));
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 static SDValue combineMul(SDNode *N, SelectionDAG &DAG,
                           TargetLowering::DAGCombinerInfo &DCI,
@@ -51339,7 +51336,7 @@ static SDValue combineMul(SDNode *N, SelectionDAG &DAG,
       }
     }
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   if (DCI.isBeforeLegalize() && VT.isVector())
     return reduceVMULWidth(N, DAG, Subtarget);
@@ -51608,7 +51605,7 @@ static SDValue combineShiftLeft(SDNode *N, SelectionDAG &DAG) {
                                   DAG.getConstant(Mask << ShAmt, dl, MVT::i64));
     }
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // fold (shl (and (setcc_c), c1), c2) -> (and setcc_c, (c1 << c2))
   // since the result of setcc_c is all zero's or all ones.
@@ -54556,7 +54553,7 @@ static SDValue combineTruncateWithSat(SDValue In, EVT VT, const SDLoc &DL,
 #else  // INTEL_FEATURE_ISA_AVX256P
       Subtarget.hasAVX512() && (InSVT != MVT::i16 || Subtarget.hasBWI()) &&
 #endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION``
+#endif // INTEL_CUSTOMIZATION
       (SVT == MVT::i32 || SVT == MVT::i16 || SVT == MVT::i8)) {
     unsigned TruncOpc = 0;
     SDValue SatVal;
@@ -54898,7 +54895,7 @@ static SDValue combineLoad(SDNode *N, SelectionDAG &DAG,
       return DCI.CombineTo(N, {SubVec, MaskLoad.getValue(1)}, true);
     }
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
   return SDValue();
 }
 
@@ -55267,7 +55264,7 @@ static SDValue combineStore(SDNode *N, SelectionDAG &DAG,
                              St->getAddressingMode(), St->isTruncatingStore());
     }
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // If this is a store of a scalar_to_vector to v1i1, just use a scalar store.
   // This will avoid a copy to k-register.
@@ -55810,6 +55807,7 @@ static SDValue combineToHorizontalAddSub(SDNode *N, SelectionDAG &DAG,
     }
     break;
   }
+
   return SDValue();
 }
 
@@ -55947,7 +55945,7 @@ static SDValue combineFMUL(SDNode *N, SelectionDAG &DAG,
   DAG.ReplaceAllUsesOfValueWith(R2Mul, NewR2AddSub);
   return NewR1AddSub;
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 //  Try to combine the following nodes
 //  t29: i64 = X86ISD::Wrapper TargetConstantPool:i64
@@ -57024,10 +57022,10 @@ static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
     }
   }
 
+#if INTEL_CUSTOMIZATION
   if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, DCI, Subtarget))
     return FPLogic;
 
-#if INTEL_CUSTOMIZATION
   if (SDValue V = combineBitSelectXor(N, DAG, Subtarget))
     return V;
 
@@ -57745,7 +57743,6 @@ static SDValue combineExtSetcc(SDNode *N, SelectionDAG &DAG,
   // We don't have CMPP Instruction for vxf16
   if (N0.getOperand(0).getValueType().getVectorElementType() == MVT::f16)
     return SDValue();
-
   // We can only do this if the vector size in 256 bits or less.
   unsigned Size = VT.getSizeInBits();
   if (Size > 256 && Subtarget.useAVX512Regs())
@@ -58708,7 +58705,7 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
       }
     }
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   if (DCI.isBeforeLegalizeOps()) {
     unsigned IndexWidth = Index.getScalarValueSizeInBits();
@@ -58757,7 +58754,7 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
       }
     }
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // With vector masks we only demand the upper bit of the mask.
   SDValue Mask = GorS->getMask();
@@ -60776,7 +60773,7 @@ static SDValue combineAdd(SDNode *N, SelectionDAG &DAG,
     if (SDValue V = combinePseudoV16i16Add(N, DAG, Subtarget))
       return V;
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Try to synthesize horizontal adds from adds of shuffles.
   if (SDValue V = combineToHorizontalAddSub(N, DAG, Subtarget))

@@ -142,7 +142,7 @@ static cl::opt<bool> IntelAdjustIsStmt(
     "intel-adjust-is-stmt", cl::Hidden,
     cl::desc("Controls Intel-specific adjustment of the IsStmt flag."),
     cl::init(true));
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<DefaultOnOff> DwarfSectionsAsReferences(
     "dwarf-sections-as-references", cl::Hidden,
@@ -1057,7 +1057,7 @@ void DwarfDebug::finishUnitAttributes(const DICompileUnit *DIUnit,
     NewCU.addString(Die, dwarf::DW_AT_INTEL_comp_flags, IntelFlags);
    else if (!Flags.empty() && !DisableIntelExtensions) 
     NewCU.addString(Die, dwarf::DW_AT_INTEL_comp_flags, Flags);
-#endif
+#endif // INTEL_CUSTOMIZATION
   NewCU.addUInt(Die, dwarf::DW_AT_language, dwarf::DW_FORM_data2,
                 DIUnit->getSourceLanguage());
   NewCU.addString(Die, dwarf::DW_AT_name, FN);
@@ -1089,7 +1089,7 @@ void DwarfDebug::finishUnitAttributes(const DICompileUnit *DIUnit,
 #if INTEL_CUSTOMIZATION
     if (!ProducerFlags.empty())
       NewCU.addString(Die, dwarf::DW_AT_APPLE_flags, ProducerFlags);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
     if (unsigned RVer = DIUnit->getRuntimeVersion())
       NewCU.addUInt(Die, dwarf::DW_AT_APPLE_major_runtime_vers,

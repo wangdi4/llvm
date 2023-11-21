@@ -1282,7 +1282,7 @@ static ShapeT getTileShape(Register VirtReg, VirtRegMap *VRM,
 #endif // INTEL_CUSTOMIZATION
   case X86::PTDPFP16PSV:
   case X86::PTCMMIMFP16PSV:
-  case X86::PTCMMRLFP16PSV: {
+  case X86::PTCMMRLFP16PSV: { // INTEL
     MachineOperand &MO1 = MI->getOperand(1);
     MachineOperand &MO2 = MI->getOperand(2);
     ShapeT Shape(&MO1, &MO2, MRI);
@@ -1382,7 +1382,6 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
     return BaseImplRetVal;
 
   ShapeT VirtShape = getTileShape(VirtReg, const_cast<VirtRegMap *>(VRM), MRI);
-
   auto AddHint = [&](MCPhysReg PhysReg) {
     Register VReg = Matrix->getOneVReg(PhysReg);
     if (VReg == MCRegister::NoRegister) { // Not allocated yet

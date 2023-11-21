@@ -474,7 +474,6 @@ let Predicates = [HasUSERMSR], mayStore = 1 in {
                 "uwrmsr\t{$src, $imm|$imm, $src}",
                 [(int_x86_uwrmsr GR64:$src, i64immSExt32_su:$imm)]>, T_MAP7XS, VEX;
 }
-
 let Defs = [RAX, RDX], Uses = [ECX] in
 def RDPMC : I<0x33, RawFrm, (outs), (ins), "rdpmc", []>, TB;
 

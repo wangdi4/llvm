@@ -1,3 +1,4 @@
+/* INTEL_CUSTOMIZATION */
 /*
  * INTEL CONFIDENTIAL
  *
@@ -13,6 +14,7 @@
  * or implied warranties, other than those that are expressly stated in the
  * License.
  */
+/* end INTEL_CUSTOMIZATION */
 //===-- X86.h - Top-level interface for X86 representation ------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

@@ -302,8 +302,8 @@ bool SpillPlacement::runOnMachineFunction(MachineFunction &mf) {
           }
         }
     }
-#endif // INTEL_CUSTOMIZATION
   }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   if (!WhileJumpInsts.empty()) {
@@ -329,8 +329,8 @@ bool SpillPlacement::runOnMachineFunction(MachineFunction &mf) {
             BranchProbability(1, WhileSwitchMult);
         }
     } // for (auto &BB : mf)
-  }
 #endif // INTEL_CUSTOMIZATION
+  }
 
   // We never change the function.
   return false;

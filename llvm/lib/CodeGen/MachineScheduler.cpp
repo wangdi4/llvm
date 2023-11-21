@@ -3728,7 +3728,7 @@ bool GenericScheduler::tryCandidate(SchedCandidate &Cand,
     // latency. Within an single cycle, whenever CurrMOps > 0, allow normal
     // heuristics to take precedence.
     if (Rem.IsAcyclicLatencyLimited && !Zone->getCurrMOps() &&
-        tryLatency(TryCand, Cand, *Zone, &DAG->MF)) // ITNEL
+        tryLatency(TryCand, Cand, *Zone, &DAG->MF)) // INTEL
       return TryCand.Reason != NoCand;
 
     // Prioritize instructions that read unbuffered resources by stall cycles.

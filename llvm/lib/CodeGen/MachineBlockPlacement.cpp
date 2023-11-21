@@ -3316,7 +3316,7 @@ void MachineBlockPlacement::alignBlocks() {
 #if INTEL_CUSTOMIZATION
     if (!canAlignBlock(ChainBB))
       continue;
-#endif
+#endif // INTEL_CUSTOMIZATION
     if (ChainBB == *FunctionChain.begin())
       continue;
 

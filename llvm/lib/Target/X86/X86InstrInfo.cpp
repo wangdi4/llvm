@@ -1044,7 +1044,7 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(
   case X86::VPBROADCASTWZ128rm:
   case X86::VPBROADCASTWZ256rm:
   case X86::VPBROADCASTWZrm:
-#endif
+#endif // INTEL_CUSTOMIZATION
   case X86::VMOVSSZrm:
   case X86::VMOVSSZrm_alt:
   case X86::VMOVSDZrm:
@@ -7422,7 +7422,6 @@ static bool shouldPreventUndefRegUpdateMemFold(MachineFunction &MF,
   MachineInstr *VRegDef = RegInfo.getUniqueVRegDef(MI.getOperand(1).getReg());
   return VRegDef && VRegDef->isImplicitDef();
 }
-
 #if INTEL_CUSTOMIZATION
 MachineInstr *X86InstrInfo::foldMemoryBroadcast(
     MachineFunction &MF, MachineInstr &MI, unsigned OpNum,
@@ -8737,7 +8736,6 @@ bool X86InstrInfo::unfoldMemoryOperand(
   // Emit the load or broadcast instruction.
   if (UnfoldLoad) {
     auto MMOs = extractLoadMMOs(MI.memoperands(), MF);
-
 #if INTEL_CUSTOMIZATION
     if (X86II::isKMasked(MCID.TSFlags)) {
       if (MMOs.size() != 1)
@@ -8779,7 +8777,7 @@ bool X86InstrInfo::unfoldMemoryOperand(
       if (!IsDeferenceableLoad(MMOs.front()))
         return false;
     }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
     unsigned Opc;
     if (FoldedBCast) {
@@ -8911,7 +8909,7 @@ X86InstrInfo::unfoldMemoryOperand(SelectionDAG &DAG, SDNode *N,
   // FIXME: Only handle unmasked for now.
   if (X86II::isKMasked(MCID.TSFlags))
     return false;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Emit the load instruction.
   SDNode *Load = nullptr;

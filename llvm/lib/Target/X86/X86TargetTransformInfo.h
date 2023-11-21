@@ -144,7 +144,7 @@ public:
   /// \name Scalar TTI Implementations
   /// @{
   TTI::PopcntSupportKind getPopcntSupport(unsigned TyWidth);
-  unsigned getLoopRotationDefaultThreshold(bool OptForSize) const;
+  unsigned getLoopRotationDefaultThreshold(bool OptForSize) const; // INTEL
 
   /// @}
 
@@ -206,7 +206,7 @@ public:
                                          const Value *Ptr, bool VariableMask,
                                          Align Alignment,
                                          TTI::TargetCostKind CostKind,
-                                         const Instruction *I,
+                                         const Instruction *I, // INTEL
                                          bool UndefPassThru); // INTEL
 #if INTEL_CUSTOMIZATION
   InstructionCost getGatherScatterOpCost(unsigned Opcode, Type *DataTy,

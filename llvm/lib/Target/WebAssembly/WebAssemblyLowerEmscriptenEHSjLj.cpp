@@ -1730,6 +1730,7 @@ void WebAssemblyLowerEmscriptenEHSjLj::handleLongjmpableCallsForWasmSjLj(
   Instruction *Env = IRB.CreateLoad(IRB.getPtrTy(), EnvField, "env");
   // int val = __wasm_longjmp_args.val;
   Instruction *Val = IRB.CreateLoad(IRB.getInt32Ty(), ValField, "val");
+
   // %label = testSetjmp(mem[%env], setjmpTable, setjmpTableSize);
   // if (%label == 0)
   //   __wasm_longjmp(%env, %val)

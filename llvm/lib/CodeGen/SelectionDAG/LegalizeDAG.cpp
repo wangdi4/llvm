@@ -4426,7 +4426,7 @@ void SelectionDAGLegalize::ConvertNodeToLibcall(SDNode *Node) {
                     RTLIB::COS_F80, RTLIB::COS_F128,
                     RTLIB::COS_PPCF128, Results);
     break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case ISD::FTAN:
     ExpandFPLibCall(Node, RTLIB::TAN_F32, RTLIB::TAN_F64,
                     RTLIB::TAN_F80, RTLIB::TAN_F128,

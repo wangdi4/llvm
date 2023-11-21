@@ -61,8 +61,8 @@
 /// actual encoding size of the instruction.
 /// TCK_SizeAndLatency should match the worst case micro-op counts reported by
 /// by the CPU scheduler models (and llvm-mca), to ensure that they are
-/// compatible with the MicroOpBufferSize and LoopMicroOpBufferSize values which
-/// are often used as the cost thresholds where TCK_SizeAndLatency is requested.
+/// compatible with the MicroOpBufferSize and LoopMicroOpBufferSize values which are
+/// often used as the cost thresholds where TCK_SizeAndLatency is requested.
 //===----------------------------------------------------------------------===//
 
 #include "X86TargetTransformInfo.h"
@@ -196,7 +196,7 @@ unsigned X86TTIImpl::getNumberOfRegisters(unsigned ClassID) const {
   // in the backend for vXf64 and integer vectors. Also prevents creation
   // of v2f64 SVML functions the backend can't handle until SSE2.
   if (Vector && !ST->hasSSE2())
-#endif
+#endif // INTEL_CUSTOMIZATION
     return 0;
 
   if (ST->is64Bit()) {
@@ -230,7 +230,7 @@ X86TTIImpl::getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
     // of v2f64 SVML functions the backend can't handle until SSE2.
     if (ST->hasSSE2() && PreferVectorWidth >= 128)
       return TypeSize::Fixed(128);
-#endif
+#endif // INTEL_CUSTOMIZATION
     if (ST->hasSSE1() && PreferVectorWidth >= 128)
       return TypeSize::Fixed(128);
     return TypeSize::Fixed(0);
@@ -5042,7 +5042,7 @@ InstructionCost X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
   if (Src->isAggregateType())
     return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
                                   CostKind, TTI::OperandValueInfo(), I);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // TODO: Handle other cost kinds.
   if (CostKind != TTI::TCK_RecipThroughput) {
@@ -5246,7 +5246,7 @@ X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy, Align Alignment,
     // CMPLRLLVM-20504 Increase store cost to the value I'm told icc uses.
     if (IsStore)
       return 14 * NumElem;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
     // Scalarization
     APInt DemandedElts = APInt::getAllOnes(NumElem);
@@ -6687,9 +6687,7 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
   CI->setCalledFunction(newFunc);
   return true;
 }
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 static bool isConstantIntVector(Value *Mask) {
   Constant *C = dyn_cast<Constant>(Mask);
   if (!C)
@@ -6733,18 +6731,15 @@ bool X86TTIImpl::shouldScalarizeMaskedGather(CallInst *CI) {
     return false;
   };
 
-#if INTEL_CUSTOMIZATION
   if (CI->getMetadata("hetero.arch.opt.disable.gather"))
     return true;
-#endif //INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
   if (ST->hasAVX3() || isAVX2GatherProfitable()) {
 #else // INTEL_FEATURE_ISA_AVX256P
   if (ST->hasAVX512() || isAVX2GatherProfitable()) {
 #endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
+
     if (auto *DataVTy = dyn_cast<FixedVectorType>(DataTy)) {
       unsigned NumElts = DataVTy->getNumElements();
       if (NumElts == 1)
@@ -6934,10 +6929,8 @@ bool X86TTIImpl::forceScalarizeMaskedScatter(VectorType *VTy, Align Alignment){
     return true;
   return forceScalarizeMaskedGatherScatter(VTy, Alignment);
 }
-#endif // INTEL_CUSTOMIZATION
 
 bool X86TTIImpl::forceScalarizeMaskedGather(VectorType *VTy, Align Alignment) {
-#if INTEL_CUSTOMIZATION
   if (!ST->preferGather())
     return true;
   return forceScalarizeMaskedGatherScatter(VTy, Alignment);

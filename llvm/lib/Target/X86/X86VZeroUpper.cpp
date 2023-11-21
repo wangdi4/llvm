@@ -54,7 +54,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/CodeGen/LivePhysRegs.h"
-#endif // INTEL_CUSTIOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -114,13 +114,13 @@ namespace {
     //                                      needs to be guarded until we
     //                                      discover a predecessor that is
     //                                      DIRTY_OUT.
-#endif // INTEL_CUSTIOMIZATION
+#endif // INTEL_CUSTOMIZATION
     struct BlockState {
       BlockExitState ExitState = PASS_THROUGH;
       bool AddedToDirtySuccessors = false;
 #if INTEL_CUSTOMIZATION
       MachineBasicBlock::iterator FirstUnguardedCallOrSSEInstruction;
-#endif // INTEL_CUSTIOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
       BlockState() = default;
     };
@@ -343,15 +343,13 @@ void VZeroUpperInserter::processBasicBlock(MachineBasicBlock &MBB) {
     // Check for SSE instructions and control-flow out of the current function
     // (which might indirectly execute SSE instructions).
     if (!IsControlFlow && !IsSSE)
-#endif // INTEL_CUSTOMIZATION
       continue;
 
-#if INTEL_CUSTOMIZATION
     // We can't insert VZEROUPPER before an SSE instruction if a YMM/ZMM
     // register lives through it.
     if (IsSSE && checkInstructionHasLiveInYmmOrZmm(LiveRegs))
-      continue;
 #endif // INTEL_CUSTOMIZATION
+      continue;
 
     // If the call has no RegMask, skip it as well. It usually happens on
     // helper function calls (such as '_chkstk', '_ftol2') where standard

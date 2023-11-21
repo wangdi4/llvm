@@ -1,3 +1,5 @@
+//===- SelectionDAGBuilder.cpp - Selection-DAG building -------------------===//
+// INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
 //
@@ -13,7 +15,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 //
-//===- X86ISelDAGToDAG.cpp - A DAG pattern matching inst selector for X86 -===//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -1740,10 +1742,12 @@ void X86DAGToDAGISel::emitSpecialCodeForMain() {
 void X86DAGToDAGISel::emitFunctionEntryCode() {
   // If this is main, emit special code for main.
   const Function &F = MF->getFunction();
+#if INTEL_CUSTOMIZATION
   StringRef FName = F.getName();
   if (F.hasMetadata("llvm.acd.clone"))
     FName = FName.take_front(FName.find('.'));
   if (F.hasExternalLinkage() && FName == "main")
+#endif // INTEL_CUSTOMIZATION
     emitSpecialCodeForMain();
 }
 

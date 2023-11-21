@@ -76,7 +76,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/CodeGen/TargetInstrInfo.h"
-#endif // end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -215,7 +215,6 @@ void ScheduleDAGInstrs::enterRegion(MachineBasicBlock *bb,
   RegionBegin = begin;
   RegionEnd = end;
   NumRegionInstrs = regioninstrs;
-
 #if INTEL_CUSTOMIZATION
   NumRegionInstrsScheduled = 0;
   NumRegionPrefetchScheduled = 0;

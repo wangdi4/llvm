@@ -100,7 +100,7 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// This returns the 32 bit super reg of the original destination register of
   /// the MachineInstr passed in, if that super register is dead just prior to
   /// \p OrigMI. Otherwise it returns Register().
-  Register getSuperRegDestIfDead(MachineInstr *OrigMI,
+  Register getSuperRegDestIfDead(MachineInstr *OrigMI, // INTEL
                                  bool IsMOV = true) const; // INTEL
 
   /// Change the MachineInstr \p MI into the equivalent extending load to 32 bit
@@ -217,7 +217,7 @@ bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
 /// destination register.
 ///
 /// If so, return that super register in \p SuperDestReg.
-Register FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
+Register FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI, // INTEL
                                                 bool IsMOV) const { // INTEL
   const X86RegisterInfo *TRI = &TII->getRegisterInfo();
   Register OrigDestReg = OrigMI->getOperand(0).getReg();

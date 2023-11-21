@@ -793,7 +793,7 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
 
     // Rocketlake:
     case 0xa7:
-    case 0xa8:
+    case 0xa8: // INTEL
       CPU = "rocketlake";
       *Type = X86::INTEL_COREI7;
       *Subtype = X86::INTEL_COREI7_ROCKETLAKE;
@@ -1824,7 +1824,6 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   // detecting features using the "-march=native" flag.
   // For more info, see X86 ISA docs.
   Features["pconfig"] = HasLeaf7 && ((EDX >> 18) & 1);
-
   Features["amx-bf16"]   = HasLeaf7 && ((EDX >> 22) & 1) && HasAMXSave;
   Features["avx512fp16"] = HasLeaf7 && ((EDX >> 23) & 1) && HasAVX512Save;
   Features["amx-tile"]   = HasLeaf7 && ((EDX >> 24) & 1) && HasAMXSave;

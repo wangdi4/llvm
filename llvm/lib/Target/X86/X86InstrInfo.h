@@ -602,7 +602,7 @@ public:
                                     MachineBasicBlock::iterator InsertPt,
                                     unsigned Size, Align Alignment,
                                     bool AllowCommute) const;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   bool isHighLatencyDef(int opc) const override;
 

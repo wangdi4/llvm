@@ -75,14 +75,12 @@ class X86Subtarget final : public X86GenSubtargetInfo {
 #else // INTEL_FEATURE_ISA_AVX256P
     NoSSE, SSE1, SSE2, SSE3, SSSE3, SSE41, SSE42, AVX, AVX2, AVX512
 #endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
   };
 
-#if INTEL_CUSTOMIZATION
   enum X86DSBEnum {
     NoDSB, DSB1500, DSB2K, DSB4K
-  };
 #endif // INTEL_CUSTOMIZATION
+  };
 
   enum X863DNowEnum {
     NoThreeDNow, MMX, ThreeDNow, ThreeDNowA
@@ -102,7 +100,6 @@ class X86Subtarget final : public X86GenSubtargetInfo {
 #define GET_SUBTARGETINFO_MACRO(ATTRIBUTE, DEFAULT, GETTER)                    \
   bool ATTRIBUTE = DEFAULT;
 #include "X86GenSubtargetInfo.inc"
-
   /// The minimum alignment known to hold of the stack frame on
   /// entry to the function and which must be maintained by every function.
   Align stackAlignment = Align(4);

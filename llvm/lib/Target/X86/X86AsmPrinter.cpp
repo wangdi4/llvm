@@ -96,11 +96,13 @@ bool X86AsmPrinter::runOnMachineFunction(MachineFunction &MF) {
         Local ? COFF::IMAGE_SYM_CLASS_STATIC : COFF::IMAGE_SYM_CLASS_EXTERNAL);
     OutStreamer->emitCOFFSymbolType(COFF::IMAGE_SYM_DTYPE_FUNCTION
                                     << COFF::SCT_COMPLEX_TYPE_SHIFT);
-    OutStreamer->emitSyntaxDirective();
+    OutStreamer->emitSyntaxDirective(); // INTEL
     OutStreamer->endCOFFSymbolDef();
   }
+#if INTEL_CUSTOMIZATION
   else
     OutStreamer->emitSyntaxDirective();
+#endif // INTEL_CUSTOMIZATION
 
   // Emit the rest of the function body.
   emitFunctionBody();
@@ -501,11 +503,11 @@ void X86AsmPrinter::PrintIntelMemReference(const MachineInstr *MI,
     HasBaseReg = false;
 
   // If we really just want to print out displacement.
-  bool HasIndexReg = IndexReg.getReg() != 0;
+  bool HasIndexReg = IndexReg.getReg() != 0; // INTEL
   if (Modifier && (DispSpec.isGlobal() || DispSpec.isSymbol()) &&
       !strcmp(Modifier, "disp-only")) {
     HasBaseReg = false;
-    HasIndexReg = false;
+    HasIndexReg = false; // INTEL
   }
 
   // If this has a segment register, print it.
@@ -522,7 +524,7 @@ void X86AsmPrinter::PrintIntelMemReference(const MachineInstr *MI,
     NeedPlus = true;
   }
 
-  if (HasIndexReg) {
+  if (HasIndexReg) { // INTEL
     if (NeedPlus) O << " + ";
     if (ScaleVal != 1)
       O << ScaleVal << '*';

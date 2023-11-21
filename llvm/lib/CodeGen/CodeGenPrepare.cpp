@@ -601,8 +601,8 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
       // optimization to those blocks.
       BasicBlock *Next = BB->getNextNode();
       // F.hasOptSize is already checked in the outer if statement.
-      if (!llvm::shouldOptimizeForSize(BB, PSI, BFI.get())) {
 #if INTEL_CUSTOMIZATION
+      if (!llvm::shouldOptimizeForSize(BB, PSI, BFI.get())) {
         // Divopt may split a block BB into a "diamond":
         //
         //      HeadBB (1st part of original BB)
@@ -637,8 +637,8 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
           if (TailBB)
             BPI->setEdgeProbability(TailBB, OrigProbs);
         }
-#endif // INTEL_CUSTOMIZATION
       }
+#endif // INTEL_CUSTOMIZATION
 
       BB = Next;
     }
@@ -7537,14 +7537,14 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
 
   // Sink expensive instructions into the conditional blocks to avoid executing
   // them speculatively.
-  for (Instruction *I : TrueInstrs) {
+  for (Instruction *I : TrueInstrs) { // INTEL
     I->moveBefore(TrueBranch);
     SinkInstOperandsRecursively(I, TTI); // INTEL
-  }
-  for (Instruction *I : FalseInstrs) {
+  } // INTEL 
+  for (Instruction *I : FalseInstrs) { // INTEL
     I->moveBefore(FalseBranch);
     SinkInstOperandsRecursively(I, TTI); // INTEL
-  }
+  } // INTEL
 
   // If we did not create a new block for one of the 'true' or 'false' paths
   // of the condition, it means that side of the branch goes to the end block

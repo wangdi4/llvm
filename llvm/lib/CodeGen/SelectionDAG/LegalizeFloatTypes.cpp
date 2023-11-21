@@ -363,7 +363,7 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_FATAN2(SDNode *N) {
                                            RTLIB::ATAN2_PPCF128),
                          NVT, Ops, CallOptions, SDLoc(N)).first;
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 SDValue DAGTypeLegalizer::SoftenFloatRes_FCBRT(SDNode *N) {
   return SoftenFloatRes_Unary(N, GetFPLibCall(N->getValueType(0),
@@ -829,7 +829,7 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_FTAN(SDNode *N) {
                                            RTLIB::TAN_PPCF128),
                          NVT, Op, CallOptions, SDLoc(N)).first;
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 SDValue DAGTypeLegalizer::SoftenFloatRes_FTRUNC(SDNode *N) {
   return SoftenFloatRes_Unary(N, GetFPLibCall(N->getValueType(0),
@@ -1371,7 +1371,7 @@ void DAGTypeLegalizer::ExpandFloatResult(SDNode *N, unsigned ResNo) {
 #if INTEL_CUSTOMIZATION
   case ISD::FATAN:      ExpandFloatRes_FATAN(N, Lo, Hi); break;
   case ISD::FATAN2:     ExpandFloatRes_FATAN2(N, Lo, Hi); break;
-#endif
+#endif // INTEL_CUSTOMIZATION
   case ISD::FCBRT:      ExpandFloatRes_FCBRT(N, Lo, Hi); break;
   case ISD::STRICT_FCEIL:
   case ISD::FCEIL:      ExpandFloatRes_FCEIL(N, Lo, Hi); break;
@@ -1425,7 +1425,7 @@ void DAGTypeLegalizer::ExpandFloatResult(SDNode *N, unsigned ResNo) {
   case ISD::FTRUNC:     ExpandFloatRes_FTRUNC(N, Lo, Hi); break;
 #if INTEL_CUSTOMIZATION
   case ISD::FTAN:       ExpandFloatRes_FTAN(N, Lo, Hi); break;
-#endif
+#endif // INTEL_CUSTOMIZATION
   case ISD::LOAD:       ExpandFloatRes_LOAD(N, Lo, Hi); break;
   case ISD::STRICT_SINT_TO_FP:
   case ISD::STRICT_UINT_TO_FP:
@@ -1539,7 +1539,7 @@ void DAGTypeLegalizer::ExpandFloatRes_FATAN2(SDNode *N,
                                         RTLIB::ATAN2_F80, RTLIB::ATAN2_F128,
                                         RTLIB::ATAN2_PPCF128), Lo, Hi);
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 void DAGTypeLegalizer::ExpandFloatRes_FCBRT(SDNode *N, SDValue &Lo,
                                             SDValue &Hi) {
@@ -1819,7 +1819,7 @@ void DAGTypeLegalizer::ExpandFloatRes_FTAN(SDNode *N,
                                        RTLIB::TAN_F80, RTLIB::TAN_F128,
                                        RTLIB::TAN_PPCF128), Lo, Hi);
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 void DAGTypeLegalizer::ExpandFloatRes_FTRUNC(SDNode *N,
                                              SDValue &Lo, SDValue &Hi) {
@@ -2459,7 +2459,7 @@ void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
     case ISD::FABS:
 #if INTEL_CUSTOMIZATION
     case ISD::FATAN:
-#endif
+#endif // INTEL_CUSTOMIZATION
     case ISD::FCBRT:
     case ISD::FCEIL:
     case ISD::FCOS:
@@ -2478,7 +2478,7 @@ void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
     case ISD::FSIN:
 #if INTEL_CUSTOMIZATION
     case ISD::FTAN:
-#endif
+#endif // INTEL_CUSTOMIZATION
     case ISD::FSQRT:
     case ISD::FTRUNC:
     case ISD::FCANONICALIZE: R = PromoteFloatRes_UnaryOp(N); break;
@@ -2487,7 +2487,7 @@ void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
     case ISD::FADD:
 #if INTEL_CUSTOMIZATION
     case ISD::FATAN2:
-#endif
+#endif // INTEL_CUSTOMIZATION
     case ISD::FDIV:
     case ISD::FMAXIMUM:
     case ISD::FMINIMUM:

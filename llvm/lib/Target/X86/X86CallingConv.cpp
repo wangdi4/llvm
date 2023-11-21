@@ -395,7 +395,7 @@ static bool CC_SVML_Mask(unsigned ValNo, MVT ValVT, MVT LocVT,
 
   return false;
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 static bool CC_X86_64_Pointer(unsigned &ValNo, MVT &ValVT, MVT &LocVT,
                               CCValAssign::LocInfo &LocInfo,

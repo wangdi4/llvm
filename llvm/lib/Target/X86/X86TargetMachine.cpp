@@ -577,7 +577,7 @@ void X86PassConfig::addIRPasses() {
     if (TM->Options.IntelLibIRCAllowed)
       insertPass(&ExpandVectorPredicationID, &X86HeteroArchOptID);
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   TargetPassConfig::addIRPasses();
 

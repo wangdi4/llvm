@@ -430,10 +430,10 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O,
   else if (Flags & X86::IP_HAS_REPEAT)
     O << "\trep\t";
 
+#if INTEL_CUSTOMIZATION
   if (TSFlags & X86II::EVEX_NF && !X86::isCFCMOVCC(MI->getOpcode()))
     O << "\t{nf}";
 
-#if INTEL_CUSTOMIZATION
   if (TSFlags & X86II::EmitVEXOrEVEXPrefix) {
     // These all require a pseudo prefix
     if (((TSFlags & X86II::EncodingMask) == X86II::VEX))

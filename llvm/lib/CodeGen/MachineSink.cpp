@@ -907,8 +907,8 @@ bool MachineSinking::isWorthBreakingCriticalEdge(MachineInstr &MI,
 #if INTEL_CUSTOMIZATION
   // Only break critical edge if at least one non-copy instruction can be sunk.
   return isWorthBreakingCriticalEdgeForCopyChain(MI);
-#endif // INTEL_CUSTOMIZATION
 }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 // Determine whether sinking \p MI would allow some non-copy instruction to be

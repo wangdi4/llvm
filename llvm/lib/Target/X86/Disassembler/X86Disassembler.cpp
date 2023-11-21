@@ -1345,7 +1345,7 @@ static bool isCCMPOrCTEST(InternalInstruction *insn) {
 // the instruction before doing so.
 static int getInstructionID(struct InternalInstruction *insn,
                             const MCInstrInfo *mii) {
-  unsigned attrMask;
+  unsigned attrMask; // INTEL
   uint16_t instructionID;
 
   LLVM_DEBUG(dbgs() << "getID()");

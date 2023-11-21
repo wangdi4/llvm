@@ -209,14 +209,12 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
   switch (II->getIntrinsicID()) {
   default:
     llvm_unreachable("Expect amx intrinsics");
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   case Intrinsic::x86_t2rpntlvwz0_internal:
   case Intrinsic::x86_t2rpntlvwz0t1_internal:
   case Intrinsic::x86_t2rpntlvwz1_internal:
   case Intrinsic::x86_t2rpntlvwz1t1_internal:
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
-#endif // INTEL_CUSTOMIZATION
   case Intrinsic::x86_tileloadd64_internal:
   case Intrinsic::x86_tileloaddt164_internal:
   case Intrinsic::x86_tilestored64_internal: {

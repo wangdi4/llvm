@@ -95,11 +95,11 @@ private:
   enum HexagonProcFamilyEnum { Others, TinyCore };
 
   std::string CPUString;
+  HexagonProcFamilyEnum HexagonProcFamily = Others;
   Triple TargetTriple;
 
   // The following objects can use the TargetTriple, so they must be
   // declared after it.
-  HexagonProcFamilyEnum HexagonProcFamily = Others;
   HexagonInstrInfo InstrInfo;
   HexagonRegisterInfo RegInfo;
   HexagonTargetLowering TLInfo;

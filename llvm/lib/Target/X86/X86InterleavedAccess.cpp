@@ -300,7 +300,7 @@ public:
       : Inst(I), Shuffles(Shuffs), Indices(Ind), Factor(F), Subtarget(STarget),
         DL(Inst->getModule()->getDataLayout()), Builder(B),
         OptVLSContext(OptVLSContext), TTI(T) {}
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// Returns true if this interleaved access group can be lowered into
   /// x86-specific instructions/intrinsics, false otherwise.
@@ -309,7 +309,6 @@ public:
   /// Lowers this interleaved access group into X86-specific
   /// instructions/intrinsics.
   bool lowerIntoOptimizedSequence();
-
 #if INTEL_CUSTOMIZATION
   /// \brief Lowers this interleaved access group into X86-specific
   /// instructions/intrinsics by an Intel customized optimization OptVLS
@@ -461,7 +460,7 @@ bool X86InterleavedAccessGroup::isSupported() const {
   //    2. Store of 16/32-element vectors of 8 bits on AVX.
   // Stride 3:
   //    1. Load of 16/32-element vectors of 8 bits on AVX.
-  if (!Subtarget.hasAVX() || (Factor != 4 && Factor != 3 && Factor != 8))
+  if (!Subtarget.hasAVX() || (Factor != 4 && Factor != 3 && Factor != 8)) // INTEL
     return false;
 
   if (isa<LoadInst>(Inst)) {
@@ -1154,8 +1153,7 @@ bool X86TargetLowering::lowerInterleavedLoad(
     return true;
 
   return Grp.lowerIntoOptimizedSequenceByOptVLS();
-
-#endif
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86TargetLowering::lowerInterleavedStore(StoreInst *SI,

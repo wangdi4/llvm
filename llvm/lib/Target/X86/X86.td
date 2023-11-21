@@ -1,3 +1,5 @@
+//===-- X86.td - Target definition file for the Intel X86 --*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
 //
@@ -13,7 +15,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 //
-//===-- X86.td - Target definition file for the Intel X86 --*- tablegen -*-===//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -1482,7 +1484,7 @@ def ProcessorFeatures {
 
   // Tigerlake
   list<SubtargetFeature> TGLAdditionalFeatures = [FeatureVP2INTERSECT,
-                                                  FeatureKL,
+                                                  FeatureKL, // INTEL
                                                   FeatureCLWB,
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,

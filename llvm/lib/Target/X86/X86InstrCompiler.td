@@ -609,8 +609,8 @@ let usesCustomInserter = 1, hasNoSchedulingInfo = 1, Uses = [EFLAGS] in {
   let Predicates = [HasSSE2,NoAVX512] in
     defm _BFR16   : CMOVrr_PSEUDO<BFR16, bf16>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
   let Predicates = [HasSSE2,NoAVX512] in
+#endif // INTEL_CUSTOMIZATION
     defm _FR64   : CMOVrr_PSEUDO<FR64, f64>;
   }
   let Predicates = [HasAVX512] in {
