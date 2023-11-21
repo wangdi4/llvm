@@ -439,6 +439,25 @@ public:
     return false;
   }
 
+  // Return CPU name which is baseline for a vector variant ABI.
+  StringRef getBaseCPU() const {
+    switch (ISA) {
+    case VFISAKind::SSE:
+      return "x86-64";
+    case VFISAKind::AVX:
+      return "corei7-avx";
+    case VFISAKind::AVX2:
+      return "core-avx2";
+    case VFISAKind::AVX512:
+      return "skylake-avx512";
+    case VFISAKind::SVE:
+    case VFISAKind::AdvancedSIMD:
+    case VFISAKind::LLVM:
+    case VFISAKind::Unknown:
+      return StringRef();
+    }
+  }
+
 private:
   /// Encode the full mangled name of a vector variant from its constituent
   /// parts (e.g. '_ZGVbM4v_foo')

@@ -224,11 +224,12 @@ static void getFunctionsToVectorize(
 }
 // Populate \p CPUDispatchMap with vector variants CPU dispatching data (if any)
 // for function \p F.
-static void getVariantsCPUDispatchData(
+// Return true if "vector-dispatch" attribute found.
+static bool getVariantsCPUDispatchData(
     const Function &F,
     SmallDenseMap<StringRef, SmallVector<StringRef>> &CPUDispatchMap) {
   if (!F.hasFnAttribute(VectorDispatchAttrName))
-    return;
+    return false;
 
   // CPUDispatchMap will contain a one-to-many mapping between a vector variant
   // and a list of CPU targets that the variant have to be specialized for.
@@ -259,13 +260,15 @@ static void getVariantsCPUDispatchData(
     for (StringRef TargetCPU : DispatchTargets)
       DispatchVec.push_back(TargetCPU);
   }
+  return true;
 }
 
 // This routine does actually apply CPU-specific settings for a new clone
 // according to "target-dispatch" attribute data of the scalar function.
 static void applyTargetCPUData(
     Function *Clone,
-    const SmallDenseMap<StringRef, SmallVector<StringRef>> &CPUDispatchMap) {
+    const SmallDenseMap<StringRef, SmallVector<StringRef>> &CPUDispatchMap,
+    bool SetTuneCpu) {
   if (CPUDispatchMap.empty())
     return;
   auto It = CPUDispatchMap.find(Clone->getName());
@@ -285,9 +288,10 @@ static void applyTargetCPUData(
 
     Clone->removeFnAttr("target-cpu");
     Clone->addFnAttr("target-cpu", TargetCpu);
-
-    Clone->removeFnAttr("tune-cpu");
-    Clone->addFnAttr("tune-cpu", TargetCpu);
+    if (SetTuneCpu) {
+      Clone->removeFnAttr("tune-cpu");
+      Clone->addFnAttr("tune-cpu", TargetCpu);
+    }
 
     return;
   }
@@ -1959,9 +1963,22 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       return VFABI::demangleForVFABI(Name);
     });
 
-
+    bool SetTuneCPU = true;
     SmallDenseMap<StringRef, SmallVector<StringRef>> CPUDispatchMap;
-    getVariantsCPUDispatchData(F, CPUDispatchMap);
+    // Read vector-dispatch attribute if it does exist. Otherwise, populate map
+    // based on assumption that each vector variant ABI encodes ISA that sets
+    // bare minimum for CPU. Do that for 64 bit targets only.
+    if (!getVariantsCPUDispatchData(F, CPUDispatchMap) &&
+        M.getDataLayout().getPointerSizeInBits() == 64) {
+      SetTuneCPU = false;
+      for (StringRef Name : VarIt.second) {
+        StringRef BaseCPU = VFABI::demangleForVFABI(Name).getBaseCPU();
+        if (BaseCPU.empty())
+          continue;
+        if (!CPUDispatchMap.contains(Name))
+          CPUDispatchMap[Name].push_back(BaseCPU);
+      }
+    }
 
     // Fix for CMPLRLLVM-49470 - the problem here is we can't easily infer the
     // pointer type for a linear uval arg at -O0 because these pointers are
@@ -2039,7 +2056,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
         continue;
       }
 
-      applyTargetCPUData(Clone, CPUDispatchMap);
+      applyTargetCPUData(Clone, CPUDispatchMap, SetTuneCPU);
 
       LLVM_DEBUG(dbgs() << "After SIMD Function Cloning\n");
       LLVM_DEBUG(Clone->dump());
