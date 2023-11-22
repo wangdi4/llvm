@@ -46,6 +46,11 @@ void LegalityHIR::dump(raw_ostream &OS) const {
     NPPvt.dump();
     OS << "\n";
   }
+  OS << "\n\nHIRLegality PrivatesF90DVList:\n";
+  for (auto &F90DVPvt : PrivatesF90DVList) {
+    F90DVPvt.dump();
+    OS << "\n";
+  }
   OS << "\n\nHIRLegality LinearList:\n";
   for (auto &Lin : LinearList) {
     Lin.dump();
@@ -67,7 +72,7 @@ void LegalityHIR::dump(raw_ostream &OS) const {
 /// Check if the incoming \p Ref matches the original SIMD descriptor DDRef \p
 /// DescrRef.
 bool LegalityHIR::isSIMDDescriptorDDRef(const RegDDRef *DescrRef,
-                                        const DDRef *Ref) const {
+                                        const DDRef *Ref, bool isF90DV) const {
   assert(DescrRef->isAddressOf() &&
          "Original SIMD descriptor ref is not address of type.");
 
@@ -78,7 +83,16 @@ bool LegalityHIR::isSIMDDescriptorDDRef(const RegDDRef *DescrRef,
 
     // Since we know descriptor ref is always address of type, call dedicated
     // compare.
-    if (DDRefUtils::areEqualWithoutAddressOf(DescrRef, RegRef))
+    if (DDRefUtils::areEqualWithoutAddressOf(DescrRef, RegRef) ||
+        // Compares BaseCE and number of dimension for DescrRef and RegRef.
+        // We can have situation like below which should be recognized:
+        // DescrRef: &((%sum)[0])
+        // RegRef: (%sum)[0].0
+        DDRefUtils::haveEqualBaseAndShape(DescrRef, RegRef,
+                                          false /* RelaxedMode */))
+      return true;
+
+    if (isF90DV && DescrRef->getBasePtrSymbase() == RegRef->getBasePtrSymbase())
       return true;
   } else {
     // Special casing for incoming Ref of the form %s which was actually the
@@ -130,7 +144,15 @@ bool LegalityHIR::isSIMDDescriptorDDRef(const RegDDRef *DescrRef,
 
 void LegalityHIR::recordPotentialSIMDDescrUse(DDRef *Ref) {
 
-  DescrWithInitValueTy *Descr = getLinearRednDescriptors(Ref);
+  // Check, whether Ref is POD or non-POD Private
+  DescrWithAliasesTy *Descr = getPrivateDescr(Ref);
+  if (!Descr)
+    Descr = getPrivateDescrNonPOD(Ref);
+  if (!Descr)
+    Descr = getPrivateDescrF90DV(Ref);
+  // If Ref is not private check if it is linear reduction
+  if (!Descr)
+    Descr = getLinearRednDescriptors(Ref);
 
   // If Ref does not correspond to SIMD descriptor then nothing to do
   if (!Descr)
@@ -142,14 +164,33 @@ void LegalityHIR::recordPotentialSIMDDescrUse(DDRef *Ref) {
     // Ref refers to the original descriptor
     // TODO: should we assert that InitVPValue is not set already?
     // Tracked in CMPLRLLVM-52295.
-    Descr->setInitValue(Ref);
+    if (auto *DescrWithInit = dyn_cast<DescrWithInitValueTy>(Descr))
+      DescrWithInit->setInitValue(Ref);
   } else {
     // Ref is an alias to the original descriptor
     auto AliasIt = Descr->findAlias(Ref);
     assert(AliasIt && "Alias not found.");
-    auto *Alias = cast<DescrWithInitValueTy>(AliasIt);
-    Alias->setInitValue(Ref);
+    if (auto *Alias = dyn_cast<DescrWithInitValueTy>(AliasIt))
+      Alias->setInitValue(Ref);
   }
+}
+
+bool LegalityHIR::mapsToSIMDDescriptor(const DDRef *Ref) {
+  // Check whether Ref is POD private
+  DescrWithAliasesTy *Descr =
+      findDescrThatUsesSymbase<PrivDescrTy>(PrivatesList, Ref);
+  // Check whether Ref is non-POD private
+  if (!Descr)
+    Descr =
+        findDescrThatUsesSymbase<PrivDescrNonPODTy>(PrivatesNonPODList, Ref);
+  // Check whether Ref is F90DV private
+  if (!Descr)
+    Descr = findDescrThatUsesSymbase<PrivDescrF90DVTy>(PrivatesF90DVList, Ref);
+
+  // If Ref does not correspond to SIMD descriptor then nothing to do
+  if (!Descr)
+    return false;
+  return true;
 }
 
 void LegalityHIR::recordPotentialSIMDDescrUpdate(HLInst *UpdateInst) {
@@ -159,10 +200,12 @@ void LegalityHIR::recordPotentialSIMDDescrUpdate(HLInst *UpdateInst) {
   if (!Ref)
     return;
 
-  // Check, whether Ref is POD or non-POD Private
+  // Check whether Ref is POD or non-POD Private
   DescrWithAliasesTy *Descr = getPrivateDescr(Ref);
+  // Check whether Ref is non-POD private
   if (!Descr)
     Descr = getPrivateDescrNonPOD(Ref);
+  // Check whether Ref is F90DV private
   if (!Descr)
     Descr = getPrivateDescrF90DV(Ref);
   // If Ref is not private check if it is linear reduction

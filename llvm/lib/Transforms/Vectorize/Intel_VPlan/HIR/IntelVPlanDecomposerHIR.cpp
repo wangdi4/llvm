@@ -378,7 +378,8 @@ static void processIVRemoval(CanonExpr *CE, unsigned LoopLevel,
 
 // Decompose a CanonExpr. Return the last VPValue resulting from its
 // decomposition.
-VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
+VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE,
+                                             bool DecomposeAlways = false) {
 
   // Note: the insert location guard also guards builder debug location.
   VPBuilder::InsertPointGuard Guard(Builder);
@@ -389,9 +390,10 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   Builder.setCurrentDebugLocation(CE->getDebugLoc());
   // Return true if we want to force regular decomposition of given
   // canon expression.
-  auto forceRegularDecomposition = [](CanonExpr *CE, unsigned VecLoopLevel) {
+  auto forceRegularDecomposition = [&DecomposeAlways](CanonExpr *CE,
+                                                      unsigned VecLoopLevel) {
     // Do regular decomposition if invariant decomposition is forced.
-    if (VPlanForceInvariantDecomposition)
+    if (VPlanForceInvariantDecomposition || DecomposeAlways)
       return true;
 
     // We want to force regular decomposition for canon expressions that are
@@ -756,10 +758,12 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
 
 // Decompose the RegDDRef operand of an HLDDNode. Return the last VPValue
 // resulting from its decomposition.
-VPValue *VPDecomposerHIR::decomposeVPOperand(RegDDRef *RDDR) {
+VPValue *VPDecomposerHIR::decomposeVPOperand(RegDDRef *RDDR,
+                                             bool DecomposeAlways = false) {
   assert(RDDR && "Expected a valid RegDDRef.");
   if (RDDR->isTerminalRef())
-    return decomposeCanonExpr(RDDR, RDDR->getSingleCanonExpr());
+    return decomposeCanonExpr(RDDR, RDDR->getSingleCanonExpr(),
+                              DecomposeAlways);
 
   // Memory ops
   return decomposeMemoryOp(RDDR);
@@ -1406,7 +1410,9 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   { // #1. This scope is for Guard (RAII).
     VPBuilder::InsertPointGuard Guard(Builder);
     setInsertPoint(LpPH);
-    DecompUB = decomposeVPOperand(HLp->getUpperDDRef());
+    // If HLLoop UB DDRef is not associated to any descriptor it isn't alias
+    bool IsUsingAlias = HIRLegality.mapsToSIMDDescriptor(HLp->getUpperDDRef());
+    DecompUB = decomposeVPOperand(HLp->getUpperDDRef(), IsUsingAlias);
     // Increment UB value by 1 since HLLoop upper bounds are inclusive. This
     // allows to avoid off-by-one errors during vector TC computation and use
     // stricter predicate for backedge condition.
@@ -2473,6 +2479,12 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
   else {
     DDR = RDDR.getBlobDDRef(BlobIndex);
     assert(DDR != nullptr && "BlobDDRef not found!");
+  }
+
+  // Not inside the loop - generate VPExternalDef for DDREF
+  if (!getIsInLoop()) {
+    VPExternalDef *ExtDef = Decomposer.Plan->getVPExternalDefForDDRef(DDR);
+    return ExtDef;
   }
 
   unsigned BlobNumReachDefs = Decomposer.getNumReachingDefinitions(DDR);

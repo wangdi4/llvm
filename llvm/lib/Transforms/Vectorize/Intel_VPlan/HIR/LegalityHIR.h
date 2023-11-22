@@ -229,6 +229,8 @@ public:
   /// is nullptr since it may never be actually used within the loop.
   void recordPotentialSIMDDescrUse(DDRef *Ref);
 
+  bool mapsToSIMDDescriptor(const DDRef *Ref);
+
   /// Check if the given HLInst \p UpdateInst writes in an LVal DDRef that
   /// potentially corresponds to any linear/reduction HIRLegality descriptors.
   /// If found, then update the descriptor with \p UpdateInst as its updating
@@ -293,7 +295,8 @@ private:
 
   /// Check if the incoming \p Ref matches the original SIMD descriptor DDRef
   /// \p DescrRef.
-  bool isSIMDDescriptorDDRef(const RegDDRef *DescrRef, const DDRef *Ref) const;
+  bool isSIMDDescriptorDDRef(const RegDDRef *DescrRef, const DDRef *Ref,
+                             bool isF90DV = false) const;
 
   /// Check if the given \p Ref is an explicit SIMD descriptor variable of type
   /// \p DescrType in the list \p List, if yes then return the descriptor object
@@ -306,12 +309,42 @@ private:
       DescrType *CurrentDescr = const_cast<DescrType *>(&Descr);
       assert(isa<RegDDRef>(CurrentDescr->getRef()) &&
              "The original SIMD descriptor Ref is not a RegDDRef.");
-      if (isSIMDDescriptorDDRef(cast<RegDDRef>(CurrentDescr->getRef()), Ref))
+      if (isSIMDDescriptorDDRef(cast<RegDDRef>(CurrentDescr->getRef()), Ref,
+                                isa<PrivDescrF90DVTy>(CurrentDescr)))
         return CurrentDescr;
 
       // Check if Ref matches any aliases of current descriptor's ref.
       if (CurrentDescr->findAlias(Ref))
         return CurrentDescr;
+    }
+
+    return nullptr;
+  }
+
+  /// Check if the given \p Ref is an explicit SIMD descriptor variable of type
+  /// \p DescrType in the list \p List, if yes then return the descriptor object
+  /// corresponding to it, else nullptr. In addition to fidDescr this function
+  /// also checks, whether \p Ref is in the list \p List.
+  template <typename DescrType>
+  DescrType *findDescrThatUsesSymbase(ArrayRef<DescrType> List,
+                                      const DDRef *Ref) const {
+    for (auto &Descr : List) {
+      // TODO: try to avoid returning the non-const ptr.
+      DescrType *CurrentDescr = const_cast<DescrType *>(&Descr);
+      assert(isa<RegDDRef>(CurrentDescr->getRef()) &&
+             "The original SIMD descriptor Ref is not a RegDDRef.");
+      if (isSIMDDescriptorDDRef(cast<RegDDRef>(CurrentDescr->getRef()), Ref))
+        return CurrentDescr;
+
+      // Check if Ref matches any aliases of current descriptor's ref
+      if (CurrentDescr->findAlias(Ref))
+        return CurrentDescr;
+
+      // Check if some alias is already using it
+      for (auto *Alias : CurrentDescr->aliases()) {
+        if (cast<RegDDRef>(Ref)->usesSymbase(Alias->getRef()->getSymbase()))
+          return CurrentDescr;
+      }
     }
 
     return nullptr;

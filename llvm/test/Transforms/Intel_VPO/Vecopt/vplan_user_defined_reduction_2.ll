@@ -42,7 +42,9 @@
 ; IR:          Ref:   %tmpcast.red = alloca %struct.point, align 8
 ; HIR:         Ref: &((%tmpcast.red)[0])
 ; CHECK:         UpdateInstructions:
-; CHECK-NEXT:    none
+; IR-NEXT:       none
+; HIR-NEXT:      <23>         (%tmpcast.red)[0].0 = %2;
+; HIR-NEXT:      <37>         (%tmpcast.red)[0].1 = %5;
 ; HIR-NEXT:      InitValue: %tmpcast.red
 ; CHECK-NEXT:    RedDescr: {Kind: call, IsSigned: 0, IsComplex: 0}
 ; CHECK-NEXT:    RedDescrUDR: {Combiner: .omp_combiner., Initializer: .omp_initializer., Ctor: none, Dtor: none}
@@ -50,7 +52,9 @@
 ; IR:          Ref:   %tmpcast68.red = alloca %struct.point, align 8
 ; HIR:         Ref: &((%tmpcast68.red)[0])
 ; CHECK:         UpdateInstructions:
-; CHECK-NEXT:    none
+; IR-NEXT:       none
+; HIR-NEXT:      <50>         (%tmpcast68.red)[0].0 = %8;
+; HIR-NEXT:      <64>         (%tmpcast68.red)[0].1 = %11;
 ; HIR-NEXT:      InitValue: %tmpcast68.red
 ; CHECK-NEXT:    RedDescr: {Kind: call, IsSigned: 0, IsComplex: 0}
 ; CHECK-NEXT:    RedDescrUDR: {Combiner: .omp_combiner..1, Initializer: .omp_initializer..2, Ctor: none, Dtor: none}

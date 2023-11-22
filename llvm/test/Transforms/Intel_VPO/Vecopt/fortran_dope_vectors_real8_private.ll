@@ -45,7 +45,7 @@
 ; CHECK:       [[BB20]]
 ; CHECK:        [DA: Div] ptr [[VP8:%.*]] = allocate-dv-buffer double i64 [[VP6]], OrigAlign = 8
 ; CHECK:        [DA: Div] store ptr [[VP8]] ptr [[VP1]]
-; CHECK:        [DA: Uni] br BB21
+; CHECK:        [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK:      [DA: Uni] call ptr [[VP5]] ptr @llvm.stackrestore.p0
 
 ; LLVMIR-NOT: DominatorTree is different than a freshly computed one!
@@ -101,7 +101,7 @@
 ; HIR-NEXT:   }
 ; HIR-NEXT:   else
 ; HIR-NEXT:   {
-; HIR-NEXT:      goto BB21.62;
+; HIR-NEXT:      goto BB23.62;
 ; HIR-NEXT:   }
 ; HIR-NEXT:   %extract.0.7 = extractelement %.vec4,  0;
 ; HIR-NEXT:   %dv.buffer.vec = undef;

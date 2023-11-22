@@ -86,6 +86,9 @@ private:
   /// Outermost HLLoop in this VPlan.
   const loopopt::HLLoop *OutermostHLp;
 
+  /// We are decomposing HLInst/DDRef present inside the loop.
+  bool IsInLoop = true;
+
   /// HIR DDGraph that contains DD information for the incoming loop nest.
   const loopopt::DDGraph &DDG;
 
@@ -250,9 +253,10 @@ private:
                          int64_t BlobCoeff);
   VPValue *decomposeIV(loopopt::RegDDRef *RDDR, loopopt::CanonExpr *CE,
                        unsigned IVLevel, Type *Ty);
-  VPValue *decomposeCanonExpr(loopopt::RegDDRef *RDDR, loopopt::CanonExpr *CE);
+  VPValue *decomposeCanonExpr(loopopt::RegDDRef *RDDR, loopopt::CanonExpr *CE,
+                              bool DecomposeAlways);
   VPValue *decomposeMemoryOp(loopopt::RegDDRef *RDDR);
-  VPValue *decomposeVPOperand(loopopt::RegDDRef *RDDR);
+  VPValue *decomposeVPOperand(loopopt::RegDDRef *RDDR, bool DecomposeAlways);
 
   /// This specifies that created VPInstructions should be appended to the end
   /// of the specified block.
@@ -303,6 +307,7 @@ private:
     VPConstant *decomposeNonIntConstBlob(const SCEVUnknown *Blob);
     VPValue *decomposeStandAloneBlob(const SCEVUnknown *Blob);
     VPValue *decomposeNAryOp(const SCEVNAryExpr *Blob, unsigned OpCode);
+    bool getIsInLoop() const { return Decomposer.getIsInLoop(); }
 
   public:
     VPBlobDecompVisitor(loopopt::RegDDRef &R, VPDecomposerHIR &Dec)
@@ -361,6 +366,10 @@ public:
                                          VPBasicBlock *LpPH,
                                          VPBasicBlock *LpLatch);
 
+  const loopopt::HLLoop *getOutermostHLp() const { return OutermostHLp; }
+  void setIsInLoop(bool InLoop) { IsInLoop = InLoop; }
+  bool getIsInLoop() const { return IsInLoop; }
+  bool &getIsInLoop() { return IsInLoop; }
   /// Add list of auto-recognized FP inductions into VPInductionHIRList tracked
   /// for the given \p HLp.
   void addFPInductionsForLoop(HLLoop *HLp);

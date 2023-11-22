@@ -1255,7 +1255,7 @@ void VPLoopEntityList::processRunningInscanArrReduction(
   assert(PrivateMem && "Private memory expected for array inscan reduction.");
 
   // Add memory aliases (if any) collected for this array inscan reduction.
-  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  SmallSet<UnderlyingInstruction, 4> AddedAliasInstrs;
   insertEntityMemoryAliases(ArrInscanRed, Preheader, AddedAliasInstrs, Builder);
 
   // Replace all uses of original array with private memory.
@@ -1510,7 +1510,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI, Preheader);
 
   // Add memory aliases (if any) collected for this reduction.
-  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  SmallSet<UnderlyingInstruction, 4> AddedAliasInstrs;
   if (PrivateMem)
     insertEntityMemoryAliases(Reduction, Preheader, AddedAliasInstrs, Builder);
 
@@ -1729,7 +1729,7 @@ void VPLoopEntityList::insertUDRVPInstructions(
   assert(PrivateMem && "Private memory is expected for UDR.");
 
   // Add memory aliases (if any) collected for this array reduction.
-  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  SmallSet<UnderlyingInstruction, 4> AddedAliasInstrs;
   insertEntityMemoryAliases(UDR, Preheader, AddedAliasInstrs, Builder);
 
   AI->replaceAllUsesWithInBlock(PrivateMem, *Preheader);
@@ -1786,12 +1786,11 @@ void VPLoopEntityList::insertUDRVPInstructions(
 // of representing memory aliases in VPlan.
 void VPLoopEntityList::insertEntityMemoryAliases(
     VPLoopEntity *Entity, VPBasicBlock *Preheader,
-    SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs, VPBuilder &Builder) {
+    SmallSet<UnderlyingInstruction, 4> &AddedAliasInstrs, VPBuilder &Builder) {
   // Insert the aliases into the preheader in the regular order first.
   for (auto const &ValInstPair : Entity->aliases()) {
-    const Instruction *Inst = ValInstPair.second.second;
     VPInstruction *VPInst = ValInstPair.second.first;
-    if (AddedAliasInstrs.insert(Inst).second) {
+    if (AddedAliasInstrs.insert(ValInstPair.second.second).second) {
       VPBuilder::InsertPointGuard Guard(Builder);
       for (auto &PhInst : *Preheader) {
         // The aliases for one entity may contain uses of aliases of another.
@@ -1802,7 +1801,15 @@ void VPLoopEntityList::insertEntityMemoryAliases(
           break;
         }
       }
-      Builder.insert(VPInst);
+      if (auto *TmpBB = VPInst->getParent()) {
+        assert(TmpBB->getParent() == nullptr && "Expected standalone BB");
+        Preheader->getInstructions().splice(
+            Builder.getInsertPoint(), TmpBB->getInstructions(),
+            TmpBB->getInstructions().begin(),
+            TmpBB->getTerminator()->getIterator());
+        delete TmpBB;
+      } else
+        Builder.insert(VPInst);
     }
   }
 }
@@ -1812,18 +1819,17 @@ void VPLoopEntityList::insertEntityMemoryAliases(
 // part of Phase 2 of representing memory aliases in VPlan.
 void VPLoopEntityList::replaceUsesOfExtDefWithMemoryAliases(
     VPLoopEntity *Entity, VPBasicBlock *Preheader, VPLoop &Loop,
-    SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs) {
+    SmallSet<UnderlyingInstruction, 4> &AddedAliasInstrs) {
   // Now do the replacement of aliases. We first replace all instances of
   // VPOperand with VPInst within the preheader, where all aliases have been
   // inserted. Then replace all instances of VPOperand with VPInst in the loop.
   LLVM_DEBUG(dbgs() << "Aliases:\n");
   for (auto const &ValInstPair : Entity->aliases()) {
     auto *VPOperand = ValInstPair.first;
-    const Instruction *Inst = ValInstPair.second.second;
     VPInstruction *VPInst = ValInstPair.second.first;
-    LLVM_DEBUG(VPOperand->dump(); Inst->dump(); VPInst->dump();
-               dbgs() << "\n";);
-    if (AddedAliasInstrs.find(Inst) != AddedAliasInstrs.end()) {
+    LLVM_DEBUG(VPOperand->dump(); ValInstPair.second.second->dump();
+               VPInst->dump(); dbgs() << "\n";);
+    if (AddedAliasInstrs.count(ValInstPair.second.second)) {
       VPOperand->replaceAllUsesWithInBlock(VPInst, *Preheader);
       VPOperand->replaceAllUsesWithInLoop(VPInst, Loop);
     }
@@ -1864,7 +1870,7 @@ void VPLoopEntityList::insertArrayRedVPInstructions(
   assert(PrivateMem && "Private memory is expected for array reduction.");
 
   // Add memory aliases (if any) collected for this array reduction.
-  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  SmallSet<UnderlyingInstruction, 4> AddedAliasInstrs;
   insertEntityMemoryAliases(ArrRed, Preheader, AddedAliasInstrs, Builder);
 
   // Replace all uses of original array reduction variable with private memory.
@@ -2547,7 +2553,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
   // Keep track of already added aliases. We can have two
   // different aliases for the same Instruciton (coming from
   // different privates) and we should not create those duplicates.
-  SmallPtrSet<const Instruction*, 4> AddedAliasInstrs;
+  SmallSet<UnderlyingInstruction, 4> AddedAliasInstrs;
 
   // Process the list of Privates.
   for (VPPrivate *Private : vpprivates()) {
@@ -4433,3 +4439,12 @@ void CompressExpandIdiomDescr::passToVPlan(VPlanVector *Plan,
   LE->addCompressExpandIdiom(RecurrentPhi, LiveIn, LiveOut, TotalStride,
                              Increments, Stores, Loads, Indices);
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void UnderlyingInstruction::dump() const {
+  if (is<const Instruction *>())
+    get<const Instruction *>()->dump();
+  else
+    get<const loopopt::HLDDNode *>()->dump();
+}
+#endif

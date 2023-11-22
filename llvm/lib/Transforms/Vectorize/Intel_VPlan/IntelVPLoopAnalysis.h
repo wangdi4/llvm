@@ -25,6 +25,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/IVDescriptors.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include <map>
 
 using namespace llvm;
@@ -54,6 +55,26 @@ class VPDominatorTree;
 class VPCompressExpandInit;
 class VPCompressExpandFinal;
 
+struct UnderlyingInstruction
+    : public PointerUnion<const loopopt::HLDDNode *, const Instruction *> {
+  using Base = PointerUnion<const loopopt::HLDDNode *, const Instruction *>;
+  const UnderlyingInstruction *operator->() const { return this; }
+  UnderlyingInstruction() : PointerUnion() {}
+  UnderlyingInstruction(std::nullptr_t) : UnderlyingInstruction() {}
+  UnderlyingInstruction(const loopopt::HLDDNode *H) { Base::operator=(H); }
+  UnderlyingInstruction(const Instruction *D) { Base::operator=(D); }
+  UnderlyingInstruction(const Base &U) : Base(U) {}
+
+  operator const loopopt::HLDDNode *() const {
+    return get<const loopopt::HLDDNode *>();
+  }
+  operator const Instruction *() const { return get<const Instruction *>(); }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const;
+#endif
+};
+
 /// Base class for loop entities
 class VPLoopEntity {
 public:
@@ -64,8 +85,7 @@ public:
   // Instruction *>. The Instruction in this pair is underlying instruction that
   // creates the alias in underlying IR, VPInstruction is its VPlan equivalent.
   using VPEntityAliasesTy =
-      MapVector<VPValue *, std::pair<VPInstruction *, const Instruction *>>;
-
+      MapVector<VPValue *, std::pair<VPInstruction *, UnderlyingInstruction>>;
   enum {
     Reduction,
     IndexReduction,
@@ -1310,12 +1330,11 @@ private:
 
   static void insertEntityMemoryAliases(
       VPLoopEntity *Entity, VPBasicBlock *Preheader,
-      SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs,
-      VPBuilder &Builder);
+      SmallSet<UnderlyingInstruction, 4> &AddedAliasInstrs, VPBuilder &Builder);
 
   static void replaceUsesOfExtDefWithMemoryAliases(
       VPLoopEntity *Entity, VPBasicBlock *Preheader, VPLoop &Loop,
-      SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs);
+      SmallSet<UnderlyingInstruction, 4> &AddedAliasInstrs);
 };
 
 class VPEntityImportDescr {
@@ -1362,7 +1381,8 @@ public:
   }
   void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
 
-  void addMemAlias(VPValue *Alias, VPInstruction *VPI, const Instruction *I) {
+  template <class Instr>
+  void addMemAlias(VPValue *Alias, VPInstruction *VPI, const Instr *I) {
     MemAliases[Alias] = std::make_pair(VPI, I);
   }
 

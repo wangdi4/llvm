@@ -23,7 +23,8 @@
 ; HIR-LABEL:   HIRLegality ReductionList:
 ; HIR:         Ref: &((%sum)[0])
 ; HIR:           UpdateInstructions:
-; HIR-NEXT:      none
+; HIR-NEXT:      <20>         (%sum)[0].0 = %add.real;
+; HIR-NEXT:      <21>         (%sum)[0].1 = %add.imag;
 ; HIR-NEXT:      InitValue: %sum
 ; HIR-NEXT:      RedDescr: {Kind: fadd, IsSigned: 0, IsComplex: 1}
 

@@ -58,6 +58,7 @@
 #include "IntelVPlanHCFGBuilderHIR.h"
 #include "IntelVPlanDecomposerHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Support/SaveAndRestore.h"
 
 #define DEBUG_TYPE "VPlanHCFGBuilder"
 
@@ -1498,8 +1499,8 @@ public:
                   const PrivatesF90DVListTy::value_type &CurValue) {
     auto *DescrRef = cast<RegDDRef>(CurValue.getRef());
     DDRef *BasePtrRef = DescrRef->getBlobDDRef(DescrRef->getBasePtrBlobIndex());
-    Descriptor.setAllocaInst(
-        Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+    VPExternalDef *Alloca = Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef);
+    Descriptor.setAllocaInst(Alloca);
     Descriptor.setAllocatedType(CurValue.getType());
     Descriptor.setIsConditional(CurValue.isCond());
     Descriptor.setIsLast(CurValue.isLast());
@@ -1507,6 +1508,50 @@ public:
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
     Descriptor.setIsF90(true);
+    if (LegalityHIR::DescrValueTy *Alias = CurValue.getValidAlias()) {
+      SmallVector<VPInstruction *, 4> AliasUpdates;
+      for (auto *UpdateInst : Alias->getUpdateInstructions())
+        AliasUpdates.push_back(
+            cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst)));
+      Descriptor.setAlias(nullptr /*AliasInit*/, AliasUpdates);
+    }
+    for (auto *Alias : CurValue.aliases()) {
+      if (!Alias->isValidAlias()) {
+        HLDDNode *AliasHLDDNode = Alias->getRef()->getHLDDNode();
+        auto *NewVPOperand = Decomposer.getVPValueForNode(AliasHLDDNode);
+        // If operand doesn't exist or is VPExternalDef create new VPInstruction
+        // in empty BB.
+        if (!NewVPOperand || isa<VPExternalDef>(NewVPOperand)) {
+          // Memory allocated for dummy BB is explicitly deallocated in
+          // VPLoopEntityList::insertEntityMemoryAliases
+          VPBasicBlock *NewVPBB =
+              new VPBasicBlock(VPlanUtils::createUniqueName("BB"),
+                               &AliasHLDDNode->getHLNodeUtils().getContext());
+          NewVPBB->setTerminator();
+          SaveAndRestore<bool> RestoreDecomposer(Decomposer.getIsInLoop());
+          auto *AliasParentLoop = AliasHLDDNode->getParentLoop();
+          bool IsInLoop = AliasParentLoop &&
+                          (AliasParentLoop == Decomposer.getOutermostHLp() ||
+                           AliasParentLoop->getNestingLevel() >
+                               Decomposer.getOutermostHLp()->getNestingLevel());
+          // Propagate info whether alias is in the loop or not, to decide if
+          // new VPExternalDef has to be created.
+          Decomposer.setIsInLoop(IsInLoop);
+          // VPExternalDef must be live in only if alias is inside the loop.
+          VPInstruction *VPInst =
+              Decomposer.createVPInstructionsForNode(AliasHLDDNode, NewVPBB);
+          assert(VPInst && "Expect a valid VPInst to be created.");
+          VPExternalDef *VPExternal =
+              Decomposer.getVPExternalDefForDDRef(Alias->getRef(), IsInLoop);
+          Descriptor.addMemAlias(VPExternal, VPInst, AliasHLDDNode);
+        } else {
+          auto *VPExternal = Decomposer.getVPExternalDefForDDRef(
+              Alias->getRef(), false /* MustBeLiveIn */);
+          Descriptor.addMemAlias(
+              VPExternal, dyn_cast<VPInstruction>(NewVPOperand), AliasHLDDNode);
+        }
+      }
+    }
   }
 };
 

@@ -28,6 +28,15 @@ define dso_local i32 @test_debug_info(ptr nocapture readonly %src, ptr nocapture
 ; HIR-NEXT:  Ref: &(([[MYPOINT2_PRIV0:%.*]])[0])
 ; HIR-NEXT:    UpdateInstructions:
 ; HIR-NEXT:    none
+; HIR-EMPTY:
+; HIR-NEXT:    AliasRef: %2
+; HIR-NEXT:    UpdateInstructions:
+; HIR-NEXT:    none
+; HIR-EMPTY:
+; HIR-NEXT:    AliasRef: %2 + 999
+; HIR-NEXT:    UpdateInstructions:
+; HIR-NEXT:    none
+; HIR-EMPTY:
 ; HIR-NEXT:  PrivDescr: {IsCond: 0, IsLast: 0, Type: [[STRUCT_POINT2D0:%.*]] = type { i32, i32 }}
 ; HIR-NEXT:  PrivDescrNonPOD: {Ctor: _ZTS7point2d.omp.def_constr, Dtor: _ZTS7point2d.omp.destr, Copy Assign: }
 
