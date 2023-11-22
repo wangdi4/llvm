@@ -458,10 +458,12 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
     if (Memref.getValueType()->isAggregateType())
       return Memref.getAlignment();
     Type *VecTy = getWidenedType(Memref.getValueType(), VF);
+    const unsigned NumParts = TTI->getNumberOfParts(VecTy);
+    if (NumParts == 0)
+      return Memref.getAlignment();
     auto *DL = Memref.getParent()->getParent()->getDataLayout();
     // need to align on one register size
-    unsigned DataWidth =
-        DL->getTypeAllocSize(VecTy) / TTI->getNumberOfParts(VecTy);
+    unsigned DataWidth = DL->getTypeAllocSize(VecTy) / NumParts;
     return Align(DataWidth);
   }
   if (auto *NP = dyn_cast<VPlanNoPeelingUnaligned>(Peeling))
