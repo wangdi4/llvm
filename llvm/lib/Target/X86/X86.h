@@ -214,9 +214,6 @@ FunctionPass *createX86AvoidMemoryRenamingBlocks();
 extern char &X86HeteroArchOptID;
 FunctionPass *createX86HeteroArchOptPass();
 
-/// Return a pass to insert chktag instructions for memory operations.
-FunctionPass *createX86FixupMemInstsPass();
-
 #endif // INTEL_CUSTOMIZATION
 
 /// This pass insert wait instruction after X87 instructions which could raise
@@ -288,7 +285,6 @@ void initializeX86InstCombinePass(PassRegistry &);
 void initializeX86SplitLongBlockPassPass(PassRegistry &);
 void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);
 void initializeX86StackRealignPass(PassRegistry &);
-void initializeX86FixupMemInstsPassPass(PassRegistry &);
 void initializeX86ConditionalComparesPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 
