@@ -2229,12 +2229,13 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlanVector *Plan,
   VPlanAllZeroBypass AZB(*Plan);
   if (EnableAllZeroBypassLoops)
     AZB.collectAllZeroBypassLoopRegions(AllZeroBypassRegions, RegionsCollected);
-  if (EnableAllZeroBypassNonLoops &&
-      TTI->isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42)) {
 
+  // For non-Intel target insert bypasses for stability only.
+  bool StabilityOnly = !TTI->isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42);
+  if (EnableAllZeroBypassNonLoops) {
     AZB.collectAllZeroBypassNonLoopRegions(AllZeroBypassRegions,
-                                           RegionsCollected,
+                                           RegionsCollected, StabilityOnly,
                                            createCostModel(Plan, VF).get(), VF);
   }
   AZB.insertAllZeroBypasses(AllZeroBypassRegions);
@@ -2360,7 +2361,12 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
 void LoopVectorizationPlanner::setVPlanFlagsFromFunction(VPlan *Plan,
                                                          const Function *F) {
   Plan->setPrintingEnabled(llvm::isFunctionInPrintList(F->getName()));
-  Plan->setIsVecFuncVariant(VFInfo::isVectorVariant(F->getName()));
+  const std::optional<VFInfo> VFVariant =
+      VFABI::tryDemangleForVFABI(F->getName());
+  Plan->setVecFuncVariant(!VFVariant ? VPVectorVariantKind::None
+                          : VFVariant->isMasked()
+                              ? VPVectorVariantKind::Masked
+                              : VPVectorVariantKind::NonMasked);
 }
 
 std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(

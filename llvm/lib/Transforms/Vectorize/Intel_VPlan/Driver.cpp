@@ -917,7 +917,9 @@ void DriverImpl::generateMaskedModeVPlans(LoopVectorizationPlanner *LVP,
       continue;
 
     // Masked mode is not needed in vector functions.
-    if (Plan->isVecFuncVariant())
+    // TODO: we don't need masked variant in cases when we have
+    // a known TC and VF is enforced and equal to that TC.
+    if (Plan->getVecFuncVariant() != VPVectorVariantKind::None)
       continue;
 
     auto It = OrigClonedVPlans.find(Plan.get());

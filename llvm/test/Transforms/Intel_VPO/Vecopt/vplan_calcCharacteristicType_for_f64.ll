@@ -8,14 +8,14 @@ target triple = "x86_64-unknown-linux-gnu"
 declare dso_local double @_Z3barPif(i32) #2
 
 ; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #3
+declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #3
+declare void @llvm.directive.region.exit(token) #1
 
-define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
+define void @_fdirect(<4 x i32> %mask) #1 {
 ; CHECK-LABEL:  VPlan after CallVecDecisions analysis for merged CFG:
-; CHECK-NEXT:  VPlan IR for: _ZGVbM4_direct:simd.loop
+; CHECK-NEXT:  VPlan IR for: _fdirect:simd.loop
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
@@ -62,7 +62,7 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
-; CHECK:  define void @_ZGVbM4_direct(<4 x i32> [[MASK0:%.*]]) #2 {
+; CHECK:  define void @_fdirect(<4 x i32> [[MASK0:%.*]]) #1 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VEC_MASK0:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    store <4 x i32> [[MASK0]], ptr [[VEC_MASK0]], align 16
@@ -139,6 +139,5 @@ return:                                           ; preds = %simd.end.region
   ret void
 }
 
-attributes #1 = { "vector-variants"="_ZGVbM4_direct,_ZGVbN4_direct" }
+attributes #1 = { nounwind }
 attributes #2 = { "vector-variants"="_ZGVbM4v__Z3barPif,_ZGVbN4v__Z3barPif" }
-attributes #3 = { nounwind }

@@ -5338,6 +5338,9 @@ private:
   bool UseFirstLane;
 };
 
+// Vector function variant kind.
+enum class VPVectorVariantKind { None, Masked, NonMasked };
+
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost.
@@ -5634,9 +5637,9 @@ public:
   void setPrintingEnabled(bool V) { PrintingEnabled = V;}
   bool isPrintingEnabled() const { return PrintingEnabled;}
 
-  /// True if the VPlan represents a vector function variant
-  void setIsVecFuncVariant(bool V) { IsVecFuncVariant = V;}
-  bool isVecFuncVariant() const { return IsVecFuncVariant;}
+  /// Set/get which vector function variant the VPlan represents.
+  void setVecFuncVariant(VPVectorVariantKind V) { VecFuncVariant = V; }
+  VPVectorVariantKind getVecFuncVariant() const { return VecFuncVariant; }
 
 private:
   void addLiveInValue(VPLiveInValue *V) {
@@ -5697,8 +5700,8 @@ private:
   /// Set to false when printing is not enabled, e.g. by -filter-print-funcs.
   bool PrintingEnabled = true;
 
-  /// True if the VPlan represents a vector function variant
-  bool IsVecFuncVariant = false;
+  /// Which vector function variant the VPlan represents.
+  VPVectorVariantKind VecFuncVariant = VPVectorVariantKind::None;
 
   /// Nesting level of outermost loop being vectorized. VPlan transformations
   /// may generated additional loops and we cannot exceed the maximum

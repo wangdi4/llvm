@@ -149,7 +149,7 @@ public:
                                           RegionsCollected);
     if (EnableFuncVecAllZeroBypassNonLoops)
       AZB.collectAllZeroBypassNonLoopRegions(AllZeroBypassRegions,
-                                             RegionsCollected);
+                                             RegionsCollected, false);
     AZB.insertAllZeroBypasses(AllZeroBypassRegions);
     VPLAN_DUMP(AllZeroBypassDumpControl, *Plan);
 

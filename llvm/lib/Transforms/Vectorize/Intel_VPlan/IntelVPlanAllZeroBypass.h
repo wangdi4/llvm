@@ -141,6 +141,10 @@ private:
   bool endRegionAtBlock(VPBasicBlock *Block, VPValue *CandidateBlockPred,
                         SetVector<VPBasicBlock *> &RegionBlocks);
 
+  /// Check whether bypass region is required for stability reasons.
+  bool checkRegionEnforced(const VPBasicBlock *CandidateBlock,
+                           const SetVector<VPBasicBlock *> &RegionBlocks);
+
 public:
   VPlanAllZeroBypass(VPlanVector &Plan) : Plan(Plan){};
 
@@ -152,7 +156,7 @@ public:
   /// insertion for non-loops.
   void collectAllZeroBypassNonLoopRegions(
       AllZeroBypassRegionsTy &AllZeroBypassRegions,
-      RegionsCollectedTy &RegionsCollected,
+      RegionsCollectedTy &RegionsCollected, bool StabilityOnly,
       VPlanCostModelInterface *CM = nullptr,
       std::optional<unsigned> VF = std::nullopt);
 
