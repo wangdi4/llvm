@@ -621,22 +621,139 @@ VPInstructionCost VPlanSLP::buildGraph(ElemArrayRef Seed) {
                         << "vectorizable with VL = "
                         << (VCost.isValid() ? VecValues.size() : Values.size())
                         << ":\n";
-                 printVector(Values));
+                 printVector(VCost.isValid() ? VecValues : Values));
     }
 
     if (!VCost.isValid())
       return VCost;
+
+    assert(VecValues.size() <= Values.size() && VecValues.size() > 1 &&
+           "Vectorizable array size is out of expected bounds.");
+    if (VecValues.size() > Values.size() || VecValues.size() <= 1)
+      return VPInstructionCost::getInvalid();
+
+    // If vectorizable array contains less elements than input array we check
+    // the remaining elements if they can form vectorizable array and at what
+    // cost.
+    //
+    // TODO:
+    // Currently supported only for NType == InstVector to simplify the code and
+    // to cover test cases of interest. There is no fundamental limitation to
+    // prevent supporting the similar scheme for other node types.
+    if (NType == InstVector && VecValues.size() < Values.size()) {
+      ElemVectorTy Values2;
+      // Fill Values2 with elements that are not accepted for vectorization yet.
+      // Those elements do not present in VecValues but present in Values.
+      ElemVectorTy::iterator VecValuesIt = VecValues.begin();
+      for (const auto &E : Values) {
+        // If 'E' is in VecValues array then advance VecValuesIt and go to the
+        // next element in Values.
+        if (VecValuesIt != VecValues.end() &&
+            E.getValue() == VecValuesIt->getValue()) {
+          VecValuesIt++;
+          continue;
+        }
+
+        // If 'E' missing in Values, then store it in Values2.
+        Values2.push_back(E);
+      }
+
+      assert((VecValues.size() + Values2.size() == Values.size()) &&
+             "Unexpected length of Values2 array.");
+
+      ElemVectorTy VecValues2;
+      VPlanSLPNodeTy NType2 = getVectorizableValues(Values2, VecValues2);
+      VPInstructionCost VCost2 = VPInstructionCost::getInvalid();
+
+      // TODO:
+      // The current implementation supports merging two InstVector only.
+      if (NType2 == InstVector)
+        VCost2 = estimateSLPCostDifference(VecValues2, NType2);
+
+      assert((VecValues.size() + VecValues2.size() <= Values.size()) &&
+             "Too large vectorizable subvector.");
+
+      if (SLPReportDetailLevel >= 1) {
+        LLVM_DEBUG(
+            dbgs() << "VSLP2: bundle/graph " << BundleID << '/' << GraphID
+                   << " in " << BB->getName() << " is"
+                   << (VCost2.isValid() ? " " : " not ")
+                   << "vectorizable with VL = "
+                   << (VCost2.isValid() ? VecValues2.size() : Values2.size())
+                   << ":\n";
+            printVector(VCost2.isValid() ? VecValues2 : Values2));
+      }
+
+      // Bundle2 is vectorizable with VCost2, which can be Invalid, then we drop
+      // the results of the try. VCost2 can be positive and can override the
+      // gain from VCost. We proceed with vectorization anyway as we expect the
+      // whole SLP Tree to gain (heuristic choice).
+      //
+      // Check that new vector elements have the same number of operands as
+      // elements in VecValues and check that they produce the value of the
+      // same type to be able to blend the results.
+      if (VCost2.isValid() &&
+          (cast<VPInstruction>(VecValues2[0].getValue())->getNumOperands() ==
+           cast<VPInstruction>(VecValues[0].getValue())->getNumOperands()) &&
+          (VecValues2[0].getValue()->getType() ==
+           VecValues[0].getValue()->getType())) {
+        // Insert elements from VecValues2 into VecValues in the order with
+        // respect to existing elements in VecValues the same as they were
+        // in Values.
+        VecValuesIt = VecValues.begin();
+        ElemVectorTy::const_iterator VecValuesIt2 = VecValues2.begin();
+        for (const auto &E : Values) {
+          // If seen E in VecValues then advance VecValuesIt and continue to the
+          // next element in Values.
+          if (VecValuesIt != VecValues.end() &&
+              E.getValue() == VecValuesIt->getValue()) {
+            VecValuesIt++;
+            continue;
+          }
+          // If seen E in VecValues2 then insert it into the current position in
+          // VecValues, advance VecValuesIt and VecValuesIt2 and continue to the
+          // next element in Values.
+          if (VecValuesIt2 != VecValues2.end() &&
+              E.getValue() == VecValuesIt2->getValue()) {
+            VecValuesIt = VecValues.insert(VecValuesIt, *VecValuesIt2);
+            VecValuesIt++;
+            VecValuesIt2++;
+          }
+          // If no hit in VecValues or VecValues2 then continue scanning Values.
+        }
+
+        VCost += VCost2;
+        // If VecValues has non void result type, add blending cost.
+        if (!VecValues[0].getValue()->getType()->isVoidTy())
+          VCost += CM->TTI.getShuffleCost(
+              TTI::SK_PermuteTwoSrc,
+              getWidenedType(VecValues[0].getValue()->getType(),
+                             VecValues.size()));
+
+        // Change node type to indicate the difference to the downstream code.
+        NType = InstShuffleVector;
+
+        if (SLPReportDetailLevel >= 1) {
+          LLVM_DEBUG(dbgs() << "VSLPRes: bundle/graph " << BundleID << '/'
+                            << GraphID << " in " << BB->getName()
+                            << " is vectorizable with VL = " << VecValues.size()
+                            << " and cost = " << VCost << ":\n";
+                     printVector(VCost.isValid() ? VecValues : Values));
+        }
+      }
+    }
+
+    assert(VecValues.size() <= Values.size() && VecValues.size() > 1 &&
+           "Vectorizable array size is out of expected bounds.");
+    if (VecValues.size() > Values.size() || VecValues.size() <= 1)
+      return VPInstructionCost::getInvalid();
 
     // VL can be reduced at this point if VecValues.size() < Values.size().
     // There are already processed bundles whose cost is estimated for large VL
     // and there are pending bundles in WorkQueue that are built assuming larger
     // VL. We need to bail out to rebuild the graph using new seed that excludes
     // unvectorizable elements (lanes).
-    assert(VecValues.size() <= Values.size() && VecValues.size() > 1 &&
-           "Vectorizable array size is out of expected bounds.");
-    if (VecValues.size() > Values.size() || VecValues.size() <= 1)
-      return VPInstructionCost::getInvalid();
-
+    //
     // TODO:
     // VL reduction is not supported yet.
     // We need to calculate new seed basing on lane indexes where VecValues are
