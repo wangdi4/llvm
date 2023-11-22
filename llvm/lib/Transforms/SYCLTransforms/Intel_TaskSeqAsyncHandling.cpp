@@ -64,7 +64,6 @@ public:
 
   bool run() {
     findAllAsyncBuiltins();
-    updateCreateAndAsyncBuiltins();
     collectTaskFuncs();
     lowerAllFunctionsSRetArgToReturnType();
     createBlockLiteralTypes();
@@ -76,25 +75,6 @@ public:
 
 private:
   void findAllAsyncBuiltins();
-  /// Make sure every task function is used in different
-  /// __spirv_TaskSequenceCreateINTEL and __spirv_TaskSequenceAsyncINTEL
-  /// builtins. Task functions with different function type can be used in same
-  /// __spirv_TaskSequenceCreateINTEL builtin, which has problem when updating
-  /// sret task function users and generating builtin body.
-  /// case 1: when generating __spirv_TaskSequenceCreateINTEL body, we need to
-  /// obtain user task function return type size. There can be different return
-  /// size for task functions.
-  /// case 2: when there is task function with sret parameter, we need to lower
-  /// sret arg to return type and update builtin function type. There can be
-  /// several different task functions used in same
-  /// __spirv_TaskSequenceAsyncINTEL builtin.
-  /// Easiest way to fix the issue is that make sure every task function is used
-  /// in different __spirv_TaskSequenceCreateINTEL and
-  /// __spirv_TaskSequenceAsyncINTEL.
-  /// TODO: It's not necessary to update builtin function type every time when
-  /// updating sret task function users and also we can generate only a
-  /// __spirv_TaskSequenceCreateINTEL builtin like block_invoke_mapper.
-  void updateCreateAndAsyncBuiltins();
   void createBlockLiteralTypes();
   void createTaskFunctionInvokes();
   FunctionCallee getBackendCreateTaskSeq();
@@ -107,8 +87,8 @@ private:
   void generateAsyncBodies();
 
   void updateBuiltinInAsyncMap(Function *Builtin, Function *NewBuiltin);
-  void updateTaskFuncInAsyncMap(Function *TaskF, Function *NewTaskF,
-                                Function *Builtin, Function *NewBuiltin);
+  void updateTaskFuncInAsyncMap(Function *Builtin, Function *TaskF,
+                                Function *NewTaskF);
   void replaceBuiltinInVector(Function *Builtin, Function *NewBuiltin);
 
   void
@@ -173,11 +153,6 @@ private:
     return (F->getName() + ".block_invoke_mapper").str();
   }
 
-  /// A map between user task function to __spirv_TaskSequenceAsync.
-  DenseMap<Function *, Function *> CreateBuiltinMap;
-  /// A map between user task function to __spirv_TaskSequenceCreate.
-  DenseMap<Function *, Function *> AsyncBuiltinMap;
-
   /// A map between __spirv_TaskSequenceAsync template instances and task
   /// functions (the 2nd arg) passed to them.
   DenseMap<Function *, SmallVector<Function *>> AsyncBuiltinToTaskFuncMap;
@@ -208,38 +183,6 @@ void Impl::findAllAsyncBuiltins() {
     else if (FName.startswith(BuiltinReleaseTaskSeqPattern))
       Releases.push_back(&F);
   }
-}
-
-void Impl::updateCreateAndAsyncBuiltins() {
-  auto UpdateBuiltin = [](FunctionVector &Builtins,
-                          DenseMap<Function *, Function *> &BuiltinMap) {
-    std::vector<Function *> NewBuiltins;
-    for (auto *Builtin : Builtins) {
-      std::vector<User *> BuiltinUsers(Builtin->users().begin(),
-                                       Builtin->users().end());
-      for (unsigned int I = 0; I < BuiltinUsers.size(); ++I) {
-        auto *CI = cast<CallInst>(BuiltinUsers[I]);
-        if (CI->getCalledFunction() == Builtin) {
-          auto *TaskFunc =
-              cast<Function>(CI->getArgOperand(1)->stripPointerCasts());
-          if (I == 0)
-            BuiltinMap[TaskFunc] = Builtin;
-          else if ((!BuiltinMap.count(TaskFunc))) {
-            ValueToValueMapTy VMap;
-            Function *Cloned = CloneFunction(Builtin, VMap);
-            BuiltinUsers[I]->replaceUsesOfWith(Builtin, Cloned);
-            NewBuiltins.push_back(Cloned);
-            BuiltinMap[TaskFunc] = Cloned;
-          } else
-            BuiltinUsers[I]->replaceUsesOfWith(Builtin, BuiltinMap[TaskFunc]);
-        }
-      }
-    }
-    for (auto *Func : NewBuiltins)
-      Builtins.push_back(Func);
-  };
-  UpdateBuiltin(Creates, CreateBuiltinMap);
-  UpdateBuiltin(Asyncs, AsyncBuiltinMap);
 }
 
 void Impl::collectTaskFunctionsWithSRetArg(
@@ -307,67 +250,21 @@ Function *Impl::lowerTaskFunctionSRetArgToReturnType(Function *F) {
 
 void Impl::fixupTaskFuncUsersAfterLoweringSRetArg(Function *TaskF,
                                                   Function *NewTaskF) {
-  DenseMap<Function *, Function *> BuiltinsMap;
-  // Create a function declaration
   for (auto *U : make_early_inc_range(TaskF->users())) {
     CallInst *CI = cast<CallInst>(U);
     LLVM_DEBUG(dbgs() << "Fix up user of task function: " << *CI << "\n");
     Function *Builtin = CI->getCalledFunction();
     assert(Builtin->isDeclaration() && "Expect function declaration");
 
-    size_t Index = 0, TaskFuncIndex = 0;
-    SmallVector<Value *> NewArgs;
-    for (; Index < CI->arg_size(); Index++) {
-      if (dyn_cast<Function>(CI->getArgOperand(Index)) == TaskF) {
-        NewArgs.push_back(NewTaskF);
-        TaskFuncIndex = Index;
-      } else
-        NewArgs.push_back(CI->getArgOperand(Index));
-    }
-
-    Index = 0;
-    Function *NewBuiltin = nullptr;
-    bool IsNewFuncCreated = false;
-    if (BuiltinsMap.count(Builtin))
-      NewBuiltin = BuiltinsMap[Builtin];
-    else {
-      SmallVector<Type *> NewTys;
-      for (auto I = Builtin->arg_begin(), E = Builtin->arg_end(); I != E;
-           I++, Index++) {
-        if (TaskFuncIndex == Index) {
-          Type *FuncPtrTy = PointerType::get(
-              NewTaskF->getFunctionType(),
-              cast<PointerType>(I->getType())->getAddressSpace());
-          NewTys.push_back(FuncPtrTy);
-        } else
-          NewTys.push_back(I->getType());
-      }
-
-      FunctionType *NewBuiltinFTy =
-          FunctionType::get(Builtin->getReturnType(), NewTys, false);
-      std::string Name = Builtin->getName().str();
-      Builtin->setName(Builtin->getName() + "_before.TaskSeqAsyncHandling");
-      NewBuiltin = Function::Create(NewBuiltinFTy, Builtin->getLinkage(), Name,
-                                    Builtin->getParent());
-      BuiltinsMap[Builtin] = NewBuiltin;
-      IsNewFuncCreated = true;
-    }
-    LLVM_DEBUG(dbgs() << "New builtin for calling new task function ("
-                      << NewTaskF->getName() << "): " << *NewBuiltin << "\n");
-
-    // Replace function call with new one
-    IRBuilder<> Builder(CI);
-    CallInst *NewCI =
-        Builder.CreateCall(NewBuiltin->getFunctionType(), NewBuiltin, NewArgs);
-    CI->replaceAllUsesWith(NewCI);
-    CI->eraseFromParent();
-
-    if (!IsNewFuncCreated)
-      continue;
-    replaceBuiltinInVector(Builtin, NewBuiltin);
-    StringRef FName = Builtin->getName();
-    if (FName.startswith(BuiltinAsyncPattern))
-      updateTaskFuncInAsyncMap(Builtin, TaskF, NewBuiltin, NewTaskF);
+    size_t Index = 0;
+    for (; Index < CI->arg_size(); Index++)
+      if (dyn_cast<Function>(CI->getArgOperand(Index)) == TaskF)
+        break;
+    // Update builtin function args. We don't need to update builtin function
+    // type since the arg is function pointer type.
+    CI->setArgOperand(Index, NewTaskF);
+    if (Builtin->getName().startswith(BuiltinAsyncPattern))
+      updateTaskFuncInAsyncMap(Builtin, TaskF, NewTaskF);
   }
 }
 
@@ -398,7 +295,7 @@ void Impl::updateBuiltinInAsyncMap(Function *Builtin, Function *NewBuiltin) {
 }
 
 void Impl::updateTaskFuncInAsyncMap(Function *Builtin, Function *TaskF,
-                                    Function *NewBuiltin, Function *NewTaskF) {
+                                    Function *NewTaskF) {
   for (auto I = AsyncBuiltinToTaskFuncMap[Builtin].begin(),
             E = AsyncBuiltinToTaskFuncMap[Builtin].end();
        I != E; I++) {
@@ -407,16 +304,10 @@ void Impl::updateTaskFuncInAsyncMap(Function *Builtin, Function *TaskF,
                         << " to " << TaskF->getName()
                         << " in task func map!\n");
       AsyncBuiltinToTaskFuncMap[Builtin].erase(I);
-
-      if (AsyncBuiltinToTaskFuncMap[Builtin].size() == 0) {
-        LLVM_DEBUG(dbgs() << "Erase mapping of builtin " << Builtin->getName()
-                          << " in task func map!\n");
-        AsyncBuiltinToTaskFuncMap.erase(Builtin);
-      }
     }
   }
-  AsyncBuiltinToTaskFuncMap[NewBuiltin].push_back(NewTaskF);
-  LLVM_DEBUG(dbgs() << "Map " << NewBuiltin->getName() << " with "
+  AsyncBuiltinToTaskFuncMap[Builtin].push_back(NewTaskF);
+  LLVM_DEBUG(dbgs() << "Map " << Builtin->getName() << " with "
                     << NewTaskF->getName() << " in task function map\n");
 }
 
@@ -688,15 +579,60 @@ void Impl::generateCreateTaskSeqBodies() {
   //   void *impl = __create_task_sequence(return_type_size);
   //   return (size_t)impl;
   // }
+  // We need to obtain return type size from task function. Convert task
+  // function pointer to integer, compare the value with every task function and
+  // then get results. Generated IR is like following:
+  //   define internal i64 @"__spirv_TaskSequenceCreateINTEL"(ptr %obj, ptr %f)
+  //   {
+  //       %4 = ptrtoint ptr %f to i64
+  //       %5 = icmp eq i64 %4, ptrtoint (ptr @userTaskFunc1 to i64)
+  //       %6 = select i1 %5, i64 0, i64 8
+  //       %7 = icmp eq i64 %4, ptrtoint (ptr @userTaskFunc2 to i64)
+  //       %8 = select i1 %7, i64 0, i64 %6
+  //       %9 = icmp eq i64 %4, ptrtoint (ptr @userTaskFunc3 to i64)
+  //       %10 = select i1 %9, i64 8, i64 %8
+  //       %11 = call ptr @__create_task_sequence(i64 %10)
+  //       %12 = ptrtoint ptr %11 to i64
+  //       ret i64 %12
+  //     }
   FunctionCallee BackendCreateTaskSeq = getBackendCreateTaskSeq();
   auto *RetTypeSizeTy = BackendCreateTaskSeq.getFunctionType()->getParamType(0);
   for (Function *F : Creates) {
     auto Entry = BasicBlock::Create(Ctx);
     Entry->insertInto(F);
     IRB.SetInsertPoint(Entry);
-    size_t RetTypeSize = getRetTypeSizeOfTaskFunction(F);
-    auto *RetTypeSizeVal = ConstantInt::get(RetTypeSizeTy, RetTypeSize);
-    auto *CI = IRB.CreateCall(BackendCreateTaskSeq, {RetTypeSizeVal});
+    std::set<Function *> TaskFuncs;
+    for (auto *U : F->users()) {
+      auto *CI = cast<CallInst>(U);
+      assert(CI->getCalledFunction() == F &&
+             "__spirv_TaskSequenceCreate isn't directly called?");
+      TaskFuncs.insert(
+          cast<Function>(CI->getArgOperand(1)->stripPointerCasts()));
+    }
+    assert(!TaskFuncs.empty() &&
+           "__spirv_TaskSequenceCreate builtin doesn't have users?");
+    auto TaskIt = TaskFuncs.begin();
+    auto &DL = F->getParent()->getDataLayout();
+    auto GetTaskFuncRetTypeSize = [&](Function *TaskFunc) {
+      auto RetType = TaskFunc->getReturnType();
+      return RetType->isVoidTy() ? 0
+                                 : DL.getTypeAllocSize(RetType).getFixedValue();
+    };
+    Value *LastVal =
+        ConstantInt::get(RetTypeSizeTy, GetTaskFuncRetTypeSize(*TaskIt));
+    if (TaskFuncs.size() > 1) {
+      auto *IntPtrTy = IntegerType::getIntNTy(Ctx, sizeof(intptr_t) * 8);
+      auto *TaskFuncVar = IRB.CreatePtrToInt(F->getArg(1), IntPtrTy);
+      for (++TaskIt; TaskIt != TaskFuncs.end(); ++TaskIt) {
+        auto *TaskFuncVal = ConstantExpr::getPtrToInt(*TaskIt, IntPtrTy);
+        auto *Cmp = IRB.CreateICmp(CmpInst::ICMP_EQ, TaskFuncVar, TaskFuncVal);
+        Value *RetVal =
+            ConstantInt::get(RetTypeSizeTy, GetTaskFuncRetTypeSize(*TaskIt));
+        auto *Select = IRB.CreateSelect(Cmp, RetVal, LastVal);
+        LastVal = Select;
+      }
+    }
+    auto *CI = IRB.CreateCall(BackendCreateTaskSeq, {LastVal});
     auto *RetBC = IRB.CreatePointerCast(CI, F->getReturnType());
     IRB.CreateRet(RetBC);
     F->setLinkage(GlobalValue::InternalLinkage);
