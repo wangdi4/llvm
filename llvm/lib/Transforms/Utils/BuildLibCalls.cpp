@@ -1139,11 +1139,19 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   // stat and its other form can throw an exception handler in Windows
   case LibFunc_under_stat64:
   case LibFunc_under_stat64i32:
-   case LibFunc_under_wstat64:
+  case LibFunc_under_wstat64:
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     break;
+  case LibFunc_dunder_isoc23_strtol:
+  case LibFunc_dunder_isoc23_strtoul:
+    Changed |= setDoesNotThrow(F);
+    Changed |= setWillReturn(F);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setOnlyReadsMemory(F, 0);
+    break;
+  case LibFunc_dunder_isoc23_sscanf:
 #endif // INTEL_CUSTOMIZATION
   case LibFunc_dunder_isoc99_sscanf:
     Changed |= setRetAndArgsNoUndef(F);

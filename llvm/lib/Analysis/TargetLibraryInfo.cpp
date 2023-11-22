@@ -1017,6 +1017,9 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   if (!T.isOSLinux() || !T.isGNUEnvironment()) {
     TLI.setUnavailable(LibFunc_dunder_strdup);
     TLI.setUnavailable(LibFunc_dunder_strtok_r);
+    TLI.setUnavailable(LibFunc_dunder_isoc23_sscanf);                   // INTEL
+    TLI.setUnavailable(LibFunc_dunder_isoc23_strtol);                   // INTEL
+    TLI.setUnavailable(LibFunc_dunder_isoc23_strtoul);                  // INTEL
     TLI.setUnavailable(LibFunc_dunder_isoc99_fscanf);                   // INTEL
     TLI.setUnavailable(LibFunc_dunder_isoc99_scanf);
     TLI.setUnavailable(LibFunc_dunder_isoc99_sscanf);
@@ -2892,6 +2895,20 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
   // avoid conflicts during community pulldowns, which otherwise occur
   // every time a new entry is added to the enumeration.
 
+  case LibFunc_dunder_isoc23_sscanf:
+    // int __isoc23_sscanf(const char *s, const char *format, ...);
+    return (NumParams >= 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+  case LibFunc_dunder_isoc23_strtol:
+    // long int __isoc23_strtol(const char* str, char** endptr, int base);
+  case LibFunc_dunder_isoc23_strtoul:
+    // unsigned long int __isoc23_strtoul(const char* str, char** endptr,
+    // int base);
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
   case LibFunc_dunder_isoc99_fscanf:
     // int __isoc99_fscanf(FILE *stream, const char *format, ... );
     return (NumParams >= 2 && FTy.getReturnType()->isIntegerTy() &&

@@ -2344,6 +2344,18 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 TLI_DEFINE_ENUM_INTERNAL(isnanf)
 TLI_DEFINE_STRING_INTERNAL("__isnanf")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// int __isoc23_sscanf(const char *s, const char *format, ... );
+TLI_DEFINE_ENUM_INTERNAL(dunder_isoc23_sscanf)
+TLI_DEFINE_STRING_INTERNAL("__isoc23_sscanf")
+TLI_DEFINE_SIG_INTERNAL(Int, Ptr, Ptr, Ellip)
+/// long int __isoc23_strtol(const char *nptr, char **endptr, int base);
+TLI_DEFINE_ENUM_INTERNAL(dunder_isoc23_strtol)
+TLI_DEFINE_STRING_INTERNAL("__isoc23_strtol")
+TLI_DEFINE_SIG_INTERNAL(Long, Ptr, Ptr, Int)
+/// unsigned long int __isoc23_strtoul(const char *nptr, char **endptr, int base);
+TLI_DEFINE_ENUM_INTERNAL(dunder_isoc23_strtoul)
+TLI_DEFINE_STRING_INTERNAL("__isoc23_strtoul")
+TLI_DEFINE_SIG_INTERNAL(Long, Ptr, Ptr, Int)
 /// int __isoc99_fscanf(FILE *stream, const char *format, ... );
 TLI_DEFINE_ENUM_INTERNAL(dunder_isoc99_fscanf)
 TLI_DEFINE_STRING_INTERNAL("__isoc99_fscanf")

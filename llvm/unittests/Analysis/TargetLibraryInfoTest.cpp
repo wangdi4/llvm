@@ -827,6 +827,9 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare x86_fp80 @exp10l(x86_fp80)\n"
 
 #if INTEL_CUSTOMIZATION
+      "declare i32 @__isoc23_sscanf(i8*, i8*, ...)\n"
+      "declare i64 @__isoc23_strtol(i8*, i8**, i32)\n"
+      "declare i64 @__isoc23_strtoul(i8*, i8**, i32)\n"
       "declare i32 @__isoc99_fscanf(%struct*, i8*, ... )\n"
       "declare i32 @__xstat(i32, i8*, %struct*)\n"
       "declare i32 @__xstat64(i32, i8*, %struct*)\n"
