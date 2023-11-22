@@ -44,7 +44,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     src/abi-loop.cl
     src/abi-parallel.cl
     src/api.cl
-    src/abi-atomic-fp.cpp
+    src/abi-omp.cpp
   )
 
   set(opencl_src ${opencl_src_optional} ${opencl_src_required})

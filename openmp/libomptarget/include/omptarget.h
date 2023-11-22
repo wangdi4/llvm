@@ -115,6 +115,8 @@ enum tgt_map_type {
   // multiply the item's mapsize by the actual number of groups to support
   // atomic-free team reduction buffers.
   OMP_TGT_MAPTYPE_SIZE_TIMES_NUM_TEAMS   = 0x10000,
+  // mark the argument as SLM
+  OMP_TGT_MAPTYPE_SLM             = 0x20000,
 #endif // INTEL_CUSTOMIZATION
   // descriptor for non-contiguous target-update
   OMP_TGT_MAPTYPE_NON_CONTIG      = 0x100000000000,
@@ -166,7 +168,8 @@ enum AllocOptionTy : int32_t {
   ALLOC_OPT_NONE = 0,
   ALLOC_OPT_REDUCTION_SCRATCH = 1,
   ALLOC_OPT_REDUCTION_COUNTER = 2,
-  ALLOC_OPT_HOST_MEM = 3
+  ALLOC_OPT_HOST_MEM = 3,
+  ALLOC_OPT_SLM = 4,
 };
 #endif // INTEL_CUSTOMIZATION
 

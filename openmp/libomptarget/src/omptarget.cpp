@@ -1538,12 +1538,19 @@ public:
     if (ArgSize > FirstPrivateArgSizeThreshold || !IsFirstPrivate ||
         AllocImmediately) {
 #if INTEL_CUSTOMIZATION
-      TgtPtr = Device.dataAllocBase(
-          ArgSize, HstPtr, (void *)((intptr_t)HstPtr + ArgOffset), AllocOpt);
+      if (AllocOpt == ALLOC_OPT_SLM)
+        TgtPtr = nullptr;
+      else
+        TgtPtr = Device.dataAllocBase(
+            ArgSize, HstPtr, (void *)((intptr_t)HstPtr + ArgOffset), AllocOpt);
 #else
       TgtPtr = Device.allocData(ArgSize, HstPtr);
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+      if (!TgtPtr && AllocOpt != ALLOC_OPT_SLM) {
+#else  // INTEL_CUSTOMIZATION
       if (!TgtPtr) {
+#endif // INTEL_CUSTOMIZATION
         DP("Data allocation for %sprivate array " DPxMOD " failed.\n",
            (IsFirstPrivate ? "first-" : ""), DPxPTR(HstPtr));
         return OFFLOAD_FAIL;
@@ -1846,6 +1853,8 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
         AllocOpt = ALLOC_OPT_REDUCTION_SCRATCH;
       else if (ArgTypes[I] & OMP_TGT_MAPTYPE_ZERO_INIT_MEM)
         AllocOpt = ALLOC_OPT_REDUCTION_COUNTER;
+      else if (ArgTypes[I] & OMP_TGT_MAPTYPE_SLM)
+        AllocOpt = ALLOC_OPT_SLM;
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_SIZE_TIMES_NUM_TEAMS) {
         uint32_t GroupCounts[3];
         Device.getGroupsShape(TgtEntryPtr, NumTeams, ThreadLimit, nullptr,
