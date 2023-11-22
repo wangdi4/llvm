@@ -39800,15 +39800,9 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-  case X86::PTILEMOVROWrre:
-  case X86::PTILEMOVROWrrx:{
+  case X86::PTILEMOVROWrre: {
     const DebugLoc &DL = MI.getDebugLoc();
-    unsigned Opc;
-    switch (MI.getOpcode()) {
-    default: llvm_unreachable("Unexpected instruction!");
-    case X86::PTILEMOVROWrre: Opc = X86::TILEMOVROWrre; break;
-    case X86::PTILEMOVROWrrx: Opc = X86::TILEMOVROWrrx; break;
-    }
+    unsigned Opc = X86::TILEMOVROWrre;
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.add(MI.getOperand(0));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);

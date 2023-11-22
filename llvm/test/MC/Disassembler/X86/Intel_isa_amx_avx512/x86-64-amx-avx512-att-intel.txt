@@ -1,0 +1,28 @@
+# REQUIRES: intel_feature_isa_amx_avx512
+
+# RUN: llvm-mc -triple x86_64 -disassemble %s | FileCheck %s --check-prefix=ATT
+# RUN: llvm-mc -triple x86_64 -disassemble -output-asm-variant=1 %s | FileCheck %s --check-prefix=INTEL
+
+# ATT:   tilemovrow	%ecx, %tmm3, %zmm22
+# INTEL: tilemovrow	zmm22, tmm3, ecx
+0x62,0xe2,0x75,0x48,0x4a,0xf3
+
+# ATT:   tilemovrow	%ecx, %tmm2, %zmm22
+# INTEL: tilemovrow	zmm22, tmm2, ecx
+0x62,0xe2,0x75,0x48,0x4a,0xf2
+
+# ATT:   tilemovrow	$123, %tmm3, %zmm22
+# INTEL: tilemovrow	zmm22, tmm3, 123
+0x62,0xe3,0x7d,0x48,0x07,0xf3,0x7b
+
+# ATT:   tilemovrow	$123, %tmm2, %zmm22
+# INTEL: tilemovrow	zmm22, tmm2, 123
+0x62,0xe3,0x7d,0x48,0x07,0xf2,0x7b
+
+# ATT:   tilemovrow	%edx, %tmm0, %zmm22
+# INTEL: tilemovrow	zmm22, tmm0, edx
+0x62,0xe2,0x6d,0x48,0x4a,0xf0
+
+# ATT:   tilemovrow	$123, %tmm0, %zmm22
+# INTEL: tilemovrow	zmm22, tmm0, 123
+0x62,0xe3,0x7d,0x48,0x07,0xf0,0x7b

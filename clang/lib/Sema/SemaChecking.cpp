@@ -7138,7 +7138,6 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tile16move:
   case X86::BI__builtin_ia32_tilemovei:
   case X86::BI__builtin_ia32_tilemovee:
-  case X86::BI__builtin_ia32_tilemovex:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
   case X86::BI__builtin_ia32_tilemove:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1}, 0, 31);

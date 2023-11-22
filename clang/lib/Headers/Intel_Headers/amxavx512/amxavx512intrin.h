@@ -480,9 +480,6 @@
 /// \endcode
 #define _tile_movrow(a, b) __builtin_ia32_tilemovee(a, b)
 
-/// Note: tilemovex has been removed, double-check and remove me when upstream.
-#define _tile_movrowx(a, b) __builtin_ia32_tilemovex(a, b)
-
 /// This is internal intrinsic. C/C++ user should avoid calling it directly.
 
 static __inline__ __m512 __DEFAULT_FN_ATTRS_AVX512 _tile_cvtrowd2ps_internal(
