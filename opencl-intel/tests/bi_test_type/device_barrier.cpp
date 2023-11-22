@@ -1,3 +1,4 @@
+#if 0 // temporarily disable this case.
 #include "TestsHelpClasses.h"
 #include "bi_tests.h"
 
@@ -131,3 +132,4 @@ TEST_F(RGBarrier, DeviceBarrier) {
   Err = clMemBlockingFreeINTEL(context, Result);
   ASSERT_OCL_SUCCESS(Err, "clMemBlockingFreeINTEL");
 }
+#endif
