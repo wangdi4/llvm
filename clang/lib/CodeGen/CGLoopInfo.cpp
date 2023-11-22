@@ -738,13 +738,6 @@ MDNode *LoopInfo::createMetadata(
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
 
-  // Setting clang::code_align attribute.
-  if (Attrs.CodeAlign > 0) {
-    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.align"),
-                        ConstantAsMetadata::get(ConstantInt::get(
-                            llvm::Type::getInt32Ty(Ctx), Attrs.CodeAlign))};
-    LoopProperties.push_back(MDNode::get(Ctx, Vals));
-  }
 #endif // INTEL_CUSTOMIZATION
 
   if (Attrs.GlobalSYCLIVDepInfo.has_value()) {
@@ -846,6 +839,14 @@ MDNode *LoopInfo::createMetadata(
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
 
+  // Setting clang::code_align attribute.
+  if (Attrs.CodeAlign > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.align"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            llvm::Type::getInt32Ty(Ctx), Attrs.CodeAlign))};
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
+
   LoopProperties.insert(LoopProperties.end(), AdditionalLoopProperties.begin(),
                         AdditionalLoopProperties.end());
   return createFullUnrollMetadata(Attrs, LoopProperties, HasUserTransforms);
@@ -865,7 +866,7 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       VectorizeUnAlignedEnable(false), VectorizeDynamicAlignEnable(false),
       VectorizeNoDynamicAlignEnable(false), VectorizeVecremainderEnable(false),
       VectorizeNoVecremainderEnable(false), LoopCountMin(0), LoopCountMax(0),
-      LoopCountAvg(0), CodeAlign(0),
+      LoopCountAvg(0),
 #endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified),
       UnrollAndJamEnable(LoopAttributes::Unspecified),
@@ -875,8 +876,9 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       SYCLLoopCoalesceNLevels(0), SYCLLoopPipeliningDisable(false),
       SYCLLoopPipeliningEnable(false), UnrollCount(0), UnrollAndJamCount(0),
       DistributeEnable(LoopAttributes::Unspecified), PipelineDisabled(false),
-      PipelineInitiationInterval(0), SYCLNofusionEnable(false),
-      MustProgress(false) {}
+      PipelineInitiationInterval(0), SYCLNofusionEnable(false), CodeAlign(0),
+      MustProgress(false) {
+}
 
 void LoopAttributes::clear() {
   IsParallel = false;
@@ -908,7 +910,6 @@ void LoopAttributes::clear() {
   LoopCountMin = 0;
   LoopCountMax = 0;
   LoopCountAvg = 0;
-  CodeAlign = 0;
 #endif // INTEL_CUSTOMIZATION
   VectorizeWidth = 0;
   VectorizeScalable = LoopAttributes::Unspecified;
@@ -935,6 +936,7 @@ void LoopAttributes::clear() {
   PipelineDisabled = false;
   PipelineInitiationInterval = 0;
   SYCLNofusionEnable = false;
+  CodeAlign = 0;
   MustProgress = false;
 }
 
@@ -968,7 +970,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       !Attrs.VectorizeAlwaysAssertEnable && !Attrs.VectorizeTemporalEnable &&
       !Attrs.VectorizeNonTemporalEnable && Attrs.VectorizeLength.size() == 0 &&
       Attrs.LoopCountMin == 0 && Attrs.LoopCountMax == 0 &&
-      Attrs.LoopCountAvg == 0 && Attrs.CodeAlign == 0 &&
+      Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
       Attrs.VectorizeScalable == LoopAttributes::Unspecified &&
       Attrs.InterleaveCount == 0 && !Attrs.GlobalSYCLIVDepInfo.has_value() &&
@@ -988,8 +990,8 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.UnrollEnable == LoopAttributes::Unspecified &&
       Attrs.UnrollAndJamEnable == LoopAttributes::Unspecified &&
       Attrs.DistributeEnable == LoopAttributes::Unspecified && !StartLoc &&
-      Attrs.SYCLNofusionEnable == false && !StartLoc && !EndLoc &&
-      !Attrs.MustProgress)
+      Attrs.SYCLNofusionEnable == false && Attrs.CodeAlign == 0 && !StartLoc &&
+      !EndLoc && !Attrs.MustProgress)
     return;
 
   TempLoopID = MDNode::getTemporary(Header->getContext(), std::nullopt);
@@ -1530,17 +1532,6 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
     }
   }
 
-#if INTEL_CUSTOMIZATION
-  // Identify loop attribute 'code_align' from Attrs.
-  // For attribute code_align:
-  // n - 'llvm.loop.intel.align i32 n' metadata will be emitted.
-  if (const auto *CodeAlign = getSpecificAttr<const CodeAlignAttr>(Attrs)) {
-    const auto *CE = cast<ConstantExpr>(CodeAlign->getAlignment());
-    llvm::APSInt ArgVal = CE->getResultAsAPSInt();
-    setCodeAlign(ArgVal.getSExtValue());
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // Translate intelfpga loop attributes' arguments to equivalent Attr enums.
   // It's being handled separately from LoopHintAttrs not to support
   // legacy GNU attributes and pragma styles.
@@ -1645,6 +1636,15 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
 
     if (isa<SYCLIntelEnableLoopPipeliningAttr>(A))
       setSYCLLoopPipeliningEnable();
+  }
+
+  // Identify loop attribute 'code_align' from Attrs.
+  // For attribute code_align:
+  // n - 'llvm.loop.align i32 n' metadata will be emitted.
+  if (const auto *CodeAlign = getSpecificAttr<const CodeAlignAttr>(Attrs)) {
+    const auto *CE = cast<ConstantExpr>(CodeAlign->getAlignment());
+    llvm::APSInt ArgVal = CE->getResultAsAPSInt();
+    setCodeAlign(ArgVal.getSExtValue());
   }
 
   setMustProgress(MustProgress);

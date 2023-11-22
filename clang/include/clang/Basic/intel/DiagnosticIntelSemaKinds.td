@@ -162,11 +162,6 @@ def err_prefetch_invalid_argument : Error<
 def warn_intel_compat_feature : Warning<
   "Intel compatibility feature [%0] %select{used|possible}1">,
   InGroup<Pragmas>;
-def err_loop_attr_duplication : Error<
-  "duplicate loop attribute %0">;
-def err_attribute_power_of_two_in_range : Error<
-  "%0 attribute requires an integer argument which is a constant power of two "
-  "between %1 and %2 inclusive; provided argument was %3">;
 } // end of sema category
 
 let CategoryName = "OpenMP Issue" in {

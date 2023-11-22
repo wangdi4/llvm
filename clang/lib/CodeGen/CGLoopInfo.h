@@ -146,9 +146,6 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.loopcount_averag
   unsigned LoopCountAvg;
 
-  // Value for 'llvm.loop.align' metadata.
-  unsigned CodeAlign;
-
 #endif // INTEL_CUSTOMIZATION
 
   /// Value for llvm.loop.unroll.* metadata (enable, disable, or full).
@@ -260,6 +257,9 @@ struct LoopAttributes {
 
   /// Flag for llvm.loop.fusion.disable metatdata.
   bool SYCLNofusionEnable;
+
+  /// Value for 'llvm.loop.align' metadata.
+  unsigned CodeAlign;
 
   /// Value for whether the loop is required to make progress.
   bool MustProgress;
@@ -533,9 +533,6 @@ public:
     StagedAttrs.LoopCountAvg = C;
   }
 
-  /// Set value of code align for the next loop pushed.
-  void setCodeAlign(unsigned C) { StagedAttrs.CodeAlign = C; }
-
 #endif // INTEL_CUSTOMIZATION
 
   /// Set the next pushed loop 'vectorize.enable'
@@ -635,6 +632,9 @@ public:
 
   /// Set flag of nofusion for the next loop pushed.
   void setSYCLNofusionEnable() { StagedAttrs.SYCLNofusionEnable = true; }
+
+  /// Set value of code align for the next loop pushed.
+  void setCodeAlign(unsigned C) { StagedAttrs.CodeAlign = C; }
 
   /// Set no progress for the next loop pushed.
   void setMustProgress(bool P) { StagedAttrs.MustProgress = P; }

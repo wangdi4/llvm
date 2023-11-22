@@ -1295,7 +1295,6 @@ static Attr *handleUnlikely(Sema &S, Stmt *St, const ParsedAttr &A,
   return ::new (S.Context) UnlikelyAttr(S.Context, A);
 }
 
-#if INTEL_CUSTOMIZATION
 CodeAlignAttr *Sema::BuildCodeAlignAttr(const AttributeCommonInfo &CI,
                                         Expr *E) {
   if (!E->isValueDependent()) {
@@ -1329,10 +1328,11 @@ static Attr *handleCodeAlignAttr(Sema &S, Stmt *St, const ParsedAttr &A) {
   return S.BuildCodeAlignAttr(A, E);
 }
 
-// Emit duplicate error for [[clang::code_align()]] attribute.
-static void
-CheckForDuplicateCodeAlignAttrs(Sema &S,
-                                const SmallVectorImpl<const Attr *> &Attrs) {
+// Diagnose non-identical duplicates as a 'conflicting' loop attributes
+// and suppress duplicate errors in cases where the two match for
+// [[clang::code_align()]] attribute.
+static void CheckForDuplicateCodeAlignAttrs(Sema &S,
+                                            ArrayRef<const Attr *> Attrs) {
   auto FindFunc = [](const Attr *A) { return isa<const CodeAlignAttr>(A); };
   const auto *FirstItr = std::find_if(Attrs.begin(), Attrs.end(), FindFunc);
 
@@ -1340,15 +1340,35 @@ CheckForDuplicateCodeAlignAttrs(Sema &S,
     return;
 
   const auto *LastFoundItr = FirstItr;
+  std::optional<llvm::APSInt> FirstValue;
+
+  const auto *CAFA =
+      dyn_cast<ConstantExpr>(cast<CodeAlignAttr>(*FirstItr)->getAlignment());
+  // Return early if first alignment expression is dependent (since we don't
+  // know what the effective size will be), and skip the loop entirely.
+  if (!CAFA)
+    return;
 
   while (Attrs.end() != (LastFoundItr = std::find_if(LastFoundItr + 1,
                                                      Attrs.end(), FindFunc))) {
-    S.Diag((*LastFoundItr)->getLocation(), diag::err_loop_attr_duplication)
-        << *FirstItr;
-    S.Diag((*FirstItr)->getLocation(), diag::note_previous_attribute);
+    const auto *CASA = dyn_cast<ConstantExpr>(
+        cast<CodeAlignAttr>(*LastFoundItr)->getAlignment());
+    // If the value is dependent, we can not test anything.
+    if (!CASA)
+      return;
+    // Test the attribute values.
+    llvm::APSInt SecondValue = CASA->getResultAsAPSInt();
+    if (!FirstValue)
+      FirstValue = CAFA->getResultAsAPSInt();
+
+    if (FirstValue != SecondValue) {
+      S.Diag((*LastFoundItr)->getLocation(), diag::err_loop_attr_conflict)
+          << *FirstItr;
+      S.Diag((*FirstItr)->getLocation(), diag::note_previous_attribute);
+    }
+    return;
   }
 }
-#endif // INTEL_CUSTOMIZATION
 
 #define WANT_STMT_MERGE_LOGIC
 #include "clang/Sema/AttrParsedAttrImpl.inc"
@@ -1937,10 +1957,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleSYCLIntelMaxReinvocationDelayAttr(S, St, A);
   case ParsedAttr::AT_SYCLIntelEnableLoopPipelining:
     return handleSYCLIntelEnableLoopPipeliningAttr(S, St, A);
-#if INTEL_CUSTOMIZATION
   case ParsedAttr::AT_CodeAlign:
     return handleCodeAlignAttr(S, St, A);
-#endif // INTEL_CUSTOMIZATION
   default:
     // N.B., ClangAttrEmitter.cpp emits a diagnostic helper that ensures a
     // declaration attribute is not written on a statement, but this code is
@@ -1967,10 +1985,15 @@ void Sema::ProcessStmtAttributes(Stmt *S, const ParsedAttributes &InAttrs,
 #if INTEL_CUSTOMIZATION
   CheckForIncompatibleHLSAttributes(*this, OutAttrs, InAttrs.Range);
   CheckForDuplicateHLSAttributes(*this, OutAttrs, InAttrs.Range);
-  CheckForDuplicateCodeAlignAttrs(*this, OutAttrs);
 #endif // INTEL_CUSTOMIZATION
+  CheckForDuplicateCodeAlignAttrs(*this, OutAttrs);
 }
 bool Sema::CheckRebuiltAttributedStmtAttributes(ArrayRef<const Attr *> Attrs) {
   CheckRedundantSYCLIntelIVDepAttrs(*this, Attrs);
+  return false;
+}
+
+bool Sema::CheckRebuiltCodeAlignStmtAttributes(ArrayRef<const Attr *> Attrs) {
+  CheckForDuplicateCodeAlignAttrs(*this, Attrs);
   return false;
 }

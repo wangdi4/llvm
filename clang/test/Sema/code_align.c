@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -fintel-compatibility -fsyntax-only -verify=expected,c-local -x c %s
-// RUN: %clang_cc1 -fintel-compatibility -fsyntax-only -verify=expected,cpp-local -pedantic -x c++ -std=c++11 %s
+// RUN: %clang_cc1 -triple x86_64-pc-linux -fsyntax-only -verify=expected,c-local -x c %s
+// RUN: %clang_cc1 -triple x86_64-pc-linux -fsyntax-only -verify=expected,cpp-local -pedantic -x c++ -std=c++11 %s
 
 void foo() {
   int i;
@@ -54,8 +54,12 @@ void foo1(int A)
   [[clang::code_align("abc")]]
   for(int I=0; I<128; ++I) { bar(I); }
 
-  [[clang::code_align(64)]] // expected-note{{previous attribute is here}}
-  [[clang::code_align(64)]] // expected-error{{duplicate loop attribute 'code_align'}}
+  [[clang::code_align(64)]] // OK
+  [[clang::code_align(64)]] // OK
+  for(int I=0; I<128; ++I) { bar(I); }
+
+  [[clang::code_align(8)]]  // expected-note{{previous attribute is here}}
+  [[clang::code_align(64)]] // expected-error{{conflicting loop attribute 'code_align'}}
   for(int I=0; I<128; ++I) { bar(I); }
 
   // expected-error@+1{{'code_align' attribute requires an integer argument which is a constant power of two between 1 and 4096 inclusive; provided argument was 7}}
@@ -114,23 +118,49 @@ void check_code_align_expression() {
 }
 
 #if __cplusplus >= 201103L
-template <int A, int B, int C, int D>
+template <int A, int B, int C, int D, int E>
 void code_align_dependent() {
   [[clang::code_align(C)]]
   for(int I=0; I<128; ++I) { bar(I); }
 
-  [[clang::code_align(A)]] // expected-note{{previous attribute is here}}
-  [[clang::code_align(B)]] // cpp-local-error{{duplicate loop attribute 'code_align'}}
+  [[clang::code_align(A)]] // OK
+  [[clang::code_align(A)]] // OK
+  for(int I=0; I<128; ++I) { bar(I); }
+
+  [[clang::code_align(A)]] // cpp-local-note{{previous attribute is here}}
+  [[clang::code_align(E)]] // cpp-local-error{{conflicting loop attribute 'code_align'}}
+  for(int I=0; I<128; ++I) { bar(I); }
+
+  // cpp-local-error@+1{{'code_align' attribute requires an integer argument which is a constant power of two between 1 and 4096 inclusive; provided argument was 23}}
+  [[clang::code_align(B)]]
   for(int I=0; I<128; ++I) { bar(I); }
 
   // cpp-local-error@+2{{'code_align' attribute requires an integer argument which is a constant power of two between 1 and 4096 inclusive; provided argument was -10}}
-  // cpp-local-note@#neg-instantiation{{in instantiation of function template specialization}}
+  // cpp-local-note@#neg-instantiation{{in instantiation of function template specialization 'code_align_dependent<8, 23, 32, -10, 64>' requested here}}
   [[clang::code_align(D)]]
   for(int I=0; I<128; ++I) { bar(I); }
 }
 
+template<int ITMPL>
+void bar3() {
+  [[clang::code_align(8)]]      // cpp-local-note{{previous attribute is here}}
+  [[clang::code_align(ITMPL)]] // cpp-local-error{{conflicting loop attribute 'code_align'}} \
+	                       // cpp-local-note@#temp-instantiation{{in instantiation of function template specialization 'bar3<4>' requested here}}
+  for(int I=0; I<128; ++I) { bar(I); }
+}
+
+template<int ITMPL1>
+void bar4() {
+  [[clang::code_align(ITMPL1)]] // cpp-local-note{{previous attribute is here}}
+  [[clang::code_align(32)]]    // cpp-local-error{{conflicting loop attribute 'code_align'}} \
+	                       // cpp-local-note@#temp-instantiation1{{in instantiation of function template specialization 'bar4<64>' requested here}}
+  for(int I=0; I<128; ++I) { bar(I); }
+}
+
 int main() {
-  code_align_dependent<8, 16, 32, -10>(); // #neg-instantiation
+  code_align_dependent<8, 23, 32, -10, 64>(); // #neg-instantiation
+  bar3<4>();  // #temp-instantiation
+  bar4<64>(); // #temp-instantiation1
   return 0;
 }
 #endif

@@ -2476,9 +2476,10 @@ public:
   SYCLIntelMaxReinvocationDelayAttr *
   BuildSYCLIntelMaxReinvocationDelayAttr(const AttributeCommonInfo &CI,
                                          Expr *E);
-#if INTEL_CUSTOMIZATION
+
   CodeAlignAttr *BuildCodeAlignAttr(const AttributeCommonInfo &CI, Expr *E);
-#endif // INTEL_CUSTOMIZATION
+  bool CheckRebuiltCodeAlignStmtAttributes(ArrayRef<const Attr *> Attrs);
+
   bool CheckQualifiedFunctionForTypeId(QualType T, SourceLocation Loc);
 
   bool CheckFunctionReturnType(QualType T, SourceLocation Loc);
