@@ -311,6 +311,7 @@ static std::uint32_t const spvBCWithCommonSpirvCapabilities[] = {
     SPIRVOpCapability,
     spv::internal::CapabilityJointMatrixBF16ComponentTypeINTEL,
     SPIRVOpCapability, spv::internal::CapabilityTensorFloat32RoundingINTEL,
+    SPIRVOpCapability, spv::CapabilityFPMaxErrorINTEL,
 
     // Memory model
     SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL};
