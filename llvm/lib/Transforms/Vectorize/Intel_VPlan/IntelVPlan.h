@@ -5347,6 +5347,7 @@ enum class VPVectorVariantKind { None, Masked, NonMasked };
 class VPlan {
   friend class VPlanPrinter;
   friend class VPLiveInOutCreator;
+  friend class VPlanVerifierTestBase;
 
 public:
 

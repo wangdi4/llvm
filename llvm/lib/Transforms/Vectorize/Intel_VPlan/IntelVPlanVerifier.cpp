@@ -117,6 +117,7 @@ void VPlanVerifier::verifyCFGExternals(const VPlan *Plan) {
   Plan->getExternals().verifyVPExternalDefs();
   Plan->getExternals().verifyVPExternalDefsHIR();
   Plan->getExternals().verifyVPMetadataAsValues();
+  Plan->getExternals().verifyVPExternalUses();
 }
 
 // Static interface to verify a VPlan
@@ -155,6 +156,44 @@ void VPlanVerifier::verifyDAShape(const VPInstruction *Inst) const {
   }
 }
 
+// Verify the LiveIn/Out lists attached to the VPlan
+void VPlanVerifier::verifyLiveInOut(const VPlanVector *Plan) const {
+  const VPExternalValues &Externals = Plan->getExternals();
+  unsigned Idx = 0;
+  auto NumExtUses = std::distance(Plan->getExternals().externalUses().begin(),
+                                  Plan->getExternals().externalUses().end());
+  for (const VPLiveOutValue *LiveOut : Plan->liveOutValues()) {
+    assert(Idx < NumExtUses &&
+           "Live out index exceeds number of external uses");
+    assert(LiveOut && "Null live out in plan list");
+    unsigned MergeId = LiveOut->getMergeId();
+    assert(Idx == MergeId && "Live out index and merge ID do not match!");
+    assert(Externals.getVPExternalUse(MergeId) &&
+           "No matching VPExternalUse for live out");
+    Idx++;
+    (void)MergeId;
+  }
+
+  Idx = 0;
+  for (const VPLiveInValue *LiveIn : Plan->liveInValues()) {
+    assert(Idx < NumExtUses &&
+           "Live out index exceeds number of external uses");
+    // Not all external uses are live-in, but the size of LiveIns is maintained
+    // to allow indexing based off of MergeId. So, skip any null entries
+    if (LiveIn) {
+      unsigned MergeId = LiveIn->getMergeId();
+      assert(Idx == MergeId && "Live in index and merge ID do not match!");
+      assert(Externals.getVPExternalUse(MergeId) &&
+             "No matching VPExternalUse for live in");
+      (void)MergeId;
+    }
+    Idx++;
+  }
+  (void)Idx;
+  (void)Externals;
+  (void)NumExtUses;
+}
+
 void VPlanVerifier::verifyHeaderExitPredicates(const VPLoop *Lp) const {
   auto *Header = Lp->getHeader();
   assert(Header);
@@ -191,8 +230,10 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
 
   LLVM_DEBUG(dbgs() << "Verifying loop nest.\n");
 
-  if (!shouldSkipExternals())
+  if (!shouldSkipExternals()) {
     verifyCFGExternals(Plan);
+    verifyLiveInOut(Plan);
+  }
 
   unsigned BBNum = 0;
   (void)BBNum;

@@ -212,6 +212,7 @@ class VPExternalValues {
   // Codegen looks through the list of external uses and updates their original
   // operands.
   friend class CodeGenLLVM;
+  friend class VPlanVerifierTestBase;
 
   Module *M = nullptr;
 
@@ -246,13 +247,13 @@ class VPExternalValues {
   /// main/peel/remainder loops).
   unsigned getLastMergeId() const { return VPExternalUses.size(); }
 
-  decltype(auto) getVPExternalUsesHIR() {
+  decltype(auto) getVPExternalUsesHIR() const {
     return map_range(
         make_filter_range(VPExternalUses,
-                          [](std::unique_ptr<VPExternalUse> &It) {
+                          [](const std::unique_ptr<VPExternalUse> &It) {
                             return It->getOperandHIR() != nullptr;
                           }),
-        [](std::unique_ptr<VPExternalUse> &It) { return It.get(); });
+        [](const std::unique_ptr<VPExternalUse> &It) { return It.get(); });
   }
 
   /// Holds all the VPMetadataAsValues created for this VPlan.
@@ -558,6 +559,18 @@ public:
   // Verify that VPExternalDefs are unique in the pool and that the map keys are
   // consistent with the underlying HIR information of each VPExternalDef.
   void verifyVPExternalDefsHIR() const;
+
+  // Assertions for a VPExternalUse whose underlying value is from LLVM-IR
+  void verifyLLVMExtUse(const VPExternalUse *Use,
+                        SmallPtrSetImpl<const Value *> &ValueSet) const;
+
+  // Assertions for a VPExternalUse whose underlying value is from HIR
+  void verifyHIRExtUse(const VPExternalUse *Use,
+                       std::set<unsigned> &IVLevelSet) const;
+
+  // Verify that VPExternalUses are unique in the pool and that the map keys are
+  // consistent with the underlying IR/HIR information of each VPExternalUse.
+  void verifyVPExternalUses() const;
 
   // Verify that VPMetadataAsValues are unique in the pool and that the map keys
   // are consistent with the underlying IR information of each

@@ -89,6 +89,63 @@ void VPExternalValues::verifyVPExternalDefsHIR() const {
   }
 }
 
+// Assertions for a VPExternalUse whose underlying value is LLVM-IR
+void VPExternalValues::verifyLLVMExtUse(
+    const VPExternalUse *Use, SmallPtrSetImpl<const Value *> &ValueSet) const {
+  const Value *KeyVal = Use->getUnderlyingValue();
+  assert(KeyVal && !Use->getOperandHIR() &&
+         "External use has multiple underlying IR values!");
+  assert(!ValueSet.count(KeyVal) && "Repeated VPExternalUse!");
+  ValueSet.insert(KeyVal);
+
+  // Based on a current restriction that the underlying value always be a
+  // phi. If that restriction is relaxed, this assertion should be removed
+  assert(isa<PHINode>(KeyVal) &&
+         "Underlying value for VPExternalUse should be a Phi");
+}
+
+// Assertions for a VPExternalUse whose underlying value is HIR
+void VPExternalValues::verifyHIRExtUse(const VPExternalUse *Use,
+                                       std::set<unsigned> &IVLevelSet) const {
+  auto *HIROperand = Use->getOperandHIR();
+  assert(HIROperand && !Use->getUnderlyingValue() &&
+         "External use has multiple underlying IR values!");
+  if (isa<VPBlob>(HIROperand)) {
+    // For blobs check that they are structurally unique.
+    assert(llvm::count_if(getVPExternalUsesHIR(),
+                          [HIROperand](VPExternalUse *ExtUse) {
+                            return ExtUse->getOperandHIR()->isStructurallyEqual(
+                                HIROperand);
+                          }) == 1 &&
+           "Repeated Blob VPExternalUse!");
+  } else {
+    // For IVs we check that the IV levels are unique.
+    const auto *IV = cast<VPIndVar>(HIROperand);
+    unsigned IVLevel = IV->getIVLevel();
+    assert(!IVLevelSet.count(IVLevel) && "Repeated IV VPExternalUse!");
+    IVLevelSet.insert(IVLevel);
+  }
+}
+
+// Verify the list of VPExternalUses
+// The list of uses isn't split by IR type, so this branches
+// into helper functions based on what the incoming IR was
+void VPExternalValues::verifyVPExternalUses() const {
+  SmallPtrSet<const Value *, 16> ValueSet;
+  std::set<unsigned> IVLevelSet;
+  unsigned Index = 0;
+  for (const auto &Use : VPExternalUses) {
+    assert(Use->getMergeId() == Index++ &&
+           "External use index and merge ID do not match!");
+    if (const Value *KeyVal = Use->getUnderlyingValue()) {
+      verifyLLVMExtUse(Use.get(), ValueSet);
+    } else if (auto *HIROperand = Use->getOperandHIR()) {
+      verifyHIRExtUse(Use.get(), IVLevelSet);
+    }
+  }
+  (void)Index;
+}
+
 void VPExternalValues::verifyVPMetadataAsValues() const {
   SmallPtrSet<const MetadataAsValue *, 16> MDAsValueSet;
   for (const auto &Pair : VPMetadataAsValues) {

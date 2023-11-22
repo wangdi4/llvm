@@ -679,6 +679,7 @@ private:
   friend class VPOCodeGenHIR;
   friend class VPDecomposerHIR;
   friend class HIROperandSpecifics;
+  friend class VPlanVerifierTestBase;
 
   // Hold the DDRef or IV information related to this external use.
   std::unique_ptr<VPOperandHIR> HIROperand;

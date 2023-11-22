@@ -111,6 +111,12 @@ private:
   // be recomputed.
   void verifyDAShape(const VPInstruction *VPI) const;
 
+  // Verify the LiveIn/Out lists attached to the VPlan
+  // Checks that there is a corresponding VPExternalUse for every live-in
+  // and live-out, and that the index of each live-in/out in the list
+  // matches the merge ID of the external use.
+  void verifyLiveInOut(const VPlanVector *Plan) const;
+
   // Verify that the header of a loop and its exits have the same predicate,
   // or that none are predicated.
   void verifyHeaderExitPredicates(const VPLoop *Lp) const;
