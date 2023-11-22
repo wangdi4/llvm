@@ -109,7 +109,7 @@ MachineBasicBlock *MachineLoop::getBottomBlock() {
   return BotMBB;
 }
 
-MachineBasicBlock *MachineLoop::findLoopControlBlock() const { // INTEL
+MachineBasicBlock *MachineLoop::findLoopControlBlock() const {
   if (MachineBasicBlock *Latch = getLoopLatch()) {
     if (isLoopExiting(Latch))
       return Latch;
@@ -185,15 +185,13 @@ MachineLoopInfo::findLoopPreheader(MachineLoop *L, bool SpeculativePreheader,
   return Preheader;
 }
 
-#if INTEL_CUSTOMIZATION
-MDNode *MachineLoop::getLoopID(bool IfAssert) const {
+MDNode *MachineLoop::getLoopID(bool IfAssert) const { // INTEL
   MDNode *LoopID = nullptr;
-
-  if (auto *MBB = findLoopControlBlock()) {
+  if (const auto *MBB = findLoopControlBlock()) {
     // If there is a single latch block, then the metadata
     // node is attached to its terminating instruction.
     const auto *BB = MBB->getBasicBlock();
-
+#if INTEL_CUSTOMIZATION
     // TODO (vzakhari 5/23/2018): it may be too strict, because we may
     //       not be able to preserve the mapping in all cases.
     //       I want to keep it for now to conduct broad testing
@@ -202,62 +200,65 @@ MDNode *MachineLoop::getLoopID(bool IfAssert) const {
       assert(BB && "MBB->BB mapping is invalid.");
     else if (!BB)
       return nullptr;
-
     if (const auto *TI = BB->getTerminator()) {
       LoopID = TI->getMetadata(LLVMContext::MD_loop);
       LLVM_DEBUG(
           dbgs() << "Fetched MD_loop from the MachineLoop's single latch.");
     }
-  } else if (auto *MBB = getHeader()) {
+#endif // INTEL_CUSTOMIZATION
+  } else if (const auto *MBB = getHeader()) {
     // There seem to be multiple latch blocks, so we have to
     // visit all predecessors of the loop header and check
     // their terminating instructions for the metadata.
-    if (const auto *H = MBB->getBasicBlock()) {
+    if (const auto *Header = MBB->getBasicBlock()) {
       // Walk over all blocks in the loop.
-      for (auto *MBB : this->blocks()) {
+      for (const auto *MBB : this->blocks()) {
         const auto *BB = MBB->getBasicBlock();
-
+#if INTEL_CUSTOMIZATION
         if (!BB) {
           LLVM_DEBUG(dbgs()
                      << "Invalid MachineBasicBlock -> BasicBlock mapping.");
           return nullptr;
         }
-
+#endif // INTEL_CUSTOMIZATION
         const auto *TI = BB->getTerminator();
-
+#if INTEL_CUSTOMIZATION
         if (!TI) {
           LLVM_DEBUG(dbgs() << "Invalid (nullptr) terminating instruction.");
           return nullptr;
         }
-
+#endif // INTEL_CUSTOMIZATION
         MDNode *MD = nullptr;
-
         // Check if this terminating instruction jumps to the loop header.
-        for (const auto *S : successors(TI)) {
-          if (S == H) {
+        for (const auto *Succ : successors(TI)) {
+          if (Succ == Header) {
             // This is a jump to the header - gather the metadata from it.
             MD = TI->getMetadata(LLVMContext::MD_loop);
+#if INTEL_CUSTOMIZATION
             LLVM_DEBUG(dbgs()
                        << "Fetched MD_loop from the MachineLoop's latch.");
+#endif // INTEL_CUSTOMIZATION
             break;
           }
         }
-
+#if INTEL_CUSTOMIZATION
         if (!MD) {
           LLVM_DEBUG(dbgs() << "Dropped inconsistent MD_loop (nullptr).");
           return nullptr;
         }
-
+#endif // INTEL_CUSTOMIZATION
         if (!LoopID)
           LoopID = MD;
+#if INTEL_CUSTOMIZATION
         else if (MD != LoopID) {
           LLVM_DEBUG(dbgs() << "Dropped inconsistent MD_loop (mismatch).");
           return nullptr;
         }
+#endif // INTEL_CUSTOMIZATION
       }
     }
   }
-
+#if INTEL_CUSTOMIZATION
   if (LoopID &&
       (LoopID->getNumOperands() == 0 || LoopID->getOperand(0) != LoopID)) {
     LoopID = nullptr;
@@ -268,10 +269,10 @@ MDNode *MachineLoop::getLoopID(bool IfAssert) const {
     LLVM_DEBUG(dbgs() << "Returning nullptr MD_loop.");
   else
     LLVM_DEBUG(dbgs() << "Returning valid MD_loop.");
+#endif // INTEL_CUSTOMIZATION
 
   return LoopID;
 }
-#endif  // INTEL_CUSTOMIZATION
 
 bool MachineLoop::isLoopInvariant(MachineInstr &I) const {
   MachineFunction *MF = I.getParent()->getParent();

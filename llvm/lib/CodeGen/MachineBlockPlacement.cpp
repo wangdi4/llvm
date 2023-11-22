@@ -3328,39 +3328,30 @@ void MachineBlockPlacement::alignBlocks() {
     if (!L)
       continue;
 
-#if INTEL_CUSTOMIZATION
     const Align TLIAlign = TLI->getPrefLoopAlignment(L);
-    Attribute AttrAlignAttr =
-        F->getFunction().getFnAttribute("intel-code-align");
-    unsigned MaxAttrMDAlign = 1;
-    if (AttrAlignAttr.isValid()) {
-      StringRef Val = AttrAlignAttr.getValueAsString();
-      Val.getAsInteger(0, MaxAttrMDAlign);
-    }
-    MDNode *LoopID = L->getLoopID(false);
+    unsigned MDAlign = 1;
+    MDNode *LoopID = L->getLoopID(false); // INTEL
     if (LoopID) {
-      for (unsigned i = 1, e = LoopID->getNumOperands(); i < e; ++i) {
-        MDNode *MD = dyn_cast<MDNode>(LoopID->getOperand(i));
+      for (unsigned I = 1, E = LoopID->getNumOperands(); I < E; ++I) {
+        MDNode *MD = dyn_cast<MDNode>(LoopID->getOperand(I));
         if (MD == nullptr)
           continue;
         MDString *S = dyn_cast<MDString>(MD->getOperand(0));
         if (S == nullptr)
           continue;
-        if (S->getString() == "llvm.loop.intel.align") {
+        if (S->getString() == "llvm.loop.align") {
           assert(MD->getNumOperands() == 2 &&
                  "per-loop align metadata should have two operands.");
-          unsigned MDAlgin =
+          MDAlign =
               mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
-          assert(MDAlgin >= 1 && "per-loop align value must be positive.");
-          MaxAttrMDAlign = std::max(MaxAttrMDAlign, MDAlgin);
+          assert(MDAlign >= 1 && "per-loop align value must be positive.");
         }
       }
     }
 
-    // Use max of the TLIAlign and MaxAttrMDAlign
-    const Align LoopAlign = std::max(TLIAlign, Align(MaxAttrMDAlign));
+    // Use max of the TLIAlign and MDAlign
+    const Align LoopAlign = std::max(TLIAlign, Align(MDAlign));
     if (LoopAlign == 1)
-#endif // INTEL_CUSTOMIZATION
       continue; // Don't care about loop alignment.
 
     // If the block is cold relative to the function entry don't waste space
@@ -3402,7 +3393,7 @@ void MachineBlockPlacement::alignBlocks() {
     // Force alignment if all the predecessors are jumps. We already checked
     // that the block isn't cold above.
     if (!LayoutPred->isSuccessor(ChainBB)) {
-      ChainBB->setAlignment(LoopAlign); // INTEL
+      ChainBB->setAlignment(LoopAlign);
       DetermineMaxAlignmentPadding();
       continue;
     }
@@ -3415,7 +3406,7 @@ void MachineBlockPlacement::alignBlocks() {
         MBPI->getEdgeProbability(LayoutPred, ChainBB);
     BlockFrequency LayoutEdgeFreq = MBFI->getBlockFreq(LayoutPred) * LayoutProb;
     if (LayoutEdgeFreq <= (Freq * ColdProb)) {
-      ChainBB->setAlignment(LoopAlign); // INTEL
+      ChainBB->setAlignment(LoopAlign);
       DetermineMaxAlignmentPadding();
     }
   }
