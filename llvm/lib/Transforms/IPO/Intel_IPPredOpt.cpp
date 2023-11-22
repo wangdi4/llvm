@@ -1182,8 +1182,6 @@ bool PredCandidate::checkSpecialNoSideEffectsCall(CallBase *CB,
       EHBBs.insert(UD);
       break;
     } else if (isa<UnreachableInst>(BB.getTerminator())) {
-      if (EBB)
-        return false;
       EBB = &BB;
       EHBBs.insert(&BB);
       break;
