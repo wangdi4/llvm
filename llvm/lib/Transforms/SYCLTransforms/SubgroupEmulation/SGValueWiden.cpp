@@ -84,7 +84,7 @@ PreservedAnalyses SGValueWidenPass::run(Module &M, ModuleAnalysisManager &AM) {
       FunctionsToBeWidened.insert(&Fn);
 
   FunctionWidener FWImpl;
-  FWImpl.run(FunctionsToBeWidened, FuncMap);
+  FWImpl.run(FunctionsToBeWidened, FuncMap, VecArgMap);
 
   // Initialize barrier utils.
   Utils.init(&M);
@@ -534,6 +534,12 @@ Value *SGValueWidenPass::getVectorValue(Value *V, unsigned Size,
       return loadVectorByVecElement(VecValueMap[V], OrigValType, Size, Builder);
     return Builder.CreateLoad(SGHelper::getVectorType(V, Size), WideValPtr);
   }
+  // If V is a scalar value extracted from the corresponding vector parameter,
+  // return the vector parameter with necessary trunc/zext considering the
+  // possible argument promotion.
+  if (VecArgMap.count(V))
+    return SGHelper::createZExtOrTruncProxy(
+        VecArgMap[V], SGHelper::getVectorType(V, Size), Builder);
   if (UniValueMap.count(V))
     V = Builder.CreateLoad(OrigValType, UniValueMap[V]);
   if (isa<FixedVectorType>(OrigValType))

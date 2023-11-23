@@ -128,8 +128,11 @@ private:
   /// BB will be excluded from sub-group loop.
   DenseMap<Function *, BasicBlock *> SGExcludeBBMap;
 
-  /// Map from value to its widend alloca instruction.
+  /// Map from value to its widened alloca instruction.
   DenseMap<Value *, Value *> VecValueMap;
+
+  /// Map from value to its widened argument.
+  DenseMap<Value *, Value *> VecArgMap;
 
   /// Map from value to its hoisted alloca instruction.
   DenseMap<Value *, Value *> UniValueMap;

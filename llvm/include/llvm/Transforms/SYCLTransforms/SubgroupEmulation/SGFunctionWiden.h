@@ -22,7 +22,8 @@ struct VFInfo;
 class FunctionWidener {
 public:
   void run(CompilationUtils::FuncSet &Functions,
-           DenseMap<Function *, std::set<Function *>> &FuncMap);
+           DenseMap<Function *, std::set<Function *>> &FuncMap,
+           DenseMap<Value *, Value *> &VecArgMap);
 
 private:
   SGHelper Helper;
@@ -41,8 +42,10 @@ private:
                           ValueToValueMapTy &Vmap);
 
   /// Update uses for widened parameters.
+  /// Also update VecArgMap to map the original arg use to the widened arg.
   void expandVectorParameters(Function *Clone, const VFInfo &V,
-                              ValueToValueMapTy &Vmap);
+                              ValueToValueMapTy &Vmap,
+                              DenseMap<Value *, Value *> &VecArgMap);
 
   /// Update return value.
   void expandReturn(Function *Clone, bool IsWGSyncFunction);

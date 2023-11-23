@@ -25,7 +25,8 @@ using namespace llvm;
 using namespace CompilationUtils;
 
 void FunctionWidener::run(FuncSet &Functions,
-                          DenseMap<Function *, std::set<Function *>> &FuncMap) {
+                          DenseMap<Function *, std::set<Function *>> &FuncMap,
+                          DenseMap<Value *, Value *> &VecArgMap) {
   if (Functions.empty())
     return;
 
@@ -85,7 +86,7 @@ void FunctionWidener::run(FuncSet &Functions,
       EntryBB.setName("sg.loop.exclude");
       EntryBB.splitBasicBlock(&*EntryBB.begin(), BBName);
 
-      expandVectorParameters(FnWiden, Variant, VMap);
+      expandVectorParameters(FnWiden, Variant, VMap, VecArgMap);
       bool IsWGSyncFunction = WGSyncFunctions.count(Fn);
       expandReturn(FnWiden, IsWGSyncFunction);
       LLVM_DEBUG(FnWiden->dump());
@@ -286,8 +287,9 @@ Instruction *FunctionWidener::getInsertPoint(Instruction *I, Value *V) {
   llvm_unreachable("Can't find incoming basicblock for value");
 }
 
-void FunctionWidener::expandVectorParameters(Function *Clone, const VFInfo &V,
-                                             ValueToValueMapTy &VMap) {
+void FunctionWidener::expandVectorParameters(
+    Function *Clone, const VFInfo &V, ValueToValueMapTy &VMap,
+    DenseMap<Value *, Value *> &VecArgMap) {
 
   IRBuilder<> Builder(&*Clone->getEntryBlock().begin());
   ArrayRef<VFParameter> ParamKinds = V.Shape.Parameters;
@@ -335,7 +337,7 @@ void FunctionWidener::expandVectorParameters(Function *Clone, const VFInfo &V,
           Val = Builder.CreateInsertElement(Val, Trunc, EleIdx);
           EleId = Builder.CreateAdd(EleId, Helper.getOne());
         }
-
+        VecArgMap[Val] = Arg;
         I->replaceUsesOfWith(Arg, Val);
         LLVM_DEBUG(dbgs() << "To:" << *I << "\n");
       }
@@ -349,6 +351,7 @@ void FunctionWidener::expandVectorParameters(Function *Clone, const VFInfo &V,
         // The argument element Val might be promoted, create a trunc.
         auto *Trunc =
             SGHelper::createZExtOrTruncProxy(Val, OrigArgType, Builder);
+        VecArgMap[Trunc] = Arg;
         I->replaceUsesOfWith(Arg, Trunc);
         LLVM_DEBUG(dbgs() << "To:" << *I << "\n");
       }
