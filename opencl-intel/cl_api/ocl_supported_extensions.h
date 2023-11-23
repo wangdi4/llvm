@@ -74,3 +74,5 @@
 #define OCL_EXT_INTEL_DEVICE_ATTRIBUTE_QUERY "cl_intel_device_attribute_query"
 
 #define OCL_EXT_INTEL_CONCURRENT_DISPATCH "cl_intel_concurrent_dispatch"
+
+#define OCL_EXT_INTEL_DEVICELIB_ASSERT "cl_intel_devicelib_assert"

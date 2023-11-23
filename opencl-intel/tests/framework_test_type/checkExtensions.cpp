@@ -83,6 +83,7 @@ static const StringMap<cl_version> extRefCPU = {
     {OCL_EXT_KHR_SPIR, CL_MAKE_VERSION(1, 0, 0)},
     {OCL_EXT_KHR_IMAGE2D_FROM_BUFFER, CL_MAKE_VERSION(1, 0, 0)},
     {OCL_EXT_INTEL_CONCURRENT_DISPATCH, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_INTEL_DEVICELIB_ASSERT, CL_MAKE_VERSION(1, 0, 0)},
 };
 
 TEST_F(CheckExtensions, CpuDevice) {

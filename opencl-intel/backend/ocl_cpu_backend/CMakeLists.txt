@@ -119,6 +119,7 @@ set(OCL_CPU_BACKEND_SOURCE_FILES
     dllmain.cpp
     ocl_debug_builtins.cpp
     opencl20_ext_execution.cpp
+    opencl_cpu_assert_ext.cpp
     opencl_cpu_printf_ext.cpp
     opencl_printf_ext.cpp
     Intel_opencl_task_sequence.cpp  # INTEL
