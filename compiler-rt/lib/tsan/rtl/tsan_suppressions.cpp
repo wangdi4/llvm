@@ -53,36 +53,27 @@ static const char *const std_suppressions =
 
 #if INTEL_CUSTOMIZATION
 // Suppressions for enabling sanitizers for SYCL host code
-static const char *const sycl_host_suppressions =
-    // Libraries that will cause error reports
-    "called_from_lib:*libintelocl_emu.so\n"
-    "called_from_lib:libintelocl.so\n"
-    "called_from_lib:libsycl.so\n"
-    "called_from_lib:libtbb.so\n"
-    "mutex:libintelocl_emu.so\n"
-    "mutex:libintelocl.so\n"
-    "mutex:libsycl.so\n"
-    "mutex:libtbb.so\n"
-    "mutex:^sycl::_v1::\n"
-    "mutex:^_ZN4sycl3_V1\n"
-    "race:libintelocl_emu.so\n"
-    "race:libintelocl.so\n"
-    "race:libsycl.so\n"
-    "race:libtbb.so\n"
-    "race:^sycl::_v1::\n"
-    "race:^_ZN4sycl3_V1\n"
-    "signal:libintelocl_emu.so\n"
-    "signal:libintelocl.so\n"
-    "signal:libsycl.so\n"
-    "signal:libtbb.so\n"
-    "signal:^sycl::_v1::\n"
-    "signal:^_ZN4sycl3_V1\n"
-    "thread:libintelocl_emu.so\n"
-    "thread:libintelocl.so\n"
-    "thread:libsycl.so\n"
-    "thread:libtbb.so\n"
-    "thread:^sycl::_v1::\n"
-    "thread:^_ZN4sycl3_V1\n";
+static const char *sycl_host_suppression_types[] = {
+  "called_from_lib",
+  "mutex",
+  "race",
+  "signal",
+  "thread"
+};
+
+static const char *sycl_host_suppression_templates[] = {
+  "libintelocl_emu.so",
+  "libintelocl.so",
+  "libsycl.so",
+  "libtbb.so",
+  "libze_intel_gpu.so",
+  "libigdrcl.so",
+  "libigc.so",
+  "libigdgmm.so",
+  "libpi_level_zero.so",
+  "^sycl::_v1::",
+  "^_ZN4sycl3_V1"
+};
 #endif  // INTEL_CUSTOMIZATION
 
 // Can be overriden in frontend.
@@ -111,8 +102,16 @@ void InitializeSuppressions() {
   suppression_ctx->Parse(std_suppressions);
 #if INTEL_CUSTOMIZATION
   if (IsInSyclContext()) {
-    VReport(1, "Applying suppressions for SYCL Host Sanitizers.");
-    suppression_ctx->Parse(sycl_host_suppressions);
+    VReport(1, "Applying suppressions for SYCL Host Sanitizers.\n");
+
+    auto type_len = sizeof(sycl_host_suppression_types) /
+                    sizeof(sycl_host_suppression_types[0]);
+    auto template_len = sizeof(sycl_host_suppression_templates) /
+                        sizeof(sycl_host_suppression_templates[0]);
+    for (decltype(type_len) i = 0; i < type_len; ++i)
+      for (decltype(template_len) j = 0; j < template_len; ++j)
+        suppression_ctx->Add(sycl_host_suppression_types[i],
+                             sycl_host_suppression_templates[j]);
   }
 #endif  // INTEL_CUSTOMIZATION
 #endif

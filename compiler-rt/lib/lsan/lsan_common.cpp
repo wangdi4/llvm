@@ -177,7 +177,7 @@ void LeakSuppressionContext::LazyInit() {
     context.Parse(kStdSuppressions);
 #if INTEL_CUSTOMIZATION
     if (IsInSyclContext()) {
-      VReport(1, "Applying suppressions for SYCL Host Sanitizers.");
+      VReport(1, "Applying suppressions for SYCL Host Sanitizers.\n");
       context.Parse(kSyclHostSuppression);
     }
 #endif  // INTEL_CUSTOMIZATION

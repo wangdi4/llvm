@@ -93,7 +93,7 @@ static void InitializeFlags() {
 
 #if INTEL_CUSTOMIZATION
   if (IsInSyclContext()) {
-    VReport(1, "Applying custom settings for SYCL Host Sanitizers.");
+    VReport(1, "Applying custom settings for SYCL Host Sanitizers.\n");
 
     // Do not print suppression by default because we use suppression as
     // workaround
