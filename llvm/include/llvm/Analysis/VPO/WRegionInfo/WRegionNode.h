@@ -172,6 +172,12 @@ private:
   /// * implicit taskgroup around a taskloop construct
   bool IsImplicit = false;
 
+  /// True means the construct is perfectly nested inside its parent construct.
+  /// NOTE: This property is set by the FE, but it does not guarantee that all
+  /// perfectly-nested cases are marked, so this boolean carries no useful
+  /// information when it is false.
+  bool IsPerfectlyNested = false;
+
 #if INTEL_CUSTOMIZATION
   /// True if the WRN came from HIR; false otherwise
   bool IsFromHIR = false;
@@ -223,6 +229,9 @@ protected:
 
   /// Set whether this WRegionNode is for an implicit construct.
   void setIsImplicit(bool B) { IsImplicit = B; }
+
+  /// Set whether this WRegionNode is perfectly nested in its parent construct.
+  void setIsPerfectlyNested(bool B) { IsPerfectlyNested = B; }
 
   /// Set the DominatorTree of this region.
   void setDT(DominatorTree *D) { DT = D; }
@@ -534,8 +543,6 @@ public:
   virtual bool getHasSeqCstClause()       const {WRNERROR("SEQ_CST");         }
   virtual void setIf(EXPR E)                    {WRNERROR(QUAL_OMP_IF);       }
   virtual EXPR getIf()                    const {WRNERROR(QUAL_OMP_IF);       }
-  virtual void setIsPerfectlyNested(bool F)     {WRNERROR("PERECTLY_NESTED"); }
-  virtual bool getIsPerfectlyNested()     const {WRNERROR("PERECTLY_NESTED"); }
   virtual void setIsStrict(bool F)                      { WRNERROR("STRICT"); }
   virtual bool getIsStrict()                      const { WRNERROR("STRICT"); }
   virtual void setIsDoacross(bool F)     { WRNERROR("DOACROSS(SOURCE|SINK)"); }
@@ -838,6 +845,10 @@ public:
 
   /// Returns whether the WRegionNode is for an implicit construct.
   bool getIsImplicit() const { return IsImplicit; }
+
+  /// Returns whether the WRegionNode is perfectly nested in its parent
+  /// construct.
+  bool getIsPerfectlyNested() const { return IsPerfectlyNested; }
 
   // Methods for BBlockSet
 

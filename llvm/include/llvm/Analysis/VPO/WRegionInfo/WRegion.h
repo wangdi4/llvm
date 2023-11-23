@@ -2352,7 +2352,6 @@ private:
   LiveinClause Livein;
   ReductionClause Reduction;
   int Collapse = 0;
-  bool IsPerfectlyNested = false;
 
   WRNLoopBindKind LoopBind = WRNLoopBindAbsent;
   WRNLoopOrderKind LoopOrder = WRNLoopOrderAbsent;
@@ -2369,7 +2368,6 @@ protected:
   void setLoopBind(WRNLoopBindKind LB) override { LoopBind = LB; }
   void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
   void setCollapse(int N) override { Collapse = N; }
-  void setIsPerfectlyNested(bool B) override { IsPerfectlyNested = B; }
 #if INTEL_CUSTOMIZATION
   void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
 #endif // INTEL_CUSTOMIZATION
@@ -2384,7 +2382,6 @@ public:
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   int getCollapse() const override { return Collapse; }
-  bool getIsPerfectlyNested() const override { return IsPerfectlyNested; }
   int getOmpLoopDepth() const override { return Collapse > 0 ? Collapse : 1; }
 #if INTEL_CUSTOMIZATION
   bool getIsDoConcurrent() const override { return IsDoConcurrent; }

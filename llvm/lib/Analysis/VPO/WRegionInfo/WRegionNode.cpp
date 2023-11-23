@@ -548,6 +548,11 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
     PrintedSomething = true;
   }
 
+  if (getIsPerfectlyNested()) {
+    printBool("PEFECTLY_NESTED", true, OS, 2 * Depth, Verbosity);
+    PrintedSomething = true;
+  }
+
   if (canHaveDistSchedule())
     PrintedSomething |= getDistSchedule().print(OS, Depth, Verbosity);
 
