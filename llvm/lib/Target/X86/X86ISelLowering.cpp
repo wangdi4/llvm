@@ -2210,31 +2210,23 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     }
 
     if (Subtarget.hasVBMI2()) {
-      for (auto VT : { MVT::v8i16, MVT::v4i32, MVT::v2i64,
-                       MVT::v16i16, MVT::v8i32, MVT::v4i64,
-                       MVT::v32i16, MVT::v16i32, MVT::v8i64 }) {
+      for (auto VT : {MVT::v32i16, MVT::v16i32, MVT::v8i64}) {
         setOperationAction(ISD::FSHL, VT, Custom);
         setOperationAction(ISD::FSHR, VT, Custom);
     }
       setOperationAction(ISD::ROTL, MVT::v32i16, Custom);
-      setOperationAction(ISD::ROTR, MVT::v8i16,  Custom);
-      setOperationAction(ISD::ROTR, MVT::v16i16, Custom);
       setOperationAction(ISD::ROTR, MVT::v32i16, Custom);
     }
   }// useAVX512Regs
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-  if (!Subtarget.useSoftFloat() &&
-      (Subtarget.hasVBMI2() || Subtarget.hasAVX256P())) {
-    for (auto VT : {MVT::v8i16, MVT::v4i32, MVT::v2i64, MVT::v16i16,
-                    MVT::v8i32, MVT::v4i64}) {
+  if (!Subtarget.useSoftFloat() && Subtarget.hasVBMI2()) {
+    for (auto VT : {MVT::v8i16, MVT::v4i32, MVT::v2i64, MVT::v16i16, MVT::v8i32,
+                    MVT::v4i64}) {
       setOperationAction(ISD::FSHL, VT, Custom);
       setOperationAction(ISD::FSHR, VT, Custom);
     }
   }
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
+
   // This block controls legalization for operations that don't have
   // pre-AVX512 equivalents. Without VLX we use 512-bit operations for
   // narrower widths.
@@ -2802,9 +2794,10 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  if (Subtarget.hasFP16() || Subtarget.hasAVX256P()) {
+  if (!Subtarget.useSoftFloat() && Subtarget.hasFP16() ||
+      Subtarget.hasAVX256P()) {
 #else  // INTEL_FEATURE_ISA_AVX256P
-  if (Subtarget.hasFP16()) {
+  if (!Subtarget.useSoftFloat() && Subtarget.hasFP16()) {
 #endif // INTEL_FEATURE_ISA_AVX256P
     for (auto VT : {MVT::v2f16, MVT::v4f16, MVT::v8f16, MVT::v16f16}) {
 #if INTEL_FEATURE_ISA_AVX256P
@@ -2817,21 +2810,23 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     }
   }
 #if INTEL_FEATURE_ISA_AVX256P
-  if (Subtarget.hasAnyFMA() || (Subtarget.hasAVX512F() && Subtarget.hasVLX()) ||
+  if (!Subtarget.useSoftFloat() && Subtarget.hasAnyFMA() ||
+      (Subtarget.hasAVX512F() && Subtarget.hasVLX()) ||
       Subtarget.hasAVX256P()) {
 #else  // INTEL_FEATURE_ISA_AVX256P
-  if (Subtarget.hasAnyFMA() || (Subtarget.hasAVX512() && Subtarget.hasVLX())) {
+  if (!Subtarget.useSoftFloat() && Subtarget.hasAnyFMA() ||
+      (Subtarget.hasAVX512() && Subtarget.hasVLX())) {
 #endif // INTEL_FEATURE_ISA_AVX256P
     for (auto VT : {MVT::v2f32, MVT::v4f32, MVT::v8f32, MVT::v2f64, MVT::v4f64})
       setOperationAction(ISD::COMPLEX_MUL, VT, Custom);
   }
-  if (Subtarget.hasAVX512()) {
+  if (!Subtarget.useSoftFloat() && Subtarget.hasAVX512()) {
     setOperationAction(ISD::COMPLEX_MUL, MVT::v8f64, Custom);
     setOperationAction(ISD::COMPLEX_MUL, MVT::v16f32, Custom);
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (Subtarget.hasAMXTILE()) {
+  if (!Subtarget.useSoftFloat() && Subtarget.hasAMXTILE()) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
     addRegisterClass(MVT::x86amx, &X86::TILEXRegClass);
