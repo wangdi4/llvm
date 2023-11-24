@@ -80,7 +80,12 @@ device_impl::device_impl(pi_native_handle InteropDeviceHandle,
   MPlatform = Platform;
 
   MIsAssertFailSupported =
-      has_extension(PI_DEVICE_INFO_EXTENSION_DEVICELIB_ASSERT);
+      has_extension(PI_DEVICE_INFO_EXTENSION_DEVICELIB_ASSERT)
+#if INTEL_COLLAB
+      // OpenCL backend has "cl_intel_devicelib_assert" extension
+      || has_extension("cl_intel_devicelib_assert")
+#endif // INTEL_COLLAB
+      ;
 }
 
 device_impl::~device_impl() {
