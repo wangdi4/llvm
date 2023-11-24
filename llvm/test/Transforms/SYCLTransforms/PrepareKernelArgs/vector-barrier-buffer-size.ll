@@ -55,6 +55,6 @@ attributes #1 = { convergent norecurse nounwind "correctly-rounded-divide-sqrt-f
 !16 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-36: WARNING: Instruction with empty DebugLoc in function test {{.*}}
-; DEBUGIFY-COUNT-36: WARNING: Instruction with empty DebugLoc in function _ZGVeN16u_test {{.*}}
+; DEBUGIFY-COUNT-40: WARNING: Instruction with empty DebugLoc in function test {{.*}}
+; DEBUGIFY-COUNT-42: WARNING: Instruction with empty DebugLoc in function _ZGVeN16u_test {{.*}}
 ; DEBUGIFY-NOT: WARNING

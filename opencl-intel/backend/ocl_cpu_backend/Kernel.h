@@ -21,6 +21,7 @@
 #include "cl_config.h"
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
+#include <thread>
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
@@ -337,6 +338,7 @@ protected:
                                    std::ostream &OS) const;
   std::pair<void *, size_t> AllocaStack(size_t size) const;
   void ReleaseStack(void *, size_t) const;
+  void *AllocaHeapForPrivateLocalMem(size_t) const;
 
   std::string m_name;
   unsigned int m_CSRMask = 0;  // Mask to be applied to set the execution flags
@@ -356,7 +358,11 @@ protected:
   cl_ulong m_stackDefaultSize;
   cl_ulong m_stackExtraSize;
   mutable size_t m_stackActualSize = 0;
+  mutable size_t m_BarrierBufferSize = 0;
+  mutable size_t m_localBufferSize = 0;
   bool m_useAutoMemory;
+  mutable std::mutex m_HeapMutex;
+  mutable std::map<std::thread::id, std::pair<void *, size_t>> m_HeapMem;
 
 private:
   // Minimum alignment in bytes for Kernel Uniform Args

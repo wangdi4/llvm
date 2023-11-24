@@ -92,5 +92,5 @@ attributes #5 = { convergent nounwind }
 !9 = !{ptr addrspace(4) null}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-34: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}}
+; DEBUGIFY-COUNT-40: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}}
 ; DEBUGIFY-NOT: WARNING
