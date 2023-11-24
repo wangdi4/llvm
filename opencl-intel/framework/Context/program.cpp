@@ -164,7 +164,8 @@ cl_err_code Program::ResetDeviceImageScopeGlobalVariable() {
 
     for (const auto &gv : gvs)
       if (gv.second.device_image_scope)
-        (void)memset(gv.second.pointer, 0, gv.second.size);
+        (void)memcpy(gv.second.pointer, m_gvInitValue[gv.second.pointer].get(),
+                     gv.second.size);
   }
 
   return CL_SUCCESS;
@@ -183,6 +184,14 @@ cl_err_code Program::AllocUSMForGVPointers() {
           deviceProgram->GetDeviceId(), gv.second.size, gv.second.pointer);
       if (CL_FAILED(err))
         return err;
+      // Record the initial value of the decorated globals since FPGA emulator
+      // need to reset them when the program is re-loaded.
+      if (m_pContext->IsFPGAEmulator() && gv.second.device_image_scope) {
+        m_gvInitValue[gv.second.pointer] =
+            std::make_unique<uint8_t[]>(gv.second.size);
+        (void)memcpy(m_gvInitValue[gv.second.pointer].get(), gv.second.pointer,
+                     gv.second.size);
+      }
     }
   }
   return CL_SUCCESS;

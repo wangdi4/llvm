@@ -237,6 +237,7 @@ private:
   std::mutex m_finalizeMutex;
 
   bool BinaryIsSpir = false;
+  std::unordered_map<void *, std::unique_ptr<uint8_t[]>> m_gvInitValue;
 };
 } // namespace Framework
 } // namespace OpenCL

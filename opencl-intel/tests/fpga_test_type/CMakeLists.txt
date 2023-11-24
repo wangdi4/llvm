@@ -40,6 +40,7 @@ link_target_with_tbb_library(fpga_test_type)
 add_ocl_unittest_artifacts(
   FILES
   data/atomics64.spv
+  data/device_global_constant_initializer.bc
   data/device_global_image1.bc
   data/device_global_image2.bc
   data/internal-ctor-kernel.ioc.obj
