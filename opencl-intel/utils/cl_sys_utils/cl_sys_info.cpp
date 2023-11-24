@@ -28,6 +28,8 @@ __attribute__((section(".oclver")))
 #endif
     const char OCL_VER_EXT[] = VERSIONSTRING_WITH_EXT;
 static hwloc_topology_t topology = nullptr;
+static hwloc_bitmap_t process_cpu_set = nullptr;
+static hwloc_bitmap_t process_node_set = nullptr;
 
 ////////////////////////////////////////////////////////////////////////////////
 // return the product version:
@@ -84,6 +86,39 @@ void Intel::OpenCL::Utils::InitHwloc() {
     // load hardware information
     err = hwloc_topology_load(topology);
     assert(!err && "hwloc_topology_load failed");
+
+#if _WIN32
+    // On windows, process affinity is not supported if has more than 1
+    // processor groups.
+    SYSTEM_INFO si;
+    GetNativeSystemInfo(&si);
+    if (GetActiveProcessorGroupCount() > 1
+#if !_WIN64
+        // On win32 platform, process affinity masks can only support up to 32
+        // logical cores.
+        || si.dwNumberOfProcessors > 32
+#endif
+    ) {
+      process_cpu_set =
+          hwloc_bitmap_dup(hwloc_topology_get_complete_cpuset(topology));
+      process_node_set =
+          hwloc_bitmap_dup(hwloc_topology_get_complete_nodeset(topology));
+      assert(process_cpu_set && process_node_set &&
+             "failed to get complete cpuset/nodeset");
+    } else
+#endif
+    {
+      process_cpu_set = hwloc_bitmap_alloc();
+      process_node_set = hwloc_bitmap_alloc();
+      assert(process_cpu_set && process_node_set &&
+             "hwloc_bitmap_alloc failed");
+
+      err = hwloc_get_cpubind(topology, process_cpu_set, HWLOC_CPUBIND_PROCESS);
+      assert(!err && "hwloc_get_cpubind failed");
+      err =
+          hwloc_cpuset_to_nodeset(topology, process_cpu_set, process_node_set);
+      assert(!err && "hwloc_cpuset_to_nodeset failed");
+    }
   });
 }
 
@@ -91,6 +126,14 @@ void Intel::OpenCL::Utils::InitHwloc() {
 // destroy topology
 ////////////////////////////////////////////////////////////////////
 void Intel::OpenCL::Utils::DestroyHwloc() {
+  if (process_cpu_set) {
+    hwloc_bitmap_free(process_cpu_set);
+    process_cpu_set = nullptr;
+  }
+  if (process_node_set) {
+    hwloc_bitmap_free(process_node_set);
+    process_node_set = nullptr;
+  }
   if (topology) {
     hwloc_topology_destroy(topology);
     topology = nullptr;
@@ -108,8 +151,17 @@ unsigned int Intel::OpenCL::Utils::GetNumberOfCpuSockets() {
     int depth = hwloc_get_type_depth(topology, HWLOC_OBJ_PACKAGE);
     if (depth == HWLOC_TYPE_DEPTH_UNKNOWN) {
       assert(false && "Failed to detect the number of sockets!");
-    } else
-      numCpuSockets = hwloc_get_nbobjs_by_depth(topology, depth);
+    } else {
+      hwloc_obj_t obj = nullptr;
+      hwloc_bitmap_t socket = hwloc_bitmap_alloc();
+      assert(socket && "Failed to alloc hwloc bitmap!");
+      while ((obj = hwloc_get_next_obj_covering_cpuset_by_depth(
+                  topology, process_cpu_set, depth, obj)) != nullptr)
+        if (hwloc_bitmap_set(socket, obj->os_index) < 0)
+          assert(false && "hwloc_get_next_obj_covering_cpuset_by_depth failed");
+      numCpuSockets = hwloc_bitmap_weight(socket);
+      hwloc_bitmap_free(socket);
+    }
   });
   assert(numCpuSockets != 0 && "Number of sockets should not be 0");
   return numCpuSockets;
@@ -142,7 +194,7 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode() {
   static llvm::once_flag OnceFlag;
   llvm::call_once(OnceFlag, [&]() {
     InitHwloc();
-    numNodes = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_NUMANODE);
+    numNodes = hwloc_bitmap_weight(process_node_set);
   });
   assert(numNodes > 0 && "Failed to get number of NUMA nodes");
   return numNodes;
@@ -155,14 +207,18 @@ bool Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(
     unsigned long node, std::vector<cl_uint> &index) {
   InitHwloc();
   // If no object exists, NULL is returned
-  hwloc_obj_t obj = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, node);
-  if (NULL == obj)
+  hwloc_obj_t node_obj = hwloc_get_numanode_obj_by_os_index(topology, node);
+  if (nullptr == node_obj)
     return false;
+
+  hwloc_cpuset_t current_mask = node_obj->cpuset;
+  hwloc_bitmap_and(current_mask, current_mask, process_cpu_set);
+
   index.clear();
-  int prev = hwloc_bitmap_next(obj->cpuset, -1);
+  int prev = hwloc_bitmap_next(current_mask, -1);
   while (-1 != prev) {
     index.push_back(prev);
-    prev = hwloc_bitmap_next(obj->cpuset, prev);
+    prev = hwloc_bitmap_next(current_mask, prev);
   }
   return true;
 }
@@ -174,10 +230,14 @@ std::unordered_map<int, int> Intel::OpenCL::Utils::GetProcessorToSocketMap() {
     // If no object exists, NULL is returned
     hwloc_obj_t obj = hwloc_get_obj_by_type(topology, HWLOC_OBJ_PACKAGE, node);
     assert(obj && "Get Socket Object Failed!");
-    int prev = hwloc_bitmap_next(obj->cpuset, -1);
+
+    hwloc_cpuset_t current_mask = obj->cpuset;
+    hwloc_bitmap_and(current_mask, current_mask, process_cpu_set);
+
+    int prev = hwloc_bitmap_next(current_mask, -1);
     while (-1 != prev) {
       CoreIdToPhysicalId[prev] = node;
-      prev = hwloc_bitmap_next(obj->cpuset, prev);
+      prev = hwloc_bitmap_next(current_mask, prev);
     }
   }
   return CoreIdToPhysicalId;

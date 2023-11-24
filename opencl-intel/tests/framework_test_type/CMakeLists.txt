@@ -29,6 +29,9 @@ if(CXX_SUPPORTS_FLAGS)
   set_source_files_properties(${nowarning_source_files} PROPERTIES COMPILE_FLAGS "${nowarning_flags}")
 endif()
 
+set_source_files_properties(cpu_bind_test.cpp PROPERTIES
+                            INCLUDE_DIRECTORIES ${HWLOC_INCLUDE_DIR})
+
 include_directories(
   ${OCL_SOURCE_DIR}/framework/export ${OCL_SOURCE_DIR}/framework/Tracing
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export)
