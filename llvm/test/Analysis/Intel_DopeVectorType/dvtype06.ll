@@ -1,5 +1,4 @@
 ; RUN: llvm-link -S %s 2>&1 | FileCheck %s
-; XFAIL: *
 
 ; Check that after a single pass of the IRMover, none of the dope vector types are merged
 

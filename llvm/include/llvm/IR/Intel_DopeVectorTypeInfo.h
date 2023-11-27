@@ -45,9 +45,8 @@ class DopeVectorTypeInfo {
   //         element type.
   void loadDopeVectorTypeMap(Module &M);
 
-  // Is 'true' if after calling initializeDopeVectorTypeMap() a correctly
-  // formed 'DopeVectorTypeMap' was created.
-  bool MapCorrectlyInitialized;
+  // Is 'true' if a correctly formed 'DopeVectorTypeMap' was created.
+  bool MapCorrectlyInitialized = true;
 
 public:
   DopeVectorTypeInfo(Module &M) { loadDopeVectorTypeMap(M); };
@@ -58,6 +57,11 @@ public:
 
   // Returns 'true' if 'Ty' is a dope vector type.
   bool isDopeVectorType(const Type *Ty);
+
+  // If 'Ty' is a dope vector type, return the array rank, else 0.
+  // Also return 0 if the dope vector type is malformed in such a way
+  // that we cannot determine the array rank.
+  unsigned getDopeVectorArrayRank(const Type *Ty);
 
   // Return the element type associated with 'Ty' if 'Ty' is a dope
   // vector type. Otherwise, return 'nullptr'.

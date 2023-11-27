@@ -1,8 +1,11 @@
-; RUN: llvm-link -S %s %S/Inputs/dvtype08.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -S %s %S/Inputs/dvtype09a.ll %S/Inputs/dvtype09b.ll 2>&1 | FileCheck %s
 
-; Check that after merging two bitcode files an identical type gets merged.
+; Check that after merging three bitcode files an identical type gets merged.
 ; Note that a type metadata may appear multiple times in !ifx.types.dv, 
-; this is an artifact of the IRMover.
+; this is an artifact of the IRMover. In this LIT test, we also test that
+; dope vector type info collection works if an input file with no dope
+; vector metadata is introduced. (This can happen with mixed C/Fortran
+; compilation.
 
 ; CHECK: %"QNCA_a0$i8*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 ; CHECK: %"QNCA_a0$float*$rank2$" = type { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }

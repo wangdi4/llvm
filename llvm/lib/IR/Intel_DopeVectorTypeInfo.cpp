@@ -31,7 +31,6 @@ void DopeVectorTypeInfo::loadDopeVectorTypeMap(Module &M) {
     return CV->getType();
   };
 
-  MapCorrectlyInitialized = false;
   NamedMDNode *NMDN = M.getNamedMetadata("ifx.types.dv");
   if (!NMDN) {
     LLVM_DEBUG(dbgs() << "DVTYPE: No metadata found.\n");
@@ -41,11 +40,13 @@ void DopeVectorTypeInfo::loadDopeVectorTypeMap(Module &M) {
     const Type *DVType = GetType(MDN, 0);
     if (!DVType) {
       DopeVectorTypeMap.clear();
+      MapCorrectlyInitialized = false;
       return;
     }
     const Type *DVElementType = GetType(MDN, 1);
     if (!DVElementType) {
       DopeVectorTypeMap.clear();
+      MapCorrectlyInitialized = false;
       return;
     }
     if (DopeVectorTypeMap.count(DVType)) {
@@ -58,6 +59,7 @@ void DopeVectorTypeInfo::loadDopeVectorTypeMap(Module &M) {
         });
         LLVM_DEBUG(dbgs() << "\n");
         DopeVectorTypeMap.clear();
+        MapCorrectlyInitialized = false;
         return;
       }
     } else {
@@ -68,7 +70,6 @@ void DopeVectorTypeInfo::loadDopeVectorTypeMap(Module &M) {
     LLVM_DEBUG(dbgs() << "DVTYPE: Empty metadata list.\n");
     return;
   }
-  MapCorrectlyInitialized = true;
   LLVM_DEBUG(print());
 }
 
@@ -76,6 +77,23 @@ bool DopeVectorTypeInfo::isDopeVectorType(const Type *Ty) {
   if (!MapCorrectlyInitialized)
     return false;
   return DopeVectorTypeMap.count(Ty);
+}
+
+unsigned DopeVectorTypeInfo::getDopeVectorArrayRank(const Type *Ty) {
+  const unsigned int DVFieldCount = 7;
+  if (!isDopeVectorType(Ty))
+    return 0;
+  auto STy = dyn_cast<StructType>(Ty);
+  if (!STy)
+    return 0;
+  unsigned ContainedCount = STy->getNumContainedTypes();
+  if (ContainedCount != DVFieldCount)
+    return 0;
+  llvm::Type *LastType = STy->getContainedType(ContainedCount - 1);
+  auto *ArType = dyn_cast<ArrayType>(LastType);
+  if (!ArType)
+    return 0;
+  return ArType->getArrayNumElements();
 }
 
 const Type *DopeVectorTypeInfo::getDopeVectorElementType(const Type *Ty) {
