@@ -637,7 +637,7 @@ bool HIRRegionIdentification::containsUnsupportedIdx(
   }
   // We should bail out for cases like @c[-1][i1], where base opreand is
   // global and first index is not 0 or 1. It is out of range array access.
-  auto *InnermostGEP = dyn_cast<GEPOperator>(GEPOrSubs);
+  auto *InnermostGEP = cast<GEPOperator>(GEPOrSubs);
   auto *BasePtrOp = InnermostGEP->getPointerOperand();
   while (auto *CurrGEPOp = dyn_cast<GEPOperator>(BasePtrOp)) {
     BasePtrOp = CurrGEPOp->getPointerOperand();

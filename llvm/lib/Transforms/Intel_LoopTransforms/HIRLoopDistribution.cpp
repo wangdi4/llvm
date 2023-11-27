@@ -610,7 +610,7 @@ ScalarExpansion::ScalarExpansion(HLLoop *Loop, bool HasDistributePoint,
 
 void ScalarExpansion::sortCandidatesByTopSortNum() {
   std::sort(Candidates.begin(), Candidates.end(),
-            [&](Candidate A, Candidate B) {
+            [&](Candidate &A, Candidate &B) {
               return A.TmpDefs.front()->getHLDDNode()->getTopSortNum() <
                      B.TmpDefs.front()->getHLDDNode()->getTopSortNum();
             });
@@ -679,7 +679,7 @@ void ScalarExpansion::removeDependencies() {
     }
 
     // Erase the dependencies connecting the uses to the dominated defs
-    for (auto Use : Cand.TmpUses) {
+    for (auto &Use : Cand.TmpUses) {
       DDRefList &DefVec = Cand.SCEXDefsForUse[Use.Ref];
       llvm::erase_if(DefVec,
                      [&](DDRef *Def) { return DominatedDefs.count(Def); });
