@@ -723,7 +723,7 @@ cl_err_code Kernel::GetKernelMaxConcurrentWorkGroupCount(
 
   // FIXME : A fixed value in the initial implementation.
   // Should be update if TBB team can give some info about how to calculate it.
-  *max_work_group_count = 1024;
+  *max_work_group_count = 32;
   return CL_SUCCESS;
 }
 

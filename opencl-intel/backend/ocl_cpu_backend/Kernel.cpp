@@ -937,7 +937,10 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
     } else {
 #if defined(_WIN32)
     LPVOID primaryFiber = nullptr, fiber = nullptr;
-    primaryFiber = ConvertThreadToFiber(nullptr);
+    if (IsThreadAFiber())
+      primaryFiber = GetCurrentFiber();
+    else
+      primaryFiber = ConvertThreadToFiber(nullptr);
     if (!primaryFiber)
       ErrorExit(TEXT("ConvertThreadToFiber"));
 
