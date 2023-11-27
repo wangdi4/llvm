@@ -539,6 +539,7 @@ attributes #5 = { nounwind }
 
 !omp_offload.info = !{}
 !llvm.module.flags = !{!0, !1, !2}
+!ifx.types.dv = !{!10, !11, !12, !13}
 
 !0 = !{i32 1, !"ThinLTO", i32 0}
 !1 = !{i32 1, !"EnableSplitLTOUnit", i32 1}
@@ -550,3 +551,8 @@ attributes #5 = { nounwind }
 !7 = distinct !{!7, !5, !"arr_mod_mp_print_arr_: %M"}
 !8 = distinct !{!8, !5, !"arr_mod_mp_print_arr_: %O"}
 !9 = !{!4}
+!10 = !{%"QNCA_a0$float*$rank1$" zeroinitializer, float 0.000000e+00}
+!11 = !{%"QNCA_a0$float*$rank2$" zeroinitializer, float 0.000000e+00}
+!12 = !{%"QNCA_a0$float*$rank3$" zeroinitializer, float 0.000000e+00}
+!13 = !{%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$" zeroinitializer, %"ARR_MOD$.btT_TESTTYPE" zeroinitializer}
+

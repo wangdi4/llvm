@@ -102,12 +102,12 @@
 ; the copy dope vector as parameter.
 
 ; CHECK: define internal void @arr_mod_mp_print_info_
-; CHECK:   %i46 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i11, i64 %i45), !dbg !106
-; CHECK:   %i49 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i46, i64 %i48), !dbg !106
-; CHECK:   %i57 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 400, ptr elementtype(float) %i23, i64 %i56), !dbg !108
-; CHECK:   %i58 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i57, i64 %i45), !dbg !108
-; CHECK:   %i59 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i58, i64 %i48), !dbg !108
-; CHECK:   %i75 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i36, i64 %i74), !dbg !111
+; CHECK:   %i46 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i11, i64 %i45)
+; CHECK:   %i49 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i46, i64 %i48)
+; CHECK:   %i57 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 400, ptr elementtype(float) %i23, i64 %i56)
+; CHECK:   %i58 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i57, i64 %i45)
+; CHECK:   %i59 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i58, i64 %i48)
+; CHECK:   %i75 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i36, i64 %i74)
 
 source_filename = "ld-temp.o"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -702,6 +702,7 @@ attributes #5 = { nounwind }
 !llvm.dbg.cu = !{!20}
 !omp_offload.info = !{}
 !llvm.module.flags = !{!31, !32, !33, !34, !35}
+!ifx.types.dv = !{!135, !136, !137, !138}
 
 !0 = !DIGlobalVariableExpression(var: !1, expr: !DIExpression())
 !1 = distinct !DIGlobalVariable(name: "a", linkageName: "arr_mod_mp_a_", scope: !2, file: !3, line: 11, type: !4, isLocal: false, isDefinition: true)
@@ -838,3 +839,8 @@ attributes #5 = { nounwind }
 !132 = !DILocation(line: 78, column: 16, scope: !25)
 !133 = !DILocation(line: 79, column: 16, scope: !25)
 !134 = !DILocation(line: 82, column: 7, scope: !25)
+!135 = !{%"QNCA_a0$float*$rank1$" zeroinitializer, float 0.000000e+00}
+!136 = !{%"QNCA_a0$float*$rank2$" zeroinitializer, float 0.000000e+00}
+!137 = !{%"QNCA_a0$float*$rank3$" zeroinitializer, float 0.000000e+00}
+!138 = !{%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$" zeroinitializer, %"ARR_MOD$.btT_TESTTYPE" zeroinitializer}
+

@@ -9,6 +9,8 @@
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
+%"QNCA_a0$i32*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
+
 %uplevel_type = type { ptr }
 
 define dso_local void @MAIN__() #0 {
@@ -18,13 +20,13 @@ define dso_local void @MAIN__() #0 {
 
 ; This routine will create the dope vector, and pass it to a function
 define internal void @dv_test() #0 {
-  %"var$01" = alloca { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, align 8
-  %"var$01_$field0$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 0
-  %"var$01_$field1$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 1
-  %"var$01_$field2$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 2
-  %"var$01_$field3$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 3
-  %"var$01_$field4$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 4
-  %"var$01_$field6$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 6, i64 0
+  %"var$01" = alloca %"QNCA_a0$i32*$rank1$", align 8
+  %"var$01_$field0$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %"var$01", i64 0, i32 0
+  %"var$01_$field1$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %"var$01", i64 0, i32 1
+  %"var$01_$field2$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %"var$01", i64 0, i32 2
+  %"var$01_$field3$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %"var$01", i64 0, i32 3
+  %"var$01_$field4$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %"var$01", i64 0, i32 4
+  %"var$01_$field6$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %"var$01", i64 0, i32 6, i64 0
   %"var$01_$field6$_$field0$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$01_$field6$", i64 0, i32 0
   %"var$01_$field6$_$field1$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$01_$field6$", i64 0, i32 1
   %"var$01_$field6$_$field2$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$01_$field6$", i64 0, i32 2
@@ -56,7 +58,7 @@ define internal void @uplevel_creator(ptr %pDVin) #0 {
 define internal void @uplevel_user(ptr %pUplevel) #0 {
   %upField = getelementptr inbounds %uplevel_type, ptr %pUplevel, i64 0, i32 0
   %pDV = load ptr, ptr %upField, align 8
-  %"var$01_$field6$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %pDV, i64 0, i32 6, i64 0
+  %"var$01_$field6$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %pDV, i64 0, i32 6, i64 0
   %"var$01_$field6$_$field0$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$01_$field6$", i64 0, i32 0
   %"var$01_$field6$_$field1$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$01_$field6$", i64 0, i32 1
   %"var$01_$field6$_$field2$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$01_$field6$", i64 0, i32 2
@@ -87,3 +89,7 @@ declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #1
 
 attributes #0 = { "intel-lang"="fortran" }
 attributes #1 = { nounwind readnone speculatable }
+
+!ifx.types.dv = !{!0}
+!0 = !{%"QNCA_a0$i32*$rank1$" zeroinitializer, i32 0}
+

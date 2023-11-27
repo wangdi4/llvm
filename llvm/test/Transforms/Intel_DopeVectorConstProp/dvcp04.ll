@@ -34,6 +34,9 @@
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
+%"QNCA_a0$i32*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
+%"QNCA_a0$i32*$rank2$" = type { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
+
 %uplevel_type = type { ptr, ptr }
 
 @anon.9f612ed7d31cf3fc2b70611956e5ab37.0 = internal unnamed_addr constant i32 2
@@ -49,12 +52,12 @@ bb:
   store ptr %arg, ptr %i2, align 8
   %i3 = getelementptr inbounds %uplevel_type, ptr %i, i64 0, i32 1
   store ptr %arg1, ptr %i3, align 8
-  %i4 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %arg1, i64 0, i32 0
-  %i5 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %arg1, i64 0, i32 6, i64 0
+  %i4 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %arg1, i64 0, i32 0
+  %i5 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %arg1, i64 0, i32 6, i64 0
   %i6 = getelementptr inbounds { i64, i64, i64 }, ptr %i5, i64 0, i32 0
   %i7 = getelementptr inbounds { i64, i64, i64 }, ptr %i5, i64 0, i32 1
-  %i8 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %arg, i64 0, i32 0
-  %i9 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %arg, i64 0, i32 6, i64 0
+  %i8 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %arg, i64 0, i32 0
+  %i9 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %arg, i64 0, i32 6, i64 0
   %i10 = getelementptr inbounds { i64, i64, i64 }, ptr %i9, i64 0, i32 1
   call void @new_solver_IP_specific_(ptr nonnull %i)
   %i11 = load ptr, ptr %i4, align 8
@@ -91,12 +94,12 @@ bb:
   %i1 = load ptr, ptr %i, align 8
   %i2 = getelementptr inbounds %uplevel_type, ptr %arg, i64 0, i32 1
   %i3 = load ptr, ptr %i2, align 8
-  %i4 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %i1, i64 0, i32 0
-  %i5 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %i1, i64 0, i32 6, i64 0
+  %i4 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %i1, i64 0, i32 0
+  %i5 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %i1, i64 0, i32 6, i64 0
   %i6 = getelementptr inbounds { i64, i64, i64 }, ptr %i5, i64 0, i32 0
   %i7 = getelementptr inbounds { i64, i64, i64 }, ptr %i5, i64 0, i32 1
-  %i8 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i3, i64 0, i32 0
-  %i9 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i3, i64 0, i32 6, i64 0
+  %i8 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %i3, i64 0, i32 0
+  %i9 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %i3, i64 0, i32 6, i64 0
   %i10 = getelementptr inbounds { i64, i64, i64 }, ptr %i9, i64 0, i32 0
   %i11 = getelementptr inbounds { i64, i64, i64 }, ptr %i9, i64 0, i32 1
   %i12 = load ptr, ptr %i4, align 8
@@ -158,24 +161,24 @@ bb:
   %i1 = alloca [4 x i8], align 1
   %i2 = alloca { i32 }, align 8
   %i3 = alloca [4 x i8], align 1
-  %i4 = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
-  %i5 = alloca { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, align 8
+  %i4 = alloca %"QNCA_a0$i32*$rank2$", align 8
+  %i5 = alloca %"QNCA_a0$i32*$rank1$", align 8
   %i6 = alloca [8 x i64], align 16
-  %i7 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %i5, i64 0, i32 0
-  %i8 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %i5, i64 0, i32 1
-  %i9 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %i5, i64 0, i32 2
-  %i10 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %i5, i64 0, i32 3
-  %i11 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %i5, i64 0, i32 4
-  %i12 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, ptr %i5, i64 0, i32 6, i64 0
+  %i7 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %i5, i64 0, i32 0
+  %i8 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %i5, i64 0, i32 1
+  %i9 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %i5, i64 0, i32 2
+  %i10 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %i5, i64 0, i32 3
+  %i11 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %i5, i64 0, i32 4
+  %i12 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %i5, i64 0, i32 6, i64 0
   %i13 = getelementptr inbounds { i64, i64, i64 }, ptr %i12, i64 0, i32 0
   %i14 = getelementptr inbounds { i64, i64, i64 }, ptr %i12, i64 0, i32 1
   %i15 = getelementptr inbounds { i64, i64, i64 }, ptr %i12, i64 0, i32 2
-  %i16 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i4, i64 0, i32 0
-  %i17 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i4, i64 0, i32 1
-  %i18 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i4, i64 0, i32 2
-  %i19 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i4, i64 0, i32 3
-  %i20 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i4, i64 0, i32 4
-  %i21 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i4, i64 0, i32 6, i64 0
+  %i16 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %i4, i64 0, i32 0
+  %i17 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %i4, i64 0, i32 1
+  %i18 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %i4, i64 0, i32 2
+  %i19 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %i4, i64 0, i32 3
+  %i20 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %i4, i64 0, i32 4
+  %i21 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %i4, i64 0, i32 6, i64 0
   %i22 = getelementptr inbounds { i64, i64, i64 }, ptr %i21, i64 0, i32 0
   %i23 = getelementptr inbounds { i64, i64, i64 }, ptr %i21, i64 0, i32 1
   %i24 = getelementptr inbounds { i64, i64, i64 }, ptr %i21, i64 0, i32 2
@@ -220,3 +223,8 @@ declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { "intel-lang"="fortran" }
 attributes #1 = { nounwind readnone speculatable }
+
+!ifx.types.dv = !{!0, !1}
+!0 = !{%"QNCA_a0$i32*$rank1$" zeroinitializer, i32 0}
+!1 = !{%"QNCA_a0$i32*$rank2$" zeroinitializer, i32 0}
+

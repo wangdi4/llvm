@@ -428,3 +428,8 @@ attributes #0 = { nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_si
 attributes #1 = { nofree "intel-lang"="fortran" }
 attributes #2 = { nounwind readnone speculatable }
 attributes #3 = { nounwind }
+
+!ifx.types.dv = !{!0}
+!0 = !{%"QNCA_a0$float*$rank3$.2" zeroinitializer, float 0.000000e+00}
+
+

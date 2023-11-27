@@ -335,6 +335,7 @@ attributes #6 = { nounwind uwtable "denormal-fp-math"="preserve_sign" "frame-poi
 
 !omp_offload.info = !{!0}
 !llvm.module.flags = !{!1, !2, !3, !4}
+!ifx.types.dv = !{!160}
 
 !0 = !{i32 1, !"md_globals_mp_x_", i32 0, i32 0, ptr @md_globals_mp_x_}
 !1 = !{i32 1, !"ThinLTO", i32 0}
@@ -496,3 +497,5 @@ attributes #6 = { nounwind uwtable "denormal-fp-math"="preserve_sign" "frame-poi
 !157 = distinct !{!157, !91, !158}
 !158 = !{!"llvm.loop.parallel_accesses", !88}
 !159 = !{i32 0, i32 2147483647}
+!160 = !{%"QNCA_a0$double*$rank2$" zeroinitializer, double 0.000000e+00}
+

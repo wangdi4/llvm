@@ -9,6 +9,9 @@
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
+%"QNCA_a0$i32*$rank2$" = type { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
+%"QNCA_a0$i32*$rank3$" = type { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
+
 @"main_$PART" = internal global [9 x [9 x i32]] zeroinitializer, align 16
 @"main_$BLOCK" = internal global [9 x [9 x [9 x i32]]] zeroinitializer, align 16
 @0 = internal unnamed_addr constant i32 2
@@ -27,17 +30,17 @@ define dso_local void @MAIN__() #1 {
   %2 = alloca [4 x i8], align 1
   %3 = alloca { i64, ptr }, align 8
   %4 = alloca [4 x i8], align 1
-  %5 = alloca { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, align 8
-  %6 = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
+  %5 = alloca %"QNCA_a0$i32*$rank3$", align 8
+  %6 = alloca %"QNCA_a0$i32*$rank2$", align 8
   %7 = alloca [8 x i64], align 16
-  %8 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %6, i64 0, i32 1
-  %9 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %6, i64 0, i32 3
-  %10 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %6, i64 0, i32 6, i64 0
+  %8 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %6, i64 0, i32 1
+  %9 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %6, i64 0, i32 3
+  %10 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %6, i64 0, i32 6, i64 0
   %11 = getelementptr inbounds { i64, i64, i64 }, ptr %10, i64 0, i32 0
   %12 = getelementptr inbounds { i64, i64, i64 }, ptr %10, i64 0, i32 2
-  %13 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %5, i64 0, i32 1
-  %14 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %5, i64 0, i32 3
-  %15 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %5, i64 0, i32 6, i64 0
+  %13 = getelementptr inbounds %"QNCA_a0$i32*$rank3$", ptr %5, i64 0, i32 1
+  %14 = getelementptr inbounds %"QNCA_a0$i32*$rank3$", ptr %5, i64 0, i32 3
+  %15 = getelementptr inbounds %"QNCA_a0$i32*$rank3$", ptr %5, i64 0, i32 6, i64 0
   %16 = getelementptr inbounds { i64, i64, i64 }, ptr %15, i64 0, i32 1
   %17 = tail call i32 @for_set_reentrancy(ptr nonnull @anon.a87c7c812e60d4624ad0dfec6a834de1.0)
   br label %18
@@ -63,13 +66,13 @@ define dso_local void @MAIN__() #1 {
   br i1 %30, label %31, label %18
 
 31:                                               ; preds = %28
-  %32 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %6, i64 0, i32 0
-  %33 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %6, i64 0, i32 2
-  %34 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %6, i64 0, i32 4
+  %32 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %6, i64 0, i32 0
+  %33 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %6, i64 0, i32 2
+  %34 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %6, i64 0, i32 4
   %35 = getelementptr inbounds { i64, i64, i64 }, ptr %10, i64 0, i32 1
-  %36 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %5, i64 0, i32 0
-  %37 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %5, i64 0, i32 2
-  %38 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %5, i64 0, i32 4
+  %36 = getelementptr inbounds %"QNCA_a0$i32*$rank3$", ptr %5, i64 0, i32 0
+  %37 = getelementptr inbounds %"QNCA_a0$i32*$rank3$", ptr %5, i64 0, i32 2
+  %38 = getelementptr inbounds %"QNCA_a0$i32*$rank3$", ptr %5, i64 0, i32 4
   %39 = getelementptr inbounds { i64, i64, i64 }, ptr %15, i64 0, i32 0
   %40 = getelementptr inbounds { i64, i64, i64 }, ptr %15, i64 0, i32 2
   store i64 4, ptr %8, align 8
@@ -117,12 +120,12 @@ define dso_local void @MAIN__() #1 {
 }
 
 define internal void @new_solver_(ptr noalias nocapture readonly %0, ptr noalias nocapture readonly %1) #1 {
-  %3 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %1, i64 0, i32 0
-  %4 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %1, i64 0, i32 6, i64 0
+  %3 = getelementptr inbounds %"QNCA_a0$i32*$rank3$", ptr %1, i64 0, i32 0
+  %4 = getelementptr inbounds %"QNCA_a0$i32*$rank3$", ptr %1, i64 0, i32 6, i64 0
   %5 = getelementptr inbounds { i64, i64, i64 }, ptr %4, i64 0, i32 0
   %6 = getelementptr inbounds { i64, i64, i64 }, ptr %4, i64 0, i32 1
-  %7 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %0, i64 0, i32 0
-  %8 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %0, i64 0, i32 6, i64 0
+  %7 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %0, i64 0, i32 0
+  %8 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %0, i64 0, i32 6, i64 0
   %9 = getelementptr inbounds { i64, i64, i64 }, ptr %8, i64 0, i32 1
   %10 = load ptr, ptr %3, align 8
   %11 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %6, i32 0)
@@ -273,3 +276,7 @@ declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #2
 attributes #0 = { nocallback nofree nosync nounwind willreturn }
 attributes #1 = { "intel-lang"="fortran" }
 attributes #2 = { nounwind readnone speculatable }
+
+!ifx.types.dv = !{!0, !1}
+!0 = !{%"QNCA_a0$i32*$rank2$" zeroinitializer, i32 0}
+!1 = !{%"QNCA_a0$i32*$rank3$" zeroinitializer, i32 0}
