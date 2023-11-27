@@ -164,7 +164,9 @@ attributes #4 = { nounwind }
 
 !omp_offload.info = !{}
 !llvm.module.flags = !{!0, !1, !2}
+!ifx.types.dv = !{!3}
 
 !0 = !{i32 1, !"ThinLTO", i32 0}
 !1 = !{i32 1, !"EnableSplitLTOUnit", i32 1}
 !2 = !{i32 1, !"LTOPostLink", i32 1}
+!3 = !{%"QNCA_a0$i32*$rank2$" zeroinitializer, i32 0}

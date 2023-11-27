@@ -242,6 +242,7 @@ attributes #4 = { nounwind }
 
 !omp_offload.info = !{}
 !llvm.module.flags = !{!0, !1, !2}
+!ifx.types.dv = !{!6, !7}
 
 !0 = !{i32 1, !"ThinLTO", i32 0}
 !1 = !{i32 1, !"EnableSplitLTOUnit", i32 1}
@@ -249,3 +250,6 @@ attributes #4 = { nounwind }
 !3 = !{!4}
 !4 = distinct !{!4, !5, !"initfield_: %initfield_$PHYSPROPFIELD"}
 !5 = distinct !{!5, !"initfield_"}
+!6 = !{%"QNCA_a0$float*$rank2$" zeroinitializer, float 0.000000e+00}
+!7 = !{%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$" zeroinitializer, %"MAIN$.btPHYSPROP_TYPE" zeroinitializer}
+

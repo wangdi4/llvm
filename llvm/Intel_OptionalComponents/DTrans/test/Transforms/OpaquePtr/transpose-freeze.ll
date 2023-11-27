@@ -75,3 +75,6 @@ define internal fastcc void @hmix_del2_mp_init_del2u_() {
 }
 
 attributes #0 = { nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none) }
+
+!ifx.types.dv = !{!0}
+!0 = !{%"QNCA_a0$i32*$rank3$.418" zeroinitializer, i32 0}

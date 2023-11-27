@@ -1,6 +1,7 @@
 ; This test is to verify the IR modifications done by the Transpose transformation.
 
 target triple = "x86_64-unknown-linux-gnu"
+%"QNCA_a0$i32*$rank2$" = type { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 
 ; RUN: opt < %s -S -passes=dtrans-transpose -dtrans-transpose-override=test_var01,0,1 2>&1 | FileCheck %s
 
@@ -24,13 +25,13 @@ bb:
 ; swapping the dimensions on the 2 dimension array.
 define void @test02() {
 bb:
-  %"var$01" = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
-  %"var$01_$field0$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 0
-  %"var$01_$field1$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 1
-  %"var$01_$field2$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 2
-  %"var$01_$field3$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 3
-  %"var$01_$field4$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 4
-  %"var$01_$field6$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 6, i64 0
+  %"var$01" = alloca %"QNCA_a0$i32*$rank2$", align 8
+  %"var$01_$field0$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$01", i64 0, i32 0
+  %"var$01_$field1$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$01", i64 0, i32 1
+  %"var$01_$field2$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$01", i64 0, i32 2
+  %"var$01_$field3$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$01", i64 0, i32 3
+  %"var$01_$field4$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$01", i64 0, i32 4
+  %"var$01_$field6$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$01", i64 0, i32 6, i64 0
   %"var$01_$field6$_$field0$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$01_$field6$", i64 0, i32 0
   %"var$01_$field6$_$field1$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$01_$field6$", i64 0, i32 1
   %"var$01_$field6$_$field2$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$01_$field6$", i64 0, i32 2
@@ -62,8 +63,8 @@ bb:
 define void @test02dv(ptr %MYBLOCK) {
 bb:
   %uplevel_rec = alloca %uplevel_type, align 8
-  %"MYBLOCK_$field0$" = getelementptr { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %MYBLOCK, i64 0, i32 0
-  %"MYBLOCK_$field6$_$field1$" = getelementptr { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %MYBLOCK, i64 0, i32 6, i64 0, i32 1
+  %"MYBLOCK_$field0$" = getelementptr %"QNCA_a0$i32*$rank2$", ptr %MYBLOCK, i64 0, i32 0
+  %"MYBLOCK_$field6$_$field1$" = getelementptr %"QNCA_a0$i32*$rank2$", ptr %MYBLOCK, i64 0, i32 6, i64 0, i32 1
   %"MYBLOCK_$field0$1" = load ptr, ptr %"MYBLOCK_$field0$", align 8
   %t0 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"MYBLOCK_$field6$_$field1$", i32 0)
   %t1 = load i64, ptr %t0, align 8
@@ -87,9 +88,9 @@ define void @test02ul(ptr %UL_IN_PTR) {
 bb:
   %ul_arg_0p.GEP = getelementptr inbounds %uplevel_type, ptr %UL_IN_PTR, i64 0, i32 0
   %ul_arg_0.GEP = load ptr, ptr %ul_arg_0p.GEP, align 8
-  %"ul_arg_0.GEP_$field0$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %ul_arg_0.GEP, i64 0, i32 0
+  %"ul_arg_0.GEP_$field0$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %ul_arg_0.GEP, i64 0, i32 0
   %"ul_arg_0.GEP_$field0$30" = load ptr, ptr %"ul_arg_0.GEP_$field0$", align 8
-  %"ul_arg_0.GEP_$field6$_$field1$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %ul_arg_0.GEP, i64 0, i32 6, i64 0, i32 1
+  %"ul_arg_0.GEP_$field6$_$field1$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %ul_arg_0.GEP, i64 0, i32 6, i64 0, i32 1
   %stride0_addr = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"ul_arg_0.GEP_$field6$_$field1$", i32 0)
   %stride1_addr = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"ul_arg_0.GEP_$field6$_$field1$", i32 1)
   %stride0 = load i64, ptr %stride0_addr, align 8
@@ -107,3 +108,6 @@ declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #0
 declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 attributes #0 = { nounwind readnone speculatable }
+
+!ifx.types.dv = !{!0}
+!0 = !{%"QNCA_a0$i32*$rank2$" zeroinitializer, i32 0}
