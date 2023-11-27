@@ -38,6 +38,7 @@
 #include "llvm/Option/OptSpecifier.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/SimpleTable.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
@@ -159,6 +160,20 @@ bool Compilation::CleanupFile(const char *File, bool IssueErrors) const {
   // Don't try to remove files which we don't have write access to (but may be
   // able to remove), or non-regular files. Underlying tools may have
   // intentionally not overwritten them.
+
+  // Save the device code files(spv files) only if -fsycl-dump-device-code
+  // option is enabled.
+  if (TheDriver.isDumpDeviceCodeEnabled()) {
+    Arg *DumpDeviceCodeArg =
+        getArgs().getLastArg(options::OPT_fsycl_dump_device_code_EQ);
+    std::string ExpectedDir =
+        DumpDeviceCodeArg ? DumpDeviceCodeArg->getValue() : "";
+    std::string ActualFile(File);
+    if (ActualFile.find(ExpectedDir) != std::string::npos &&
+        llvm::sys::path::extension(ActualFile).equals(".spv"))
+      return false;
+  }
+
   if (!llvm::sys::fs::can_write(File) || !llvm::sys::fs::is_regular_file(File))
     return true;
 
@@ -178,7 +193,7 @@ bool Compilation::CleanupFile(const char *File, bool IssueErrors) const {
 bool Compilation::CleanupFileList(const TempFileList &Files,
                                   bool IssueErrors) const {
   bool Success = true;
-  for (const auto &File: Files) {
+  for (const auto &File : Files) {
     // Temporary file lists contain files that need to be cleaned. The
     // file containing the information is also removed
     if (File.second == types::TY_Tempfilelist ||
@@ -205,7 +220,7 @@ bool Compilation::CleanupFileList(const TempFileList &Files,
       } else {
         std::ifstream ListFile(File.first);
         std::string TmpFileName;
-        while (std::getline(ListFile, TmpFileName) && !TmpFileName.empty())
+        while (std::getline(ListFile, TmpFileName))
           Success &= CleanupFile(TmpFileName.c_str(), IssueErrors);
       }
     }

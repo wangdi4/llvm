@@ -96,6 +96,8 @@ class Driver {
 
   IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS;
 
+  bool DumpDeviceCode;
+
   enum DriverMode {
     GCCMode,
     GXXMode,
@@ -465,6 +467,7 @@ public:
     return Dir.c_str();
   }
   void setInstalledDir(StringRef Value) { InstalledDir = std::string(Value); }
+  bool isDumpDeviceCodeEnabled() const { return DumpDeviceCode; }
 
   bool isSaveTempsEnabled() const { return SaveTemps != SaveTempsNone; }
   bool isSaveTempsObj() const { return SaveTemps == SaveTempsObj; }

@@ -240,7 +240,7 @@ std::string Driver::GetResourcesPath(StringRef BinaryPath,
 Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
                DiagnosticsEngine &Diags, std::string Title,
                IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS)
-    : Diags(Diags), VFS(std::move(VFS)), Mode(GCCMode),
+    : Diags(Diags), VFS(std::move(VFS)), DumpDeviceCode(false), Mode(GCCMode),
       SaveTemps(SaveTempsNone), BitcodeEmbed(EmbedNone),
       Offload(OffloadHostDevice), CXX20HeaderType(HeaderMode_None),
       ModulesModeCXX20(false), LTOMode(LTOK_None), OffloadLTOMode(LTOK_None),
@@ -2283,6 +2283,9 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
                     .Case("obj", SaveTempsObj)
                     .Default(SaveTempsCwd);
   }
+
+  if (Args.getLastArg(options::OPT_fsycl_dump_device_code_EQ))
+    DumpDeviceCode = true;
 
   if (const Arg *A = Args.getLastArg(options::OPT_offload_host_only,
                                      options::OPT_offload_device_only,
